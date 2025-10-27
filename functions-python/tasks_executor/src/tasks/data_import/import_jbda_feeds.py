@@ -44,7 +44,6 @@ from google.cloud import pubsub_v1
 
 T = TypeVar("T", bound="Feed")
 
-# --- added logger (no behavioral changes) ---
 logger = logging.getLogger(__name__)
 
 JBDA_BASE: Final[str] = "https://api.gtfs-data.jp/v2"
@@ -59,10 +58,10 @@ URLS_TO_ENTITY_TYPES_MAP: Final[dict[str, str]] = {
 }
 
 RID_DESCRIPTIONS: Final[dict[str, str]] = {
-    "next_1": "The next feed URL after the current one",
-    "next_2": "The second next feed URL after the current one",
-    "prev_1": "The previous feed URL before the current one",
-    "prev_2": "The second previous feed URL before the current one",
+    "next_1": "The URL for a future feed version with an upcoming service period.",
+    "next_2": "The URL for a future feed version with a service period that will proceed after next_1.",
+    "prev_1": "The URL for the expired feed version. This URL was proceeded by the current feed.",
+    "prev_2": "The URL for a past feed version with an expired service period.",
 }
 
 
@@ -130,45 +129,49 @@ def _get_or_create_entity_type(session: Session, entity_type_name: str) -> Entit
     return et
 
 
-def _choose_gtfs_file(
-    files: List[Dict[str, Any]], rid: str
-) -> Optional[Dict[str, Any]]:
+def get_gtfs_file_url(detail_body: Dict[str, Any], rid: str = "current") -> Optional[str]:
     """
-    Choose a GTFS file dict from the list by rid, or None if not found.
+    Build and validate the GTFS file download URL for a given rid (e.g., 'current', 'next_1', 'prev_1').
+
+    This performs a lightweight HEAD request to confirm the file exists (status 200).
+    It avoids downloading the entire file and returns None if the endpoint is missing or returns 404.
+
     Args:
-        files (List[Dict[str, Any]]): List of GTFS file dicts.
-        rid (str): The rid to match.
+        detail_body (Dict[str, Any]): The response body from the JBDA feed detail API.
+        rid (str): The feed revision identifier.
+
     Returns:
-        Optional[Dict[str, Any]]: The chosen GTFS file dict or None.
+        Optional[str]: A valid GTFS file URL if it exists, otherwise None.
     """
-    for f in files:
-        if f.get("rid") == rid:
-            logger.debug(
-                "Matched GTFS file for rid=%s (uid=%s)", rid, f.get("gtfs_file_uid")
-            )
-            return f
-    logger.info("No GTFS file found for rid=%s", rid)
-    return None
+    org_id = detail_body.get("organization_id")
+    feed_id = detail_body.get("feed_id")
+    if not org_id or not feed_id:
+        logger.warning(
+            "Cannot construct GTFS file URL; missing organization_id (%s) or feed_id (%s)",
+            org_id, feed_id,
+        )
+        return None
 
-
-def get_gtfs_file_url(
-    detail_body: Dict[str, Any], rid: str = "current", kind: str = "gtfs_url"
-) -> Optional[str]:
-    """
-    Pick a URL from gtfs_files by rid, with fallback to the most recent when rid='current'.
-    kind ∈ {"gtfs_url", "stop_url", "route_url", "tracking_url"}.
-    """
-    files: List[Dict[str, Any]] = (detail_body or {}).get("gtfs_files") or []
-    logger.debug(
-        "get_gtfs_file_url(kind=%s, rid=%s) with %d files", kind, rid, len(files)
+    expected_url = (
+        f"https://api.gtfs-data.jp/v2/organizations/{org_id}/feeds/{feed_id}/files/feed.zip?rid={rid}"
     )
-    chosen = _choose_gtfs_file(files, rid)
-    url = (chosen or {}).get(kind) or None
-    if url:
-        logger.debug("Selected URL for rid=%s kind=%s: %s", rid, kind, url)
-    else:
-        logger.info("URL not available for rid=%s kind=%s", rid, kind)
-    return url
+
+    try:
+        # HEAD request is enough to verify existence; follow redirects in case of CDN/redirected URL.
+        response = requests.head(expected_url, allow_redirects=True, timeout=15)
+        if response.status_code == 200:
+            logger.debug("Verified GTFS file URL (rid=%s): %s", rid, expected_url)
+            return expected_url
+
+        # 404 Not found is expected for missing versions
+        logger.debug(
+            "GTFS file URL check failed for rid=%s (status=%s)", rid, response.status_code
+        )
+        return None
+
+    except requests.RequestException as e:
+        logger.warning("HEAD request failed for %s: %s", expected_url, e)
+        return None
 
 
 def _get_or_create_feed(
@@ -324,7 +327,7 @@ def _add_related_gtfs_url(
     Args:
         detail_body (Dict[str, Any]): The detail body dict from the feed detail endpoint.
         db_session (Session): SQLAlchemy session.
-        rid (str): The rid of the GTFS file to add (e.g., "next_1", "previous_1").
+        rid (str): The rid of the GTFS file to add (e.g., "next_1", "prev_1").
     """
     logger.debug("Adding related GTFS URL for feed_id=%s rid=%s", feed.id, rid)
     url = get_gtfs_file_url(detail_body, rid=rid)
@@ -352,6 +355,7 @@ def _add_related_gtfs_url(
         created_at=datetime.now(),
     )
     feed.feedrelatedlinks.append(related_link)
+    db_session.flush()
     logger.info("Added related link for feed_id=%s rid=%s url=%s", feed.id, rid, url)
 
 
@@ -401,7 +405,10 @@ def _extract_api_rt_map(list_item: dict, detail: dict) -> dict[str, Optional[str
     rt_info = (detail.get("real_time") or {}) or (list_item.get("real_time") or {})
     out: dict[str, Optional[str]] = {}
     for url_key, entity_type_name in URLS_TO_ENTITY_TYPES_MAP.items():
-        out[entity_type_name] = rt_info.get(url_key)
+        if rt_info.get(url_key):
+            out[entity_type_name] = rt_info.get(url_key)
+        else:
+            out[entity_type_name] = None
     return out
 
 
@@ -472,6 +479,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     for idx, item in enumerate(feeds_list, start=1):
         try:
             # Skip discontinued
+            # TODO: verify if we need to deprecate existing feeds in that case
             if item.get("feed_is_discontinued") or item.get("is_discontinued"):
                 logger.info(
                     "Skipping discontinued feed at index=%d feed_id=%s",
@@ -492,7 +500,6 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
 
             stable_id = f"jbda-{feed_id}"
             pref_id = item.get("feed_pref_id")
-            location = _get_or_create_location(db_session, pref_id)
 
             # Fetch detail
             detail_url = DETAIL_URL_TMPL.format(org_id=org_id, feed_id=feed_id)
@@ -521,7 +528,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                 )
                 continue
 
-            producer_url = get_gtfs_file_url(dbody, rid="current", kind="gtfs_url")
+            producer_url = get_gtfs_file_url(dbody, rid="current")
             if not producer_url:
                 logger.warning(
                     "No GTFS URL found for feed %s/%s; skipping", org_id, feed_id
@@ -546,13 +553,18 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                         "No change detected; skipping feed stable_id=%s", stable_id
                     )
                     continue
-
+                diff = {k: (db_sched_fp.get(k), api_sched_fp.get(k)) for k in api_sched_fp if
+                        db_sched_fp.get(k) != api_sched_fp.get(k)}
+                diff_rt = {k: (db_rt_map.get(k), api_rt_map.get(k)) for k in api_rt_map if
+                           db_rt_map.get(k) != api_rt_map.get(k)}
+                logger.info("Diff %s sched=%s rt=%s", stable_id, diff, diff_rt)
 
             # Apply schedule fields
             _update_common_feed_fields(gtfs_feed, item, dbody, producer_url)
             # Related links (only created if missing)
             _add_related_gtfs_urls(dbody, db_session, gtfs_feed)
             # Locations (only append if empty)
+            location = _get_or_create_location(db_session, pref_id)
             if location and (not gtfs_feed.locations or len(gtfs_feed.locations) == 0):
                 gtfs_feed.locations.append(location)
 

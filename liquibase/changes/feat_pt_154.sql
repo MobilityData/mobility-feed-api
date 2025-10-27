@@ -1,3 +1,19 @@
+-- Schema adjustment and rebuild of the FeedSearch materialized view.
+--
+-- Purpose:
+-- - Update the `Feed.note` column type to TEXT for better flexibility and compatibility.
+-- - Drop and recreate the `FeedSearch` materialized view to align with this new data type.
+-- - Recreate associated indexes to maintain full-text search performance and concurrent refresh capability.
+
+--
+-- Additionally:
+-- - A new table `FeedRelatedLink` is created if it does not already exist, to store URLs related
+--   to each feed (e.g., next/previous dataset links) with descriptive metadata.
+--
+-- Note: No logical or structural changes were made to FeedSearch content — only a data type update
+--       and re-creation due to the column change.
+
+
 DROP MATERIALIZED VIEW IF EXISTS feedsearch;
 
 ALTER TABLE feed

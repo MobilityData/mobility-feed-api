@@ -13,7 +13,7 @@ def trigger_dataset_download(
 ) -> None:
     """Publishes the feed to the configured Pub/Sub topic."""
     topic_path = publisher.topic_path(PROJECT_ID, DATASET_BATCH_TOPIC)
-    logging.debug(f"Publishing to Pub/Sub topic: {topic_path}")
+    logging.debug("Publishing to Pub/Sub topic: %s", topic_path)
 
     message_data = {
         "execution_id": execution_id,

@@ -472,7 +472,7 @@ components:
           description: >
             A description of the link.
           type: string
-          example: The next feed URL after the current one
+          example: The URL for a future feed version with an upcoming service period.
         url:
           description: >
             The URL of the related link.

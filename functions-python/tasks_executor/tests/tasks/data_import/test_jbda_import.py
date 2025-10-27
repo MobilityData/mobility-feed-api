@@ -1,4 +1,5 @@
 import os
+import json
 import unittest
 from typing import Any, Dict, List
 from unittest.mock import patch
@@ -16,14 +17,13 @@ from shared.database_gen.sqlacodegen_models import (
 from tasks.data_import.import_jbda_feeds import (
     import_jbda_handler,
     get_gtfs_file_url,
-    _choose_gtfs_file,
 )
 
 
 class _FakeResponse:
     def __init__(
         self,
-        body: Dict[str, Any] | None,
+        body: Dict[str, Any] | None = None,
         status: int = 200,
         headers: Dict[str, str] | None = None,
     ):
@@ -44,7 +44,7 @@ class _FakeSessionOK:
     Returns a feeds list with 3 items:
       - feed1: valid (creates 1 GTFS + 2 RT and 1 related link for next_1)
       - feed2: discontinued -> skipped
-      - feed3: missing gtfs_url in detail -> skipped
+      - feed3: missing valid HEAD for current -> skipped
     """
 
     FEEDS_URL = "https://api.gtfs-data.jp/v2/feeds"
@@ -86,8 +86,12 @@ class _FakeSessionOK:
             return _FakeResponse(
                 {
                     "body": {
+                        # include org/feed ids so get_gtfs_file_url can build URL
+                        "organization_id": "org1",
+                        "feed_id": "feed1",
                         "feed_name": "Feed One",
                         "feed_license_url": "https://license.example/1",
+                        # gtfs_files not used by get_gtfs_file_url anymore, but harmless to keep
                         "gtfs_files": [
                             {
                                 "rid": "current",
@@ -114,6 +118,8 @@ class _FakeSessionOK:
             return _FakeResponse(
                 {
                     "body": {
+                        "organization_id": "org3",
+                        "feed_id": "feed3",
                         "feed_name": "Feed Three",
                         "gtfs_files": [
                             {"rid": "current", "gtfs_file_uid": "u3"}  # no urls
@@ -136,14 +142,13 @@ class _FakeFuture:
         self._callbacks = []
 
     def add_done_callback(self, cb):
-        # Call immediately to simulate instant publish
         try:
             cb(self)
         except Exception:
             pass
 
     def result(self, timeout=None):
-        return None  # instant ok
+        return None
 
 
 class _FakePublisher:
@@ -158,49 +163,64 @@ class _FakePublisher:
         return _FakeFuture()
 
 
-class TestHelpers(unittest.TestCase):
-    def test_choose_gtfs_file(self):
-        files = [
-            {"rid": "prev_1", "gtfs_url": "A"},
-            {"rid": "current", "gtfs_url": "B"},
-            {"rid": "next_1", "gtfs_url": "C"},
-        ]
-        self.assertEqual(_choose_gtfs_file(files, "current")["gtfs_url"], "B")
-        self.assertIsNone(_choose_gtfs_file(files, "nope"))
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper function tests
+# ─────────────────────────────────────────────────────────────────────────────
 
-    def test_get_gtfs_file_url(self):
-        detail = {
-            "gtfs_files": [
-                {"rid": "current", "gtfs_url": "CUR.zip", "stop_url": "CUR-stops.txt"},
-                {"rid": "next_1", "gtfs_url": "N1.zip"},
-            ]
-        }
-        self.assertEqual(
-            get_gtfs_file_url(detail, rid="current", kind="gtfs_url"), "CUR.zip"
-        )
-        self.assertEqual(
-            get_gtfs_file_url(detail, rid="current", kind="stop_url"), "CUR-stops.txt"
-        )
-        self.assertEqual(
-            get_gtfs_file_url(detail, rid="next_1", kind="gtfs_url"), "N1.zip"
-        )
-        self.assertIsNone(get_gtfs_file_url(detail, rid="next_2", kind="gtfs_url"))
+class TestHelpers(unittest.TestCase):
+    def test_get_gtfs_file_url_head_success_and_missing(self):
+        # detail now needs org/feed ids
+        detail = {"organization_id": "orgX", "feed_id": "feedX"}
+
+        # Construct the URLs the function will probe
+        base = "https://api.gtfs-data.jp/v2/organizations/orgX/feeds/feedX/files/feed.zip"
+        url_current = f"{base}?rid=current"
+        url_next1 = f"{base}?rid=next_1"
+        url_next2 = f"{base}?rid=next_2"
+
+        def _head_side_effect(url, allow_redirects=True, timeout=15):
+            if url in (url_current, url_next1):
+                return _FakeResponse(status=200)
+            if url == url_next2:
+                return _FakeResponse(status=404)
+            return _FakeResponse(status=404)
+
+        with patch("tasks.data_import.import_jbda_feeds.requests.head", side_effect=_head_side_effect):
+            self.assertEqual(get_gtfs_file_url(detail, rid="current"), url_current)
+            self.assertEqual(get_gtfs_file_url(detail, rid="next_1"), url_next1)
+            self.assertIsNone(get_gtfs_file_url(detail, rid="next_2"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Import tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_creates_gtfs_rt_and_related_links(self, db_session: Session):
         fake_pub = _FakePublisher()
 
+        # The importer will call HEAD on these URLs for org1/feed1
+        base = "https://api.gtfs-data.jp/v2/organizations/org1/feeds/feed1/files/feed.zip"
+        url_current = f"{base}?rid=current"
+        url_next1 = f"{base}?rid=next_1"
+
+        def _head_side_effect(url, allow_redirects=True, timeout=15):
+            # succeed for current and next_1 (feed1)
+            if url in (url_current, url_next1):
+                return _FakeResponse(status=200)
+            # fail for anything else (e.g., feed3 current)
+            return _FakeResponse(status=404)
+
         with patch(
             "tasks.data_import.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionOK(),
-        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01), patch(
+        ), patch(
+            "tasks.data_import.import_jbda_feeds.requests.head",
+            side_effect=_head_side_effect,
+        ), patch(
+            "tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
+        ), patch(
             "tasks.data_import.import_jbda_feeds.pubsub_v1.PublisherClient",
             return_value=fake_pub,
         ), patch(
@@ -212,7 +232,7 @@ class TestImportJBDA(unittest.TestCase):
         ):
             result = import_jbda_handler({"dry_run": False})
 
-        # Summary checks (unchanged)
+        # Summary checks (unchanged intent)
         self.assertEqual(
             {
                 "message": "JBDA import executed successfully.",
@@ -234,14 +254,15 @@ class TestImportJBDA(unittest.TestCase):
         )
         self.assertIsNotNone(sched)
         self.assertEqual(sched.feed_name, "Feed One")
-        self.assertEqual(sched.producer_url, "https://gtfs.example/one.zip")
+        # producer_url now points to the verified JBDA URL (HEAD-checked)
+        self.assertEqual(sched.producer_url, url_current)
 
-        # Related links (only next_1 exists)
+        # Related links (only next_1 exists) – also uses JBDA URL
         links: List[Feedrelatedlink] = list(sched.feedrelatedlinks)
         codes = {link.code for link in links}
         self.assertIn("next_1", codes)
         next1 = next(link for link in links if link.code == "next_1")
-        self.assertEqual(next1.url, "https://gtfs.example/one-next.zip")
+        self.assertEqual(next1.url, url_next1)
 
         # RT feeds + entity types + back-links
         tu = (
@@ -269,12 +290,10 @@ class TestImportJBDA(unittest.TestCase):
         self.assertEqual(len(fake_pub.published), 1)
         topic_path, data_bytes = fake_pub.published[0]
         self.assertEqual(topic_path, "projects/test-project/topics/dataset-batch")
-        # payload sanity
-        import json
 
         payload = json.loads(data_bytes.decode("utf-8"))
         self.assertEqual(payload["feed_stable_id"], "jbda-feed1")
-        self.assertEqual(payload["producer_url"], "https://gtfs.example/one.zip")
+        self.assertEqual(payload["producer_url"], url_current)
         self.assertIsNone(payload["dataset_id"])
         self.assertIsNone(payload["dataset_hash"])
 
