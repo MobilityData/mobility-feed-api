@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from feeds.impl.models.feed_impl import FeedImpl
+from shared.db_models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Externalid,
@@ -13,8 +13,8 @@ from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Feature,
 )
-from feeds.impl.models.external_id_impl import ExternalIdImpl
-from feeds.impl.models.redirect_impl import RedirectImpl
+from shared.db_models.external_id_impl import ExternalIdImpl
+from shared.db_models.redirect_impl import RedirectImpl
 from feeds_gen.models.source_info import SourceInfo
 
 targetFeed = Feed(

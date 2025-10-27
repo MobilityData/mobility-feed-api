@@ -2,8 +2,8 @@ from functools import reduce
 from typing import List
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
-from feeds.impl.models.validation_report_impl import ValidationReportImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from utils.model_utils import compare_java_versions
 

@@ -3,7 +3,7 @@ import unittest
 import copy
 from faker import Faker
 
-from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
+from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValidationReport
 from feeds_gen.models.location import Location

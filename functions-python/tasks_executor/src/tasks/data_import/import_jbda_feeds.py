@@ -36,6 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Entitytype,
     Feedrelatedlink,
+    Externalid,
 )
 from shared.helpers.locations import create_or_get_location
 from tasks.data_import.data_import_utils import trigger_dataset_download
@@ -239,10 +240,30 @@ def _update_common_feed_fields(
     feed.provider = list_item.get("organization_name")
     feed.producer_url = producer_url
     feed.license_url = detail.get("feed_license_url")
-    feed.feed_contact_email = list_item.get("organization_email")
+    feed.feed_contact_email = (
+        list_item.get("organization_email")
+        if list_item.get("organization_email") != "not_set"
+        else None
+    )
     feed.status = "active"
     feed.operational_status = "wip"
     feed.note = list_item.get("feed_memo")
+
+    # If a JBDA external id (source="jbda") for this feed_id doesn't exist, add it.
+    jbda_id = feed.stable_id.replace("jbda-", "")
+    has_jbda = any(
+        (ei.source == "jbda" and ei.associated_id == jbda_id)
+        for ei in getattr(feed, "externalids", [])
+    )
+    if not has_jbda:
+        feed.externalids.append(
+            Externalid(
+                associated_id=jbda_id,
+                source="jbda",
+            )
+        )
+        logger.debug("Appended missing JBDA Externalid for %s", feed.stable_id)
+
     logger.debug(
         "Updated fields: name=%s provider=%s producer_url_set=%s",
         feed.feed_name,
@@ -346,6 +367,53 @@ def _add_related_gtfs_urls(
     logger.debug("Adding batch of related GTFS URLs for feed_id=%s", feed.id)
     for rid, description in RID_DESCRIPTIONS.items():
         _add_related_gtfs_url(detail_body, db_session, rid, description, feed)
+
+
+def _build_api_schedule_fingerprint(list_item: dict, detail: dict, producer_url: str) -> dict:
+    """Collect only fields we actually persist on schedule feeds."""
+    return {
+        "feed_name": detail.get("feed_name"),
+        "provider": list_item.get("organization_name"),
+        "producer_url": producer_url,
+        "license_url": detail.get("feed_license_url"),
+        "feed_contact_email": (
+            list_item.get("organization_email")
+            if list_item.get("organization_email") != "not_set"
+            else None
+        ),
+        "note": list_item.get("feed_memo"),
+    }
+
+
+def _build_db_schedule_fingerprint(feed: Gtfsfeed) -> dict:
+    return {
+        "feed_name": getattr(feed, "feed_name", None),
+        "provider": getattr(feed, "provider", None),
+        "producer_url": getattr(feed, "producer_url", None),
+        "license_url": getattr(feed, "license_url", None),
+        "feed_contact_email": getattr(feed, "feed_contact_email", None),
+        "note": getattr(feed, "note", None),
+    }
+
+
+def _extract_api_rt_map(list_item: dict, detail: dict) -> dict[str, Optional[str]]:
+    """Map entity_type_name -> url from API payload (tu/vp/sa)."""
+    rt_info = (detail.get("real_time") or {}) or (list_item.get("real_time") or {})
+    out: dict[str, Optional[str]] = {}
+    for url_key, entity_type_name in URLS_TO_ENTITY_TYPES_MAP.items():
+        out[entity_type_name] = rt_info.get(url_key)
+    return out
+
+
+def _extract_db_rt_map(db_session: Session, stable_id_base: str) -> dict[str, Optional[str]]:
+    """Map entity_type_name -> producer_url from DB for existing RT feeds."""
+    out: dict[str, Optional[str]] = {"tu": None, "vp": None, "sa": None}
+    # Fetch individually to minimize changes
+    for et in ("tu", "vp", "sa"):
+        sid = f"{stable_id_base}-{et}"
+        rt = db_session.scalar(select(Gtfsrealtimefeed).where(Gtfsrealtimefeed.stable_id == sid))
+        out[et] = getattr(rt, "producer_url", None) if rt else None
+    return out
 
 
 @with_db_session
@@ -453,24 +521,47 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                 )
                 continue
 
-            # Upsert GTFS feed
             producer_url = get_gtfs_file_url(dbody, rid="current", kind="gtfs_url")
             if not producer_url:
                 logger.warning(
                     "No GTFS URL found for feed %s/%s; skipping", org_id, feed_id
                 )
                 continue
+
+            # Upsert/lookup GTFS feed (do not mutate yet)
             gtfs_feed, is_new_gtfs = _get_or_create_feed(
                 db_session, Gtfsfeed, stable_id, "gtfs"
             )
+
+            # Build fingerprints for change detection
+            api_sched_fp = _build_api_schedule_fingerprint(item, dbody, producer_url)
+            api_rt_map = _extract_api_rt_map(item, dbody)
+
+            if not is_new_gtfs:
+                db_sched_fp = _build_db_schedule_fingerprint(gtfs_feed)
+                db_rt_map = _extract_db_rt_map(db_session, stable_id)
+
+                if db_sched_fp == api_sched_fp and db_rt_map == api_rt_map:
+                    logger.info(
+                        "No change detected; skipping feed stable_id=%s", stable_id
+                    )
+                    continue
+
+
+            # Apply schedule fields
             _update_common_feed_fields(gtfs_feed, item, dbody, producer_url)
+            # Related links (only created if missing)
             _add_related_gtfs_urls(dbody, db_session, gtfs_feed)
+            # Locations (only append if empty)
             if location and (not gtfs_feed.locations or len(gtfs_feed.locations) == 0):
                 gtfs_feed.locations.append(location)
 
-            created_gtfs += 1 if is_new_gtfs else 0
-            updated_gtfs += 0 if is_new_gtfs else 1
-            logger.info("GTFS upserted stable_id=%s is_new=%s", stable_id, is_new_gtfs)
+            if is_new_gtfs:
+                created_gtfs += 1
+                logger.info("GTFS created stable_id=%s", stable_id)
+            else:
+                updated_gtfs += 1
+                logger.info("GTFS updated stable_id=%s", stable_id)
 
             # Real-time feeds (per available URL)
             rt_info = dbody.get("real_time") or item.get("real_time") or {}
@@ -534,18 +625,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
             continue
 
     if not dry_run:
-        try:
-            logger.info(
-                "Final commit after processing all items (count=%d)", total_processed
-            )
-            db_session.commit()
-            execution_id = str(uuid.uuid4())
-            publisher = pubsub_v1.PublisherClient()
-            for feed in feeds_to_publish:
-                trigger_dataset_download(feed, execution_id, publisher)
-        except IntegrityError:
-            db_session.rollback()
-            logger.exception("Final commit failed with IntegrityError; rolled back")
+        commit_changes(db_session, feeds_to_publish, total_processed)
 
     message = (
         "Dry run: no DB writes performed."
@@ -563,3 +643,21 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     }
     logger.info("Import summary: %s", summary)
     return summary
+
+
+def commit_changes(db_session: Session, feeds_to_publish: list[Feed], total_processed: int):
+    """
+    Final commit + downstream triggers after main loop.
+    """
+    try:
+        logger.info(
+            "Final commit after processing all items (count=%d)", total_processed
+        )
+        db_session.commit()
+        execution_id = str(uuid.uuid4())
+        publisher = pubsub_v1.PublisherClient()
+        for feed in feeds_to_publish:
+            trigger_dataset_download(feed, execution_id, publisher)
+    except IntegrityError:
+        db_session.rollback()
+        logger.exception("Final commit failed with IntegrityError; rolled back")

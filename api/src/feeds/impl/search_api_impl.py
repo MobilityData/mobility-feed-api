@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import array
 from shared.database.database import Database, with_db_session
 from shared.database.sql_functions.unaccent import unaccent
 from shared.database_gen.sqlacodegen_models import t_feedsearch
-from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
+from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 from middleware.request_context import is_user_email_restricted
