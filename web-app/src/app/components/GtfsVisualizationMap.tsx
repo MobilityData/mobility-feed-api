@@ -111,7 +111,12 @@ export const GtfsVisualizationMap = ({
   mapElements.forEach((el) => {
     if (!el.isStop) {
       const routeElement: MapRouteElement = el as MapRouteElement;
-      if (routeElement.routeId !== '' && routeElement.routeColor !== '') {
+      if (
+        routeElement?.routeId != null &&
+        routeElement.routeId !== '' &&
+        routeElement.routeColor != null &&
+        routeElement.routeColor !== ''
+      ) {
         routeIdToColorMap[routeElement.routeId] = routeElement.routeColor;
       }
     }
@@ -592,7 +597,7 @@ export const GtfsVisualizationMap = ({
                   minzoom: 0,
                   maxzoom: 22,
                 },
-                RoutesWhiteLayer(filteredRouteTypeIds),
+                RoutesWhiteLayer(filteredRouteTypeIds, theme),
                 RouteLayer(filteredRoutes, filteredRouteTypeIds),
                 StopLayer(hideStops, allSelectedRouteIds, stopRadius),
                 RouteHighlightLayer(
@@ -607,7 +612,12 @@ export const GtfsVisualizationMap = ({
                   mapClickStopData?.stop_id,
                   stopHighlightColorMap,
                 ),
-                StopsHighlightOuterLayer(hoverInfo, hideStops, filteredRoutes),
+                StopsHighlightOuterLayer(
+                  hoverInfo,
+                  hideStops,
+                  filteredRoutes,
+                  theme,
+                ),
                 StopsIndexLayer(),
               ],
             }}

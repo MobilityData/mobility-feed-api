@@ -6,7 +6,7 @@ import {
   type LayerSpecification,
 } from 'maplibre-gl';
 import { generateStopColorExpression } from './GtfsVisualizationMap.functions';
-import { useTheme } from '@mui/material';
+import { type Theme } from '@mui/material';
 
 // layer helpers
 
@@ -43,8 +43,8 @@ export const stopsBaseFilter = (
 // layers
 export const RoutesWhiteLayer = (
   filteredRouteTypeIds: string[],
+  theme: Theme,
 ): LayerSpecification => {
-  const theme = useTheme();
   return {
     id: 'routes-white',
     source: 'routes',
@@ -186,8 +186,8 @@ export const StopsHighlightOuterLayer = (
   hoverInfo: string[],
   hideStops: boolean,
   filteredRoutes: string[],
+  theme: Theme,
 ): LayerSpecification => {
-  const theme = useTheme();
   return {
     id: 'stops-highlight-outer',
     source: 'sample',
