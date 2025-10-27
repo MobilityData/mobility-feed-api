@@ -371,7 +371,7 @@ class PmtilesBuilder:
 
                 blob.download_to_filename(local_file_path)
 
-                self.logger.debug(f"File {file_name} downloaded successfully.")
+                self.logger.debug("File %s downloaded successfully.", file_name)
 
                 processor.process()
         finally:
@@ -385,10 +385,12 @@ class PmtilesBuilder:
                     if os.path.exists(local_file_path):
                         os.remove(local_file_path)
                         self.logger.debug(
-                            f"File {local_file_path} deleted successfully."
+                            "File %s deleted successfully.", local_file_path
                         )
                 except Exception as e:
-                    self.logger.warning(f"Failed to delete file {local_file_path}: {e}")
+                    self.logger.warning(
+                        "Failed to delete file %s: %s", local_file_path, e
+                    )
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def run_tippecanoe(self, input_file, output_file):

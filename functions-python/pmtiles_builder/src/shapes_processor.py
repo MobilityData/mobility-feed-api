@@ -58,12 +58,15 @@ class ShapesProcessor(BaseProcessor):
                                 1024 * 1024
                             )  # pragma: no cover
                             self.logger.debug(
-                                f"ShapesIndex Processed 1st pass {line_count} lines. "
-                                f"Process memory (MB): {mem_mb}"
+                                "ShapesIndex Processed 1st pass %s lines. Process memory (MB): %s",
+                                line_count,
+                                mem_mb,
                             )  # pragma: no cover
                     except Exception as e:
                         self.logger.warning(
-                            f"Skipping line {line_count} of shapes.txt in first pass because of error: {e}"
+                            "Skipping line %s of shapes.txt in first pass because of error: %s",
+                            line_count,
+                            e,
                         )
 
                 # Preallocate arrays for each key
@@ -123,20 +126,24 @@ class ShapesProcessor(BaseProcessor):
                                 1024 * 1024
                             )  # pragma: no cover
                             self.logger.debug(
-                                f"ShapesIndex Processed 2nd pass {line_count} lines. "
-                                f"Process memory (MB): {mem_mb}"
+                                "ShapesIndex Processed 2nd pass %s lines. Process memory (MB): %s",
+                                line_count,
+                                mem_mb,
                             )  # pragma: no cover
 
                     except Exception as e:
                         self.logger.warning(
-                            f"Skipping line {line_count} of shapes.txt in 2nd pass because of error: {e}"
+                            "Skipping line %s of shapes.txt in 2nd pass because of error: %s",
+                            line_count,
+                            e,
                         )
                 if needs_sorting:
                     self.sort_coordinate_arrays()
 
             if self.csv_parser.lines_with_quotes > 0:
                 self.logger.debug(
-                    f"Found {self.csv_parser.lines_with_quotes} lines with quotes while creating shapes index"
+                    "Found %s lines with quotes while creating shapes index",
+                    self.csv_parser.lines_with_quotes,
                 )
         except Exception as e:
             self.logger.warning("Cannot read shapes file: %s", e)

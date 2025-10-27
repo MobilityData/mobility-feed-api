@@ -54,7 +54,7 @@ class BaseProcessor:
             return
         self.csv_parser = FastCsvParser()
         self.encoding = detect_encoding(filename=self.filepath, logger=self.logger)
-        self.logger.debug(f"Begin processing file {self.filename}: ")
+        self.logger.debug("Begin processing file %s", self.filename)
         self.process_file()
 
     def process_file(self):

@@ -147,7 +147,6 @@ class RoutesProcessor(BaseProcessor):
         route_text_color: str,
     ):
         agency_name = self.agencies_processor.agencies.get(agency_id, agency_id)
-        # self.logger.debug("Processing route_id %s", route_id)
         trips_coordinates: list[RouteCoordinates] = self.get_route_coordinates(route_id)
 
         if not trips_coordinates:
