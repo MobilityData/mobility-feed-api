@@ -32,3 +32,4 @@ cachetools
 deepdiff
 fastapi_filter
 pycountry
+shapely
