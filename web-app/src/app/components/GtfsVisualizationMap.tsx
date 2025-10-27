@@ -5,17 +5,18 @@ import Map, {
   NavigationControl,
   ScaleControl,
 } from 'react-map-gl/maplibre';
-import maplibregl, {
-  type ExpressionSpecification,
-  type LngLatBoundsLike,
-} from 'maplibre-gl';
+import maplibregl, { type LngLatBoundsLike } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import { Box, useTheme } from '@mui/material';
 
-import type { MapElementType } from './MapElement';
-import { MapElement, MapRouteElement, MapStopElement } from './MapElement';
+import {
+  MapElement,
+  type MapRouteElement,
+  type MapStopElement,
+  type MapElementType,
+} from './MapElement';
 import { MapDataPopup } from './Map/MapDataPopup';
 import type { GtfsRoute } from '../types';
 import { createPrecomputation, extendBBoxes } from '../utils/precompute';
@@ -32,6 +33,7 @@ import {
   StopLayer,
   StopsHighlightLayer,
   StopsHighlightOuterLayer,
+  StopsIndexLayer,
 } from './GtfsVisualizationMap.layers';
 
 interface LatestDatasetLite {
@@ -92,9 +94,10 @@ export const GtfsVisualizationMap = ({
   // Selected stop id from the panel (for cute highlight)
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
-    const baseUrl = latestDataset?.hosted_url
-      ? latestDataset.hosted_url.replace(/[^/]+$/, '')
-      : undefined;
+    const baseUrl =
+      latestDataset?.hosted_url != null
+        ? latestDataset.hosted_url.replace(/[^/]+$/, '')
+        : undefined;
     const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
     const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
     return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
@@ -108,7 +111,7 @@ export const GtfsVisualizationMap = ({
   mapElements.forEach((el) => {
     if (!el.isStop) {
       const routeElement: MapRouteElement = el as MapRouteElement;
-      if (routeElement.routeId && routeElement.routeColor) {
+      if (routeElement.routeId !== '' && routeElement.routeColor !== '') {
         routeIdToColorMap[routeElement.routeId] = routeElement.routeColor;
       }
     }
@@ -119,7 +122,8 @@ export const GtfsVisualizationMap = ({
     for (const rid of filteredRoutes) {
       const r = (routes ?? []).find((rr) => String(rr.routeId) === String(rid));
       // strip leading '#' because generateStopColorExpression expects raw hex
-      if (r?.color) m[String(rid)] = String(r.color).replace(/^#/, '');
+      if (r?.color != null && r.color !== '')
+        m[String(rid)] = String(r.color).replace(/^#/, '');
     }
     return m;
   }, [filteredRoutes, routes]);
@@ -130,7 +134,6 @@ export const GtfsVisualizationMap = ({
     ...filteredRouteColors,
   };
 
-
   const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
     const map = mapRef.current?.getMap();
     if (map != undefined) {
@@ -138,7 +141,6 @@ export const GtfsVisualizationMap = ({
       const features = map.queryRenderedFeatures(event.point, {
         layers: ['stops-index', 'routes-highlight'],
       });
-
       const selectedStop = features.find(
         (feature) => feature.layer.id === 'stops-index',
       );
@@ -167,7 +169,7 @@ export const GtfsVisualizationMap = ({
     }
   };
 
-  const handlePopupClose = () => {
+  const handlePopupClose = (): void => {
     setMapClickRouteData(null);
     setMapClickStopData(null);
     setSelectedStopId(null);
@@ -187,40 +189,48 @@ export const GtfsVisualizationMap = ({
         mapClickStopData != null
       ) {
         if (mapClickRouteData != null) {
-          next.push({
+          const routeData: MapRouteElement = {
             isStop: false,
             name: mapClickRouteData.route_long_name,
             routeType: Number(mapClickRouteData.route_type),
             routeColor: mapClickRouteData.route_color,
             routeTextColor: mapClickRouteData.route_text_color,
             routeId: mapClickRouteData.route_id,
-          } as MapRouteElement);
+          };
+          next.push(routeData);
         }
         if (mapClickStopData != null) {
-          next.push({
+          const stopData: MapStopElement = {
             isStop: true,
             name: mapClickStopData.stop_name,
             locationType: Number(mapClickStopData.location_type),
             stopId: mapClickStopData.stop_id,
-          } as MapStopElement);
+            stopLat: Number(mapClickStopData.latitude),
+            stopLon: Number(mapClickStopData.longitude),
+          };
+          next.push(stopData);
         }
         features.forEach((feature) => {
           if (feature.layer.id === 'stops') {
-            next.push({
+            const stopData: MapStopElement = {
               isStop: true,
               name: feature.properties.stop_name,
               locationType: Number(feature.properties.location_type),
               stopId: feature.properties.stop_id,
-            } as MapStopElement);
+              stopLat: Number(feature.properties.stop_lat),
+              stopLon: Number(feature.properties.stop_lon),
+            };
+            next.push(stopData);
           } else {
-            next.push({
+            const routeData: MapRouteElement = {
               isStop: false,
               name: feature.properties.route_long_name,
               routeType: feature.properties.route_type,
               routeColor: feature.properties.route_color,
               routeTextColor: feature.properties.route_text_color,
               routeId: feature.properties.route_id,
-            } as MapRouteElement);
+            };
+            next.push(routeData);
           }
         });
 
@@ -290,7 +300,6 @@ export const GtfsVisualizationMap = ({
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
       );
       setSelectedRouteStops(out);
-      return;
     }
   }, [filteredRoutes]);
 
@@ -345,9 +354,9 @@ export const GtfsVisualizationMap = ({
   );
 
   // Helper to focus & stick a stop from the panel
-  const focusStopFromPanel = async (s: MapStopElement) => {
+  const focusStopFromPanel = async (s: MapStopElement): Promise<void> => {
     const map = mapRef.current?.getMap();
-    if (!map) return;
+    if (map == null) return;
 
     // 1) Move the camera
     map.easeTo({
@@ -357,7 +366,11 @@ export const GtfsVisualizationMap = ({
     });
 
     // 2) Wait for the move to finish so the render tree is up-to-date
-    await new Promise<void>((resolve) => map.once('moveend', () => resolve()));
+    await new Promise<void>((resolve) => {
+      void map.once('moveend', () => {
+        resolve();
+      });
+    });
 
     // 3) Build a small bbox around the stop's screen point for robust picking
     const pt = map.project([s.stopLon, s.stopLat]);
@@ -370,15 +383,11 @@ export const GtfsVisualizationMap = ({
     // 4) Query rendered features, filtering by exact stop_id
     const features = map.queryRenderedFeatures(bbox, {
       layers: ['stops-index'],
-      filter: [
-        '==',
-        ['to-string', ['get', 'stop_id']],
-        String(s.stopId),
-      ],
+      filter: ['==', ['to-string', ['get', 'stop_id']], String(s.stopId)],
     });
 
     const stopFeature = features[0];
-    if (!stopFeature) {
+    if (stopFeature == null) {
       // fallback: still open popup with what we have
       setMapClickRouteData(null);
       setMapClickStopData({
@@ -432,7 +441,7 @@ export const GtfsVisualizationMap = ({
   useEffect(() => {
     if (preview) return; // honor preview mode
     const map = mapRef.current?.getMap();
-    if (!map) return;
+    if (map == null) return;
 
     // Wait until precomputation has filled the BBox refs
     if (!precomputedReadyRef.current) return;
@@ -447,7 +456,7 @@ export const GtfsVisualizationMap = ({
     }
 
     const target = computeTargetBounds();
-    if (target) {
+    if (target != null) {
       map.fitBounds(target, { padding: 60, duration: 600 });
     } else {
       // If BBoxes are missing for the selection, fall back to dataset bounds
@@ -456,11 +465,11 @@ export const GtfsVisualizationMap = ({
     // include isScanning so we run once more when scanning completes
   }, [filteredRoutes, filteredRouteTypeIds]);
 
-  const resetView = () => {
+  const resetView = (): void => {
     const map = mapRef.current?.getMap();
-    if (!map) return;
+    if (map == null) return;
     const target = computeTargetBounds();
-    if (target) {
+    if (target != null) {
       map.fitBounds(target, { padding: 60, duration: 500 });
     } else {
       // fallback to dataset bounds
@@ -474,7 +483,7 @@ export const GtfsVisualizationMap = ({
     }
   }, [preview, refocusTrigger]);
 
-  function handleCancelScan() {
+  function handleCancelScan(): void {
     cancelRequestRef.current = true;
     setIsScanning(false);
     // clear all precomputed data
@@ -485,7 +494,7 @@ export const GtfsVisualizationMap = ({
 
     // reset map state
     const map = mapRef.current?.getMap();
-    if (map) {
+    if (map != null) {
       map.fitBounds(bounds, { padding: 100, duration: 0 });
     }
   }
@@ -513,7 +522,9 @@ export const GtfsVisualizationMap = ({
               filteredRoutes={filteredRoutes}
               selectedRouteStops={selectedRouteStops}
               selectedStopId={selectedStopId}
-              focusStopFromPanel={focusStopFromPanel}
+              focusStopFromPanel={(stopData) => {
+                void focusStopFromPanel(stopData);
+              }}
             />
           )}
 
@@ -528,7 +539,9 @@ export const GtfsVisualizationMap = ({
           )}
 
           <Map
-            onClick={(event) => handleMouseClick(event)}
+            onClick={(event) => {
+              handleMouseClick(event);
+            }}
             onLoad={() => {
               if (didInitRef.current) return; // guard against re-entrancy
               didInitRef.current = true;
@@ -594,21 +607,8 @@ export const GtfsVisualizationMap = ({
                   mapClickStopData?.stop_id,
                   stopHighlightColorMap,
                 ),
-                StopsHighlightOuterLayer(
-                  hoverInfo,
-                  hideStops,
-                  filteredRoutes,
-                ),
-                {
-                  id: 'stops-index',
-                  source: 'sample',
-                  'source-layer': 'stopsoutput',
-                  type: 'circle',
-                  paint: {
-                    'circle-color': 'rgba(0,0,0, 0)',
-                    'circle-radius': 1,
-                  },
-                },
+                StopsHighlightOuterLayer(hoverInfo, hideStops, filteredRoutes),
+                StopsIndexLayer(),
               ],
             }}
           >

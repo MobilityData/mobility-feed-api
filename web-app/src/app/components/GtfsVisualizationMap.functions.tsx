@@ -30,11 +30,12 @@ export function extractRouteIds(val: RouteIdsInput): string[] {
 
 export function generateStopColorExpression(
   routeIdToColor: Record<string, string>,
-  fallback = '#888',
-): ExpressionSpecification {
-  const expression: any[] = ['case'];
+  fallback: string = '#888',
+): string | ExpressionSpecification {
+  const expression: Array<string | ExpressionSpecification> = [];
 
-  const isHex = (s: string) => /^[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s);
+  const isHex = (s: string): boolean =>
+    /^[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s);
 
   for (const [routeId, raw] of Object.entries(routeIdToColor)) {
     if (raw == null) continue;
@@ -46,14 +47,13 @@ export function generateStopColorExpression(
   }
 
   // If nothing valid was added, just use the fallback color directly
-  if (expression.length === 1) {
-    return fallback as unknown as ExpressionSpecification;
+  if (expression.length === 0) {
+    return fallback;
   }
 
   expression.push(fallback);
-  return expression as ExpressionSpecification;
+  return ['case', ...expression] as ExpressionSpecification;
 }
-
 
 export const getBoundsFromCoordinates = (
   coordinates: Array<[number, number]>,

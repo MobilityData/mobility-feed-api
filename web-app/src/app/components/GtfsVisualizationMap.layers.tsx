@@ -1,4 +1,10 @@
-import { type ExpressionSpecification, type LayerSpecification } from 'maplibre-gl';
+/* eslint-disable no-useless-escape */
+/** Rule disabled due to data being stored with " that need to be escaped */
+
+import {
+  type ExpressionSpecification,
+  type LayerSpecification,
+} from 'maplibre-gl';
 import { generateStopColorExpression } from './GtfsVisualizationMap.functions';
 import { useTheme } from '@mui/material';
 
@@ -21,12 +27,17 @@ export const stopsBaseFilter = (
     ? false
     : allSelectedRouteIds.length === 0
       ? true // no filters → show all
-      : ([
+      : [
           'any',
           ...allSelectedRouteIds.map(
-            (id) => ['in', `\"${id}\"`, ['get', 'route_ids']] as any, // route_ids stored as quoted-string list
+            (id) =>
+              [
+                'in',
+                `\"${id}\"`,
+                ['get', 'route_ids'],
+              ] as ExpressionSpecification, // route_ids stored as quoted-string list
           ),
-        ]);
+        ];
 };
 
 // layers
@@ -136,9 +147,7 @@ export const StopsHighlightLayer = (
     type: 'circle',
     paint: {
       'circle-radius': 7,
-      'circle-color': generateStopColorExpression(
-        stopHighlightColorMap,
-      ) as ExpressionSpecification,
+      'circle-color': generateStopColorExpression(stopHighlightColorMap),
       'circle-opacity': 1,
     },
     minzoom: 10,
@@ -152,13 +161,21 @@ export const StopsHighlightLayer = (
           [
             'any',
             ...filteredRoutes.map((id) => {
-              return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
+              return [
+                'in',
+                `\"${id}\"`,
+                ['get', 'route_ids'],
+              ] as ExpressionSpecification;
             }),
           ],
           [
             'any',
             ...hoverInfo.map((id) => {
-              return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
+              return [
+                'in',
+                `\"${id}\"`,
+                ['get', 'route_ids'],
+              ] as ExpressionSpecification;
             }),
           ],
         ],
@@ -189,15 +206,36 @@ export const StopsHighlightOuterLayer = (
           [
             'any',
             ...filteredRoutes.map((id) => {
-              return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
+              return [
+                'in',
+                `\"${id}\"`,
+                ['get', 'route_ids'],
+              ] as ExpressionSpecification;
             }),
           ],
           [
             'any',
             ...hoverInfo.map((id) => {
-              return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
+              return [
+                'in',
+                `\"${id}\"`,
+                ['get', 'route_ids'],
+              ] as ExpressionSpecification;
             }),
           ],
         ],
+  };
+};
+
+export const StopsIndexLayer = (): LayerSpecification => {
+  return {
+    id: 'stops-index',
+    source: 'sample',
+    'source-layer': 'stopsoutput',
+    type: 'circle',
+    paint: {
+      'circle-opacity': 0,
+      'circle-radius': 5,
+    },
   };
 };
