@@ -36,7 +36,7 @@ class RoutesProcessorForColors(BaseProcessor):
                 row = self.csv_parser.parse(line)
                 route_id = self.csv_cache.get_safe_value_from_index(row, route_id_index)
                 route_color = self.csv_cache.get_safe_value_from_index(
-                    row, route_color_index
+                    row, route_color_index, ""
                 )
 
                 if route_id:
