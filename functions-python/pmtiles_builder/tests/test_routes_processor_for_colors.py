@@ -31,8 +31,8 @@ class TestRoutesProcessorForColors(unittest.TestCase):
             self.assertIn("r2", processor.route_colors_map)
             self.assertIn("r3", processor.route_colors_map)
             self.assertEqual(processor.route_colors_map["r1"], "FF0000")
-            # empty color should be treated as missing -> None (transform.get_safe_value returns default)
-            self.assertIsNone(processor.route_colors_map["r2"])
+            # empty color should be treated as missing -> "" (transform.get_safe_value returns default)
+            self.assertEqual(processor.route_colors_map["r2"], "")
             self.assertEqual(processor.route_colors_map["r3"], "00FF00")
 
     def test_missing_color_column(self):
@@ -47,9 +47,9 @@ class TestRoutesProcessorForColors(unittest.TestCase):
             processor = RoutesProcessorForColors(csv_cache, logger=MagicMock())
 
             processor.process()
-            # route present but color column missing -> value should be None
+            # route present but color column missing -> value should be ""
             self.assertIn("r1", processor.route_colors_map)
-            self.assertIsNone(processor.route_colors_map["r1"])
+            self.assertEqual(processor.route_colors_map["r1"], "")
 
     def test_empty_file(self):
         with tempfile.TemporaryDirectory() as td:
