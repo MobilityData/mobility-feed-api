@@ -128,7 +128,7 @@ export const RouteHighlightLayer = (
       'any',
       ['in', ['get', 'route_id'], ['literal', hoverInfo]],
       ['in', ['get', 'route_id'], ['literal', filteredRoutes]],
-      ['in', ['get', 'route_id'], ['literal', routeId ?? '']],
+      ['in', ['get', 'route_id'], ['literal', [routeId ?? '']]],
     ],
   };
 };
