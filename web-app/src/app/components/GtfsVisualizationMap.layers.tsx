@@ -235,7 +235,7 @@ export const StopsIndexLayer = (): LayerSpecification => {
     type: 'circle',
     paint: {
       'circle-opacity': 0,
-      'circle-radius': 5,
+      'circle-radius': 1,
     },
   };
 };

@@ -144,10 +144,10 @@ export const GtfsVisualizationMap = ({
     if (map != undefined) {
       // Get the features under the mouse pointer
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ['stops-index', 'routes-highlight'],
+        layers: ['stops-highlight', 'routes-highlight'],
       });
       const selectedStop = features.find(
-        (feature) => feature.layer.id === 'stops-index',
+        (feature) => feature.layer.id === 'stops-highlight',
       );
       if (selectedStop != undefined) {
         setMapClickStopData({
