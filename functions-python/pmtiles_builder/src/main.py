@@ -17,148 +17,40 @@
 # from GTFS datasets. It handles downloading required files from Google Cloud Storage, processing
 # and indexing GTFS data, generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles,
 # and uploading the results back to GCS.
-import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from enum import Enum
-from typing import TypedDict, Tuple, List, Dict
 
 from google.cloud import storage
 from sqlalchemy.orm import Session
 
+from agencies_processor import AgenciesProcessor
+from base_processor import BaseProcessor
 from csv_cache import (
     CsvCache,
     ROUTES_FILE,
     STOP_TIMES_FILE,
     TRIPS_FILE,
     STOPS_FILE,
-    AGENCY_FILE,
-    SHAPES_FILE,
-    ShapeTrips,
 )
-from shapes_index import ShapesIndex
-from gtfs_stops_to_geojson import convert_stops_to_geojson
+from routes_processor import RoutesProcessor
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
-from shared.helpers.transform import get_safe_value_from_csv
-
+from ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
 
+from routes_processor_for_colors import RoutesProcessorForColors
+from shapes_processor import ShapesProcessor
+from stops_processor import StopsProcessor
+from trips_processor import TripsProcessor
+from stop_times_processor import StopTimesProcessor
+
 init_logger()
-
-
-class EphemeralOrDebugWorkdir:
-    """Context manager similar to tempfile.TemporaryDirectory with debug + auto-clean.
-
-    Behavior:
-      - If DEBUG_WORKDIR env var is set (non-empty): that directory is created (if needed),
-        returned, and never deleted nor cleaned.
-      - Else: creates a temporary directory under the provided dir (or WORKDIR_ROOT env var),
-        removes sibling directories older than a TTL (default 3600s / override via WORKDIR_MAX_AGE_SECONDS),
-        and deletes the created directory on exit.
-
-    Only directories whose names start with the fixed CLEANUP_PREFIX are considered for cleanup
-    to avoid deleting unrelated folders that might exist under the same root.
-
-    The final on-disk directory name always starts with the hardcoded prefix 'pmtiles_'.
-    The caller-supplied prefix (if any) is appended verbatim after that.
-    """
-
-    CLEANUP_PREFIX = "pmtiles_"
-
-    def __init__(
-        self,
-        dir: str | None = None,
-        prefix: str | None = None,
-        logger: logging.Logger | None = None,
-    ):
-        import tempfile
-
-        self._debug_dir = os.getenv("DEBUG_WORKDIR") or None
-        self._root = dir or os.getenv("WORKDIR_ROOT", "/tmp/in-memory")
-        self._logger = logger or get_logger("Workdir")
-        self._temp: tempfile.TemporaryDirectory[str] | None = None
-        self.name: str
-
-        os.makedirs(self._root, exist_ok=True)
-        # 0 means just delete everything without looking at the file dates.
-        self._ttl_seconds = int(os.getenv("WORKDIR_MAX_AGE_SECONDS", "0"))
-
-        if self._debug_dir:
-            os.makedirs(self._debug_dir, exist_ok=True)
-            self.name = self._debug_dir
-            return
-
-        self._cleanup_old()
-
-        # Simple prefix: fixed manager prefix + raw user prefix (if any)
-        combined_prefix = self.CLEANUP_PREFIX + (prefix or "")
-
-        self._temp = tempfile.TemporaryDirectory(dir=self._root, prefix=combined_prefix)
-        self.name = self._temp.name
-
-    def _cleanup_old(self):
-        """
-        Delete stale work directories created by this manager (names starting with CLEANUP_PREFIX)
-        whose modification time is older than the configured TTL.
-        """
-        import time
-
-        # If in debug mode, dont cleanup anything
-        if self._debug_dir:
-            return
-
-        now = time.time()
-        deleted_count = 0
-        try:
-            entries = list(os.scandir(self._root))
-        except OSError as e:
-            self._logger.warning("Could not scan workdir root %s: %s", self._root, e)
-            return
-
-        for entry in entries:
-            try:
-                if not entry.is_dir(follow_symlinks=False):
-                    continue
-                if not entry.name.startswith(self.CLEANUP_PREFIX):
-                    continue
-                try:
-                    age = now - entry.stat(follow_symlinks=False).st_mtime
-                except OSError:
-                    continue
-                if age > self._ttl_seconds:
-                    shutil.rmtree(entry.path, ignore_errors=True)
-                    deleted_count += 1
-                    self._logger.warning(
-                        "Removed expired workdir: %s age=%.0fs", entry.path, age
-                    )
-            except OSError as e:
-                self._logger.warning("Failed to remove %s: %s", entry.path, e)
-
-        if deleted_count:
-            self._logger.info(
-                "Cleanup removed %d expired workdirs from %s", deleted_count, self._root
-            )
-
-    def __enter__(self) -> str:  # Return path like TemporaryDirectory
-        return self.name
-
-    def __exit__(self, exc_type, exc, tb):
-        if self._temp:
-            self._temp.cleanup()
-        return False  # do not suppress exceptions
-
-
-class RouteCoordinates(TypedDict):
-    shape_id: str
-    trip_ids: List[str]
-    coordinates: List[Tuple[float, float]]
 
 
 @functions_framework.http
@@ -200,7 +92,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
         with EphemeralOrDebugWorkdir(
             dir=workdir_root, prefix=f"{dataset_stable_id}_"
         ) as workdir:
-            result = {
+            result: dict[str, object] = {
                 "params": {
                     "feed_stable_id": feed_stable_id,
                     "dataset_stable_id": dataset_stable_id,
@@ -214,12 +106,13 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
             status, message = builder.build_pmtiles()
 
             # A failure at this point means the pmtiles could not be created because the data
-            # is not available. So it's not an error of the pmtiles creation. I n that case
-            # we log an warning instead of an error.
+            # is not available. So it's not an error of the pmtiles creation. In that case
+            # we log a warning instead of an error.
             if status == PmtilesBuilder.OperationStatus.FAILURE:
                 result["warning"] = message
             else:
                 result["message"] = "Successfully built pmtiles."
+
             return result
 
     except Exception as e:
@@ -234,11 +127,12 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
 
 class PmtilesBuilder:
     """
-    Orchestrates the end-to-end process of generating PMTiles files from GTFS datasets.
+    Build PMTiles for a GTFS dataset.
 
-    This class manages downloading required files from Google Cloud Storage, processing and indexing GTFS data,
-    generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles, and uploading results back to GCS.
-    Temporary files are stored in the global `workdir` directory for local processing.
+    - Reads GTFS CSVs and writes: routes-output.geojson, routes.json, stops-output.geojson
+    - Runs Tippecanoe: routes.pmtiles, stops.pmtiles
+    - Upload outputs to GCS and update the database
+
     """
 
     class OperationStatus(Enum):
@@ -258,14 +152,29 @@ class PmtilesBuilder:
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
         self.csv_cache = CsvCache(workdir, self.logger)
-        self.use_gcs = True
         # Track calls to _get_shape_points to control logging cadence
         self._get_shape_points_calls = 0
 
-        # The NO_GCS variable controls if we do uploads and downloads from GCS.
-        # It's useful for testing with local files only.
+        no_database = os.getenv("NO_DATABASE", "").lower()
+        self.use_database = False if no_database == "true" else True
+
+        no_download = os.getenv("NO_DOWNLOAD_FROM_GCS", "").lower()
+        self.download_from_gcs = False if no_download == "true" else True
+
+        no_delete = os.getenv("NO_DELETE_DOWNLOADED_FILES", "").lower()
+        self.delete_downloaded_files = False if no_delete == "true" else True
+
+        no_upload = os.getenv("NO_UPLOAD_TO_GCS", "").lower()
+        self.upload_to_gcs = False if no_upload == "true" else True
+
         no_gcs = os.getenv("NO_GCS", "").lower()
-        self.use_gcs = False if no_gcs == "true" else True
+        if no_gcs == "true":
+            self.download_from_gcs = False
+            self.upload_to_gcs = False
+
+        self.unzipped_files_path = (
+            f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
+        )
 
     def get_path(self, filename: str) -> str:
         return self.csv_cache.get_path(filename)
@@ -274,49 +183,39 @@ class PmtilesBuilder:
     def set_workdir(self, workdir: str):
         self.csv_cache.set_workdir(workdir)
 
-    @track_metrics(metrics=("time",))
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def build_pmtiles(self):
         self.logger.info("Starting PMTiles build")
 
-        if self.use_gcs:
+        if self.download_from_gcs:
             # If we don't use gcs, we assume the txt files are already in the workdir.
-            unzipped_files_path = (
-                f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
-            )
-
-            status, message = self._download_files_from_gcs(unzipped_files_path)
+            status, message = self.check_required_files_presence()
             if status == self.OperationStatus.FAILURE:
                 return status, message
 
-        self._create_routes_geojson()
+        self.process_all()
 
-        self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
+        self.run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
-        convert_stops_to_geojson(
-            self.csv_cache,
-            self.get_path("stops-output.geojson"),
-        )
+        self.run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
-        self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
-
-        self._create_routes_json()
-
-        if self.use_gcs:
+        if self.upload_to_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
-            self._upload_files_to_gcs(files_to_upload)
-        self._update_database()
+            self.upload_files_to_gcs(files_to_upload)
+
+        if self.use_database:
+            self.update_database()
 
         self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
 
-    def _download_files_from_gcs(self, unzipped_files_path):
+    def check_required_files_presence(self):
         self.logger.info(
-            "Downloading dataset from GCS bucket %s, directory %s",
+            "Making sure all required files are present in bucket %s, directory %s",
             self.bucket_name,
-            unzipped_files_path,
+            self.unzipped_files_path,
         )
         try:
-            self.logger.debug("Initializing storage client")
             try:
                 self.bucket = storage.Client().get_bucket(self.bucket_name)
             except Exception as e:
@@ -324,56 +223,36 @@ class PmtilesBuilder:
                 self.logger.warning(msg)
                 return self.OperationStatus.FAILURE, msg
 
-            self.logger.debug("Getting blobs with prefix: %s", unzipped_files_path)
-            blobs = list(self.bucket.list_blobs(prefix=unzipped_files_path))
+            self.logger.debug("Getting blobs with prefix: %s", self.unzipped_files_path)
+            blobs = list(self.bucket.list_blobs(prefix=self.unzipped_files_path))
             self.logger.debug("Found %d blobs", len(blobs))
             if not blobs:
-                msg = f"Directory '{unzipped_files_path}' does not exist or is empty in bucket '{self.bucket_name}'."
+                msg = (
+                    f"Directory '{self.unzipped_files_path}' does not exist or is empty "
+                    f"in bucket '{self.bucket_name}'."
+                )
                 self.logger.warning(msg)
                 return self.OperationStatus.FAILURE, msg
 
-            files = [
-                {"name": ROUTES_FILE, "required": True},
-                {"name": STOP_TIMES_FILE, "required": True},
-                {"name": TRIPS_FILE, "required": True},
-                {"name": STOPS_FILE, "required": True},
-                {"name": AGENCY_FILE, "required": False},
-                {"name": SHAPES_FILE, "required": False},
-            ]
-            for file_info in files:
-                file_name = file_info["name"]
-                required = file_info["required"]
-                blob_path = f"{unzipped_files_path}/{file_name}"
+            required_files = [ROUTES_FILE, STOP_TIMES_FILE, TRIPS_FILE, STOPS_FILE]
+            for file_name in required_files:
+                blob_path = f"{self.unzipped_files_path}/{file_name}"
                 blob = self.bucket.blob(blob_path)
                 if not blob.exists():
-                    if required:
-                        msg = f"Required file '{blob_path}' does not exist in bucket '{self.bucket_name}'."
-                        self.logger.warning(msg)
-                        return self.OperationStatus.FAILURE, msg
-                    self.logger.debug(
-                        "Optional file %s does not exist in bucket %s",
-                        blob_path,
-                        self.bucket_name,
-                    )
-                    continue
-                try:
-                    blob.download_to_filename(self.get_path(file_name))
-                except Exception as e:
-                    if required:
-                        msg = f"Error downloading required file '{blob_path}' from bucket '{self.bucket_name}': {e}"
-                        self.logger.error(msg)
-                        raise Exception(msg) from e
-                    else:
-                        msg = f"Cannot download optional file '{blob_path}' from bucket '{self.bucket_name}': {e}"
-                        self.logger.warning(msg)
+                    msg = f"Required file '{blob_path}' does not exist in bucket '{self.bucket_name}'."
+                    self.logger.warning(msg)
+                    return self.OperationStatus.FAILURE, msg
 
-            msg = "All required files downloaded successfully."
+            msg = "All required files are present."
             return self.OperationStatus.SUCCESS, msg
         except Exception as e:
-            msg = f"Error downloading files from GCS: {e}"
+            msg = f"Error checking presence of required files in bucket: {e}"
             raise Exception(msg) from e
 
-    def _upload_files_to_gcs(self, file_to_upload):
+    def upload_files_to_gcs(self, file_to_upload):
+        if not self.upload_to_gcs:
+            return
+
         dest_prefix = f"{self.feed_stable_id}/{self.dataset_stable_id}/pmtiles"
         self.logger.info(
             "Uploading files to GCS bucket %s, directory %s",
@@ -381,6 +260,8 @@ class PmtilesBuilder:
             dest_prefix,
         )
         try:
+            self.bucket = storage.Client().get_bucket(self.bucket_name)
+
             blobs_to_delete = list(self.bucket.list_blobs(prefix=dest_prefix + "/"))
             for blob in blobs_to_delete:
                 blob.delete()
@@ -417,172 +298,102 @@ class PmtilesBuilder:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_shapes_index(self) -> ShapesIndex:
-        """
-        Create an index for shapes.txt file to quickly access shape points by shape_id.
-        """
-
-        shapes_index = ShapesIndex(
-            self.get_path(SHAPES_FILE),
-            "shape_id",
-            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
-            logger=self.logger,
-        )
-        shapes_index.build_index()
-        self.csv_cache.debug_log_size("shapes_index", shapes_index)
-
-        return shapes_index
-
-    def _get_shape_points(self, shape_id, index):
-        """Retrieve shape points for a given shape_id using the provided index.
-        Args:
-            shape_id (str): The shape_id to retrieve points for.
-            index (ShapesIndex): The index to use for retrieval.
-        Returns:
-            List of (lon, lat) tuples representing the shape points.
-        """
-        # Log only on first call and every 1,000,000 calls
-        self._get_shape_points_calls += 1
-        count = self._get_shape_points_calls
-        if count == 1 or (count % 1_000_000 == 0):
-            self.logger.debug(
-                "Getting shape points (called #%d times) for shape_id %s",
-                count,
-                shape_id,
-            )
-        return index.get_objects(shape_id)
-
-    @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_routes_geojson(self):
+    def process_all(self):
         try:
-            agencies = self._load_agencies()
+            trips_processor = TripsProcessor(self.csv_cache, self.logger)
+            self.download_and_process(trips_processor)
 
-            shapes_index = self._create_shapes_index()
-            self.logger.info("Creating routes geojson (optimized for memory)")
-
-            features_count = 0
-            missing_coordinates_routes = set()
-            routes_geojson = self.get_path("routes-output.geojson")
-            with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
-                geojson_file.write('{"type": "FeatureCollection", "features": [\n')
-                for i, route in enumerate(self.csv_cache.get_file(ROUTES_FILE), 1):
-                    agency_id = route.get("agency_id") or "default"
-                    agency_name = agencies.get(agency_id, agency_id)
-
-                    route_id = route["route_id"]
-                    logging.debug("Processing route_id %s", route_id)
-                    trips_coordinates: list[
-                        RouteCoordinates
-                    ] = self.get_route_coordinates(route_id, shapes_index)
-                    if not trips_coordinates:
-                        missing_coordinates_routes.add(route_id)
-                        continue
-                    for trip_coordinates in trips_coordinates:
-                        trip_ids = trip_coordinates["trip_ids"]
-                        shape_id = trip_coordinates["shape_id"]
-                        feature = {
-                            "type": "Feature",
-                            "properties": {
-                                "agency_name": agency_name,
-                                "route_id": route_id,
-                                "shape_id": shape_id,
-                                "trip_ids": trip_ids,
-                                "route_short_name": route.get("route_short_name", ""),
-                                "route_long_name": route.get("route_long_name", ""),
-                                "route_type": route.get("route_type", ""),
-                                "route_color": route.get("route_color", ""),
-                                "route_text_color": route.get("route_text_color", ""),
-                            },
-                            "geometry": {
-                                "type": "LineString",
-                                "coordinates": trip_coordinates["coordinates"],
-                            },
-                        }
-
-                        if features_count != 0:
-                            geojson_file.write(",\n")
-                        geojson_file.write(json.dumps(feature))
-                        features_count += 1
-
-                    if i % 100 == 0 or i == 1:
-                        self.logger.debug(
-                            "Processed route %d (route_id: %s)", i, route_id
-                        )
-
-                geojson_file.write("\n]}")
-                # Clear the different caches to save memory. They are currently not used anywhere else.
-                self.csv_cache.clear_coordinate_for_stops()
-                self.csv_cache.clear_shape_from_route()
-                self.csv_cache.clear_stops_from_trip()
-                self.csv_cache.clear_trip_from_route()
-            if missing_coordinates_routes:
-                self.logger.info(
-                    "Routes without coordinates: %s", list(missing_coordinates_routes)
-                )
-            self.logger.debug(
-                "Wrote %d features to routes-output.geojson", features_count
+            stop_times_processor = StopTimesProcessor(
+                self.csv_cache, self.logger, trips_processor
             )
+            self.download_and_process(stop_times_processor)
+
+            # Unfortunately, routes.txt has to be parsed in 2 passes. One to extract route colors, that is required by
+            # StopProcessors, and another to build the full routes GeoJSON.
+            # The file routes.txt is downloaded only once in RoutesProcessorForColors, then the file is kept for
+            # processing in RoutesProcessor. Then it is deleted.
+            routes_processor_for_colors = RoutesProcessorForColors(
+                csv_cache=self.csv_cache,
+                logger=self.logger,
+            )
+            self.download_and_process(routes_processor_for_colors)
+            stops_processor = StopsProcessor(
+                self.csv_cache,
+                self.logger,
+                routes_processor_for_colors,
+                stop_times_processor,
+            )
+            self.download_and_process(stops_processor)
+
+            shapes_processor = ShapesProcessor(self.csv_cache, self.logger)
+            self.download_and_process(shapes_processor)
+
+            agencies_processor = AgenciesProcessor(self.csv_cache, self.logger)
+            self.download_and_process(agencies_processor)
+
+            routes_processor = RoutesProcessor(
+                csv_cache=self.csv_cache,
+                logger=self.logger,
+                agencies_processor=agencies_processor,
+                shapes_processor=shapes_processor,
+                trips_processor=trips_processor,
+                stops_processor=stops_processor,
+                stop_times_processor=stop_times_processor,
+            )
+            self.download_and_process(routes_processor)
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
-    def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
-        shapes: Dict[str, ShapeTrips] = self.csv_cache.get_shape_from_route(route_id)
-        result: List[RouteCoordinates] = []
-        if shapes:
-            for shape_id, trip_ids in shapes.items():
-                # shape_id = shape["shape_id"]
-                # trip_ids = shape["trip_ids"]
-                coordinates = self._get_shape_points(shape_id, shapes_index)
-                if coordinates:
-                    result.append(
-                        {
-                            "shape_id": shape_id,
-                            "trip_ids": trip_ids.get("trip_ids", []),
-                            "coordinates": coordinates,
-                        }
-                    )
+    def download_and_process(self, processor: BaseProcessor):
+        file_name = processor.filename
+        local_file_path = self.get_path(file_name)
 
-        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(
-            route_id
-        )
-        if trips_without_shape:
-            for trip_id in trips_without_shape:
-                stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
-                if not stops_for_trip:
-                    self.logger.info(
-                        "No stops found for trip_id %s on route_id %s",
-                        trip_id,
-                        route_id,
-                    )
-                    continue
-                # We assume stop_times is already sorted by stop_sequence in the file.
-                # According to the SPECS:
-                #    The values must increase along the trip but do not need to be consecutive.
-                coordinates = [
-                    coord
-                    for stop_id in stops_for_trip
-                    if (coord := self.csv_cache.get_coordinates_for_stop(stop_id))
-                    is not None
-                ]
-                if coordinates:
-                    result.append(
-                        {
-                            "shape_id": "",
-                            "trip_ids": [trip_id],
-                            "coordinates": coordinates,
-                        }
-                    )
-                else:
-                    self.logger.info(
-                        "Coordinates do not have the right formatting for stops of trip_id %s on route_id %s",
-                        trip_id,
-                        route_id,
-                    )
+        try:
+            if processor.no_download or self.download_from_gcs is False:
+                processor.process()
+            else:
+                blob_path = f"{self.unzipped_files_path}/{file_name}"
 
-        return result
+                self.logger.info(
+                    "Downloading %s from GCS bucket %s",
+                    blob_path,
+                    self.bucket_name,
+                )
+
+                self.logger.debug("Initializing storage client for %s", blob_path)
+                bucket = storage.Client().get_bucket(self.bucket_name)
+
+                blob = bucket.blob(blob_path)
+                if not blob.exists():
+                    msg = f"File '{blob_path}' does not exist in bucket '{self.bucket_name}'."
+                    self.logger.warning(msg)
+                    return
+
+                blob.download_to_filename(local_file_path)
+
+                self.logger.debug("File %s downloaded successfully.", file_name)
+
+                processor.process()
+        finally:
+            if processor.no_delete or self.delete_downloaded_files is False:
+                self.logger.debug(
+                    "Skipping deletion of %s because no_delete is set to True",
+                    local_file_path,
+                )
+            else:
+                try:
+                    if os.path.exists(local_file_path):
+                        os.remove(local_file_path)
+                        self.logger.debug(
+                            "File %s deleted successfully.", local_file_path
+                        )
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to delete file %s: %s", local_file_path, e
+                    )
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def _run_tippecanoe(self, input_file, output_file):
+    def run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
         try:
             cmd = [
@@ -607,48 +418,8 @@ class PmtilesBuilder:
                 f"Failed to run tippecanoe for output file {output_file}: {e}"
             ) from e
 
-    @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_routes_json(self):
-        self.logger.info("Creating routes json...")
-        try:
-            routes = []
-            for row in self.csv_cache.get_file(ROUTES_FILE):
-                route_id = get_safe_value_from_csv(row, "route_id", "")
-                route = {
-                    "routeId": route_id,
-                    "routeName": (
-                        get_safe_value_from_csv(row, "route_long_name", "")
-                        or get_safe_value_from_csv(row, "route_short_name", "")
-                        or route_id
-                    ),
-                    "color": f"#{get_safe_value_from_csv(row, 'route_color', '000000')}",
-                    "textColor": f"#{get_safe_value_from_csv(row, 'route_text_color', 'FFFFFF')}",
-                    "routeType": f"{get_safe_value_from_csv(row, 'route_type', '')}",
-                }
-                routes.append(route)
-
-            with open(self.get_path("routes.json"), "w", encoding="utf-8") as f:
-                json.dump(routes, f, ensure_ascii=False, indent=4)
-
-            self.logger.debug("Converted %d routes to routes.json.", len(routes))
-        except Exception as e:
-            raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
-
-    def _load_agencies(self):
-        agencies = {}
-        agency_file_path = self.get_path(AGENCY_FILE)
-        if not os.path.exists(agency_file_path):
-            self.logger.warning("agency.txt not found, agencies will be empty.")
-            return agencies
-        for row in self.csv_cache.get_file(AGENCY_FILE):
-            agency_id = row.get("agency_id") or ""
-            agency_name = row.get("agency_name", "").strip()
-            agencies[agency_id] = agency_name
-
-        return agencies
-
     @with_db_session
-    def _update_database(self, db_session: Session = None):
+    def update_database(self, db_session: Session = None):
         dataset = (
             db_session.query(Gtfsdataset)
             .filter(Gtfsdataset.stable_id == self.dataset_stable_id)

@@ -1,5 +1,5 @@
 import unittest
-from utils.model_utils import compare_java_versions
+from shared.db_models.model_utils import compare_java_versions
 
 
 class TestCompareJavaVersions(unittest.TestCase):

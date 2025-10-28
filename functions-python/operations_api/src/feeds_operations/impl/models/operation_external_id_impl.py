@@ -20,10 +20,11 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Gbfsfeed,
 )
-from feeds_operations_gen.models.external_id import ExternalId
+from feeds_gen.models.external_id import ExternalId
+from shared.db_models.external_id_impl import ExternalIdImpl
 
 
-class ExternalIdImpl(ExternalId):
+class OperationExternalIdImpl(ExternalIdImpl, ExternalId):
     """Implementation of the `ExternalId` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """
@@ -42,10 +43,7 @@ class ExternalIdImpl(ExternalId):
         """
         if not external_id:
             return None
-        return cls(
-            external_id=external_id.associated_id,
-            source=external_id.source,
-        )
+        return super().from_orm(external_id)
 
     @classmethod
     def to_orm(
