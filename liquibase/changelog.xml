@@ -75,4 +75,5 @@
     <include file="changes/feat_1057.sql" relativeToChangelogFile="true"/>
     <!-- Recreate or refresh dependent materialized view FeedSearch to use the relation instead of scanning gtfsdataset.latest -->
     <include file="changes/feat_1057_view.sql" relativeToChangelogFile="true"/>    
+    <include file="changes/feat_1343.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
