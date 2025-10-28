@@ -175,6 +175,7 @@ def _get_or_create_feed(
         Officialstatushistory(
             is_official=True,
             reviewer_email="emma@mobilitydata.org",
+            timestamp=datetime.now(),
             notes="Imported from JBDA as official feed.",
         )
     ]
