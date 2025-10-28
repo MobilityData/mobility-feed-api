@@ -269,8 +269,8 @@ class TestImportJBDA(unittest.TestCase):
         # Related links (only next_1 exists) – also uses JBDA URL
         links: List[Feedrelatedlink] = list(sched.feedrelatedlinks)
         codes = {link.code for link in links}
-        self.assertIn("next_1", codes)
-        next1 = next(link for link in links if link.code == "next_1")
+        self.assertIn("jbda-next_1", codes)
+        next1 = next(link for link in links if link.code == "jbda-next_1")
         self.assertEqual(next1.url, url_next1)
 
         # RT feeds + entity types + back-links

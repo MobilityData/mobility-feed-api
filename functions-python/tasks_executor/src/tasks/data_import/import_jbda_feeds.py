@@ -36,6 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
     Entitytype,
     Feedrelatedlink,
     Externalid,
+    Officialstatushistory,
 )
 from shared.helpers.locations import create_or_get_location
 from tasks.data_import.data_import_utils import trigger_dataset_download
@@ -163,7 +164,20 @@ def _get_or_create_feed(
         return feed, False
 
     new_id = str(uuid.uuid4())
-    feed = model(id=new_id, data_type=data_type, stable_id=stable_id)
+    feed = model(
+        id=new_id,
+        data_type=data_type,
+        stable_id=stable_id,
+        official=True,
+        official_updated_at=datetime.now(),
+    )
+    feed.officialstatushistories = [
+        Officialstatushistory(
+            is_official=True,
+            reviewer_email="emma@mobilitydata.org",
+            notes="Imported from JBDA as official feed.",
+        )
+    ]
     session.add(feed)
     session.flush()
     logger.info(
@@ -255,9 +269,10 @@ def _add_related_gtfs_url(
     if not url:
         logger.info("No URL available for rid=%s; skipping related link", rid)
         return
+    db_rid = "jbda-" + rid
     existing = db_session.scalar(
         select(Feedrelatedlink).where(
-            and_(Feedrelatedlink.feed_id == feed.id, Feedrelatedlink.code == rid)
+            and_(Feedrelatedlink.feed_id == feed.id, Feedrelatedlink.code == db_rid)
         )
     )
     if existing:
@@ -265,7 +280,7 @@ def _add_related_gtfs_url(
         return
 
     related_link = Feedrelatedlink(
-        url=url, description=description, code=rid, created_at=datetime.now()
+        url=url, description=description, code=db_rid, created_at=datetime.now()
     )
     feed.feedrelatedlinks.append(related_link)
     db_session.flush()
