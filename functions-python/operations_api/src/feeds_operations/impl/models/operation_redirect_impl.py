@@ -20,11 +20,12 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gtfsrealtimefeed,
 )
-from feeds_operations_gen.models.redirect import Redirect
+from feeds_gen.models.redirect import Redirect
+from shared.db_models.redirect_impl import RedirectImpl
 from shared.helpers.query_helper import query_feed_by_stable_id
 
 
-class RedirectImpl(Redirect):
+class OperationRedirectImpl(RedirectImpl, Redirect):
     """Implementation of the `Redirect` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """
@@ -43,10 +44,7 @@ class RedirectImpl(Redirect):
         """
         if not redirect:
             return None
-        return cls(
-            target_id=redirect.target.stable_id,
-            comment=redirect.redirect_comment,
-        )
+        return super().from_orm(redirect)
 
     @classmethod
     def to_orm(

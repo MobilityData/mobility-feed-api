@@ -260,7 +260,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: feeds_operations_gen
-          path: functions-python/operations_api/src/feeds_operations_gen/
+          path: functions-python/operations_api/src/feeds_gen/
 
       - name: Build python functions
         run: |

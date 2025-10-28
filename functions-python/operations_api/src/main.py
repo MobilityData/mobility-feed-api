@@ -16,7 +16,7 @@
 
 from flask import Request, Response
 from fastapi import FastAPI
-from feeds_operations_gen.apis.operations_api import router as FeedsApiRouter
+from feeds_gen.apis.operations_api import router as FeedsApiRouter
 import functions_framework
 import asyncio
 

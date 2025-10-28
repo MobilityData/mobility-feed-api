@@ -14,14 +14,20 @@
 #  limitations under the License.
 #
 
-from feeds_operations.impl.models.entity_type_impl import EntityTypeImpl
-from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
-from feeds_operations.impl.models.redirect_impl import RedirectImpl
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from feeds_operations.impl.models.operation_entity_type_impl import (
+    OperationEntityTypeImpl,
+)
+from feeds_operations.impl.models.operation_external_id_impl import (
+    OperationExternalIdImpl,
+)
+from feeds_operations.impl.models.operation_redirect_impl import OperationRedirectImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
+from shared.db_models.external_id_impl import ExternalIdImpl
+from shared.db_models.redirect_impl import RedirectImpl
 
 
 class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
@@ -68,7 +74,9 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
                 key=lambda x: x.external_id,
             ),
             entity_types=sorted(
-                [EntityTypeImpl.from_orm(item) for item in obj.entitytypes]
+                [OperationEntityTypeImpl.from_orm(item) for item in obj.entitytypes]
+                if obj.entitytypes
+                else []
             ),
             feed_references=sorted([item.stable_id for item in obj.gtfs_feeds]),
             official=obj.official,
@@ -101,7 +109,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
                 update_request.source_info is None
                 or update_request.source_info.authentication_type is None
             )
-            else str(update_request.source_info.authentication_type.value)
+            else str(update_request.source_info.authentication_type)
         )
         entity.authentication_info_url = (
             None
@@ -132,7 +140,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             []
             if update_request.redirects is None
             else [
-                RedirectImpl.to_orm(item, entity, session)
+                OperationRedirectImpl.to_orm(item, entity, session)
                 for item in update_request.redirects
             ]
         )
@@ -143,7 +151,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             []
             if update_request.external_ids is None
             else [
-                ExternalIdImpl.to_orm(item, entity)
+                OperationExternalIdImpl.to_orm(item, entity)
                 for item in update_request.external_ids
             ]
         )
@@ -151,7 +159,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             []
             if update_request.entity_types is None
             else [
-                EntityTypeImpl.to_orm(item, session)
+                OperationEntityTypeImpl.to_orm(item, session)
                 for item in update_request.entity_types
             ]
         )

@@ -14,11 +14,14 @@
 #  limitations under the License.
 #
 
-from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
-from feeds_operations.impl.models.redirect_impl import RedirectImpl
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from feeds_operations.impl.models.operation_external_id_impl import (
+    OperationExternalIdImpl,
+)
+from feeds_operations.impl.models.operation_redirect_impl import OperationRedirectImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
+from shared.db_models.redirect_impl import RedirectImpl
 
 
 class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
@@ -61,7 +64,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 key=lambda x: x.target_id,
             ),
             external_ids=sorted(
-                [ExternalIdImpl.from_orm(item) for item in obj.externalids],
+                [OperationExternalIdImpl.from_orm(item) for item in obj.externalids],
                 key=lambda x: x.external_id,
             ),
             official=obj.official,
@@ -94,7 +97,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 update_request.source_info is None
                 or update_request.source_info.authentication_type is None
             )
-            else str(update_request.source_info.authentication_type.value)
+            else str(update_request.source_info.authentication_type)
         )
         entity.authentication_info_url = (
             None
@@ -125,7 +128,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             []
             if update_request.redirects is None
             else [
-                RedirectImpl.to_orm(item, entity, session)
+                OperationRedirectImpl.to_orm(item, entity, session)
                 for item in update_request.redirects
             ]
         )
@@ -136,7 +139,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             []
             if update_request.external_ids is None
             else [
-                ExternalIdImpl.to_orm(item, entity)
+                OperationExternalIdImpl.to_orm(item, entity)
                 for item in update_request.external_ids
             ]
         )
