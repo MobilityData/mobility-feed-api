@@ -1,4 +1,10 @@
-import { Box, styled, type SxProps, type Theme } from '@mui/material';
+import {
+  Box,
+  styled,
+  Typography,
+  type SxProps,
+  type Theme,
+} from '@mui/material';
 import { type CSSProperties } from 'react';
 
 export const gbfsValidatorHeroBg = {
@@ -73,3 +79,11 @@ export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
   overflowX: 'auto',
   fontSize: '0.875em',
 });
+
+export const ContentTitle = styled(Typography)(({ theme }) => ({
+  color: 'rgba(71, 71, 71, 0.8)',
+  fontSize: theme.typography.subtitle2.fontSize,
+  padding: `0 ${theme.spacing(2)}`,
+  lineHeight: '48px',
+  fontWeight: 500,
+}));

@@ -30,6 +30,7 @@ import { type components } from '../../services/feeds/gbfs-validator-types';
 import { useRef, useState } from 'react';
 import { OpenInNew } from '@mui/icons-material';
 import {
+  ContentTitle,
   ValidationElementCardStyles,
   ValidationErrorPathStyles,
   ValidationReportTableStyles,
@@ -165,7 +166,7 @@ export default function ValidationReport(): React.ReactElement {
                 p: 0,
               }}
             >
-              <ListSubheader>Validation Results</ListSubheader>
+              <ContentTitle>Validation Results</ContentTitle>
               {validationResult?.summary?.files?.map(
                 (file: GbfsFile, index) => {
                   const hasErrors =

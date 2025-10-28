@@ -5,7 +5,6 @@ import {
   Chip,
   Container,
   Link,
-  ListSubheader,
   Tooltip,
   Typography,
   useTheme,
@@ -18,6 +17,7 @@ import GbfsFeedSearchInput from './GbfsFeedSearchInput';
 import { useSearchParams } from 'react-router-dom';
 import { Map } from '../../components/Map';
 import {
+  ContentTitle,
   gbfsValidatorHeroBg,
   PromotionRow,
   PromotionTextColumn,
@@ -271,7 +271,7 @@ export default function GbfsValidator(): React.ReactElement {
                   pr: 2,
                 }}
               >
-                <ListSubheader>Map View</ListSubheader>
+                <ContentTitle>Map View</ContentTitle>
                 <Button size='small' variant='text'>
                   View Full Map Details
                 </Button>
