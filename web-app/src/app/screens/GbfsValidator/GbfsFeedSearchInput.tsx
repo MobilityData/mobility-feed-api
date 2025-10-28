@@ -7,7 +7,6 @@ import {
   FormControlLabel,
   Checkbox,
   useTheme,
-  Link,
   Container,
   FormControl,
   MenuItem,
@@ -16,6 +15,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 enum AuthTypeEnum {
   BASIC = 'Basic Auth',
@@ -26,6 +26,7 @@ enum AuthTypeEnum {
 
 export default function GbfsFeedSearchInput(): React.ReactElement {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [autoDiscoveryUrlInput, setAutoDiscoveryUrlInput] =
     useState<string>('');
   const [requiresAuth, setRequiresAuth] = useState(false);
@@ -81,6 +82,13 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
     // navigate to /gbfs-validator?AutoDiscoveryUrl=url&auth details
     // store the auth details in context
     // let the GbfsValidator component handle the loading state
+    console.log('Validating GBFS Feed for URL: ', autoDiscoveryUrlInput);
+    // I'm sure if a query param exists, instead of navigation, we will update the param, and have a useEffect to call the new feed to validate
+    navigate(
+      `/gbfs-validator?AutoDiscoveryUrl=${encodeURIComponent(
+        autoDiscoveryUrlInput,
+      )}`,
+    );
   };
 
   return (
@@ -88,6 +96,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
       id='input-box'
       sx={{
         padding: 2,
+        pt: 3,
         marginTop: 2,
         backgroundColor: theme.palette.background.default,
         border: '3px solid ' + theme.palette.text.primary,
@@ -106,6 +115,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
       >
         <TextField
           variant='outlined'
+          label='GBFS Auto-Discovery URL'
           placeholder='eg: https://example.com/gbfs.json'
           sx={{ width: '100%', mr: 2 }}
           onChange={(e) => {
@@ -119,13 +129,10 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
           variant='contained'
           color='primary'
           sx={{ p: '12px' }}
-          component={Link}
-          href={`/gbfs-validator?AutoDiscoveryUrl=${encodeURIComponent(
-            autoDiscoveryUrlInput,
-          )}`}
           disabled={isSubmitBoxDisabled()}
           type='submit'
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
             validateGBFSFeed();
           }}
         >
@@ -134,6 +141,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
       </Container>
       <FormGroup>
         <FormControlLabel
+          sx={{ width: 'fit-content' }}
           control={<Checkbox checked={requiresAuth} onChange={handleChange} />}
           label='Requires Authentication'
         />
@@ -143,7 +151,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               value={authType}
               onChange={handleAuthTypeChange}
               displayEmpty
-              inputProps={{ 'aria-label': 'Without label' }}
+              inputProps={{ 'aria-label': 'authentication type select' }}
             >
               <MenuItem value={''}>
                 <em>Select Authentication Type</em>
@@ -158,7 +166,14 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
         )}
 
         {requiresAuth && authType === AuthTypeEnum.BASIC && (
-          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              mt: 2,
+              flexWrap: { xs: 'wrap', md: 'nowrap' },
+            }}
+          >
             <TextField
               size='small'
               variant='outlined'
@@ -198,7 +213,14 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
         )}
 
         {requiresAuth && authType === AuthTypeEnum.OAUTH && (
-          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              mt: 2,
+              flexWrap: { xs: 'wrap', md: 'nowrap' },
+            }}
+          >
             <TextField
               size='small'
               variant='outlined'
@@ -232,11 +254,19 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
           </Box>
         )}
       </FormGroup>
-      <Box id='cta-buttons' sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <Button variant='text' color='primary'>
-          Broswe GBFS Feeds
+      <Box
+        id='cta-buttons'
+        sx={{
+          display: 'flex',
+          gap: { xs: 0, md: 2 },
+          mt: 2,
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
+        }}
+      >
+        <Button variant='text' color='primary' href='/feeds?gbfs=true'>
+          Browse GBFS Feeds
         </Button>
-        <Button variant='text' color='primary' endIcon={<OpenInNew />}>
+        <Button variant='text' color='primary' href='/' endIcon={<OpenInNew />}>
           View GBFS Validator API Docs
         </Button>
       </Box>
