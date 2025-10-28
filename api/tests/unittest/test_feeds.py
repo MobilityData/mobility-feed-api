@@ -72,6 +72,7 @@ expected_feed_response = json.loads(
             "producer_url": "test_producer_url",
         },
         external_ids=[{"external_id": "test_associated_id", "source": "test_source"}],
+        related_links=[],
         redirects=[{"comment": "Some comment", "target_id": "test_target_id"}],
     ).model_dump_json()
 )

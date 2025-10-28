@@ -188,6 +188,34 @@ export interface components {
       feed_name?: string;
       /** @description A note to clarify complex use cases for consumers. */
       note?: string;
+      /** @description A list of related links for the feed. */
+      related_links?: Array<components['schemas']['FeedRelatedLink']>;
+    };
+    FeedRelatedLink: {
+      /**
+       * @description A short code to identify the type of link.
+       *
+       * @example next_1
+       */
+      code?: string;
+      /**
+       * @description A description of the link.
+       *
+       * @example The URL for a future feed version with an upcoming service period.
+       */
+      description?: string;
+      /**
+       * Format: url
+       * @description The URL of the related link.
+       */
+      url?: string;
+      /**
+       * Format: date-time
+       * @description The date and time the related link was created, in ISO 8601 date-time format.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
     };
     GtfsFeed: components['schemas']['Feed'] & {
       /**

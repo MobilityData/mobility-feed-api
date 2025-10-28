@@ -134,6 +134,7 @@ expected_gtfs_feed_result = GtfsFeedImpl(
     feed_name="feed_name",
     note="note",
     feed_contact_email="feed_contact_email",
+    related_links=[],
     source_info=SourceInfo(
         producer_url="producer_url",
         authentication_type=1,
@@ -226,6 +227,7 @@ class TestGtfsFeedImpl(unittest.TestCase):
             provider=None,
             feed_name="",
             note=None,
+            related_links=[],
             feed_contact_email=None,
             source_info=SourceInfo(
                 producer_url=None,
