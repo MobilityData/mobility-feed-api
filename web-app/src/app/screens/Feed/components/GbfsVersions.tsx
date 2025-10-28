@@ -141,7 +141,7 @@ export default function GbfsVersions({
                           label={t('gbfsVersionsJson')}
                           sx={{
                             backgroundColor: theme.palette.primary.dark,
-                            color: theme.palette.primary.contrastText,
+                            color: theme.palette.secondary.contrastText,
                           }}
                           variant='filled'
                         ></Chip>

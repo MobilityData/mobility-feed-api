@@ -81,7 +81,7 @@ export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
 });
 
 export const ContentTitle = styled(Typography)(({ theme }) => ({
-  color: 'rgba(71, 71, 71, 0.8)',
+  color: theme.palette.text.secondary,
   fontSize: theme.typography.subtitle2.fontSize,
   padding: `0 ${theme.spacing(2)}`,
   lineHeight: '48px',
