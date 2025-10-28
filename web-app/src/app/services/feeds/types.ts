@@ -201,7 +201,7 @@ export interface components {
       /**
        * @description A description of the link.
        *
-       * @example The next feed URL after the current one
+       * @example The URL for a future feed version with an upcoming service period.
        */
       description?: string;
       /**
