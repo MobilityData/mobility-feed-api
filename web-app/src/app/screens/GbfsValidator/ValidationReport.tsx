@@ -30,11 +30,11 @@ import { type components } from '../../services/feeds/gbfs-validator-types';
 import { useRef, useState } from 'react';
 import { OpenInNew } from '@mui/icons-material';
 import {
+  ValidationReportTableStyles,
   ContentTitle,
   ValidationElementCardStyles,
   ValidationErrorPathStyles,
-  ValidationReportTableStyles,
-} from './Validator.styles';
+} from './ValidationReport.styles';
 
 export type ValidationResult = components['schemas']['ValidationResult'];
 export type GbfsFile = components['schemas']['GbfsFile'];

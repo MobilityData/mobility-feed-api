@@ -21,7 +21,7 @@ import {
   gbfsValidatorHeroBg,
   PromotionRow,
   PromotionTextColumn,
-} from './Validator.styles';
+} from './ValidationReport.styles';
 
 export default function GbfsValidator(): React.ReactElement {
   const theme = useTheme();
