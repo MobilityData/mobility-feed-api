@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import requests
+import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Rule
 
