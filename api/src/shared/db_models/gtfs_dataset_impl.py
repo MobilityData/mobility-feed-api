@@ -5,7 +5,7 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 from shared.db_models.bounding_box_impl import BoundingBoxImpl
 from shared.db_models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.gtfs_dataset import GtfsDataset
-from utils.model_utils import compare_java_versions
+from shared.db_models.model_utils import compare_java_versions
 
 
 class GtfsDatasetImpl(GtfsDataset):

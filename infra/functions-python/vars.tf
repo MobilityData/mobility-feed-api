@@ -65,10 +65,16 @@ variable "gbfs_scheduler_schedule" {
     default     = "0 0 * * *" # At 00:00 every day
 }
 
+variable "jbda_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the JBDA scheduler job"
+    default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
+}
+
 variable "transitland_scraping_schedule" {
     type        = string
     description = "Schedule Transitland scraping job"
-    default     = "0 0 3 * *" # every month on the 3rd day at 00:00
+    default = "0 15 3 * *" # Runs at 00:00 JST on the 3rd day of every month
 }
 
 variable "transitland_api_key" {

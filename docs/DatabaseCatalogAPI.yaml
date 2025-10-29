@@ -454,7 +454,36 @@ components:
             note:
               description: A note to clarify complex use cases for consumers.
               type: string
-
+            related_links:
+              description: >
+                A list of related links for the feed.
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedRelatedLink'
+    FeedRelatedLink:
+      type: object
+      properties:
+        code:
+          description: >
+            A short code to identify the type of link.
+          type: string
+          example: next_1
+        description:
+          description: >
+            A description of the link.
+          type: string
+          example: The URL for a future feed version with an upcoming service period.
+        url:
+          description: >
+            The URL of the related link.
+          type: string
+          format: url
+        created_at:
+          description: >
+            The date and time the related link was created, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
     GtfsFeed:
       allOf:
         - $ref: "#/components/schemas/Feed"

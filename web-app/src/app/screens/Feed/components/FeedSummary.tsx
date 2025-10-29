@@ -366,7 +366,89 @@ export default function FeedSummary({
               )}
           </Box>
         )}
+      {feed?.related_links != null && feed.related_links?.length > 0 && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            <LinkIcon />
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              {t('relatedLinks')}
+            </Typography>
+          </StyledTitleContainer>
 
+          <Box>
+            <ul
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                paddingLeft: '20px',
+                marginTop: 0,
+                listStyle: 'disc',
+              }}
+            >
+              {feed.related_links.map((relatedLink) => {
+                const url = relatedLink.url;
+                const code = relatedLink.code ?? '';
+                const description = relatedLink.description;
+
+                return (
+                  <li key={url} style={{ marginBottom: '8px' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                      >
+                        <Chip size='small' variant='outlined' label={code} />
+                        {description != null && (
+                          <Tooltip title={description} placement='top' arrow>
+                            <IconButton size='small'>
+                              <InfoOutlinedIcon fontSize='small' />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+
+                      <Typography
+                        sx={{ display: 'flex', overflowWrap: 'anywhere' }}
+                      >
+                        {url != null && (
+                          <Button
+                            variant='text'
+                            className='inline line-start'
+                            href={url}
+                            target='_blank'
+                            rel='noopener noreferrer nofollow'
+                          >
+                            {url}
+                          </Button>
+                        )}
+
+                        <ContentCopy
+                          titleAccess={t('copyDownloadUrl')}
+                          sx={{ cursor: 'pointer', ml: 1 }}
+                          onClick={() => {
+                            if (url != null) {
+                              setSnackbarOpen(true);
+                              void navigator.clipboard
+                                .writeText(url)
+                                .then(() => {});
+                            }
+                          }}
+                        />
+                      </Typography>
+                    </Box>
+                  </li>
+                );
+              })}
+            </ul>
+          </Box>
+        </Box>
+      )}
       {latestDataset?.validation_report?.features != undefined && (
         <Box sx={boxElementStyle}>
           <StyledTitleContainer>

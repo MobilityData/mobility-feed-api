@@ -113,6 +113,7 @@ def create_or_get_location(
         municipality=city_name,
     )
     session.add(location)
+    session.flush()
     logging.debug(f"Created new location: {location_id}")
 
     return location

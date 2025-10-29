@@ -1,5 +1,13 @@
 import { OpenInNew } from '@mui/icons-material';
-import { Box, Button, Container, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  Container,
+  Link,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import React from 'react';
 import gbfsLogo from './gbfs.svg';
 import githubLogo from './github.svg';
@@ -7,7 +15,11 @@ import ValidationReport from './ValidationReport';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
 import { useSearchParams } from 'react-router-dom';
 import { Map } from '../../components/Map';
-import { gbfsValidatorHeroBg } from './validator.styles';
+import {
+  gbfsValidatorHeroBg,
+  PromotionRow,
+  PromotionTextColumn,
+} from './validator.styles';
 
 export default function GbfsValidator(): React.ReactElement {
   const theme = useTheme();
@@ -23,8 +35,8 @@ export default function GbfsValidator(): React.ReactElement {
             sx={{
               ...gbfsValidatorHeroBg,
               padding: 2,
-              color: '#1d1c1c',
-              marginTop: '-32px', // TODO: revisit
+              color: theme.palette.common.black,
+              marginTop: '-32px',
               height: '400px',
               display: 'flex',
               textAlign: 'center',
@@ -34,125 +46,146 @@ export default function GbfsValidator(): React.ReactElement {
               <Typography variant='h3' sx={{ fontWeight: 700, mb: 2 }}>
                 GBFS Validator
               </Typography>
-              <Typography sx={{ maxWidth: '30em', fontSize: '20px' }}>
-                The GBFS Validator is a tool that helps you validate your GBFS
-                feeds against the GBFS specification.
+              <Typography
+                sx={{ maxWidth: '26em', fontSize: theme.typography.h6 }}
+              >
+                Validate and visualize GBFS feeds against the official GBFS
+                specification
               </Typography>
             </Box>
           </Box>
           <Box
             id='content-container'
             sx={{
-              backgroundColor: theme.palette.background.default,
-              height: '100%',
-              pb: '50px',
               mx: 2,
-              position: 'relative',
-              minHeight: !isInSearchState ? '55vh' : 'none',
+              display: 'flex',
+              justifyContent: 'center',
             }}
           >
             <Box
               sx={{
-                position: 'absolute',
-                top: '-110px',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                mt: '-110px',
                 maxWidth: 'md',
                 width: '100%',
-                margin: 'auto',
               }}
             >
               <GbfsFeedSearchInput></GbfsFeedSearchInput>
-
               <Box
                 id='info-container'
                 sx={{
-                  mt: 4,
-                  backgroundColor: theme.palette.background.default,
+                  mt: 6,
                   padding: 2,
-                  height: '100%',
                 }}
               >
-                <Box
-                  id='row'
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mt: 4,
-                  }}
-                >
-                  <Box sx={{ width: '55%' }}>
+                <PromotionRow>
+                  <PromotionTextColumn>
                     <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
-                      Official GBFS Validator
+                      Validate and Explore GBFS Feeds
                     </Typography>
                     <Typography
                       sx={{
                         maxWidth: 'clamp(45ch, 60%, 75ch)',
-                        fontSize: '20px',
+                        fontSize: theme.typography.h6,
                       }}
                     >
-                      The GBFS Validator is based on the official GBFS JSON
-                      schema and is designed to help you validate your GBFS
-                      feeds against the GBFS specification. For more information
-                      about GBFS or the official GBFS JSON schema, please visit
+                      GBFS Validator & Visualizer lets you instantly check GBFS
+                      feeds against the official specification — and see the
+                      results on an interactive map. For more information about
+                      GBFS or the official specification, please visit
                     </Typography>
-                    <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                      <Button variant='outlined' endIcon={<OpenInNew />}>
+                    <Box
+                      sx={{
+                        mt: 3,
+                        display: 'flex',
+                        gap: 2,
+                        justifyContent: { xs: 'center', md: 'flex-start' },
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Button
+                        variant='outlined'
+                        endIcon={<OpenInNew />}
+                        href='https://github.com/MobilityData/gbfs-json-schema'
+                        target='_blank'
+                        rel='noreferrer'
+                      >
                         GBFS Schema Repository
                       </Button>
-                      <Button variant='outlined' endIcon={<OpenInNew />}>
+                      <Button
+                        variant='outlined'
+                        endIcon={<OpenInNew />}
+                        href='https://gbfs.org'
+                        target='_blank'
+                        rel='noreferrer'
+                      >
                         GBFS.org
                       </Button>
                     </Box>
-                  </Box>
-                  <Box sx={{ width: '40%', textAlign: 'center' }}>
+                  </PromotionTextColumn>
+                  <Box
+                    sx={{
+                      width: { xs: '100%', md: '40%' },
+                      textAlign: 'center',
+                    }}
+                  >
                     <Box
                       sx={{ width: '225px' }}
                       component={'img'}
                       src={gbfsLogo}
+                      alt='gbfs logo'
                     ></Box>
                   </Box>
-                </Box>
-                <Box
-                  id='row'
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 4,
-                    mt: 6,
-                    flexDirection: 'row-reverse',
-                  }}
-                >
-                  <Box sx={{ width: '55%', maxWidth: '30em' }}>
+                </PromotionRow>
+                <PromotionRow reverse sx={{ mt: 8 }}>
+                  <PromotionTextColumn>
                     <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
                       Contribute
                     </Typography>
                     <Typography
                       sx={{
                         maxWidth: 'clamp(45ch, 60%, 75ch)',
-                        fontSize: '20px',
+                        fontSize: theme.typography.h6,
                       }}
                     >
-                      The GBFS Validator is an open-source project and we
-                      welcome contributions from the community. Special thanks
-                      to <a>Tom Erik</a>
+                      The GBFS Validator & Visualizer is an open-source tool. We
+                      welcome contributions from the community — whether through
+                      feature improvements, testing, or documentation. Special
+                      thanks to{' '}
+                      <Link
+                        href='https://entur.no/'
+                        target='_blank'
+                        rel='noreferrer'
+                      >
+                        Entur
+                      </Link>{' '}
+                      for their outstanding work on the validation engine
                     </Typography>
-                    <Box sx={{ mt: 2 }}>
-                      <Button variant='outlined' endIcon={<OpenInNew />}>
-                        View Github Repository
+                    <Box sx={{ mt: 3 }}>
+                      <Button
+                        variant='outlined'
+                        endIcon={<OpenInNew />}
+                        href='https://github.com/MobilityData/gbfs-validator-java'
+                        target='_blank'
+                        rel='noreferrer'
+                      >
+                        Explore on Github
                       </Button>
                     </Box>
-                  </Box>
-                  <Box sx={{ width: '40%', textAlign: 'center' }}>
+                  </PromotionTextColumn>
+                  <Box
+                    sx={{
+                      width: { xs: '100%', md: '40%' },
+                      textAlign: 'center',
+                    }}
+                  >
                     <Box
                       sx={{ width: '225px' }}
                       component={'img'}
                       src={githubLogo}
+                      alt='github logo'
                     ></Box>
                   </Box>
-                </Box>
+                </PromotionRow>
               </Box>
             </Box>
           </Box>
@@ -181,6 +214,28 @@ export default function GbfsValidator(): React.ReactElement {
                 https://tor.publicbikesystem.net/customer/gbfs/v2/gbfs.json
               </Typography>
             </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                mb: 2,
+                ml: 2,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <Chip label='Version 2.2' color='primary' />
+              <Chip label='Valid Feed' color='success' />
+              <Chip label='Invalid Feed' color='error' />
+              <Chip
+                label='3 Total Errors'
+                color='error'
+                variant='outlined'
+              />{' '}
+              <Chip label='2 Files Errors' color='error' variant='outlined' />
+              <Chip label='validator v1.2' variant='outlined' />
+            </Box>
+
             <Map polygon={[{ lat: 37.7749, lng: -122.4194 }]}></Map>
             <Box textAlign={'right'}>
               <Button variant='outlined'>View Full Map Details</Button>

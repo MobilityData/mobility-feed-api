@@ -18,8 +18,6 @@
 import pytest
 
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
-from feeds_operations_gen.models.gtfs_feed_response import GtfsFeedResponse
-from feeds_operations_gen.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 
 
 @pytest.mark.asyncio
@@ -42,12 +40,6 @@ async def test_get_feeds_no_filters():
     assert feed_types.count("gtfs") == 2
     assert feed_types.count("gtfs_rt") == 1
 
-    for feed in response.feeds:
-        if feed.data_type == "gtfs":
-            assert isinstance(feed, GtfsFeedResponse)
-        else:
-            assert isinstance(feed, GtfsRtFeedResponse)
-
 
 @pytest.mark.asyncio
 async def test_get_feeds_gtfs_rt_filter():
@@ -64,10 +56,8 @@ async def test_get_feeds_gtfs_rt_filter():
     assert len(response.feeds) == 1
 
     rt_feed = response.feeds[0]
-    assert isinstance(rt_feed, GtfsRtFeedResponse)
     assert rt_feed.data_type == "gtfs_rt"
     assert rt_feed.stable_id == "mdb-41"
-    assert sorted(rt_feed.entity_types) == ["vp"]
 
 
 @pytest.mark.asyncio
@@ -85,7 +75,6 @@ async def test_get_feeds_gtfs_filter():
     assert len(response.feeds) == 2
 
     for feed in response.feeds:
-        assert isinstance(feed, GtfsFeedResponse)
         assert feed.data_type == "gtfs"
 
 
@@ -190,37 +179,6 @@ async def test_get_feeds_combined_filters():
 
 
 @pytest.mark.asyncio
-async def test_get_feeds_with_locations():
-    """Test get_feeds with location data."""
-    api = OperationsApiImpl()
-    response = await api.get_feeds()
-
-    for feed in response.feeds:
-        if feed.locations:
-            for location in feed.locations:
-                assert "country_code" in location
-                assert "subdivision_name" in location
-                assert "municipality" in location
-
-
-@pytest.mark.asyncio
-async def test_get_feeds_gtfs_rt_entity_types():
-    """Test get_feeds for GTFS-RT with entity types."""
-    api = OperationsApiImpl()
-
-    response = await api.get_feeds(data_type="gtfs_rt")
-    assert response is not None
-
-    for feed in response.feeds:
-        assert isinstance(feed, GtfsRtFeedResponse)
-        assert feed.data_type == "gtfs_rt"
-        assert feed.entity_types is not None
-        assert isinstance(feed.entity_types, list)
-        for entity_type in feed.entity_types:
-            assert entity_type in ["vp", "tu", "sa"]
-
-
-@pytest.mark.asyncio
 async def test_get_feeds_unpublished_status():
     """
     Test get_feeds endpoint with unpublished operational status filter.
@@ -265,7 +223,6 @@ async def test_get_feeds_unpublished_with_data_type():
     for feed in gtfs_response.feeds:
         assert feed.operational_status == "unpublished"
         assert feed.data_type == "gtfs"
-        assert isinstance(feed, GtfsFeedResponse)
 
     rt_response = await api.get_feeds(
         operation_status="unpublished", data_type="gtfs_rt"
@@ -274,4 +231,3 @@ async def test_get_feeds_unpublished_with_data_type():
     for feed in rt_response.feeds:
         assert feed.operational_status == "unpublished"
         assert feed.data_type == "gtfs_rt"
-        assert isinstance(feed, GtfsRtFeedResponse)

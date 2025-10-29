@@ -3,11 +3,9 @@ from starlette.responses import Response
 
 from conftest import feed_mdb_41
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
-from feeds_operations_gen.models.authentication_type import AuthenticationType
-from feeds_operations_gen.models.entity_type import EntityType
-from feeds_operations_gen.models.feed_status import FeedStatus
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
+from feeds_gen.models.feed_status import FeedStatus
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
 from shared.database.database import Database
@@ -27,16 +25,14 @@ def update_request_gtfs_rt_feed():
         feed_contact_email=feed_mdb_41.feed_contact_email,
         source_info=SourceInfo(
             producer_url=feed_mdb_41.producer_url,
-            authentication_type=AuthenticationType(
-                int(feed_mdb_41.authentication_type)
-            ),
+            authentication_type=int(feed_mdb_41.authentication_type),
             authentication_info_url=feed_mdb_41.authentication_info_url,
             api_key_parameter_name=feed_mdb_41.api_key_parameter_name,
             license_url=feed_mdb_41.license_url,
         ),
         redirects=[],
         operational_status_action="no_change",
-        entity_types=[EntityType.VP],
+        entity_types=["vp"],
         official=True,
     )
 

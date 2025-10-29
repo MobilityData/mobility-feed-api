@@ -1,6 +1,6 @@
 # Documentation, https://openapi-generator.tech/docs/generators/python-fastapi/
 additionalProperties:
-  packageName: feeds_operations_gen
+  packageName: feeds_gen
   # modelNameSuffix: Api
   removeOperationIdPrefix: true
   fastapiImplementationPackage: feeds_operations.impl
