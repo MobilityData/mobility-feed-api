@@ -258,7 +258,7 @@ class TestImportJBDA(unittest.TestCase):
         # DB checks for GTFS feed
         sched = (
             db_session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == "jbda-feed1")
+            .filter(Gtfsfeed.stable_id == "jbda-org1-feed1")
             .first()
         )
         self.assertIsNotNone(sched)
@@ -276,12 +276,12 @@ class TestImportJBDA(unittest.TestCase):
         # RT feeds + entity types + back-links
         tu = (
             db_session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == "jbda-feed1-tu")
+            .filter(Gtfsrealtimefeed.stable_id == "jbda-org1-feed1-tu")
             .first()
         )
         vp = (
             db_session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == "jbda-feed1-vp")
+            .filter(Gtfsrealtimefeed.stable_id == "jbda-org1-feed1-vp")
             .first()
         )
         self.assertIsNotNone(tu)
@@ -301,7 +301,7 @@ class TestImportJBDA(unittest.TestCase):
         self.assertEqual(topic_path, "projects/test-project/topics/dataset-batch")
 
         payload = json.loads(data_bytes.decode("utf-8"))
-        self.assertEqual(payload["feed_stable_id"], "jbda-feed1")
+        self.assertEqual(payload["feed_stable_id"], "jbda-org1-feed1")
         self.assertEqual(payload["producer_url"], url_current)
         self.assertIsNone(payload["dataset_id"])
         self.assertIsNone(payload["dataset_hash"])
