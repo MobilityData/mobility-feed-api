@@ -607,6 +607,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                     feeds_to_publish = []  # reset after commit
                 except IntegrityError:
                     db_session.rollback()
+                    feeds_to_publish = []  # reset even on failure
                     logger.exception(
                         "DB IntegrityError during batch commit at processed=%d",
                         total_processed,
