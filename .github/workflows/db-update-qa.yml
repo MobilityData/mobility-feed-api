@@ -2,7 +2,14 @@
 name: Database Update - QA
 on:
   workflow_dispatch:
+    inputs:
+      DRY_RUN:
+        description: Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
   workflow_call:
+
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
@@ -16,6 +23,7 @@ jobs:
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api-qa.mobilitydatabase.org
+      DRY_RUN: ${{ inputs.DRY_RUN }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
