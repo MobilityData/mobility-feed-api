@@ -15,6 +15,7 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      API_BASE_URL: api-qa.mobilitydatabase.org
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
@@ -24,6 +25,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      API_TEST_REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
   notify-slack-on-failure:
     needs: [ update ]
     if: always() && (needs.update.result == 'failure') && (github.event_name == 'repository_dispatch')

@@ -46,6 +46,9 @@ on:
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL Instance Name
         required: true        
+      API_TEST_REFRESH_TOKEN:
+        description: API refresh token used to resolve deployed API commit (used on repository_dispatch)
+        required: false
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -67,18 +70,57 @@ on:
         description: GCP region
         required: true
         type: string
+      API_BASE_URL:
+        description: Base URL host for the API used to resolve version/commit (e.g. api-dev.mobilitydatabase.org)
+        required: false
+        default: api.mobilitydatabase.org
+        type: string
 
 env:
   python_version: '3.11'
   liquibase_version: '4.33.0'
 
 jobs:
+  resolve-api-meta:
+    name: 'Resolve API commit/version'
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'repository_dispatch' && inputs.API_BASE_URL != '' && secrets.API_TEST_REFRESH_TOKEN != '' }}
+    outputs:
+      COMMIT_SHA: ${{ steps.resolve.outputs.COMMIT_SHA }}
+      API_VERSION: ${{ steps.resolve.outputs.API_VERSION }}
+    steps:
+      - name: Checkout repo (for scripts)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts
+          sparse-checkout-cone: true
+      - name: Resolve API commit/version
+        id: resolve
+        env:
+          API_BASE_URL: ${{ inputs.API_BASE_URL }}
+          API_REFRESH_TOKEN: ${{ secrets.API_TEST_REFRESH_TOKEN }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          bash scripts/resolve_api_meta.sh
+
   db-schema-update:
     name: 'Database Schema Update'
     permissions: write-all
     runs-on: ubuntu-latest
+    needs: [resolve-api-meta]
+    if: ${{ always() }}
     steps:
-    - name: Checkout code
+    - name: Checkout code at API commit
+      if: ${{ needs.resolve-api-meta.result == 'success' && needs.resolve-api-meta.outputs.COMMIT_SHA != '' }}
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.resolve-api-meta.outputs.COMMIT_SHA }}
+        fetch-depth: 0
+
+    - name: Checkout code (default)
+      if: ${{ needs.resolve-api-meta.result != 'success' || needs.resolve-api-meta.outputs.COMMIT_SHA == '' }}
       uses: actions/checkout@v4
 
     - name: Authenticate to Google Cloud QA/PROD
@@ -139,10 +181,18 @@ jobs:
     name: 'Database Content Update'
     permissions: write-all
     runs-on: ubuntu-latest
-    needs: db-schema-update
-    if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
+    needs: [resolve-api-meta, db-schema-update]
+    if: ${{ always() && (github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch') }}
     steps:
-    - name: Checkout code
+    - name: Checkout code at API commit
+      if: ${{ needs.resolve-api-meta.result == 'success' && needs.resolve-api-meta.outputs.COMMIT_SHA != '' }}
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.resolve-api-meta.outputs.COMMIT_SHA }}
+        fetch-depth: 0
+
+    - name: Checkout code (default)
+      if: ${{ needs.resolve-api-meta.result != 'success' || needs.resolve-api-meta.outputs.COMMIT_SHA == '' }}
       uses: actions/checkout@v4
 
     - name: Setup python
@@ -159,6 +209,8 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
       
     - name: Update .env file
+      env:
+        API_VERSION: ${{ needs.resolve-api-meta.outputs.API_VERSION }}
       run: |
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
         echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
@@ -168,6 +220,7 @@ jobs:
         echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=localhost" >> config/.env.local
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
+        if [[ -n "${API_VERSION}" ]]; then echo "API_VERSION=${API_VERSION}" >> config/.env.local; fi
         cat config/.env.local
 
     - name: Load secrets from 1Password
@@ -283,6 +336,3 @@ jobs:
             echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
             echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
           fi
-    
-      
-

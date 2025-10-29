@@ -14,6 +14,7 @@ jobs:
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      API_BASE_URL: api.mobilitydatabase.org
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
@@ -23,6 +24,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      API_TEST_REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
 
   notify-slack-on-failure:
     needs: [ update ]
