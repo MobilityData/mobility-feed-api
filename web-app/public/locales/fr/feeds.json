@@ -1,0 +1,42 @@
+{
+ "feeds": "Flux",
+ "dataType": "Type de données",
+ "transitProvider": "Fournisseur de transport en commun",
+ "location": "Emplacement",
+ "feedDescription": "Description du flux",
+ "searchFor": "Rechercher",
+ "resultsFor": "{{startResult}}-{{endResult}} de {{totalResults}} résultats",
+ "deprecated": "Obsolète",
+ "searchPlaceholder": "Fournisseur de transport en commun, nom de flux ou emplacement",
+ "noResults": "Nous sommes désolés, nous n’avons trouvé aucun résultat de recherche pour « {{activeSearch}} ».",
+ "searchSuggestions": "Suggestions de recherche : ",
+ "searchTips": {
+    "twoDigit": "Utilisez un code à deux chiffres pour rechercher un pays, par exemple « FR » pour la France",
+    "fullName": "Inclure le nom complet pour le transit fournisseur, par exemple « Toronto Transit Commission » au lieu de « TTC »",
+    "checkSpelling": "Vérifiez l’orthographe"
+ },
+ "errorAndContact": "Veuillez vérifier votre connexion Internet et réessayer. Si le problème persiste <1>contactez-nous<1> pour obtenir de l’aide.",
+ "errorLoadingFeed": "Une erreur s’est produite lors du chargement du flux.",
+ "form": {
+    "addOrUpdateFeed": "Ajouter ou mettre à jour un flux",
+    "signUp": "Inscrivez-vous pour un compte Mobility Database ou connectez-vous pour ajouter ou mettre à jour un flux GTFS.",
+    "signUpAction": "Inscrivez-vous pour un compte",
+    "loginSuccess": "Vous avez été connecté avec succès, vous pouvez maintenant ajouter ou mettre à jour un flux."
+ },
+ "seeFullList": "Voir la liste complète",
+ "hideFullList": "Masquer la liste complète",
+ "producerDownloadUrl": "URL de téléchargement du producteur",
+ "copyDownloadUrl": "Copier l’URL de téléchargement",
+ "producerUrlCopied": "URL du producteur copiée dans le presse-papiers",
+ "authenticationType": "Type d’authentification",
+ "registerToDownloadFeed": "S’inscrire pour télécharger le flux",
+ "feedContactEmail": "E-mail de contact du flux",
+ "copyFeedContactEmail": "Copier l’e-mail de contact du flux",
+ "features": "Fonctionnalités",
+ "unableToDownloadFeed": "Impossible de télécharger ce flux. S’il existe une URL plus récente pour ce flux, &lt;1>veuillez la soumettre ici</1> ",
+ "feedHasBeenReplaced": "Ce flux a été remplacé par une URL de producteur différente.{' '}<1> Accédez au nouveau flux ici</1> .",
+ "downloadLatest": "Télécharger la dernière version",
+ "seeLicense": "Voir la licence",
+ "boundingBoxTitle": "Cadre englobant de stops.txt",
+ "unableToGenerateBoundingBox": "Impossible de générer le cadre englobant."
+}

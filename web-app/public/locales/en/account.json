@@ -16,9 +16,9 @@
     "accessToken": {
         "title": "How to Generate the Access Token in Your App",
         "description": {
-          "pt1": "Follow",
-          "cta": "our OpenAPI documentation",
-          "pt2": "to authenticate your account with the refresh token."
+            "pt1": "Follow",
+            "cta": "our OpenAPI documentation",
+            "pt2": "to authenticate your account with the refresh token."
         },
         "generate": "Generate Access Token",
         "copyToken": "Copy Access Token",
