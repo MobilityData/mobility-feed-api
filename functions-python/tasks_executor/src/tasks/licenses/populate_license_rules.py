@@ -34,35 +34,39 @@ def populate_license_rules_task(dry_run, db_session):
 
     try:
         logging.info(f"Downloading rules from {RULES_JSON_URL}")
-        response = requests.get(RULES_JSON_URL)
+        response = requests.get(RULES_JSON_URL, timeout=10)
         response.raise_for_status()
-        rules_data = response.json()
-        logging.info(f"Rules data downloaded: {rules_data}")
-        logging.info(f"Successfully downloaded {len(rules_data)} rules.")
+        rules_json = response.json()
+
+        # Combine all rule lists from the three categories
+        rules_data = []
+        for rule_type, rule_list in rules_json.items():
+            for rule_data in rule_list:
+                # Attach the category/type info to each rule
+                rule_data["type"] = rule_type
+                rules_data.append(rule_data)
+
+        logging.info(
+            f"Loaded {len(rules_data)} rules from {len(rules_json)} categories."
+        )
 
         if dry_run:
-            logging.info("Dry run enabled. No changes will be made to the database.")
-            logging.info(f"Would attempt to upsert {len(rules_data)} rules.")
+            logging.info(f"Dry run: would insert/update {len(rules_data)} rules.")
         else:
-            logging.info("Populating license rules in the database...")
-
             for rule_data in rules_data:
-                # Create a Rule ORM object from the downloaded data
                 rule_object = Rule(
                     name=rule_data.get("name"),
                     label=rule_data.get("label"),
                     description=rule_data.get("description"),
                     type=rule_data.get("type"),
                 )
-                # Merge the object into the session.
-                # If a rule with the same primary key (name) exists, it will be updated.
-                # If not, a new one will be inserted.
                 db_session.merge(rule_object)
 
             db_session.commit()
             logging.info(
-                f"License rules populated successfully. {len(rules_data)} rules were upserted."
+                f"Successfully upserted {len(rules_data)} rules into the database."
             )
+
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to download rules JSON file: {e}")
         raise
