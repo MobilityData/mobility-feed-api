@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 import requests
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -25,7 +25,7 @@ class TestPopulateLicenseRules(unittest.TestCase):
                 {
                     "name": "include-copyright",
                     "label": "Include Copyright",
-                    "description": "A copy of the copyright and license notices must be included with the licensed material.",
+                    "description": "A copy of the copyright and license notices must be included.",
                 }
             ],
             "limitations": [],
