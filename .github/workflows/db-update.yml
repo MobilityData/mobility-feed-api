@@ -98,7 +98,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Resolve API commit/version
         id: resolve
-        if: ${{ secrets.API_TEST_REFRESH_TOKEN != '' }}
+        # The composite action itself checks for a missing token and will skip resolution when none is provided.
         uses: ./.github/actions/resolve-api-meta
         with:
           api_base_url: ${{ inputs.API_BASE_URL }}
@@ -336,4 +336,3 @@ jobs:
             echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
             echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
           fi
-
