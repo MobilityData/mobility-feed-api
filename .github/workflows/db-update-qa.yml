@@ -8,7 +8,18 @@ on:
         required: false
         default: false
         type: boolean
+      INSTALL_MODE:
+        description: Which API version to install when run manually. "installed" = install the currently deployed API version; "latest" = install latest from main.
+        required: false
+        default: installed
+        type: string
   workflow_call:
+    inputs:
+      INSTALL_MODE:
+        description: Which API version to install when called as a reusable workflow (defaults to latest)
+        required: false
+        default: latest
+        type: string
 
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
@@ -24,6 +35,7 @@ jobs:
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api-qa.mobilitydatabase.org
       DRY_RUN: ${{ inputs.DRY_RUN }}
+      INSTALL_MODE: ${{ inputs.INSTALL_MODE }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}

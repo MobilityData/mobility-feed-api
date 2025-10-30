@@ -75,6 +75,11 @@ on:
         required: false
         default: api.mobilitydatabase.org
         type: string
+      INSTALL_MODE:
+        description: Which API version to install when run manually. "installed" = install the currently deployed API version; "latest" = install latest from main.
+        required: false
+        default: latest
+        type: string
       DRY_RUN:
         description: Skip applying schema and content updates
         required: false
@@ -89,10 +94,12 @@ jobs:
   resolve-api-meta:
     name: 'Resolve API commit/version'
     runs-on: ubuntu-latest
-    if: ${{ contains('repository_dispatch,workflow_dispatch', github.event_name) && inputs.API_BASE_URL != '' }}
+    # Run this job for all triggers; the action itself will skip resolution when API_BASE_URL or token is not provided.
+    # Keeping it unconditional ensures CHECKOUT_REF is always set (defaults to 'main') for downstream jobs.
     outputs:
       COMMIT_SHA: ${{ steps.resolve.outputs.COMMIT_SHA }}
       API_VERSION: ${{ steps.resolve.outputs.API_VERSION }}
+      CHECKOUT_REF: ${{ steps.decide_ref.outputs.CHECKOUT_REF }}
     steps:
       - name: Checkout repo (for scripts and local action)
         uses: actions/checkout@v4
@@ -103,6 +110,34 @@ jobs:
         with:
           api_base_url: ${{ inputs.API_BASE_URL }}
           api_refresh_token: ${{ secrets.API_TEST_REFRESH_TOKEN }}
+      - name: Determine install target ref
+        id: decide_ref
+        run: |
+          set -euo pipefail
+          EVENT='${{ github.event_name }}'
+          INSTALL_MODE='${{ inputs.INSTALL_MODE }}'
+          RESOLVED='${{ steps.resolve.outputs.RESOLVED }}'
+          COMMIT_SHA='${{ steps.resolve.outputs.COMMIT_SHA }}'
+          echo "event=$EVENT, install_mode=$INSTALL_MODE, resolved=$RESOLVED, commit=$COMMIT_SHA"
+          if [ "$EVENT" = "repository_dispatch" ]; then
+            if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
+              echo "ERROR: repository_dispatch requires a resolved API commit but none was found" >&2
+              exit 1
+            fi
+            echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$INSTALL_MODE" = "installed" ]; then
+              if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
+                echo "ERROR: manual install requested 'installed' but no resolved commit available" >&2
+                exit 1
+              fi
+              echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+            else
+              echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
+          fi
 
   db-schema-update:
     name: 'Database Schema Update'
@@ -111,16 +146,11 @@ jobs:
     needs: [resolve-api-meta]
     if: ${{ always() }}
     steps:
-    - name: Checkout code at API commit
-      if: ${{ needs.resolve-api-meta.result == 'success' && needs.resolve-api-meta.outputs.COMMIT_SHA != '' }}
+    - name: Checkout repo (shallow)
       uses: actions/checkout@v4
       with:
-        ref: ${{ needs.resolve-api-meta.outputs.COMMIT_SHA }}
+        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
         fetch-depth: 0
-
-    - name: Checkout code (default)
-      if: ${{ needs.resolve-api-meta.result != 'success' || needs.resolve-api-meta.outputs.COMMIT_SHA == '' }}
-      uses: actions/checkout@v4
 
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2
@@ -184,16 +214,11 @@ jobs:
     needs: [resolve-api-meta, db-schema-update]
     if: ${{ always() && contains('repository_dispatch,workflow_dispatch', github.event_name) }}
     steps:
-    - name: Checkout code at API commit
-      if: ${{ needs.resolve-api-meta.result == 'success' && needs.resolve-api-meta.outputs.COMMIT_SHA != '' }}
+    - name: Checkout repo (shallow)
       uses: actions/checkout@v4
       with:
-        ref: ${{ needs.resolve-api-meta.outputs.COMMIT_SHA }}
+        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
         fetch-depth: 0
-
-    - name: Checkout code (default)
-      if: ${{ needs.resolve-api-meta.result != 'success' || needs.resolve-api-meta.outputs.COMMIT_SHA == '' }}
-      uses: actions/checkout@v4
 
     - name: Setup python
       uses: actions/setup-python@v5

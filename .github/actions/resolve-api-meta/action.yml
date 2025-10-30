@@ -15,6 +15,9 @@ outputs:
   API_VERSION:
     description: Resolved API version
     value: ${{ steps.resolve.outputs.API_VERSION }}
+  RESOLVED:
+    description: Whether a commit SHA was resolved (true/false)
+    value: ${{ steps.resolve.outputs.RESOLVED }}
 runs:
   using: composite
   steps:
@@ -28,6 +31,7 @@ runs:
         set -euo pipefail
         COMMIT_SHA=""
         API_VERSION=""
+        RESOLVED="false"
         if [[ -n "${API_REFRESH_TOKEN:-}" ]]; then
           echo "Resolving API commit from https://${API_BASE_URL}/v1/metadata ..."
           REPLY_JSON=$(curl --fail --silent --show-error --location "https://${API_BASE_URL}/v1/tokens" \
@@ -49,11 +53,14 @@ runs:
             echo "Metadata reply: ${META_JSON}" >&2
             exit 1
           fi
+          RESOLVED="true"
           echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
         else
           echo "No token provided; skipping API metadata resolution."
         fi
         echo "COMMIT_SHA=${COMMIT_SHA}"
         echo "API_VERSION=${API_VERSION}"
+        echo "RESOLVED=${RESOLVED}"
         echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
         echo "API_VERSION=${API_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "RESOLVED=${RESOLVED}" >> "$GITHUB_OUTPUT"
