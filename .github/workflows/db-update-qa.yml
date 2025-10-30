@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       DRY_RUN:
-        description: Skip applying schema and content updates
+        description: Dry run. Skip applying schema and content updates
         required: false
         default: false
         type: boolean
@@ -25,9 +25,17 @@ jobs:
       API_BASE_URL: api-qa.mobilitydatabase.org
       # DRY_RUN is only if requested by the user in a workflow_dispatch
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
-      # We always want to install the latest except if we received a dispatch from mobility_database_catalog.
-      # In that case we want to keep the currently installed version.
-      INSTALL_LATEST: ${{ github.event_name != 'repository_dispatch' }}
+      # We want to use the currently installed version (not the latest) if we received a dispatch from
+      #   mobility_database_catalog.
+      # We want to use the latest version if the trigger was workflow_call, because currently it's used for
+      #   upgrading (e.g. release.yml)
+      # For a workflow_dispatch (manual trigger), we use the value set by the user.
+      INSTALL_LATEST: ${{
+        (github.event_name == 'repository_dispatch' && false) ||
+        (github.event_name == 'workflow_call' && true) ||
+        (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST)
+      }}
+
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
