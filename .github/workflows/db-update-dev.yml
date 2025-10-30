@@ -10,6 +10,12 @@ on:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
   workflow_dispatch:
+    inputs:
+      DRY_RUN:
+        description: Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
@@ -20,6 +26,7 @@ jobs:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api-dev.mobilitydatabase.org
+      DRY_RUN: ${{ inputs.DRY_RUN }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
