@@ -75,8 +75,8 @@ on:
         required: false
         default: api.mobilitydatabase.org
         type: string
-      INSTALL_CURRENT:
-        description: Install the currently deployed API version when true; when false install main (latest).
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false keep the currently deployed version.
         required: false
         default: false
         type: boolean
@@ -97,64 +97,32 @@ jobs:
     # Run this job for all triggers; the action itself will skip resolution when API_BASE_URL or token is not provided.
     # Keeping it unconditional ensures CHECKOUT_REF is always set (defaults to 'main') for downstream jobs.
     outputs:
-      COMMIT_SHA: ${{ steps.resolve.outputs.COMMIT_SHA }}
-      API_VERSION: ${{ steps.resolve.outputs.API_VERSION }}
-      CHECKOUT_REF: ${{ steps.decide_ref.outputs.CHECKOUT_REF }}
+      # Use resolved commit when available; otherwise default to 'main'.
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
     steps:
       - name: Checkout repo (for scripts and local action)
         uses: actions/checkout@v4
       - name: Resolve API commit/version
         id: resolve
-        # The composite action itself checks for a missing token and will skip resolution when none is provided.
+        if: ${{ inputs.INSTALL_LATEST == false }}
         uses: ./.github/actions/resolve-api-meta
         with:
           api_base_url: ${{ inputs.API_BASE_URL }}
           api_refresh_token: ${{ secrets.API_TEST_REFRESH_TOKEN }}
-      - name: Determine install target ref
-        id: decide_ref
-        run: |
-          set -euo pipefail
-          EVENT='${{ github.event_name }}'
-          INSTALL_CURRENT='${{ inputs.INSTALL_CURRENT }}'
-          RESOLVED='${{ steps.resolve.outputs.RESOLVED }}'
-          COMMIT_SHA='${{ steps.resolve.outputs.COMMIT_SHA }}'
-          echo "event=$EVENT, install_current=$INSTALL_CURRENT, resolved=$RESOLVED, commit=$COMMIT_SHA"
-          if [ "$EVENT" = "repository_dispatch" ]; then
-            # For repository_dispatch we always install the currently deployed version; fail if missing
-            if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
-              echo "ERROR: repository_dispatch requires a resolved API commit but none was found" >&2
-              exit 1
-            fi
-            echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT" = "workflow_dispatch" ]; then
-            # For manual runs, INSTALL_CURRENT=true -> install deployed; false -> install main
-            if [ "$INSTALL_CURRENT" = "true" ]; then
-              if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
-                echo "ERROR: manual install requested current version but no resolved commit available" >&2
-                exit 1
-              fi
-              echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-            else
-              echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            # push or other events: default to main
-            echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
-          fi
 
   db-schema-update:
     name: 'Database Schema Update'
     permissions: write-all
     runs-on: ubuntu-latest
     needs: [resolve-api-meta]
-    # If we need to install the currently installed version Only run schema update when we're NOT installing the currently deployed API version.
-    # INSTALL_CURRENT is a boolean input: true means install the deployed commit (skip schema),
-    # false means install the latest from main (apply schema updates).
-    if: ${{ !inputs.INSTALL_CURRENT }}
+    # Only run the schema update when INSTALL_LATEST is true (we're installing main/latest).
+    # If not, we have nothing to do since we will use the version already installed.
+    if: ${{ inputs.INSTALL_LATEST == true }}
     steps:
     - name: Checkout repo (shallow)
       uses: actions/checkout@v4
       with:
+        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
         ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
         fetch-depth: 0
 
@@ -218,11 +186,12 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     needs: [resolve-api-meta, db-schema-update]
-    if: ${{ always() && contains('repository_dispatch,workflow_dispatch', github.event_name) }}
+    if: ${{ always() }}
     steps:
     - name: Checkout repo (shallow)
       uses: actions/checkout@v4
       with:
+        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
         ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
         fetch-depth: 0
 
@@ -240,8 +209,6 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
       
     - name: Update .env file
-      env:
-        API_VERSION: ${{ needs.resolve-api-meta.outputs.API_VERSION }}
       run: |
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
         echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
@@ -251,7 +218,6 @@ jobs:
         echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=localhost" >> config/.env.local
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
-        if [[ -n "${API_VERSION}" ]]; then echo "API_VERSION=${API_VERSION}" >> config/.env.local; fi
         cat config/.env.local
 
     - name: Load secrets from 1Password

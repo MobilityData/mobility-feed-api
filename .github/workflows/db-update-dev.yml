@@ -16,11 +16,6 @@ on:
         required: false
         default: false
         type: boolean
-      INSTALL_CURRENT:
-        description: Install the currently deployed API version when true; when false install main (latest).
-        required: false
-        default: true
-        type: boolean
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
@@ -31,8 +26,11 @@ jobs:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api-dev.mobilitydatabase.org
-      DRY_RUN: ${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.DRY_RUN || 'false') || inputs.DRY_RUN || 'false' }}
-      INSTALL_CURRENT: ${{ github.event_name == 'repository_dispatch' && 'true' || inputs.INSTALL_CURRENT || 'true' }}
+      # DRY_RUN is only if requested by the user in a workflow_dispatch
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      # We always want to install the latest except if we received a dispatch from mobility_database_catalog.
+      # In that case we want to keep the currently installed version.
+      INSTALL_LATEST: ${{ github.event_name != 'repository_dispatch' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}

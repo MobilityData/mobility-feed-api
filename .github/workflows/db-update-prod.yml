@@ -8,11 +8,6 @@ on:
         required: false
         default: false
         type: boolean
-      INSTALL_CURRENT:
-        description: Install the currently deployed API version when true; when false install main (latest).
-        required: false
-        default: true
-        type: boolean
   workflow_call: []
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
@@ -26,14 +21,11 @@ jobs:
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api.mobilitydatabase.org
-      DRY_RUN: ${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.DRY_RUN || 'false') || inputs.DRY_RUN || 'false' }}
-      # Algorithm for INSTALL_CURRENT (forwarded to db-update.yml):
-      # - If the trigger is repository_dispatch, force 'true' because we want to re-install the same repo-dispatch runs must
-      #   install the currently deployed API version (fail if unknown).
-      # - If the trigger is from another workflow (workflow_call), currently from release.yml, force 'false'
-      #   because it's a release, we want the latest not the current.
-      # - Otherwise (manual workflow_dispatch) use the wrapper's inputs.INSTALL_CURRENT.
-      INSTALL_CURRENT: ${{ github.event_name == 'repository_dispatch' && 'true' || github.event_name == 'workflow_call' && 'false' || inputs.INSTALL_CURRENT || 'false' }}
+      # DRY_RUN is only if requested by the user in a workflow_dispatch
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      # We always want to install the latest except if we received a dispatch from mobility_database_catalog.
+      # In that case we want to keep the currently installed version.
+      INSTALL_LATEST: ${{ github.event_name != 'repository_dispatch' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}

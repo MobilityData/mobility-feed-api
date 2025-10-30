@@ -56,7 +56,8 @@ runs:
           RESOLVED="true"
           echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
         else
-          echo "No token provided; skipping API metadata resolution."
+          echo "Error: no API refresh token provided; cannot resolve deployed commit." >&2
+          exit 1
         fi
         echo "COMMIT_SHA=${COMMIT_SHA}"
         echo "API_VERSION=${API_VERSION}"
