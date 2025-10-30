@@ -1,20 +1,19 @@
 # Update the Mobility Database Schema
 name: Database Update - PROD
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger
     inputs:
-      INSTALL_MODE:
-        description: Which API version to install when run manually. "installed" = install the currently deployed API version; "latest" = install latest from main.
+      DRY_RUN:
+        description: Skip applying schema and content updates
         required: false
-        default: installed
-        type: string
-  workflow_call:
-    inputs:
-      INSTALL_MODE:
-        description: Which API version to install when called as a reusable workflow (defaults to latest)
+        default: false
+        type: boolean
+      INSTALL_CURRENT:
+        description: Install the currently deployed API version when true; when false install main (latest).
         required: false
-        default: latest
-        type: string
+        default: true
+        type: boolean
+  workflow_call: []
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 jobs:
@@ -27,7 +26,14 @@ jobs:
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       API_BASE_URL: api.mobilitydatabase.org
-      INSTALL_MODE: ${{ inputs.INSTALL_MODE }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.DRY_RUN || 'false') || inputs.DRY_RUN || 'false' }}
+      # Algorithm for INSTALL_CURRENT (forwarded to db-update.yml):
+      # - If the trigger is repository_dispatch, force 'true' because we want to re-install the same repo-dispatch runs must
+      #   install the currently deployed API version (fail if unknown).
+      # - If the trigger is from another workflow (workflow_call), currently from release.yml, force 'false'
+      #   because it's a release, we want the latest not the current.
+      # - Otherwise (manual workflow_dispatch) use the wrapper's inputs.INSTALL_CURRENT.
+      INSTALL_CURRENT: ${{ github.event_name == 'repository_dispatch' && 'true' || github.event_name == 'workflow_call' && 'false' || inputs.INSTALL_CURRENT || 'false' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}

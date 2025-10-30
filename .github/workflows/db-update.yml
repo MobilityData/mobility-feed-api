@@ -75,11 +75,11 @@ on:
         required: false
         default: api.mobilitydatabase.org
         type: string
-      INSTALL_MODE:
-        description: Which API version to install when run manually. "installed" = install the currently deployed API version; "latest" = install latest from main.
+      INSTALL_CURRENT:
+        description: Install the currently deployed API version when true; when false install main (latest).
         required: false
-        default: latest
-        type: string
+        default: false
+        type: boolean
       DRY_RUN:
         description: Skip applying schema and content updates
         required: false
@@ -115,20 +115,22 @@ jobs:
         run: |
           set -euo pipefail
           EVENT='${{ github.event_name }}'
-          INSTALL_MODE='${{ inputs.INSTALL_MODE }}'
+          INSTALL_CURRENT='${{ inputs.INSTALL_CURRENT }}'
           RESOLVED='${{ steps.resolve.outputs.RESOLVED }}'
           COMMIT_SHA='${{ steps.resolve.outputs.COMMIT_SHA }}'
-          echo "event=$EVENT, install_mode=$INSTALL_MODE, resolved=$RESOLVED, commit=$COMMIT_SHA"
+          echo "event=$EVENT, install_current=$INSTALL_CURRENT, resolved=$RESOLVED, commit=$COMMIT_SHA"
           if [ "$EVENT" = "repository_dispatch" ]; then
+            # For repository_dispatch we always install the currently deployed version; fail if missing
             if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
               echo "ERROR: repository_dispatch requires a resolved API commit but none was found" >&2
               exit 1
             fi
             echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "workflow_dispatch" ]; then
-            if [ "$INSTALL_MODE" = "installed" ]; then
+            # For manual runs, INSTALL_CURRENT=true -> install deployed; false -> install main
+            if [ "$INSTALL_CURRENT" = "true" ]; then
               if [ "$RESOLVED" != "true" ] || [ -z "$COMMIT_SHA" ]; then
-                echo "ERROR: manual install requested 'installed' but no resolved commit available" >&2
+                echo "ERROR: manual install requested current version but no resolved commit available" >&2
                 exit 1
               fi
               echo "CHECKOUT_REF=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
@@ -136,6 +138,7 @@ jobs:
               echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
             fi
           else
+            # push or other events: default to main
             echo "CHECKOUT_REF=main" >> "$GITHUB_OUTPUT"
           fi
 
@@ -144,7 +147,10 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     needs: [resolve-api-meta]
-    if: ${{ always() }}
+    # If we need to install the currently installed version Only run schema update when we're NOT installing the currently deployed API version.
+    # INSTALL_CURRENT is a boolean input: true means install the deployed commit (skip schema),
+    # false means install the latest from main (apply schema updates).
+    if: ${{ !inputs.INSTALL_CURRENT }}
     steps:
     - name: Checkout repo (shallow)
       uses: actions/checkout@v4
