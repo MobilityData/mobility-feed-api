@@ -37,13 +37,19 @@ def populate_license_rules_task(dry_run, db_session):
         response = requests.get(RULES_JSON_URL, timeout=10)
         response.raise_for_status()
         rules_json = response.json()
+        # Type mapping to satisfy the check constraint of Rule.type
+        TYPE_MAPPING = {
+            "permissions": "permission",
+            "conditions": "condition",
+            "limitations": "limitation",
+        }
 
         # Combine all rule lists from the three categories
         rules_data = []
         for rule_type, rule_list in rules_json.items():
+            normalized_type = TYPE_MAPPING[rule_type]
             for rule_data in rule_list:
-                # Attach the category/type info to each rule
-                rule_data["type"] = rule_type
+                rule_data["type"] = normalized_type
                 rules_data.append(rule_data)
 
         logging.info(
