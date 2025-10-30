@@ -1,0 +1,59 @@
+name: Resolve API commit/version
+description: Resolve deployed API commit SHA and version from the metadata endpoint
+inputs:
+  api_base_url:
+    description: Base URL host for the API (e.g. api-dev.mobilitydatabase.org)
+    required: false
+    default: api.mobilitydatabase.org
+  api_refresh_token:
+    description: API refresh token
+    required: false
+outputs:
+  COMMIT_SHA:
+    description: Resolved commit SHA
+    value: ${{ steps.resolve.outputs.COMMIT_SHA }}
+  API_VERSION:
+    description: Resolved API version
+    value: ${{ steps.resolve.outputs.API_VERSION }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      name: Resolve via API and expose outputs
+      shell: bash
+      env:
+        API_BASE_URL: ${{ inputs.api_base_url }}
+        API_REFRESH_TOKEN: ${{ inputs.api_refresh_token }}
+      run: |
+        set -euo pipefail
+        COMMIT_SHA=""
+        API_VERSION=""
+        if [[ -n "${API_REFRESH_TOKEN:-}" ]]; then
+          echo "Resolving API commit from https://${API_BASE_URL}/v1/metadata ..."
+          REPLY_JSON=$(curl --fail --silent --show-error --location "https://${API_BASE_URL}/v1/tokens" \
+            --header 'Content-Type: application/json' \
+            --data "{ \"refresh_token\": \"${API_REFRESH_TOKEN}\" }")
+          ACCESS_TOKEN=$(echo "${REPLY_JSON}" | jq -r .access_token)
+          if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
+            echo "Error: Could not obtain access token from reply" >&2
+            exit 1
+          fi
+          META_JSON=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H 'accept: application/json' \
+            "https://${API_BASE_URL}/v1/metadata")
+          COMMIT_SHA=$(echo "${META_JSON}" | jq -r .commit_hash)
+          API_VERSION=$(echo "${META_JSON}" | jq -r .version)
+          if [[ -z "${COMMIT_SHA}" || "${COMMIT_SHA}" == "null" ]]; then
+            echo "Error: Could not extract commit_hash from metadata" >&2
+            echo "Metadata reply: ${META_JSON}" >&2
+            exit 1
+          fi
+          echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
+        else
+          echo "No token provided; skipping API metadata resolution."
+        fi
+        echo "COMMIT_SHA=${COMMIT_SHA}"
+        echo "API_VERSION=${API_VERSION}"
+        echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+        echo "API_VERSION=${API_VERSION}" >> "$GITHUB_OUTPUT"
