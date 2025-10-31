@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Type
 
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.query import Query
 
@@ -191,3 +191,63 @@ def get_feeds_with_missing_bounding_boxes_query(
         .order_by(Gtfsfeed.stable_id)
     )
     return query
+
+
+def normalize_url(url_column) -> str:
+    """
+    Normalize a URL by removing the protocol (http:// or https://), 'www.' prefix, and trailing slash.
+    This function generates a SQLAlchemy expression that can be used in queries.
+    Args:
+        url_column: The SQLAlchemy column representing the URL.
+    Returns:
+        A SQLAlchemy expression that normalizes the URL.
+    """
+    return func.regexp_replace(
+        func.regexp_replace(
+            func.regexp_replace(url_column, r"^https?://", "", "gi"),
+            r"^www\.",
+            "",
+            "gi",
+        ),
+        r"/$",
+        "",
+        "g",
+    )
+
+
+def normalize_url_str(url: str | None) -> str:
+    """
+    Normalize a URL string for Python-side comparison:
+    - strip whitespace
+    - remove http:// or https://
+    - remove leading www.
+    - remove trailing slash
+    - lowercase
+    """
+    import re
+
+    if not url:
+        return ""
+    s = url.strip()
+    s = re.sub(r"^https?://", "", s, flags=re.I)
+    s = re.sub(r"^www\.", "", s, flags=re.I)
+    s = re.sub(r"/$", "", s)
+    return s.lower()
+
+
+def get_feed_by_normalized_url(url: str, db_session: Session) -> Feed | None:
+    """
+    Query the feed by normalized URL and exclude deprecated feeds.
+    Args:
+        url: The URL to normalize and search for.
+        db_session: SQLAlchemy session.
+    """
+    normalized_url = normalize_url_str(url)
+    return (
+        db_session.query(Feed)
+        .filter(
+            func.lower(func.trim(normalize_url(Feed.producer_url))) == normalized_url,
+            Feed.status != "deprecated",
+        )
+        .first()
+    )
