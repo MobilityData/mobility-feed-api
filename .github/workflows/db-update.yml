@@ -46,6 +46,9 @@ on:
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL Instance Name
         required: true        
+      API_TEST_REFRESH_TOKEN:
+        description: API refresh token used to resolve deployed API commit (used on repository_dispatch)
+        required: false
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -67,19 +70,61 @@ on:
         description: GCP region
         required: true
         type: string
+      API_BASE_URL:
+        description: Base URL host for the API used to resolve version/commit (e.g. api-dev.mobilitydatabase.org)
+        required: false
+        default: api.mobilitydatabase.org
+        type: string
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false keep the currently deployed version.
+        required: false
+        default: false
+        type: boolean
+      DRY_RUN:
+        description: Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
 
 env:
   python_version: '3.11'
   liquibase_version: '4.33.0'
 
 jobs:
+  resolve-api-meta:
+    name: 'Resolve API commit/version'
+    runs-on: ubuntu-latest
+    # Run this job for all triggers; the action itself will skip resolution when API_BASE_URL or token is not provided.
+    # Keeping it unconditional ensures CHECKOUT_REF is always set (defaults to 'main') for downstream jobs.
+    outputs:
+      # Use resolved commit when available; otherwise default to 'main'.
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+      - name: Resolve API commit/version
+        id: resolve
+        if: ${{ inputs.INSTALL_LATEST == false }}
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: ${{ inputs.API_BASE_URL }}
+          api_refresh_token: ${{ secrets.API_TEST_REFRESH_TOKEN }}
+
   db-schema-update:
     name: 'Database Schema Update'
     permissions: write-all
     runs-on: ubuntu-latest
+    needs: [resolve-api-meta]
+    # Run the schema update when the resolved checkout target is 'main' (install latest/main).
+    # This covers both explicit INSTALL_LATEST runs and cases where resolution failed and CHECKOUT_REF fell back to 'main'.
+    if: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF == 'main' }}
     steps:
-    - name: Checkout code
+    - name: Checkout repo
       uses: actions/checkout@v4
+      with:
+        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
+        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
+        fetch-depth: 0
 
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2
@@ -126,6 +171,7 @@ jobs:
         liquibase --version
     
     - name: Run Liquibase
+      if: ${{ !inputs.DRY_RUN }}
       working-directory: ${{ github.workspace }}/liquibase
       run: |
         export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
@@ -139,11 +185,15 @@ jobs:
     name: 'Database Content Update'
     permissions: write-all
     runs-on: ubuntu-latest
-    needs: db-schema-update
-    if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
+    needs: [resolve-api-meta, db-schema-update]
+    if: ${{ always() }}
     steps:
-    - name: Checkout code
+    - name: Checkout repo
       uses: actions/checkout@v4
+      with:
+        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
+        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
+        fetch-depth: 0
 
     - name: Setup python
       uses: actions/setup-python@v5
@@ -212,11 +262,11 @@ jobs:
       run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
 
     - name: GTFS - Update Database Content
-      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
+      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
     - name: GTFS - Upload log file for verification
-      if: ${{ always() && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
+      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
       uses: actions/upload-artifact@v4
       with:
         name: populate-${{ inputs.ENVIRONMENT }}.log
@@ -232,11 +282,11 @@ jobs:
       run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
 
     - name: GBFS - Update Database Content
-      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
       run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
 
     - name: GBFS - Upload log file for verification
-      if: ${{ always() && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
+      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
       uses: actions/upload-artifact@v4
       with:
         name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
@@ -245,7 +295,7 @@ jobs:
 
   update-gcp-secret:
     name: Update GCP Secrets
-    if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ contains('repository_dispatch,workflow_dispatch', github.event_name) && !inputs.DRY_RUN }}
     runs-on: ubuntu-latest
     steps:
       - name: Authenticate to Google Cloud
@@ -283,6 +333,3 @@ jobs:
             echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
             echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
           fi
-    
-      
-
