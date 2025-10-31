@@ -33,11 +33,8 @@ jobs:
       # We want to use the latest version if the trigger was workflow_call, because currently it's used for
       #   upgrading (e.g. release.yml)
       # For a workflow_dispatch (manual trigger), we use the value set by the user.
-      INSTALL_LATEST: ${{
-        (github.event_name == 'repository_dispatch' && false) ||
-        (github.event_name == 'workflow_call' && true) ||
-        (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST)
-      }}
+      INSTALL_LATEST: ${{ (github.event_name == 'repository_dispatch' && false) || (github.event_name == 'workflow_call' && true) || (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST) }}
+
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
