@@ -28,40 +28,53 @@ runs:
         API_BASE_URL: ${{ inputs.api_base_url }}
         API_REFRESH_TOKEN: ${{ inputs.api_refresh_token }}
       run: |
-        set -euo pipefail
+        # Do not exit on failure; this action should never abort the caller workflow.
+        set -u
         COMMIT_SHA=""
         API_VERSION=""
         RESOLVED="false"
+
         if [[ -n "${API_REFRESH_TOKEN:-}" ]]; then
           echo "Resolving API commit from https://${API_BASE_URL}/v1/metadata ..."
-          REPLY_JSON=$(curl --fail --silent --show-error --location "https://${API_BASE_URL}/v1/tokens" \
+
+          # Exchange refresh token -> access token (handle failures gracefully)
+          REPLY_JSON=$(curl --silent --show-error --location "https://${API_BASE_URL}/v1/tokens" \
             --header 'Content-Type: application/json' \
-            --data "{ \"refresh_token\": \"${API_REFRESH_TOKEN}\" }")
-          ACCESS_TOKEN=$(echo "${REPLY_JSON}" | jq -r .access_token)
-          if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
-            echo "Error: Could not obtain access token from reply" >&2
-            exit 1
+            --data "{ \"refresh_token\": \"${API_REFRESH_TOKEN}\" }" ) || {
+              echo "Warning: token exchange failed; will fallback to 'main'" >&2
+              REPLY_JSON=""
+          }
+
+          if [[ -n "${REPLY_JSON}" ]]; then
+            ACCESS_TOKEN=$(echo "${REPLY_JSON}" | jq -r .access_token 2>/dev/null || echo "")
+            if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
+              echo "Warning: Could not obtain access token from reply; will fallback to 'main'" >&2
+            else
+              META_JSON=$(curl --silent --show-error \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -H 'accept: application/json' \
+                "https://${API_BASE_URL}/v1/metadata" ) || {
+                  echo "Warning: metadata request failed; will fallback to 'main'" >&2
+                  META_JSON=""
+              }
+
+              if [[ -n "${META_JSON}" ]]; then
+                COMMIT_SHA=$(echo "${META_JSON}" | jq -r .commit_hash 2>/dev/null || echo "")
+                API_VERSION=$(echo "${META_JSON}" | jq -r .version 2>/dev/null || echo "")
+                if [[ -n "${COMMIT_SHA}" && "${COMMIT_SHA}" != "null" ]]; then
+                  RESOLVED="true"
+                  echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
+                else
+                  echo "Warning: commit_hash missing in metadata; will fallback to 'main'" >&2
+                fi
+              fi
+            fi
           fi
-          META_JSON=$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H 'accept: application/json' \
-            "https://${API_BASE_URL}/v1/metadata")
-          COMMIT_SHA=$(echo "${META_JSON}" | jq -r .commit_hash)
-          API_VERSION=$(echo "${META_JSON}" | jq -r .version)
-          if [[ -z "${COMMIT_SHA}" || "${COMMIT_SHA}" == "null" ]]; then
-            echo "Error: Could not extract commit_hash from metadata" >&2
-            echo "Metadata reply: ${META_JSON}" >&2
-            exit 1
-          fi
-          RESOLVED="true"
-          echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
         else
-          echo "Error: no API refresh token provided; cannot resolve deployed commit." >&2
-          exit 1
+          echo "No API refresh token provided; skipping API metadata resolution and falling back to 'main'."
         fi
-        echo "COMMIT_SHA=${COMMIT_SHA}"
-        echo "API_VERSION=${API_VERSION}"
-        echo "RESOLVED=${RESOLVED}"
+
+        # Expose outputs (empty COMMIT_SHA and RESOLVED=false indicate fallback to 'main')
         echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
         echo "API_VERSION=${API_VERSION}" >> "$GITHUB_OUTPUT"
         echo "RESOLVED=${RESOLVED}" >> "$GITHUB_OUTPUT"
