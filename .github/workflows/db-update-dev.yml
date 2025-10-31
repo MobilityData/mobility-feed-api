@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false install the currently deployed version.
+        required: false
+        default: false
+        type: boolean
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
