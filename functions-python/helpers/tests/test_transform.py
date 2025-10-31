@@ -1,4 +1,5 @@
 import unittest
+from enum import Enum
 
 import pandas as pd
 
@@ -9,6 +10,8 @@ from transform import (
     get_safe_value_from_csv,
     get_safe_float_from_csv,
     get_safe_int_from_csv,
+    sanitize_value,
+    to_enum,
 )
 
 
@@ -179,3 +182,99 @@ class TestGetSafeInt(unittest.TestCase):
     def test_empty_string(self):
         row = {"value": ""}
         self.assertIsNone(get_safe_int_from_csv(row, "value"))
+
+
+class TestSanitizeValue(unittest.TestCase):
+    def test_simple_strings(self):
+        self.assertEqual(sanitize_value(" Alice "), "Alice")
+        self.assertIsNone(sanitize_value("   "))
+        # Empty string short-circuits to itself per current implementation
+        self.assertEqual(sanitize_value(""), "")
+
+    def test_preserve_falsy_non_strings(self):
+        self.assertIsNone(sanitize_value(None))
+        self.assertEqual(sanitize_value(0), 0)
+        self.assertFalse(sanitize_value(False))
+        self.assertEqual(sanitize_value([]), [])
+        self.assertEqual(sanitize_value({}), {})
+
+    def test_dict_sanitization(self):
+        data = {
+            "name": " Bob ",
+            "age": 30,
+            "empty": "  ",
+            "nested": {"note": "  hi  ", "blank": "   "},
+        }
+        expected = {
+            "name": "Bob",
+            "age": 30,
+            "empty": None,
+            "nested": {"note": "hi", "blank": None},
+        }
+        self.assertEqual(sanitize_value(data), expected)
+
+    def test_list_sanitization(self):
+        data = [" a ", "b", "", 1, True, "  "]
+        expected = ["a", "b", "", 1, True, None]
+        self.assertEqual(sanitize_value(data), expected)
+
+    def test_nested_structures(self):
+        data = {
+            "user": {
+                "name": " Alice ",
+                "tags": [" a ", "", "b"],
+                "meta": {"note": "  ", "ok": True},
+            }
+        }
+        expected = {
+            "user": {
+                "name": "Alice",
+                "tags": ["a", "", "b"],
+                "meta": {"note": None, "ok": True},
+            }
+        }
+        self.assertEqual(sanitize_value(data), expected)
+
+
+class TestToEnum(unittest.TestCase):
+    class Color(Enum):
+        RED = "RED"
+        BLUE = "BLUE"
+        GREEN = "GREEN"
+
+    def test_passthrough_when_already_enum(self):
+        self.assertIs(
+            to_enum(self.Color.RED, enum_class=self.Color, default_value=None),
+            self.Color.RED,
+        )
+
+    def test_convert_from_string_value(self):
+        self.assertEqual(
+            to_enum("RED", enum_class=self.Color, default_value=None), self.Color.RED
+        )
+        self.assertEqual(
+            to_enum("GREEN", enum_class=self.Color, default_value=None),
+            self.Color.GREEN,
+        )
+
+    def test_invalid_value_returns_none(self):
+        self.assertIsNone(to_enum("PURPLE", enum_class=self.Color))
+        self.assertIsNone(to_enum(123, enum_class=self.Color))
+        # whitespace or different casing won't match since implementation doesn't trim/lower
+        self.assertIsNone(to_enum(" red ", enum_class=self.Color))
+        self.assertIsNone(to_enum("red", enum_class=self.Color))
+
+    def test_invalid_value_with_default(self):
+        self.assertEqual(
+            to_enum("PURPLE", enum_class=self.Color, default_value=self.Color.BLUE),
+            self.Color.BLUE,
+        )
+        self.assertEqual(
+            to_enum(None, enum_class=self.Color, default_value="fallback"),
+            "fallback",
+        )
+
+    def test_missing_enum_class_returns_default(self):
+        # When enum_class is None, conversion fails and default is returned
+        self.assertIsNone(to_enum("RED"))
+        self.assertEqual(to_enum("RED", enum_class=None, default_value=0), 0)

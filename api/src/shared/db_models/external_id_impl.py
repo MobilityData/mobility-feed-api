@@ -21,3 +21,12 @@ class ExternalIdImpl(ExternalId):
             external_id=external_id.associated_id,
             source=external_id.source,
         )
+
+    @classmethod
+    def to_orm_from_dict(cls, external_id_dict: dict | None) -> Externalid | None:
+        if not external_id_dict:
+            return None
+        return Externalid(
+            associated_id=external_id_dict.get("external_id"),
+            source=external_id_dict.get("source"),
+        )

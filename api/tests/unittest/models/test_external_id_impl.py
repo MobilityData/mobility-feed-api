@@ -36,6 +36,24 @@ class TestExternalIdImpl(unittest.TestCase):
 
         assert ExternalIdImpl.from_orm(external_id_orm_empty) == expected_external_id_empty
 
-    def test_external_id_impl_none(self):
-        """Test the `from_orm` method with None."""
-        assert ExternalIdImpl.from_orm(None) is None
+    def test_to_orm_from_dict_none_returns_none(self):
+        assert ExternalIdImpl.to_orm_from_dict(None) is None
+
+    def test_to_orm_from_dict_empty_returns_none(self):
+        assert ExternalIdImpl.to_orm_from_dict({}) is None
+
+    def test_to_orm_from_dict_valid_returns_externalid(self):
+        data = {"external_id": "assoc-123", "source": "srcA"}
+        obj = ExternalIdImpl.to_orm_from_dict(data)
+
+        assert isinstance(obj, Externalid)
+        assert obj.associated_id == "assoc-123"
+        assert obj.source == "srcA"
+
+    def test_to_orm_from_dict_extra_keys_ignored(self):
+        data = {"external_id": "x", "source": "y", "ignored": "z"}
+        obj = ExternalIdImpl.to_orm_from_dict(data)
+
+        assert isinstance(obj, Externalid)
+        assert obj.associated_id == "x"
+        assert obj.source == "y"

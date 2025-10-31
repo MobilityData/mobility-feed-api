@@ -21,3 +21,15 @@ class FeedRelatedLinkImpl(FeedRelatedLink):
             description=feed_related_link_orm.description,
             created_at=feed_related_link_orm.created_at,
         )
+
+    @classmethod
+    def to_orm_from_dict(cls, feedrelaticlink_dict: dict) -> Feedrelatedlink | None:
+        """Convert a dict to a SQLAlchemy row object."""
+        if not feedrelaticlink_dict:
+            return None
+        result = Feedrelatedlink(
+            code=feedrelaticlink_dict.get("code"),
+            url=feedrelaticlink_dict.get("url"),
+            description=feedrelaticlink_dict.get("description"),
+        )
+        return result

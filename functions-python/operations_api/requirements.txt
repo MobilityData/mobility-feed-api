@@ -33,3 +33,4 @@ deepdiff
 fastapi_filter
 pycountry
 shapely
+pandas

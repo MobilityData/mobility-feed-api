@@ -84,3 +84,6 @@ functions-python/**/*.csv
 
 # Project files
 *.code-workspace
+
+# Ignore OpenApi local backup files
+*.yaml.bak
