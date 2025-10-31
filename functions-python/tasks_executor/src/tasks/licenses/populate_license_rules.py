@@ -68,7 +68,6 @@ def populate_license_rules_task(dry_run, db_session):
                 )
                 db_session.merge(rule_object)
 
-            db_session.commit()
             logging.info(
                 "Successfully upserted %d rules into the database.", len(rules_data)
             )
