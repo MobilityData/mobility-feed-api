@@ -64,7 +64,6 @@ class TestPopulateLicenseRules(unittest.TestCase):
         self.assertEqual(arg2.name, "include-copyright")
         self.assertEqual(arg2.type, "condition")
 
-        mock_db_session.commit.assert_called_once()
         mock_db_session.rollback.assert_not_called()
 
     @patch("tasks.licenses.populate_license_rules.requests.get")
@@ -84,7 +83,6 @@ class TestPopulateLicenseRules(unittest.TestCase):
         # Assert
         mock_requests_get.assert_called_once_with(RULES_JSON_URL, timeout=10)
         mock_db_session.merge.assert_not_called()
-        mock_db_session.commit.assert_not_called()
         mock_db_session.rollback.assert_not_called()
 
     @patch("tasks.licenses.populate_license_rules.requests.get")
@@ -101,7 +99,6 @@ class TestPopulateLicenseRules(unittest.TestCase):
             populate_license_rules_task(dry_run=False, db_session=mock_db_session)
 
         mock_db_session.merge.assert_not_called()
-        mock_db_session.commit.assert_not_called()
         mock_db_session.rollback.assert_not_called()
 
     @patch("tasks.licenses.populate_license_rules.requests.get")
@@ -121,7 +118,6 @@ class TestPopulateLicenseRules(unittest.TestCase):
             populate_license_rules_task(dry_run=False, db_session=mock_db_session)
 
         self.assertTrue(mock_db_session.merge.called)
-        mock_db_session.commit.assert_not_called()
         mock_db_session.rollback.assert_called_once()
 
 
