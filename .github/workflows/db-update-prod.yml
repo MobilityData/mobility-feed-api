@@ -13,9 +13,10 @@ on:
         required: false
         default: false
         type: boolean
-  workflow_call: []
+  workflow_call:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
+
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml

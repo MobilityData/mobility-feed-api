@@ -8,13 +8,12 @@ on:
         required: false
         default: false
         type: boolean
-        INSTALL_LATEST:
-          description: Install the latest (main) API version when true; when false install the currently deployed version.
-          required: false
-          default: false
-          type: boolean
-  workflow_call: []
-
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false install the currently deployed version.
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 

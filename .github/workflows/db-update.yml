@@ -119,7 +119,7 @@ jobs:
     # If not, we have nothing to do since we will use the version already installed.
     if: ${{ inputs.INSTALL_LATEST == true }}
     steps:
-    - name: Checkout repo (shallow)
+    - name: Checkout repo
       uses: actions/checkout@v4
       with:
         # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
@@ -188,7 +188,7 @@ jobs:
     needs: [resolve-api-meta, db-schema-update]
     if: ${{ always() }}
     steps:
-    - name: Checkout repo (shallow)
+    - name: Checkout repo
       uses: actions/checkout@v4
       with:
         # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
