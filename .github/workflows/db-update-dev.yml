@@ -47,7 +47,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      API_TEST_REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+      API_TEST_REFRESH_TOKEN: "qaz"
   notify-slack-on-failure:
     needs: [ update ]
     if: always() && (needs.update.result == 'failure') && (github.event_name == 'repository_dispatch')
