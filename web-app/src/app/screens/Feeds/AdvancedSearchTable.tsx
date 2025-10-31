@@ -108,7 +108,7 @@ const renderGBFSDetails = (
             border: selectedGbfsVersions.includes('v' + version)
               ? `2px solid ${theme.palette.primary.main}`
               : '',
-            color: 'black',
+            color: theme.palette.text.primary,
           }}
         />
       ))}
