@@ -115,9 +115,9 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     needs: [resolve-api-meta]
-    # Only run the schema update when INSTALL_LATEST is true (we're installing main/latest).
-    # If not, we have nothing to do since we will use the version already installed.
-    if: ${{ inputs.INSTALL_LATEST == true }}
+    # Run the schema update when the resolved checkout target is 'main' (install latest/main).
+    # This covers both explicit INSTALL_LATEST runs and cases where resolution failed and CHECKOUT_REF fell back to 'main'.
+    if: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF == 'main' }}
     steps:
     - name: Checkout repo
       uses: actions/checkout@v4
