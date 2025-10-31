@@ -30,10 +30,10 @@ def populate_license_rules_task(dry_run, db_session):
         dry_run (bool): If True, the function will simulate the operation without making changes.
         db_session: Database session for executing queries.
     """
-    logging.info(f"Starting populate_license_rules_task with dry_run={dry_run}")
+    logging.info("Starting populate_license_rules_task with dry_run=%s", dry_run)
 
     try:
-        logging.info(f"Downloading rules from {RULES_JSON_URL}")
+        logging.info("Downloading rules from %s", RULES_JSON_URL)
         response = requests.get(RULES_JSON_URL, timeout=10)
         response.raise_for_status()
         rules_json = response.json()
@@ -53,11 +53,11 @@ def populate_license_rules_task(dry_run, db_session):
                 rules_data.append(rule_data)
 
         logging.info(
-            f"Loaded {len(rules_data)} rules from {len(rules_json)} categories."
+            "Loaded %d rules from %d categories.", len(rules_data), len(rules_json)
         )
 
         if dry_run:
-            logging.info(f"Dry run: would insert/update {len(rules_data)} rules.")
+            logging.info("Dry run: would insert/update %d rules.", len(rules_data))
         else:
             for rule_data in rules_data:
                 rule_object = Rule(
@@ -70,14 +70,14 @@ def populate_license_rules_task(dry_run, db_session):
 
             db_session.commit()
             logging.info(
-                f"Successfully upserted {len(rules_data)} rules into the database."
+                "Successfully upserted %d rules into the database.", len(rules_data)
             )
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to download rules JSON file: {e}")
+        logging.error("Failed to download rules JSON file: %s", e)
         raise
     except Exception as e:
-        logging.error(f"An error occurred while populating license rules: {e}")
+        logging.error("An error occurred while populating license rules: %s", e)
         db_session.rollback()
         raise
 
