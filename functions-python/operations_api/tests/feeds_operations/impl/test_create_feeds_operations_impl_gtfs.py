@@ -141,5 +141,5 @@ async def test_create_gtfs_feed_duplicate_url_rejected():
     assert exc_info.value.status_code == 400
     assert (
         exc_info.value.detail
-        == f"A published feed with url {duplicate_url} already exists."
+        == f"A published feed with url {duplicate_url} already exists.Existing feed ID: mdb-41, URL: producer_url"
     )

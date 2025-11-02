@@ -318,6 +318,8 @@ class OperationsApiImpl(BaseOperationsApi):
             message = (
                 f"A published feed with url "
                 f"{operation_create_request_gtfs_feed.source_info.producer_url} already exists."
+                f"Existing feed ID: {existing_feed.stable_id}, "
+                f"URL: {existing_feed.producer_url}"
             )
             logging.error(message)
             raise HTTPException(
