@@ -447,7 +447,7 @@ def _process_feed(
         }, None
 
     # Upsert/lookup schedule feed
-    stable_id = f"jbda-{feed_id}"
+    stable_id = f"jbda-{org_id}-{feed_id}"
     gtfs_feed, is_new_gtfs = _get_or_create_feed(
         db_session, Gtfsfeed, stable_id, "gtfs"
     )
@@ -503,7 +503,6 @@ def _process_feed(
         location=location,
     )
 
-    feed_to_publish = gtfs_feed if is_new_gtfs else None
     return (
         {
             "created_gtfs": created_gtfs,
@@ -512,7 +511,7 @@ def _process_feed(
             "linked_refs": linked_refs,
             "processed": 1,
         },
-        feed_to_publish,
+        gtfs_feed if is_new_gtfs else None,
     )
 
 
@@ -521,6 +520,7 @@ def _build_api_schedule_fingerprint(
 ) -> dict:
     """Collect only fields we actually persist on schedule feeds."""
     return {
+        "stable_id": f"jbda-{list_item.get('organization_id')}-{list_item.get('feed_id')}",
         "feed_name": detail.get("feed_name"),
         "provider": list_item.get("organization_name"),
         "producer_url": producer_url,
@@ -536,6 +536,7 @@ def _build_api_schedule_fingerprint(
 
 def _build_db_schedule_fingerprint(feed: Gtfsfeed) -> dict:
     return {
+        "stable_id": getattr(feed, "stable_id", None),
         "feed_name": getattr(feed, "feed_name", None),
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
@@ -571,9 +572,9 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
 
     logger.info(
         "Commit batch size (env COMMIT_BATCH_SIZE)=%s",
-        os.getenv("COMMIT_BATCH_SIZE", "20"),
+        os.getenv("COMMIT_BATCH_SIZE", "5"),
     )
-    commit_batch_size = int(os.getenv("COMMIT_BATCH_SIZE", 20))
+    commit_batch_size = int(os.getenv("COMMIT_BATCH_SIZE", 5))
 
     # Aggregates
     created_gtfs = updated_gtfs = created_rt = linked_refs = total_processed = 0
@@ -602,9 +603,11 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
             if not dry_run and (total_processed % commit_batch_size == 0):
                 logger.info("Committing batch at total_processed=%d", total_processed)
                 try:
-                    db_session.commit()
+                    commit_changes(db_session, feeds_to_publish, total_processed)
+                    feeds_to_publish = []  # reset after commit
                 except IntegrityError:
                     db_session.rollback()
+                    feeds_to_publish = []  # reset even on failure
                     logger.exception(
                         "DB IntegrityError during batch commit at processed=%d",
                         total_processed,
@@ -639,12 +642,10 @@ def commit_changes(
     db_session: Session, feeds_to_publish: list[Feed], total_processed: int
 ):
     """
-    Final commit + downstream triggers after main loop.
+    Commit DB changes and trigger dataset downloads for new feeds.
     """
     try:
-        logger.info(
-            "Final commit after processing all items (count=%d)", total_processed
-        )
+        logger.info("Commit after processing items (count=%d)", total_processed)
         db_session.commit()
         execution_id = str(uuid.uuid4())
         publisher = pubsub_v1.PublisherClient()
@@ -652,4 +653,4 @@ def commit_changes(
             trigger_dataset_download(feed, execution_id, publisher)
     except IntegrityError:
         db_session.rollback()
-        logger.exception("Final commit failed with IntegrityError; rolled back")
+        logger.exception("Commit failed with IntegrityError; rolled back")

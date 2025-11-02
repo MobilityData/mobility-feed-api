@@ -1,10 +1,22 @@
 # Update the Mobility Database Schema
 name: Database Update - PROD
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false install the currently deployed version.
+        required: false
+        default: false
+        type: boolean
   workflow_call:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
+
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
@@ -14,6 +26,16 @@ jobs:
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      API_BASE_URL: api.mobilitydatabase.org
+      # DRY_RUN is only if requested by the user in a workflow_dispatch
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      # We want to use the currently installed version (not the latest) if we received a dispatch from
+      #   mobility_database_catalog.
+      # We want to use the latest version if the trigger was workflow_call, because currently it's used for
+      #   upgrading (e.g. release.yml)
+      # For a workflow_dispatch (manual trigger), we use the value set by the user.
+      INSTALL_LATEST: ${{ (github.event_name == 'repository_dispatch' && false) || (github.event_name == 'workflow_call' && true) || (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST) }}
+
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
@@ -23,6 +45,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      API_TEST_REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
 
   notify-slack-on-failure:
     needs: [ update ]
