@@ -308,7 +308,7 @@ class OperationsApiImpl(BaseOperationsApi):
             Field(description="Payload to create the specified GTFS feed."),
         ],
         db_session: Session = None,
-    ) -> None:
+    ) -> OperationGtfsFeed:
         """Create a GTFS feed in the Mobility Database."""
         #         Check if the provider_url already exists in an active feed
         existing_feed = get_feed_by_normalized_url(

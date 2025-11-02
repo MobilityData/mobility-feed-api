@@ -95,7 +95,10 @@ paths:
         201:
           description: >
             The feed was successfully created. No content is returned.
-
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationGtfsFeed"
         400:
           description: >
             The request was invalid.
