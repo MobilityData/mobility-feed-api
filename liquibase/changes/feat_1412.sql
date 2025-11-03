@@ -1,2 +1,2 @@
 -- Create MD source sequence
-CREATE SEQUENCE md_sequence START 1;
+CREATE SEQUENCE IF NOT EXISTS md_sequence START WITH 1;
