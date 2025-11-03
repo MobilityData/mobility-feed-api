@@ -6,7 +6,7 @@ on:
       DRY_RUN:
         description: Dry run. Skip applying schema and content updates
         required: false
-        default: false
+        default: true
         type: boolean
       INSTALL_LATEST:
         description: Install the latest (main) API version when true; when false install the currently deployed version.
@@ -14,10 +14,31 @@ on:
         default: false
         type: boolean
   workflow_call:
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: true
+        type: boolean
+      INSTALL_LATEST:
+        description: Install the latest (main) API version when true; when false install the currently deployed version.
+        required: false
+        default: false
+        type: boolean
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
 jobs:
+  print-event-name:
+    name: Print event name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print event and inputs
+        run: |
+          echo "github.event_name=${{ github.event_name }}"
+          echo "inputs.DRY_RUN=${{ inputs.DRY_RUN }}"
+          echo "inputs.INSTALL_LATEST=${{ inputs.INSTALL_LATEST }}"
+
   update:
     uses: ./.github/workflows/db-update.yml
     with:
@@ -34,7 +55,7 @@ jobs:
       # We want to use the latest version if the trigger was workflow_call, because currently it's used for
       #   upgrading (e.g. release.yml)
       # For a workflow_dispatch (manual trigger), we use the value set by the user.
-      INSTALL_LATEST: ${{ (github.event_name == 'repository_dispatch' && false) || (github.event_name == 'workflow_call' && true) || (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST) }}
+      INSTALL_LATEST: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST) }}
 
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}

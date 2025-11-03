@@ -17,7 +17,18 @@ on:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
+# Top-level env: IS_RELEASE is the negation of the chosen "release-like" test
+# Algorithm: IS_RELEASE == true means this run is a release-like run (i.e. NOT a repository_dispatch or workflow_dispatch that is a non-DRY_RUN)
+env:
+  IS_RELEASE: ${{ !(contains('repository_dispatch,workflow_dispatch', github.event_name) && !inputs.DRY_RUN) }}
+
 jobs:
+  print-event-name:
+    name: Print event name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print event name
+        run: echo "github.event_name=${{ github.event_name }}"
   update:
     uses: ./.github/workflows/db-update.yml
     with:
