@@ -51,8 +51,11 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
-from shared.helpers.query_helper import query_feed_by_stable_id, get_feeds_query
-from test_shared.helpers.query_helper import get_feed_by_normalized_url
+from shared.helpers.query_helper import (
+    query_feed_by_stable_id,
+    get_feeds_query,
+    get_feed_by_normalized_url,
+)
 from .models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeedImpl,
 )
