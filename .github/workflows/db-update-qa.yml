@@ -25,8 +25,8 @@ on:
         required: false
         default: false
         type: boolean
-  repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [ catalog-sources-updated, gbfs-systems-updated ]
+#  repository_dispatch: # Update on mobility-database-catalog repo dispatch
+#    types: [ catalog-sources-updated, gbfs-systems-updated ]
 
 jobs:
   print-event-name:
