@@ -3,52 +3,42 @@ name: Database Update
 on:
   workflow_call:
     inputs:
-      DRY_RUN:
+      DRY_RUN: #
         description: Dry run. Skip applying schema and content updates
         required: false
         default: true
         type: boolean
-      PROJECT_ID:
+      PROJECT_ID: #
         description: GCP Project ID (forwarded to child workflows)
         required: false
         type: string
-      REGION:
+      REGION: #
         description: GCP region (forwarded to child workflows)
         required: false
         type: string
-      DB_NAME:
+      DB_NAME: #
         description: PostgreSQL Database Name (forwarded to child workflows)
         required: false
         type: string
-      ENVIRONMENT:
-        description: Environment label (forwarded to child workflows)
-        required: false
-        type: string
-      DB_ENVIRONMENT:
+      DB_ENVIRONMENT: #
         description: Environment where DB is deployed (forwarded to child workflows)
         required: false
         type: string
     secrets:
-      DB_USER_PASSWORD:
+      DB_USER_PASSWORD: #
         description: PostgreSQL User Password
         required: true
-      DB_USER_NAME:
+      DB_USER_NAME: #
         description: PostgreSQL User Name
         required: true
-      POSTGRE_SQL_INSTANCE_NAME:
+      POSTGRE_SQL_INSTANCE_NAME: #
         description: PostgreSQL Instance Name
         required: true
-      DB_GCP_MOBILITY_FEEDS_SA_KEY:
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: #
         description: Service account key for DB environment
         required: true
-      GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key for GCP (general)
-        required: true
-      OP_SERVICE_ACCOUNT_TOKEN:
+      OP_SERVICE_ACCOUNT_TOKEN: #
         description: 1Password Service Account Token
-        required: true
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
-        description: 1Password token for feeds secret
         required: true
 
 jobs:
@@ -67,67 +57,68 @@ jobs:
           echo "inputs.DB_ENVIRONMENT=${{ inputs.DB_ENVIRONMENT || 'unset' }}"
 
   db-update-schema:
-    name: Call DB schema update
-    uses: ./.github/workflows/db-update-schema.yml
-    with:
-      PROJECT_ID: ${{ inputs.PROJECT_ID }}
-      REGION: ${{ inputs.REGION }}
-      DB_NAME: ${{ inputs.DB_NAME }}
-      DB_ENVIRONMENT: ${{ inputs.DB_ENVIRONMENT }}
-      DRY_RUN: ${{ inputs.DRY_RUN }}
-    secrets: inherit
-
-  db-update-content:
-    name: Call DB content update
-    needs: [ db-update-schema ]
-    uses: ./.github/workflows/db-update-content.yml
-    with:
-      PROJECT_ID: ${{ inputs.PROJECT_ID }}
-      REGION: ${{ inputs.REGION }}
-      DB_NAME: ${{ inputs.DB_NAME }}
-      ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-      DB_ENVIRONMENT: ${{ inputs.DB_ENVIRONMENT }}
-      DRY_RUN: ${{ inputs.DRY_RUN }}
-      CHECKOUT_REF: main
-    secrets: inherit
-
-  update-gcp-secret:
-    name: Update GCP Secrets
-    if: ${{ !inputs.DRY_RUN }}
+  db-schema-update:
+    name: 'Database Schema Update'
+    permissions: write-all
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        ref: main
 
-      - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: Load secrets from 1Password
-        id: onepw_secrets
-        uses: 1password/load-secrets-action@v2.0.0
-        with:
-          export-env: true # Export loaded secrets as environment variables
-        env:
-          # This alternate service account token gives access to a vault writable by some third
-          # party people who can update the list of feeds requiring authorization and their tokens
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
-          JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create or Update Auth Secret
-        env:
-          PROJECT_ID: ${{ inputs.PROJECT_ID }}
-          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-          SECRET_VALUE: ${{ env.JSON_FEEDS_WITH_TOKENS }}
-          SECRET_NAME: FEEDS_CREDENTIALS
-        run: |
-          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v2.0.0
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
 
-          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
-            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
-          else
-            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
-          fi
+    - name: Tunnel
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ./scripts/tunnel-create.sh -project_id ${{ inputs.PROJECT_ID }} -zone ${{ inputs.REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ inputs.DB_ENVIRONMENT}} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
+        sleep 10 # Wait for the tunnel to establish
+
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
+
+    - name: Install Liquibase
+      env:
+        LIQUIBASE_VERSION: ${{ env.liquibase_version }}
+      run: |
+        curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+        rm -rf liquibase-dist
+        mkdir liquibase-dist
+        tar -xzf liquibase.tar.gz -C liquibase-dist
+        sudo rm -rf /usr/local/liquibase
+        sudo mv liquibase-dist /usr/local/liquibase
+        sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+        liquibase --version
+
+    - name: Run Liquibase
+      if: ${{ !inputs.DRY_RUN }}
+      working-directory: ${{ github.workspace }}/liquibase
+      run: |
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.DB_NAME }}
+        export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
+        export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
+        export LIQUIBASE_LOG_LEVEL=FINE
+        liquibase update
+
