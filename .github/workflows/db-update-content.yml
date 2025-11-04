@@ -2,6 +2,28 @@
 name: Database Update - Content
 on:
   workflow_call:
+    secrets:
+      DB_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for the DB project (JSON)
+        required: true
+      GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for the general GCP project (JSON)
+        required: true
+      DB_USER_NAME:
+        description: PostgreSQL user name
+        required: true
+      DB_USER_PASSWORD:
+        description: PostgreSQL user password
+        required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password Service Account token
+        required: true
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password token for feeds secret
+        required: true
+      POSTGRE_SQL_INSTANCE_NAME:
+        description: PostgreSQL instance name
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
