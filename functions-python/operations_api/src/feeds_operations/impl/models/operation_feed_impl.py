@@ -1,9 +1,9 @@
 from feeds_gen.models.operation_feed import OperationFeed
 from shared.database_gen.sqlacodegen_models import Feed
-from shared.db_models.basic_feed_impl import BaseFeedImpl
+from shared.db_models.feed_impl import FeedImpl
 
 
-class OperationFeedImpl(BaseFeedImpl, OperationFeed):
+class OperationFeedImpl(FeedImpl, OperationFeed):
     """Base implementation of the feeds models."""
 
     class Config:
