@@ -56,7 +56,6 @@ jobs:
           echo "inputs.ENVIRONMENT=${{ inputs.ENVIRONMENT || 'unset' }}"
           echo "inputs.DB_ENVIRONMENT=${{ inputs.DB_ENVIRONMENT || 'unset' }}"
 
-  db-update-schema:
   db-schema-update:
     name: 'Database Schema Update'
     permissions: write-all
