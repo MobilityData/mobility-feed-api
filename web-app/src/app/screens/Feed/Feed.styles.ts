@@ -28,7 +28,7 @@ export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
 });
 
 export const featureChipsStyle: SxProps<Theme> = (theme) => ({
-  color: theme.palette.primary.contrastText,
+  color: theme.palette.secondary.contrastText,
   backgroundColor: theme.palette.secondary.dark,
   border: `2px solid transparent`,
   ':hover': {
