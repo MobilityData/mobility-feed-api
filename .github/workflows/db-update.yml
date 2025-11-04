@@ -41,6 +41,10 @@ on:
         description: 1Password Service Account Token
         required: true
 
+env:
+  python_version: '3.11'
+  liquibase_version: '4.33.0'
+
 jobs:
   print-event-name:
     name: Print event name
