@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 import logging
 from typing import Annotated, Optional
@@ -20,11 +22,15 @@ from typing import Annotated, Optional
 from deepdiff import DeepDiff
 from fastapi import HTTPException
 from pydantic import Field, StrictStr
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from feeds_gen.models.data_type import DataType
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
+from feeds_gen.models.operation_create_request_gtfs_feed import (
+    OperationCreateRequestGtfsFeed,
+)
 from feeds_gen.models.operation_gtfs_feed import OperationGtfsFeed
 from feeds_gen.models.operation_gtfs_rt_feed import OperationGtfsRtFeed
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
@@ -48,6 +54,10 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
+    get_feed_by_normalized_url,
+)
+from .models.operation_create_request_gtfs_feed import (
+    OperationCreateRequestGtfsFeedImpl,
 )
 from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
@@ -292,3 +302,50 @@ class OperationsApiImpl(BaseOperationsApi):
             )
 
         return feed
+
+    @with_db_session
+    async def create_gtfs_feed(
+        self,
+        operation_create_request_gtfs_feed: Annotated[
+            OperationCreateRequestGtfsFeed,
+            Field(description="Payload to create the specified GTFS feed."),
+        ],
+        db_session: Session = None,
+    ) -> OperationGtfsFeed:
+        """Create a GTFS feed in the Mobility Database."""
+        #         Check if the provider_url already exists in an active feed
+        existing_feed = get_feed_by_normalized_url(
+            operation_create_request_gtfs_feed.source_info.producer_url, db_session
+        )
+        if existing_feed:
+            message = (
+                f"A published feed with url "
+                f"{operation_create_request_gtfs_feed.source_info.producer_url} already exists."
+                f"Existing feed ID: {existing_feed.stable_id}, "
+                f"URL: {existing_feed.producer_url}"
+            )
+            logging.error(message)
+            raise HTTPException(
+                status_code=400,
+                detail=message,
+            )
+        # Proceed with feed creation
+        new_feed = OperationCreateRequestGtfsFeedImpl.to_orm(
+            operation_create_request_gtfs_feed
+        )
+        new_feed.data_type = DataType.GTFS.value
+        client_provided_stable_id = bool(getattr(new_feed, "stable_id", None))
+        if not client_provided_stable_id:
+            next_val = db_session.execute(
+                text("SELECT nextval('md_sequence')")
+            ).scalar_one()
+            new_feed.stable_id = f"md-{next_val}"
+        client_provided_id = bool(getattr(new_feed, "id", None))
+        if not client_provided_id:
+            new_feed.id = new_feed.stable_id
+        db_session.add(new_feed)
+        db_session.commit()
+        created_feed = db_session.get(Gtfsfeed, new_feed.id)
+        logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
+        payload = OperationGtfsFeedImpl.from_orm(created_feed).model_dump()
+        return JSONResponse(status_code=201, content=jsonable_encoder(payload))

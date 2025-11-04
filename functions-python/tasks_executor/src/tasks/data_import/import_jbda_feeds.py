@@ -28,6 +28,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from shared.common.locations_utils import create_or_get_location
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -38,7 +39,6 @@ from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Officialstatushistory,
 )
-from shared.helpers.locations import create_or_get_location
 from tasks.data_import.data_import_utils import trigger_dataset_download
 from google.cloud import pubsub_v1
 

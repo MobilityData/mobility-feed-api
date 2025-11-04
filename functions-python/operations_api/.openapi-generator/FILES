@@ -10,6 +10,7 @@ src/feeds_gen/models/data_type.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feed.py
+src/feeds_gen/models/feed_related_link.py
 src/feeds_gen/models/feed_status.py
 src/feeds_gen/models/gbfs_endpoint.py
 src/feeds_gen/models/gbfs_feed.py
@@ -23,6 +24,8 @@ src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
 src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
+src/feeds_gen/models/operation_create_request_gtfs_feed.py
+src/feeds_gen/models/operation_create_request_gtfs_feed_source_info.py
 src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py

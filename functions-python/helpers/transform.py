@@ -157,3 +157,18 @@ def get_safe_int(raw_value, default_value: int = None) -> Optional[int]:
         return int(safe_value)
     except (ValueError, TypeError):
         return default_value
+
+
+def sanitize_value(value):
+    """
+    Sanitize a value by applying get_safe_value to all string fields in a nested structure.
+    """
+    if not value:
+        return value
+    if isinstance(value, str):
+        return get_safe_value(value)
+    if isinstance(value, dict):
+        return {k: sanitize_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [sanitize_value(i) for i in value]
+    return value
