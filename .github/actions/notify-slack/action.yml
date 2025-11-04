@@ -6,7 +6,7 @@ inputs:
     required: true
     type: string
   PRIORITY:
-    description: 'Priority level of the alert (medium/high)'
+    description: 'Priority level of the alert (medium/high/test)'
     required: true
     type: string
   STEP:
@@ -31,19 +31,29 @@ runs:
       id: alert_message
       shell: bash
       run: |
-        if [[ "${{ inputs.PRIORITY }}" == "high" ]]; then
-          if [[ -n "${{ inputs.STEP }}" ]]; then
-            message="🚨 High Priority Alert: [${{ github.workflow }}] failed at step \"${{ inputs.STEP }}\". Immediate attention is required to avoid production impact."
-          else
-            message="🚨 High Priority Alert: [${{ github.workflow }}] failed. Immediate attention is required to avoid production impact."
-          fi
-        else
-          if [[ -n "${{ inputs.STEP }}" ]]; then
-            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue at step \"${{ inputs.STEP }}\". This may affect ongoing integration processes."
-          else
-            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue. This may affect ongoing integration processes."
-          fi
-        fi
+        case "${{ inputs.PRIORITY }}" in
+          high)
+            if [[ -n "${{ inputs.STEP }}" ]]; then
+              message="🚨 High Priority Alert: [${{ github.workflow }}] failed at step \"${{ inputs.STEP }}\". Immediate attention is required to avoid production impact."
+            else
+              message="🚨 High Priority Alert: [${{ github.workflow }}] failed. Immediate attention is required to avoid production impact."
+            fi
+            ;;
+          test)
+            if [[ -n "${{ inputs.STEP }}" ]]; then
+              message="🧪 Test Alert: [${{ github.workflow }}] reached step \"${{ inputs.STEP }}\". This is a test notification only."
+            else
+              message="🧪 Test Alert: [${{ github.workflow }}]. This is a test notification only."
+            fi
+            ;;
+          *)
+            if [[ -n "${{ inputs.STEP }}" ]]; then
+              message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue at step \"${{ inputs.STEP }}\". This may affect ongoing integration processes."
+            else
+              message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue. This may affect ongoing integration processes."
+            fi
+            ;;
+        esac
 
         # Construct the JSON payload and save it to a file
         jq -n --arg message "$message" --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{
@@ -74,5 +84,3 @@ runs:
       env:
         SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
         SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-
-

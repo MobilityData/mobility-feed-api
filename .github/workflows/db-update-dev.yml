@@ -1,5 +1,5 @@
 # Update the Mobility Database Schema
-name: Database Update - DEV
+name: Database Schema Update - DEV
 on:
   push: # Update on merge on master if the changelog file or populate script have been updated
     branches:
@@ -46,3 +46,4 @@ jobs:
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       # 1Password tokens
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
