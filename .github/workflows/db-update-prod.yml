@@ -40,4 +40,4 @@ jobs:
       # GCP auth (DB project service account)
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       # 1Password tokens
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
