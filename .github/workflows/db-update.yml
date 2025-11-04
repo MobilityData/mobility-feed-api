@@ -70,10 +70,10 @@ jobs:
     name: Call DB schema update
     uses: ./.github/workflows/db-update-schema.yml
     with:
-      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
-      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      PROJECT_ID: ${{ inputs.PROJECT_ID }}
+      REGION: ${{ inputs.REGION }}
+      DB_NAME: ${{ inputs.DB_NAME }}
+      DB_ENVIRONMENT: ${{ inputs.DB_ENVIRONMENT }}
       DRY_RUN: ${{ inputs.DRY_RUN }}
     secrets: inherit
 
@@ -82,11 +82,11 @@ jobs:
     needs: [ db-update-schema ]
     uses: ./.github/workflows/db-update-content.yml
     with:
-      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
-      ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      PROJECT_ID: ${{ inputs.PROJECT_ID }}
+      REGION: ${{ inputs.REGION }}
+      DB_NAME: ${{ inputs.DB_NAME }}
+      ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ inputs.DB_ENVIRONMENT }}
       DRY_RUN: ${{ inputs.DRY_RUN }}
       CHECKOUT_REF: main
     secrets: inherit
