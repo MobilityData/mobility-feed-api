@@ -21,6 +21,9 @@ on:
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL instance name
         required: true
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
+        description: OnePassword Service Account Token
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
