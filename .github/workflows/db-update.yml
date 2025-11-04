@@ -1,13 +1,6 @@
 # Update the Mobility Database Schema
 name: Database Update
 on:
-  workflow_dispatch:
-    inputs:
-      DRY_RUN:
-        description: Dry run. Skip applying schema and content updates
-        required: false
-        default: true
-        type: boolean
   workflow_call:
     inputs:
       DRY_RUN:
@@ -81,7 +74,7 @@ jobs:
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      DRY_RUN: ${{ inputs.DRY_RUN }}
     secrets: inherit
 
   db-update-content:
@@ -94,6 +87,6 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      DRY_RUN: ${{ inputs.DRY_RUN }}
       CHECKOUT_REF: main
     secrets: inherit
