@@ -1,335 +1,116 @@
-# Mobility Database Update
-#
-# This GitHub Action manages the Mobility Database by handling both schema and content updates in different scenarios.
-# It's designed to operate under the following conditions:
-#
-# 1. Database Schema Update (Job: db-schema-update):
-#    - Triggered by either a 'push' to the main branch or a 'workflow_dispatch' event.
-#    - Responsible for updating the database schema using Liquibase.
-#
-# 2. Database Content Update (Job: db-content-update):
-#    - Executed on 'repository_dispatch' or 'workflow_dispatch' events.
-#    - Focuses on updating the content of the database.
-#    - Dependent on the completion of the Database Schema Update job.
-#    - Utilizes scripts to install requirements, generate the database model, and populate the database with new content.
-#
-# 3. Update GCP Secrets (Job: update-gcp-secret):
-#    - Runs on 'repository_dispatch' or 'workflow_dispatch' events.
-#    - Loads secrets from OnePassword.
-#    - Dynamically updates GCP secrets based on the environment (dev, qa, prod).
-
+# Update the Mobility Database Schema
 name: Database Update
 on:
+  workflow_dispatch:
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: true
+        type: boolean
   workflow_call:
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: true
+        type: boolean
+      PROJECT_ID:
+        description: GCP Project ID (forwarded to child workflows)
+        required: false
+        type: string
+      REGION:
+        description: GCP region (forwarded to child workflows)
+        required: false
+        type: string
+      DB_NAME:
+        description: PostgreSQL Database Name (forwarded to child workflows)
+        required: false
+        type: string
+      ENVIRONMENT:
+        description: Environment label (forwarded to child workflows)
+        required: false
+        type: string
+      DB_ENVIRONMENT:
+        description: Environment where DB is deployed (forwarded to child workflows)
+        required: false
+        type: string
+      API_BASE_URL:
+        description: Base URL host for the API (not used by this wrapper, accepted for compatibility)
+        required: false
+        default: api.mobilitydatabase.org
+        type: string
     secrets:
-      GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key
-        required: true
-      DB_GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key where the DB in deployed
+      DB_USER_PASSWORD:
+        description: PostgreSQL User Password
         required: true
       DB_USER_NAME:
         description: PostgreSQL User Name
         required: true
-      DB_USER_PASSWORD:
-        description: PostgreSQL User Password
-        required: true
       DB_INSTANCE_NAME:
-        description: PostgreSQL Database Instance Name
+        description: PostgreSQL Instance Name (forwarded as POSTGRE_SQL_INSTANCE_NAME)
+        required: true
+      GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for GCP (used by content workflow)
+        required: true
+      DB_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for DB environment (used by schema/content)
         required: true
       OP_SERVICE_ACCOUNT_TOKEN:
-        description: OnePassword Service Account Token
+        description: 1Password Service Account Token
         required: true
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
-        description: OnePassword Service Account Token
+        description: 1Password token for feeds secret (used by content workflow)
         required: true
-      POSTGRE_SQL_INSTANCE_NAME:
-        description: PostgreSQL Instance Name
-        required: true        
       API_TEST_REFRESH_TOKEN:
-        description: API refresh token used to resolve deployed API commit (used on repository_dispatch)
+        description: Optional API token (accepted for compatibility)
         required: false
-    inputs:
-      PROJECT_ID:
-        description: GCP Project ID
-        required: true
-        type: string
-      DB_NAME:
-        description: PostgreSQL Database Name
-        required: true
-        type: string
-      ENVIRONMENT:
-        description: GCP ENVIRONMENT
-        required: true
-        type: string
-      DB_ENVIRONMENT:
-        description: GCP ENVIRONMENT where DB is deployed.
-        required: true
-        type: string        
-      REGION:
-        description: GCP region
-        required: true
-        type: string
-      API_BASE_URL:
-        description: Base URL host for the API used to resolve version/commit (e.g. api-dev.mobilitydatabase.org)
-        required: false
-        default: api.mobilitydatabase.org
-        type: string
-      INSTALL_LATEST:
-        description: Install the latest (main) API version when true; when false keep the currently deployed version.
-        required: false
-        default: false
-        type: boolean
-      DRY_RUN:
-        description: Skip applying schema and content updates
-        required: false
-        default: false
-        type: boolean
-
-env:
-  python_version: '3.11'
-  liquibase_version: '4.33.0'
 
 jobs:
-  resolve-api-meta:
-    name: 'Resolve API commit/version'
-    runs-on: ubuntu-latest
-    # Run this job for all triggers; the action itself will skip resolution when API_BASE_URL or token is not provided.
-    # Keeping it unconditional ensures CHECKOUT_REF is always set (defaults to 'main') for downstream jobs.
-    outputs:
-      # Use resolved commit when available; otherwise default to 'main'.
-      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
-    steps:
-      - name: Checkout repo (for scripts and local action)
-        uses: actions/checkout@v4
-      - name: Resolve API commit/version
-        id: resolve
-        if: ${{ inputs.INSTALL_LATEST == false }}
-        uses: ./.github/actions/resolve-api-meta
-        with:
-          api_base_url: ${{ inputs.API_BASE_URL }}
-          api_refresh_token: ${{ secrets.API_TEST_REFRESH_TOKEN }}
-
-  db-schema-update:
-    name: 'Database Schema Update'
-    permissions: write-all
-    runs-on: ubuntu-latest
-    needs: [resolve-api-meta]
-    # Run the schema update when the resolved checkout target is 'main' (install latest/main).
-    # This covers both explicit INSTALL_LATEST runs and cases where resolution failed and CHECKOUT_REF fell back to 'main'.
-    if: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF == 'main' }}
-    steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
-        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
-        fetch-depth: 0
-
-    - name: Authenticate to Google Cloud QA/PROD
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v2
-
-    - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v2.0.0
-      with:
-        export-env: true # Export loaded secrets as environment variables
-      env:
-        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
-        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
-        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
-
-    - name: Tunnel
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ./scripts/tunnel-create.sh -project_id ${{ inputs.PROJECT_ID }} -zone ${{ inputs.REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ inputs.DB_ENVIRONMENT}} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
-        sleep 10 # Wait for the tunnel to establish
-
-    - name: Test Database Connection Through Tunnel
-      run: |
-        sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
-
-    - name: Install Liquibase
-      env:
-        LIQUIBASE_VERSION: ${{ env.liquibase_version }}
-      run: |
-        curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
-        rm -rf liquibase-dist
-        mkdir liquibase-dist
-        tar -xzf liquibase.tar.gz -C liquibase-dist
-        sudo rm -rf /usr/local/liquibase
-        sudo mv liquibase-dist /usr/local/liquibase
-        sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
-        liquibase --version
-    
-    - name: Run Liquibase
-      if: ${{ !inputs.DRY_RUN }}
-      working-directory: ${{ github.workspace }}/liquibase
-      run: |
-        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
-        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.DB_NAME }}
-        export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
-        export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
-        export LIQUIBASE_LOG_LEVEL=FINE
-        liquibase update
-
-  db-content-update:
-    name: 'Database Content Update'
-    permissions: write-all
-    runs-on: ubuntu-latest
-    needs: [resolve-api-meta, db-schema-update]
-    if: ${{ (github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch') && always() }}
-    steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        # Use the job-level CHECKOUT_REF (already resolves to COMMIT_SHA or 'main')
-        ref: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
-        fetch-depth: 0
-
-    - name: Setup python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.python_version }}
-
-    - name: Authenticate to Google Cloud QA/PROD
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
-  
-    - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v2
-      
-    - name: Update .env file
-      run: |
-        echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
-        echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
-        echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
-        echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@localhost:5432/${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "POSTGRES_PORT=5432" >> config/.env.local
-        echo "POSTGRES_HOST=localhost" >> config/.env.local
-        echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
-        cat config/.env.local
-
-    - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v2.0.0
-      with:
-        export-env: true # Export loaded secrets as environment variables
-      env:
-        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
-        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
-        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
-          
-    - name: Tunnel
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa             
-        ./scripts/tunnel-create.sh -project_id ${{ inputs.PROJECT_ID }} -zone ${{ inputs.REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ inputs.DB_ENVIRONMENT}} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
-        sleep 10 # Wait for the tunnel to establish
-
-    - name: Install requirements and generate db model
-      run: scripts/db-gen.sh
-
-    - name: Determine update type
-      id: update-type
-      run: |
-        if [[ "${{ github.event.action }}" == "gbfs-systems-updated" ]]; then
-          echo "UPDATE_TYPE=gbfs" >> $GITHUB_ENV
-        elif [[ "${{ github.event.action }}" == "catalog-sources-updated" ]]; then
-          echo "UPDATE_TYPE=gtfs" >> $GITHUB_ENV
-        else
-          echo "UPDATE_TYPE=manual" >> $GITHUB_ENV  # fallback for workflow_dispatch
-        fi      
-
-    - name: Download csv version of the database
-      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
-      run: wget -O sources.csv https://bit.ly/catalogs-csv
-
-    - name: Get full path of sources.csv
-      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
-      id: getpath
-      run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
-
-    - name: GTFS - Update Database Content
-      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
-      run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
-
-    - name: GTFS - Upload log file for verification
-      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: populate-${{ inputs.ENVIRONMENT }}.log
-        path: populate.log
-
-    - name: Download systems.csv
-      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
-      run: wget -O systems.csv https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv
-
-    - name: Get full path of systems.csv
-      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
-      id: getsyspath
-      run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
-
-    - name: GBFS - Update Database Content
-      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
-      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
-
-    - name: GBFS - Upload log file for verification
-      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
-        path: populate-gbfs.log
-
-
-  update-gcp-secret:
-    name: Update GCP Secrets
-    if: ${{ contains('repository_dispatch,workflow_dispatch', github.event_name) && !inputs.DRY_RUN }}
+  print-event-name:
+    name: Print event name
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Load secrets from 1Password
-        id: onepw_secrets
-        uses: 1password/load-secrets-action@v2.0.0
-        with:
-          export-env: true # Export loaded secrets as environment variables
-        env:
-          # This alternate service account token gives access to a vault writable by some third
-          # party people who can update the list of feeds requiring authorization and their tokens
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
-          JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
-
-      - name: Create or Update Auth Secret
-        env:
-          PROJECT_ID: ${{ inputs.PROJECT_ID }}
-          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-          SECRET_VALUE: ${{ env.JSON_FEEDS_WITH_TOKENS }}
-          SECRET_NAME: FEEDS_CREDENTIALS
+      - name: Print event and inputs
         run: |
-          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+          echo "github.event_name=${{ github.event_name }}"
+          echo "inputs.DRY_RUN=${{ inputs.DRY_RUN }}"
+          echo "inputs.INSTALL_LATEST=${{ inputs.INSTALL_LATEST }}"
+          echo "inputs.CHECKOUT_REF=${{ inputs.CHECKOUT_REF }}"
 
-          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
-            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
-          else
-            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
-          fi
+  db-update-schema:
+    name: Call DB schema update
+    uses: ./.github/workflows/db-update-schema.yml
+    with:
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  db-update-content:
+    name: Call DB content update
+    needs: [ db-update-schema ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
+      CHECKOUT_REF: main
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
