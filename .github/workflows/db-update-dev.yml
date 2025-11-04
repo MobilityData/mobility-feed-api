@@ -19,7 +19,7 @@ on:
       DRY_RUN:
         description: Dry run. Skip applying schema and content updates
         required: false
-        default: true
+        default: false
         type: boolean
 jobs:
   print-event-name:
