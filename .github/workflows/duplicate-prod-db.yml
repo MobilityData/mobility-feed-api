@@ -16,7 +16,7 @@ env:
   liquibase_version: '4.33.0'
 
 jobs:
-  resolve-api-meta:
+  resolve-api-meta-qa:
     name: Resolve API commit/version (QA)
     runs-on: ubuntu-latest
     outputs:
@@ -34,7 +34,7 @@ jobs:
 
   update-content-qa:
     name: Update DB content (QA)
-    needs: [ resolve-api-meta ]
+    needs: [ resolve-api-meta-qa ]
     uses: ./.github/workflows/db-update-content.yml
     with:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
@@ -43,12 +43,49 @@ jobs:
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
-      CHECKOUT_REF: ${{ needs.resolve-api-meta.outputs.CHECKOUT_REF }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-qa.outputs.CHECKOUT_REF }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  resolve-api-meta-prod:
+    name: Resolve API commit/version (PROD)
+    runs-on: ubuntu-latest
+    outputs:
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+
+      - name: Resolve API commit/version
+        id: resolve
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: api.mobilitydatabase.org
+          api_refresh_token: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
+
+  update-content-prod:
+    name: Update DB content (PROD)
+    needs: [ resolve-api-meta-prod ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-prod.outputs.CHECKOUT_REF }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
