@@ -169,7 +169,6 @@ jobs:
 
   update-gcp-secret:
     name: Update GCP Secrets
-    if: ${{ !inputs.DRY_RUN }}
     runs-on: ubuntu-latest
     steps:
       - name: Authenticate to Google Cloud
@@ -192,6 +191,7 @@ jobs:
           JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
 
       - name: Create or Update Auth Secret
+        if: ${{ !inputs.DRY_RUN }}
         env:
           PROJECT_ID: ${{ inputs.PROJECT_ID }}
           ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
@@ -207,3 +207,4 @@ jobs:
             echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
             echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
           fi
+
