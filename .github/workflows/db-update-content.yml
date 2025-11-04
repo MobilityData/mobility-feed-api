@@ -18,9 +18,6 @@ on:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: 1Password Service Account token
         required: true
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
-        description: 1Password token for feeds secret
-        required: true
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL instance name
         required: true
@@ -170,44 +167,3 @@ jobs:
         name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
         path: populate-gbfs.log
 
-
-  update-gcp-secret:
-    name: Update GCP Secrets
-    if: ${{ contains('repository_dispatch,workflow_dispatch', github.event_name) && !inputs.DRY_RUN }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Load secrets from 1Password
-        id: onepw_secrets
-        uses: 1password/load-secrets-action@v2.0.0
-        with:
-          export-env: true # Export loaded secrets as environment variables
-        env:
-          # This alternate service account token gives access to a vault writable by some third
-          # party people who can update the list of feeds requiring authorization and their tokens
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
-          JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
-
-      - name: Create or Update Auth Secret
-        env:
-          PROJECT_ID: ${{ inputs.PROJECT_ID }}
-          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-          SECRET_VALUE: ${{ env.JSON_FEEDS_WITH_TOKENS }}
-          SECRET_NAME: FEEDS_CREDENTIALS
-        run: |
-          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
-
-          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
-            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
-          else
-            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
-            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
-          fi
