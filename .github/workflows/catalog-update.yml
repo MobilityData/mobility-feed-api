@@ -1,0 +1,142 @@
+# Called when the Mobility Catalog is updated.
+name: Mobility Catalog Update
+on:
+  workflow_dispatch:
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: true
+        type: boolean
+  repository_dispatch: # Update on mobility-database-catalog repo dispatch
+    types: [ catalog-sources-updated, gbfs-systems-updated ]
+
+env:
+  python_version: '3.11'
+  liquibase_version: '4.33.0'
+
+jobs:
+  resolve-api-meta-qa:
+    name: QA Resolve API commit/version
+    runs-on: ubuntu-latest
+    outputs:
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+
+      - name: Resolve API commit/version
+        id: resolve
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: api-qa.mobilitydatabase.org
+          api_refresh_token: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+
+  update-content-qa:
+    name: QA Update DB content
+    needs: [ resolve-api-meta-qa ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-qa.outputs.CHECKOUT_REF }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  resolve-api-meta-prod:
+    name: PROD Resolve API commit/version
+    runs-on: ubuntu-latest
+    outputs:
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+
+      - name: Resolve API commit/version
+        id: resolve
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: api.mobilitydatabase.org
+          api_refresh_token: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
+
+  update-content-prod:
+    name: PROD Update DB content
+    needs: [ resolve-api-meta-prod ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-prod.outputs.CHECKOUT_REF }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  resolve-api-meta-dev:
+    name: DEV Resolve API commit/version
+    runs-on: ubuntu-latest
+    outputs:
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+
+      - name: Resolve API commit/version
+        id: resolve
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: api-dev.mobilitydatabase.org
+          api_refresh_token: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+
+  update-content-dev:
+    name: Dev Update DB content
+    needs: [ resolve-api-meta-dev ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-dev.outputs.CHECKOUT_REF }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  notify-slack-on-failure:
+    # Run after all relevant jobs and notify if any failed
+    needs: [ resolve-api-meta-qa, update-content-qa, resolve-api-meta-prod, update-content-prod, resolve-api-meta-dev, update-content-dev ]
+    if: ${{ always() && contains(join(needs.*.result, ','), 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "high"

@@ -1,0 +1,80 @@
+name: Resolve API commit/version
+description: Resolve deployed API commit SHA and version from the metadata endpoint
+inputs:
+  api_base_url:
+    description: Base URL host for the API (e.g. api-dev.mobilitydatabase.org)
+    required: false
+    default: api.mobilitydatabase.org
+  api_refresh_token:
+    description: API refresh token
+    required: false
+outputs:
+  COMMIT_SHA:
+    description: Resolved commit SHA
+    value: ${{ steps.resolve.outputs.COMMIT_SHA }}
+  API_VERSION:
+    description: Resolved API version
+    value: ${{ steps.resolve.outputs.API_VERSION }}
+  RESOLVED:
+    description: Whether a commit SHA was resolved (true/false)
+    value: ${{ steps.resolve.outputs.RESOLVED }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      name: Resolve via API and expose outputs
+      shell: bash
+      env:
+        API_BASE_URL: ${{ inputs.api_base_url }}
+        API_REFRESH_TOKEN: ${{ inputs.api_refresh_token }}
+      run: |
+        # Do not exit on failure; this action should never abort the caller workflow.
+        set -u
+        COMMIT_SHA=""
+        API_VERSION=""
+        RESOLVED="false"
+
+        if [[ -n "${API_REFRESH_TOKEN:-}" ]]; then
+          echo "Resolving API commit from https://${API_BASE_URL}/v1/metadata ..."
+
+          # Exchange refresh token -> access token (handle failures gracefully)
+          REPLY_JSON=$(curl --silent --show-error --location "https://${API_BASE_URL}/v1/tokens" \
+            --header 'Content-Type: application/json' \
+            --data "{ \"refresh_token\": \"${API_REFRESH_TOKEN}\" }" ) || {
+              echo "Warning: token exchange failed; will fallback to 'main'" >&2
+              REPLY_JSON=""
+          }
+
+          if [[ -n "${REPLY_JSON}" ]]; then
+            ACCESS_TOKEN=$(echo "${REPLY_JSON}" | jq -r .access_token 2>/dev/null || echo "")
+            if [[ -z "${ACCESS_TOKEN}" || "${ACCESS_TOKEN}" == "null" ]]; then
+              echo "Warning: Could not obtain access token from reply; will fallback to 'main'" >&2
+            else
+              META_JSON=$(curl --silent --show-error \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -H 'accept: application/json' \
+                "https://${API_BASE_URL}/v1/metadata" ) || {
+                  echo "Warning: metadata request failed; will fallback to 'main'" >&2
+                  META_JSON=""
+              }
+
+              if [[ -n "${META_JSON}" ]]; then
+                COMMIT_SHA=$(echo "${META_JSON}" | jq -r .commit_hash 2>/dev/null || echo "")
+                API_VERSION=$(echo "${META_JSON}" | jq -r .version 2>/dev/null || echo "")
+                if [[ -n "${COMMIT_SHA}" && "${COMMIT_SHA}" != "null" ]]; then
+                  RESOLVED="true"
+                  echo "Resolved API version: ${API_VERSION} (commit ${COMMIT_SHA})"
+                else
+                  echo "Warning: commit_hash missing in metadata; will fallback to 'main'" >&2
+                fi
+              fi
+            fi
+          fi
+        else
+          echo "No API refresh token provided; skipping API metadata resolution and falling back to 'main'."
+        fi
+
+        # Expose outputs (empty COMMIT_SHA and RESOLVED=false indicate fallback to 'main')
+        echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+        echo "API_VERSION=${API_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "RESOLVED=${RESOLVED}" >> "$GITHUB_OUTPUT"

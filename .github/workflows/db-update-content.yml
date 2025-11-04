@@ -1,0 +1,213 @@
+# Mobility Database Content Update (split from db-update.yml)
+name: Database Update - Content
+on:
+  workflow_call:
+    secrets:
+      DB_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for the DB project (JSON)
+        required: true
+      GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for the general GCP project (JSON)
+        required: true
+      DB_USER_NAME:
+        description: PostgreSQL user name
+        required: true
+      DB_USER_PASSWORD:
+        description: PostgreSQL user password
+        required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password Service Account token
+        required: true
+      POSTGRE_SQL_INSTANCE_NAME:
+        description: PostgreSQL instance name
+        required: true
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
+        description: OnePassword Service Account Token
+        required: true
+    inputs:
+      PROJECT_ID:
+        description: GCP Project ID
+        required: true
+        type: string
+      DB_NAME:
+        description: PostgreSQL Database Name
+        required: true
+        type: string
+      ENVIRONMENT:
+        description: GCP ENVIRONMENT
+        required: true
+        type: string
+      DB_ENVIRONMENT:
+        description: GCP ENVIRONMENT where DB is deployed.
+        required: true
+        type: string
+      REGION:
+        description: GCP region
+        required: true
+        type: string
+      DRY_RUN:
+        description: Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
+      CHECKOUT_REF:
+        description: Commit SHA or branch to checkout (provided by caller; defaults to 'main')
+        required: false
+        default: main
+        type: string
+
+env:
+  python_version: '3.11'
+
+jobs:
+  db-content-update:
+    name: 'Database Content Update'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    # This job is intended to run for repository_dispatch or workflow_dispatch scenarios.
+    # The caller should decide when to invoke this reusable workflow.
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.CHECKOUT_REF }}
+        fetch-depth: 0
+
+    - name: Setup python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.python_version }}
+
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Update .env file
+      run: |
+        echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
+        echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
+        echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
+        echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@localhost:5432/${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "POSTGRES_PORT=5432" >> config/.env.local
+        echo "POSTGRES_HOST=localhost" >> config/.env.local
+        echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
+        cat config/.env.local
+
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v2.0.0
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
+
+    - name: Tunnel
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ./scripts/tunnel-create.sh -project_id ${{ inputs.PROJECT_ID }} -zone ${{ inputs.REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ inputs.DB_ENVIRONMENT}} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
+        sleep 10 # Wait for the tunnel to establish
+
+    - name: Install requirements and generate db model
+      run: scripts/db-gen.sh
+
+    - name: Determine update type
+      id: update-type
+      run: |
+        if [[ "${{ github.event.action }}" == "gbfs-systems-updated" ]]; then
+          echo "UPDATE_TYPE=gbfs" >> $GITHUB_ENV
+        elif [[ "${{ github.event.action }}" == "catalog-sources-updated" ]]; then
+          echo "UPDATE_TYPE=gtfs" >> $GITHUB_ENV
+        else
+          echo "UPDATE_TYPE=manual" >> $GITHUB_ENV  # fallback for workflow_dispatch
+        fi      
+
+    - name: Download csv version of the database
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
+      run: wget -O sources.csv https://bit.ly/catalogs-csv
+
+    - name: Get full path of sources.csv
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
+      id: getpath
+      run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
+
+    - name: GTFS - Update Database Content
+      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
+      run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
+
+    - name: GTFS - Upload log file for verification
+      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: populate-${{ inputs.ENVIRONMENT }}.log
+        path: populate.log
+
+    - name: Download systems.csv
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      run: wget -O systems.csv https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv
+
+    - name: Get full path of systems.csv
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      id: getsyspath
+      run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
+
+    - name: GBFS - Update Database Content
+      if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
+      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
+
+    - name: GBFS - Upload log file for verification
+      if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
+        path: populate-gbfs.log
+
+  update-gcp-secret:
+    name: Update GCP Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          # This alternate service account token gives access to a vault writable by some third
+          # party people who can update the list of feeds requiring authorization and their tokens
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+          JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
+
+      - name: Create or Update Auth Secret
+        if: ${{ !inputs.DRY_RUN }}
+        env:
+          PROJECT_ID: ${{ inputs.PROJECT_ID }}
+          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+          SECRET_VALUE: ${{ env.JSON_FEEDS_WITH_TOKENS }}
+          SECRET_NAME: FEEDS_CREDENTIALS
+        run: |
+          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+
+          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
+            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
+          else
+            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
+          fi
+
