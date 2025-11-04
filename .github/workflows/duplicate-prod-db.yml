@@ -17,7 +17,7 @@ env:
 
 jobs:
   resolve-api-meta-qa:
-    name: Resolve API commit/version (QA)
+    name: QA Resolve API commit/version
     runs-on: ubuntu-latest
     outputs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
@@ -33,7 +33,7 @@ jobs:
           api_refresh_token: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
 
   update-content-qa:
-    name: Update DB content (QA)
+    name: QA Update DB content
     needs: [ resolve-api-meta-qa ]
     uses: ./.github/workflows/db-update-content.yml
     with:
@@ -54,7 +54,7 @@ jobs:
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
 
   resolve-api-meta-prod:
-    name: Resolve API commit/version (PROD)
+    name: PROD Resolve API commit/version
     runs-on: ubuntu-latest
     outputs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
@@ -70,7 +70,7 @@ jobs:
           api_refresh_token: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
 
   update-content-prod:
-    name: Update DB content (PROD)
+    name: PROD Update DB content
     needs: [ resolve-api-meta-prod ]
     uses: ./.github/workflows/db-update-content.yml
     with:
@@ -86,6 +86,43 @@ jobs:
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+
+  resolve-api-meta-dev:
+    name: DEV Resolve API commit/version
+    runs-on: ubuntu-latest
+    outputs:
+      CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
+    steps:
+      - name: Checkout repo (for scripts and local action)
+        uses: actions/checkout@v4
+
+      - name: Resolve API commit/version
+        id: resolve
+        uses: ./.github/actions/resolve-api-meta
+        with:
+          api_base_url: api-dev.mobilitydatabase.org
+          api_refresh_token: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+
+  update-content-dev:
+    name: Dev Update DB content
+    needs: [ resolve-api-meta-dev ]
+    uses: ./.github/workflows/db-update-content.yml
+    with:
+      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      CHECKOUT_REF: ${{ needs.resolve-api-meta-dev.outputs.CHECKOUT_REF }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
