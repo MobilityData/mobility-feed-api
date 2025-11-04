@@ -35,28 +35,6 @@ on:
         description: Environment where DB is deployed (forwarded to child workflows)
         required: false
         type: string
-    secrets:
-      DB_USER_PASSWORD:
-        description: PostgreSQL User Password
-        required: true
-      DB_USER_NAME:
-        description: PostgreSQL User Name
-        required: true
-      DB_INSTANCE_NAME:
-        description: PostgreSQL Instance Name (forwarded as POSTGRE_SQL_INSTANCE_NAME)
-        required: true
-      GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key for GCP (used by content workflow)
-        required: true
-      DB_GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key for DB environment (used by schema/content)
-        required: true
-      OP_SERVICE_ACCOUNT_TOKEN:
-        description: 1Password Service Account Token
-        required: true
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
-        description: 1Password token for feeds secret (used by content workflow)
-        required: true
 
 jobs:
   print-event-name:
@@ -82,12 +60,7 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
-    secrets:
-      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
-      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
-      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+    secrets: inherit
 
   db-update-content:
     name: Call DB content update
@@ -101,11 +74,4 @@ jobs:
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
       CHECKOUT_REF: main
-    secrets:
-      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
-      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
-      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+    secrets: inherit
