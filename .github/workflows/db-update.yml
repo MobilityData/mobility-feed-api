@@ -35,11 +35,6 @@ on:
         description: Environment where DB is deployed (forwarded to child workflows)
         required: false
         type: string
-      API_BASE_URL:
-        description: Base URL host for the API (not used by this wrapper, accepted for compatibility)
-        required: false
-        default: api.mobilitydatabase.org
-        type: string
     secrets:
       DB_USER_PASSWORD:
         description: PostgreSQL User Password
@@ -62,9 +57,6 @@ on:
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
         description: 1Password token for feeds secret (used by content workflow)
         required: true
-      API_TEST_REFRESH_TOKEN:
-        description: Optional API token (accepted for compatibility)
-        required: false
 
 jobs:
   print-event-name:
@@ -75,8 +67,11 @@ jobs:
         run: |
           echo "github.event_name=${{ github.event_name }}"
           echo "inputs.DRY_RUN=${{ inputs.DRY_RUN }}"
-          echo "inputs.INSTALL_LATEST=${{ inputs.INSTALL_LATEST }}"
-          echo "inputs.CHECKOUT_REF=${{ inputs.CHECKOUT_REF }}"
+          echo "inputs.PROJECT_ID=${{ inputs.PROJECT_ID || 'unset' }}"
+          echo "inputs.REGION=${{ inputs.REGION || 'unset' }}"
+          echo "inputs.DB_NAME=${{ inputs.DB_NAME || 'unset' }}"
+          echo "inputs.ENVIRONMENT=${{ inputs.ENVIRONMENT || 'unset' }}"
+          echo "inputs.DB_ENVIRONMENT=${{ inputs.DB_ENVIRONMENT || 'unset' }}"
 
   db-update-schema:
     name: Call DB schema update
