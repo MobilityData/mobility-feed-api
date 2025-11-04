@@ -29,7 +29,6 @@ jobs:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       # DRY_RUN is passed through directly from inputs
       DRY_RUN: ${{ inputs.DRY_RUN }}
@@ -40,8 +39,5 @@ jobs:
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       # GCP auth (DB project service account)
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-      # GCP auth (general project, used by content secret update job)
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       # 1Password tokens
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
