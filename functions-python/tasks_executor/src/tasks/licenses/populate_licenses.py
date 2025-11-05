@@ -61,7 +61,6 @@ def populate_licenses_task(dry_run, db_session):
         for file_info in files:
             if file_info["type"] == "file" and file_info["name"].endswith(".json"):
                 download_url = file_info["download_url"]
-                logging.info("Downloading license from %s", download_url)
                 license_response = requests.get(download_url, timeout=10)
                 license_response.raise_for_status()
                 licenses_data.append(license_response.json())
@@ -70,11 +69,6 @@ def populate_licenses_task(dry_run, db_session):
 
         if dry_run:
             logging.info("Dry run: would process %d licenses.", len(licenses_data))
-            for license_data in licenses_data:
-                logging.info(
-                    "Dry run: processing license %s",
-                    license_data.get("spdx", {}).get("licenseId", "unknown"),
-                )
         else:
             for license_data in licenses_data:
                 spdx_data = license_data.get("spdx")

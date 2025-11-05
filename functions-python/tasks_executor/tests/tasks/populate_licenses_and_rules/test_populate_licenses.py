@@ -1,8 +1,6 @@
-import logging
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 from shared.database.database import Session
 from shared.database_gen.sqlacodegen_models import License, Rule
