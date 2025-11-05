@@ -1,45 +1,29 @@
-# Update the Mobility Database Schema
-name: Database Schema Update
+# Mobility Database Schema Update (split from db-update.yml)
+name: Database Update - Schema
 on:
   workflow_call:
     inputs:
-      DRY_RUN: #
-        description: Dry run. Skip applying schema and content updates
-        required: false
-        default: true
-        type: boolean
       PROJECT_ID: #
-        description: GCP Project ID (forwarded to child workflows)
-        required: false
-        type: string
-      REGION: #
-        description: GCP region (forwarded to child workflows)
-        required: false
+        description: GCP Project ID
+        required: true
         type: string
       DB_NAME: #
-        description: PostgreSQL Database Name (forwarded to child workflows)
-        required: false
+        description: PostgreSQL Database Name
+        required: true
         type: string
       DB_ENVIRONMENT: #
-        description: Environment where DB is deployed (forwarded to child workflows)
-        required: false
+        description: GCP ENVIRONMENT where DB is deployed.
+        required: true
         type: string
-    secrets:
-      DB_USER_PASSWORD: #
-        description: PostgreSQL User Password
+      REGION:  #
+        description: GCP region
         required: true
-      DB_USER_NAME: #
-        description: PostgreSQL User Name
-        required: true
-      POSTGRE_SQL_INSTANCE_NAME: #
-        description: PostgreSQL Instance Name
-        required: true        
-      DB_GCP_MOBILITY_FEEDS_SA_KEY: #
-        description: Service account key for DB environment
-        required: true
-      OP_SERVICE_ACCOUNT_TOKEN: #
-        description: 1Password Service Account Token
-        required: true
+        type: string
+      DRY_RUN: #
+        description: Skip applying schema and content updates
+        required: false
+        default: false
+        type: boolean
 
 env:
   python_version: '3.11'
@@ -99,7 +83,7 @@ jobs:
         sudo mv liquibase-dist /usr/local/liquibase
         sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
         liquibase --version
-    
+
     - name: Run Liquibase
       if: ${{ !inputs.DRY_RUN }}
       working-directory: ${{ github.workspace }}/liquibase
@@ -110,4 +94,3 @@ jobs:
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE
         liquibase update
-
