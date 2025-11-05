@@ -2,9 +2,20 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import requests
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 from shared.database.database import Session
 from shared.database_gen.sqlacodegen_models import License, Rule
 from tasks.licenses.populate_licenses import populate_licenses_task
+
+
+# This compilation rule is necessary to make the JSONB type, which is PostgreSQL-specific,
+# compatible with the in-memory SQLite database used for testing. It tells SQLAlchemy
+# to treat JSONB as JSON when running against a SQLite backend.
+@compiles(JSONB, "sqlite")
+def compile_jsonb_for_sqlite(element, compiler, **kw):
+    return compiler.visit_json(element, **kw)
+
 
 # Mock data for GitHub API responses
 MOCK_LICENSE_LIST = [
