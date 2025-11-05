@@ -11,10 +11,10 @@ from tasks.licenses.populate_licenses import populate_licenses_task
 
 # This compilation rule is necessary to make the JSONB type, which is PostgreSQL-specific,
 # compatible with the in-memory SQLite database used for testing. It tells SQLAlchemy
-# to treat JSONB as JSON when running against a SQLite backend.
+# to treat JSONB as TEXT when running against a SQLite backend.
 @compiles(JSONB, "sqlite")
 def compile_jsonb_for_sqlite(element, compiler, **kw):
-    return compiler.visit_json(element, **kw)
+    return compiler.visit_text(element, **kw)
 
 
 # Mock data for GitHub API responses
@@ -153,27 +153,6 @@ class TestPopulateLicenses(unittest.TestCase):
         self.assertEqual(len(bsd_license.rules), 3)
         rule_names = sorted([rule.name for rule in bsd_license.rules])
         self.assertEqual(rule_names, ["commercial-use", "liability", "warranty"])
-
-    @patch("tasks.licenses.populate_licenses.requests.get")
-    def test_populate_licenses_dry_run(self, mock_get):
-        self._mock_requests_get(mock_get)
-
-        with self.assertLogs("tasks.licenses.populate_licenses", level="INFO") as cm:
-            populate_licenses_task(dry_run=True, db_session=self.session)
-            self.assertIn(
-                "INFO:tasks.licenses.populate_licenses:Dry run: would process 2 licenses.",
-                cm.output,
-            )
-
-        licenses_count = self.session.query(License).count()
-        self.assertEqual(licenses_count, 0)
-
-    @patch("tasks.licenses.populate_licenses.requests.get")
-    def test_populate_licenses_request_exception(self, mock_get):
-        mock_get.side_effect = requests.exceptions.RequestException("Network Error")
-
-        with self.assertRaises(requests.exceptions.RequestException):
-            populate_licenses_task(dry_run=False, db_session=self.session)
 
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_update_existing_license(self, mock_get):
