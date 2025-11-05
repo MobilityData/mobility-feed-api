@@ -14,7 +14,7 @@ from tasks.licenses.populate_licenses import populate_licenses_task
 # to treat JSONB as TEXT when running against a SQLite backend.
 @compiles(JSONB, "sqlite")
 def compile_jsonb_for_sqlite(element, compiler, **kw):
-    return compiler.visit_text(element, **kw)
+    return "TEXT"
 
 
 # Mock data for GitHub API responses
