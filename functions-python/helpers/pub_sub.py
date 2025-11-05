@@ -43,7 +43,13 @@ def get_execution_id(request, prefix: str) -> str:
     @param request: HTTP request object
     @param prefix: prefix for the execution ID. Example: "batch-datasets"
     """
-    trace_id = request.headers.get("X-Cloud-Trace-Context")
+    trace_id = (
+        request.headers.get("X-Cloud-Trace-Context")
+        if hasattr(request, "headers")
+        else None
+    )
+    if not trace_id:
+        trace_id = request.trace_id if hasattr(request, "trace_id") else None
     execution_id = f"{prefix}-{trace_id}" if trace_id else f"{prefix}-{uuid.uuid4()}"
     return execution_id
 

@@ -22,6 +22,10 @@ from feeds_gen.models.operation_create_request_gtfs_feed_source_info import (
 )
 import json
 import uuid
+from unittest.mock import patch
+
+# For asserting module-level topic/project used on publish
+from feeds_operations.impl import feeds_operations_impl as ops_module
 
 
 @pytest.fixture
@@ -61,7 +65,8 @@ def db_session():
 
 
 @pytest.mark.asyncio
-async def test_create_gtfs_feed_success(db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.publish_messages")
+async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
     api = OperationsApiImpl()
     unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
     request = OperationCreateRequestGtfsFeed(
@@ -105,6 +110,31 @@ async def test_create_gtfs_feed_success(db_session):
         assert created.data_type == "gtfs"
         assert created.provider == "New Provider"
         assert created.operational_status == "wip"
+
+        # Assert publish_messages was called exactly once with expected payload
+        assert mock_publish_messages.call_count == 1
+        args, kwargs = mock_publish_messages.call_args
+        assert len(args) == 3  # data list, project_id, topic_name
+        data_list, project_id, topic_name = args
+
+        # Project/topic should be whatever module-level variables resolve to (may be None in tests)
+        assert project_id == ops_module.project_id
+        assert topic_name == ops_module.pubsub_topic_name
+
+        # Validate message payload shape and values
+        assert isinstance(data_list, list) and len(data_list) == 1
+        message = data_list[0]
+        assert message["producer_url"] == unique_url
+        assert message["feed_stable_id"] == payload["stable_id"]
+        assert message["feed_id"] == payload["id"]
+        assert message["dataset_stable_id"] is None
+        assert message["dataset_hash"] is None
+        assert message["authentication_type"] == "0"
+        assert message["authentication_info_url"] is None
+        assert message["api_key_parameter_name"] is None
+        # Non-deterministic but must start with expected prefix
+        assert isinstance(message.get("execution_id"), str)
+        assert message["execution_id"].startswith("feed-created-process-")
     finally:
         # Cleanup to avoid impacting other tests
         stable_id = payload.get("stable_id") if isinstance(payload, dict) else None

@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
+
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -47,6 +49,7 @@ from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -54,6 +57,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
+from shared.helpers.pub_sub import get_execution_id, publish_messages
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
@@ -69,6 +73,9 @@ from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
+
+pubsub_topic_name = os.getenv("BASH_PROCESS_DATASET_PUBSUB_TOPIC_NAME")
+project_id = os.getenv("PROJECT_ID")
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -104,6 +111,25 @@ class OperationsApiImpl(BaseOperationsApi):
                 status_code=400,
                 detail=message,
             )
+
+    @staticmethod
+    def send_feed_process_event(feed: type[Gtfsfeed] | None, request=None):
+        """Send a message to Pub/Sub to process the feed."""
+        message_payload = {
+            "execution_id": get_execution_id(
+                get_request_context(), "feed-created-process"
+            ),
+            "producer_url": feed.producer_url,
+            "feed_stable_id": feed.stable_id,
+            "feed_id": feed.id,
+            "dataset_stable_id": None,
+            "dataset_hash": None,
+            "authentication_type": feed.authentication_type,
+            "authentication_info_url": feed.authentication_info_url,
+            "api_key_parameter_name": feed.api_key_parameter_name,
+        }
+        publish_messages([message_payload], project_id, pubsub_topic_name)
+        logging.debug("Sent feed process event")
 
     @with_db_session
     async def get_feeds(
@@ -365,6 +391,7 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsfeed, new_feed.id)
+        self.send_feed_process_event(created_feed)
         logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
         payload = OperationGtfsFeedImpl.from_orm(created_feed).model_dump()
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
