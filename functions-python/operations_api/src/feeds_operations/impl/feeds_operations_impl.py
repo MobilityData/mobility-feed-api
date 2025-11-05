@@ -74,7 +74,7 @@ from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
 
-pubsub_topic_name = os.getenv("BASH_PROCESS_DATASET_PUBSUB_TOPIC_NAME")
+pubsub_topic_name = os.getenv("DATASET_PROCESSING_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
 
