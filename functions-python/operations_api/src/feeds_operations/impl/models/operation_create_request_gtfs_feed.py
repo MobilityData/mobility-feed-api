@@ -1,6 +1,7 @@
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
 )
+from feeds_operations.impl.models.operation_models_common import get_feed_dict
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
 from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
@@ -24,40 +25,7 @@ class OperationCreateRequestGtfsFeedImpl(GtfsFeedImpl, OperationCreateRequestGtf
         if not operation_request_gtfs_feed:
             return None
         # This transforms the Pydantic model into a dict representation and works for all fields with the same name
-        gtfs_feed_dict = operation_request_gtfs_feed.model_dump()
-        # Fix enum fields that have different names in the DB model
-        if operation_request_gtfs_feed.status:
-            gtfs_feed_dict["status"] = operation_request_gtfs_feed.status.value
-        # Add to the dict any fields that are in the source info model
-        gtfs_feed_dict.update(operation_request_gtfs_feed.source_info.model_dump())
-        if operation_request_gtfs_feed.external_ids:
-            gtfs_feed_dict.update(
-                {
-                    Feed.externalids.key: [
-                        ext_id.model_dump()
-                        for ext_id in operation_request_gtfs_feed.external_ids
-                    ]
-                }
-            )
-        if operation_request_gtfs_feed.redirects:
-            gtfs_feed_dict.update(
-                {
-                    Feed.redirectingids.key: [
-                        redir.model_dump()
-                        for redir in operation_request_gtfs_feed.redirects
-                    ]
-                }
-            )
-        if operation_request_gtfs_feed.related_links:
-            gtfs_feed_dict.update(
-                {
-                    Feed.feedrelatedlinks.key: [
-                        rel_link.model_dump()
-                        for rel_link in operation_request_gtfs_feed.related_links
-                    ]
-                }
-            )
-
+        gtfs_feed_dict = get_feed_dict(operation_request_gtfs_feed)
         gtfs_feed_dict = sanitize_value(gtfs_feed_dict)
         feed: Feed = FeedImpl.to_orm_from_dict(gtfs_feed_dict)
 

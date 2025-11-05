@@ -26,6 +26,7 @@ src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/operation_create_request_gtfs_feed.py
 src/feeds_gen/models/operation_create_request_gtfs_feed_source_info.py
+src/feeds_gen/models/operation_create_request_gtfs_rt_feed.py
 src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
