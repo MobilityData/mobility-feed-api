@@ -75,13 +75,13 @@ class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
 
     @staticmethod
-    def assing_feed_id(new_feed: Gtfsfeed | Gtfsrealtimefeed):
+    def assign_feed_id(new_feed: Gtfsfeed | Gtfsrealtimefeed):
         client_provided_id = bool(getattr(new_feed, "id", None))
         if not client_provided_id:
             new_feed.id = new_feed.stable_id
 
     @staticmethod
-    def assing_stable_id(new_feed: Gtfsfeed | Gtfsrealtimefeed, db_session: Session):
+    def assign_stable_id(new_feed: Gtfsfeed | Gtfsrealtimefeed, db_session: Session):
         client_provided_stable_id = bool(getattr(new_feed, "stable_id", None))
         if not client_provided_stable_id:
             next_val = db_session.execute(
@@ -360,8 +360,8 @@ class OperationsApiImpl(BaseOperationsApi):
             operation_create_request_gtfs_feed
         )
         new_feed.data_type = DataType.GTFS.value
-        OperationsApiImpl.assing_stable_id(new_feed, db_session)
-        OperationsApiImpl.assing_feed_id(new_feed)
+        OperationsApiImpl.assign_stable_id(new_feed, db_session)
+        OperationsApiImpl.assign_feed_id(new_feed)
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsfeed, new_feed.id)
@@ -388,8 +388,8 @@ class OperationsApiImpl(BaseOperationsApi):
             operation_create_request_gtfs_rt_feed
         )
         new_feed.data_type = DataType.GTFS_RT.value
-        OperationsApiImpl.assing_stable_id(new_feed, db_session)
-        OperationsApiImpl.assing_feed_id(new_feed)
+        OperationsApiImpl.assign_stable_id(new_feed, db_session)
+        OperationsApiImpl.assign_feed_id(new_feed)
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsrealtimefeed, new_feed.id)
