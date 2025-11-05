@@ -71,7 +71,10 @@ def populate_licenses_task(dry_run, db_session):
         if dry_run:
             logging.info("Dry run: would process %d licenses.", len(licenses_data))
             for license_data in licenses_data:
-                logging.info("Dry run: processing license %d", len(licenses_data))
+                logging.info(
+                    "Dry run: processing license %s",
+                    license_data.get("spdx", {}).get("licenseId", "unknown"),
+                )
         else:
             for license_data in licenses_data:
                 spdx_data = license_data.get("spdx")
