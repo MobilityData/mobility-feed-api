@@ -22,13 +22,6 @@ on:
         default: false
         type: boolean
 jobs:
-  print-event-name:
-    name: Print event name
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print event name
-        run: echo "github.event_name=${{ github.event_name }}"
-
   update:
     uses: ./.github/workflows/db-update.yml
     with:
