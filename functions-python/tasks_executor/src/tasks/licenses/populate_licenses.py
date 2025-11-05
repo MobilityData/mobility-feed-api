@@ -1,3 +1,23 @@
+# This script defines a task to populate the 'licenses' table and the 'license_rules'
+# association table in the database. It is designed to be triggered as a background task.
+#
+# The script performs the following steps:
+# 1. Fetches a list of license definition files from the MobilityData/licenses-aas GitHub repository
+#    using the GitHub API.
+# 2. Downloads the JSON content of each individual license file.
+# 3. For each license:
+#    a. Parses the JSON, extracting license details primarily from the nested 'spdx' object.
+#       This includes the license ID, name, URL, and full license text.
+#    b. Creates a new 'License' record or updates an existing one based on the license ID.
+#    c. Extracts the associated rule names from the 'permissions', 'conditions', and 'limitations'
+#       lists at the top level of the JSON.
+#    d. Queries the 'rules' table to find the corresponding Rule objects.
+#    e. Associates the found rules with the license. The SQLAlchemy ORM automatically
+#       manages the creation of records in the 'license_rules' join table to establish
+#       the many-to-many relationship.
+# 4. Supports a 'dry_run' mode, which simulates the process and logs intended
+#    actions without committing any changes to the database.
+# 5. Includes error handling for network issues and database transactions.
 import logging
 
 import requests
