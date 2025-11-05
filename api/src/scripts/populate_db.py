@@ -60,7 +60,7 @@ class DatabasePopulateHelper:
             filepaths = [filepaths]
 
         for filepath in filepaths:
-            new_df = pandas.read_csv(filepath, comment="#", low_memory=False)
+            new_df = pandas.read_csv(filepath, low_memory=False)
             self.df = pandas.concat([self.df, new_df])
 
         self.filter_data()
