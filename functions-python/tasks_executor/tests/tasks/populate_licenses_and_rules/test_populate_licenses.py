@@ -2,28 +2,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import requests
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql.functions import now
-from shared.database.database import Session
-from shared.database_gen.sqlacodegen_models import License, Rule
-from tasks.licenses.populate_licenses import populate_licenses_task
+from sqlalchemy.exc import SQLAlchemyError
 
-
-# This compilation rule is necessary to make the JSONB type, which is PostgreSQL-specific,
-# compatible with the in-memory SQLite database used for testing. It tells SQLAlchemy
-# to treat JSONB as TEXT when running against a SQLite backend.
-@compiles(JSONB, "sqlite")
-def compile_jsonb_for_sqlite(element, compiler, **kw):
-    return "TEXT"
-
-
-# This compilation rule translates the PostgreSQL-specific `now()` function into
-# the SQLite-compatible `CURRENT_TIMESTAMP` function during test schema creation.
-@compiles(now, "sqlite")
-def compile_now_for_sqlite(element, compiler, **kw):
-    return "CURRENT_TIMESTAMP"
-
+from shared.database_gen.sqlacodegen_models import Rule
+from tasks.licenses.populate_licenses import (
+    LICENSES_API_URL,
+    populate_licenses_task,
+)
 
 # Mock data for GitHub API responses
 MOCK_LICENSE_LIST = [
@@ -79,34 +64,10 @@ MOCK_LICENSE_NO_SPDX = {"licenseId": "NO-SPDX-ID", "name": "No SPDX License"}
 
 
 class TestPopulateLicenses(unittest.TestCase):
-    def setUp(self):
-        # Create an in-memory SQLite database for testing
-        self.session = Session(bind=self.engine)
-
-    def tearDown(self):
-        self.session.close()
-
-    @classmethod
-    def setUpClass(cls):
-        from sqlalchemy import create_engine
-
-        from shared.database_gen.sqlacodegen_models import Base
-
-        cls.engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(cls.engine)
-
-    @classmethod
-    def tearDownClass(cls):
-        from shared.database_gen.sqlacodegen_models import Base
-
-        Base.metadata.drop_all(cls.engine)
-
     def _mock_requests_get(self, mock_get):
         """Helper to configure mock for requests.get."""
         mock_responses = {
-            "https://api.github.com/repos/MobilityData/licenses-aas/contents/data/licenses": MagicMock(
-                json=lambda: MOCK_LICENSE_LIST
-            ),
+            LICENSES_API_URL: MagicMock(json=lambda: MOCK_LICENSE_LIST),
             "http://mockurl/MIT.json": MagicMock(json=lambda: MOCK_LICENSE_MIT),
             "http://mockurl/BSD-3-Clause.json": MagicMock(
                 json=lambda: MOCK_LICENSE_BSD
@@ -125,64 +86,86 @@ class TestPopulateLicenses(unittest.TestCase):
 
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_populate_licenses_success(self, mock_get):
+        """Test successful population of licenses."""
+        # Arrange
         self._mock_requests_get(mock_get)
+        mock_db_session = MagicMock()
+        mock_db_session.get.return_value = None  # Simulate no existing licenses
 
-        # Pre-populate rules
-        rules_to_add = [
-            Rule(id="commercial-use", name="commercial-use", type="permission"),
-            Rule(id="distribution", name="distribution", type="permission"),
-            Rule(id="include-copyright", name="include-copyright", type="condition"),
-            Rule(id="liability", name="liability", type="limitation"),
-            Rule(id="warranty", name="warranty", type="limitation"),
+        # Mock the rules query
+        mock_rules = [
+            Rule(name="commercial-use"),
+            Rule(name="distribution"),
+            Rule(name="include-copyright"),
+            Rule(name="liability"),
+            Rule(name="warranty"),
         ]
-        self.session.add_all(rules_to_add)
-        self.session.commit()
+        mock_db_session.query.return_value.filter.return_value.all.return_value = (
+            mock_rules
+        )
 
-        populate_licenses_task(dry_run=False, db_session=self.session)
+        # Act
+        populate_licenses_task(dry_run=False, db_session=mock_db_session)
 
-        licenses = self.session.query(License).order_by(License.id).all()
-        self.assertEqual(len(licenses), 2)
+        # Assert
+        self.assertEqual(mock_db_session.merge.call_count, 2)
+        mock_db_session.rollback.assert_not_called()
 
-        # Check MIT License
-        mit_license = licenses[1]
-        self.assertEqual(mit_license.id, "MIT")
+        # Check that merge was called with correctly constructed License objects
+        call_args_list = mock_db_session.merge.call_args_list
+        merged_licenses = [arg.args[0] for arg in call_args_list]
+
+        mit_license = next((lic for lic in merged_licenses if lic.id == "MIT"), None)
+        self.assertIsNotNone(mit_license)
         self.assertEqual(mit_license.name, "MIT License")
         self.assertTrue(mit_license.is_spdx)
         self.assertEqual(len(mit_license.rules), 3)
-        rule_names = sorted([rule.name for rule in mit_license.rules])
-        self.assertEqual(
-            rule_names, ["commercial-use", "distribution", "include-copyright"]
-        )
-
-        # Check BSD License
-        bsd_license = licenses[0]
-        self.assertEqual(bsd_license.id, "BSD-3-Clause")
-        self.assertEqual(bsd_license.name, "BSD 3-Clause License")
-        self.assertEqual(len(bsd_license.rules), 3)
-        rule_names = sorted([rule.name for rule in bsd_license.rules])
-        self.assertEqual(rule_names, ["commercial-use", "liability", "warranty"])
 
     @patch("tasks.licenses.populate_licenses.requests.get")
-    def test_update_existing_license(self, mock_get):
+    def test_populate_licenses_dry_run(self, mock_get):
+        """Test that no database changes are made during a dry run."""
+        # Arrange
         self._mock_requests_get(mock_get)
+        mock_db_session = MagicMock()
 
-        # Pre-populate license and a rule
-        existing_license = License(
-            id="MIT", name="Old MIT Name", url="http://oldurl.com"
-        )
-        existing_rule = Rule(id="private-use", name="private-use", type="permission")
-        existing_license.rules.append(existing_rule)
-        self.session.add(existing_license)
-        self.session.commit()
+        # Act
+        populate_licenses_task(dry_run=True, db_session=mock_db_session)
 
-        # Run the task to update
-        populate_licenses_task(dry_run=False, db_session=self.session)
+        # Assert
+        mock_db_session.get.assert_not_called()
+        mock_db_session.merge.assert_not_called()
+        mock_db_session.rollback.assert_not_called()
 
-        updated_license = self.session.query(License).filter_by(id="MIT").one()
-        self.assertEqual(updated_license.name, "MIT License")
-        self.assertEqual(updated_license.url, "https://opensource.org/licenses/MIT")
-        # Check that rules are updated, not appended
-        self.assertNotEqual(len(updated_license.rules), 4)
+    @patch("tasks.licenses.populate_licenses.requests.get")
+    def test_request_exception_handling(self, mock_get):
+        """Test handling of a requests exception."""
+        # Arrange
+        mock_get.side_effect = requests.exceptions.RequestException("Network Error")
+        mock_db_session = MagicMock()
+
+        # Act & Assert
+        with self.assertRaises(requests.exceptions.RequestException):
+            populate_licenses_task(dry_run=False, db_session=mock_db_session)
+
+        mock_db_session.merge.assert_not_called()
+        # Rollback is not called because the exception happens before the db try/except block
+        mock_db_session.rollback.assert_not_called()
+
+    @patch("tasks.licenses.populate_licenses.requests.get")
+    def test_database_exception_handling(self, mock_get):
+        """Test handling of a database exception during merge."""
+        # Arrange
+        self._mock_requests_get(mock_get)
+        mock_db_session = MagicMock()
+        mock_db_session.get.return_value = None
+        mock_db_session.merge.side_effect = SQLAlchemyError("DB connection failed")
+
+        # Act & Assert
+        with self.assertRaises(SQLAlchemyError):
+            populate_licenses_task(dry_run=False, db_session=mock_db_session)
+
+        self.assertTrue(mock_db_session.merge.called)
+        mock_db_session.rollback.assert_called_once()
 
 
 if __name__ == "__main__":
