@@ -18,10 +18,9 @@
 # 4. Supports a 'dry_run' mode, which simulates the process and logs intended
 #    actions without committing any changes to the database.
 # 5. Includes error handling for network issues and database transactions.
-from datetime import datetime
 import logging
+from datetime import datetime, timezone
 
-from pytz import timezone
 import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License, Rule
