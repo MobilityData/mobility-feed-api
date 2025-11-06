@@ -24,7 +24,9 @@ import { SelectedRoutesStopsPanel } from './Map/SelectedRoutesStopsPanel';
 import { ScanningOverlay } from './Map/ScanningOverlay';
 import {
   extractRouteIds,
+  generatePmtilesUrls,
   getBoundsFromCoordinates,
+  type LatestDatasetLite,
 } from './GtfsVisualizationMap.functions';
 import {
   RouteHighlightLayer,
@@ -35,12 +37,6 @@ import {
   StopsHighlightOuterLayer,
   StopsIndexLayer,
 } from './GtfsVisualizationMap.layers';
-
-interface LatestDatasetLite {
-  hosted_url?: string;
-  id?: string;
-  stable_id?: string;
-}
 
 export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
@@ -54,11 +50,13 @@ export interface GtfsVisualizationMapProps {
   stopRadius?: number;
   /** If true, skip precomputation + scanning overlay + auto-fit-on-idle */
   preview?: boolean;
+  visualizationId: string;
 }
 
 export const GtfsVisualizationMap = ({
   polygon,
   latestDataset,
+  visualizationId,
   filteredRoutes = [],
   filteredRouteTypeIds = [],
   hideStops = false,
@@ -94,14 +92,8 @@ export const GtfsVisualizationMap = ({
   // Selected stop id from the panel (for cute highlight)
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
-    const baseUrl =
-      latestDataset?.hosted_url != null
-        ? latestDataset.hosted_url.replace(/[^/]+$/, '')
-        : undefined;
-    const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
-    const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
-    return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
-  }, [latestDataset?.id, latestDataset?.stable_id]);
+    return generatePmtilesUrls(latestDataset, visualizationId);
+  }, [latestDataset?.id, latestDataset?.stable_id, visualizationId]);
 
   const mapRef = useRef<MapRef>(null);
   const didInitRef = useRef(false);

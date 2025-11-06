@@ -4,6 +4,12 @@ import {
   type LngLatBoundsLike,
 } from 'maplibre-gl';
 
+export interface LatestDatasetLite {
+  hosted_url?: string;
+  id?: string;
+  stable_id?: string;
+}
+
 // Extract route_ids list from the PMTiles property (stringified JSON)
 export function extractRouteIds(val: RouteIdsInput): string[] {
   if (Array.isArray(val)) return val.map(String);
@@ -71,4 +77,23 @@ export const getBoundsFromCoordinates = (
   });
 
   return [minLng, minLat, maxLng, maxLat];
+};
+
+export const generatePmtilesUrls = (
+  latestDataset: LatestDatasetLite | undefined,
+  visualizationId: string,
+): {
+  stopsPmtilesUrl: string;
+  routesPmtilesUrl: string;
+} => {
+  const baseUrl =
+    latestDataset?.hosted_url != null
+      ? latestDataset.hosted_url.replace(/[^/]+$/, '')
+      : undefined;
+  const updatedUrl = baseUrl
+    ?.replace(/[^/]+$/, '')
+    .replace(/\/[^/]+\/?$/, `/${visualizationId}/`);
+  const stopsPmtilesUrl = `${updatedUrl ?? ''}pmtiles/stops.pmtiles`;
+  const routesPmtilesUrl = `${updatedUrl ?? ''}pmtiles/routes.pmtiles`;
+  return { stopsPmtilesUrl, routesPmtilesUrl };
 };

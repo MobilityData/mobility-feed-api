@@ -654,6 +654,11 @@ export default function FullMapView(): React.ReactElement {
                 <GtfsVisualizationMap
                   polygon={boundingBox}
                   latestDataset={latestDatasetLite}
+                  visualizationId={
+                    (feed as GTFSFeedType)?.visualization_dataset_id ??
+                    latestDatasetLite?.id ??
+                    ''
+                  }
                   filteredRouteTypeIds={filteredRouteTypeIds}
                   filteredRoutes={filteredRoutes}
                   hideStops={hideStops}
