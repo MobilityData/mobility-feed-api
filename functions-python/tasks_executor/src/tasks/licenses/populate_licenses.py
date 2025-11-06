@@ -91,6 +91,10 @@ def populate_licenses_task(dry_run, db_session):
                     license_object.created_at = datetime.now(timezone.utc)
 
                 license_object.is_spdx = is_spdx
+                if is_spdx:
+                    license_object.type = "standard"
+                else:
+                    license_object.type = "custom"
                 license_object.name = spdx_data.get("name")
                 license_object.updated_at = datetime.now(timezone.utc)
                 cross_ref_list = spdx_data.get("crossRef")
