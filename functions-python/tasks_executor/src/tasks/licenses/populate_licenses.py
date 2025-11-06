@@ -74,7 +74,8 @@ def populate_licenses_task(dry_run, db_session):
             for license_data in licenses_data:
                 spdx_data = license_data.get("spdx")
                 if not spdx_data:
-                    is_spdx = False
+                    logging.warning("Skipping license record without 'spdx' data")
+                    continue
                 else:
                     is_spdx = True
                 license_id = spdx_data.get("licenseId")
