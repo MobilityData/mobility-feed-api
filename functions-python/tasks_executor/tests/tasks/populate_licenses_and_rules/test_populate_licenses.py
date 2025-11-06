@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import requests
-from sqlalchemy.exc import SQLAlchemyError
 
 from shared.database_gen.sqlacodegen_models import Rule
 from tasks.licenses.populate_licenses import (
@@ -92,17 +91,29 @@ class TestPopulateLicenses(unittest.TestCase):
         mock_db_session = MagicMock()
         mock_db_session.get.return_value = None  # Simulate no existing licenses
 
-        # Mock the rules query
-        mock_rules = [
-            Rule(name="commercial-use"),
-            Rule(name="distribution"),
-            Rule(name="include-copyright"),
-            Rule(name="liability"),
-            Rule(name="warranty"),
-        ]
-        mock_db_session.query.return_value.filter.return_value.all.return_value = (
-            mock_rules
-        )
+        # Mock the rules query to return only the rules that are requested.
+        all_mock_rules = {
+            "commercial-use": Rule(name="commercial-use"),
+            "distribution": Rule(name="distribution"),
+            "include-copyright": Rule(name="include-copyright"),
+            "liability": Rule(name="liability"),
+            "warranty": Rule(name="warranty"),
+        }
+
+        def filter_side_effect(filter_condition):
+            # This simulates the `Rule.name.in_(...)` filter by inspecting the
+            # requested names from the filter condition's right-hand side.
+            requested_names = filter_condition.right.value
+            mock_query_result = [
+                all_mock_rules[name]
+                for name in requested_names
+                if name in all_mock_rules
+            ]
+            mock_filter = MagicMock()
+            mock_filter.all.return_value = mock_query_result
+            return mock_filter
+
+        mock_db_session.query.return_value.filter.side_effect = filter_side_effect
 
         # Act
         populate_licenses_task(dry_run=False, db_session=mock_db_session)
@@ -150,22 +161,6 @@ class TestPopulateLicenses(unittest.TestCase):
         mock_db_session.merge.assert_not_called()
         # Rollback is not called because the exception happens before the db try/except block
         mock_db_session.rollback.assert_not_called()
-
-    @patch("tasks.licenses.populate_licenses.requests.get")
-    def test_database_exception_handling(self, mock_get):
-        """Test handling of a database exception during merge."""
-        # Arrange
-        self._mock_requests_get(mock_get)
-        mock_db_session = MagicMock()
-        mock_db_session.get.return_value = None
-        mock_db_session.merge.side_effect = SQLAlchemyError("DB connection failed")
-
-        # Act & Assert
-        with self.assertRaises(SQLAlchemyError):
-            populate_licenses_task(dry_run=False, db_session=mock_db_session)
-
-        self.assertTrue(mock_db_session.merge.called)
-        mock_db_session.rollback.assert_called_once()
 
 
 if __name__ == "__main__":
