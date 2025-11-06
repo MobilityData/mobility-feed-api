@@ -25,7 +25,7 @@ import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
-import { type AllFeedType } from '../services/feeds/utils';
+import { type GTFSFeedType, type AllFeedType } from '../services/feeds/utils';
 import { OpenInNew } from '@mui/icons-material';
 import { computeBoundingBox } from '../screens/Feed/Feed.functions';
 import { displayFormattedDate } from '../utils/date';
@@ -37,10 +37,11 @@ import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
 import { selectLatestGbfsVersion } from '../store/feed-selectors';
 import { selectGtfsDatasetRoutesLoadingStatus } from '../store/supporting-files-selectors';
+import { type LatestDatasetLite } from './GtfsVisualizationMap.functions';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
-  latestDataset?: { hosted_url?: string };
+  latestDataset?: LatestDatasetLite;
   feed: AllFeedType;
 }
 
@@ -201,7 +202,12 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       return <Map polygon={boundingBox} />;
     }
 
-    if (displayGtfsVisualizationView && boundingBox != undefined) {
+    if (
+      displayGtfsVisualizationView &&
+      boundingBox != undefined &&
+      feed.data_type === 'gtfs'
+    ) {
+      const gtfsFeed = feed as GTFSFeedType;
       return (
         <>
           <Fab
@@ -215,6 +221,9 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           <GtfsVisualizationMap
             polygon={boundingBox}
             latestDataset={latestDataset}
+            visualizationId={
+              gtfsFeed?.visualization_dataset_id ?? latestDataset?.id ?? ''
+            }
             dataDisplayLimit={config.visualizationMapPreviewDataLimit}
             preview={true}
             filteredRoutes={[]} // this is necessary to re-renders
