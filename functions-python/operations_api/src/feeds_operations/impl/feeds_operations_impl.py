@@ -108,25 +108,6 @@ class OperationsApiImpl(BaseOperationsApi):
                 detail=message,
             )
 
-    # @staticmethod
-    # def send_feed_process_event(feed: type[Gtfsfeed] | None, request=None):
-    #     """Send a message to Pub/Sub to process the feed."""
-    #     message_payload = {
-    #         "execution_id": get_execution_id(
-    #             get_request_context(), "feed-created-process"
-    #         ),
-    #         "producer_url": feed.producer_url,
-    #         "feed_stable_id": feed.stable_id,
-    #         "feed_id": feed.id,
-    #         "dataset_stable_id": None,
-    #         "dataset_hash": None,
-    #         "authentication_type": feed.authentication_type,
-    #         "authentication_info_url": feed.authentication_info_url,
-    #         "api_key_parameter_name": feed.api_key_parameter_name,
-    #     }
-    #     publish_messages([message_payload], project_id, pubsub_topic_name)
-    #     logging.debug("Sent feed process event")
-
     @with_db_session
     async def get_feeds(
         self,
