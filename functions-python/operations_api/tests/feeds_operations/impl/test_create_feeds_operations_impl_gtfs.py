@@ -24,9 +24,6 @@ import json
 import uuid
 from unittest.mock import patch
 
-# For asserting module-level topic/project used on publish
-from feeds_operations.impl import feeds_operations_impl as ops_module
-
 
 @pytest.fixture
 def update_request_gtfs_feed():
@@ -65,7 +62,7 @@ def db_session():
 
 
 @pytest.mark.asyncio
-@patch("feeds_operations.impl.feeds_operations_impl.publish_messages")
+@patch("feeds_operations.impl.feeds_operations_impl.trigger_dataset_download")
 async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
     api = OperationsApiImpl()
     unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
@@ -114,27 +111,20 @@ async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
         # Assert publish_messages was called exactly once with expected payload
         assert mock_publish_messages.call_count == 1
         args, kwargs = mock_publish_messages.call_args
-        assert len(args) == 3  # data list, project_id, topic_name
-        data_list, project_id, topic_name = args
-
-        # Project/topic should be whatever module-level variables resolve to (may be None in tests)
-        assert project_id == ops_module.project_id
-        assert topic_name == ops_module.pubsub_topic_name
+        assert len(args) == 2  # data list, project_id, topic_name
+        feed, execution_id = args
 
         # Validate message payload shape and values
-        assert isinstance(data_list, list) and len(data_list) == 1
-        message = data_list[0]
-        assert message["producer_url"] == unique_url
-        assert message["feed_stable_id"] == payload["stable_id"]
-        assert message["feed_id"] == payload["id"]
-        assert message["dataset_stable_id"] is None
-        assert message["dataset_hash"] is None
-        assert message["authentication_type"] == "0"
-        assert message["authentication_info_url"] is None
-        assert message["api_key_parameter_name"] is None
+        # assert isinstance(feed, list) and len(data_list) == 1
+        # message = feed[0]
+        assert feed.producer_url == unique_url
+        assert feed.stable_id == payload["stable_id"]
+        assert feed.id == payload["id"]
+        assert feed.authentication_type == "0"
+        assert feed.authentication_info_url is None
+        assert feed.api_key_parameter_name is None
         # Non-deterministic but must start with expected prefix
-        assert isinstance(message.get("execution_id"), str)
-        assert message["execution_id"].startswith("feed-created-process-")
+        assert execution_id.startswith("feed-created-process-")
     finally:
         # Cleanup to avoid impacting other tests
         stable_id = payload.get("stable_id") if isinstance(payload, dict) else None

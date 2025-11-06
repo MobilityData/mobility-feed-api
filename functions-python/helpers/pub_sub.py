@@ -23,7 +23,7 @@ from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.publisher.futures import Future
 
-from shared.database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
 
 PROJECT_ID = os.getenv("PROJECT_ID")
 DATASET_BATCH_TOPIC = os.getenv("DATASET_PROCESSING_TOPIC_NAME")
@@ -73,7 +73,7 @@ def publish_messages(data: List[Dict], project_id, topic_name) -> None:
 
 
 def trigger_dataset_download(
-    feed: Feed,
+    feed: Feed | Gtfsfeed,
     execution_id: str,
     topic_name: str = DATASET_BATCH_TOPIC,
 ) -> None:
