@@ -89,6 +89,9 @@ def populate_licenses_task(dry_run, db_session):
                 if not license_object:
                     license_object = License(id=license_id)
                     license_object.created_at = datetime.now(timezone.utc)
+                    # Add the new license object to the session immediately.
+                    # This makes it "pending" and allows SQLAlchemy to track relationship changes.
+                    db_session.add(license_object)
 
                 license_object.is_spdx = is_spdx
                 if is_spdx:
