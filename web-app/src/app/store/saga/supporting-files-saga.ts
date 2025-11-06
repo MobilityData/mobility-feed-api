@@ -8,20 +8,19 @@ import {
 } from '../supporting-files-reducer';
 import { getAppError } from '../../utils/error';
 import { getJson } from '../../services/http';
-import { loadingDatasetSuccess } from '../dataset-reducer';
-import { selectLatestDatasetsData } from '../dataset-selectors';
 import {
   updateFeedId,
   loadingFeedSuccess,
   loadingFeedFail,
 } from '../feed-reducer';
-import { selectFeedData, selectLatestGtfsDatasetId } from '../feed-selectors';
+import { selectFeedData } from '../feed-selectors';
 import {
   type GtfsRoute,
   type GeoJSONData,
   type GeoJSONDataGBFS,
 } from '../../types';
 import { getFeedFilesBaseUrl } from '../../utils/config';
+import { type GTFSFeedType } from '../../services/feeds/utils';
 
 export function buildRoutesUrl(feedId: string, datasetId: string): string {
   return `${getFeedFilesBaseUrl()}/${feedId}/${datasetId}/pmtiles/routes.json`;
@@ -81,45 +80,14 @@ const handleFeedChange = function* (): Generator<unknown, void, unknown> {
   yield put(clearSupportingFiles());
 
   if (feed?.data_type === 'gtfs') {
-    const datasetId = (yield select(selectLatestGtfsDatasetId)) as
-      | string
-      | undefined;
-    if (datasetId !== undefined && feedId !== undefined) {
-      const url = buildRoutesUrl(feedId, datasetId);
+    if (feedId !== undefined) {
+      const gtfsFeed: GTFSFeedType = feed as GTFSFeedType;
+      const url = buildRoutesUrl(
+        feedId,
+        gtfsFeed?.visualization_dataset_id ?? '',
+      );
       yield put(loadingSupportingFile({ key: 'gtfsDatasetRoutesJson', url }));
     }
-  }
-};
-
-const handleDatasetChange = function* (): Generator<unknown, void, unknown> {
-  const dataset = (yield select(selectLatestDatasetsData)) as
-    | { id?: string; feed_id?: string }
-    | undefined;
-  const feedId = dataset?.feed_id;
-  const datasetId = dataset?.id;
-
-  // Read previous feedId from supporting-files context so we only clear/reload
-  // when the feed actually changed.
-  const previousContext = (yield select((s) => s.supportingFiles)) as
-    | { context?: { datasetId?: string } }
-    | undefined;
-  const previousDatasetId = previousContext?.context?.datasetId;
-
-  // If datasetId hasn't changed or it's, do nothing.
-  if (previousDatasetId === datasetId) {
-    return;
-  }
-
-  // Set the context in the supporting-files state so we can track which
-  // feed the files belong to.
-  yield put(setSupportingFilesContext({ feedId, dataType: 'gtfs' }));
-
-  // Clear any supporting files loaded for a previous feed.
-  yield put(clearSupportingFiles());
-
-  if (datasetId !== undefined && feedId !== undefined) {
-    const url = buildRoutesUrl(feedId, datasetId);
-    yield put(loadingSupportingFile({ key: 'gtfsDatasetRoutesJson', url }));
   }
 };
 
@@ -127,6 +95,5 @@ export function* watchSupportingFiles(): Generator {
   yield takeLatest(updateFeedId.type, handleFeedChange);
   yield takeLatest(loadingFeedSuccess.type, handleFeedChange);
   yield takeLatest(loadingFeedFail.type, handleFeedChangeFail);
-  yield takeLatest(loadingDatasetSuccess.type, handleDatasetChange);
   yield takeLatest(loadingSupportingFile.type, loadSupportingFileSaga);
 }
