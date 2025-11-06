@@ -18,8 +18,10 @@
 # 4. Supports a 'dry_run' mode, which simulates the process and logs intended
 #    actions without committing any changes to the database.
 # 5. Includes error handling for network issues and database transactions.
+from datetime import datetime
 import logging
 
+from pytz import timezone
 import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License, Rule
@@ -86,8 +88,11 @@ def populate_licenses_task(dry_run, db_session):
                 license_object = db_session.get(License, license_id)
                 if not license_object:
                     license_object = License(id=license_id)
+                    license_object.created_at = datetime.now(timezone.utc)
+
                 license_object.is_spdx = is_spdx
                 license_object.name = spdx_data.get("name")
+                license_object.updated_at = datetime.now(timezone.utc)
                 cross_ref_list = spdx_data.get("crossRef")
                 if (
                     cross_ref_list

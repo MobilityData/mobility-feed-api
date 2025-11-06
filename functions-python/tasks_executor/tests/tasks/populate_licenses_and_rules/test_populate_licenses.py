@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import requests
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.functions import now
 from shared.database.database import Session
 from shared.database_gen.sqlacodegen_models import License, Rule
 from tasks.licenses.populate_licenses import populate_licenses_task
@@ -15,6 +16,13 @@ from tasks.licenses.populate_licenses import populate_licenses_task
 @compiles(JSONB, "sqlite")
 def compile_jsonb_for_sqlite(element, compiler, **kw):
     return "TEXT"
+
+
+# This compilation rule translates the PostgreSQL-specific `now()` function into
+# the SQLite-compatible `CURRENT_TIMESTAMP` function during test schema creation.
+@compiles(now, "sqlite")
+def compile_now_for_sqlite(element, compiler, **kw):
+    return "CURRENT_TIMESTAMP"
 
 
 # Mock data for GitHub API responses
