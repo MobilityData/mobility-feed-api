@@ -13,7 +13,7 @@ import {
   loadingFeedSuccess,
   loadingFeedFail,
 } from '../feed-reducer';
-import { selectFeedData, selectLatestGtfsDatasetId } from '../feed-selectors';
+import { selectFeedData } from '../feed-selectors';
 import {
   type GtfsRoute,
   type GeoJSONData,
