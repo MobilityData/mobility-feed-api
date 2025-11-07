@@ -82,7 +82,6 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
     // navigate to /gbfs-validator?AutoDiscoveryUrl=url&auth details
     // store the auth details in context
     // let the GbfsValidator component handle the loading state
-    console.log('Validating GBFS Feed for URL: ', autoDiscoveryUrlInput);
     // I'm sure if a query param exists, instead of navigation, we will update the param, and have a useEffect to call the new feed to validate
     navigate(
       `/gbfs-validator?AutoDiscoveryUrl=${encodeURIComponent(

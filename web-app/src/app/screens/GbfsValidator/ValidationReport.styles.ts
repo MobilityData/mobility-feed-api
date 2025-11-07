@@ -1,4 +1,11 @@
-import { Box, styled } from '@mui/material';
+import {
+  Box,
+  styled,
+  Typography,
+  type SxProps,
+  type Theme,
+} from '@mui/material';
+import { type CSSProperties } from 'react';
 
 export const gbfsValidatorHeroBg = {
   backgroundColor: '#43e0ff',
@@ -33,4 +40,50 @@ export const PromotionTextColumn = styled(Box)(({ theme }) => ({
     mx: 'auto',
     textAlign: 'center',
   },
+}));
+
+export const ValidationReportTableStyles: SxProps<Theme> = (theme) => ({
+  backgroundColor: theme.palette.background.paper,
+  height: 'fit-content',
+  position: 'sticky',
+  top: theme.spacing(10),
+  alignSelf: 'flex-start',
+  width: '300px',
+  minWidth: '300px',
+  borderRadius: 1,
+  overflow: 'visible',
+  maxHeight: 'calc(100vh - 80px)',
+  display: { xs: 'none', md: 'block' },
+});
+
+export const ValidationElementCardStyles = (
+  theme: Theme,
+  index: number,
+): SxProps<Theme> => ({
+  mx: 2,
+  mb: 2,
+  display: 'block',
+  textDecoration: 'none',
+  bgcolor: 'background.default',
+  transition: 'box-shadow 0.3s ease',
+  mt: index === 0 ? 0.5 : 0,
+  '&:focus': {
+    boxShadow: `0 0 0 3px ${theme.palette.primary.main}`,
+  },
+});
+
+export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
+  padding: theme.spacing(0.5),
+  background: theme.palette.background.paper,
+  width: '100%',
+  overflowX: 'auto',
+  fontSize: '0.875em',
+});
+
+export const ContentTitle = styled(Typography)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  fontSize: theme.typography.subtitle2.fontSize,
+  padding: `0 ${theme.spacing(2)}`,
+  lineHeight: '48px',
+  fontWeight: 500,
 }));

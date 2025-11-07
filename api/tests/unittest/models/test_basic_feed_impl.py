@@ -62,7 +62,7 @@ feed_orm = Feed(
             feed_id="feed_id",
             hosted_url="hosted_url",
             note="note",
-            downloaded_at="downloaded_at",
+            downloaded_at=datetime(2023, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
             hash="hash",
             bounding_box="bounding_box",
             service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
@@ -160,3 +160,97 @@ class TestBasicFeedImpl(unittest.TestCase):
     def test_from_orm_none(self):
         """Test the `from_orm` method with None."""
         assert FeedImpl.from_orm(None) is None
+
+    def test_to_orm_from_dict_none(self):
+        """to_orm_from_dict returns None when input is None or empty dict."""
+        assert FeedImpl.to_orm_from_dict(None) is None
+        assert FeedImpl.to_orm_from_dict({}) is None
+
+    def test_to_orm_from_dict_full_payload(self):
+        """to_orm_from_dict maps primitives and nested collections; sorts externalids by associated_id."""
+        now = datetime(2024, 5, 1, 12, 30, 0)
+        updated = datetime(2024, 6, 1, 8, 0, 0)
+        payload = {
+            "id": "feed-123",
+            "stable_id": "stable-123",
+            "data_type": "gtfs",
+            "created_at": now,
+            "provider": "Provider A",
+            "feed_contact_email": "contact@example.com",
+            "producer_url": "https://producer.example.com",
+            "authentication_type": 1,  # should be converted to string
+            "authentication_info_url": "https://auth.example.com",
+            "api_key_parameter_name": "api_key",
+            "license_url": "https://license.example.com",
+            "status": "active",
+            "official": True,
+            "official_updated_at": updated,
+            "feed_name": "Feed Name",
+            "note": "Some note",
+            # avoid DB-dependent fields: locations and redirectingids
+            "externalids": [
+                {"external_id": "b-id", "source": "src"},
+                {"external_id": "a-id", "source": "src"},
+            ],
+            "feedrelatedlinks": [
+                {"code": "docs", "url": "https://docs.example.com", "description": "Docs"},
+                {"code": "home", "url": "https://home.example.com", "description": "Home"},
+            ],
+        }
+
+        obj = FeedImpl.to_orm_from_dict(payload)
+
+        # Basic type
+        assert isinstance(obj, Feed)
+
+        # Primitives
+        assert obj.id == "feed-123"
+        assert obj.stable_id == "stable-123"
+        assert obj.data_type == "gtfs"
+        assert obj.created_at == now
+        assert obj.provider == "Provider A"
+        assert obj.feed_contact_email == "contact@example.com"
+        assert obj.producer_url == "https://producer.example.com"
+        # authentication_type coerced to string per implementation
+        assert obj.authentication_type == "1"
+        assert obj.authentication_info_url == "https://auth.example.com"
+        assert obj.api_key_parameter_name == "api_key"
+        assert obj.license_url == "https://license.example.com"
+        assert obj.status == "active"
+        assert obj.official is True
+        assert obj.official_updated_at == updated
+        assert obj.feed_name == "Feed Name"
+        assert obj.note == "Some note"
+
+        # Nested: externalids should be sorted by associated_id
+        assert [type(e).__name__ for e in obj.externalids] == ["Externalid", "Externalid"]
+        got_ext = [(e.source, e.associated_id) for e in obj.externalids]
+        assert got_ext == [("src", "a-id"), ("src", "b-id")]
+
+        # Nested: feedrelatedlinks preserved order (no explicit sort in impl)
+        assert len(obj.feedrelatedlinks) == 2
+        codes = [feedrelatedlinks.code for feedrelatedlinks in obj.feedrelatedlinks]
+        urls = [feedrelatedlinks.url for feedrelatedlinks in obj.feedrelatedlinks]
+        assert codes == ["docs", "home"]
+        assert urls == ["https://docs.example.com", "https://home.example.com"]
+
+        # Relationships not provided should be empty lists
+        assert obj.redirectingids == []
+        assert obj.locations == []
+
+    def test_to_orm_from_dict_empty_collections(self):
+        """Explicit empty lists yield empty relationship collections in ORM object."""
+        payload = {
+            "stable_id": "s",
+            "data_type": "gtfs",
+            "externalids": [],
+            "feedrelatedlinks": [],
+            "redirectingids": [],
+            "locations": [],
+        }
+        obj = FeedImpl.to_orm_from_dict(payload)
+        assert isinstance(obj, Feed)
+        assert obj.externalids == []
+        assert obj.feedrelatedlinks == []
+        assert obj.redirectingids == []
+        assert obj.locations == []

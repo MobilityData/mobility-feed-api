@@ -73,7 +73,9 @@
     "cypress:open": "cypress open",
     "firebase:auth:emulator:dev": "firebase emulators:start --only auth --project mobility-feeds-dev",
     "generate:api-types:output": "npx openapi-typescript ../docs/DatabaseCatalogAPI.yaml -o $OUTPUT_PATH_TYPES && eslint $OUTPUT_PATH_TYPES --fix",
-    "generate:api-types": "OUTPUT_PATH_TYPES=src/app/services/feeds/types.ts npm run generate:api-types:output"
+    "generate:api-types": "OUTPUT_PATH_TYPES=src/app/services/feeds/types.ts npm run generate:api-types:output",
+    "generate:gbfs-validator-types:output": "npx openapi-typescript ../docs/GbfsValidator.yaml -o $OUTPUT_PATH_TYPES && eslint $OUTPUT_PATH_TYPES --fix",
+    "generate:gbfs-validator-types": "OUTPUT_PATH_TYPES=src/app/services/feeds/gbfs-validator-types.ts npm run generate:gbfs-validator-types:output"
   },
   "eslintConfig": {
     "extends": [

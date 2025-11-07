@@ -1,21 +1,20 @@
 # Update the Mobility Database Schema
 name: Database Update - QA
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      DRY_RUN:
+        description: Dry run. Skip applying schema and content updates
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
     inputs:
       DRY_RUN:
         description: Dry run. Skip applying schema and content updates
         required: false
         default: false
         type: boolean
-      INSTALL_LATEST:
-        description: Install the latest (main) API version when true; when false install the currently deployed version.
-        required: false
-        default: false
-        type: boolean
-  workflow_call:
-  repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [ catalog-sources-updated, gbfs-systems-updated ]
 
 jobs:
   update:
@@ -24,37 +23,15 @@ jobs:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
-      ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      API_BASE_URL: api-qa.mobilitydatabase.org
-      # DRY_RUN is only if requested by the user in a workflow_dispatch
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.DRY_RUN }}
-      # We want to use the currently installed version (not the latest) if we received a dispatch from
-      #   mobility_database_catalog.
-      # We want to use the latest version if the trigger was workflow_call, because currently it's used for
-      #   upgrading (e.g. release.yml)
-      # For a workflow_dispatch (manual trigger), we use the value set by the user.
-      INSTALL_LATEST: ${{ (github.event_name == 'repository_dispatch' && false) || (github.event_name == 'workflow_call' && true) || (github.event_name == 'workflow_dispatch' && inputs.INSTALL_LATEST) }}
-
+      # DRY_RUN is passed through directly from inputs
+      DRY_RUN: ${{ inputs.DRY_RUN }}
     secrets:
+      # DB auth and connectivity
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
-      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      API_TEST_REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
-  notify-slack-on-failure:
-    needs: [ update ]
-    if: always() && (needs.update.result == 'failure') && (github.event_name == 'repository_dispatch')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Notify Slack
-        uses: ./.github/actions/notify-slack
-        with:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          PRIORITY: "high"
+      # GCP auth (DB project service account)
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      # 1Password tokens
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
