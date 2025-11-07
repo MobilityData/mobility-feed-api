@@ -1,4 +1,3 @@
-import csv
 import json
 from typing import TextIO
 
@@ -29,72 +28,85 @@ class StopsProcessor(BaseProcessor):
         with open(stops_geojson, "w", encoding="utf-8") as geojson_file:
             geojson_file.write('{"type": "FeatureCollection", "features": [')
             csv_cache = self.csv_cache
-            with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
-                header = f.readline()
-                if not header:
-                    return
-                columns = next(csv.reader([header]))
-                stop_id_index = csv_cache.get_index(columns, "stop_id")
-                lon_index = csv_cache.get_index(columns, "stop_lon")
-                lat_index = csv_cache.get_index(columns, "stop_lat")
-                location_type_index = csv_cache.get_index(columns, "location_type")
-                stop_code_index = csv_cache.get_index(columns, "stop_code")
-                stop_name_index = csv_cache.get_index(columns, "stop_name")
+            try:
+                with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
+                    header = f.readline()
+                    columns = self.csv_parser.parse_header(header)
+                    if not columns:
+                        return
+                    stop_id_index = csv_cache.get_index(columns, "stop_id")
+                    if stop_id_index is None:
+                        self.logger.warning(
+                            "Missing required stop_id column in stops.txt header; skipping stops processing"
+                        )
+                        return
+                    lon_index = csv_cache.get_index(columns, "stop_lon")
+                    lat_index = csv_cache.get_index(columns, "stop_lat")
+                    location_type_index = csv_cache.get_index(columns, "location_type")
+                    stop_code_index = csv_cache.get_index(columns, "stop_code")
+                    stop_name_index = csv_cache.get_index(columns, "stop_name")
 
-                stop_desc_index = csv_cache.get_index(columns, "stop_desc")
-                stop_url_index = csv_cache.get_index(columns, "stop_url")
-                zone_id_index = csv_cache.get_index(columns, "zone_id")
-                wheelchair_boarding_index = csv_cache.get_index(
-                    columns, "wheelchair_boarding"
-                )
-
-                for line in f:
-                    if not line.strip():
-                        continue
-                    row = self.csv_parser.parse(line)
-                    stop_id = csv_cache.get_safe_value_from_index(row, stop_id_index)
-                    stop_lon = csv_cache.get_safe_float_from_index(row, lon_index)
-                    stop_lat = csv_cache.get_safe_float_from_index(row, lat_index)
-                    location_type = csv_cache.get_safe_value_from_index(
-                        row, location_type_index, "0"
-                    )
-                    stop_code = csv_cache.get_safe_value_from_index(
-                        row, stop_code_index, ""
-                    )
-                    stop_name = csv_cache.get_safe_value_from_index(
-                        row, stop_name_index, ""
-                    )
-                    stop_desc = csv_cache.get_safe_value_from_index(
-                        row, stop_desc_index, ""
-                    )
-                    zone_id = csv_cache.get_safe_value_from_index(
-                        row, zone_id_index, ""
-                    )
-                    stop_url = csv_cache.get_safe_value_from_index(
-                        row, stop_url_index, ""
-                    )
-                    wheelchair_boarding = csv_cache.get_safe_value_from_index(
-                        row, wheelchair_boarding_index, ""
+                    stop_desc_index = csv_cache.get_index(columns, "stop_desc")
+                    stop_url_index = csv_cache.get_index(columns, "stop_url")
+                    zone_id_index = csv_cache.get_index(columns, "zone_id")
+                    wheelchair_boarding_index = csv_cache.get_index(
+                        columns, "wheelchair_boarding"
                     )
 
-                    self.add_to_stop_to_coordinates(
-                        row, stop_id, stop_lon, stop_lat, location_type
-                    )
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        row = self.csv_parser.parse(line)
+                        stop_id = csv_cache.get_safe_value_from_index(
+                            row, stop_id_index
+                        )
+                        stop_lon = csv_cache.get_safe_float_from_index(row, lon_index)
+                        stop_lat = csv_cache.get_safe_float_from_index(row, lat_index)
+                        location_type = csv_cache.get_safe_value_from_index(
+                            row, location_type_index, "0"
+                        )
+                        stop_code = csv_cache.get_safe_value_from_index(
+                            row, stop_code_index, ""
+                        )
+                        stop_name = csv_cache.get_safe_value_from_index(
+                            row, stop_name_index, ""
+                        )
+                        stop_desc = csv_cache.get_safe_value_from_index(
+                            row, stop_desc_index, ""
+                        )
+                        zone_id = csv_cache.get_safe_value_from_index(
+                            row, zone_id_index, ""
+                        )
+                        stop_url = csv_cache.get_safe_value_from_index(
+                            row, stop_url_index, ""
+                        )
+                        wheelchair_boarding = csv_cache.get_safe_value_from_index(
+                            row, wheelchair_boarding_index, ""
+                        )
 
-                    self.add_to_stops_geojson(
-                        geojson_file=geojson_file,
-                        stop_id=stop_id,
-                        stop_code=stop_code,
-                        stop_name=stop_name,
-                        stop_desc=stop_desc,
-                        zone_id=zone_id,
-                        stop_url=stop_url,
-                        wheelchair_boarding=wheelchair_boarding,
-                        location_type=location_type,
-                        stop_lon=stop_lon,
-                        stop_lat=stop_lat,
-                    )
-                geojson_file.write("\n]}")
+                        self.add_to_stop_to_coordinates(
+                            row, stop_id, stop_lon, stop_lat, location_type
+                        )
+
+                        self.add_to_stops_geojson(
+                            geojson_file=geojson_file,
+                            stop_id=stop_id,
+                            stop_code=stop_code,
+                            stop_name=stop_name,
+                            stop_desc=stop_desc,
+                            zone_id=zone_id,
+                            stop_url=stop_url,
+                            wheelchair_boarding=wheelchair_boarding,
+                            location_type=location_type,
+                            stop_lon=stop_lon,
+                            stop_lat=stop_lat,
+                        )
+            finally:
+                # ensure we always close the geojson array even on early return
+                try:
+                    geojson_file.write("\n]}")
+                except Exception:
+                    pass
 
     def add_to_stop_to_coordinates(
         self, row, stop_id, stop_lon, stop_lat, location_type

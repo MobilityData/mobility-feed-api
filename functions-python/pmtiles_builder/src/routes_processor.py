@@ -1,4 +1,3 @@
-import csv
 import json
 from typing import TextIO, Dict, List
 
@@ -53,79 +52,99 @@ class RoutesProcessor(BaseProcessor):
         ) as routes_json_file:
             geojson_file.write('{"type": "FeatureCollection", "features": [\n')
             routes_json_file.write("[\n")
-            with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
-                header = f.readline()
-                if not header:
-                    return
-                columns = next(csv.reader([header]))
+            try:
+                with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
+                    header = f.readline()
+                    columns = self.csv_parser.parse_header(header)
+                    if not columns:
+                        return
 
-                route_id_index = csv_cache.get_index(columns, "route_id")
-                agency_id_index = csv_cache.get_index(columns, "agency_id")
-                route_short_name_index = csv_cache.get_index(
-                    columns, "route_short_name"
-                )
-                route_long_name_index = csv_cache.get_index(columns, "route_long_name")
-                route_type_index = csv_cache.get_index(columns, "route_type")
-                route_text_color_index = csv_cache.get_index(
-                    columns, "route_text_color"
-                )
-                route_color_index = csv_cache.get_index(columns, "route_color")
+                    route_id_index = csv_cache.get_index(columns, "route_id")
+                    agency_id_index = csv_cache.get_index(columns, "agency_id")
+                    route_short_name_index = csv_cache.get_index(
+                        columns, "route_short_name"
+                    )
+                    route_long_name_index = csv_cache.get_index(
+                        columns, "route_long_name"
+                    )
+                    route_type_index = csv_cache.get_index(columns, "route_type")
+                    route_text_color_index = csv_cache.get_index(
+                        columns, "route_text_color"
+                    )
+                    route_color_index = csv_cache.get_index(columns, "route_color")
 
-                line_number = 1
-                for line in f:
-                    if not line.strip():
-                        continue
+                    if route_id_index is None:
+                        self.logger.warning(
+                            "Missing required route_id column in routes header; skipping routes processing"
+                        )
+                        return
 
-                    row = self.csv_parser.parse(line)
-                    route_id = csv_cache.get_safe_value_from_index(row, route_id_index)
-                    agency_id = csv_cache.get_safe_value_from_index(
-                        row, agency_id_index, "default"
-                    )
-                    route_short_name = csv_cache.get_safe_value_from_index(
-                        row, route_short_name_index
-                    )
-                    route_long_name = csv_cache.get_safe_value_from_index(
-                        row, route_long_name_index
-                    )
-                    route_type = csv_cache.get_safe_value_from_index(
-                        row, route_type_index
-                    )
-                    route_color = csv_cache.get_safe_value_from_index(
-                        row, route_color_index
-                    )
-                    route_text_color = csv_cache.get_safe_value_from_index(
-                        row, route_text_color_index
-                    )
+                    line_number = 0
+                    for line in f:
+                        line_number += 1
+                        if not line.strip():
+                            continue
 
-                    # Pass all parsed values to add_to_routes_geojson
-                    self.add_to_routes_geojson(
-                        geojson_file=geojson_file,
-                        route_id=route_id,
-                        agency_id=agency_id,
-                        route_short_name=route_short_name,
-                        route_long_name=route_long_name,
-                        route_type=route_type,
-                        route_color=route_color,
-                        route_text_color=route_text_color,
-                    )
+                        row = self.csv_parser.parse(line)
+                        route_id = csv_cache.get_safe_value_from_index(
+                            row, route_id_index
+                        )
+                        agency_id = csv_cache.get_safe_value_from_index(
+                            row, agency_id_index, "default"
+                        )
+                        route_short_name = csv_cache.get_safe_value_from_index(
+                            row, route_short_name_index
+                        )
+                        route_long_name = csv_cache.get_safe_value_from_index(
+                            row, route_long_name_index
+                        )
+                        route_type = csv_cache.get_safe_value_from_index(
+                            row, route_type_index
+                        )
+                        route_color = csv_cache.get_safe_value_from_index(
+                            row, route_color_index
+                        )
+                        route_text_color = csv_cache.get_safe_value_from_index(
+                            row, route_text_color_index
+                        )
 
-                    self.add_to_routes_json(
-                        routes_json_file=routes_json_file,
-                        route_id=route_id,
-                        route_short_name=route_short_name,
-                        route_long_name=route_long_name,
-                        route_type=route_type,
-                        route_color=route_color,
-                        route_text_color=route_text_color,
-                    )
+                        # Pass all parsed values to add_to_routes_geojson
+                        self.add_to_routes_geojson(
+                            geojson_file=geojson_file,
+                            route_id=route_id,
+                            agency_id=agency_id,
+                            route_short_name=route_short_name,
+                            route_long_name=route_long_name,
+                            route_type=route_type,
+                            route_color=route_color,
+                            route_text_color=route_text_color,
+                        )
 
-                if line_number % 100 == 0 or line_number == 1:
-                    self.logger.debug(
-                        "Processed route %d (route_id: %s)", line_number, route_id
-                    )
+                        self.add_to_routes_json(
+                            routes_json_file=routes_json_file,
+                            route_id=route_id,
+                            route_short_name=route_short_name,
+                            route_long_name=route_long_name,
+                            route_type=route_type,
+                            route_color=route_color,
+                            route_text_color=route_text_color,
+                        )
 
-            geojson_file.write("\n]}")
-            routes_json_file.write("\n]")
+                    if line_number % 100 == 0 or line_number == 1:
+                        self.logger.debug(
+                            "Processed route %d (route_id: %s)", line_number, route_id
+                        )
+            finally:
+                # Ensure we always close the JSON arrays even on early return or exceptions.
+                try:
+                    geojson_file.write("\n]}")
+                except Exception:
+                    # best-effort: don't let closing failures mask the original error
+                    pass
+                try:
+                    routes_json_file.write("\n]")
+                except Exception:
+                    pass
 
         if self.missing_coordinates_routes:
             self.logger.info(
