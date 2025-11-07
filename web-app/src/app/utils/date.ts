@@ -17,6 +17,20 @@ export const displayFormattedDate = (stringDate?: string): string => {
   }).format(date);
 };
 
+export const formatDateShort = (
+  dateString: string,
+  timeZone?: string,
+): string => {
+  const usedTimezone = timeZone ?? 'UTC';
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: usedTimezone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+};
+
 /**
  *
  * @param dateString date in ISO format

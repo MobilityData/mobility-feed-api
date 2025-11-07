@@ -62,9 +62,9 @@ const palette = {
     contrastText: '#f9faff',
   },
   secondary: {
-    main: '#96a1ff', // original mobility data purple
-    dark: '#4a5fe8',
-    light: '#e7e8ff',
+    main: '#758BFC',
+    dark: '#465397',
+    light: '#c7d0fd',
     contrastText: '#f9faff',
   },
   background: {
