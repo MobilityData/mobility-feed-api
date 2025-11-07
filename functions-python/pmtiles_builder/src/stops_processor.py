@@ -105,10 +105,6 @@ class StopsProcessor(BaseProcessor):
         if stop_lon is None or stop_lat is None:
             if is_lat_lon_required(location_type):
                 self.logger.warning("Missing stop latitude and longitude : %s", row)
-            else:
-                self.logger.debug(
-                    "Missing optional stop latitude and longitude : %s", row
-                )
             return
         self.stop_to_coordinates[stop_id] = (stop_lon, stop_lat)
 
@@ -123,15 +119,16 @@ class StopsProcessor(BaseProcessor):
         stop_url: str = "",
         wheelchair_boarding: str = "",
         location_type: str = "",
-        stop_lon: float = 0.0,
-        stop_lat: float = 0.0,
+        stop_lon: float = None,
+        stop_lat: float = None,
     ) -> None:
         if stop_lon is None or stop_lat is None:
             if is_lat_lon_required(location_type):
                 self.logger.warning(
                     "Missing coordinates for stop_id {%s}, skipping.", stop_id
                 )
-                return
+            # No point in writing a stop-feature if there are missing coordinates.
+            return
 
         route_ids = sorted(self.stop_times_processor.stop_to_routes.get(stop_id, []))
         route_colors = [
