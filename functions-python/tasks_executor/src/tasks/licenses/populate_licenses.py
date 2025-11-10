@@ -116,10 +116,6 @@ def populate_licenses_task(dry_run, db_session):
                 for rule_type in ["permissions", "conditions", "limitations"]:
                     all_rule_names.extend(license_data.get(rule_type, []))
 
-                all_rule_names = [
-                    name[:-1] if name.endswith("s") else name for name in all_rule_names
-                ]
-
                 if all_rule_names:
                     rules = (
                         db_session.query(Rule)
