@@ -38,6 +38,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { getFeedStatusData } from '../../../utils/feedStatusConsts';
 import { useSelector } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
+import ReactGA from 'react-ga4';
 import {
   selectGtfsDatasetRoutesTotal,
   selectGtfsDatasetRouteTypes,
@@ -84,6 +85,14 @@ export default function GtfsFeedSummary({
         }`,
     );
   }, [feed]);
+
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
+  };
 
   const hasRelatedLinks = (): boolean => {
     const hasLicenseUrl =
@@ -279,6 +288,7 @@ export default function GtfsFeedSummary({
                   sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
                   component={RouterLink}
                   to='./map'
+                  onClick={handleOpenDetailedMapClick}
                 >
                   View On Map
                 </Button>

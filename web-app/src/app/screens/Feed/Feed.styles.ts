@@ -54,17 +54,6 @@ export const boxElementStyle: SxProps = {
   mb: 1,
 };
 
-export const boxElementStyleTransitProvider: SxProps = {
-  width: '100%',
-  mt: 2,
-  borderBottom: 'none',
-};
-
-export const boxElementStyleProducerURL: SxProps = {
-  width: '100%',
-  mb: 1,
-};
-
 export const StyledTitleContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(1),
