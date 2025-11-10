@@ -22,6 +22,7 @@ from feeds_gen.models.operation_create_request_gtfs_feed_source_info import (
 )
 import json
 import uuid
+from unittest.mock import patch
 
 
 @pytest.fixture
@@ -61,7 +62,8 @@ def db_session():
 
 
 @pytest.mark.asyncio
-async def test_create_gtfs_feed_success(db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.trigger_dataset_download")
+async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
     api = OperationsApiImpl()
     unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
     request = OperationCreateRequestGtfsFeed(
@@ -105,6 +107,24 @@ async def test_create_gtfs_feed_success(db_session):
         assert created.data_type == "gtfs"
         assert created.provider == "New Provider"
         assert created.operational_status == "wip"
+
+        # Assert publish_messages was called exactly once with expected payload
+        assert mock_publish_messages.call_count == 1
+        args, kwargs = mock_publish_messages.call_args
+        assert len(args) == 2  # data list, project_id, topic_name
+        feed, execution_id = args
+
+        # Validate message payload shape and values
+        # assert isinstance(feed, list) and len(data_list) == 1
+        # message = feed[0]
+        assert feed.producer_url == unique_url
+        assert feed.stable_id == payload["stable_id"]
+        assert feed.id == payload["id"]
+        assert feed.authentication_type == "0"
+        assert feed.authentication_info_url is None
+        assert feed.api_key_parameter_name is None
+        # Non-deterministic but must start with expected prefix
+        assert execution_id.startswith("feed-created-process-")
     finally:
         # Cleanup to avoid impacting other tests
         stable_id = payload.get("stable_id") if isinstance(payload, dict) else None
