@@ -159,6 +159,7 @@ export default function GtfsFeedSummary({
             Feed Details
           </GroupHeader>
           <Chip
+            data-testid='data-type'
             size='small'
             label={t('common:' + feed?.data_type)}
             color='secondary'
@@ -181,6 +182,7 @@ export default function GtfsFeedSummary({
             }}
           >
             <Box
+              data-testid='location'
               sx={{
                 mt: 0.5,
                 mb: 0,
@@ -304,6 +306,8 @@ export default function GtfsFeedSummary({
                   }}
                 >
                   <Typography
+                    data-testid='producer-url'
+                    tabIndex={0}
                     variant='body1'
                     sx={{
                       maxWidth: 'calc(100% - 50px)',
@@ -311,7 +315,8 @@ export default function GtfsFeedSummary({
                       whiteSpace: 'nowrap',
                       overflowX: 'auto',
                       borderRadius: '5px',
-                      backgroundColor: 'background.paper',
+                      backgroundColor: theme.palette.secondary.light,
+                      color: theme.palette.text.lightContrast,
                       py: 1.5,
                       px: 2,
                       fontSize: '0.875em',
@@ -325,6 +330,7 @@ export default function GtfsFeedSummary({
                     target='_blank'
                     rel='noreferrer'
                     color='secondary'
+                    aria-label='download producer URL'
                   >
                     <DownloadIcon />
                   </IconButton>

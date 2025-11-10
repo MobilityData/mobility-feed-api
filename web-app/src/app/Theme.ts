@@ -27,6 +27,10 @@ declare module '@mui/material/styles' {
       routeTextColor?: string;
     };
   }
+
+  interface TypeText {
+    lightContrast?: string;
+  }
 }
 
 declare module '@mui/material/Typography' {
@@ -62,10 +66,10 @@ const palette = {
     contrastText: '#f9faff',
   },
   secondary: {
-    main: '#758BFC',
-    dark: '#465397',
-    light: '#c7d0fd',
-    contrastText: '#f9faff',
+    main: '#5E56F7',
+    dark: '#2B1EB8',
+    light: '#D7D4FF',
+    contrastText: '#FFFFFF',
   },
   background: {
     default: '#ffffff',
@@ -75,6 +79,7 @@ const palette = {
     primary: '#474747',
     secondary: 'rgba(71, 71, 71, 0.8)',
     disabled: 'rgba(0,0,0,0.3)',
+    lightContrast: '#1D1717',
   },
   divider: 'rgba(0, 0, 0, 0.23)',
   boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.2)',
@@ -88,10 +93,10 @@ const darkPalette = {
     contrastText: '#1D1717',
   },
   secondary: {
-    main: '#3959fa',
-    dark: '#002eea',
-    light: '#989ffc',
-    contrastText: '#ffffff',
+    light: '#C4CCFF',
+    main: '#5E6DD9',
+    dark: '#3846A6',
+    contrastText: '#FFFFFF',
   },
   background: {
     default: '#121212',
@@ -101,6 +106,7 @@ const darkPalette = {
     primary: '#E3E3E3',
     secondary: 'rgba(255, 255, 255, 0.7)',
     disabled: 'rgba(255, 255, 255, 0.3)',
+    lightContrast: '#1D1717',
   },
   divider: 'rgba(255, 255, 255, 0.23)',
   boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.6)',
