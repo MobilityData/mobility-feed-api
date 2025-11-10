@@ -42,7 +42,9 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      # With repository_dispatch, DRY_RUN is always false.
+      # With workflow_dispatch we take the specified values of DRY_RUN.
+      DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-qa.outputs.CHECKOUT_REF }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
@@ -79,7 +81,9 @@ jobs:
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
-      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      # With repository_dispatch, DRY_RUN is always false.
+      # With workflow_dispatch we take the specified values of DRY_RUN.
+      DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-prod.outputs.CHECKOUT_REF }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
@@ -117,7 +121,9 @@ jobs:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       # dev uses the QA sql instance
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      DRY_RUN: ${{ github.event_name == 'repository_dispatch' || inputs.DRY_RUN }}
+      # With repository_dispatch, DRY_RUN is always false.
+      # With workflow_dispatch we take the specified values of DRY_RUN.
+      DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-dev.outputs.CHECKOUT_REF }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
