@@ -207,7 +207,7 @@ export default function GtfsFeedSummary({
                   sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
                 >
                   {country}
-                  {index < 3 && index != uniqueCountries.length - 1 && ', '}
+                  {index < 3 && index !== uniqueCountries.length - 1 && ', '}
                   {uniqueCountries.length > 4 && index === 3 && (
                     <Button
                       variant='text'

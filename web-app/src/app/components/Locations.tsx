@@ -43,7 +43,7 @@ export default function Locations({
 
   const uniqueCountries = useMemo(() => {
     return getCountryLocationSummaries(locations ?? []);
-  }, [tableData]);
+  }, [locations]);
 
   const columns = useMemo<Array<MRT_ColumnDef<(typeof tableData)[0]>>>(
     () => [
@@ -131,14 +131,16 @@ export default function Locations({
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {uniqueCountries.map((country) => {
+                const subdivisions = new Set<string>();
+                const municipalities = new Set<string>();
                 tableData
                   .filter((loc) => loc.country_code === country.country_code)
                   .forEach((loc) => {
-                    country.subdivisions.add(loc.subdivision);
-                    country.municipalities.add(loc.municipality);
+                    subdivisions.add(loc.subdivision);
+                    municipalities.add(loc.municipality);
                   });
 
-                const tooltipText = `${country.subdivisions.size} subdivisions and ${country.municipalities.size} municipalities within this country.\nClick for more details.`;
+                const tooltipText = `${subdivisions.size} subdivisions and ${municipalities.size} municipalities within this country.\nClick for more details.`;
 
                 return (
                   <Tooltip key={country.country_code} title={tooltipText} arrow>

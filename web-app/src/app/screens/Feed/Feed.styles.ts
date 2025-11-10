@@ -22,6 +22,7 @@ export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
   my: 3,
   width: '100%',
   display: 'flex',
+  flexWrap: { xs: 'wrap', sm: 'nowrap' },
   gap: 1,
   borderTop: `1px solid ${theme.palette.divider}`,
   pt: 3,
