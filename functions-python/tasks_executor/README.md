@@ -78,3 +78,14 @@ To populate license rules:
   }
 }
 ```
+
+To populate licenses:
+
+```json
+{
+  "task": "populate_licenses",
+  "payload": {
+    "dry_run": true
+  }
+}
+```
