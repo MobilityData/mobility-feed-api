@@ -39,8 +39,8 @@ from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Officialstatushistory,
 )
-from tasks.data_import.data_import_utils import trigger_dataset_download
-from google.cloud import pubsub_v1
+
+from shared.helpers.pub_sub import trigger_dataset_download
 
 T = TypeVar("T", bound="Feed")
 
@@ -648,9 +648,8 @@ def commit_changes(
         logger.info("Commit after processing items (count=%d)", total_processed)
         db_session.commit()
         execution_id = str(uuid.uuid4())
-        publisher = pubsub_v1.PublisherClient()
         for feed in feeds_to_publish:
-            trigger_dataset_download(feed, execution_id, publisher)
+            trigger_dataset_download(feed, execution_id)
     except IntegrityError:
         db_session.rollback()
         logger.exception("Commit failed with IntegrityError; rolled back")
