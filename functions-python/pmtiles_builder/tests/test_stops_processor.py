@@ -79,14 +79,19 @@ class TestStopsProcessor(unittest.TestCase):
             stops_path = csv_cache.get_path("stops.txt")
 
             with open(stops_path, "w", encoding="utf-8") as f:
-                f.write("stop_id,stop_lon,stop_lat,stop_name\n")
-                # stop without coordinates
-                f.write("stop_missing,,,NoCoords\n")
-                f.write("stop_ok,-73.2,45.2,OK\n")
+                f.write("stop_id,stop_lon,stop_lat,stop_name,location_type\n")
+                # two stops without coordinates: one optional (3), one required (1)
+                f.write("stop_missing_type3,,,Node,3\n")
+                f.write("stop_missing_type1,,,Station,1\n")
+                f.write("stop_ok,-73.2,45.2,OK,0\n")
 
             routes_colors = DummyRoutesProcessorForColors({"r1": "FF0000"})
             stop_times = DummyStopTimesProcessor(
-                {"stop_missing": {"r1"}, "stop_ok": {"r1"}}
+                {
+                    "stop_missing_type3": {"r1"},
+                    "stop_missing_type1": {"r1"},
+                    "stop_ok": {"r1"},
+                }
             )
 
             processor = StopsProcessor(
@@ -108,7 +113,8 @@ class TestStopsProcessor(unittest.TestCase):
             # only stop_ok should be present
             ids = [f.get("properties", {}).get("stop_id") for f in features]
             self.assertIn("stop_ok", ids)
-            self.assertNotIn("stop_missing", ids)
+            self.assertNotIn("stop_missing_type3", ids)
+            self.assertNotIn("stop_missing_type1", ids)
 
 
 if __name__ == "__main__":
