@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from shared.common.license_utils import resolve_license
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
+from shared.helpers.runtime_metrics import track_metrics
 
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_CSV = "text/csv"
@@ -27,8 +28,9 @@ def get_csv_response(matches):
     writer.writerow(
         [
             "feed_id",
-            "feed_license_url",
             "feed_stable_id",
+            "feed_data_type",
+            "md_url" "feed_license_url",
             "matched_license_id",
             "matched_spdx_id",
             "confidence",
@@ -43,6 +45,8 @@ def get_csv_response(matches):
             [
                 entry["feed_id"],
                 entry["feed_stable_id"],
+                entry["feed_data_type"],
+                f'https://mobilitydatabase.org/feeds/{entry["feed_stable_id"]}',
                 entry["feed_license_url"],
                 entry.get("matched_license_id", ""),
                 entry.get("matched_spdx_id", ""),
@@ -85,6 +89,7 @@ def process_feed(feed, dry_run, db_session):
         result = {
             "feed_id": feed.id,
             "feed_stable_id": feed.stable_id,
+            "feed_data_type": feed.data_type,
             "feed_license_url": feed.license_url,
             "matched_license_id": license_first_match.license_id,
             "matched_spdx_id": license_first_match.spdx_id,
@@ -99,6 +104,7 @@ def process_feed(feed, dry_run, db_session):
     return result
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 @with_db_session
 def match_licenses_task(
     dry_run: bool,
@@ -123,16 +129,18 @@ def process_all_feeds(dry_run: bool, only_unmatched: bool, db_session: Session |
     batch_size = 500
     last_id = None
     i = 0
+    total_processed = 0
     while True:
         logging.info("Processing batch %d", i)
         batch_query = db_session.query(Feed)
         if last_id is not None:
             batch_query = batch_query.filter(Feed.id > last_id)
         if only_unmatched:
-            batch_query = batch_query.filter(Feed.license_id is None)
+            batch_query = batch_query.filter(Feed.license_id.is_(None))
         batch = batch_query.order_by(asc(Feed.id)).limit(batch_size).all()
         if not batch:
             break
+        total_processed += len(batch)
         for feed in batch:
             feed_match = process_feed(feed, dry_run, db_session)
             if feed_match:
@@ -143,7 +151,16 @@ def process_all_feeds(dry_run: bool, only_unmatched: bool, db_session: Session |
 
         last_id = batch[-1].id
         db_session.expunge_all()
-        logging.info("Processed batch %d. Total matched licenses: %d", i, len(result))
+        logging.info(
+            "Processed batch %d. Total processed %d, so far matched licenses: %d",
+            i,
+            total_processed,
+            len(result),
+        )
         i += 1
-    logging.info("Total matched licenses: %d", len(result))
+    logging.info(
+        "Total processed feeds %d. Total matched licenses: %d",
+        total_processed,
+        len(result),
+    )
     return result

@@ -118,19 +118,18 @@ class TestPopulateLicenses(unittest.TestCase):
         # Act
         populate_licenses_task(dry_run=False, db_session=mock_db_session)
 
-        # Assert
-        self.assertEqual(mock_db_session.merge.call_count, 2)
+        # Assert: For two SPDX licenses, since they are new (get returns None), we add them, not merge
+        self.assertEqual(mock_db_session.add.call_count, 2)
+        mock_db_session.merge.assert_not_called()
         mock_db_session.rollback.assert_not_called()
 
-        # Check that merge was called with correctly constructed License objects
-        call_args_list = mock_db_session.merge.call_args_list
-        merged_licenses = [arg.args[0] for arg in call_args_list]
-
-        mit_license = next((lic for lic in merged_licenses if lic.id == "MIT"), None)
+        # Inspect the License objects added
+        added_licenses = [call.args[0] for call in mock_db_session.add.call_args_list]
+        mit_license = next((lic for lic in added_licenses if getattr(lic, "id", None) == "MIT"), None)
         self.assertIsNotNone(mit_license)
-        self.assertEqual(mit_license.name, "MIT License")
-        self.assertTrue(mit_license.is_spdx)
-        self.assertEqual(len(mit_license.rules), 3)
+        self.assertEqual(getattr(mit_license, "name", None), "MIT License")
+        self.assertTrue(getattr(mit_license, "is_spdx", False))
+        self.assertEqual(len(getattr(mit_license, "rules", [])), 3)
 
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_populate_licenses_dry_run(self, mock_get):
