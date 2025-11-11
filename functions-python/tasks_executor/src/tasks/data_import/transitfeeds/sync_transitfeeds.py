@@ -147,7 +147,8 @@ def _process_feeds(
             )
             try:
                 for target_id in redirect_ids:
-                    if not get_feed(db_session, target_id):
+                    target_feed = get_feed(db_session, target_id)
+                    if not target_feed:
                         logger.warning(
                             "Redirect target feed not found for feed %s: %s",
                             feed_stable_id,
@@ -156,7 +157,7 @@ def _process_feeds(
                         continue
                     feed.redirectingids.append(
                         Redirectingid(
-                            target_id=get_feed(db_session, target_id).id,
+                            target_id=target_feed.id,
                             redirect_comment="Deprecated historical feed from TransitFeeds",
                         )
                     )
@@ -313,8 +314,7 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
         latest_candidate_id: Optional[str] = None
         latest_already_set = feed.latest_dataset_id is not None
 
-        for i, row in enumerate(grouped_df.iterrows()):
-            _, row = row
+        for i, (_, row) in enumerate(grouped_df.iterrows()):
             tfs_dataset_id = row["Dataset ID"]
             tfs_dataset_suffix = tfs_dataset_id.split("/")[-1]
             mdb_dataset_stable_id = f"{feed_stable_id}-{tfs_dataset_suffix}"

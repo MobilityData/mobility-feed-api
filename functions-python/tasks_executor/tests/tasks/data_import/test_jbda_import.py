@@ -1,8 +1,7 @@
 import os
-import json
 import unittest
 from typing import Any, Dict, List
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from sqlalchemy.orm import Session
 
@@ -205,8 +204,6 @@ class TestHelpers(unittest.TestCase):
 class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_creates_gtfs_rt_and_related_links(self, db_session: Session):
-        fake_pub = _FakePublisher()
-
         # The importer will call HEAD on these URLs for org1/feed1
         base = (
             "https://api.gtfs-data.jp/v2/organizations/org1/feeds/feed1/files/feed.zip"
@@ -221,6 +218,8 @@ class TestImportJBDA(unittest.TestCase):
             # fail for anything else (e.g., feed3 current)
             return _FakeResponse(status=404)
 
+        # Patch requests.Session and head; replace old pubsub mocks with trigger_dataset_download
+        mock_trigger = MagicMock()
         with patch(
             "tasks.data_import.jbda.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionOK(),
@@ -230,12 +229,8 @@ class TestImportJBDA(unittest.TestCase):
         ), patch(
             "tasks.data_import.jbda.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
-            "tasks.data_import.jbda.import_jbda_feeds.pubsub_v1.PublisherClient",
-            return_value=fake_pub,
-        ), patch(
-            "tasks.data_import.data_import_utils.PROJECT_ID", "test-project"
-        ), patch(
-            "tasks.data_import.data_import_utils.DATASET_BATCH_TOPIC", "dataset-batch"
+            "tasks.data_import.jbda.import_jbda_feeds.trigger_dataset_download",
+            mock_trigger,
         ), patch.dict(
             os.environ, {"COMMIT_BATCH_SIZE": "1"}, clear=False
         ):
@@ -262,6 +257,9 @@ class TestImportJBDA(unittest.TestCase):
             .first()
         )
         self.assertIsNotNone(sched)
+        # ensure the instance is attached to this test session before accessing relationships
+        sched = db_session.merge(sched)
+
         self.assertEqual(sched.feed_name, "Feed One")
         # producer_url now points to the verified JBDA URL (HEAD-checked)
         self.assertEqual(sched.producer_url, url_current)
@@ -273,7 +271,7 @@ class TestImportJBDA(unittest.TestCase):
         next1 = next(link for link in links if link.code == "jbda-next_1")
         self.assertEqual(next1.url, url_next1)
 
-        # RT feeds + entity types + back-links
+        # RT feeds + entity types & back-links
         tu = (
             db_session.query(Gtfsrealtimefeed)
             .filter(Gtfsrealtimefeed.stable_id == "jbda-org1-feed1-tu")
@@ -284,6 +282,11 @@ class TestImportJBDA(unittest.TestCase):
             .filter(Gtfsrealtimefeed.stable_id == "jbda-org1-feed1-vp")
             .first()
         )
+
+        # merge to ensure attached before accessing lazy attrs
+        tu = db_session.merge(tu)
+        vp = db_session.merge(vp)
+
         self.assertIsNotNone(tu)
         self.assertIsNotNone(vp)
         self.assertEqual(len(tu.entitytypes), 1)
@@ -295,16 +298,15 @@ class TestImportJBDA(unittest.TestCase):
         self.assertEqual(tu.producer_url, "https://rt.example/one/tu.pb")
         self.assertEqual(vp.producer_url, "https://rt.example/one/vp.pb")
 
-        # Pub/Sub was called exactly once (only 1 new GTFS feed)
-        self.assertEqual(len(fake_pub.published), 1)
-        topic_path, data_bytes = fake_pub.published[0]
-        self.assertEqual(topic_path, "projects/test-project/topics/dataset-batch")
-
-        payload = json.loads(data_bytes.decode("utf-8"))
-        self.assertEqual(payload["feed_stable_id"], "jbda-org1-feed1")
-        self.assertEqual(payload["producer_url"], url_current)
-        self.assertIsNone(payload["dataset_id"])
-        self.assertIsNone(payload["dataset_hash"])
+        # trigger_dataset_download (new API) should have been called exactly once for the new GTFS feed
+        mock_trigger.assert_called_once()
+        called_args = mock_trigger.call_args[0]
+        detached_feed = called_args[0]
+        merged_feed = db_session.merge(detached_feed)
+        # self.assertGreaterEqual(len(called_args), 1)
+        self.assertEqual(getattr(merged_feed, "stable_id", None), "jbda-org1-feed1")
+        # second arg should be an execution id (string)
+        self.assertIsInstance(called_args[1], str)
 
     @with_db_session(db_url=default_db_url)
     def test_import_http_failure_graceful(self, db_session: Session):

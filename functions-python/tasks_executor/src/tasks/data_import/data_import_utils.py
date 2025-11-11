@@ -117,7 +117,7 @@ def _get_or_create_feed(
         id=new_id,
         data_type=data_type,
         stable_id=stable_id,
-        official=True,
+        official=is_official,
         official_updated_at=datetime.now(),
     )
     if is_official:
