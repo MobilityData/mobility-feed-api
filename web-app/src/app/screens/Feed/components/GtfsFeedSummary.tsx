@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { type components } from '../../../services/feeds/types';
 import {
   getCountryLocationSummaries,
+  getLocationName,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../../services/feeds/utils';
@@ -199,43 +200,56 @@ export default function GtfsFeedSummary({
                 flexWrap: 'wrap',
               }}
             >
-              {uniqueCountries.slice(0, 4).map((country, index) => (
+              {feed?.locations != null && feed?.locations?.length === 1 && (
                 <Typography
                   variant='h6'
-                  component={'span'}
-                  key={index}
                   sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
                 >
-                  {country}
-                  {index < 3 && index !== uniqueCountries.length - 1 && ', '}
-                  {uniqueCountries.length > 4 && index === 3 && (
-                    <Button
-                      variant='text'
-                      color='secondary'
-                      size='small'
-                      sx={{ ml: 1 }}
-                      onClick={() => {
-                        setOpenLocationDetails('summary');
-                      }}
-                    >
-                      + {uniqueCountries.length - 4} more
-                    </Button>
-                  )}
+                  {getLocationName(feed?.locations)}
                 </Typography>
-              ))}
+              )}
+
+              {feed?.locations != null &&
+                feed?.locations?.length > 1 &&
+                uniqueCountries.slice(0, 4).map((country, index) => (
+                  <Typography
+                    variant='h6'
+                    component={'span'}
+                    key={index}
+                    sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
+                  >
+                    {country}
+                    {index < 3 && index !== uniqueCountries.length - 1 && ', '}
+                    {uniqueCountries.length > 4 && index === 3 && (
+                      <Button
+                        variant='text'
+                        color='secondary'
+                        size='small'
+                        sx={{ ml: 1 }}
+                        onClick={() => {
+                          setOpenLocationDetails('summary');
+                        }}
+                      >
+                        + {uniqueCountries.length - 4} more
+                      </Button>
+                    )}
+                  </Typography>
+                ))}
             </Box>
 
-            <Button
-              variant='text'
-              color='secondary'
-              size='small'
-              onClick={() => {
-                setOpenLocationDetails('fullList');
-              }}
-              sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
-            >
-              Show Details ({feed?.locations?.length} Locations)
-            </Button>
+            {feed?.locations?.length != null && feed.locations.length > 1 && (
+              <Button
+                variant='text'
+                color='secondary'
+                size='small'
+                onClick={() => {
+                  setOpenLocationDetails('fullList');
+                }}
+                sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
+              >
+                Show Details ({feed?.locations?.length} Locations)
+              </Button>
+            )}
           </Box>
 
           {totalRoutes != undefined && routeTypes != undefined && (
