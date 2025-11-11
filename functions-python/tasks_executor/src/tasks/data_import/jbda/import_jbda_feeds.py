@@ -24,7 +24,6 @@ from typing import Optional, Tuple, Dict, Any, List, Final, TypeVar
 
 import pycountry
 import requests
-from google.cloud import pubsub_v1
 from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -38,10 +37,8 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
     Externalid,
 )
-
 from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
-    trigger_dataset_download,
     _get_or_create_entity_type,
     _get_or_create_feed,
 )
