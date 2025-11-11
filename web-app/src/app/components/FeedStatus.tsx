@@ -43,7 +43,11 @@ export const FeedStatusChip = (
     <>
       {statusData != undefined && (
         <Tooltip
-          title={props.disableTooltip ? '' : statusData.toolTipLong}
+          title={
+            props.disableTooltip != undefined && props.disableTooltip
+              ? ''
+              : statusData.toolTipLong
+          }
           placement='top'
         >
           <Chip
