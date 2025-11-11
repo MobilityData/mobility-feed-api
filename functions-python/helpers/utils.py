@@ -158,7 +158,7 @@ def download_and_get_hash(
                 "Chrome/126.0.0.0 Mobile Safari/537.36",
                 "Referer": url,
             }
-
+        logging.error("headers: %s", headers)
         # authentication_type == 1 -> the credentials are passed in the url
         # Careful, some URLs may already contain a query string
         # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
