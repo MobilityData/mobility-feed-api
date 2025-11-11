@@ -257,7 +257,7 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
             entity_types,
         )
         if entity_types:
-            feed.entity_types = [
+            feed.entitytypes = [
                 _get_or_create_entity_type(session, et) for et in entity_types
             ]
             logger.info(
