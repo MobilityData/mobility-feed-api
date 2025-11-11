@@ -125,7 +125,9 @@ class TestPopulateLicenses(unittest.TestCase):
 
         # Inspect the License objects added
         added_licenses = [call.args[0] for call in mock_db_session.add.call_args_list]
-        mit_license = next((lic for lic in added_licenses if getattr(lic, "id", None) == "MIT"), None)
+        mit_license = next(
+            (lic for lic in added_licenses if getattr(lic, "id", None) == "MIT"), None
+        )
         self.assertIsNotNone(mit_license)
         self.assertEqual(getattr(mit_license, "name", None), "MIT License")
         self.assertTrue(getattr(mit_license, "is_spdx", False))
