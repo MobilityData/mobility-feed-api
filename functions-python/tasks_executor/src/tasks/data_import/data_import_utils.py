@@ -6,7 +6,11 @@ from typing import Tuple, Type, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Feed, Officialstatushistory, Entitytype, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Officialstatushistory,
+    Entitytype,
+)
 import logging
 import json
 from google.cloud import pubsub_v1
@@ -67,10 +71,11 @@ def _get_or_create_entity_type(session: Session, entity_type_name: str) -> Entit
     logger.info("Created Entitytype name=%s", entity_type_name)
     return et
 
+
 def get_feed(
-        session: Session,
-        stable_id: str,
-        model: Type[T] = Feed,
+    session: Session,
+    stable_id: str,
+    model: Type[T] = Feed,
 ) -> T | None:
     """Get a Feed by stable_id."""
     logger.debug("Lookup feed stable_id=%s", stable_id)
@@ -83,13 +88,13 @@ def get_feed(
 
 
 def _get_or_create_feed(
-        session: Session,
-        model: Type[T],
-        stable_id: str,
-        data_type: str,
-        is_official: bool = True,
-        official_notes: str = "Imported from JBDA as official feed.",
-        reviewer_email: str = "emma@mobilitydata.org",
+    session: Session,
+    model: Type[T],
+    stable_id: str,
+    data_type: str,
+    is_official: bool = True,
+    official_notes: str = "Imported from JBDA as official feed.",
+    reviewer_email: str = "emma@mobilitydata.org",
 ) -> Tuple[T, bool]:
     """Generic helper to get or create a Feed subclass (Gtfsfeed, Gtfsrealtimefeed) by stable_id."""
     logger.debug(

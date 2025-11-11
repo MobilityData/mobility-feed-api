@@ -38,8 +38,11 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
     Externalid,
 )
-from tasks.data_import.data_import_utils import trigger_dataset_download, _get_or_create_entity_type, \
-    _get_or_create_feed
+from tasks.data_import.data_import_utils import (
+    trigger_dataset_download,
+    _get_or_create_entity_type,
+    _get_or_create_feed,
+)
 
 T = TypeVar("T", bound="Feed")
 

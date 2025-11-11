@@ -94,7 +94,7 @@ tasks = {
     "sync_transitfeeds_data": {
         "description": "Syncs data from TransitFeeds to the database.",
         "handler": sync_transitfeeds_handler,
-    }
+    },
 }
 
 
