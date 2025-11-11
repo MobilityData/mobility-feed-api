@@ -23,6 +23,7 @@ from shared.helpers.logger import init_logger
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
+from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
 )
@@ -97,6 +98,10 @@ tasks = {
     "populate_licenses": {
         "description": "Populates licenses and license-rules in the database from a predefined JSON source.",
         "handler": populate_licenses_handler,
+    },
+    "match_licenses": {
+        "description": "Match licenses with feeds.",
+        "handler": match_license_handler,
     },
 }
 

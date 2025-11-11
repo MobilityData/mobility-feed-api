@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Iterator, List, Dict, Optional
 
 from geoalchemy2 import WKTElement
@@ -29,7 +30,7 @@ from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityType
 from .entity_type_enum import EntityType
 from .error_handling import raise_internal_http_validation_error, invalid_bounding_coordinates, invalid_bounding_method
 from .iter_utils import batched
-from ..feed_filters.gbfs_feed_filter import GbfsFeedFilter, GbfsVersionFilter
+from shared.feed_filters.gbfs_feed_filter import GbfsFeedFilter, GbfsVersionFilter
 
 
 def get_gtfs_feeds_query(
@@ -446,3 +447,70 @@ def get_gbfs_feeds_query(
         )
     )
     return query
+
+
+def normalize_url(url_column) -> str:
+    """
+    Normalize a URL by removing the protocol (http:// or https://), 'www.' prefix, and trailing slash.
+    This function generates a SQLAlchemy expression that can be used in queries.
+    Args:
+        url_column: The SQLAlchemy column representing the URL.
+    Returns:
+        A SQLAlchemy expression that normalizes the URL.
+    """
+    return func.regexp_replace(
+        func.regexp_replace(
+            func.regexp_replace(url_column, r"^https?://", "", "gi"),
+            r"^www\.",
+            "",
+            "gi",
+        ),
+        r"/$",
+        "",
+        "g",
+    )
+
+
+def normalize_url_str(url: str | None) -> str:
+    """Normalize a license URL for matching.
+    Steps:
+    - Trim whitespace and quotes
+    - Remove BOM characters
+    - Strip fragments and query parameters
+    - Remove scheme (http/https) and www prefix
+    - Lowercase the host
+    """
+    u = (url or "").strip().strip("'\"").replace("\ufeff", "")
+    u = re.sub(r"#.*$", "", u)
+    u = re.sub(r"\?.*$", "", u)
+    u = re.sub(r"^https?://", "", u, flags=re.I)
+    u = re.sub(r"^www\.", "", u, flags=re.I)
+    # remove trailing slashes
+    u = re.sub(r"/+$", "", u)
+    if "/" in u:
+        host, rest = u.split("/", 1)
+        return host.lower() + "/" + rest
+    return u.lower()
+
+
+def get_feed_query_by_normalized_url(url: str, db_session: Session) -> Query:
+    """
+    Get a query to find the feed by normalized URL and exclude deprecated feeds.
+    Args:
+        url: The URL to normalize and search for.
+        db_session: SQLAlchemy session.
+    """
+    return db_session.query(Feed).filter(
+        normalize_url_str(url) == func.lower(func.trim(normalize_url(Feed.producer_url))),
+        Feed.status != "deprecated",
+    )
+
+
+def get_feed_by_normalized_url(url: str, db_session: Session) -> Feed | None:
+    """
+    Query the feed by normalized URL and exclude deprecated feeds.
+    Args:
+        url: The URL to normalize and search for.
+        db_session: SQLAlchemy session.
+    """
+    return get_feed_query_by_normalized_url(url, db_session).first()
