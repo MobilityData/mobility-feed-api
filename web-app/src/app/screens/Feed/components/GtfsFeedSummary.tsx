@@ -453,33 +453,54 @@ export default function GtfsFeedSummary({
                   )}
                 </Typography>
               </Box>
-              <Box
-                position={'relative'}
-                sx={{
-                  flexGrow: 1,
-                  height: '1px',
-                  background: `radial-gradient(circle,${getFeedStatusData(
-                    feed?.status ?? '',
-                    theme,
-                    t,
-                  )?.color} 54%, rgba(255, 255, 255, 0) 100%)`,
-                }}
+              <Tooltip
+                title={
+                  getFeedStatusData(feed?.status ?? '', theme, t)
+                    ?.toolTipLong ?? ''
+                }
+                placement='top'
               >
-                {/* TODO: nice to have, a placement of the chip relative to the current date */}
                 <Box
                   sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
+                    height: '30px',
+                    flexGrow: 1,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
-                  <FeedStatusChip
-                    status={feed?.status ?? ''}
-                    chipSize='small'
-                  />
+                  <Box
+                    position={'relative'}
+                    sx={{
+                      height: '1px',
+                      width: '100%',
+                      background: `radial-gradient(circle,${getFeedStatusData(
+                        feed?.status ?? '',
+                        theme,
+                        t,
+                      )?.color} 54%, rgba(255, 255, 255, 0) 100%)`,
+                    }}
+                  >
+                    {/* TODO: nice to have, a placement of the chip relative to the current date */}
+                    {feed?.status !== undefined && feed.status === 'active' && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        <FeedStatusChip
+                          status={feed?.status ?? ''}
+                          chipSize='small'
+                          disableTooltip={true}
+                        />
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
+              </Tooltip>
+
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
                   End

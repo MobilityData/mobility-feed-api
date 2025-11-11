@@ -5,6 +5,7 @@ import { getFeedStatusData } from '../utils/feedStatusConsts';
 export interface FeedStatusProps {
   status: string;
   chipSize?: 'small' | 'medium';
+  disableTooltip?: boolean;
 }
 
 export const FeedStatusIndicator = (
@@ -41,7 +42,10 @@ export const FeedStatusChip = (
   return (
     <>
       {statusData != undefined && (
-        <Tooltip title={statusData.toolTipLong} placement='top'>
+        <Tooltip
+          title={props.disableTooltip ? '' : statusData.toolTipLong}
+          placement='top'
+        >
           <Chip
             label={statusData.label}
             color={statusData.themeColor}
