@@ -42,6 +42,7 @@ def _process_feeds(
             logger.debug("[%s][%d/%d] Processing feed_stable_id=%s", feed_kind.upper(), idx + 1, len(df), feed_stable_id)
 
             feed, is_new = _get_or_create_feed(db_session, model_cls, feed_stable_id, feed_kind, is_official=False)
+            feed.status = 'deprecated'  # All TransitFeeds imports are deprecated by default
             logger.info("[%s] %s feed %s", feed_kind.upper(), "Creating" if is_new else "Updating", feed_stable_id)
 
             # Fields common to GTFS & GTFS-RT (set on creation only)
@@ -161,54 +162,92 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
     df = pd.read_csv(csv_path)
     logger.debug("Historical datasets CSV loaded: %d rows", len(df))
     total_added = 0
-    # group df data by 'Feed ID' and process each group
+
     grouped = df.groupby('Feed ID')
     logger.debug("Grouped historical datasets by Feed ID: %d groups", len(grouped))
+
     for group_key, grouped_df in grouped:
         feed_stable_id = grouped_df['Feed ID'].iloc[0]
         logger.debug("Processing historical datasets for feed_stable_id=%s (%d rows)", feed_stable_id, len(grouped_df))
-        feed = get_feed(db_session, feed_stable_id)
+        feed = get_feed(db_session, feed_stable_id, model=Gtfsfeed)
         if not feed:
             logger.warning("Feed with stable_id=%s not found; skipping historical datasets.", feed_stable_id)
             continue
-        if not feed.data_type == 'gtfs':
-            logger.warning("Feed with stable_id=%s is not GTFS; skipping historical datasets.", feed_stable_id)
-            continue
-        datasets = []
-        for _, row in grouped_df.iterrows():
+
+        # Sort newest-first by Dataset ID suffix (as you had)
+        grouped_df = grouped_df.sort_values(by='Dataset ID', ascending=False).reset_index(drop=True)
+
+        datasets: list[Gtfsdataset] = []
+        latest_candidate_id: Optional[str] = None  # we'll set latest_dataset_id *after* flush
+        latest_already_set = feed.latest_dataset_id is not None
+
+        for i, row in enumerate(grouped_df.iterrows()):
+            idx, row = row
             tfs_dataset_id = row['Dataset ID']
             tfs_dataset_suffix = tfs_dataset_id.split('/')[-1]
             mdb_dataset_stable_id = f"{feed_stable_id}-{tfs_dataset_suffix}"
+
+            # If it already exists, maybe use it as latest if feed doesn't have one yet.
+            existing_dataset = db_session.query(Gtfsdataset).filter(
+                Gtfsdataset.stable_id == mdb_dataset_stable_id
+            ).first()
+
+            if existing_dataset:
+                logger.info("Historical dataset %s already exists; skipping creation.", existing_dataset.stable_id)
+                if (i == 0) and not latest_already_set and latest_candidate_id is None:
+                    latest_candidate_id = existing_dataset.id
+                continue
+
+            # Build new dataset object
             download_date = pd.to_datetime(tfs_dataset_suffix.split('-')[0], format='%Y%m%d', errors='coerce')
             if pd.isna(download_date):
                 logger.warning("Invalid date in Dataset ID %s; skipping.", tfs_dataset_id)
                 continue
+
             service_date_range_start = pd.to_datetime(row['Service Date Range Start'], format='%Y%m%d', errors='coerce')
             service_date_range_end = pd.to_datetime(row['Service Date Range End'], format='%Y%m%d', errors='coerce')
-            logger.debug("Prepared historical dataset %s (downloaded_at=%s, service_start=%s, service_end=%s)",
-                         mdb_dataset_stable_id, download_date, service_date_range_start, service_date_range_end)
 
-            datasets.append(
-                Gtfsdataset(
-                    id=str(uuid.uuid4()),
-                    stable_id=mdb_dataset_stable_id,
-                    hosted_url=f"https://openmobilitydata-data.s3.us-west-1.amazonaws.com/public/feeds/{tfs_dataset_id}/gtfs.zip",
-                    downloaded_at=download_date,
-                    service_date_range_start=service_date_range_start if not pd.isna(service_date_range_start) else None,
-                    service_date_range_end=service_date_range_end if not pd.isna(service_date_range_end) else None,
-                    feed_id=feed.id
-                )
+            dataset_id = str(uuid.uuid4())
+            ds = Gtfsdataset(
+                id=dataset_id,
+                stable_id=mdb_dataset_stable_id,
+                hosted_url=f"https://openmobilitydata-data.s3.us-west-1.amazonaws.com/public/feeds/{tfs_dataset_id}/gtfs.zip",
+                downloaded_at=download_date,
+                service_date_range_start=service_date_range_start if not pd.isna(service_date_range_start) else None,
+                service_date_range_end=service_date_range_end if not pd.isna(service_date_range_end) else None,
+                feed_id=feed.id,
             )
-            [db_session.add(dataset) for dataset in datasets]
+            datasets.append(ds)
+            logger.debug("Prepared new dataset %s (downloaded_at=%s) for feed %s",
+                         ds.stable_id, ds.downloaded_at, feed_stable_id)
 
-        # feed.gtfsdatasets = datasets
+            # If newest row and feed has no latest yet, remember this new one as candidate
+            if (i == 0) and not latest_already_set and latest_candidate_id is None:
+                latest_candidate_id = dataset_id
+
+        if datasets:
+            db_session.add_all(datasets)
+            logger.debug("Added %d new historical datasets for %s to the session.", len(datasets), feed_stable_id)
+        else:
+            logger.debug("No new datasets to add for %s.", feed_stable_id)
+
+        db_session.flush()
+
+        if not latest_already_set and latest_candidate_id:
+            feed.latest_dataset_id = latest_candidate_id
+            logger.info("Set latest_dataset_id for feed %s to %s", feed_stable_id, latest_candidate_id)
+            db_session.flush()  # ensure FK is valid and written
+
         total_added += len(datasets)
-        logger.info("Assigned %d historical datasets to feed %s", len(datasets), feed_stable_id)
+        logger.info("Assigned %d historical datasets to feed %s (latest_dataset_id=%s)",
+                    len(datasets), feed_stable_id, feed.latest_dataset_id)
+
         if not dry_run:
             db_session.commit()
             logger.debug("Committed historical datasets for %s", feed_stable_id)
         else:
-            logger.debug("Dry-run: skipped commit for historical datasets of %s", feed_stable_id)
+            logger.debug("Dry-run: skipped commit for %s", feed_stable_id)
+
     logger.info("Finished adding historical datasets. total_added=%d", total_added)
 
 

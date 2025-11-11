@@ -6,7 +6,7 @@ from typing import Tuple, Type, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Feed, Officialstatushistory, Entitytype
+from shared.database_gen.sqlacodegen_models import Feed, Officialstatushistory, Entitytype, Gtfsfeed
 import logging
 import json
 from google.cloud import pubsub_v1
@@ -67,13 +67,16 @@ def _get_or_create_entity_type(session: Session, entity_type_name: str) -> Entit
     logger.info("Created Entitytype name=%s", entity_type_name)
     return et
 
-
-def get_feed(session: Session, stable_id: str) -> Feed | None:
+def get_feed(
+        session: Session,
+        stable_id: str,
+        model: Type[T] = Feed,
+) -> T | None:
     """Get a Feed by stable_id."""
-    logger.debug("Lookup Feed stable_id=%s", stable_id)
-    feed = session.scalar(select(Feed).where(Feed.stable_id == stable_id))
+    logger.debug("Lookup feed stable_id=%s", stable_id)
+    feed = session.scalar(select(model).where(model.stable_id == stable_id))
     if feed:
-        logger.debug("Found existing Feed stable_id=%s id=%s", stable_id, feed.id)
+        logger.debug("Found existing feed stable_id=%s id=%s", stable_id, feed.id)
     else:
         logger.debug("No Feed found with stable_id=%s", stable_id)
     return feed
