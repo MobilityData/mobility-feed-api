@@ -64,6 +64,21 @@ class TestRoutesProcessorForColors(unittest.TestCase):
             # no rows processed -> map remains empty
             self.assertEqual(processor.route_colors_map, {})
 
+    def test_missing_route_id_column(self):
+        with tempfile.TemporaryDirectory() as td:
+            routes_path = os.path.join(td, ROUTES_FILE)
+            with open(routes_path, "w", encoding="utf-8") as f:
+                # header lacks route_id
+                f.write("route_color\n")
+                f.write("FF0000\n")
+
+            csv_cache = CsvCache(workdir=td, logger=MagicMock())
+            processor = RoutesProcessorForColors(csv_cache, logger=MagicMock())
+
+            processor.process()
+            # no route_id column -> no entries should be recorded
+            self.assertEqual(processor.route_colors_map, {})
+
 
 if __name__ == "__main__":
     unittest.main()

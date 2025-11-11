@@ -1,3 +1,20 @@
+# This script defines a task to populate the 'rules' table in the database from a canonical
+# JSON file. It is designed to be triggered as a background task.
+#
+# The script performs the following steps:
+# 1. Fetches the 'rules.json' file from the MobilityData/licenses-aas GitHub repository.
+# 2. The JSON file categorizes rules into 'permissions', 'conditions', and 'limitations'.
+# 3. It processes this structure by:
+#    a. Iterating through each category.
+#    b. Mapping the plural category name (e.g., 'permissions') to a singular 'type'
+#       (e.g., 'permission') to satisfy a database check constraint on the Rule model.
+#    c. Combining all rules from all categories into a single list.
+# 4. For each rule in the combined list, it performs an "upsert" operation (insert or update)
+#    into the 'rules' table using SQLAlchemy's `merge` method, with the rule's 'name'
+#    acting as the primary key.
+# 5. Supports a 'dry_run' mode, which simulates the process and logs intended actions
+#    without committing any changes to the database.
+# 6. Includes error handling for network issues and database transactions.
 import logging
 
 import requests

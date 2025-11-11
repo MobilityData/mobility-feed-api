@@ -1,4 +1,3 @@
-import csv
 from typing import Dict, List
 
 from base_processor import BaseProcessor
@@ -35,12 +34,18 @@ class TripsProcessor(BaseProcessor):
         csv_parser = self.csv_parser
         with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
             header = f.readline()
-            if not header:
+            columns = self.csv_parser.parse_header(header)
+            if not columns:
                 return
-            columns = next(csv.reader([header]))
             route_id_index = self.csv_cache.get_index(columns, "route_id")
             trip_id_index = self.csv_cache.get_index(columns, "trip_id")
             shape_id_index = self.csv_cache.get_index(columns, "shape_id")
+
+            if None in (route_id_index, trip_id_index):
+                self.logger.warning(
+                    "Missing required columns in shapes header; skipping shapes processing"
+                )
+                return
 
             for line in f:
                 if not line.strip():

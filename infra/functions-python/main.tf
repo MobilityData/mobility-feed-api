@@ -723,6 +723,7 @@ resource "google_cloudfunctions2_function" "operations_api" {
       PROJECT_ID = var.project_id
       PYTHONNODEBUGRANGES = 0
       GOOGLE_CLIENT_ID = var.operations_oauth2_client_id
+      DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
     }
     available_memory = local.function_operations_api_config.memory
     timeout_seconds = local.function_operations_api_config.timeout

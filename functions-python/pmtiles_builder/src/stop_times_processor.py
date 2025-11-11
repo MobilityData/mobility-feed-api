@@ -1,4 +1,3 @@
-import csv
 from collections import defaultdict
 from typing import Dict, List
 
@@ -20,12 +19,18 @@ class StopTimesProcessor(BaseProcessor):
         trip_to_stops: Dict[str, List[tuple]] = {}
         with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
             header = f.readline()
-            if not header:
+            columns = self.csv_parser.parse_header(header)
+            if not columns:
                 return
-            columns = next(csv.reader([header]))
             stop_id_index = self.csv_cache.get_index(columns, "stop_id")
             trip_id_index = self.csv_cache.get_index(columns, "trip_id")
             seq_index = self.csv_cache.get_index(columns, "stop_sequence")
+
+            if trip_id_index is None:
+                self.logger.warning(
+                    "Missing required trip_id column in stop_times header; skipping stop_times processing"
+                )
+                return
 
             # Collect unique trips without shapes across all routes (for parsing only)
             trips_without_shape_set = set()
@@ -37,13 +42,13 @@ class StopTimesProcessor(BaseProcessor):
             seq_fallback_counter = defaultdict(int)
 
             for line in f:
+                line_count += 1
                 if not line.strip():
                     continue
                 row = self.csv_parser.parse(line)
                 stop_id = self.csv_cache.get_safe_value_from_index(row, stop_id_index)
                 trip_id = self.csv_cache.get_safe_value_from_index(row, trip_id_index)
 
-                line_count += 1
                 if line_count % 1_000_000 == 0:
                     self.logger.debug(
                         "Processed %d lines of %s", line_count, self.filename
