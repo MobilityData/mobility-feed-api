@@ -23,7 +23,7 @@ def _safe_split(val: Optional[str], sep: str = " | ") -> list[str]:
 def _process_feeds(
         db_session: Session,
         csv_filename: str,
-        model_cls: Type,  # e.g., Gtfsfeed or Gtfsrealtimefeed
+        model_cls: Type,  # Gtfsfeed or Gtfsrealtimefeed
         feed_kind: str,  # 'gtfs' or 'gtfs_rt'
         dry_run: bool,
         on_is_new: Optional[Callable[[Session, object, pd.Series], None]] = None,  # hook for extras
@@ -156,7 +156,7 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
     )
 
 
-def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
+def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
     csv_path = os.path.join(os.path.dirname(__file__), 'historical_datasets.csv')
     logger.info("Adding historical datasets from CSV: %s (dry_run=%s)", csv_path, dry_run)
     df = pd.read_csv(csv_path)
@@ -174,11 +174,10 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
             logger.warning("Feed with stable_id=%s not found; skipping historical datasets.", feed_stable_id)
             continue
 
-        # Sort newest-first by Dataset ID suffix (as you had)
         grouped_df = grouped_df.sort_values(by='Dataset ID', ascending=False).reset_index(drop=True)
 
         datasets: list[Gtfsdataset] = []
-        latest_candidate_id: Optional[str] = None  # we'll set latest_dataset_id *after* flush
+        latest_candidate_id: Optional[str] = None
         latest_already_set = feed.latest_dataset_id is not None
 
         for i, row in enumerate(grouped_df.iterrows()):
@@ -187,7 +186,6 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
             tfs_dataset_suffix = tfs_dataset_id.split('/')[-1]
             mdb_dataset_stable_id = f"{feed_stable_id}-{tfs_dataset_suffix}"
 
-            # If it already exists, maybe use it as latest if feed doesn't have one yet.
             existing_dataset = db_session.query(Gtfsdataset).filter(
                 Gtfsdataset.stable_id == mdb_dataset_stable_id
             ).first()
@@ -198,7 +196,6 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
                     latest_candidate_id = existing_dataset.id
                 continue
 
-            # Build new dataset object
             download_date = pd.to_datetime(tfs_dataset_suffix.split('-')[0], format='%Y%m%d', errors='coerce')
             if pd.isna(download_date):
                 logger.warning("Invalid date in Dataset ID %s; skipping.", tfs_dataset_id)
@@ -221,7 +218,6 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
             logger.debug("Prepared new dataset %s (downloaded_at=%s) for feed %s",
                          ds.stable_id, ds.downloaded_at, feed_stable_id)
 
-            # If newest row and feed has no latest yet, remember this new one as candidate
             if (i == 0) and not latest_already_set and latest_candidate_id is None:
                 latest_candidate_id = dataset_id
 
@@ -236,7 +232,7 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
         if not latest_already_set and latest_candidate_id:
             feed.latest_dataset_id = latest_candidate_id
             logger.info("Set latest_dataset_id for feed %s to %s", feed_stable_id, latest_candidate_id)
-            db_session.flush()  # ensure FK is valid and written
+            db_session.flush()
 
         total_added += len(datasets)
         logger.info("Assigned %d historical datasets to feed %s (latest_dataset_id=%s)",
@@ -249,6 +245,7 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> None:
             logger.debug("Dry-run: skipped commit for %s", feed_stable_id)
 
     logger.info("Finished adding historical datasets. total_added=%d", total_added)
+    return total_added
 
 
 @with_db_session
@@ -256,12 +253,24 @@ def _sync_transitfeeds(db_session: Session, dry_run: bool = True) -> dict:
     logger.info("Starting TransitFeeds sync (dry_run=%s)", dry_run)
     gtfs_feeds_processing_result = _process_transitfeeds_gtfs(db_session, dry_run=dry_run)
     gtfs_rt_processing_result = _process_transitfeeds_gtfs_rt(db_session, dry_run=dry_run)
-    _add_historical_datasets(db_session, dry_run=dry_run)
-    total_processed = gtfs_feeds_processing_result['total_processed'] + gtfs_rt_processing_result['total_processed']
-    logger.info("TransitFeeds sync complete. total_processed=%d", total_processed)
+
+    datasets_added = _add_historical_datasets(db_session, dry_run=dry_run)
+
+    total_processed = (
+        gtfs_feeds_processing_result['total_processed'] +
+        gtfs_rt_processing_result['total_processed']
+    )
+    logger.info("TransitFeeds sync complete. total_processed=%d datasets_added=%d",
+                total_processed, datasets_added)
+
     return {
-        'message': f"Sync TransitFeeds completed. Total processed feeds: {total_processed}.",
+        'message': (
+            f"Sync TransitFeeds completed. "
+            f"Total processed feeds: {total_processed}. "
+            f"Datasets added: {datasets_added}."
+        ),
         'total_processed': total_processed,
+        'datasets_added': datasets_added,
         'details': {
             'gtfs_feeds': gtfs_feeds_processing_result,
             'gtfs_rt_feeds': gtfs_rt_processing_result,
