@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -47,6 +48,7 @@ from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -54,6 +56,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
+from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
@@ -365,6 +368,10 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsfeed, new_feed.id)
+        trigger_dataset_download(
+            created_feed,
+            get_execution_id(get_request_context(), "feed-created-process"),
+        )
         logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
         payload = OperationGtfsFeedImpl.from_orm(created_feed).model_dump()
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
