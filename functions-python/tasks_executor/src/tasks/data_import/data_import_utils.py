@@ -1,5 +1,4 @@
 import logging
-import os
 import uuid
 from datetime import datetime
 from typing import Tuple, Type, TypeVar
@@ -12,9 +11,6 @@ from shared.database_gen.sqlacodegen_models import (
     Officialstatushistory,
     Entitytype,
 )
-
-PROJECT_ID = os.getenv("PROJECT_ID")
-DATASET_BATCH_TOPIC = os.getenv("DATASET_PROCESSING_TOPIC_NAME")
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="Feed")
