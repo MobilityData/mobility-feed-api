@@ -112,7 +112,7 @@ def process_all_feeds(dry_run: bool, only_unmatched: bool, db_session: Session |
     total_processed = 0
     while True:
         logging.info("Processing batch %d", i)
-        # func.coalesce(Part.part_number, '') == ''
+        
         batch_query = db_session.query(Feed).filter(
             "" != func.coalesce(Feed.license_url, "")
         )
