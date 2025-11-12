@@ -45,7 +45,7 @@ the system identifies the corresponding **standard SPDX license** and adds a not
 Each match includes:
 
 * **License name and ID** – e.g., *MIT License (MIT)*
-* **Match type** – how the license was identified (exact, fuzzy, domain, or content)
+* **Match type** – how the license was identified (exact, fuzzy, or heuristic)
 * **Confidence level** – how certain the system is about the match (higher = stronger match)
 * **Notes** – any additional details, such as localized versions or domain inference
 
