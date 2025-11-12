@@ -49,6 +49,7 @@ def assign_feed_license(feed: Feed, license_match: MatchingLicense):
             matched_catalog_url=license_match.matched_catalog_url,
             matched_source=license_match.matched_source,
             notes=license_match.notes,
+            regional_id=license_match.regional_id,
         )
         feed.feed_license_changes.append(feed_license_change)
     else:
@@ -76,6 +77,7 @@ def process_feed(feed, dry_run, db_session):
             "matched_catalog_url": license_first_match.matched_catalog_url,
             "matched_source": license_first_match.matched_source,
             "notes": license_first_match.notes,
+            "regional_id": license_first_match.regional_id,
         }
         if not dry_run:
             assign_feed_license(feed, license_first_match)
