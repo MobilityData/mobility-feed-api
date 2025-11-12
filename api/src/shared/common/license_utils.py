@@ -24,6 +24,7 @@ class MatchingLicense:
     matched_catalog_url: str | None = None
     matched_source: str | None = None
     notes: str | None = None
+    regional_id: str | None = None
 
 
 # The COMMON_PATTERNS list contains tuples of (regex pattern, SPDX ID).
@@ -47,7 +48,7 @@ def extract_host(url: str) -> str:
     return normalized_url.split("/", 1)[0] if normalized_url else ""
 
 
-def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[str]]:
+def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Resolve a Creative Commons license URL to an SPDX ID and an explanatory note.
 
@@ -55,6 +56,7 @@ def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[
         (spdx_id, note)
           - spdx_id: SPDX identifier string if resolved, else None
           - note: additional context (e.g., locale port detected, version normalized), else None
+          - regional_id: locale/ported variant if present (e.g., 'CC-BY-2.1-jp'), else None
 
     Behavior & Rationale:
     ---------------------
@@ -108,7 +110,7 @@ def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[
 
     # --- CC0 special case -----------------------------------------------------
     if re.search(r"creativecommons\.org/publicdomain/zero/1\.0/?$", n, re.I):
-        return "CC0-1.0", None
+        return "CC0-1.0", None, None
 
     # --- General CC licenses --------------------------------------------------
     # Capture family code, version, and optional locale (jurisdiction port).
@@ -119,7 +121,7 @@ def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[
         re.I,
     )
     if not m:
-        return None, None
+        return None, None, None
 
     code = m.group(1).lower()  # e.g., 'by', 'by-sa', 'by-nc-nd'
     ver_in = m.group(2)  # e.g., '2.5'
@@ -136,7 +138,7 @@ def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[
     }
     base = family_map.get(code)
     if not base:
-        return None, None
+        return None, None, None
 
     note_parts = []
 
@@ -178,8 +180,9 @@ def resolve_commons_creative_license(url: str) -> Tuple[Optional[str], Optional[
         note_parts.append(f"Unrecognized CC version '{ver_in}'. Chose closest canonical version '{ver_out}' for SPDX.")
 
     spdx_id = f"{base}-{ver_out}"
+    regional_id = f"{base}-{ver_in}-{locale.lower()}" if locale else None
     note = " ".join(note_parts) if note_parts else None
-    return spdx_id, note
+    return spdx_id, note, regional_id
 
 
 def heuristic_spdx(url: str) -> str | None:
@@ -295,7 +298,7 @@ def resolve_license(
         ]
 
     # 2) Creative Commons resolver
-    common_creative_match, notes = resolve_commons_creative_license(url_str)
+    common_creative_match, notes, regional_id = resolve_commons_creative_license(url_str)
     if common_creative_match:
         cc_license: License | None = db_session.query(License).filter(License.id == common_creative_match).one_or_none()
         if not cc_license:
@@ -314,6 +317,7 @@ def resolve_license(
                 matched_catalog_url=None,
                 matched_source="cc-resolver",
                 notes=notes,
+                regional_id=regional_id,
             )
         ]
 

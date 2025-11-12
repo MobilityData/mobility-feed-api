@@ -32,9 +32,10 @@ class TestLicenseUtils(unittest.TestCase):
     # --- resolve_commons_creative_license ---
     def test_resolve_commons_creative_license_cc0(self):
         url = "https://creativecommons.org/publicdomain/zero/1.0/"
-        spdx, note = resolve_commons_creative_license(url)
+        spdx, note, regional_id = resolve_commons_creative_license(url)
         self.assertEqual(spdx, "CC0-1.0")
         self.assertIsNone(note)
+        self.assertIsNone(regional_id)
 
     def test_resolve_commons_creative_license_by_variants(self):
         # BY with deed / legalcode suffixes and locale code
@@ -44,14 +45,16 @@ class TestLicenseUtils(unittest.TestCase):
             "https://creativecommons.org/licenses/by/4.0/legalcode",
         ]
         for u in urls:
-            spdx, note = resolve_commons_creative_license(u)
+            spdx, note, regional_id = resolve_commons_creative_license(u)
             self.assertEqual(spdx, "CC-BY-4.0")
             self.assertIsNone(note)
+            self.assertIsNone(regional_id)
 
     def test_resolve_commons_creative_license_non_match(self):
-        spdx, note = resolve_commons_creative_license("https://example.com/no/license")
+        spdx, note, regional_id = resolve_commons_creative_license("https://example.com/no/license")
         self.assertIsNone(spdx)
         self.assertIsNone(note)
+        self.assertIsNone(regional_id)
 
     def test_resolve_commons_creative_license_all_flavors(self):
         cases = {
@@ -62,18 +65,20 @@ class TestLicenseUtils(unittest.TestCase):
             "https://creativecommons.org/licenses/by-nc-nd/4.0/": "CC-BY-NC-ND-4.0",
         }
         for url, expected in cases.items():
-            spdx, note = resolve_commons_creative_license(url)
+            spdx, note, regional_id = resolve_commons_creative_license(url)
             self.assertEqual(spdx, expected)
             self.assertIsNone(note)
+            self.assertIsNone(regional_id)
 
     def test_resolve_commons_creative_license_jp_variant(self):
         # New behavior: return base SPDX and a note when locale/jurisdiction variants encountered
-        spdx, note = resolve_commons_creative_license("https://creativecommons.org/licenses/by/2.1/jp/")
+        spdx, note, regional_id = resolve_commons_creative_license("https://creativecommons.org/licenses/by/2.1/jp/")
         # Current implementation maps to CC-BY-2.0 with a note
         self.assertEqual(spdx, "CC-BY-2.0")
         self.assertIsNotNone(note)
         # Be lenient about message contents
         self.assertTrue("jp" in note.lower())
+        self.assertEqual(regional_id, "CC-BY-2.1-jp")
 
     # --- heuristic_spdx ---
     def test_heuristic_spdx_patterns(self):
