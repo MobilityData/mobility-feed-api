@@ -120,6 +120,7 @@ jobs:
           echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV
           echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=300000" >> $GITHUB_ENV
           echo "REACT_APP_FEED_API_BASE_URL=https://api-dev.mobilitydatabase.org" >> $GITHUB_ENV
+          echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
 
       - name: Populate Variables
         working-directory: web-app
@@ -220,6 +221,7 @@ jobs:
               echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
               echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=300000" >> $GITHUB_ENV
               echo "REACT_APP_FEED_API_BASE_URL=https://api-qa.mobilitydatabase.org" >> $GITHUB_ENV
+              echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
           elif [[ ${{ inputs.FIREBASE_PROJECT }} == 'prod' ]]; then
             echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
@@ -232,6 +234,7 @@ jobs:
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
             echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=3600000" >> $GITHUB_ENV
             echo "REACT_APP_FEED_API_BASE_URL=https://api.mobilitydatabase.org" >> $GITHUB_ENV
+            echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
           else
             echo "Setting FIREBASE_PROJECT to 'dev'"
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
@@ -244,12 +247,13 @@ jobs:
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
             echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=300000" >> $GITHUB_ENV
             echo "REACT_APP_FEED_API_BASE_URL=https://api-dev.mobilitydatabase.org" >> $GITHUB_ENV
+            echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
           fi
 
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL,REACT_APP_GBFS_VALIDATOR_API_BASE_URL
 
       - name: Run Install for Functions
         if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
