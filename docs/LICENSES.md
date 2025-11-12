@@ -29,9 +29,9 @@ The matching process follows several steps:
 2. **“Fuzzy” Match**
    If no exact match is found, the system looks for similar URLs that differ only slightly (for example, extra slashes or query parameters).
 
-3. **Domain Match**
-   Some organizations host multiple licenses under the same domain.
-   If the URL points to such a domain, the system checks all known licenses from that source.
+3. **Fuzzy Match**
+   If no exact match is found, the system compares the URL to similar licenses from the same domain using string similarity scoring.
+   This helps identify matches where the URLs differ only slightly, such as extra slashes, query parameters, or minor variations.
 
 
 ## Regional or Localized Licenses
