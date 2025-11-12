@@ -26,15 +26,12 @@ The matching process follows several steps:
    The system checks if the feed’s license URL exactly matches one from the license catalog.
    This is the most reliable form of matching.
 
-2. **Close or “Fuzzy” Match**
+2. **“Fuzzy” Match**
    If no exact match is found, the system looks for similar URLs that differ only slightly (for example, extra slashes or query parameters).
 
 3. **Domain Match**
    Some organizations host multiple licenses under the same domain.
    If the URL points to such a domain, the system checks all known licenses from that source.
-
-4. **Text or Content Match**
-   As a last resort, if the link leads to a page containing license text, the system analyzes the content and compares it to known license texts.
 
 
 ## Regional or Localized Licenses
