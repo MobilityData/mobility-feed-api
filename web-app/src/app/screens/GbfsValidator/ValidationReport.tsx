@@ -20,7 +20,6 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import sampleReponse from './sampleResponse.json';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -40,10 +39,15 @@ export type ValidationResult = components['schemas']['ValidationResult'];
 export type GbfsFile = components['schemas']['GbfsFile'];
 export type FileError = components['schemas']['FileError'];
 
-export default function ValidationReport(): React.ReactElement {
+interface ValidationResultProps {
+  validationResult: ValidationResult | undefined;
+  loading?: boolean;
+}
+
+export default function ValidationReport({
+  validationResult,
+}: ValidationResultProps): React.ReactElement {
   const theme = useTheme();
-  const validationResult: ValidationResult =
-    sampleReponse as unknown as ValidationResult;
   const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const [expandedByFile, setExpandedByFile] = useState<
