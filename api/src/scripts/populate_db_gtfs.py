@@ -237,7 +237,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
             producer_url = self.get_safe_value(row, "urls.direct_download", "")
-            if 'transitfeeds' not in producer_url:  # Avoid setting transitfeeds as producer_url
+            if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
                 feed.producer_url = self.get_safe_value(row, "urls.direct_download", "")
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
