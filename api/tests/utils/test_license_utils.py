@@ -77,7 +77,7 @@ class TestLicenseUtils(unittest.TestCase):
         self.assertEqual(spdx, "CC-BY-2.0")
         self.assertIsNotNone(note)
         # Be lenient about message contents
-        self.assertTrue("jp" in note.lower())
+        self.assertIn("jp", note.lower())
         self.assertEqual(regional_id, "CC-BY-2.1-jp")
 
     # --- heuristic_spdx ---
