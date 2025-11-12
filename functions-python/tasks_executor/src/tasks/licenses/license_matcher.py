@@ -18,7 +18,7 @@ def get_parameters(payload):
 
 def match_license_handler(payload):
     """
-    Handler for populating license rules.
+    Handler for matching licenses with feeds.
 
     Args:
         payload (dict): Incoming payload data.
@@ -112,7 +112,6 @@ def process_all_feeds(dry_run: bool, only_unmatched: bool, db_session: Session |
     total_processed = 0
     while True:
         logging.info("Processing batch %d", i)
-        
         batch_query = db_session.query(Feed).filter(
             "" != func.coalesce(Feed.license_url, "")
         )
