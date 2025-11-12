@@ -13,7 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import csv
+import io
 from typing import Any, Final
 
 import flask
@@ -123,10 +124,40 @@ def get_task(request: flask.Request):
     task = request_json.get("task")
     if task not in tasks:
         raise ValueError("Task not supported: %s", task)
+    content_type = request.headers.get("Content-Type", "application/json")
     payload = request_json.get("payload")
     if not payload:
         payload = {}
-    return task, payload
+    return task, payload, content_type
+
+
+def _to_csv(data) -> str:
+    if isinstance(data, str):
+        return data
+    if isinstance(data, dict):
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=list(data.keys()))
+        writer.writeheader()
+        writer.writerow(data)
+        return output.getvalue()
+    if isinstance(data, list):
+        if not data:
+            return ""
+        # Collect all keys to handle varying dict shapes
+        keys = set()
+        for row in data:
+            if isinstance(row, dict):
+                keys.update(row.keys())
+        fieldnames = sorted(keys)
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in data:
+            if isinstance(row, dict):
+                writer.writerow({k: row.get(k, "") for k in fieldnames})
+        return output.getvalue()
+    # Fallback: stringify
+    return str(data)
 
 
 @functions_framework.http
@@ -134,12 +165,23 @@ def tasks_executor(request: flask.Request) -> flask.Response:
     task: Any
     payload: Any
     try:
-        task, payload = get_task(request)
+        task, payload, content_type = get_task(request)
     except ValueError as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 400)
     # Execute task
     handler = tasks[task]["handler"]
     try:
-        return flask.make_response(flask.jsonify(handler(payload=payload)), 200)
+        result = handler(payload=payload)
+        if isinstance(payload, dict) and content_type == "text/csv":
+            csv_body = _to_csv(result)
+            response = flask.make_response(csv_body, 200)
+            response.headers["Content-Type"] = "text/csv; charset=utf-8"
+            response.headers[
+                "Content-Disposition"
+            ] = "attachment; filename=task_result.csv"
+            return response
+
+        # Default JSON response
+        return flask.make_response(flask.jsonify(result), 200)
     except Exception as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 500)

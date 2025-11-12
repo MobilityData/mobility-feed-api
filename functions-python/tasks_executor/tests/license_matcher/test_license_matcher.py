@@ -3,7 +3,6 @@ from unittest.mock import patch, MagicMock
 
 from tasks.licenses.license_matcher import (
     get_parameters,
-    get_csv_response,
     process_feed,
     match_licenses_task,
     match_license_handler,
@@ -14,48 +13,21 @@ from tasks.licenses.license_matcher import (
 class TestLicenseMatcher(unittest.TestCase):
     def test_get_parameters_defaults(self):
         payload = {}
-        dry_run, only_unmatched, feed_stable_id, content_type = get_parameters(payload)
+        dry_run, only_unmatched, feed_stable_id = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertTrue(only_unmatched)
         self.assertIsNone(feed_stable_id)
-        self.assertEqual(content_type, "application/json")
 
     def test_get_parameters_values(self):
         payload = {
             "dry_run": True,
             "only_unmatched": False,
             "feed_stable_id": "feed-123",
-            "content_type": "text/csv",
         }
-        dry_run, only_unmatched, feed_stable_id, content_type = get_parameters(payload)
+        dry_run, only_unmatched, feed_stable_id = get_parameters(payload)
         self.assertTrue(dry_run)
         self.assertFalse(only_unmatched)
         self.assertEqual(feed_stable_id, "feed-123")
-        self.assertEqual(content_type, "text/csv")
-
-    def test_get_csv_response(self):
-        matches = [
-            {
-                "feed_id": "id1",
-                "feed_stable_id": "stable1",
-                "feed_data_type": "gtfs",
-                "feed_license_url": "http://example.com/license1",
-                "matched_license_id": "MIT",
-                "matched_spdx_id": "MIT",
-                "confidence": 0.99,
-                "match_type": "exact",
-                "matched_name": "MIT License",
-                "matched_catalog_url": "http://example.com/license1",
-                "matched_source": "db.license",
-            }
-        ]
-        csv_text = get_csv_response(matches)
-        header = csv_text.splitlines()[0]
-        # Current implementation concatenates md_url and feed_license_url in header
-        self.assertIn("md_urlfeed_license_url", header)
-        self.assertIn("feed_id,feed_stable_id,feed_data_type", header)
-        self.assertIn("https://mobilitydatabase.org/feeds/stable1", csv_text)
-        self.assertIn("MIT", csv_text)
 
     @patch("tasks.licenses.license_matcher.resolve_license")
     def test_process_feed_with_match(self, mock_resolve):
@@ -113,36 +85,6 @@ class TestLicenseMatcher(unittest.TestCase):
         )
         self.assertEqual(result, [{"feed_id": "f1"}])
         mock_process_feed.assert_called_once()
-
-    @patch("tasks.licenses.license_matcher.process_feed")
-    def test_match_license_handler_csv(self, mock_process_feed):
-        mock_process_feed.return_value = {
-            "feed_id": "f1",
-            "feed_stable_id": "stable1",
-            "feed_data_type": "gtfs",
-            "feed_license_url": "http://example.com/license",
-            "matched_license_id": "MIT",
-            "matched_spdx_id": "MIT",
-            "confidence": 1.0,
-            "match_type": "exact",
-            "matched_name": "MIT License",
-            "matched_catalog_url": "http://example.com/license",
-            "matched_source": "db.license",
-        }
-
-        with patch(
-            "tasks.licenses.license_matcher.match_licenses_task",
-            return_value=[mock_process_feed.return_value],
-        ):
-            payload = {
-                "dry_run": True,
-                "feed_stable_id": "stable1",
-                "content_type": "text/csv",
-            }
-            csv_output = match_license_handler(payload)
-            self.assertIn("feed_stable_id", csv_output.splitlines()[0])
-            self.assertIn("stable1", csv_output)
-            self.assertIn("MIT", csv_output)
 
     @patch("tasks.licenses.license_matcher.process_feed")
     def test_match_license_handler_json(self, mock_process_feed):

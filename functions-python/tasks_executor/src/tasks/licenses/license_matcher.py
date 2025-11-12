@@ -1,63 +1,19 @@
-import csv
-import io
 import logging
 
-from sqlalchemy import asc
+from sqlalchemy import asc, func
 from sqlalchemy.orm import Session
 
-from shared.common.license_utils import resolve_license
+from shared.common.license_utils import resolve_license, MatchingLicense
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed, FeedLicenseChange
 from shared.helpers.runtime_metrics import track_metrics
-
-CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_CSV = "text/csv"
 
 
 def get_parameters(payload):
     dry_run = payload.get("dry_run", False)
     only_unmatched = payload.get("only_unmatched", True)
     feed_stable_id = payload.get("feed_stable_id", None)
-    content_type = payload.get("content_type", "application/json")
-    return dry_run, only_unmatched, feed_stable_id, content_type
-
-
-def get_csv_response(matches):
-    csv_buffer = io.StringIO()
-    writer = csv.writer(csv_buffer)
-    writer.writerow(
-        [
-            "feed_id",
-            "feed_stable_id",
-            "feed_data_type",
-            "md_url" "feed_license_url",
-            "matched_license_id",
-            "matched_spdx_id",
-            "confidence",
-            "match_type",
-            "matched_name",
-            "matched_catalog_url",
-            "matched_source",
-        ]
-    )
-    for entry in matches:
-        writer.writerow(
-            [
-                entry["feed_id"],
-                entry["feed_stable_id"],
-                entry["feed_data_type"],
-                f'https://mobilitydatabase.org/feeds/{entry["feed_stable_id"]}',
-                entry["feed_license_url"],
-                entry.get("matched_license_id", ""),
-                entry.get("matched_spdx_id", ""),
-                entry.get("confidence", 1),
-                entry.get("match_type", ""),
-                entry.get("matched_name", ""),
-                entry.get("matched_catalog_url", ""),
-                entry.get("matched_source", ""),
-            ]
-        )
-    return csv_buffer.getvalue()
+    return dry_run, only_unmatched, feed_stable_id
 
 
 def match_license_handler(payload):
@@ -68,14 +24,35 @@ def match_license_handler(payload):
         payload (dict): Incoming payload data.
 
     """
-    (dry_run, only_unmatched, feed_stable_id, content_type) = get_parameters(payload)
-    matches = match_licenses_task(dry_run, only_unmatched, feed_stable_id)
-    if content_type not in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
-        logging.error("Unsupported content type: %s", content_type)
-        raise ValueError("Unsupported content type: %s", content_type)
-    if content_type == CONTENT_TYPE_JSON:
-        return matches
-    return get_csv_response(matches)
+    (dry_run, only_unmatched, feed_stable_id) = get_parameters(payload)
+    return match_licenses_task(dry_run, only_unmatched, feed_stable_id)
+
+
+def assign_feed_license(feed: Feed, license_match: MatchingLicense):
+    """Assign the matched license to the feed and log the change if license is different."""
+    if license_match.license_id != feed.license_id:
+        logging.info(
+            "New license match for feed %s: %s",
+            feed.stable_id,
+            license_match.license_id,
+        )
+        feed.license_id = license_match.license_id
+        feed.license_notes = license_match.notes
+        feed_license_change: FeedLicenseChange = FeedLicenseChange(
+            feed_id=feed.id,
+            changed_at=None,  # will be set by DB default
+            feed_license_url=feed.license_url,
+            matched_license_id=license_match.license_id,
+            confidence=license_match.confidence,
+            match_type=license_match.match_type,
+            matched_name=license_match.matched_name,
+            matched_catalog_url=license_match.matched_catalog_url,
+            matched_source=license_match.matched_source,
+            notes=license_match.notes,
+        )
+        feed.feed_license_changes.append(feed_license_change)
+    else:
+        logging.info("Feed %s license unchanged: %s", feed.stable_id, feed.license_id)
 
 
 def process_feed(feed, dry_run, db_session):
@@ -98,9 +75,10 @@ def process_feed(feed, dry_run, db_session):
             "matched_name": license_first_match.matched_name,
             "matched_catalog_url": license_first_match.matched_catalog_url,
             "matched_source": license_first_match.matched_source,
+            "notes": license_first_match.notes,
         }
         if not dry_run:
-            feed.license_id = license_first_match.license_id
+            assign_feed_license(feed, license_first_match)
     return result
 
 
@@ -132,7 +110,10 @@ def process_all_feeds(dry_run: bool, only_unmatched: bool, db_session: Session |
     total_processed = 0
     while True:
         logging.info("Processing batch %d", i)
-        batch_query = db_session.query(Feed)
+        # func.coalesce(Part.part_number, '') == ''
+        batch_query = db_session.query(Feed).filter(
+            "" != func.coalesce(Feed.license_url, "")
+        )
         if last_id is not None:
             batch_query = batch_query.filter(Feed.id > last_id)
         if only_unmatched:
