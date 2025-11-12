@@ -1,5 +1,4 @@
 import collections
-import csv
 import os
 import psutil
 
@@ -8,7 +7,6 @@ import numpy as np
 from base_processor import BaseProcessor
 from csv_cache import SHAPES_FILE
 from shared.helpers.runtime_metrics import track_metrics
-from shared.helpers.utils import detect_encoding
 
 
 class ShapesProcessor(BaseProcessor):
@@ -29,18 +27,27 @@ class ShapesProcessor(BaseProcessor):
         process = psutil.Process(os.getpid())
 
         try:
-            encoding = detect_encoding(filename=self.filepath, logger=self.logger)
-            with open(self.filepath, "r", encoding=encoding, newline="") as f:
+            with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
                 header = f.readline()
-                if not header:
+                columns = self.csv_parser.parse_header(header)
+                if not columns:
                     return
-                columns = next(csv.reader([header]))
+
                 shape_id_index = csv_cache.get_index(columns, "shape_id")
                 lon_idx = csv_cache.get_index(columns, "shape_pt_lon")
                 lat_idx = csv_cache.get_index(columns, "shape_pt_lat")
                 seq_idx = csv_cache.get_index(columns, "shape_pt_sequence")
 
+                # If any required column index is None, warn and skip processing.
+                if None in (shape_id_index, lon_idx, lat_idx, seq_idx):
+                    self.logger.warning(
+                        "Missing required columns in shapes header; skipping shapes processing"
+                    )
+                    return
+
                 for line in f:
+                    line_count += 1
+
                     try:
                         if not line.strip():
                             continue
@@ -52,7 +59,6 @@ class ShapesProcessor(BaseProcessor):
                         )
 
                         self.unique_shape_id_counts[shape_id] += 1
-                        line_count += 1
                         if line_count % 1_000_000 == 0:
                             mem_mb = process.memory_info().rss / (
                                 1024 * 1024
@@ -89,6 +95,8 @@ class ShapesProcessor(BaseProcessor):
                 f.readline()  # Skip header
                 needs_sorting = False
                 for line in f:
+                    line_count += 1
+
                     try:
                         if not line.strip():
                             continue
@@ -120,7 +128,6 @@ class ShapesProcessor(BaseProcessor):
 
                         positions_in_coordinates_arrays[shape_id] = position + 1
 
-                        line_count += 1
                         if line_count % 1_000_000 == 0:
                             mem_mb = process.memory_info().rss / (
                                 1024 * 1024

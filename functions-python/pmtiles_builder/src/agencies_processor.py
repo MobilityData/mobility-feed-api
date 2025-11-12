@@ -1,5 +1,3 @@
-import csv
-
 from base_processor import BaseProcessor
 from csv_cache import AGENCY_FILE
 
@@ -16,9 +14,9 @@ class AgenciesProcessor(BaseProcessor):
     def process_file(self):
         with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
             header = f.readline()
-            if not header:
+            columns = self.csv_parser.parse_header(header)
+            if not columns:
                 return
-            columns = next(csv.reader([header]))
 
             agency_id_index = self.csv_cache.get_index(columns, "agency_id")
             agency_name_index = self.csv_cache.get_index(columns, "agency_name")
