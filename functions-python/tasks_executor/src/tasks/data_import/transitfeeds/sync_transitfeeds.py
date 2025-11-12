@@ -52,7 +52,7 @@ def _safe_split(val: Optional[str], sep: str = " | ") -> list[str]:
 
 def _process_feeds(
     db_session: Session,
-    csv_filename: str,
+    csv_url: str,
     model_cls: Type,  # Gtfsfeed or Gtfsrealtimefeed
     feed_kind: str,  # 'gtfs' or 'gtfs_rt'
     dry_run: bool,
@@ -60,14 +60,13 @@ def _process_feeds(
 ) -> Dict[str, int | str]:
     """Generic CSV → Feed loader for TransitFeeds imports."""
     try:
-        csv_path = os.path.join(os.path.dirname(__file__), csv_filename)
         logger.info(
             "Loading %s feeds from CSV: %s (dry_run=%s)",
             feed_kind.upper(),
-            csv_path,
+            csv_url,
             dry_run,
         )
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_url)
         logger.debug("CSV loaded: %d rows found for %s.", len(df), feed_kind.upper())
 
         total_processed = total_created = total_updated = 0
@@ -238,7 +237,8 @@ def _process_transitfeeds_gtfs(db_session: Session, dry_run: bool) -> dict:
     logger.info("Starting GTFS feeds processing (dry_run=%s)", dry_run)
     return _process_feeds(
         db_session=db_session,
-        csv_filename="gtfs_feeds.csv",
+        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017/functions-data/"
+                "transitfeeds_data_import/gtfs_feeds.csv",
         model_cls=Gtfsfeed,
         feed_kind="gtfs",
         dry_run=dry_run,
@@ -269,7 +269,8 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
 
     return _process_feeds(
         db_session=db_session,
-        csv_filename="gtfs_rt_feeds.csv",
+        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017/functions-data/"
+                "transitfeeds_data_import/gtfs_rt_feeds.csv",
         model_cls=Gtfsrealtimefeed,
         feed_kind="gtfs_rt",
         dry_run=dry_run,
@@ -279,11 +280,8 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
 
 def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
     """Create/attach historical datasets per feed (idempotent). Returns count added."""
-    csv_path = os.path.join(os.path.dirname(__file__), "historical_datasets.csv")
-    logger.info(
-        "Adding historical datasets from CSV: %s (dry_run=%s)", csv_path, dry_run
-    )
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv('https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017'
+                     '/functions-data/transitfeeds_data_import/historical_datasets.csv')
     logger.debug("Historical datasets CSV loaded: %d rows", len(df))
 
     total_added = 0
@@ -334,14 +332,20 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
                     latest_candidate_id = existing_dataset.id
                 continue
 
+            date_str = tfs_dataset_suffix.split("-")[0]
             download_date = pd.to_datetime(
-                tfs_dataset_suffix.split("-")[0], format="%Y%m%d", errors="coerce"
+                date_str, format="%Y%m%d", errors="coerce"
             )
             if pd.isna(download_date):
-                logger.warning(
-                    "Invalid date in Dataset ID %s; skipping.", tfs_dataset_id
-                )
-                continue
+                try:
+                    # Convert only if it's numeric
+                    if date_str.isdigit():
+                        download_date = pd.to_datetime(int(date_str), unit="s")
+                    else:
+                        raise ValueError
+                except Exception:
+                    logger.warning("Invalid date in Dataset ID %s; skipping.", tfs_dataset_id)
+                    continue
 
             sdr_start = pd.to_datetime(
                 row["Service Date Range Start"], format="%Y%m%d", errors="coerce"
