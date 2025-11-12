@@ -97,7 +97,7 @@ def match_licenses_task(
         feed = db_session.query(Feed).filter(Feed.stable_id == feed_stable_id).first()
         if not feed:
             logging.error("Feed with stable_id %s not found.", feed_stable_id)
-            raise ValueError("Feed with stable_id %s not found.", feed_stable_id)
+            raise ValueError(f"Feed with stable_id {feed_stable_id} not found.")
         result.append(process_feed(feed, dry_run, db_session))
     else:
         result = process_all_feeds(dry_run, only_unmatched, db_session)
