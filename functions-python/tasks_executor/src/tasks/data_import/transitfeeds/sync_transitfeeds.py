@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import traceback
 import uuid
 from typing import Optional, Type, Callable, Dict
@@ -25,6 +24,7 @@ from typing import Optional, Type, Callable, Dict
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from shared.common.locations_utils import create_or_get_location
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -33,7 +33,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Gtfsdataset,
 )
-from shared.common.locations_utils import create_or_get_location
 from tasks.data_import.data_import_utils import (
     _get_or_create_feed,
     _get_or_create_entity_type,
@@ -237,8 +236,8 @@ def _process_transitfeeds_gtfs(db_session: Session, dry_run: bool) -> dict:
     logger.info("Starting GTFS feeds processing (dry_run=%s)", dry_run)
     return _process_feeds(
         db_session=db_session,
-        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017/functions-data/"
-                "transitfeeds_data_import/gtfs_feeds.csv",
+        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/main/functions-data/"
+        "transitfeeds_data_import/gtfs_feeds.csv",
         model_cls=Gtfsfeed,
         feed_kind="gtfs",
         dry_run=dry_run,
@@ -269,8 +268,8 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
 
     return _process_feeds(
         db_session=db_session,
-        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017/functions-data/"
-                "transitfeeds_data_import/gtfs_rt_feeds.csv",
+        csv_url="https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/main/functions-data/"
+        "transitfeeds_data_import/gtfs_rt_feeds.csv",
         model_cls=Gtfsrealtimefeed,
         feed_kind="gtfs_rt",
         dry_run=dry_run,
@@ -280,8 +279,10 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
 
 def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
     """Create/attach historical datasets per feed (idempotent). Returns count added."""
-    df = pd.read_csv('https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/feat/1017'
-                     '/functions-data/transitfeeds_data_import/historical_datasets.csv')
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/MobilityData/mobility-feed-api/refs/heads/main"
+        "/functions-data/transitfeeds_data_import/historical_datasets.csv"
+    )
     logger.debug("Historical datasets CSV loaded: %d rows", len(df))
 
     total_added = 0
@@ -333,9 +334,7 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
                 continue
 
             date_str = tfs_dataset_suffix.split("-")[0]
-            download_date = pd.to_datetime(
-                date_str, format="%Y%m%d", errors="coerce"
-            )
+            download_date = pd.to_datetime(date_str, format="%Y%m%d", errors="coerce")
             if pd.isna(download_date):
                 try:
                     # Convert only if it's numeric
@@ -344,7 +343,9 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
                     else:
                         raise ValueError
                 except Exception:
-                    logger.warning("Invalid date in Dataset ID %s; skipping.", tfs_dataset_id)
+                    logger.warning(
+                        "Invalid date in Dataset ID %s; skipping.", tfs_dataset_id
+                    )
                     continue
 
             sdr_start = pd.to_datetime(
