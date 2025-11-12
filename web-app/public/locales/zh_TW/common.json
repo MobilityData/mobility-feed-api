@@ -1,0 +1,27 @@
+{
+    "copyToClipboard": "複製到剪貼簿",
+    "copied": "複製！",
+    "name": "姓名",
+    "email": "電子郵件",
+    "organization": "組織",
+    "signOut": "登出",
+    "unknown": "未知",
+    "search": "搜尋",
+    "feeds": "Feeds",
+    "gtfsSchedule": "GTFS Schedule",
+    "gtfsRealtime": "GTFS Realtime",
+    "gtfsRealtimeEntities": {
+        "tripUpdates": "行程更新",
+        "vehiclePositions": "車輛位置",
+        "serviceAlerts": "服務警報"
+    },
+    "loading": "正在載入...",
+    "errors": {
+        "generic": "我們無法在下列時間完成您的請求"
+    },
+    "others": "其他",
+    "apiKey": "API金鑰",
+    "httpHeader": "HTTP標頭",
+    "back": "返回",
+    "and": "和"
+}
