@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS feed_license_change (
     matched_source      TEXT,
     notes               TEXT,
     regional_id         TEXT,
-    CONSTRAINT feed_license_change_feed_id_fkey FOREIGN KEY (feed_id) REFERENCES Feed(id) ON DELETE CASCADE ON UPDATE NO ACTION,
-    CONSTRAINT feed_license_change_matched_license_id_fkey FOREIGN KEY (matched_license_id) REFERENCES License(id) ON DELETE SET NULL ON UPDATE NO ACTION
+    CONSTRAINT feed_license_change_feed_id_fkey FOREIGN KEY (feed_id) REFERENCES feed(id) ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT feed_license_change_matched_license_id_fkey FOREIGN KEY (matched_license_id) REFERENCES license(id) ON DELETE SET NULL ON UPDATE NO ACTION
 );
 
 -- Helpful indexes
