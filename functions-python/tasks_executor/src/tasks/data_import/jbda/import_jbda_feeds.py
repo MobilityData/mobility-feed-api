@@ -20,13 +20,13 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Optional, Tuple, Dict, Any, List, Final, Type, TypeVar
+from typing import Optional, Tuple, Dict, Any, List, Final, TypeVar
 
-import requests
 import pycountry
+import requests
 from sqlalchemy import select, and_
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from shared.common.locations_utils import create_or_get_location
 from shared.database.database import with_db_session
@@ -34,13 +34,14 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsfeed,
     Gtfsrealtimefeed,
-    Entitytype,
     Feedrelatedlink,
     Externalid,
-    Officialstatushistory,
 )
-
 from shared.helpers.pub_sub import trigger_dataset_download
+from tasks.data_import.data_import_utils import (
+    _get_or_create_entity_type,
+    _get_or_create_feed,
+)
 
 T = TypeVar("T", bound="Feed")
 
@@ -99,20 +100,6 @@ def import_jbda_handler(payload: dict | None = None) -> dict:
     return result
 
 
-def _get_or_create_entity_type(session: Session, entity_type_name: str) -> Entitytype:
-    """Get or create an Entitytype by name."""
-    logger.debug("Looking up Entitytype name=%s", entity_type_name)
-    et = session.scalar(select(Entitytype).where(Entitytype.name == entity_type_name))
-    if et:
-        logger.debug("Found existing Entitytype name=%s", entity_type_name)
-        return et
-    et = Entitytype(name=entity_type_name)
-    session.add(et)
-    session.flush()
-    logger.info("Created Entitytype name=%s", entity_type_name)
-    return et
-
-
 def get_gtfs_file_url(
     detail_body: Dict[str, Any], rid: str = "current"
 ) -> Optional[str]:
@@ -142,53 +129,6 @@ def get_gtfs_file_url(
     except requests.RequestException as e:
         logger.warning("HEAD request failed for %s: %s", expected_url, e)
     return None
-
-
-def _get_or_create_feed(
-    session: Session, model: Type[T], stable_id: str, data_type: str
-) -> Tuple[T, bool]:
-    """Generic helper to get or create a Feed subclass (Gtfsfeed, Gtfsrealtimefeed) by stable_id."""
-    logger.debug(
-        "Lookup feed model=%s stable_id=%s",
-        getattr(model, "__name__", str(model)),
-        stable_id,
-    )
-    feed = session.scalar(select(model).where(model.stable_id == stable_id))
-    if feed:
-        logger.info(
-            "Found existing %s stable_id=%s id=%s",
-            getattr(model, "__name__", str(model)),
-            stable_id,
-            feed.id,
-        )
-        return feed, False
-
-    new_id = str(uuid.uuid4())
-    feed = model(
-        id=new_id,
-        data_type=data_type,
-        stable_id=stable_id,
-        official=True,
-        official_updated_at=datetime.now(),
-    )
-    feed.officialstatushistories = [
-        Officialstatushistory(
-            is_official=True,
-            reviewer_email="emma@mobilitydata.org",
-            timestamp=datetime.now(),
-            notes="Imported from JBDA as official feed.",
-        )
-    ]
-    session.add(feed)
-    session.flush()
-    logger.info(
-        "Created %s stable_id=%s id=%s data_type=%s",
-        getattr(model, "__name__", str(model)),
-        stable_id,
-        new_id,
-        data_type,
-    )
-    return feed, True
 
 
 def _update_common_feed_fields(

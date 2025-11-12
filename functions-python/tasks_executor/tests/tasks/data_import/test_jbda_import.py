@@ -13,7 +13,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
 )
 
-from tasks.data_import.import_jbda_feeds import (
+from tasks.data_import.jbda.import_jbda_feeds import (
     import_jbda_handler,
     get_gtfs_file_url,
 )
@@ -188,7 +188,7 @@ class TestHelpers(unittest.TestCase):
             return _FakeResponse(status=404)
 
         with patch(
-            "tasks.data_import.import_jbda_feeds.requests.head",
+            "tasks.data_import.jbda.import_jbda_feeds.requests.head",
             side_effect=_head_side_effect,
         ):
             self.assertEqual(get_gtfs_file_url(detail, rid="current"), url_current)
@@ -221,15 +221,15 @@ class TestImportJBDA(unittest.TestCase):
         # Patch requests.Session and head; replace old pubsub mocks with trigger_dataset_download
         mock_trigger = MagicMock()
         with patch(
-            "tasks.data_import.import_jbda_feeds.requests.Session",
+            "tasks.data_import.jbda.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionOK(),
         ), patch(
-            "tasks.data_import.import_jbda_feeds.requests.head",
+            "tasks.data_import.jbda.import_jbda_feeds.requests.head",
             side_effect=_head_side_effect,
         ), patch(
-            "tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
+            "tasks.data_import.jbda.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
-            "tasks.data_import.import_jbda_feeds.trigger_dataset_download",
+            "tasks.data_import.jbda.import_jbda_feeds.trigger_dataset_download",
             mock_trigger,
         ), patch.dict(
             os.environ, {"COMMIT_BATCH_SIZE": "1"}, clear=False
@@ -311,9 +311,9 @@ class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_http_failure_graceful(self, db_session: Session):
         with patch(
-            "tasks.data_import.import_jbda_feeds.requests.Session",
+            "tasks.data_import.jbda.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionError(),
-        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
+        ), patch("tasks.data_import.jbda.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
             out = import_jbda_handler({"dry_run": True})
 
         self.assertEqual(out["message"], "Failed to fetch JBDA feeds.")
