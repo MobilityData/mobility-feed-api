@@ -129,11 +129,11 @@ def get_task(request: flask.Request):
     task = request_json.get("task")
     if task not in tasks:
         raise ValueError("Task not supported: %s", task)
-    content_type = request.headers.get("Content-Type", "application/json")
+    accept_content_type = request.headers.get("Accept", "application/json")
     payload = request_json.get("payload")
     if not payload:
         payload = {}
-    return task, payload, content_type
+    return task, payload, accept_content_type
 
 
 def _to_csv(data) -> str:
@@ -170,14 +170,14 @@ def tasks_executor(request: flask.Request) -> flask.Response:
     task: Any
     payload: Any
     try:
-        task, payload, content_type = get_task(request)
+        task, payload, accept_content_type = get_task(request)
     except ValueError as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 400)
     # Execute task
     handler = tasks[task]["handler"]
     try:
         result = handler(payload=payload)
-        if isinstance(payload, dict) and content_type == "text/csv":
+        if isinstance(payload, dict) and accept_content_type == "text/csv":
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"

@@ -57,7 +57,7 @@ def assign_feed_license(feed: Feed, license_match: MatchingLicense):
 
 
 def process_feed(feed, dry_run, db_session):
-    """`Process a single feed to match its license."""
+    """Process a single feed to match its license."""
     result = None
     license_matches = resolve_license(feed.license_url, db_session=db_session)
     if license_matches:

@@ -32,28 +32,30 @@ class TestTasksExecutor(unittest.TestCase):
     def test_get_task_valid(self):
         request = TestTasksExecutor.create_mock_request(
             {"task": "list_tasks", "payload": {"example": "data"}},
-            {"Content-Type": "application/json"},
+            {"Accept": "application/json"},
         )
-        task, payload, content_type = get_task(request)
+        task, payload, accept_content_type = get_task(request)
         self.assertEqual(task, "list_tasks")
         self.assertEqual(payload, {"example": "data"})
-        self.assertEqual(content_type, "application/json")
+        self.assertEqual(accept_content_type, "application/json")
 
     def test_get_task_valid_with_no_payload(self):
         request = TestTasksExecutor.create_mock_request({"task": "list_tasks"})
-        task, payload, content_type = get_task(request)
+        task, payload, accept_content_type = get_task(request)
         self.assertEqual(task, "list_tasks")
         self.assertEqual(payload, {})  # Default empty payload
-        self.assertEqual(content_type, "application/json")  # Default content type
+        self.assertEqual(
+            accept_content_type, "application/json"
+        )  # Default content type
 
-    def test_get_task_valid_with_content_type(self):
+    def test_get_task_valid_with_accept_content_type(self):
         request = TestTasksExecutor.create_mock_request(
-            {"task": "list_tasks"}, {"Content-Type": "text/csv"}
+            {"task": "list_tasks"}, {"Accept": "text/csv"}
         )
-        task, payload, content_type = get_task(request)
+        task, payload, accept_content_type = get_task(request)
         self.assertEqual(task, "list_tasks")
         self.assertEqual(payload, {})  # Default empty payload
-        self.assertEqual(content_type, "text/csv")
+        self.assertEqual(accept_content_type, "text/csv")
 
     def test_get_task_invalid_json(self):
         request = TestTasksExecutor.create_mock_request(None)
