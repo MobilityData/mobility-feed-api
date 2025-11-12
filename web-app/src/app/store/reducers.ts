@@ -6,6 +6,7 @@ import feedsReducer from './feeds-reducer';
 import GTFSAnalyticsReducer from './gtfs-analytics-reducer';
 import GBFSAnalyticsReducer from './gbfs-analytics-reducer';
 import supportingFilesReducer from './supporting-files-reducer';
+import gbfsValidatorReducer from './gbfs-validator-reducer';
 
 const rootReducer = combineReducers({
   userProfile: profileReducer,
@@ -15,6 +16,7 @@ const rootReducer = combineReducers({
   gtfsAnalytics: GTFSAnalyticsReducer,
   gbfsAnalytics: GBFSAnalyticsReducer,
   supportingFiles: supportingFilesReducer,
+  gbfsValidator: gbfsValidatorReducer,
 });
 
 export default rootReducer;
