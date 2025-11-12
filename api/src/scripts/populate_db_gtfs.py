@@ -236,7 +236,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             # Populate common fields from Feed
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
-            feed.producer_url = self.get_safe_value(row, "urls.direct_download", "")
+            producer_url = self.get_safe_value(row, "urls.direct_download", "")
+            if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
+                feed.producer_url = producer_url
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")

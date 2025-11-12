@@ -19,5 +19,21 @@ class FastCsvParser:
     ) -> List[str]:  # pragma: no cover (behavior tested indirectly)
         if '"' in line:
             self._lines_with_quotes += 1
-            return next(csv.reader([line]))
-        return line.rstrip("\r\n").split(",")
+            row = next(
+                csv.reader([line]), []
+            )  # default to empty list if iterator is exhausted
+        else:
+            row = line.rstrip("\r\n").split(",")
+
+        return [c.strip() for c in row]
+
+    @staticmethod
+    def parse_header(header: str) -> List[str]:
+        """Parse a CSV header line into a list of column names.
+        Ignore leading/trailing whitespace around column names.
+
+        """
+        if not header:
+            return []
+        columns = next(csv.reader([header]))
+        return [c.strip() for c in columns]
