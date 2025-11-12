@@ -120,7 +120,7 @@ class TestLicenseUtils(unittest.TestCase):
             db_session=self.session,
             max_candidates=2,
         )
-        self.assertTrue(len(results) >= 1)
+        self.assertGreaterEqual(len(results), 1)
         self.assertTrue(all(r.match_type == "fuzzy" for r in results))
         self.assertTrue(all(r.matched_catalog_url.startswith("opensource.org") for r in results))
 
