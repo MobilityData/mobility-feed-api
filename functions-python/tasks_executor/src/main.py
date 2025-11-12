@@ -177,7 +177,7 @@ def tasks_executor(request: flask.Request) -> flask.Response:
     handler = tasks[task]["handler"]
     try:
         result = handler(payload=payload)
-        if isinstance(payload, dict) and accept_content_type == "text/csv":
+        if accept_content_type == "text/csv":
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"
