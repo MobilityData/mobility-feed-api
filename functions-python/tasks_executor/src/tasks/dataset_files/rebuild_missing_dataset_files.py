@@ -117,7 +117,7 @@ def rebuild_missing_dataset_files(
     execution_id = f"task-executor-uuid-{uuid.uuid4()}"
     messages = []
     all_datasets_count = datasets.count()
-    topic = (os.getenv("DATASET_PROCESSING_TOPIC_NAME"),)
+    topic = os.getenv("DATASET_PROCESSING_TOPIC_NAME")
 
     for dataset in datasets.all():
         try:
