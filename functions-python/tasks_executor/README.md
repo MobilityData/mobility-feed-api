@@ -89,3 +89,8 @@ To populate licenses:
   }
 }
 ```
+
+## Response Content Type
+
+When the request includes the header `Accept: text/csv`, the server returns the response as a CSV file generated from the handler’s output.
+If the header is not provided, the default response content type is `application/json`.

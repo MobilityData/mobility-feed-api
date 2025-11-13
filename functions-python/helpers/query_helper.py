@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from typing import Type
 
@@ -216,23 +217,25 @@ def normalize_url(url_column) -> str:
 
 
 def normalize_url_str(url: str | None) -> str:
+    """Normalize a license URL for matching.
+    Steps:
+    - Trim whitespace and quotes
+    - Remove BOM characters
+    - Strip fragments and query parameters
+    - Remove scheme (http/https) and www prefix
+    - Lowercase the host
     """
-    Normalize a URL string for Python-side comparison:
-    - strip whitespace
-    - remove http:// or https://
-    - remove leading www.
-    - remove trailing slash
-    - lowercase
-    """
-    import re
-
-    if not url:
-        return ""
-    s = url.strip()
-    s = re.sub(r"^https?://", "", s, flags=re.I)
-    s = re.sub(r"^www\.", "", s, flags=re.I)
-    s = re.sub(r"/$", "", s)
-    return s.lower()
+    u = (url or "").strip().strip("'\"").replace("\ufeff", "")
+    u = re.sub(r"#.*$", "", u)
+    u = re.sub(r"\?.*$", "", u)
+    u = re.sub(r"^https?://", "", u, flags=re.I)
+    u = re.sub(r"^www\.", "", u, flags=re.I)
+    # remove trailing slashes
+    u = re.sub(r"/+$", "", u)
+    if "/" in u:
+        host, rest = u.split("/", 1)
+        return host.lower() + "/" + rest
+    return u.lower()
 
 
 def get_feed_by_normalized_url(url: str, db_session: Session) -> Feed | None:

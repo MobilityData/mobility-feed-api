@@ -23,24 +23,39 @@ from main import get_task, tasks_executor
 
 class TestTasksExecutor(unittest.TestCase):
     @staticmethod
-    def create_mock_request(json_data):
+    def create_mock_request(json_data, headers=None):
         mock_request = MagicMock(spec=flask.Request)
         mock_request.get_json.return_value = json_data
+        mock_request.headers = headers if headers is not None else {}
         return mock_request
 
     def test_get_task_valid(self):
         request = TestTasksExecutor.create_mock_request(
-            {"task": "list_tasks", "payload": {"example": "data"}}
+            {"task": "list_tasks", "payload": {"example": "data"}},
+            {"Accept": "application/json"},
         )
-        task, payload = get_task(request)
+        task, payload, accept_content_type = get_task(request)
         self.assertEqual(task, "list_tasks")
         self.assertEqual(payload, {"example": "data"})
+        self.assertEqual(accept_content_type, "application/json")
 
     def test_get_task_valid_with_no_payload(self):
         request = TestTasksExecutor.create_mock_request({"task": "list_tasks"})
-        task, payload = get_task(request)
+        task, payload, accept_content_type = get_task(request)
         self.assertEqual(task, "list_tasks")
         self.assertEqual(payload, {})  # Default empty payload
+        self.assertEqual(
+            accept_content_type, "application/json"
+        )  # Default content type
+
+    def test_get_task_valid_with_accept_content_type(self):
+        request = TestTasksExecutor.create_mock_request(
+            {"task": "list_tasks"}, {"Accept": "text/csv"}
+        )
+        task, payload, accept_content_type = get_task(request)
+        self.assertEqual(task, "list_tasks")
+        self.assertEqual(payload, {})  # Default empty payload
+        self.assertEqual(accept_content_type, "text/csv")
 
     def test_get_task_invalid_json(self):
         request = TestTasksExecutor.create_mock_request(None)
