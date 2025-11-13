@@ -13,7 +13,6 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
-
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
@@ -37,7 +36,6 @@ import {
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
 import PreviousDatasets from './components/PreviousDatasets';
-import FeedSummary from './components/FeedSummary';
 import DataQualitySummary from './components/DataQualitySummary';
 import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
@@ -67,6 +65,7 @@ import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
 import ReactGA from 'react-ga4';
+import GtfsFeedSummary from './components/GtfsFeedSummary';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -297,7 +296,7 @@ export default function Feed(): React.ReactElement {
             mt: 2,
             display: 'flex',
             justifyContent: 'space-between',
-            gap: 3,
+            gap: 2,
             flexWrap: { xs: 'wrap', sm: 'nowrap' },
           }}
         >
@@ -556,7 +555,7 @@ export default function Feed(): React.ReactElement {
         )}
         {latestDataset?.validation_report?.url_html != undefined && (
           <Button
-            variant='contained'
+            variant='outlined'
             disableElevation
             href={`${latestDataset?.validation_report?.url_html}`}
             target='_blank'
@@ -572,7 +571,7 @@ export default function Feed(): React.ReactElement {
           feed?.source_info?.license_url !== '' && (
             <Button
               disableElevation
-              variant='contained'
+              variant='outlined'
               sx={{ marginRight: 2 }}
               href={feed?.source_info?.license_url}
               target='_blank'
@@ -598,19 +597,19 @@ export default function Feed(): React.ReactElement {
             />
           )}
 
-          <Box sx={{ width: { xs: '100%', md: '60%' } }}>
-            {feed.data_type === 'gbfs' ? (
+          <Box sx={{ width: { xs: '100%', md: '475px' } }}>
+            {feed.data_type === 'gbfs' && (
               <GbfsFeedInfo
                 feed={feed as GTFSFeedType}
                 autoDiscoveryUrl={gbfsAutodiscoveryUrl}
               ></GbfsFeedInfo>
-            ) : (
-              <FeedSummary
+            )}
+            {(feed.data_type === 'gtfs' || feed.data_type === 'gtfs_rt') && (
+              <GtfsFeedSummary
                 feed={feed}
                 sortedProviders={sortedProviders}
                 latestDataset={latestDataset}
-                width={{ xs: '100%' }}
-              />
+              ></GtfsFeedSummary>
             )}
           </Box>
 

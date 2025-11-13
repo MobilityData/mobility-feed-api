@@ -7,16 +7,24 @@ import {
 } from 'material-react-table';
 import { Box, Tabs, Tab, Typography, Chip, Tooltip } from '@mui/material';
 import { getEmojiFlag, type TCountryCode } from 'countries-list';
-import { type EntityLocations, getLocationName } from '../services/feeds/utils';
+import {
+  type EntityLocations,
+  getCountryLocationSummaries,
+  getLocationName,
+} from '../services/feeds/utils';
 
 export interface LocationTableProps {
   locations: EntityLocations;
+  startingTab?: 'summary' | 'fullList';
 }
 
 export default function Locations({
   locations,
+  startingTab = 'summary',
 }: LocationTableProps): React.ReactElement {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(
+    startingTab === 'fullList' ? 1 : 0,
+  );
   const [tableFilters, setTableFilters] = useState<MRT_ColumnFiltersState>([]);
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
@@ -34,12 +42,8 @@ export default function Locations({
   );
 
   const uniqueCountries = useMemo(() => {
-    const countriesSet = new Set<string>();
-    tableData.forEach((loc) => {
-      countriesSet.add(loc.country_code); // Use raw country code
-    });
-    return Array.from(countriesSet);
-  }, [tableData]);
+    return getCountryLocationSummaries(locations ?? []);
+  }, [locations]);
 
   const columns = useMemo<Array<MRT_ColumnDef<(typeof tableData)[0]>>>(
     () => [
@@ -103,11 +107,11 @@ export default function Locations({
       overscan: 10,
     },
     renderBottomToolbar: () => '',
-    muiTableContainerProps: { sx: { maxHeight: '250px' } },
+    muiTableContainerProps: { sx: { maxHeight: '600px' } },
   });
 
   return (
-    <Box>
+    <Box mx={2}>
       <Tabs
         value={activeTab}
         onChange={(_, newValue) => {
@@ -119,22 +123,18 @@ export default function Locations({
       </Tabs>
 
       {activeTab === 0 && (
-        <Box sx={{ p: 2, m: 0 }}>
+        <Box sx={{ py: 2, m: 0 }}>
           {locations.length === 1 ? (
             <Typography variant='body1'>
               {getLocationName(locations)}
             </Typography>
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {uniqueCountries.map((countryCode) => {
+              {uniqueCountries.map((country) => {
                 const subdivisions = new Set<string>();
                 const municipalities = new Set<string>();
-                const countryName = tableData.find(
-                  (loc) => loc.country_code === countryCode,
-                )?.country;
-
                 tableData
-                  .filter((loc) => loc.country_code === countryCode)
+                  .filter((loc) => loc.country_code === country.country_code)
                   .forEach((loc) => {
                     subdivisions.add(loc.subdivision);
                     municipalities.add(loc.municipality);
@@ -143,13 +143,15 @@ export default function Locations({
                 const tooltipText = `${subdivisions.size} subdivisions and ${municipalities.size} municipalities within this country.\nClick for more details.`;
 
                 return (
-                  <Tooltip key={countryCode} title={tooltipText} arrow>
+                  <Tooltip key={country.country_code} title={tooltipText} arrow>
                     <Chip
-                      label={countryName}
+                      label={`${getEmojiFlag(
+                        country.country_code as TCountryCode,
+                      )} ${country.country ?? ''}`}
                       onClick={() => {
                         setActiveTab(1);
                         setTableFilters([
-                          { id: 'country', value: countryName ?? '' },
+                          { id: 'country', value: country.country ?? '' },
                         ]);
                         setShowFilters(true);
                       }}
@@ -164,7 +166,7 @@ export default function Locations({
       )}
 
       {activeTab === 1 && (
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ py: 2 }}>
           <MaterialReactTable table={table} />
         </Box>
       )}
