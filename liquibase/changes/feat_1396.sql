@@ -1,4 +1,4 @@
-# Latest dataset id should return the feed_id, not the UID of the dataset
+-- Latest dataset id should return the feed_id, not the UID of the dataset
 DO
 '
     DECLARE
@@ -38,7 +38,7 @@ SELECT
     Feed.license_url,
     Feed.provider,
     -- latest_dataset
-    Latest_dataset.feed_id AS latest_dataset_id,
+    Latest_dataset.stable_id AS latest_dataset_id,
     Latest_dataset.hosted_url AS latest_dataset_hosted_url,
     Latest_dataset.downloaded_at AS latest_dataset_downloaded_at,
     Latest_dataset.bounding_box AS latest_dataset_bounding_box,
