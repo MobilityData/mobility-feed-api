@@ -2,8 +2,6 @@
 
 DROP MATERIALIZED VIEW IF EXISTS feedsearch;
 
-ALTER TABLE feed
-ALTER COLUMN note TYPE TEXT;
 
 -- Recreate the FeedSearch materialized view
 CREATE MATERIALIZED VIEW FeedSearch AS
