@@ -31,32 +31,48 @@ export default function ValidationState(): ReactElement {
   const dispatch = useDispatch();
   const feedUrl = searchParams.get('AutoDiscoveryUrl');
 
-  const { numberOfErrors, filesWithErrors, isValidFeed, validatorVersion } =
-    useMemo(() => {
-      const files = validationResult?.summary?.files ?? [];
-      const numberOfErrors = files.reduce(
-        (acc, f) => acc + (f.errors?.length ?? 0),
-        0,
-      );
-      const filesWithErrors = files.filter(
-        (f) => (f.errors?.length ?? 0) > 0,
-      ).length;
-      const isValidFeed = numberOfErrors === 0;
-      const validatorVersion =
-        validationResult?.summary?.validatorVersion ?? 'N/A';
-      return { numberOfErrors, filesWithErrors, isValidFeed, validatorVersion };
-    }, [
-      validationResult?.summary?.files,
-      validationResult?.summary?.validatorVersion,
-    ]);
+  const {
+    gbfsVersion,
+    numberOfErrors,
+    filesWithErrors,
+    isValidFeed,
+    validatorVersion,
+  } = useMemo(() => {
+    const files = validationResult?.summary?.files ?? [];
+    const gbfsVersion = files.find((f) => f.version != null)?.version ?? 'N/A';
+    const numberOfErrors = files.reduce(
+      (acc, f) => acc + (f.errors?.length ?? 0),
+      0,
+    );
+    const filesWithErrors = files.filter(
+      (f) => (f.errors?.length ?? 0) > 0,
+    ).length;
+    const isValidFeed = numberOfErrors === 0;
+    const validatorVersion =
+      validationResult?.summary?.validatorVersion ?? 'N/A';
+    return {
+      gbfsVersion,
+      numberOfErrors,
+      filesWithErrors,
+      isValidFeed,
+      validatorVersion,
+    };
+  }, [
+    validationResult?.summary?.files,
+    validationResult?.summary?.validatorVersion,
+  ]);
 
-  useEffect(() => {
+  const triggerDataFetch = (): void => {
     if (feedUrl !== null && feedUrl !== '') {
       dispatch(validateStart({ feedUrl, auth }));
     } else {
       // TODO: handle error -> redirect?
     }
-  }, [searchParams, auth]);
+  };
+
+  useEffect(() => {
+    triggerDataFetch();
+  }, [dispatch, feedUrl, auth]);
 
   return (
     <>
@@ -68,7 +84,10 @@ export default function ValidationState(): ReactElement {
         }}
       >
         <Container maxWidth='lg' sx={{ my: 2 }}>
-          <GbfsFeedSearchInput></GbfsFeedSearchInput>
+          <GbfsFeedSearchInput
+            initialFeedUrl={feedUrl ?? ''}
+            triggerDataFetch={triggerDataFetch}
+          ></GbfsFeedSearchInput>
         </Container>
       </Box>
       <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
@@ -97,7 +116,7 @@ export default function ValidationState(): ReactElement {
           }}
         >
           <Tooltip title='GBFS Version of the feed' placement='top'>
-            <Chip label='Version 2.2' color='primary' />
+            <Chip label={`Version ${gbfsVersion}`} color='primary' />
           </Tooltip>
           {isValidFeed && (
             <Chip icon={<CheckCircle />} label='Valid Feed' color='success' />

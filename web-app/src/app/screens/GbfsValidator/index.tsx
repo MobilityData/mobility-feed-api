@@ -1,6 +1,6 @@
 import { OpenInNew } from '@mui/icons-material';
 import { Box, Button, Link, Typography, useTheme } from '@mui/material';
-import React from 'react';
+import React, { useEffect } from 'react';
 import gbfsLogo from './gbfs.svg';
 import githubLogo from './github.svg';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
@@ -11,11 +11,19 @@ import {
   PromotionTextColumn,
 } from './ValidationReport.styles';
 import ValidationState from './ValidationState';
+import { useGbfsAuth } from '../../context/GbfsAuthProvider';
 
 export default function GbfsValidator(): React.ReactElement {
   const theme = useTheme();
+  const { clearAuth } = useGbfsAuth();
   const [searchParams] = useSearchParams();
   const isInSearchState = searchParams.has('AutoDiscoveryUrl');
+
+  useEffect(() => {
+    if (!isInSearchState) {
+      clearAuth();
+    }
+  }, [isInSearchState, clearAuth]);
 
   return (
     <Box>

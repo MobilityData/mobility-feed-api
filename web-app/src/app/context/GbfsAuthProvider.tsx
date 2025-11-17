@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { type components } from '../services/feeds/gbfs-validator-types';
+import {
+  type BasicAuth,
+  type BearerTokenAuth,
+  type OAuthClientCredentialsGrantAuth,
+} from '../store/gbfs-validator-reducer';
 
 export enum AuthTypeEnum {
   BASIC = 'BasicAuth',
@@ -8,9 +12,9 @@ export enum AuthTypeEnum {
 }
 
 export type GbfsAuthDetails =
-  | components['schemas']['BasicAuth']
-  | components['schemas']['BearerTokenAuth']
-  | components['schemas']['OAuthClientCredentialsGrantAuth']
+  | BasicAuth
+  | BearerTokenAuth
+  | OAuthClientCredentialsGrantAuth
   | undefined;
 
 interface GbfsAuthContextValue {

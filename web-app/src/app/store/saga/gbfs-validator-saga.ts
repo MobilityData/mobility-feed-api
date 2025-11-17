@@ -24,7 +24,6 @@ function* runValidation(
     });
     if (!response.ok) {
       const text: string = yield response.text();
-      console.error('Validator response error text:', text);
       throw new Error(
         `Validator error ${response.status}: ${response.statusText} - ${text}`,
       );

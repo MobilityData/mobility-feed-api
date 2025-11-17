@@ -14,16 +14,28 @@ import {
   type SelectChangeEvent,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthTypeEnum, useGbfsAuth } from '../../context/GbfsAuthProvider';
+import { useSelector } from 'react-redux';
+import { selectGbfsValidationParams } from '../../store/gbfs-validator-selectors';
 
-export default function GbfsFeedSearchInput(): React.ReactElement {
+interface GbfsFeedSearchInputProps {
+  initialFeedUrl?: string;
+  triggerDataFetch?: () => void;
+}
+
+export default function GbfsFeedSearchInput({
+  initialFeedUrl,
+  triggerDataFetch,
+}: GbfsFeedSearchInputProps): React.ReactElement {
+  const lastSearchParams = useSelector(selectGbfsValidationParams);
   const theme = useTheme();
   const navigate = useNavigate();
-  const { setAuth } = useGbfsAuth();
-  const [autoDiscoveryUrlInput, setAutoDiscoveryUrlInput] =
-    useState<string>('');
+  const { auth, setAuth } = useGbfsAuth();
+  const [autoDiscoveryUrlInput, setAutoDiscoveryUrlInput] = useState<string>(
+    initialFeedUrl ?? '',
+  );
   const [requiresAuth, setRequiresAuth] = useState(false);
   const [authType, setAuthType] = useState<string>('');
   const [basicAuthUsername, setBasicAuthUsername] = useState<
@@ -44,6 +56,35 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
   const [oauthTokenUrl, setOauthTokenUrl] = useState<string | undefined>(
     undefined,
   );
+
+  // Used to keep the text input up to date with back navigation in browser
+  useEffect(() => {
+    setAutoDiscoveryUrlInput(initialFeedUrl ?? '');
+  }, [initialFeedUrl]);
+
+  // Used to keep the auth inputs up to date
+  useEffect(() => {
+    setRequiresAuth(auth !== undefined);
+    setAuthType(auth == undefined ? '' : auth.authType ?? '');
+    setBasicAuthUsername(
+      auth != null && 'username' in auth ? auth.username : undefined,
+    );
+    setBasicAuthPassword(
+      auth != null && 'password' in auth ? auth.password : undefined,
+    );
+    setBearerAuthValue(
+      auth != null && 'token' in auth ? auth.token : undefined,
+    );
+    setOauthClientId(
+      auth != null && 'clientId' in auth ? auth.clientId : undefined,
+    );
+    setOauthClientSecret(
+      auth != null && 'clientSecret' in auth ? auth.clientSecret : undefined,
+    );
+    setOauthTokenUrl(
+      auth != null && 'tokenUrl' in auth ? auth.tokenUrl : undefined,
+    );
+  }, [auth]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setRequiresAuth(event.target.checked);
@@ -93,6 +134,16 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
       setAuth(undefined);
     }
 
+    // If the URL is the same React will ignore navigation, so we trigger the data fetch manually when it's the same url
+    // Auth change will also trigger a fetch via useEffect in ValidationState
+    if (
+      !requiresAuth &&
+      lastSearchParams?.feedUrl === autoDiscoveryUrlInput &&
+      triggerDataFetch != undefined
+    ) {
+      triggerDataFetch();
+      return;
+    }
     navigate(
       `/gbfs-validator?AutoDiscoveryUrl=${encodeURIComponent(
         autoDiscoveryUrlInput,
@@ -126,6 +177,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
           variant='outlined'
           label='GBFS Auto-Discovery URL'
           placeholder='eg: https://example.com/gbfs.json'
+          value={autoDiscoveryUrlInput ?? ''}
           sx={{ width: '100%', mr: 2 }}
           onChange={(e) => {
             setAutoDiscoveryUrlInput(e.target.value.trim());
@@ -188,6 +240,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               variant='outlined'
               label='Username'
               placeholder='Enter Username'
+              value={basicAuthUsername ?? ''}
               fullWidth
               onChange={(e) => {
                 setBasicAuthUsername(e.target.value);
@@ -198,6 +251,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               variant='outlined'
               label='Password'
               placeholder='Enter Password'
+              value={basicAuthPassword ?? ''}
               type='password'
               fullWidth
               onChange={(e) => {
@@ -213,6 +267,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
             variant='outlined'
             label='Token'
             placeholder='Enter Bearer Token'
+            value={bearerAuthValue ?? ''}
             sx={{ mt: 2 }}
             fullWidth
             onChange={(e) => {
@@ -234,6 +289,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               size='small'
               variant='outlined'
               placeholder='Client Id'
+              value={oauthClientId ?? ''}
               label='Client Id'
               fullWidth
               onChange={(e) => {
@@ -246,6 +302,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               placeholder='Enter Client Secret'
               label='Client Secret'
               fullWidth
+              value={oauthClientSecret ?? ''}
               onChange={(e) => {
                 setOauthClientSecret(e.target.value);
               }}
@@ -256,6 +313,7 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               placeholder='Enter Token Url'
               label='Token Url'
               fullWidth
+              value={oauthTokenUrl ?? ''}
               onChange={(e) => {
                 setOauthTokenUrl(e.target.value);
               }}
