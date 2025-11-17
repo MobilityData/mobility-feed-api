@@ -252,18 +252,3 @@ CREATE INDEX feedsearch_feed_stable_id ON FeedSearch(feed_stable_id);
 CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
 
-
--- Update search
-REFRESH MATERIALIZED VIEW CONCURRENTLY FeedSearch;
-
--- create new related links table
-CREATE TABLE IF NOT EXISTS FeedRelatedLink (
-    feed_id varchar(255) NOT NULL REFERENCES Feed(id) ON DELETE CASCADE,
-    description TEXT NOT NULL,
-    code TEXT NOT NULL,
-    url TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (feed_id, code)
-);
-
-
