@@ -78,8 +78,8 @@
     <!-- Materialized view recreated because of note data type change -->
     <include file="changes/feat_pt_154.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1412.sql" relativeToChangelogFile="true"/>
-    <include file="changes/feat_1249.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1343.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_1249-2.sql" relativeToChangelogFile="true"/>
     <!-- Materialized view recreated to return stable_ids not UIDs -->
     <include file="changes/feat_1396.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

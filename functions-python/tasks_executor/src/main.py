@@ -20,6 +20,7 @@ import flask
 import functions_framework
 
 from shared.helpers.logger import init_logger
+from tasks.data_import.transitfeeds.sync_transitfeeds import sync_transitfeeds_handler
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
@@ -38,7 +39,7 @@ from tasks.visualization_files.rebuild_missing_visualization_files import (
 from tasks.geojson.update_geojson_files_precision import (
     update_geojson_files_precision_handler,
 )
-from tasks.data_import.import_jbda_feeds import import_jbda_handler
+from tasks.data_import.jbda.import_jbda_feeds import import_jbda_handler
 
 from tasks.licenses.populate_license_rules import (
     populate_license_rules_handler,
@@ -97,6 +98,10 @@ tasks = {
     "populate_licenses": {
         "description": "Populates licenses and license-rules in the database from a predefined JSON source.",
         "handler": populate_licenses_handler,
+    },
+    "sync_transitfeeds_data": {
+        "description": "Syncs data from TransitFeeds to the database.",
+        "handler": sync_transitfeeds_handler,
     },
 }
 

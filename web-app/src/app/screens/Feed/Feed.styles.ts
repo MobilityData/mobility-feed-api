@@ -11,7 +11,7 @@ export const feedDetailContentContainerStyle = (props: {
       xs: props.isGtfsRT ? 'column' : 'column-reverse',
       md: props.isGtfsRT ? 'row' : 'row-reverse',
     },
-    gap: 3,
+    gap: 2,
     flexWrap: 'nowrap',
     justifyContent: 'space-between',
     mb: 4,
@@ -22,6 +22,7 @@ export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
   my: 3,
   width: '100%',
   display: 'flex',
+  flexWrap: { xs: 'wrap', sm: 'nowrap' },
   gap: 1,
   borderTop: `1px solid ${theme.palette.divider}`,
   pt: 3,
@@ -36,28 +37,21 @@ export const featureChipsStyle: SxProps<Theme> = (theme) => ({
   },
 });
 
-export const mapBoxPositionStyle = {
+export const mapBoxPositionStyle: SxProps<Theme> = (theme) => ({
   position: 'relative',
   width: 'calc(100% + 32px)',
+  height: '400px',
   flexGrow: 1,
   mb: '-16px',
   mx: '-16px',
-};
+  [theme.breakpoints.up('md')]: {
+    height: 'auto',
+  },
+});
 
 export const boxElementStyle: SxProps = {
   width: '100%',
   mt: 2,
-  mb: 1,
-};
-
-export const boxElementStyleTransitProvider: SxProps = {
-  width: '100%',
-  mt: 2,
-  borderBottom: 'none',
-};
-
-export const boxElementStyleProducerURL: SxProps = {
-  width: '100%',
   mb: 1,
 };
 

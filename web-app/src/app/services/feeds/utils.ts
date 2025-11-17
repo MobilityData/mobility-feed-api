@@ -136,8 +136,11 @@ export function getCountryLocationSummaries(locations: EntityLocations): Array<{
       };
     })
     .sort((a, b) => {
-      const lenghtA = a.subdivisions.size + a.municipalities.size;
-      const lenghtB = b.subdivisions.size + b.municipalities.size;
-      return lenghtB - lenghtA;
+      const lengthA = a.subdivisions.size + a.municipalities.size;
+      const lengthB = b.subdivisions.size + b.municipalities.size;
+      if (lengthA === lengthB) {
+        return (a.country ?? '').localeCompare(b.country ?? '');
+      }
+      return lengthB - lengthA;
     });
 }

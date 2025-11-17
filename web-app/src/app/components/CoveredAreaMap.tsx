@@ -13,7 +13,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Link } from 'react-router-dom';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
-import { ContentBox } from './ContentBox';
 import { WarningContentBox } from './WarningContentBox';
 import { mapBoxPositionStyle } from '../screens/Feed/Feed.styles';
 import {
@@ -269,44 +268,30 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   ]);
 
   return (
-    <ContentBox
+    <Box
       sx={{
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
-        maxHeight: {
-          xs: '100%',
-          md: '70vh', // TODO: optimize this
-        },
+        maxHeight: '90vh',
         minHeight: '50vh',
+        p: 2,
+        backgroundColor: theme.palette.background.default,
+        borderRadius: '5px',
+        border:
+          feed?.data_type === 'gbfs'
+            ? `2px solid ${theme.palette.primary.dark}`
+            : 'none', // Temporary until gbfs summary redesign
       }}
-      title={t('coveredAreaTitle') + ' - ' + t(view)}
-      width={{ xs: '100%' }}
-      outlineColor={theme.palette.primary.dark}
-      padding={2}
     >
-      <Box
-        display={'flex'}
-        justifyContent={
-          view === 'gtfsVisualizationView' ? 'space-between' : 'flex-end'
-        }
-        mb={1}
-        alignItems={'center'}
-      >
-        {view === 'gtfsVisualizationView' &&
-          config.enableGtfsVisualizationMap && (
-            <Button
-              variant='contained'
-              disableElevation
-              component={Link}
-              to='./map'
-              onClick={handleOpenDetailedMapClick}
-              endIcon={<OpenInNewIcon></OpenInNewIcon>}
-            >
-              {t('openDetailedMap')}
-            </Button>
-          )}
-        {feed?.data_type === 'gbfs' ? (
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Typography
+          variant='subtitle1'
+          sx={{ color: 'text.secondary', mt: 0.5 }}
+        >
+          {t('coveredAreaTitle') + ' - ' + t(view)}
+        </Typography>
+        {feed?.data_type === 'gbfs' && (
           <Box sx={{ textAlign: 'right' }}>
             {latestAutodiscoveryUrl != undefined && (
               <Button
@@ -331,47 +316,66 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               </Typography>
             )}
           </Box>
-        ) : (
-          <ToggleButtonGroup
-            value={view}
-            color='primary'
-            exclusive
-            aria-label='map view selection'
-            onChange={handleViewChange}
-          >
-            {config.enableGtfsVisualizationMap && (
-              <Tooltip title={t('gtfsVisualizationTooltip')}>
-                <ToggleButton
-                  value='gtfsVisualizationView'
-                  disabled={!enableGtfsVisualizationView}
-                  aria-label={t('gtfsVisualizationViewLabel')}
+        )}
+        {feed?.data_type === 'gtfs' && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            {view === 'gtfsVisualizationView' &&
+              config.enableGtfsVisualizationMap && (
+                <Button
+                  variant='text'
+                  disableElevation
+                  component={Link}
+                  to='./map'
+                  onClick={handleOpenDetailedMapClick}
+                  endIcon={<OpenInNewIcon></OpenInNewIcon>}
                 >
-                  <ModeOfTravelIcon />
+                  {t('openDetailedMap')}
+                </Button>
+              )}
+            <ToggleButtonGroup
+              value={view}
+              color='primary'
+              exclusive
+              aria-label='map view selection'
+              onChange={handleViewChange}
+              size='small'
+            >
+              {config.enableGtfsVisualizationMap && (
+                <Tooltip title={t('gtfsVisualizationTooltip')}>
+                  <ToggleButton
+                    value='gtfsVisualizationView'
+                    disabled={!enableGtfsVisualizationView}
+                    aria-label={t('gtfsVisualizationViewLabel')}
+                  >
+                    <ModeOfTravelIcon />
+                  </ToggleButton>
+                </Tooltip>
+              )}
+              {config.enableDetailedCoveredArea && (
+                <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
+                  <ToggleButton
+                    value='detailedCoveredAreaView'
+                    disabled={
+                      geoJsonLoading ||
+                      geoJsonError ||
+                      boundingBox === undefined
+                    }
+                    aria-label='Detailed Covered Area View'
+                  >
+                    <TravelExploreIcon />
+                  </ToggleButton>
+                </Tooltip>
+              )}
+              <Tooltip title={t('boundingBoxViewTooltip')}>
+                <ToggleButton
+                  value='boundingBoxView'
+                  aria-label='Bounding Box View'
+                >
+                  <MapIcon />
                 </ToggleButton>
               </Tooltip>
-            )}
-            {config.enableDetailedCoveredArea && (
-              <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
-                <ToggleButton
-                  value='detailedCoveredAreaView'
-                  disabled={
-                    geoJsonLoading || geoJsonError || boundingBox === undefined
-                  }
-                  aria-label='Detailed Covered Area View'
-                >
-                  <TravelExploreIcon />
-                </ToggleButton>
-              </Tooltip>
-            )}
-            <Tooltip title={t('boundingBoxViewTooltip')}>
-              <ToggleButton
-                value='boundingBoxView'
-                aria-label='Bounding Box View'
-              >
-                <MapIcon />
-              </ToggleButton>
-            </Tooltip>
-          </ToggleButtonGroup>
+            </ToggleButtonGroup>
+          </Box>
         )}
       </Box>
       {(feed?.data_type === 'gtfs' || feed?.data_type === 'gbfs') &&
@@ -402,7 +406,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           )}
         </Box>
       )}
-    </ContentBox>
+    </Box>
   );
 };
 
