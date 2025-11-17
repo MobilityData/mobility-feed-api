@@ -373,6 +373,8 @@ class OperationsApiImpl(BaseOperationsApi):
             get_execution_id(get_request_context(), "feed-created-process"),
         )
         logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
+        refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
+        logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)
         payload = OperationGtfsFeedImpl.from_orm(created_feed).model_dump()
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
 
@@ -401,5 +403,7 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.commit()
         created_feed = db_session.get(Gtfsrealtimefeed, new_feed.id)
         logging.info("Created new GTFS-RT feed with ID: %s", new_feed.stable_id)
+        refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
+        logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)
         payload = OperationGtfsRtFeedImpl.from_orm(created_feed).model_dump()
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
