@@ -158,14 +158,15 @@ LEFT JOIN (
 ) AS FeedReferenceJoin ON FeedReferenceJoin.gtfs_rt_feed_id = Feed.id AND Feed.data_type = 'gtfs_rt'
 
 -- Redirect ids
+-- Redirect ids
 LEFT JOIN (
     SELECT
-        target_id,
-        json_agg(json_build_object('target_id', target_id, 'comment', redirect_comment)) AS redirect_ids
-    FROM RedirectingId
-    GROUP BY target_id
+        r.target_id,
+        json_agg(json_build_object('target_id', f.stable_id, 'comment', r.redirect_comment)) AS redirect_ids
+    FROM RedirectingId r
+    JOIN Feed f ON r.target_id = f.id
+    GROUP BY r.target_id
 ) AS RedirectingIdJoin ON RedirectingIdJoin.target_id = Feed.id
-
 -- Feed locations
 LEFT JOIN (
     SELECT
