@@ -15,7 +15,6 @@
 #
 import argparse
 import csv
-import logging
 import os
 import re
 from typing import Dict, Iterator, Optional
@@ -28,6 +27,7 @@ from packaging.version import Version
 from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
+from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 from shared.helpers.logger import init_logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
@@ -38,6 +38,8 @@ from shared.common.db_utils import (
 )
 
 from shared.database_gen.sqlacodegen_models import Geopolygon
+
+import logging
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
@@ -124,6 +126,7 @@ def export_and_upload_csv(_):
     return "Export successful"
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def export_csv(csv_file_path: str):
     """
     Write feed data to a local CSV file.
@@ -318,7 +321,7 @@ def get_feed_csv_data(
 ) -> Dict:
     """
     This function takes a generic feed and returns a dictionary with the data to be written to the CSV file.
-    Any specific data (for GTFS or GTFS_RT has to be added after this call.
+    Any specific data (for GTFS or GTFS_RT) has to be added after this call.
     """
 
     redirect_ids = []
@@ -409,15 +412,24 @@ def get_gtfs_rt_feed_csv_data(
     static_references = ""
     first_feed_reference = None
     if feed.gtfs_feeds:
-        valid_feed_references = [
-            feed_reference.stable_id.strip()
-            for feed_reference in feed.gtfs_feeds
-            if feed_reference and feed_reference.stable_id
+        # Prefer active feeds first using a stable sort so original relative order
+        # within active and inactive groups is preserved.
+        def _is_active(fr):
+            try:
+                return getattr(fr, "status", None) == "active"
+            except Exception:
+                return False
+
+        # Filter to valid references, then stable sort by active flag (True > False)
+        valid_refs = [
+            fr for fr in feed.gtfs_feeds if fr and getattr(fr, "stable_id", None)
         ]
+        sorted_refs = sorted(valid_refs, key=_is_active, reverse=True)
+
+        valid_feed_references = [fr.stable_id.strip() for fr in sorted_refs]
         static_references = "|".join(valid_feed_references)
-        # If there is more than one GTFS feeds associated with this RT feed (why?)
-        # We will arbitrarily use the first one in the list for the bounding box.
-        first_feed_reference = feed.gtfs_feeds[0] if feed.gtfs_feeds else None
+        # First reference (after sort) will be an active one if any are present
+        first_feed_reference = sorted_refs[0] if sorted_refs else None
     data["static_reference"] = static_references
 
     # For the RT feed, we use the bounding box of the associated GTFS feed, if any.
