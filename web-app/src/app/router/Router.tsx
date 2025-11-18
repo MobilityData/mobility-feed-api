@@ -36,6 +36,7 @@ import GBFSVersionAnalytics from '../screens/Analytics/GBFSVersionAnalytics';
 import ContactUs from '../screens/ContactUs';
 import FullMapView from '../screens/Feed/components/FullMapView';
 import GbfsValidator from '../screens/GbfsValidator';
+import { GbfsAuthProvider } from '../context/GbfsAuthProvider';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -93,7 +94,14 @@ export const AppRouter: React.FC = () => {
       <Route path='about' element={<About />} />
       <Route path='contact-us' element={<ContactUs />} />
       <Route path='feeds' element={<Feeds />} />
-      <Route path='gbfs-validator' element={<GbfsValidator />} />
+      <Route
+        path='gbfs-validator'
+        element={
+          <GbfsAuthProvider>
+            <GbfsValidator />
+          </GbfsAuthProvider>
+        }
+      />
       <Route
         path='feeds/gtfs'
         element={<Navigate to='/feeds?gtfs=true' replace />}
