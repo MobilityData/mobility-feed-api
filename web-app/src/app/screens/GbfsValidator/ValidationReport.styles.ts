@@ -72,6 +72,22 @@ export const ValidationElementCardStyles = (
   },
 });
 
+export const AlertErrorBoxStyles = (
+  theme: Theme,
+  showDetails: boolean,
+): SxProps<Theme> => ({
+  whiteSpace: 'pre-wrap',
+  fontFamily:
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  bgcolor: theme.palette.action.hover,
+  p: 1.5,
+  borderRadius: 1,
+  maxHeight: showDetails ? 400 : 140,
+  overflow: 'auto',
+  border: '1px solid',
+  borderColor: 'divider',
+});
+
 export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
   padding: theme.spacing(0.5),
   background: theme.palette.background.paper,

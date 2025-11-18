@@ -31,6 +31,23 @@ function* runValidation(
     const data: components['schemas']['ValidationResult'] =
       yield response.json();
 
+    const allSystemErrors = data?.summary?.files?.flatMap(
+      (file) => file.systemErrors ?? [],
+    );
+
+    const allFilesHaveSystemErrors = data?.summary?.files?.every(
+      (file) => (file.systemErrors?.length ?? 0) > 0,
+    );
+
+    // If all files have system errors, treat it as a failure
+    if (allFilesHaveSystemErrors != null && allFilesHaveSystemErrors) {
+      throw new Error(
+        `Validation failed due to system errors: ${allSystemErrors
+          ?.map((e) => e.error + ' : ' + e.message)
+          .join('; ')}`,
+      );
+    }
+
     yield put(validateSuccess(data));
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
