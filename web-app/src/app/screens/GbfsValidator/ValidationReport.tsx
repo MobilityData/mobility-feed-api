@@ -153,7 +153,7 @@ export default function ValidationReport({
           {languages.length > 1 && (
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Tooltip title='Language of the feed' placement='top'>
-                <LanguageIcon />
+                <LanguageIcon aria-label="Language of the feed" />
               </Tooltip>
 
               <Tabs
