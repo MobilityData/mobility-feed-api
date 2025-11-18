@@ -31,7 +31,7 @@ import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import LanguageIcon from '@mui/icons-material/Language';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { type components } from '../../services/feeds/gbfs-validator-types';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { OpenInNew } from '@mui/icons-material';
 import {
   ValidationReportTableStyles,
@@ -127,10 +127,11 @@ export default function ValidationReport({
   );
 
   // Adjust selectedLanguage if languages set changes (e.g., after loading finishes)
-  if (languages.length > 0 && !languages.includes(selectedLanguage)) {
-    // This synchronous adjustment keeps hook order; alternative is useEffect but safe here
-    setSelectedLanguage(languages[0]);
-  }
+  useEffect(() => {
+    if (languages.length > 0 && !languages.includes(selectedLanguage)) {
+      setSelectedLanguage(languages[0]);
+    }
+  }, [languages, selectedLanguage]);
 
   const filesForLanguage: GbfsFile[] =
     selectedLanguage !== ''

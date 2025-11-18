@@ -93,7 +93,9 @@ export function ValidationErrorAlert({
           <Button
             color='inherit'
             size='small'
-            onClick={() => setSnackbarOpen(false)}
+            onClick={() => {
+              setSnackbarOpen(false);
+            }}
             aria-label='Close'
           >
             Close
