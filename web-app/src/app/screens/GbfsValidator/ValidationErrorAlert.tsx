@@ -89,6 +89,16 @@ export function ValidationErrorAlert({
           setSnackbarOpen(false);
         }}
         message={'Error text copied to clipboard'}
+        action={
+          <Button
+            color="inherit"
+            size="small"
+            onClick={() => setSnackbarOpen(false)}
+            aria-label="Close"
+          >
+            Close
+          </Button>
+        }
       />
     </>
   );
