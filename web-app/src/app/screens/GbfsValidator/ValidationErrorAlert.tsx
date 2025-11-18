@@ -91,10 +91,10 @@ export function ValidationErrorAlert({
         message={'Error text copied to clipboard'}
         action={
           <Button
-            color="inherit"
-            size="small"
+            color='inherit'
+            size='small'
             onClick={() => setSnackbarOpen(false)}
-            aria-label="Close"
+            aria-label='Close'
           >
             Close
           </Button>

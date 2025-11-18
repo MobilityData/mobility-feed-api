@@ -35,12 +35,13 @@ function* runValidation(
       (file) => file.systemErrors ?? [],
     );
 
-    const allFilesHaveSystemErrors = data?.summary?.files?.every(
-      (file) => (file.systemErrors?.length ?? 0) > 0,
-    );
+    const allFilesHaveSystemErrors =
+      data?.summary?.files != null &&
+      data.summary.files.length > 0 &&
+      data.summary.files.every((file) => (file.systemErrors?.length ?? 0) > 0);
 
     // If all files have system errors, treat it as a failure
-    if (allFilesHaveSystemErrors != null && allFilesHaveSystemErrors) {
+    if (allFilesHaveSystemErrors) {
       throw new Error(
         `Validation failed due to system errors: ${allSystemErrors
           ?.map((e) => e.error + ' : ' + e.message)
