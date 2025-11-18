@@ -60,6 +60,7 @@ services:
       - --username=${POSTGRES_USER}
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
+      - --classpath=postgresql-42.7.8.jar
       - update
     depends_on:
       postgres:
@@ -79,6 +80,7 @@ services:
       - --username=${POSTGRES_USER}
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
+      - --classpath=postgresql-42.7.8.jar
       - update
     depends_on:
       postgres-test:
