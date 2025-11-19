@@ -1,32 +1,29 @@
-import { OpenInNew, CheckCircle, ReportOutlined } from '@mui/icons-material';
-import {
-  Box,
-  Button,
-  Chip,
-  Container,
-  Link,
-  Tooltip,
-  Typography,
-  useTheme,
-} from '@mui/material';
-import React from 'react';
+import { OpenInNew } from '@mui/icons-material';
+import { Box, Button, Link, Typography, useTheme } from '@mui/material';
+import React, { useEffect } from 'react';
 import gbfsLogo from './gbfs.svg';
 import githubLogo from './github.svg';
-import ValidationReport from './ValidationReport';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
 import { useSearchParams } from 'react-router-dom';
-import { Map } from '../../components/Map';
 import {
-  ContentTitle,
   gbfsValidatorHeroBg,
   PromotionRow,
   PromotionTextColumn,
 } from './ValidationReport.styles';
+import ValidationState from './ValidationState';
+import { useGbfsAuth } from '../../context/GbfsAuthProvider';
 
 export default function GbfsValidator(): React.ReactElement {
   const theme = useTheme();
+  const { clearAuth } = useGbfsAuth();
   const [searchParams] = useSearchParams();
   const isInSearchState = searchParams.has('AutoDiscoveryUrl');
+
+  useEffect(() => {
+    if (!isInSearchState) {
+      clearAuth();
+    }
+  }, [isInSearchState, clearAuth]);
 
   return (
     <Box>
@@ -193,100 +190,7 @@ export default function GbfsValidator(): React.ReactElement {
           </Box>
         </>
       ) : null}
-      {isInSearchState && (
-        <>
-          <Box
-            sx={{
-              ...gbfsValidatorHeroBg,
-              p: 1,
-              mt: '-32px',
-            }}
-          >
-            <Container maxWidth='lg' sx={{ my: 2 }}>
-              <GbfsFeedSearchInput></GbfsFeedSearchInput>
-            </Container>
-          </Box>
-          <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
-            <Box sx={{ mt: 4 }}>
-              <Typography variant='h6' sx={{ opacity: 0.8 }}>
-                GBFS Feed Validation
-              </Typography>
-              <Typography
-                variant='h4'
-                sx={{
-                  fontWeight: 700,
-                  mb: 3,
-                  color: theme.palette.primary.main,
-                  overflowWrap: 'break-word',
-                }}
-              >
-                https://tor.publicbikesystem.net/customer/gbfs/v2/gbfs.json
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 1,
-                mb: 3,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Tooltip title='GBFS Version of the feed' placement='top'>
-                <Chip label='Version 2.2' color='primary' />
-              </Tooltip>
-              <Chip icon={<CheckCircle />} label='Valid Feed' color='success' />
-              <Tooltip
-                title='This feed contains errors and does not fully comply with the GBFS specification.'
-                placement='top'
-              >
-                <Chip
-                  icon={<ReportOutlined />}
-                  label='Invalid Feed'
-                  color='error'
-                />
-              </Tooltip>
-              <Chip label='3 Total Errors' color='error' variant='outlined' />{' '}
-              <Chip label='2 Files Errors' color='error' variant='outlined' />
-              <Tooltip
-                title='Version of the GBFS Validator used'
-                placement='top'
-              >
-                <Chip label='Validator v1.2' variant='outlined' />
-              </Tooltip>
-            </Box>
-
-            <Box
-              sx={{
-                backgroundColor: theme.palette.background.paper,
-                borderRadius: '5px',
-                mb: 2,
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  py: 0.5,
-                  pr: 2,
-                }}
-              >
-                <ContentTitle>Map View</ContentTitle>
-                <Button size='small' variant='text'>
-                  View Full Map Details
-                </Button>
-              </Box>
-
-              <Box sx={{ px: 2, pb: 2 }}>
-                <Map polygon={[{ lat: 37.7749, lng: -122.4194 }]}></Map>
-                <Box textAlign={'right'} sx={{ mt: 1 }}></Box>
-              </Box>
-            </Box>
-
-            <ValidationReport></ValidationReport>
-          </Container>
-        </>
-      )}
+      {isInSearchState && <ValidationState></ValidationState>}
     </Box>
   );
 }

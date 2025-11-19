@@ -50,6 +50,30 @@ def populate_database(db_session):
     fake = Faker()
 
     feeds = []
+
+    # Put the deprecated feeds before the active feeds in the DB so they will be listed first
+    # in GtfsRealtimeFeed.gtfs_feeds (the RT feed references). This allows testing that active feeds
+    # are put first in GtfsRealtimeFeed.gtfs_feeds. Admittedly, it's a bit weak but it works for now.
+    for i in range(2):
+        feed = Gtfsfeed(
+            id=fake.uuid4(),
+            data_type="gtfs",
+            feed_name=f"deprecated-gtfs-{i} Some fake name",
+            note=f"deprecated-gtfs-{i} Some fake note",
+            producer_url=f"https://deprecated-gtfs-{i}_some_fake_producer_url",
+            authentication_type="0" if (i == 0) else "1",
+            authentication_info_url=None,
+            api_key_parameter_name=None,
+            license_url=f"https://gtfs-{i}_some_fake_license_url",
+            stable_id=f"deprecated-gtfs-{i}",
+            status="deprecated",
+            feed_contact_email=f"deprecated-gtfs-{i}_some_fake_email@fake.com",
+            provider=f"deprecated-gtfs-{i} Some fake company",
+            operational_status="published",
+            official=True,
+        )
+        db_session.add(feed)
+
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
     # First fill the generic parameters
@@ -97,25 +121,6 @@ def populate_database(db_session):
     for feed in feeds:
         db_session.add(feed)
     db_session.flush()
-    for i in range(2):
-        feed = Gtfsfeed(
-            id=fake.uuid4(),
-            data_type="gtfs",
-            feed_name=f"gtfs-deprecated-{i} Some fake name",
-            note=f"gtfs-deprecated-{i} Some fake note",
-            producer_url=f"https://gtfs-deprecated-{i}_some_fake_producer_url",
-            authentication_type="0" if (i == 0) else "1",
-            authentication_info_url=None,
-            api_key_parameter_name=None,
-            license_url=f"https://gtfs-{i}_some_fake_license_url",
-            stable_id=f"gtfs-deprecated-{i}",
-            status="deprecated",
-            feed_contact_email=f"gtfs-deprecated-{i}_some_fake_email@fake.com",
-            provider=f"gtfs-deprecated-{i} Some fake company",
-            operational_status="published",
-            official=True,
-        )
-        db_session.add(feed)
 
     location_entity = Location(id="CA-quebec-montreal")
 
@@ -273,9 +278,27 @@ def populate_database(db_session):
             entitytypes=[vp_entitytype, tu_entitytype] if i == 0 else [vp_entitytype],
             operational_status="published",
             official=True,
-            gtfs_feeds=[active_gtfs_feeds[0]] if i == 0 else [],
+            # Do not attach GTFS feeds at creation; we'll set them in a controlled order below
+            # gtfs_feeds=[],
         )
         gtfs_rt_feeds.append(feed)
+
+    db_session.add_all(gtfs_rt_feeds)
+
+    # --- Attach both a deprecated GTFS feed and an active GTFS feed to the first RT feed
+    try:
+        deprecated_feeds = (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.status == "deprecated")
+            .order_by(Gtfsfeed.stable_id)
+            .all()
+        )
+        if deprecated_feeds:
+            gtfs_rt_feeds[0].gtfs_feeds = [deprecated_feeds[0], active_gtfs_feeds[0]]
+            db_session.flush()
+    except Exception:
+        # Best effort in test setup; if it fails the rest of the tests will surface the issue.
+        pass
 
     # Add redirecting IDs (from main branch logic)
     gtfs_rt_feeds[1].redirectingids = [

@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from typing import Iterator, List, Dict, Optional
@@ -5,7 +6,7 @@ from typing import Iterator, List, Dict, Optional
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session, contains_eager, load_only
+from sqlalchemy.orm import joinedload, Session, contains_eager, load_only, selectinload
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 from sqlalchemy import func
@@ -49,7 +50,7 @@ def get_gtfs_feeds_query(
     is_official: bool | None = None,
     published_only: bool = True,
     include_options_for_joinedload: bool = True,
-) -> Query[any]:
+) -> Query:
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
         stable_id=stable_id,
@@ -160,35 +161,69 @@ def get_all_gtfs_feeds(
 
     :return: The GTFS feeds in an iterator.
     """
-    batch_size = int(os.getenv("BATCH_SIZE", "500"))
-    batch_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
+    batch_size = int(os.getenv("BATCH_SIZE", "50"))
+
+    # We fetch in small batches and stream results to avoid loading the whole table in memory.
+    # stream_results=True lets SQLAlchemy iterate rows without buffering them all at once.
+    # We also clear the session cache between batches (see expunge_all() below) to prevent
+    # memory from growing indefinitely when many ORM objects are loaded.
+    batch_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).execution_options(stream_results=True)
     if published_only:
         batch_query = batch_query.filter(Gtfsfeed.operational_status == "published")
 
-    for batch in batched(batch_query, batch_size):
-        stable_ids = (f.stable_id for f in batch)
+    processed = 0
+
+    for batch_num, batch in enumerate(batched(batch_query, batch_size), start=1):
+        start_index = processed + 1
+        end_index = processed + len(batch)
+        logging.info("Processing feeds %d - %d", start_index, end_index)
+
+        # Convert to a list intentionally: we want to "materialize" IDs now to make any cost
+        # visible here (and keep the logic simple). This also avoids subtle lazy-evaluation
+        # effects that can hide where time/memory is really spent.
+        stable_ids = [f.stable_id for f in batch]
+        if not stable_ids:
+            processed += len(batch)
+            continue
+
         if w_extracted_locations_only:
             feed_query = apply_most_common_location_filter(db_session.query(Gtfsfeed), db_session)
-            yield from (
-                feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids)).options(
-                    joinedload(Gtfsfeed.latest_dataset)
-                    .joinedload(Gtfsdataset.validation_reports)
-                    .joinedload(Validationreport.features),
-                    *get_joinedload_options(include_extracted_location_entities=True),
-                )
+            inner_q = feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids)).options(
+                # See note above: selectinload is chosen for collections to keep memory and row
+                # counts under control when streaming.
+                selectinload(Gtfsfeed.latest_dataset)
+                .selectinload(Gtfsdataset.validation_reports)
+                .selectinload(Validationreport.features),
+                selectinload(Gtfsfeed.bounding_box_dataset),
+                *get_selectinload_options(include_extracted_location_entities=True),
             )
         else:
-            yield from (
+            inner_q = (
                 db_session.query(Gtfsfeed)
                 .outerjoin(Gtfsfeed.gtfsdatasets)
                 .filter(Gtfsfeed.stable_id.in_(stable_ids))
                 .options(
-                    joinedload(Gtfsfeed.latest_dataset)
-                    .joinedload(Gtfsdataset.validation_reports)
-                    .joinedload(Validationreport.features),
-                    *get_joinedload_options(include_extracted_location_entities=False),
+                    selectinload(Gtfsfeed.latest_dataset)
+                    .selectinload(Gtfsdataset.validation_reports)
+                    .selectinload(Validationreport.features),
+                    selectinload(Gtfsfeed.bounding_box_dataset),
+                    *get_selectinload_options(include_extracted_location_entities=False),
                 )
             )
+
+        # Iterate and stream rows out; the options above ensure related data is preloaded in
+        # a few small queries per batch, rather than one giant join.
+        for item in inner_q.execution_options(stream_results=True):
+            yield item
+
+        # Clear the Session identity map so objects from this batch can be GC'd. Without this,
+        # the Session will keep references and memory usage will grow with each batch.
+        try:
+            db_session.expunge_all()
+        except Exception:
+            logging.getLogger("get_all_gtfs_feeds").exception("Failed to expunge session after batch %d", batch_num)
+
+        processed += len(batch)
 
 
 def get_gtfs_rt_feeds_query(
@@ -279,7 +314,10 @@ def get_all_gtfs_rt_feeds(
     :return: The GTFS realtime feeds in an iterator.
     """
     batched_query = (
-        db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
+        db_session.query(Gtfsrealtimefeed.stable_id)
+        .order_by(Gtfsrealtimefeed.stable_id)
+        .yield_per(batch_size)
+        .execution_options(stream_results=True)
     )
     if published_only:
         batched_query = batched_query.filter(Gtfsrealtimefeed.operational_status == "published")
@@ -291,8 +329,8 @@ def get_all_gtfs_rt_feeds(
             yield from (
                 feed_query.filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
                 .options(
-                    joinedload(Gtfsrealtimefeed.entitytypes),
-                    joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                    selectinload(Gtfsrealtimefeed.entitytypes),
+                    selectinload(Gtfsrealtimefeed.gtfs_feeds),
                     *get_joinedload_options(include_extracted_location_entities=True),
                 )
                 .order_by(Gtfsfeed.stable_id)
@@ -302,9 +340,9 @@ def get_all_gtfs_rt_feeds(
                 db_session.query(Gtfsrealtimefeed)
                 .filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
                 .options(
-                    joinedload(Gtfsrealtimefeed.entitytypes),
-                    joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                    *get_joinedload_options(include_extracted_location_entities=False),
+                    selectinload(Gtfsrealtimefeed.entitytypes),
+                    selectinload(Gtfsrealtimefeed.gtfs_feeds),
+                    *get_selectinload_options(include_extracted_location_entities=False),
                 )
             )
 
@@ -320,10 +358,10 @@ def apply_bounding_filtering(
     if not bounding_latitudes or not bounding_longitudes or not bounding_filter_method:
         return query
 
-    if (
-        len(bounding_latitudes_tokens := bounding_latitudes.split(",")) != 2
-        or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
-    ):
+    # Parse tokens explicitly to satisfy static analyzers and keep error messages clear.
+    bounding_latitudes_tokens = bounding_latitudes.split(",")
+    bounding_longitudes_tokens = bounding_longitudes.split(",")
+    if len(bounding_latitudes_tokens) != 2 or len(bounding_longitudes_tokens) != 2:
         raise_internal_http_validation_error(
             invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes)
         )
@@ -384,6 +422,33 @@ def get_joinedload_options(include_extracted_location_entities: bool = False) ->
         joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         joinedload(Feed.officialstatushistories),
     ]
+
+
+def get_selectinload_options(include_extracted_location_entities: bool = False) -> List[_AbstractLoad]:
+    """
+    Returns common joinedload options for feeds queries.
+    :param include_extracted_location_entities: Whether to include extracted location entities.
+
+    :return: A list of joinedload options.
+    """
+    # NOTE: For collections we prefer selectinload to avoid row explosion and high memory usage
+    # during streaming. When callers explicitly join some paths (e.g., most common locations),
+    # we use contains_eager on that specific path to tell SQLAlchemy the data came from a JOIN.
+    loaders = []
+    if include_extracted_location_entities:
+        loaders.append(contains_eager(Feed.feedosmlocationgroups).joinedload(Feedosmlocationgroup.group))
+
+    # collections -> selectinload; scalar relationships can remain joinedload
+    loaders.extend(
+        [
+            selectinload(Feed.locations),
+            selectinload(Feed.externalids),
+            selectinload(Feed.feedrelatedlinks),
+            selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
+            selectinload(Feed.officialstatushistories),
+        ]
+    )
+    return loaders
 
 
 def get_gbfs_feeds_query(

@@ -130,6 +130,7 @@ export default function GbfsVersions({
                       mb: 1,
                       fontWeight: 'bold',
                       display: 'flex',
+                      flexWrap: 'wrap',
                       alignItems: 'center',
                       gap: 2,
                     }}

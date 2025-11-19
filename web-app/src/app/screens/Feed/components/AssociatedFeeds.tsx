@@ -122,8 +122,8 @@ export default function AssociatedGTFSRTFeeds({
       <ContentBox
         width={{ xs: '100%' }}
         title={'Related Schedule Feeds'}
-        outlineColor={theme.palette.primary.dark}
-        margin={`0 0 ${theme.spacing(3)}`}
+        outlineColor={theme.palette.background.default}
+        margin={`0 0 ${theme.spacing(2)}`}
         padding={2}
       >
         {feeds === undefined && <Typography>Loading...</Typography>}
@@ -146,7 +146,7 @@ export default function AssociatedGTFSRTFeeds({
       <ContentBox
         width={{ xs: '100%' }}
         title={'Related Realtime Feeds'}
-        outlineColor={theme.palette.primary.dark}
+        outlineColor={theme.palette.background.default}
         padding={2}
       >
         {gtfsRtFeeds === undefined && <Typography>Loading...</Typography>}

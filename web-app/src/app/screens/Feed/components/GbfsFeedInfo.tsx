@@ -73,6 +73,7 @@ export default function GbfsFeedInfo({
             variant='body1'
             target='_blank'
             rel='noreferrer'
+            sx={{ wordWrap: 'break-word' }}
           >
             {autoDiscoveryUrl}
           </Link>

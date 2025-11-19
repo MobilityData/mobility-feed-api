@@ -2,7 +2,7 @@
   "name": "export-csv",
   "description": "Export the DB feed data as a csv file",
   "entry_point": "export_and_upload_csv",
-  "timeout": 600,
+  "timeout": 3600,
   "memory": "2Gi",
   "trigger_http": true,
   "include_folders": ["helpers", "dataset_service"],
