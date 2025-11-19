@@ -5,7 +5,8 @@ from typing import Iterator, List, Dict, Optional
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import Session, contains_eager, load_only, selectinload, with_loader_criteria, Query
+from sqlalchemy.orm import joinedload, Session, contains_eager, load_only, selectinload
+from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 from sqlalchemy import func
 from sqlalchemy.sql import and_
@@ -61,9 +62,7 @@ def get_gtfs_feeds_query(
     subquery = apply_bounding_filtering(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
-    # Type checkers prefer an explicit scalar select from the subquery; this is equivalent
-    # to "id IN (SELECT id FROM (subquery))" and avoids complaints about passing a Subquery.
-    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(select(subquery.c.id)))
+    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
 
     if country_code or subdivision_name or municipality:
         location_filter = LocationFilter(
@@ -80,24 +79,11 @@ def get_gtfs_feeds_query(
     feed_query = add_official_filter(feed_query, is_official)
 
     if include_options_for_joinedload:
-        # IMPORTANT: We use selectinload (batched IN-queries) for collections instead of
-        # joinedload (single big JOIN). This avoids huge "row multiplication" when a feed has
-        # many related rows (e.g., datasets -> reports -> features). It keeps memory usage and
-        # query size reasonable, and works well with streaming/yielding results.
-        #
-        # The chained calls below mean: for all feeds, load their latest_dataset; for these
-        # datasets, load their validation_reports; for these reports, load their features.
-        # All of that happens in a few compact, batched queries.
         feed_query = feed_query.options(
-            selectinload(Gtfsfeed.latest_dataset)
-            .selectinload(Gtfsdataset.validation_reports)
-            .selectinload(Validationreport.features),
-            # visualization_dataset is a single related row; selectinload is still fine here
-            # and keeps the pattern consistent.
-            selectinload(Gtfsfeed.visualization_dataset),
-            # Ensure the bounding_box_dataset is present to avoid lazy-loads after the session
-            # is cleared during batch processing.
-            selectinload(Gtfsfeed.bounding_box_dataset),
+            joinedload(Gtfsfeed.latest_dataset)
+            .joinedload(Gtfsdataset.validation_reports)
+            .joinedload(Validationreport.features),
+            joinedload(Gtfsfeed.visualization_dataset),
             *get_joinedload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
 
@@ -208,7 +194,7 @@ def get_all_gtfs_feeds(
                 .selectinload(Gtfsdataset.validation_reports)
                 .selectinload(Validationreport.features),
                 selectinload(Gtfsfeed.bounding_box_dataset),
-                *get_joinedload_options(include_extracted_location_entities=True),
+                *get_selectinload_options(include_extracted_location_entities=True),
             )
         else:
             inner_q = (
@@ -220,7 +206,7 @@ def get_all_gtfs_feeds(
                     .selectinload(Gtfsdataset.validation_reports)
                     .selectinload(Validationreport.features),
                     selectinload(Gtfsfeed.bounding_box_dataset),
-                    *get_joinedload_options(include_extracted_location_entities=False),
+                    *get_selectinload_options(include_extracted_location_entities=False),
                 )
             )
 
@@ -287,11 +273,8 @@ def get_gtfs_rt_feeds_query(
         feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     feed_query = feed_query.options(
-        selectinload(Gtfsrealtimefeed.entitytypes),
-        selectinload(Gtfsrealtimefeed.gtfs_feeds),
-        # Only include GTFS feeds that are "active" in the realtime feed's gtfs_feeds list.
-        # This filters the related collection at load time (no extra filtering needed later).
-        with_loader_criteria(Gtfsfeed, Gtfsfeed.status == "active", include_aliases=True),
+        joinedload(Gtfsrealtimefeed.entitytypes),
+        joinedload(Gtfsrealtimefeed.gtfs_feeds),
         *get_joinedload_options(),
     )
     feed_query = add_official_filter(feed_query, is_official)
@@ -357,7 +340,7 @@ def get_all_gtfs_rt_feeds(
                 .options(
                     selectinload(Gtfsrealtimefeed.entitytypes),
                     selectinload(Gtfsrealtimefeed.gtfs_feeds),
-                    *get_joinedload_options(include_extracted_location_entities=False),
+                    *get_selectinload_options(include_extracted_location_entities=False),
                 )
             )
 
@@ -420,7 +403,26 @@ def apply_bounding_filtering(
         raise_internal_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
 
-def get_joinedload_options(include_extracted_location_entities: bool = False) -> List[_AbstractLoad]:
+def get_joinedload_options(include_extracted_location_entities: bool = False) -> [_AbstractLoad]:
+    """
+    Returns common joinedload options for feeds queries.
+    :param include_extracted_location_entities: Whether to include extracted location entities.
+
+    :return: A list of joinedload options.
+    """
+    joinedload_options = []
+    if include_extracted_location_entities:
+        joinedload_options = [contains_eager(Feed.feedosmlocationgroups).joinedload(Feedosmlocationgroup.group)]
+    return joinedload_options + [
+        joinedload(Feed.locations),
+        joinedload(Feed.externalids),
+        joinedload(Feed.feedrelatedlinks),
+        joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
+        joinedload(Feed.officialstatushistories),
+    ]
+
+
+def get_selectinload_options(include_extracted_location_entities: bool = False) -> List[_AbstractLoad]:
     """
     Returns common joinedload options for feeds queries.
     :param include_extracted_location_entities: Whether to include extracted location entities.
@@ -476,7 +478,7 @@ def get_gbfs_feeds_query(
         if version
         else None,
     )
-    # We compute the latest validation report per GBFS version (so we only join one report per version)
+    # Subquery: latest report per version
     latest_report_subq = (
         db_session.query(
             Gbfsvalidationreport.gbfs_version_id.label("gbfs_version_id"),
@@ -486,10 +488,7 @@ def get_gbfs_feeds_query(
         .subquery()
     )
 
-    # We explicitly JOIN versions and their latest validation report. Because we already joined
-    # these tables, we tell SQLAlchemy to "trust" the join for those paths using contains_eager.
-    # We avoid adding another loader on the same path (like selectinload/joinedload) to prevent
-    # strategy conflicts and unnecessary row multiplication.
+    # Join validation reports filtered by latest `validated_at`
     query = gbfs_feed_filter.filter(
         db_session.query(Gbfsfeed)
         .outerjoin(Location, Gbfsfeed.locations)
@@ -504,9 +503,10 @@ def get_gbfs_feeds_query(
         )
         .options(
             contains_eager(Gbfsfeed.gbfsversions).contains_eager(Gbfsversion.gbfsvalidationreports),
-            selectinload(Gbfsfeed.locations),
-            selectinload(Gbfsfeed.externalids),
-            selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
+            contains_eager(Gbfsfeed.gbfsversions).joinedload(Gbfsversion.gbfsendpoints),
+            joinedload(Feed.locations),
+            joinedload(Feed.externalids),
+            joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         )
     )
     return query
