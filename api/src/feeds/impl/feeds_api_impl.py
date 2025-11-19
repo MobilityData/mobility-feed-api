@@ -43,6 +43,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Entitytype,
+    License as LicenseOrm,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -72,7 +73,7 @@ class FeedsApiImpl(BaseFeedsApi):
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
 
-        feed = (
+        feed_orm = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(db_session, FeedOrm))
             .filter(
@@ -83,8 +84,13 @@ class FeedsApiImpl(BaseFeedsApi):
             )
             .first()
         )
-        if feed:
-            return FeedImpl.from_orm(feed)
+        if feed_orm:
+            feed = FeedImpl.from_orm(feed_orm)
+            if feed.license_url:
+                license_record = db_session.query(LicenseOrm).filter(LicenseOrm.url == feed.license_url).one_or_none()
+                if license_record:
+                    feed.license_description = license_record.description
+            return feed
         else:
             raise_http_error(404, feed_not_found.format(id))
 
