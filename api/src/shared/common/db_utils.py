@@ -315,6 +315,7 @@ def get_all_gtfs_rt_feeds(
     batched_query = (
         db_session.query(Gtfsrealtimefeed.stable_id)
         .order_by(Gtfsrealtimefeed.stable_id)
+        .yield_per(batch_size)
         .execution_options(stream_results=True)
     )
     if published_only:
