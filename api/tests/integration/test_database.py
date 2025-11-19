@@ -7,7 +7,7 @@ from sqlalchemy.orm import Query
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
-from shared.common.db_utils import apply_bounding_filtering
+from shared.common.db_utils import apply_bounding_filtering, normalize_url_str
 from shared.database.database import Database, generate_unique_id
 from shared.database_gen.sqlacodegen_models import Feature, Gtfsfeed
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
@@ -157,3 +157,43 @@ def test_insert_and_select():
         results_after_session_closed = db.select(new_session, Feature, conditions=[Feature.name == feature_name])
         assert len(results_after_session_closed) == 1
         assert results_after_session_closed[0][0].name == feature_name
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        # Trim whitespace and surrounding quotes; remove scheme, www, query params and fragment; lowercase host
+        ("  'https://www.Example.com/path/page?query=1#section'  ", "example.com/path/page"),
+        # Remove BOM characters and query
+        ("\ufeffhttps://example.com/license?x=1", "example.com/license"),
+        # Strip fragment
+        ("http://example.com/path#frag", "example.com/path"),
+        # Strip query
+        ("https://example.com/path?param=value", "example.com/path"),
+        # Remove trailing slashes
+        ("https://www.example.com/path///", "example.com/path"),
+        # Host only with scheme and www; trailing slash removed; host lowercased
+        ("http://www.EXAMPLE.com/", "example.com"),
+        # Path case preserved (only host lowercased)
+        ("https://Example.com/Case/Sensitive", "example.com/Case/Sensitive"),
+        # None becomes empty string
+        (None, ""),
+        # Blank / whitespace-only becomes empty string
+        ("   ", ""),
+        # Quotes without scheme
+        ('"Example.com/path"', "example.com/path"),
+    ],
+)
+def test_normalize_url_str(raw, expected):
+    """Test normalize_url_str utility for all documented normalization steps.
+    Steps verified:
+    - Trim whitespace and quotes
+    - Remove BOM characters
+    - Strip fragments and query parameters
+    - Remove scheme (http/https) and www prefix
+    - Lowercase the host (only host)
+    - Remove trailing slashes
+    - Preserve path case
+    - Handle None / empty inputs
+    """
+    assert normalize_url_str(raw) == expected

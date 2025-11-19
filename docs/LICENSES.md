@@ -23,16 +23,22 @@ This process ensures that each feed clearly indicates how its data can be used a
 The matching process follows several steps:
 
 1. **Exact Match**
-   The system checks if the feed’s license URL exactly matches one from the license catalog.
-   This is the most reliable form of matching.
+The system checks if the feed’s license URL exactly matches one from the license catalog.
+This is the most reliable form of matching.
 
-2. **“Fuzzy” Match**
-   If no exact match is found, the system looks for similar URLs that differ only slightly (for example, extra slashes or query parameters).
+2. **Creative Commons Resolver**
+If no exact match is found, the system checks whether the URL represents a Creative Commons license
+(including international and regional variants such as JP, FR, DE).
+When detected, the resolver maps the URL to the correct SPDX ID and adds notes about regional versions if applicable.
 
-3. **Fuzzy Match**
-   If no exact match is found, the system compares the URL to similar licenses from the same domain using string similarity scoring.
-   This helps identify matches where the URLs differ only slightly, such as extra slashes, query parameters, or minor variations.
+3. **Generic Heuristics**
+If the URL follows a recognizable pattern (e.g., apache.org/licenses/LICENSE-2.0),
+the system applies rule-based heuristics to infer the likely SPDX ID.
 
+4. **Fuzzy Match (same host only)**
+If no deterministic match is found, the system compares the URL against known license URLs from the same domain
+using string-similarity scoring.
+This step captures minor variations such as trailing slashes, redirects, or small path differences.
 
 ## Regional or Localized Licenses
 
