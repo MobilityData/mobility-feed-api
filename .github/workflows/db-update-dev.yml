@@ -29,8 +29,8 @@ jobs:
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
-      # DRY_RUN is passed through directly from inputs
-      DRY_RUN: ${{ inputs.DRY_RUN }}
+      # DRY_RUN: use provided input if defined (workflow_dispatch/workflow_call); fallback to false on push events
+      DRY_RUN: ${{ inputs.DRY_RUN || false }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
@@ -39,4 +39,3 @@ jobs:
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       # 1Password tokens
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-
