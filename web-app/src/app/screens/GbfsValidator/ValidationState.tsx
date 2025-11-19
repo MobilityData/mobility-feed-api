@@ -7,8 +7,9 @@ import {
   Tooltip,
   useTheme,
   Skeleton,
+  LinearProgress,
 } from '@mui/material';
-import { type ReactElement, useEffect, useMemo } from 'react';
+import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
 import { gbfsValidatorHeroBg } from './ValidationReport.styles';
 import ValidationReport from './ValidationReport';
@@ -27,6 +28,7 @@ export default function ValidationState(): ReactElement {
   const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [longLoadingState, setLongLoadingState] = useState(false);
   const { auth } = useGbfsAuth();
   const loadingState = useSelector(selectGbfsValidationLoading);
   const validationResult = useSelector(selectGbfsValidationResult);
@@ -81,6 +83,24 @@ export default function ValidationState(): ReactElement {
   };
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (loadingState) {
+      timer = setTimeout(() => {
+        setLongLoadingState(true);
+      }, 5000);
+    } else {
+      setLongLoadingState(false);
+    }
+
+    return () => {
+      // cleanup timer on unmount or when loadingState changes
+      if (timer != null) {
+        clearTimeout(timer);
+      }
+    };
+  }, [loadingState]);
+
+  useEffect(() => {
     triggerDataFetch();
   }, [dispatch, feedUrl, auth]);
 
@@ -100,6 +120,10 @@ export default function ValidationState(): ReactElement {
           ></GbfsFeedSearchInput>
         </Container>
       </Box>
+      {longLoadingState && (
+        <LinearProgress sx={{ position: 'absolute', width: '100%' }} />
+      )}
+
       <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
         <Box sx={{ mt: 4 }}>
           <Typography variant='h6' sx={{ opacity: 0.8 }}>

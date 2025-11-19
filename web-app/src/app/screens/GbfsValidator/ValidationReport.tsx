@@ -182,8 +182,9 @@ export default function ValidationReport({
             <Box id='table-content' sx={ValidationReportTableStyles}>
               <List
                 aria-labelledby='nested-list-subheader'
+                sx={{ maxHeight: '90vh', overflowY: 'auto' }}
                 subheader={
-                  <ListSubheader>
+                  <ListSubheader sx={{ zIndex: 200 }}>
                     File Summary{' '}
                     {languages.length > 1
                       ? `(${langCodeToName(selectedLanguage)})`
