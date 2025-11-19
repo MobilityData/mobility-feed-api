@@ -1,3 +1,6 @@
+import './sentry';
+import { SentryErrorBoundary } from './sentry';
+import SentryErrorFallback from './app/components/SentryErrorFallback';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -22,8 +25,19 @@ root.render(
     <ThemeProvider>
       <CssBaseline />
       <ContextProviders>
-        <App />
+        <SentryErrorBoundary
+          fallback={({ error, eventId, resetError }) => (
+            <SentryErrorFallback
+              error={error}
+              eventId={eventId}
+              resetError={resetError}
+            />
+          )}
+          showDialog
+        >
+          <App />
+        </SentryErrorBoundary>
       </ContextProviders>
     </ThemeProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
