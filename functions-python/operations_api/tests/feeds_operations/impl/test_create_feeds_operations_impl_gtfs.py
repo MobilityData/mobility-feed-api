@@ -63,7 +63,8 @@ def db_session():
 
 @pytest.mark.asyncio
 @patch("feeds_operations.impl.feeds_operations_impl.trigger_dataset_download")
-async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
+async def test_create_gtfs_feed_success(_, mock_publish_messages, db_session):
     api = OperationsApiImpl()
     unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
     request = OperationCreateRequestGtfsFeed(
@@ -140,7 +141,8 @@ async def test_create_gtfs_feed_success(mock_publish_messages, db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_gtfs_feed_duplicate_url_rejected():
+@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
+async def test_create_gtfs_feed_duplicate_url_rejected(_):
     api = OperationsApiImpl()
     # Use a URL that normalizes to the existing feed's producer_url (from feed_mdb_40)
     duplicate_url = " https://PRODUCER_URL/ "
@@ -174,7 +176,8 @@ async def test_create_gtfs_feed_duplicate_url_rejected():
 
 
 @pytest.mark.asyncio
-async def test_create_gtfs_rt_feed_success(db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
+async def test_create_gtfs_rt_feed_success(_, db_session):
     api = OperationsApiImpl()
     unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
     request = OperationCreateRequestGtfsRtFeed(
@@ -235,7 +238,8 @@ async def test_create_gtfs_rt_feed_success(db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_gtfs_rt_feed_duplicate_url_rejected():
+@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
+async def test_create_gtfs_rt_feed_duplicate_url_rejected(_):
     api = OperationsApiImpl()
     # Use a URL that normalizes to the existing feed's producer_url (from feed_mdb_40)
     duplicate_url = " https://PRODUCER_URL/ "
