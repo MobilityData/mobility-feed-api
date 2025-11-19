@@ -39,5 +39,5 @@ root.render(
         </SentryErrorBoundary>
       </ContextProviders>
     </ThemeProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
