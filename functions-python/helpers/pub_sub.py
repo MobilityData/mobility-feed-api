@@ -80,7 +80,7 @@ def trigger_dataset_download(
     """Publishes the feed to the configured Pub/Sub topic."""
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(PROJECT_ID, topic_name)
-    logging.debug("Publishing to Pub/Sub topic: %s", topic_path)
+    logging.info("Publishing to Pub/Sub topic: %s", topic_path)
 
     message_data = {
         "execution_id": execution_id,
@@ -100,11 +100,15 @@ def trigger_dataset_download(
         future = publisher.publish(topic_path, data=json_message.encode("utf-8"))
         future.add_done_callback(
             lambda _: logging.info(
-                "Published feed %s to dataset batch topic", feed.stable_id
+                "Published feed %s to dataset batch topic: %s",
+                feed.stable_id,
+                topic_path,
             )
         )
         future.result()
         logging.info("Message published for feed %s", feed.stable_id)
     except Exception as e:
-        logging.error("Error publishing to dataset batch topic: %s", str(e))
+        logging.error(
+            "Error publishing to dataset batch topic: %s. Error: %s", str(e), topic_path
+        )
         raise

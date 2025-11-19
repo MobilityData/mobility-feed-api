@@ -86,7 +86,9 @@ def populate_licenses_task(dry_run, db_session):
                 logging.info("Processing license %s", license_id)
 
                 license_object = db_session.get(License, license_id)
+                is_new = False
                 if not license_object:
+                    is_new = True
                     license_object = License(id=license_id)
                     license_object.created_at = datetime.now(timezone.utc)
                     license_object.is_spdx = is_spdx
@@ -130,9 +132,10 @@ def populate_licenses_task(dry_run, db_session):
                             len(rules),
                             len(all_rule_names),
                         )
-                # Merge the license object into the session. This handles both creating new licenses
-                # and updating existing ones (upsert), including their rule associations.
-                db_session.merge(license_object)
+                # Merge the license object into the session. This handles updating existing licenses (upsert),
+                # including their rule associations.
+                if not is_new:
+                    db_session.merge(license_object)
 
             logging.info(
                 "Successfully upserted licenses into the database.",

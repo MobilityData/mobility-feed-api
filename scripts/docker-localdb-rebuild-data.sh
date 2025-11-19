@@ -105,6 +105,7 @@ if [ "$POPULATE_DB" = true ]; then
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
     printf "\n---------\nCompleted: populating catalog data.\n---------\n"
+    $SCRIPT_PATH/populate-licenses.sh
 fi
 
 if [ "$POPULATE_TEST_DATA" = true ]; then

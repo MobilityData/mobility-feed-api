@@ -29,5 +29,7 @@ google-cloud-storage
 python-dotenv==1.0.0
 pycountry
 
+
 # Other utilities
 pandas
+fastapi_filter
