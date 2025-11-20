@@ -227,6 +227,10 @@ jobs:
               echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=300000" >> $GITHUB_ENV
               echo "REACT_APP_FEED_API_BASE_URL=https://api-qa.mobilitydatabase.org" >> $GITHUB_ENV
               echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
+              echo "REACT_APP_SENTRY_DSN=" >> $GITHUB_ENV
+              echo "REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE=" >> $GITHUB_ENV
+              echo "REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE=" >> $GITHUB_ENV
+              echo "REACT_APP_SENTRY_TRACES_SAMPLE_RATE=" >> $GITHUB_ENV
           elif [[ ${{ inputs.FIREBASE_PROJECT }} == 'prod' ]]; then
             echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
@@ -257,6 +261,10 @@ jobs:
             echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=300000" >> $GITHUB_ENV
             echo "REACT_APP_FEED_API_BASE_URL=https://api-dev.mobilitydatabase.org" >> $GITHUB_ENV
             echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_DSN=" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE=" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE=" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_TRACES_SAMPLE_RATE=" >> $GITHUB_ENV
           fi
 
       - name: Populate Variables
