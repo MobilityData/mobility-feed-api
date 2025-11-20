@@ -68,8 +68,7 @@ const makeStore = () =>
       }),
       sagaMiddleware,
     ],
-    enhancers: (existing) =>
-      sentryReduxEnhancer ? [...existing, sentryReduxEnhancer] : existing,
+    enhancers: (existing) => [...existing, sentryReduxEnhancer],
   });
 /* eslint-enable */
 
@@ -84,7 +83,7 @@ if (window.Cypress) {
 
 sagaMiddleware.run(rootSaga);
 
-export type RootState = ReturnType<typeof persistedReducer>;
+export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 export type AppThunk<ReturnType = void> = ThunkAction<
   ReturnType,
