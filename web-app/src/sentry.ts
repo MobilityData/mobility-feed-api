@@ -20,6 +20,15 @@ const parseSampleRate = (
   return parsed;
 };
 
+// Helper to safely parse Sentry sample rates from environment variables
+const parseSampleRate = (value: string | undefined, defaultValue: number): number => {
+  const parsed = parseFloat(value ?? String(defaultValue));
+  if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+    return defaultValue;
+  }
+  return parsed;
+};
+
 const dsn = process.env.REACT_APP_SENTRY_DSN || '';
 const environment =
   process.env.REACT_APP_FIREBASE_PROJECT_ID ||
