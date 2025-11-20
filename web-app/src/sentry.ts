@@ -1,10 +1,18 @@
 import * as Sentry from '@sentry/react';
 import packageJson from '../package.json';
 import * as React from 'react';
-import { createRoutesFromChildren, matchRoutes } from 'react-router-dom';
+import {
+  createRoutesFromChildren,
+  matchRoutes,
+  useLocation,
+  useNavigationType,
+} from 'react-router-dom';
 
 // Helper to safely parse Sentry sample rates from environment variables
-const parseSampleRate = (value: string | undefined, defaultValue: number): number => {
+const parseSampleRate = (
+  value: string | undefined,
+  defaultValue: number,
+): number => {
   const parsed = parseFloat(value ?? String(defaultValue));
   if (isNaN(parsed) || parsed < 0 || parsed > 1) {
     return defaultValue;
@@ -14,7 +22,9 @@ const parseSampleRate = (value: string | undefined, defaultValue: number): numbe
 
 const dsn = process.env.REACT_APP_SENTRY_DSN || '';
 const environment =
-  process.env.REACT_APP_FIREBASE_PROJECT_ID || process.env.NODE_ENV || "mobility-feeds-dev";
+  process.env.REACT_APP_FIREBASE_PROJECT_ID ||
+  process.env.NODE_ENV ||
+  'mobility-feeds-dev';
 const release = packageJson.version;
 const tracesSampleRate = parseSampleRate(
   process.env.REACT_APP_SENTRY_TRACES_SAMPLE_RATE,
@@ -30,29 +40,29 @@ const replaysOnErrorSampleRate = parseSampleRate(
 );
 
 if (dsn) {
-  // Prefer dedicated react-router v6 integration if available, else fall back to generic browser tracing with manual routing instrumentation.
   const routerTracingIntegration =
-    (Sentry as any).reactRouterV6BrowserTracingIntegration?.({
+    Sentry.reactRouterV6BrowserTracingIntegration({
       useEffect: React.useEffect,
-      reactRouterV6: { createRoutesFromChildren, matchRoutes },
-    }) ||
-    (Sentry as any).browserTracingIntegration?.({
-      routingInstrumentation: (Sentry as any).reactRouterV6Instrumentation?.(
-        React.useEffect,
-        true,
-        createRoutesFromChildren,
-        matchRoutes,
-      ),
+      useLocation,
+      useNavigationType,
+      createRoutesFromChildren,
+      matchRoutes,
     });
+
+  const integrations = [];
+  if (routerTracingIntegration) {
+    integrations.push(routerTracingIntegration);
+  }
+  const replayIntegration = Sentry.replayIntegration?.();
+  if (replayIntegration) {
+    integrations.push(replayIntegration);
+  }
 
   Sentry.init({
     dsn,
     environment,
     release,
-    integrations: [
-      routerTracingIntegration,
-      (Sentry as any).replayIntegration?.(),
-    ].filter(Boolean),
+    integrations: integrations,
     tracesSampleRate,
     replaysSessionSampleRate,
     replaysOnErrorSampleRate,
