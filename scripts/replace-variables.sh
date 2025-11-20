@@ -136,7 +136,7 @@ for varname in $list; do
   fi
 done
 
-# Substitute optional variables only when they have a non-empty value
+# Substitute optional variables
 for varname in $optional_list; do
   value="${!varname}"
   if [[ "$ADD_QUOTES" == "true" ]]; then
