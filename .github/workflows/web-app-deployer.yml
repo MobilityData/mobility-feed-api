@@ -39,7 +39,7 @@ on:
         type: string
         required: false
       OP_SENTRY_DSN:
-        description: Reference to the 1Password Sentry DSN secret reference
+        description: Reference to the 1Password Sentry DSN secret
         type: string
         required: false
       ENABLE_QUALITY_CHECKS:
