@@ -4,36 +4,42 @@ import {
   Container,
   Typography,
   Chip,
-  Button,
   Tooltip,
   useTheme,
+  Skeleton,
+  LinearProgress,
 } from '@mui/material';
-import { type ReactElement, useEffect, useMemo } from 'react';
+import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
-import { gbfsValidatorHeroBg, ContentTitle } from './ValidationReport.styles';
-import { Map } from '../../components/Map';
+import { gbfsValidatorHeroBg } from './ValidationReport.styles';
 import ValidationReport from './ValidationReport';
 import { useSelector, useDispatch } from 'react-redux';
 import { validateStart } from '../../store/gbfs-validator-reducer';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  selectGbfsValidationError,
   selectGbfsValidationLoading,
   selectGbfsValidationResult,
 } from '../../store/gbfs-validator-selectors';
 import { useGbfsAuth } from '../../context/GbfsAuthProvider';
+import { ValidationErrorAlert } from './ValidationErrorAlert';
 
 export default function ValidationState(): ReactElement {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [longLoadingState, setLongLoadingState] = useState(false);
   const { auth } = useGbfsAuth();
   const loadingState = useSelector(selectGbfsValidationLoading);
   const validationResult = useSelector(selectGbfsValidationResult);
+  const validationError = useSelector(selectGbfsValidationError);
   const dispatch = useDispatch();
   const feedUrl = searchParams.get('AutoDiscoveryUrl');
 
   const {
     gbfsVersion,
     numberOfErrors,
+    numberOfSystemErrors,
     filesWithErrors,
     isValidFeed,
     validatorVersion,
@@ -44,15 +50,21 @@ export default function ValidationState(): ReactElement {
       (acc, f) => acc + (f.errors?.length ?? 0),
       0,
     );
+    const numberOfSystemErrors = files.reduce(
+      (acc, f) => acc + (f.systemErrors?.length ?? 0),
+      0,
+    );
+    const totalErrors = numberOfErrors + numberOfSystemErrors;
     const filesWithErrors = files.filter(
       (f) => (f.errors?.length ?? 0) > 0,
     ).length;
-    const isValidFeed = numberOfErrors === 0;
+    const isValidFeed = totalErrors === 0;
     const validatorVersion =
       validationResult?.summary?.validatorVersion ?? 'N/A';
     return {
       gbfsVersion,
       numberOfErrors,
+      numberOfSystemErrors,
       filesWithErrors,
       isValidFeed,
       validatorVersion,
@@ -66,9 +78,27 @@ export default function ValidationState(): ReactElement {
     if (feedUrl !== null && feedUrl !== '') {
       dispatch(validateStart({ feedUrl, auth }));
     } else {
-      // TODO: handle error -> redirect?
+      navigate('/gbfs-validator');
     }
   };
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (loadingState) {
+      timer = setTimeout(() => {
+        setLongLoadingState(true);
+      }, 5000);
+    } else {
+      setLongLoadingState(false);
+    }
+
+    return () => {
+      // cleanup timer on unmount or when loadingState changes
+      if (timer != null) {
+        clearTimeout(timer);
+      }
+    };
+  }, [loadingState]);
 
   useEffect(() => {
     triggerDataFetch();
@@ -90,6 +120,10 @@ export default function ValidationState(): ReactElement {
           ></GbfsFeedSearchInput>
         </Container>
       </Box>
+      {longLoadingState && (
+        <LinearProgress sx={{ position: 'absolute', width: '100%' }} />
+      )}
+
       <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
         <Box sx={{ mt: 4 }}>
           <Typography variant='h6' sx={{ opacity: 0.8 }}>
@@ -107,50 +141,84 @@ export default function ValidationState(): ReactElement {
             {feedUrl}
           </Typography>
         </Box>
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 1,
-            mb: 3,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Tooltip title='GBFS Version of the feed' placement='top'>
-            <Chip label={`Version ${gbfsVersion}`} color='primary' />
-          </Tooltip>
-          {isValidFeed && (
-            <Chip icon={<CheckCircle />} label='Valid Feed' color='success' />
-          )}
-          {!isValidFeed && (
-            <>
-              <Tooltip
-                title='This feed contains errors and does not fully comply with the GBFS specification.'
-                placement='top'
-              >
-                <Chip
-                  icon={<ReportOutlined />}
-                  label='Invalid Feed'
-                  color='error'
-                />
-              </Tooltip>
-              <Chip
-                label={`${numberOfErrors} Total Errors`}
-                color='error'
-                variant='outlined'
-              />
-              <Chip
-                label={`${filesWithErrors} Files Errors`}
-                color='error'
-                variant='outlined'
-              />
-            </>
-          )}
+        {validationError != null && validationError !== '' && (
+          <ValidationErrorAlert
+            validationError={validationError}
+            triggerDataFetch={triggerDataFetch}
+          ></ValidationErrorAlert>
+        )}
+        {(validationError == null || validationError === '') && (
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 1,
+              mb: 3,
+              flexWrap: 'wrap',
+            }}
+          >
+            {loadingState ? (
+              [120, 140, 160, 180].map((w, i) => (
+                <Skeleton key={i} variant='rounded' width={w} height={32} />
+              ))
+            ) : (
+              <>
+                <Tooltip title='GBFS Version of the feed' placement='top'>
+                  <Chip label={`Version ${gbfsVersion}`} color='primary' />
+                </Tooltip>
+                {isValidFeed && (
+                  <Chip
+                    icon={<CheckCircle />}
+                    label='Valid Feed'
+                    color='success'
+                  />
+                )}
+                {!isValidFeed && (
+                  <>
+                    <Tooltip
+                      title='This feed contains errors and does not fully comply with the GBFS specification.'
+                      placement='top'
+                    >
+                      <Chip
+                        icon={<ReportOutlined />}
+                        label='Invalid Feed'
+                        color='error'
+                      />
+                    </Tooltip>
+                    <Chip
+                      label={`${numberOfErrors} Total Errors`}
+                      color='error'
+                      variant='outlined'
+                    />
 
-          <Tooltip title='Version of the GBFS Validator used' placement='top'>
-            <Chip label={`Validator v${validatorVersion}`} variant='outlined' />
-          </Tooltip>
-        </Box>
+                    <Chip
+                      label={`${filesWithErrors} Files Errors`}
+                      color='error'
+                      variant='outlined'
+                    />
+                    {numberOfSystemErrors > 0 && (
+                      <Chip
+                        label={`${numberOfSystemErrors} Total System Errors`}
+                        color='warning'
+                        variant='outlined'
+                      />
+                    )}
+                  </>
+                )}
+                <Tooltip
+                  title='Version of the GBFS Validator used'
+                  placement='top'
+                >
+                  <Chip
+                    label={`Validator v${validatorVersion}`}
+                    variant='outlined'
+                  />
+                </Tooltip>
+              </>
+            )}
+          </Box>
+        )}
 
+        {/* TODO: Disabled until map data is implemented
         <Box
           sx={{
             backgroundColor: theme.palette.background.paper,
@@ -177,7 +245,7 @@ export default function ValidationState(): ReactElement {
             <Map polygon={[{ lat: 37.7749, lng: -122.4194 }]}></Map>
             <Box textAlign={'right'} sx={{ mt: 1 }}></Box>
           </Box>
-        </Box>
+        </Box> */}
 
         <ValidationReport
           validationResult={validationResult}
