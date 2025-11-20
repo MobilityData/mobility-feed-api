@@ -3,18 +3,30 @@ import packageJson from '../package.json';
 import * as React from 'react';
 import { createRoutesFromChildren, matchRoutes } from 'react-router-dom';
 
+// Helper to safely parse Sentry sample rates from environment variables
+const parseSampleRate = (value: string | undefined, defaultValue: number): number => {
+  const parsed = parseFloat(value ?? String(defaultValue));
+  if (isNaN(parsed) || parsed < 0 || parsed > 1) {
+    return defaultValue;
+  }
+  return parsed;
+};
+
 const dsn = process.env.REACT_APP_SENTRY_DSN || '';
 const environment =
   process.env.REACT_APP_FIREBASE_PROJECT_ID || process.env.NODE_ENV || "mobility-feeds-dev";
 const release = packageJson.version;
-const tracesSampleRate = parseFloat(
-  process.env.REACT_APP_SENTRY_TRACES_SAMPLE_RATE || '0.05',
+const tracesSampleRate = parseSampleRate(
+  process.env.REACT_APP_SENTRY_TRACES_SAMPLE_RATE,
+  0.05,
 );
-const replaysSessionSampleRate = parseFloat(
-  process.env.REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE || '0.0',
+const replaysSessionSampleRate = parseSampleRate(
+  process.env.REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE,
+  0.0,
 );
-const replaysOnErrorSampleRate = parseFloat(
-  process.env.REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE || '1.0',
+const replaysOnErrorSampleRate = parseSampleRate(
+  process.env.REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE,
+  1.0,
 );
 
 if (dsn) {
