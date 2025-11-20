@@ -138,10 +138,6 @@ done
 
 # Substitute optional variables only when they have a non-empty value
 for varname in $optional_list; do
-  # Skip empty or unset optional vars (leave placeholder intact)
-  if [[ -z "${!varname+x}" || -z "${!varname}" ]]; then
-    continue
-  fi
   value="${!varname}"
   if [[ "$ADD_QUOTES" == "true" ]]; then
     output=$(echo "$output" | sed 's|{{'"$varname"'}}|'"\"$value\""'|g')
