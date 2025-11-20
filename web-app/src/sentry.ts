@@ -67,6 +67,16 @@ if (dsn) {
     replaysSessionSampleRate,
     replaysOnErrorSampleRate,
     ignoreErrors: [/ResizeObserver loop limit exceeded/i],
+    beforeSend(event) {
+      // remove user IP and geo context
+      if (event.user) {
+        delete event.user.ip_address;
+      }
+      if (event.contexts && event.contexts.geo) {
+        delete event.contexts.geo;
+      }
+      return event;
+    }
   });
 }
 
