@@ -323,7 +323,7 @@ async function createGithubIssue(
   const issueBody = buildGithubIssueBody(formData, spreadsheetId);
   
   const countryToRegion: Record<string, string> = {
-        "AF": "asia",
+    "AF": "asia",
     "AL": "europe",
     "AQ": "antarctica",
     "DZ": "africa",
