@@ -76,7 +76,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_orm = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(db_session, FeedOrm))
-            .options(*get_joinedload_options())
+            .options(*get_joinedload_options(), joinedload(FeedOrm.license))
             .filter(
                 or_(
                     FeedOrm.operational_status == "published",
@@ -87,49 +87,12 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         if feed_orm:
             feed = FeedImpl.from_orm(feed_orm)
-            if feed.license_url:
-                license_record = db_session.query(LicenseOrm).filter(LicenseOrm.url == feed.license_url).one_or_none()
-                if license_record:
-                    feed.license_description = license_record.description
+            if feed_orm.license:
+                feed.license_description = feed_orm.license.description
             return feed
         else:
             raise_http_error(404, feed_not_found.format(id))
 
-    # @with_db_session
-    # def get_feeds(
-    #     self,
-    #     limit: int,
-    #     offset: int,
-    #     status: str,
-    #     provider: str,
-    #     producer_url: str,
-    #     is_official: bool,
-    #     db_session: Session,
-    # ) -> List[Feed]:
-    #     """Get some (or all) feeds from the Mobility Database."""
-    #     is_email_restricted = is_user_email_restricted()
-    #     self.logger.debug(f"User email is restricted: {is_email_restricted}")
-    #     feed_filter = FeedFilter(
-    #         status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
-    #     )
-    #     feed_query = feed_filter.filter(Database().get_query_model(db_session, FeedOrm))
-    #     feed_query = add_official_filter(feed_query, is_official)
-    #     feed_query = feed_query.filter(
-    #         or_(
-    #             FeedOrm.operational_status == "published",
-    #             not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
-    #         )
-    #     )
-    #     # Results are sorted by provider
-    #     feed_query = feed_query.order_by(FeedOrm.provider, FeedOrm.stable_id)
-    #     feed_query = feed_query.options(*get_joinedload_options())
-    #     if limit is not None:
-    #         feed_query = feed_query.limit(limit)
-    #     if offset is not None:
-    #         feed_query = feed_query.offset(offset)
-
-    #     results = feed_query.all()
-    #     return [FeedImpl.from_orm(feed) for feed in results]
     @with_db_session
     def get_feeds(
         self,
@@ -165,7 +128,7 @@ class FeedsApiImpl(BaseFeedsApi):
 
         # Results sorted by provider
         feed_query = feed_query.order_by(FeedOrm.provider, FeedOrm.stable_id)
-        feed_query = feed_query.options(*get_joinedload_options())
+        feed_query = feed_query.options(*get_joinedload_options(), joinedload(FeedOrm.license))
 
         if limit is not None:
             feed_query = feed_query.limit(limit)
@@ -174,18 +137,12 @@ class FeedsApiImpl(BaseFeedsApi):
 
         results = feed_query.all()
 
-        feeds = [FeedImpl.from_orm(feed) for feed in results]
-
-        # Collect all license URLs in results
-        license_urls = {f.license_url for f in feeds if getattr(f, "license_url", None)}
-
-        if license_urls:
-            license_records = db_session.query(LicenseOrm).filter(LicenseOrm.url.in_(license_urls)).all()
-            license_map = {l.url: l for l in license_records}
-
-            for feed in feeds:
-                if feed.license_url in license_map:
-                    feed.license_description = license_map[feed.license_url].description
+        feeds = []
+        for feed_orm in results:
+            feed = FeedImpl.from_orm(feed_orm)
+            if feed_orm.license:
+                feed.license_description = feed_orm.license.description
+            feeds.append(feed)
 
         return feeds
 
