@@ -157,7 +157,7 @@ export default function ValidationReport({
               </Tabs>
             </Box>
           )}
-          
+
           <Box
             sx={{
               display: 'flex',
@@ -188,17 +188,20 @@ export default function ValidationReport({
                   const hasErrors = uniqueCount > 0;
                   const hasSystemErrors = sysCount > 0;
                   const totalCount = numberOfErrors + sysCount;
-                  const secondary = hasErrors || hasSystemErrors
-                    ? [
-                        hasErrors ? `${uniqueCount} unique errors` : null,
-                        hasSystemErrors ? `${sysCount} system errors` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' • ')
-                    : '';
+                  const secondary =
+                    hasErrors || hasSystemErrors
+                      ? [
+                          hasErrors ? `${uniqueCount} unique errors` : null,
+                          hasSystemErrors ? `${sysCount} system errors` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')
+                      : '';
                   return (
                     <ListItem disablePadding key={file.name}>
-                      <ListItemButton onClick={() => fileGroupRefs.current[index]?.focus()}>
+                      <ListItemButton
+                        onClick={() => fileGroupRefs.current[index]?.focus()}
+                      >
                         <ListItemIcon>
                           {totalCount > 0 ? (
                             <Badge
@@ -206,13 +209,25 @@ export default function ValidationReport({
                               color={hasErrors ? 'error' : 'warning'}
                             >
                               {hasErrors ? (
-                                <ErrorOutlineIcon sx={{ color: theme.palette.error.main, mr: 1 }} />
+                                <ErrorOutlineIcon
+                                  sx={{
+                                    color: theme.palette.error.main,
+                                    mr: 1,
+                                  }}
+                                />
                               ) : (
-                                <WarningAmberOutlinedIcon sx={{ color: theme.palette.warning.main, mr: 1 }} />
+                                <WarningAmberOutlinedIcon
+                                  sx={{
+                                    color: theme.palette.warning.main,
+                                    mr: 1,
+                                  }}
+                                />
                               )}
                             </Badge>
                           ) : (
-                            <CheckCircleOutlineIcon sx={{ color: theme.palette.success.main, mr: 1 }} />
+                            <CheckCircleOutlineIcon
+                              sx={{ color: theme.palette.success.main, mr: 1 }}
+                            />
                           )}
                         </ListItemIcon>
                         <ListItemText
@@ -256,9 +271,17 @@ export default function ValidationReport({
                   sx={ValidationElementCardStyles(theme, index)}
                 >
                   <CardHeader
-                    sx={{ pb: fg.total > 0 || (fg.systemErrors?.length ?? 0) > 0 ? 2 : 1 }}
+                    sx={{
+                      pb:
+                        fg.total > 0 || (fg.systemErrors?.length ?? 0) > 0
+                          ? 2
+                          : 1,
+                    }}
                     title={`${fg.fileName}.json`}
-                    titleTypographyProps={{ variant: 'h6', sx: { fontWeight: 'bold' } }}
+                    titleTypographyProps={{
+                      variant: 'h6',
+                      sx: { fontWeight: 'bold' },
+                    }}
                     avatar={
                       fg.total > 0 ? (
                         <ErrorOutlineIcon color='error' />
@@ -269,15 +292,18 @@ export default function ValidationReport({
                       )
                     }
                     action={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
                         {fg.total > 0 && (
                           <Chip
                             size='small'
                             color='error'
-                            label={`${fg.total} occurrences`}
+                            variant='outlined'
+                            label={`${fg.total} errors`}
                           />
                         )}
-                        {fg.fileUrl && (
+                        {fg.fileUrl != null && fg.fileUrl !== '' && (
                           <Button
                             size='small'
                             endIcon={<OpenInNew />}
@@ -304,7 +330,10 @@ export default function ValidationReport({
                     }}
                   >
                     {fg.total === 0 && (fg.systemErrors?.length ?? 0) === 0 && (
-                      <Typography variant='body2' color={theme.palette.success.main}>
+                      <Typography
+                        variant='body2'
+                        color={theme.palette.success.main}
+                      >
                         <b>Valid</b> no errors
                       </Typography>
                     )}
@@ -320,8 +349,12 @@ export default function ValidationReport({
                           }));
                         }}
                       >
-                        {visibleSystemErrorsByFile[fg.fileName] ? 'Hide' : 'View'}&#8195;
-                        <b>{fg.systemErrors?.length ?? 0}</b>&#8195;System Error Details
+                        {visibleSystemErrorsByFile[fg.fileName]
+                          ? 'Hide'
+                          : 'View'}
+                        &#8195;
+                        <b>{fg.systemErrors?.length ?? 0}</b>&#8195;System Error
+                        Details
                       </Button>
                     )}
                   </Box>
@@ -344,7 +377,13 @@ export default function ValidationReport({
                           const expanded = !!groupedExpanded[groupId];
                           return (
                             <>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1.5,
+                                }}
+                              >
                                 <Chip
                                   size='small'
                                   color='error'
@@ -357,46 +396,162 @@ export default function ValidationReport({
                                 <Button
                                   size='small'
                                   color='inherit'
-                                  onClick={() =>
+                                  onClick={() => {
                                     setGroupedExpanded((prev) => ({
                                       ...prev,
                                       [groupId]: !expanded,
-                                    }))
+                                    }));
+                                  }}
+                                  startIcon={
+                                    expanded ? (
+                                      <UnfoldLessIcon />
+                                    ) : (
+                                      <UnfoldMoreIcon />
+                                    )
                                   }
-                                  startIcon={expanded ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
-                                  sx={{ opacity: 0.8 }}
+                                  sx={{
+                                    opacity: 0.8,
+                                    minWidth: { xs: 'auto', md: '225px' },
+                                  }}
                                 >
-                                  {expanded ? 'Hide' : 'Show'} occurrences ({
-                                    group.occurrences.length
-                                  })
+                                  {/* Responsive label: hide the word 'occurrences' on md down */}
+                                  <Box
+                                    component='span'
+                                    sx={{
+                                      display: { xs: 'inline', md: 'none' },
+                                    }}
+                                  >
+                                    {expanded ? 'Hide' : 'Show'} (
+                                    {group.occurrences.length})
+                                  </Box>
+                                  <Box
+                                    component='span'
+                                    sx={{
+                                      display: { xs: 'none', md: 'inline' },
+                                    }}
+                                  >
+                                    {expanded ? 'Hide' : 'Show'} occurrences (
+                                    {group.occurrences.length})
+                                  </Box>
                                 </Button>
                               </Box>
-                              {group.message && (
-                                <Typography variant='body2' color='text.secondary' sx={{ ml: 5 }}>
+                              {group.message !== '' && (
+                                <Typography
+                                  variant='body2'
+                                  color='text.secondary'
+                                  sx={{ ml: 3 }}
+                                >
                                   {group.normalizedPath}
                                 </Typography>
                               )}
-                              <Collapse in={expanded} timeout='auto' unmountOnExit>
+                              <Collapse
+                                in={expanded}
+                                timeout='auto'
+                                unmountOnExit
+                              >
                                 {group.occurrences.length > 0 && (
-                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, ml: 5, mt: 0.5, maxHeight: '500px', overflowY: 'auto' }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      gap: 1,
+                                      ml: 3,
+                                      mt: 0.5,
+                                      maxHeight: '500px',
+                                      overflowY: 'auto',
+                                      p: 0.5,
+                                    }}
+                                  >
                                     {group.occurrences.map((occ, j) => (
-                                      <code
+                                      <Box
                                         key={j}
-                                        style={{
-                                          ...ValidationErrorPathStyles(theme),
-                                          cursor: 'pointer',
-                                        }}
-                                        onClick={() =>
+                                        role='button'
+                                        tabIndex={0}
+                                        aria-label={`View details for path ${
+                                          occ.error.instancePath ?? '#'
+                                        }`}
+                                        onClick={() => {
                                           openDetails(
                                             fg.fileName,
                                             fg.fileUrl,
                                             occ.error,
-                                          )
-                                        }
-                                        title='Click for details'
+                                          );
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (
+                                            e.key === 'Enter' ||
+                                            e.key === ' '
+                                          ) {
+                                            e.preventDefault();
+                                            openDetails(
+                                              fg.fileName,
+                                              fg.fileUrl,
+                                              occ.error,
+                                            );
+                                          }
+                                        }}
+                                        sx={{
+                                          ...ValidationErrorPathStyles(theme),
+                                          position: 'relative',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center',
+                                          px: 1.25,
+                                          py: 0.5,
+                                          borderRadius: 1.5,
+                                          transition:
+                                            'background-color 120ms, box-shadow 120ms',
+                                          '&:hover': {
+                                            boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
+                                          },
+                                          '&:focus-visible': {
+                                            outline: 'none',
+                                            boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
+                                          },
+                                          '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                            {
+                                              opacity: 0.7,
+
+                                              pointerEvents: 'auto',
+                                            },
+                                        }}
                                       >
-                                        {occ.error.instancePath || '#'}
-                                      </code>
+                                        <Typography
+                                          component='span'
+                                          variant='caption'
+                                          sx={{
+                                            fontFamily: 'monospace',
+                                            pr: 3,
+                                          }}
+                                        >
+                                          {occ.error.instancePath ?? '#'}
+                                        </Typography>
+                                        <Button
+                                          size='small'
+                                          color='error'
+                                          variant='outlined'
+                                          disableElevation
+                                          className='hover-details-btn'
+                                          sx={{
+                                            opacity: 0,
+                                            pointerEvents: 'none',
+                                            transition:
+                                              'opacity 120ms, transform 120ms',
+                                            whiteSpace: 'nowrap',
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openDetails(
+                                              fg.fileName,
+                                              fg.fileUrl,
+                                              occ.error,
+                                            );
+                                          }}
+                                        >
+                                          Click for details
+                                        </Button>
+                                      </Box>
                                     ))}
                                   </Box>
                                 )}
@@ -420,30 +575,35 @@ export default function ValidationReport({
                             transition: 'height 200ms',
                           }}
                         >
-                          {fg.systemErrors?.map((error: components['schemas']['SystemError'], idx: number) => (
-                            <Box
-                              key={`sys-${idx}`}
-                              sx={{
-                                p: 1.5,
-                                borderBottom:
-                                  idx < (fg.systemErrors?.length ?? 0) - 1
-                                    ? '1px solid'
-                                    : 'none',
-                                borderColor: 'divider',
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Chip
-                                size='small'
-                                color='warning'
-                                label={`#${idx + 1} - ${error.error}`}
-                              />
-                              <Typography sx={{ ml: 2 }}>
-                                {error.message}
-                              </Typography>
-                            </Box>
-                          ))}
+                          {fg.systemErrors?.map(
+                            (
+                              error: components['schemas']['SystemError'],
+                              idx: number,
+                            ) => (
+                              <Box
+                                key={`sys-${idx}`}
+                                sx={{
+                                  p: 1.5,
+                                  borderBottom:
+                                    idx < (fg.systemErrors?.length ?? 0) - 1
+                                      ? '1px solid'
+                                      : 'none',
+                                  borderColor: 'divider',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Chip
+                                  size='small'
+                                  color='warning'
+                                  label={`#${idx + 1} - ${error.error}`}
+                                />
+                                <Typography sx={{ ml: 2 }}>
+                                  {error.message}
+                                </Typography>
+                              </Box>
+                            ),
+                          )}
                         </Box>
                       </Collapse>
                     )}

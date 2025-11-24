@@ -22,10 +22,11 @@ export function resolveJsonPointer(
   for (const seg of segments) {
     if (Array.isArray(current)) {
       const idx = Number(seg);
-      if (Number.isNaN(idx) || idx < 0 || idx >= current.length) return undefined;
+      if (Number.isNaN(idx) || idx < 0 || idx >= current.length)
+        return undefined;
       current = current[idx];
     } else if (current !== null && typeof current === 'object') {
-      current = (current as { [key: string]: JSONValue })[seg];
+      current = current[seg];
     } else {
       return undefined;
     }
