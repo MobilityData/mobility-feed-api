@@ -54,24 +54,12 @@ export default function ValidationReport({
   loading,
 }: ValidationResultProps): React.ReactElement {
   const theme = useTheme();
-  // const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
-
   const [visibleSystemErrorsByFile, setVisibleSystemErrorsByFile] = useState<
     Record<string, boolean>
   >({});
   const [groupedExpanded, setGroupedExpanded] = useState<
     Record<string, boolean>
   >({});
-
-  // Removed per-file error accordions; using grouped view only
-
-  // const toggleVisibleSystemErrors = (fileName: string): void => {
-  //   setVisibleSystemErrorsByFile((prev) => {
-  //     const nextVisible = !prev[fileName];
-  //     return { ...prev, [fileName]: nextVisible };
-  //   });
-  // };
-
   const allFiles: GbfsFile[] = validationResult?.summary?.files ?? [];
   const baseFiles: GbfsFile[] = allFiles.filter((f) => f.language == null);
   const languageSpecificFiles: GbfsFile[] = allFiles.filter(

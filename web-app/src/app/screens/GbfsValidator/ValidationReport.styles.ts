@@ -103,3 +103,111 @@ export const ContentTitle = styled(Typography)(({ theme }) => ({
   lineHeight: '48px',
   fontWeight: 500,
 }));
+
+export const dialogTitleSx: SxProps<Theme> = () => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+});
+
+export const codeInlineStyle = (theme: Theme): CSSProperties => ({
+  display: 'inline-block',
+  padding: '1px 6px',
+  borderRadius: 4,
+  background: theme.palette.action.hover,
+  border: `1px solid ${theme.palette.divider}`,
+});
+
+export const highlightedPreSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  fontFamily: 'monospace',
+});
+
+export const highlightedContainerSx: SxProps<Theme> = (theme: Theme) => ({
+  border: '2px solid',
+  borderColor: theme.palette.secondary.light,
+  borderRadius: 2,
+  overflow: 'hidden',
+});
+
+export const highlightedTitleSx: SxProps<Theme> = (theme: Theme) => ({
+  width: '100%',
+  backgroundColor: theme.palette.secondary.light,
+  p: 1,
+  px: 2,
+  color: theme.palette.secondary.dark,
+  fontWeight: 'bold',
+});
+
+export const highlightedInnerSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  fontFamily: 'monospace',
+});
+
+export const entryRowSx = (
+  theme: Theme,
+  isHitProp: boolean,
+): SxProps<Theme> => ({
+  display: 'flex',
+  gap: 1,
+  alignItems: 'flex-start',
+  px: 0.5,
+  borderLeft: isHitProp ? '3px solid' : undefined,
+  borderColor: isHitProp ? theme.palette.error.main : undefined,
+  backgroundColor: isHitProp ? 'rgba(244,67,54,0.08)' : undefined,
+  borderRadius: 0.5,
+});
+
+export const keyTypographySx = (
+  theme: Theme,
+  isHitProp: boolean,
+): SxProps<Theme> => ({
+  fontFamily: 'inherit',
+  fontWeight: isHitProp ? 700 : 400,
+  color: isHitProp ? theme.palette.error.main : 'inherit',
+});
+
+export const arrayListSx = { m: 0, pl: 2 } as CSSProperties;
+
+export const listItemSx = (
+  theme: Theme,
+  isOffender: boolean,
+): SxProps<Theme> => ({
+  backgroundColor: isOffender ? 'rgba(244,67,54,0.08)' : '',
+  borderLeft: isOffender ? '3px solid' : '',
+  borderColor: isOffender ? theme.palette.error.main : '',
+  pl: isOffender ? 1 : 0,
+  borderRadius: 0.5,
+  wordBreak: 'break-word',
+});
+
+export const valueTypographySx = {
+  fontFamily: 'inherit',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+} as CSSProperties;
+
+export const outlinePreSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  outline: `2px solid ${theme.palette.error.main}`,
+  outlineOffset: '-2px',
+});

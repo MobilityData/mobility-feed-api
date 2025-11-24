@@ -2,6 +2,7 @@ import { type JSONValue } from '../errorDetailsUtils';
 
 // When loading GBFS context files for error details, cache them in localStorage
 // to avoid repeated network requests. Cache entries expire after CACHE_TTL_MS.
+// to avoid overflowing localStorage quota, we also provide a function to clear
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_PREFIX = 'gbfs-context:';
@@ -51,7 +52,7 @@ export const clearExpiredCaches = (): void => {
       localStorage.removeItem(k);
     });
   } catch {
-    // Ignore failures (private mode, etc.)
+    // Ignore cache write errors (quota, private mode, etc.)
   }
 };
 
