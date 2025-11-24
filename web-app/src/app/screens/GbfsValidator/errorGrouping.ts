@@ -24,8 +24,12 @@ const normalizeInstancePath = (path: string): string =>
   path.replace(/\/(?:\d+)(?=\/|$)/g, '/*');
 
 // Remove the instancePath substring from the message so identical errors differing only by index are grouped together
-const removePathFromMessage = (message: string, path: string): string =>
-  path ? message.split(path).join('').replace(/\s{2,}/g, ' ').trim() : message;
+export const removePathFromMessage = (message: string, path: string): string =>
+  message
+    .split(path)
+    .join('')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 
 export function groupErrorsByFile(files: GbfsFile[]): FileGroupedErrors[] {
   return files.map((file) => {
@@ -37,7 +41,7 @@ export function groupErrorsByFile(files: GbfsFile[]): FileGroupedErrors[] {
       const msgNoPath = removePathFromMessage(err.message ?? '', path);
       const key = `${normalizedPath}::${msgNoPath}`;
       let group = map.get(key);
-      if (!group) {
+      if (group == undefined) {
         group = {
           key,
           normalizedPath,
