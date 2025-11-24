@@ -30,6 +30,20 @@ import {
 } from './gbfsContextCache';
 import { useGbfsAuth } from '../../../context/GbfsAuthProvider';
 import { removePathFromMessage } from '../errorGrouping';
+import {
+  dialogTitleSx,
+  codeInlineStyle,
+  highlightedPreSx,
+  highlightedContainerSx,
+  highlightedTitleSx,
+  highlightedInnerSx,
+  entryRowSx,
+  keyTypographySx,
+  arrayListSx,
+  listItemSx,
+  valueTypographySx,
+  outlinePreSx,
+} from '../ValidationReport.styles';
 
 export type FileError = components['schemas']['FileError'];
 
@@ -51,7 +65,6 @@ export function ErrorDetailsDialog({
   const theme = useTheme();
   const offendingRef = useRef<HTMLDivElement | null>(null);
   const { buildAuthHeaders } = useGbfsAuth();
-
   const [loadingContext, setLoadingContext] = useState<boolean>(false);
   const [contextData, setContextData] = useState<JSONValue | null>(null);
   const [parentContextData, setParentContextData] = useState<JSONValue | null>(
@@ -96,25 +109,15 @@ export function ErrorDetailsDialog({
     lastArrayIndex,
   ]);
 
-  const isEnum = useMemo(
-    () => (error?.keyword ?? '').toLowerCase() === 'enum',
-    [error?.keyword],
-  );
-
-  const isType = useMemo(
-    () => (error?.keyword ?? '').toLowerCase() === 'type',
-    [error?.keyword],
-  );
-
-  const isPattern = useMemo(
-    () => (error?.keyword ?? '').toLowerCase() === 'pattern',
-    [error?.keyword],
-  );
-
-  const isMinimum = useMemo(
-    () => (error?.keyword ?? '').toLowerCase() === 'minimum',
-    [error?.keyword],
-  );
+  const [isEnum, isType, isPattern, isMinimum] = useMemo(() => {
+    const keywordLower = (error?.keyword ?? '').toLowerCase();
+    return [
+      keywordLower === 'enum',
+      keywordLower === 'type',
+      keywordLower === 'pattern',
+      keywordLower === 'minimum',
+    ];
+  }, [error?.keyword]);
 
   const loadContextData = async (): Promise<void> => {
     if (fileUrl == null || fileUrl === '' || error == null) return;
@@ -169,6 +172,15 @@ export function ErrorDetailsDialog({
       setLoadingContext(false);
     }
   };
+  const formatJson = (value: unknown, spaces = 2): string => {
+    try {
+      return typeof value === 'string'
+        ? JSON.stringify(value)
+        : JSON.stringify(value, null, spaces);
+    } catch {
+      return String(value);
+    }
+  };
 
   const renderHighlightedObject = (
     obj: JSONValue,
@@ -177,84 +189,24 @@ export function ErrorDetailsDialog({
   ): React.ReactElement => {
     if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) {
       return (
-        <Box
-          component='pre'
-          sx={{
-            m: 0,
-            p: 1,
-            borderRadius: 1,
-            backgroundColor: theme.palette.action.hover,
-            maxHeight: 300,
-            overflow: 'auto',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            fontFamily: 'monospace',
-          }}
-        >
-          {(() => {
-            try {
-              return JSON.stringify(obj, null, 2);
-            } catch {
-              return String(obj);
-            }
-          })()}
+        <Box component='pre' sx={highlightedPreSx}>
+          {formatJson(obj, 2)}
         </Box>
       );
     }
+
     const entries = Object.entries(obj as Record<string, JSONValue>);
+
     return (
-      <Box
-        sx={{
-          border: '2px solid',
-          borderColor: theme.palette.secondary.light,
-          borderRadius: 2,
-          overflow: 'hidden',
-        }}
-      >
-        <Typography
-          sx={{
-            width: '100%',
-            backgroundColor: theme.palette.secondary.light,
-            p: 1,
-            px: 2,
-            color: theme.palette.secondary.dark,
-            fontWeight: 'bold',
-          }}
-        >
-          {error?.instancePath}
-        </Typography>
-        <Box
-          sx={{
-            m: 0,
-            p: 1,
-            borderRadius: 1,
-            backgroundColor: theme.palette.action.hover,
-            maxHeight: 300,
-            overflow: 'auto',
-            fontFamily: 'monospace',
-          }}
-        >
+      <Box sx={highlightedContainerSx}>
+        <Typography sx={highlightedTitleSx}>{error?.instancePath}</Typography>
+        <Box sx={highlightedInnerSx}>
           {entries.map(([k, v]) => {
             const isHitProp = key != null && k === key;
             const rowProps =
               isHitProp && arrayIndex == null ? { ref: offendingRef } : {};
             return (
-              <Box
-                key={k}
-                {...rowProps}
-                sx={{
-                  display: 'flex',
-                  gap: 1,
-                  alignItems: 'flex-start',
-                  px: 0.5,
-                  borderLeft: isHitProp ? '3px solid' : undefined,
-                  borderColor: isHitProp ? theme.palette.error.main : undefined,
-                  backgroundColor: isHitProp
-                    ? 'rgba(244,67,54,0.08)'
-                    : undefined,
-                  borderRadius: 0.5,
-                }}
-              >
+              <Box key={k} {...rowProps} sx={entryRowSx(theme, isHitProp)}>
                 <Tooltip
                   title={
                     isHitProp
@@ -268,70 +220,32 @@ export function ErrorDetailsDialog({
                 >
                   <Typography
                     component='span'
-                    sx={{
-                      fontFamily: 'inherit',
-                      fontWeight: isHitProp ? 700 : 400,
-                      color: isHitProp ? theme.palette.error.main : 'inherit',
-                    }}
+                    sx={keyTypographySx(theme, isHitProp)}
                   >
                     {k}:
                   </Typography>
                 </Tooltip>
 
                 {Array.isArray(v) ? (
-                  <Box component='ol' sx={{ m: 0, pl: 2 }}>
+                  <Box component='ol' sx={arrayListSx}>
                     {v.map((item, idx) => {
                       const isOffender =
                         isHitProp && arrayIndex != null && idx === arrayIndex;
                       return (
                         <Box
                           key={idx}
+                          sx={listItemSx(theme, isOffender)}
                           component='li'
                           ref={isOffender ? offendingRef : undefined}
-                          sx={{
-                            backgroundColor: isOffender
-                              ? 'rgba(244,67,54,0.08)'
-                              : undefined,
-                            borderLeft: isOffender ? '3px solid' : undefined,
-                            borderColor: isOffender
-                              ? theme.palette.error.main
-                              : undefined,
-                            pl: isOffender ? 1 : 0,
-                            borderRadius: 0.5,
-                            wordBreak: 'break-word',
-                          }}
                         >
-                          {(() => {
-                            try {
-                              return typeof item === 'string'
-                                ? JSON.stringify(item)
-                                : JSON.stringify(item, null, 0);
-                            } catch {
-                              return String(item);
-                            }
-                          })()}
+                          {formatJson(item, 0)}
                         </Box>
                       );
                     })}
                   </Box>
                 ) : (
-                  <Typography
-                    component='span'
-                    sx={{
-                      fontFamily: 'inherit',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {(() => {
-                      try {
-                        return typeof v === 'string'
-                          ? JSON.stringify(v)
-                          : JSON.stringify(v, null, 0);
-                      } catch {
-                        return String(v);
-                      }
-                    })()}
+                  <Typography component='span' sx={valueTypographySx}>
+                    {formatJson(v, 0)}
                   </Typography>
                 )}
               </Box>
@@ -344,13 +258,7 @@ export function ErrorDetailsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
+      <DialogTitle sx={dialogTitleSx}>
         <Box component='span'>Validation error in {fileName}.json</Box>
         <IconButton aria-label='close' onClick={onClose} size='small'>
           <CloseIcon fontSize='small' />
@@ -363,15 +271,7 @@ export function ErrorDetailsDialog({
               <Box>
                 <Typography variant='subtitle2'>Instance path</Typography>
                 <Typography component='div'>
-                  <code
-                    style={{
-                      display: 'inline-block',
-                      padding: '1px 6px',
-                      borderRadius: 4,
-                      background: theme.palette.action.hover,
-                      border: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
+                  <code style={codeInlineStyle(theme)}>
                     {error.instancePath ?? '#'}
                   </code>
                 </Typography>
@@ -379,15 +279,7 @@ export function ErrorDetailsDialog({
               <Box>
                 <Typography variant='subtitle2'>Schema path</Typography>
                 <Typography component='div'>
-                  <code
-                    style={{
-                      display: 'inline-block',
-                      padding: '1px 6px',
-                      borderRadius: 4,
-                      background: theme.palette.action.hover,
-                      border: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
+                  <code style={codeInlineStyle(theme)}>
                     {error.schemaPath ?? '#'}
                   </code>
                 </Typography>
@@ -432,17 +324,21 @@ export function ErrorDetailsDialog({
                           const missingKey = getMissingKeyFromMessage(
                             error.message,
                           );
-                          if (
-                            ((isEnum || isType || isPattern || isMinimum) &&
-                              lastPointerSegment != null &&
-                              parentContextData != null) ||
-                            error.keyword.toLowerCase() === 'required' ||
-                            (missingKey != null && missingKey !== '')
-                          ) {
-                            if (
-                              error.keyword.toLowerCase() === 'required' ||
-                              (missingKey != null && missingKey !== '')
-                            ) {
+                          const keywordLower = (
+                            error.keyword ?? ''
+                          ).toLowerCase();
+                          const shouldHighlightParent =
+                            (isEnum || isType || isPattern || isMinimum) &&
+                            lastPointerSegment != null &&
+                            parentContextData != null;
+                          const isRequiredErrorType =
+                            keywordLower === 'required' ||
+                            (missingKey != null && missingKey !== '');
+                          const shouldShowContext =
+                            shouldHighlightParent || isRequiredErrorType;
+
+                          if (shouldShowContext) {
+                            if (isRequiredErrorType) {
                               return (
                                 <Box
                                   sx={{
@@ -498,30 +394,14 @@ export function ErrorDetailsDialog({
                               lastArrayIndex,
                             );
                           }
+
                           return (
                             <Box
                               component='pre'
                               ref={offendingRef}
-                              sx={{
-                                m: 0,
-                                p: 1,
-                                borderRadius: 1,
-                                backgroundColor: theme.palette.action.hover,
-                                maxHeight: 300,
-                                overflow: 'auto',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                outline: `2px solid ${theme.palette.error.main}`,
-                                outlineOffset: '-2px',
-                              }}
+                              sx={outlinePreSx}
                             >
-                              {(() => {
-                                try {
-                                  return JSON.stringify(contextData, null, 2);
-                                } catch {
-                                  return String(contextData);
-                                }
-                              })()}
+                              {formatJson(contextData, 2)}
                             </Box>
                           );
                         })()}
