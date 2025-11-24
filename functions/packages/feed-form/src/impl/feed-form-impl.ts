@@ -321,7 +321,7 @@ async function createGithubIssue(
     issueTitle += " - Official Feed";
   }
   const issueBody = buildGithubIssueBody(formData, spreadsheetId);
-  
+
   const countryToRegion: Record<string, string> = {
     "AF": "asia",
     "AL": "europe",
@@ -331,7 +331,7 @@ async function createGithubIssue(
     "AD": "europe",
     "AO": "africa",
     "AG": "north america",
-    "AZ": "europe",
+    // "AZ": "europe",
     "AZ": "asia",
     "AR": "south america",
     "AU": "oceania",
@@ -340,7 +340,7 @@ async function createGithubIssue(
     "BH": "asia",
     "BD": "asia",
     "AM": "europe",
-    "AM": "asia",
+    // "AM": "asia",
     "BB": "north america",
     "BE": "europe",
     "BM": "north america",
@@ -381,7 +381,7 @@ async function createGithubIssue(
     "CR": "north america",
     "HR": "europe",
     "CU": "north america",
-    "CY": "europe",
+    // "CY": "europe",
     "CY": "asia",
     "CZ": "europe",
     "BJ": "africa",
@@ -407,7 +407,7 @@ async function createGithubIssue(
     "DJ": "africa",
     "GA": "africa",
     "GE": "europe",
-    "GE": "asia",
+    // "GE": "asia",
     "GM": "africa",
     "PS": "asia",
     "DE": "europe",
@@ -439,7 +439,7 @@ async function createGithubIssue(
     "CI": "africa",
     "JM": "north america",
     "JP": "asia",
-    "KZ": "europe",
+    // "KZ": "europe",
     "KZ": "asia",
     "JO": "asia",
     "KE": "africa",
@@ -494,7 +494,7 @@ async function createGithubIssue(
     "NF": "oceania",
     "NO": "europe",
     "MP": "oceania",
-    "UM": "oceania",
+    // "UM": "oceania",
     "UM": "north america",
     "FM": "oceania",
     "MH": "oceania",
@@ -515,7 +515,7 @@ async function createGithubIssue(
     "RE": "africa",
     "RO": "europe",
     "RU": "europe",
-    "RU": "asia",
+    // "RU": "asia",
     "RW": "africa",
     "BL": "north america",
     "SH": "africa",
@@ -558,7 +558,7 @@ async function createGithubIssue(
     "AE": "asia",
     "TN": "africa",
     "TR": "europe",
-    "TR": "asia",
+    // "TR": "asia",
     "TM": "asia",
     "TC": "north america",
     "TV": "oceania",
@@ -584,14 +584,14 @@ async function createGithubIssue(
     "XX": "oceania",
     "XE": "asia",
     "XD": "asia",
-    "XS": "asia"
+    "XS": "asia",
   };
 
   const labels = ["feed submission"];
   if (formData.country && countryToRegion[formData.country]) {
     labels.push(countryToRegion[formData.country]);
   }
-  
+
   try {
     const response = await axios.post(
       githubRepoUrlIssue,
