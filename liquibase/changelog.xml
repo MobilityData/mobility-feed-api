@@ -82,4 +82,8 @@
     <include file="changes/feat_1249-2.sql" relativeToChangelogFile="true"/>
     <!-- Materialized view recreated to return stable_ids not UIDs -->
     <include file="changes/feat_1396.sql" relativeToChangelogFile="true"/>
+    <!-- Fixes feed.created_at default value -->
+    <include file="changes/feat_1412_2.sql" relativeToChangelogFile="true"/>
+    <!-- Added license FK to Feed table-->
+    <include file="changes/feat_1433.sql" relativeToChangelogFile="true"/>    
 </databaseChangeLog>

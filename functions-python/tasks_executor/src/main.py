@@ -13,7 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import csv
+import io
 from typing import Any, Final
 
 import flask
@@ -25,6 +26,7 @@ from tasks.data_import.trasportdatagouv.import_tdg_feeds import import_tdg_handl
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
+from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
 )
@@ -100,6 +102,10 @@ tasks = {
         "description": "Populates licenses and license-rules in the database from a predefined JSON source.",
         "handler": populate_licenses_handler,
     },
+    "match_licenses": {
+        "description": "Match licenses with feeds.",
+        "handler": match_license_handler,
+    },
     "sync_transitfeeds_data": {
         "description": "Syncs data from TransitFeeds to the database.",
         "handler": sync_transitfeeds_handler,
@@ -128,10 +134,40 @@ def get_task(request: flask.Request):
     task = request_json.get("task")
     if task not in tasks:
         raise ValueError("Task not supported: %s", task)
+    accept_content_type = request.headers.get("Accept", "application/json")
     payload = request_json.get("payload")
     if not payload:
         payload = {}
-    return task, payload
+    return task, payload, accept_content_type
+
+
+def _to_csv(data) -> str:
+    if isinstance(data, str):
+        return data
+    if isinstance(data, dict):
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=list(data.keys()))
+        writer.writeheader()
+        writer.writerow(data)
+        return output.getvalue()
+    if isinstance(data, list):
+        if not data:
+            return ""
+        # Collect all keys to handle varying dict shapes
+        keys = set()
+        for row in data:
+            if isinstance(row, dict):
+                keys.update(row.keys())
+        fieldnames = sorted(keys)
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in data:
+            if isinstance(row, dict):
+                writer.writerow({k: row.get(k, "") for k in fieldnames})
+        return output.getvalue()
+    # Fallback: stringify
+    return str(data)
 
 
 @functions_framework.http
@@ -139,12 +175,23 @@ def tasks_executor(request: flask.Request) -> flask.Response:
     task: Any
     payload: Any
     try:
-        task, payload = get_task(request)
+        task, payload, accept_content_type = get_task(request)
     except ValueError as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 400)
     # Execute task
     handler = tasks[task]["handler"]
     try:
-        return flask.make_response(flask.jsonify(handler(payload=payload)), 200)
+        result = handler(payload=payload)
+        if accept_content_type == "text/csv":
+            csv_body = _to_csv(result)
+            response = flask.make_response(csv_body, 200)
+            response.headers["Content-Type"] = "text/csv; charset=utf-8"
+            response.headers[
+                "Content-Disposition"
+            ] = "attachment; filename=task_result.csv"
+            return response
+
+        # Default JSON response
+        return flask.make_response(flask.jsonify(result), 200)
     except Exception as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 500)
