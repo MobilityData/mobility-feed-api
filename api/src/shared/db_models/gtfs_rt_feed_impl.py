@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from shared.database.database import with_db_session
 from shared.db_models.feed_impl import FeedImpl
@@ -19,13 +19,26 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, feed: Gtfsrealtimefeed | None) -> GtfsRTFeed | None:
+    @with_db_session
+    def from_orm(cls, feed: Gtfsrealtimefeed | None, db_session: Session) -> GtfsRTFeed | None:
         gtfs_rt_feed: GtfsRTFeed = super().from_orm(feed)
         if not gtfs_rt_feed:
             return None
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations] if feed.locations else []
         gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes] if feed.entitytypes else []
-        gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
+
+        # gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
+        gtfs_rt_location_ids = {location.id for location in feed.locations}
+        query = (
+            db_session.query(FeedOrm).filter(FeedOrm.provider == feed.provider).options(joinedload(FeedOrm.locations))
+        )
+
+        feed_references = []
+        for gtfs_feed in query.all():
+            gtfs_location_ids = {location.id for location in gtfs_feed.locations}
+            if gtfs_location_ids.issubset(gtfs_rt_location_ids):
+                feed_references.append(gtfs_feed.stable_id)
+        gtfs_rt_feed.feed_references = feed_references
         return gtfs_rt_feed
 
     @classmethod
