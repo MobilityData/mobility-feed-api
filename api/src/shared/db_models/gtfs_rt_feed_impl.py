@@ -30,15 +30,19 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         # gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
         gtfs_rt_location_ids = {location.id for location in feed.locations}
         query = (
-            db_session.query(FeedOrm).filter(FeedOrm.provider == feed.provider).options(joinedload(FeedOrm.locations))
+            db_session.query(FeedOrm)
+            .filter(FeedOrm.provider == feed.provider, FeedOrm.stable_id != feed.stable_id)
+            .options(joinedload(FeedOrm.locations))
         )
 
         feed_references = []
         for gtfs_feed in query.all():
             gtfs_location_ids = {location.id for location in gtfs_feed.locations}
-            if gtfs_location_ids.issubset(gtfs_rt_location_ids):
+            # Check if there is any overlap in locations.
+            if not gtfs_location_ids.isdisjoint(gtfs_rt_location_ids):
                 feed_references.append(gtfs_feed.stable_id)
         gtfs_rt_feed.feed_references = feed_references
+
         return gtfs_rt_feed
 
     @classmethod
