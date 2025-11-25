@@ -90,14 +90,12 @@ export function GbfsAuthProvider({
         credentials: 'omit',
       });
       if (!tokenResp.ok) {
-        throw new Error(
-          `OAuth token request failed (HTTP ${tokenResp.status})`,
-        );
+        return undefined;
       }
       const tokenJson = await tokenResp.json();
       const accessToken = tokenJson?.access_token ?? tokenJson?.token;
       if (accessToken == null) {
-        throw new Error('OAuth token response missing access_token');
+        return undefined;
       }
       const tokenType = tokenJson?.token_type ?? 'Bearer';
       return { Authorization: `${tokenType} ${accessToken}` };
@@ -107,7 +105,7 @@ export function GbfsAuthProvider({
 
   const value = useMemo(
     () => ({ auth, setAuth, clearAuth, buildAuthHeaders }),
-    [auth],
+    [auth, setAuth, clearAuth, buildAuthHeaders],
   );
 
   return (

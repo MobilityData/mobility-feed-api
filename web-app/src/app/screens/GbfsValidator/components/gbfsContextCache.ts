@@ -2,7 +2,7 @@ import { type JSONValue } from '../errorDetailsUtils';
 
 // When loading GBFS context files for error details, cache them in localStorage
 // to avoid repeated network requests. Cache entries expire after CACHE_TTL_MS.
-// to avoid overflowing localStorage quota, we also provide a function to clear
+// to avoid overflowing localStorage quota, we also provide the clearExpiredCaches()
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_PREFIX = 'gbfs-context:';
@@ -30,10 +30,15 @@ export const getCachedJson = (url: string): JSONValue | null => {
 export const clearExpiredCaches = (): void => {
   try {
     const now = Date.now();
-    const keysToRemove: string[] = [];
+    // First collect relevant keys to avoid skipping items when localStorage changes
+    const candidateKeys: string[] = [];
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i);
-      if (key == null || !key.startsWith(CACHE_PREFIX)) continue;
+      if (key != null && key.startsWith(CACHE_PREFIX)) candidateKeys.push(key);
+    }
+
+    const keysToRemove: string[] = [];
+    for (const key of candidateKeys) {
       const raw = localStorage.getItem(key);
       if (raw == null) {
         keysToRemove.push(key);
@@ -45,14 +50,14 @@ export const clearExpiredCaches = (): void => {
           keysToRemove.push(key);
         }
       } catch {
+        // corrupted JSON — remove it
         keysToRemove.push(key);
       }
     }
-    keysToRemove.forEach((k) => {
-      localStorage.removeItem(k);
-    });
+
+    for (const k of keysToRemove) localStorage.removeItem(k);
   } catch {
-    // Ignore cache write errors (quota, private mode, etc.)
+    // no-op: localStorage may fail (quota, private mode, etc.)
   }
 };
 
@@ -66,6 +71,6 @@ export const setCachedJson = (url: string, data: JSONValue): void => {
       }),
     );
   } catch {
-    // Ignore cache write errors (quota, private mode, etc.)
+    // no-op: localStorage may fail (quota, private mode, etc.)
   }
 };
