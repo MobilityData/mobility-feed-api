@@ -427,7 +427,7 @@ export default function ValidationReport({
                                 <Typography
                                   variant='body2'
                                   color='text.secondary'
-                                  sx={{ ml: 3 }}
+                                  sx={{ ml: 2.5 }}
                                 >
                                   {group.normalizedPath}
                                 </Typography>
@@ -443,7 +443,7 @@ export default function ValidationReport({
                                       display: 'flex',
                                       flexWrap: 'wrap',
                                       gap: 1,
-                                      ml: 3,
+                                      ml: 2,
                                       mt: 0.5,
                                       maxHeight: '500px',
                                       overflowY: 'auto',
@@ -480,16 +480,8 @@ export default function ValidationReport({
                                         }}
                                         sx={{
                                           ...ValidationErrorPathStyles(theme),
-                                          position: 'relative',
+                                            transition: 'background-color 120ms, box-shadow 120ms',
                                           cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          px: 1.25,
-                                          py: 0.5,
-                                          borderRadius: 1.5,
-                                          transition:
-                                            'background-color 120ms, box-shadow 120ms',
                                           '&:hover': {
                                             boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
                                           },
