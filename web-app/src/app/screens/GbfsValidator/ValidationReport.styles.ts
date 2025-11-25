@@ -99,7 +99,6 @@ export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
   alignItems: 'center',
   padding: theme.spacing(0.5, 1.25),
   borderRadius: theme.spacing(1.5),
-
 });
 
 export const ContentTitle = styled(Typography)(({ theme }) => ({
@@ -219,4 +218,26 @@ export const outlinePreSx: SxProps<Theme> = (theme: Theme) => ({
   wordBreak: 'break-word',
   outline: `2px solid ${theme.palette.error.main}`,
   outlineOffset: '-2px',
+});
+
+export const rowButtonOutlineErrorSx: SxProps<Theme> = (theme: Theme) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 120ms, transform 120ms',
+  whiteSpace: 'nowrap',
+  px: theme.spacing(1),
+  py: theme.spacing(0.5),
+  borderRadius: '5px',
+  border: `1px solid ${theme.palette.error.main}`,
+  color: theme.palette.error.main,
+  fontSize: '0.8125rem',
+  fontWeight: 500,
+  background: 'transparent',
+  '&:hover': {
+    backgroundColor: theme.palette.error.light,
+    color: theme.palette.error.contrastText,
+  },
 });
