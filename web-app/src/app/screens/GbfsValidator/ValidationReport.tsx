@@ -264,6 +264,8 @@ export default function ValidationReport({
                         fg.total > 0 || (fg.systemErrors?.length ?? 0) > 0
                           ? 2
                           : 1,
+                      flexWrap: { xs: 'wrap', sm: 'nowrap'},
+                      gap: { xs: 1, sm: 0}
                     }}
                     title={`${fg.fileName}.json`}
                     titleTypographyProps={{
@@ -308,286 +310,295 @@ export default function ValidationReport({
                       </Box>
                     }
                   />
-                  <Box
-                    sx={{
-                      px: 2,
-                      pb: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    {fg.total === 0 && (fg.systemErrors?.length ?? 0) === 0 && (
-                      <Typography
-                        variant='body2'
-                        color={theme.palette.success.main}
-                      >
-                        <b>Valid</b> no errors
-                      </Typography>
-                    )}
-                    {(fg.systemErrors?.length ?? 0) > 0 && (
-                      <Button
-                        size='small'
-                        color='warning'
-                        variant='outlined'
-                        onClick={() => {
-                          setVisibleSystemErrorsByFile((prev) => ({
-                            ...prev,
-                            [fg.fileName]: !prev[fg.fileName],
-                          }));
-                        }}
-                      >
-                        {visibleSystemErrorsByFile[fg.fileName]
-                          ? 'Hide'
-                          : 'View'}
-                        &#8195;
-                        <b>{fg.systemErrors?.length ?? 0}</b>&#8195;System Error
-                        Details
-                      </Button>
-                    )}
-                  </Box>
-                  <Box sx={{ px: 2, pb: 2 }}>
-                    {fg.groups.map((group, i) => (
-                      <Box
-                        key={group.key}
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 0.25,
-                          py: 0.75,
-                          borderBottom:
-                            i < fg.groups.length - 1 ? '1px solid' : 'none',
-                          borderColor: 'divider',
-                        }}
-                      >
-                        {(() => {
-                          const groupId = `${fg.fileName}::${group.key}`;
-                          const expanded = !!groupedExpanded[groupId];
-                          return (
-                            <>
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1.5,
-                                }}
-                              >
-                                <Chip
-                                  size='small'
-                                  color='error'
-                                  label={`${group.occurrences[0].error.keyword}`}
-                                />
-                                <Typography sx={{ fontWeight: 600 }}>
-                                  {group.message.replace(':', '')}
-                                </Typography>
-                                <Box sx={{ flexGrow: 1 }} />
-                                <Button
-                                  size='small'
-                                  color='inherit'
-                                  onClick={() => {
-                                    setGroupedExpanded((prev) => ({
-                                      ...prev,
-                                      [groupId]: !expanded,
-                                    }));
-                                  }}
-                                  startIcon={
-                                    expanded ? (
-                                      <UnfoldLessIcon />
-                                    ) : (
-                                      <UnfoldMoreIcon />
-                                    )
-                                  }
-                                  sx={{
-                                    opacity: 0.8,
-                                    minWidth: { xs: 'auto', md: '225px' },
-                                  }}
-                                >
-                                  {/* Responsive label: hide the word 'occurrences' on md down */}
-                                  <Box
-                                    component='span'
-                                    sx={{
-                                      display: { xs: 'inline', md: 'none' },
-                                    }}
-                                  >
-                                    {expanded ? 'Hide' : 'Show'} (
-                                    {group.occurrences.length})
-                                  </Box>
-                                  <Box
-                                    component='span'
-                                    sx={{
-                                      display: { xs: 'none', md: 'inline' },
-                                    }}
-                                  >
-                                    {expanded ? 'Hide' : 'Show'} occurrences (
-                                    {group.occurrences.length})
-                                  </Box>
-                                </Button>
-                              </Box>
-                              {group.message !== '' && (
-                                <Typography
-                                  variant='body2'
-                                  color='text.secondary'
-                                  sx={{ ml: 2.5 }}
-                                >
-                                  {group.normalizedPath}
-                                </Typography>
-                              )}
-                              <Collapse
-                                in={expanded}
-                                timeout='auto'
-                                unmountOnExit
-                              >
-                                {group.occurrences.length > 0 && (
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      flexWrap: 'wrap',
-                                      gap: 1,
-                                      ml: 2,
-                                      mt: 0.5,
-                                      maxHeight: '500px',
-                                      overflowY: 'auto',
-                                      p: 0.5,
-                                    }}
-                                  >
-                                    {group.occurrences.map((occ, j) => (
-                                      <Box
-                                        key={j}
-                                        role='button'
-                                        tabIndex={0}
-                                        aria-label={`View details for path ${
-                                          occ.error.instancePath ?? '#'
-                                        }`}
-                                        onClick={() => {
-                                          openDetails(
-                                            fg.fileName,
-                                            fg.fileUrl,
-                                            occ.error,
-                                          );
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (
-                                            e.key === 'Enter' ||
-                                            e.key === ' '
-                                          ) {
-                                            e.preventDefault();
-                                            openDetails(
-                                              fg.fileName,
-                                              fg.fileUrl,
-                                              occ.error,
-                                            );
-                                          }
-                                        }}
-                                        sx={{
-                                          ...ValidationErrorPathStyles(theme),
-                                            transition: 'background-color 120ms, box-shadow 120ms',
-                                          cursor: 'pointer',
-                                          '&:hover': {
-                                            boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
-                                          },
-                                          '&:focus-visible': {
-                                            outline: 'none',
-                                            boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
-                                          },
-                                          '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
-                                            {
-                                              opacity: 0.7,
-
-                                              pointerEvents: 'auto',
-                                            },
-                                        }}
-                                      >
-                                        <Typography
-                                          component='span'
-                                          variant='caption'
-                                          sx={{
-                                            fontFamily: 'monospace',
-                                            pr: 3,
-                                          }}
-                                        >
-                                          {occ.error.instancePath ?? '#'}
-                                        </Typography>
-                                        <Button
-                                          size='small'
-                                          color='error'
-                                          variant='outlined'
-                                          disableElevation
-                                          className='hover-details-btn'
-                                          sx={{
-                                            opacity: 0,
-                                            pointerEvents: 'none',
-                                            transition:
-                                              'opacity 120ms, transform 120ms',
-                                            whiteSpace: 'nowrap',
-                                          }}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openDetails(
-                                              fg.fileName,
-                                              fg.fileUrl,
-                                              occ.error,
-                                            );
-                                          }}
-                                        >
-                                          Click for details
-                                        </Button>
-                                      </Box>
-                                    ))}
-                                  </Box>
-                                )}
-                              </Collapse>
-                            </>
-                          );
-                        })()}
-                      </Box>
-                    ))}
-                    {(fg.systemErrors?.length ?? 0) > 0 && (
-                      <Collapse
-                        in={!!visibleSystemErrorsByFile[fg.fileName]}
-                        timeout='auto'
-                        unmountOnExit
-                      >
-                        <Divider />
-                        <Box
-                          sx={{
-                            maxHeight: '400px',
-                            overflowY: 'auto',
-                            transition: 'height 200ms',
+                  {((fg.total === 0 && (fg.systemErrors?.length ?? 0) === 0) ||
+                    (fg.systemErrors?.length ?? 0) > 0) && (
+                    <Box
+                      sx={{
+                        px: 2,
+                        pb: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      {fg.total === 0 &&
+                        (fg.systemErrors?.length ?? 0) === 0 && (
+                          <Typography
+                            variant='body2'
+                            color={theme.palette.success.main}
+                          >
+                            <b>Valid</b> no errors
+                          </Typography>
+                        )}
+                      {(fg.systemErrors?.length ?? 0) > 0 && (
+                        <Button
+                          size='small'
+                          color='warning'
+                          variant='outlined'
+                          onClick={() => {
+                            setVisibleSystemErrorsByFile((prev) => ({
+                              ...prev,
+                              [fg.fileName]: !prev[fg.fileName],
+                            }));
                           }}
                         >
-                          {fg.systemErrors?.map(
-                            (
-                              error: components['schemas']['SystemError'],
-                              idx: number,
-                            ) => (
-                              <Box
-                                key={`sys-${idx}`}
-                                sx={{
-                                  p: 1.5,
-                                  borderBottom:
-                                    idx < (fg.systemErrors?.length ?? 0) - 1
-                                      ? '1px solid'
-                                      : 'none',
-                                  borderColor: 'divider',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <Chip
-                                  size='small'
-                                  color='warning'
-                                  label={`#${idx + 1} - ${error.error}`}
-                                />
-                                <Typography sx={{ ml: 2 }}>
-                                  {error.message}
-                                </Typography>
-                              </Box>
-                            ),
-                          )}
+                          {visibleSystemErrorsByFile[fg.fileName]
+                            ? 'Hide'
+                            : 'View'}
+                          &#8195;
+                          <b>{fg.systemErrors?.length ?? 0}</b>&#8195;System
+                          Error Details
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+
+                  {(fg.groups.length > 0 || fg.systemErrors?.length > 0) && (
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      {fg.groups.map((group, i) => (
+                        <Box
+                          key={group.key}
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.25,
+                            py: 0.75,
+                            borderBottom:
+                              i < fg.groups.length - 1 ? '1px solid' : 'none',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          {(() => {
+                            const groupId = `${fg.fileName}::${group.key}`;
+                            const expanded = !!groupedExpanded[groupId];
+                            return (
+                              <>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1.5,
+                                    flexWrap: { xs: 'wrap', sm: 'nowrap' }
+                                  }}
+                                >
+                                  <Chip
+                                    size='small'
+                                    color='error'
+                                    label={`${group.occurrences[0].error.keyword}`}
+                                  />
+                                  <Typography sx={{ fontWeight: 600 }}>
+                                    {group.message.replace(':', '')}
+                                  </Typography>
+                                  <Box sx={{ flexGrow: 1 }} />
+                                  <Button
+                                    size='small'
+                                    color='inherit'
+                                    onClick={() => {
+                                      setGroupedExpanded((prev) => ({
+                                        ...prev,
+                                        [groupId]: !expanded,
+                                      }));
+                                    }}
+                                    startIcon={
+                                      expanded ? (
+                                        <UnfoldLessIcon />
+                                      ) : (
+                                        <UnfoldMoreIcon />
+                                      )
+                                    }
+                                    sx={{
+                                      opacity: 0.8,
+                                      minWidth: { xs: 'auto', sm: '125px', md: '225px' },
+                                    }}
+                                  >
+                                    {/* Responsive label: hide the word 'occurrences' on md down */}
+                                    <Box
+                                      component='span'
+                                      sx={{
+                                        display: { xs: 'inline', md: 'none' },
+                                      }}
+                                    >
+                                      {expanded ? 'Hide' : 'Show'} (
+                                      {group.occurrences.length})
+                                    </Box>
+                                    <Box
+                                      component='span'
+                                      sx={{
+                                        display: { xs: 'none', md: 'inline' },
+                                      }}
+                                    >
+                                      {expanded ? 'Hide' : 'Show'} occurrences (
+                                      {group.occurrences.length})
+                                    </Box>
+                                  </Button>
+                                </Box>
+                                {group.message !== '' && (
+                                  <Typography
+                                    variant='body2'
+                                    color='text.secondary'
+                                    sx={{ ml: { xs: 0, sm: 2.5}, overflowX: 'auto' }}
+                                  >
+                                    {group.normalizedPath}
+                                  </Typography>
+                                )}
+                                <Collapse
+                                  in={expanded}
+                                  timeout='auto'
+                                  unmountOnExit
+                                >
+                                  {group.occurrences.length > 0 && (
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: 1,
+                                        ml: {xs: 0, sm: 2},
+                                        mt: 0.5,
+                                        maxHeight: '500px',
+                                        overflowY: 'auto',
+                                        p: 0.5,
+                                      }}
+                                    >
+                                      {group.occurrences.map((occ, j) => (
+                                        <Box
+                                          key={j}
+                                          role='button'
+                                          tabIndex={0}
+                                          aria-label={`View details for path ${
+                                            occ.error.instancePath ?? '#'
+                                          }`}
+                                          onClick={() => {
+                                            openDetails(
+                                              fg.fileName,
+                                              fg.fileUrl,
+                                              occ.error,
+                                            );
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (
+                                              e.key === 'Enter' ||
+                                              e.key === ' '
+                                            ) {
+                                              e.preventDefault();
+                                              openDetails(
+                                                fg.fileName,
+                                                fg.fileUrl,
+                                                occ.error,
+                                              );
+                                            }
+                                          }}
+                                          sx={{
+                                            ...ValidationErrorPathStyles(theme),
+                                            transition:
+                                              'background-color 120ms, box-shadow 120ms',
+                                            cursor: 'pointer',
+                                            '&:hover': {
+                                              boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
+                                            },
+                                            '&:focus-visible': {
+                                              outline: 'none',
+                                              boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
+                                            },
+                                            '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                              {
+                                                opacity: 0.7,
+
+                                                pointerEvents: 'auto',
+                                              },
+                                          }}
+                                        >
+                                          <Typography
+                                            component='span'
+                                            variant='caption'
+                                            sx={{
+                                              fontFamily: 'monospace',
+                                              pr: 3,
+                                            }}
+                                          >
+                                            {occ.error.instancePath ?? '#'}
+                                          </Typography>
+                                          <Button
+                                            size='small'
+                                            color='error'
+                                            variant='outlined'
+                                            disableElevation
+                                            className='hover-details-btn'
+                                            sx={{
+                                              opacity: 0,
+                                              pointerEvents: 'none',
+                                              transition:
+                                                'opacity 120ms, transform 120ms',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openDetails(
+                                                fg.fileName,
+                                                fg.fileUrl,
+                                                occ.error,
+                                              );
+                                            }}
+                                          >
+                                            Click for details
+                                          </Button>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  )}
+                                </Collapse>
+                              </>
+                            );
+                          })()}
                         </Box>
-                      </Collapse>
-                    )}
-                  </Box>
+                      ))}
+                      {(fg.systemErrors?.length ?? 0) > 0 && (
+                        <Collapse
+                          in={!!visibleSystemErrorsByFile[fg.fileName]}
+                          timeout='auto'
+                          unmountOnExit
+                        >
+                          <Divider />
+                          <Box
+                            sx={{
+                              maxHeight: '400px',
+                              overflowY: 'auto',
+                              transition: 'height 200ms',
+                            }}
+                          >
+                            {fg.systemErrors?.map(
+                              (
+                                error: components['schemas']['SystemError'],
+                                idx: number,
+                              ) => (
+                                <Box
+                                  key={`sys-${idx}`}
+                                  sx={{
+                                    p: 1.5,
+                                    borderBottom:
+                                      idx < (fg.systemErrors?.length ?? 0) - 1
+                                        ? '1px solid'
+                                        : 'none',
+                                    borderColor: 'divider',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                  }}
+                                >
+                                  <Chip
+                                    size='small'
+                                    color='warning'
+                                    label={`#${idx + 1} - ${error.error}`}
+                                  />
+                                  <Typography sx={{ ml: 2 }}>
+                                    {error.message}
+                                  </Typography>
+                                </Box>
+                              ),
+                            )}
+                          </Box>
+                        </Collapse>
+                      )}
+                    </Box>
+                  )}
                 </Card>
               ))}
             </Box>

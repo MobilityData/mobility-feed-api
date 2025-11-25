@@ -12,6 +12,7 @@ import {
   Typography,
   useTheme,
   IconButton,
+  useMediaQuery,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { OpenInNew } from '@mui/icons-material';
@@ -77,6 +78,7 @@ export function ErrorDetailsDialog({
     null,
   );
   const [lastArrayIndex, setLastArrayIndex] = useState<number | null>(null);
+  const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
     // Reset state whenever opening a new error
@@ -271,6 +273,7 @@ export function ErrorDetailsDialog({
       maxWidth='md'
       fullWidth
       PaperProps={{ sx: { backgroundColor: theme.palette.background.default } }}
+      fullScreen={fullScreen}
     >
       <DialogTitle sx={dialogTitleSx}>
         <Typography variant='h6'>
@@ -319,6 +322,7 @@ export function ErrorDetailsDialog({
                     width: '100%',
                     alignItems: 'center',
                     gap: 2,
+                    flexWrap: { xs: 'wrap', sm: 'nowrap'}
                   }}
                 >
                   <Chip size='small' color='error' label={error.keyword} />
