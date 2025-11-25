@@ -15,23 +15,36 @@ describe('errorDetailsUtils', () => {
   });
 
   describe('resolveJsonPointer', () => {
+    // make the structure resemble GBFS feed JSON under /data
     const root = {
-      a: { b: [{ c: 1 }, { c: 2 }] },
+      data: {
+        stations: [
+          { station_id: 'S1', lat: 12.3 },
+          { station_id: 'S2', lat: 45.6 },
+        ],
+        feeds: [{ name: 'primary' }, { name: 'secondary' }],
+      },
       arr: [10, 20, 30],
       'tilde~key': 'tilde!',
       'slash/key': 'slash!',
       leaf: 'value',
-    } as any;
+    };
 
     it('resolves nested object and array pointers', () => {
-      expect(resolveJsonPointer(root, '#/a/b/0/c')).toBe(1);
-      expect(resolveJsonPointer(root, '#/a/b/1/c')).toBe(2);
+      expect(resolveJsonPointer(root, '#/data/stations/0/station_id')).toBe(
+        'S1',
+      );
+      expect(resolveJsonPointer(root, '#/data/stations/1/station_id')).toBe(
+        'S2',
+      );
       expect(resolveJsonPointer(root, '#/arr/2')).toBe(30);
     });
 
     it('returns undefined for out of range array index or invalid segment', () => {
       expect(resolveJsonPointer(root, '#/arr/10')).toBeUndefined();
-      expect(resolveJsonPointer(root, '#/a/b/x/c')).toBeUndefined();
+      expect(
+        resolveJsonPointer(root, '#/data/stations/x/name'),
+      ).toBeUndefined();
     });
 
     it('handles ~1 (/) and ~0 (~) escape sequences', () => {
@@ -42,20 +55,29 @@ describe('errorDetailsUtils', () => {
     });
 
     it('returns undefined when pointer descends past a primitive', () => {
-      // 'leaf' is a string, so '/leaf/x' should be undefined
-      expect(resolveJsonPointer(root, '#/leaf/x')).toBeUndefined();
+      // 'station_id' is a string, so '/data/stations/0/station_id/x' should be undefined
+      expect(
+        resolveJsonPointer(root, '#/data/stations/0/station_id/x'),
+      ).toBeUndefined();
     });
   });
 
   describe('getMissingKeyFromMessage', () => {
     it('extracts key name from standard message', () => {
-      expect(getMissingKeyFromMessage('required key [name] is missing')).toBe(
-        'name',
-      );
-      expect(getMissingKeyFromMessage('Required key [FOO]')).toBe('FOO');
+      // GBFS-like messages
       expect(
-        getMissingKeyFromMessage('some text required key [bar] other'),
-      ).toBe('bar');
+        getMissingKeyFromMessage(
+          '#/data/stations/0/items/2: required key [station_id] is missing',
+        ),
+      ).toBe('station_id');
+      expect(getMissingKeyFromMessage('Required key [FEED_ID]')).toBe(
+        'FEED_ID',
+      );
+      expect(
+        getMissingKeyFromMessage(
+          'validation error: required key [lat] not found in object',
+        ),
+      ).toBe('lat');
     });
 
     it('returns null when no match', () => {

@@ -27,64 +27,73 @@ describe('errorGrouping', () => {
 
   describe('groupErrorsByFile', () => {
     it('groups errors with same normalized path and same message', () => {
+      // Use more realistic GBFS-like paths and messages so normalization intent is clear
       const files: GbfsFile[] = [
         {
-          name: 'test-file',
-          url: 'https://example.com/test.json',
+          name: 'feed-stations.json',
+          url: 'https://example.com/feed-stations.json',
           errors: [
             {
-              instancePath: '/stations/8/items/2',
-              message: '#/stations/8/items/2: missing required field',
+              instancePath: '/data/stations/8/items/2',
+              message:
+                '#/data/stations/8/items/2: missing required field "station_id"',
               keyword: 'required',
               schemaPath: '',
-            } as any,
+            },
             {
-              instancePath: '/stations/9/items/3',
-              message: '#/stations/9/items/3: missing required field',
+              instancePath: '/data/stations/9/items/3',
+              message:
+                '#/data/stations/9/items/3: missing required field "station_id"',
               keyword: 'required',
               schemaPath: '',
-            } as any,
+            },
           ],
           systemErrors: [],
-        } as any,
+        },
       ];
 
       const grouped = groupErrorsByFile(files);
       expect(grouped).toHaveLength(1);
       const gf = grouped[0];
-      expect(gf.fileName).toBe('test-file');
-      expect(gf.fileUrl).toBe('https://example.com/test.json');
+      expect(gf.fileName).toBe('feed-stations.json');
+      expect(gf.fileUrl).toBe('https://example.com/feed-stations.json');
       expect(gf.groups).toHaveLength(1);
       const group = gf.groups[0];
-      expect(group.normalizedPath).toBe('/stations/*/items/*');
+      // Normalization should replace numeric indices with '*' placeholders
+      expect(group.normalizedPath).toBe('/data/stations/*/items/*');
       expect(group.occurrences).toHaveLength(2);
       expect(gf.total).toBe(2);
     });
 
     it('produces separate groups for different messages', () => {
+      // Use GBFS-like paths but different messages so grouping splits by message
       const files: GbfsFile[] = [
         {
-          name: 'f',
+          name: 'feed-stations.json',
+          url: 'https://example.com/feed-stations.json',
           errors: [
             {
-              instancePath: '/a/0/x',
-              message: '/a/0/x: one',
-              keyword: 'type',
+              instancePath: '/data/stations/0/items/2',
+              message:
+                '#/data/stations/0/items/2: missing required field "station_id"',
+              keyword: 'required',
               schemaPath: '',
-            } as any,
+            },
             {
-              instancePath: '/a/1/x',
-              message: '/a/1/x: two',
+              instancePath: '/data/stations/1/items/3',
+              message:
+                '#/data/stations/1/items/3: invalid type for field "lat"',
               keyword: 'type',
               schemaPath: '',
-            } as any,
+            },
           ],
           systemErrors: [],
-        } as any,
+        },
       ];
 
       const grouped = groupErrorsByFile(files);
       const gf = grouped[0];
+      // two different messages -> two groups even though the normalized path is the same
       expect(gf.groups).toHaveLength(2);
       // each group should have 1 occurrence
       expect(
@@ -94,7 +103,7 @@ describe('errorGrouping', () => {
 
     it('handles files with no errors', () => {
       const files: GbfsFile[] = [
-        { name: 'empty', errors: [], systemErrors: [] } as any,
+        { name: 'empty', errors: [], systemErrors: [] },
       ];
       const grouped = groupErrorsByFile(files);
       expect(grouped).toHaveLength(1);
@@ -105,7 +114,7 @@ describe('errorGrouping', () => {
 
     it('passes through systemErrors and uses unknown for missing names', () => {
       const files: GbfsFile[] = [
-        { systemErrors: [{ error: 'x', message: 'y' } as any] } as any,
+        { systemErrors: [{ error: 'x', message: 'y' }] },
       ];
       const grouped = groupErrorsByFile(files);
       expect(grouped[0].fileName).toBe('unknown');

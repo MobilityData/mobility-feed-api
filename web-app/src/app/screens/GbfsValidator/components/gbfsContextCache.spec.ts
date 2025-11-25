@@ -15,7 +15,7 @@ describe('gbfsContextCache', () => {
 
   it('stores and retrieves JSON data via setCachedJson/getCachedJson', () => {
     const payload = { foo: 'bar', n: 42 } as const;
-    setCachedJson(url, payload as any);
+    setCachedJson(url, payload);
 
     const raw = localStorage.getItem(key);
     expect(raw).not.toBeNull();
