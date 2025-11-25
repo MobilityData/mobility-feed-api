@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from shared.database.database import with_db_session
 from shared.db_models.feed_impl import FeedImpl
-from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed, Feed as FeedOrm, Entitytype
+from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed, Feed as GtfsFeedOrm, Entitytype
 from shared.db_models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 
@@ -30,9 +30,9 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         # gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
         gtfs_rt_location_ids = {location.id for location in feed.locations}
         query = (
-            db_session.query(FeedOrm)
-            .filter(FeedOrm.provider == feed.provider, FeedOrm.stable_id != feed.stable_id)
-            .options(joinedload(FeedOrm.locations))
+            db_session.query(GtfsFeedOrm)
+            .filter(GtfsFeedOrm.provider == feed.provider, GtfsFeedOrm.stable_id != feed.stable_id)
+            .options(joinedload(GtfsFeedOrm.locations))
         )
 
         feed_references = []
