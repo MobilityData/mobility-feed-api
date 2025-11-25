@@ -105,6 +105,19 @@ export interface paths {
      */
     get: operations['searchFeeds'];
   };
+  '/v1/licenses': {
+    /** @description Get the list of all licenses in the DB. */
+    get: operations['getLicenses'];
+  };
+  '/v1/licenses/{id}': {
+    /** @description Get the specified license from the Mobility Database. */
+    get: operations['getLicense'];
+    parameters: {
+      path: {
+        id: components['parameters']['license_id_path_param'];
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -554,6 +567,21 @@ export interface components {
        * @example https://www.ladottransit.com/dla.html
        */
       license_url?: string;
+      /**
+       * @description Id of the feed license that can be used to query the license endpoint.
+       * @example 0BSD
+       */
+      license_id?: string;
+      /**
+       * @description true if the license is SPDX. false if not.
+       * @example true
+       */
+      license_is_spdx?: boolean;
+      /**
+       * @description TBD
+       * @example TBD
+       */
+      license_notes?: string;
     };
     Locations: Array<components['schemas']['Location']>;
     Location: {
@@ -715,6 +743,50 @@ export interface components {
        */
       url_html?: string;
     };
+    License: {
+      /**
+       * @description Unique identifier for the license.
+       * @example 0BSD
+       */
+      id?: string;
+      /**
+       * @description TBD
+       * @example TBD
+       */
+      type?: string;
+      /** @description TBD */
+      is_spdx?: boolean;
+      /**
+       * @description TBD
+       * @example TBD
+       */
+      name?: string;
+      /**
+       * Format: url
+       * @description A URL where to find the license for the feed.
+       * @example https://www.ladottransit.com/dla.html
+       */
+      url?: string;
+      /**
+       * @description TBD
+       * @example TBD
+       */
+      description?: string;
+      license_rules?: string[];
+      /**
+       * Format: date-time
+       * @description The date and time the license was added to the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
+      /**
+       * Format: date-time
+       * @description The last date and time the license was updated in the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      updated_at?: string;
+    };
+    Licenses: Array<components['schemas']['License']>;
   };
   responses: never;
   parameters: {
@@ -778,6 +850,8 @@ export interface components {
     limit_query_param_search_endpoint?: number;
     /** @description The number of items to be returned. */
     limit_query_param_gbfs_feeds_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_licenses_endpoint?: number;
     /** @description Offset of the first item to return. */
     offset?: number;
     /** @description General search query to match against transit provider, location, and feed name. */
@@ -790,6 +864,8 @@ export interface components {
     feed_id_query_param?: string;
     /** @description The feed ID of the requested feed. */
     feed_id_path_param: string;
+    /** @description The license ID of the requested license. */
+    license_id_path_param: string;
     /** @description The ID of the feed for which to obtain datasets. */
     feed_id_of_datasets_path_param: string;
     /** @description The ID of the requested dataset. */
@@ -1091,6 +1167,39 @@ export interface operations {
             total?: number;
             results?: Array<components['schemas']['SearchFeedItemResult']>;
           };
+        };
+      };
+    };
+  };
+  /** @description Get the list of all licenses in the DB. */
+  getLicenses: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['limit_query_param_licenses_endpoint'];
+        offset?: components['parameters']['offset'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the licenses info. */
+      200: {
+        content: {
+          'application/json': components['schemas']['Licenses'];
+        };
+      };
+    };
+  };
+  /** @description Get the specified license from the Mobility Database. */
+  getLicense: {
+    parameters: {
+      path: {
+        id: components['parameters']['license_id_path_param'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the license info for the provided ID. */
+      200: {
+        content: {
+          'application/json': components['schemas']['License'];
         };
       };
     };
