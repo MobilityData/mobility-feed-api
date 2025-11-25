@@ -3,7 +3,7 @@ from typing import List, Union, TypeVar, Optional
 
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, contains_eager, selectinload, Session
 from sqlalchemy.orm.query import Query
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
@@ -43,7 +43,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Entitytype,
-    License as LicenseOrm,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -73,10 +72,13 @@ class FeedsApiImpl(BaseFeedsApi):
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
 
-        feed_orm = (
+        # Use an explicit LEFT OUTER JOIN and contains_eager so the License relationship
+        # is populated from the same SQL result without causing N+1 queries.
+        feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(db_session, FeedOrm))
-            .options(*get_joinedload_options(), joinedload(FeedOrm.license))
+            .outerjoin(FeedOrm.license)
+            .options(contains_eager(FeedOrm.license))
             .filter(
                 or_(
                     FeedOrm.operational_status == "published",
@@ -85,11 +87,8 @@ class FeedsApiImpl(BaseFeedsApi):
             )
             .first()
         )
-        if feed_orm:
-            feed = FeedImpl.from_orm(feed_orm)
-            if feed_orm.license:
-                feed.license_description = feed_orm.license.description
-            return feed
+        if feed:
+            return FeedImpl.from_orm(feed)
         else:
             raise_http_error(404, feed_not_found.format(id))
 
@@ -107,44 +106,28 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
-
         feed_filter = FeedFilter(
-            status=status,
-            provider__ilike=provider,
-            producer_url__ilike=producer_url,
-            stable_id=None,
+            status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
-
         feed_query = feed_filter.filter(Database().get_query_model(db_session, FeedOrm))
-
         feed_query = add_official_filter(feed_query, is_official)
-
         feed_query = feed_query.filter(
             or_(
                 FeedOrm.operational_status == "published",
-                not is_email_restricted,
+                not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
-
-        # Results sorted by provider
+        # Results are sorted by provider
         feed_query = feed_query.order_by(FeedOrm.provider, FeedOrm.stable_id)
-        feed_query = feed_query.options(*get_joinedload_options(), joinedload(FeedOrm.license))
-
+        # Ensure license relationship is available to the model conversion without extra queries
+        feed_query = feed_query.options(*get_joinedload_options(), selectinload(FeedOrm.license))
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
             feed_query = feed_query.offset(offset)
 
         results = feed_query.all()
-
-        feeds = []
-        for feed_orm in results:
-            feed = FeedImpl.from_orm(feed_orm)
-            if feed_orm.license:
-                feed.license_description = feed_orm.license.description
-            feeds.append(feed)
-
-        return feeds
+        return [FeedImpl.from_orm(feed) for feed in results]
 
     @with_db_session
     def get_gtfs_feed(self, id: str, db_session: Session) -> GtfsFeed:

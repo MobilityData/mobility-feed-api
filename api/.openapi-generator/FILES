@@ -6,6 +6,8 @@ src/feeds_gen/apis/datasets_api.py
 src/feeds_gen/apis/datasets_api_base.py
 src/feeds_gen/apis/feeds_api.py
 src/feeds_gen/apis/feeds_api_base.py
+src/feeds_gen/apis/licenses_api.py
+src/feeds_gen/apis/licenses_api_base.py
 src/feeds_gen/apis/metadata_api.py
 src/feeds_gen/apis/metadata_api_base.py
 src/feeds_gen/apis/search_api.py
@@ -28,6 +30,7 @@ src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_rt_feed.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
+src/feeds_gen/models/license.py
 src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/redirect.py

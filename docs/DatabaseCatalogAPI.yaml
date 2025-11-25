@@ -35,6 +35,8 @@ tags:
     description: "Metadata about the API"
   - name: "beta"
     description: "Beta endpoints of the API."
+  - name: "licenses"
+    description: "Licenses of the Mobility Database"
 
 paths:
   /v1/feeds:
@@ -353,6 +355,45 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/SearchFeedItemResult"
+
+  /v1/licenses:
+    get:
+      description: Get the list of all licenses in the DB.
+      tags:
+        - "licenses"
+      operationId: getLicenses
+      parameters:
+        - $ref: "#/components/parameters/limit_query_param_licenses_endpoint"
+        - $ref: "#/components/parameters/offset"
+
+      security:
+        - Authentication: [ ]
+      responses:
+        200:
+          description: Successful pull of the licenses info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Licenses"
+
+  /v1/licenses/{id}:
+    parameters:
+      - $ref: "#/components/parameters/license_id_path_param"
+    get:
+      description: Get the specified license from the Mobility Database.
+      tags:
+        - "licenses"
+      operationId: getLicense
+      security:
+        - Authentication: [ ]
+      responses:
+        200:
+          description: >
+            Successful pull of the license info for the provided ID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/License"
 
 components:
   schemas:
@@ -969,10 +1010,18 @@ components:
           type: string
           format: url
           example: https://www.ladottransit.com/dla.html
-        license_description:
-          description: A human-readable description of the license.
+        license_id:
+          description: Id of the feed license that can be used to query the license endpoint.
           type: string
-          example: This feed is provided under a custom license.
+          example: 0BSD
+        license_is_spdx:
+          description: true if the license is SPDX. false if not.
+          type: boolean
+          example: true
+        license_notes:
+          description: TBD
+          type: string
+          example: TBD
 
     Locations:
       type: array
@@ -1183,6 +1232,55 @@ components:
   #        - gtfs_rt
   #        - gbfs
   #      example: gtfs
+    License:
+      type: object
+      properties:
+        id:
+          description: Unique identifier for the license.
+          type: string
+          example: 0BSD
+        type:
+          type: string
+          description: TBD
+          example: TBD
+        is_spdx:
+          type: boolean
+          description: TBD
+        name:
+          type: string
+          description: TBD
+          example: TBD
+        url:
+          description: A URL where to find the license for the feed.
+          type: string
+          format: url
+          example: https://www.ladottransit.com/dla.html
+        description:
+          type: string
+          description: TBD
+          example: TBD
+        license_rules:
+          type: array
+          items:
+            type: string
+            example: private-use
+            description: License rules for this license
+        created_at:
+          description: The date and time the license was added to the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        updated_at:
+          description: The last date and time the license was updated in the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+
+    Licenses:
+      type: array
+      items:
+        $ref: "#/components/schemas/License"
+
   parameters:
     status:
       name: status
@@ -1422,6 +1520,18 @@ components:
         default: 500
         example: 10
 
+    limit_query_param_licenses_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 500
+        default: 500
+        example: 10
+
     offset:
       name: offset
       in: query
@@ -1476,6 +1586,15 @@ components:
       schema:
         type: string
         example: mdb-1210
+
+    license_id_path_param:
+      name: id
+      in: path
+      description: The license ID of the requested license.
+      required: True
+      schema:
+        type: string
+        example: 0BSD
 
     feed_id_of_datasets_path_param:
       name: id
