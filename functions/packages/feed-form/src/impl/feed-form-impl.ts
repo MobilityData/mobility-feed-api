@@ -4,7 +4,7 @@ import * as logger from "firebase-functions/logger";
 import {type FeedSubmissionFormRequestBody} from "./types";
 import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
 import axios from "axios";
-import { countries, continents, type TCountryCode } from 'countries-list'
+import {countries, continents, type TCountryCode} from "countries-list";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
@@ -326,11 +326,12 @@ async function createGithubIssue(
   const labels = ["feed submission"];
   try {
     if (formData.country && formData.country in countries) {
-      const continent = continents[countries[formData.country as TCountryCode].continent].toLowerCase();
+      const country = countries[formData.country as TCountryCode];
+      const continent = continents[country.continent].toLowerCase();
       labels.push(continent);
     }
   } catch (error) {
-    logger.error("Error finding continent for code ${formData.country}:", error);
+    logger.error("Error mapping ${formData.country} to continent", error);
   }
 
   try {
