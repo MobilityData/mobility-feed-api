@@ -16,7 +16,13 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { OpenInNew } from '@mui/icons-material';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { type components } from '../../../services/feeds/gbfs-validator-types';
 import {
   resolveJsonPointer,
@@ -78,50 +84,7 @@ export function ErrorDetailsDialog({
   const [lastArrayIndex, setLastArrayIndex] = useState<number | null>(null);
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
-  useEffect(() => {
-    // Reset state whenever opening a new error
-    if (open) {
-      setLoadingContext(false);
-      setContextData(null);
-      setParentContextData(null);
-      setContextError(null);
-      setLastPointerSegment(null);
-      setLastArrayIndex(null);
-      void loadContextData();
-    }
-  }, [open, error]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (loadingContext) return;
-    if (offendingRef.current != null) {
-      try {
-        offendingRef.current.scrollIntoView({
-          block: 'center',
-          behavior: 'smooth',
-        });
-      } catch {}
-    }
-  }, [
-    open,
-    loadingContext,
-    parentContextData,
-    contextData,
-    lastPointerSegment,
-    lastArrayIndex,
-  ]);
-
-  const [isEnum, isType, isPattern, isMinimum] = useMemo(() => {
-    const keywordLower = (error?.keyword ?? '').toLowerCase();
-    return [
-      keywordLower === 'enum',
-      keywordLower === 'type',
-      keywordLower === 'pattern',
-      keywordLower === 'minimum',
-    ];
-  }, [error?.keyword]);
-
-  const loadContextData = async (): Promise<void> => {
+  const loadContextData = useCallback(async (): Promise<void> => {
     if (fileUrl == null || fileUrl === '' || error == null) return;
     try {
       setLoadingContext(true);
@@ -173,7 +136,49 @@ export function ErrorDetailsDialog({
     } finally {
       setLoadingContext(false);
     }
-  };
+  }, [fileUrl, error, buildAuthHeaders]);
+
+  useEffect(() => {
+    // Reset state whenever opening a new error
+    if (open) {
+      setLoadingContext(false);
+      setContextData(null);
+      setParentContextData(null);
+      setContextError(null);
+      setLastPointerSegment(null);
+      setLastArrayIndex(null);
+      void loadContextData();
+    }
+  }, [open, loadContextData]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (loadingContext) return;
+    if (offendingRef.current != null) {
+      offendingRef.current?.scrollIntoView?.({
+        block: 'center',
+        behavior: 'smooth',
+      });
+    }
+  }, [
+    open,
+    loadingContext,
+    parentContextData,
+    contextData,
+    lastPointerSegment,
+    lastArrayIndex,
+  ]);
+
+  const [isEnum, isType, isPattern, isMinimum] = useMemo(() => {
+    const keywordLower = (error?.keyword ?? '').toLowerCase();
+    return [
+      keywordLower === 'enum',
+      keywordLower === 'type',
+      keywordLower === 'pattern',
+      keywordLower === 'minimum',
+    ];
+  }, [error?.keyword]);
+
   const formatJson = (value: unknown, spaces = 2): string => {
     try {
       return typeof value === 'string'
