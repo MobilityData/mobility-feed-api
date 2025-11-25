@@ -1,6 +1,7 @@
 import logging
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from shared.database.database import with_db_session
 from shared.db_models.feed_impl import FeedImpl
@@ -27,8 +28,10 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations] if feed.locations else []
         gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes] if feed.entitytypes else []
 
+        provider_value = (feed.provider or "").strip().lower()
+
         query = db_session.query(GtfsFeedOrm).filter(
-            GtfsFeedOrm.provider == feed.provider,
+            func.lower(func.trim(GtfsFeedOrm.provider)) == provider_value,
             GtfsFeedOrm.stable_id != feed.stable_id,
         )
 
