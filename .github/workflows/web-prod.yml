@@ -13,4 +13,5 @@ jobs:
           FEED_SUBMIT_GOOGLE_SHEET_ID: "10eIUxWVtLmc2EATiwivgXBf4bOMErOnq7GFIoRedXHU"
           OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/rdpfgrmnbxqaelgi5oky3lryz4/internal-add-feeds"
           OP_ADD_FEED_FORM_GITHUB_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/cwzlqlspbw7goqjsdqu4b7matq/credential"
+          OP_SENTRY_DSN: "op://Employee/Sentry DSN - MobilityDatabase PROD/Sentry DSN PROD"
         secrets: inherit

@@ -10,6 +10,7 @@
     "@mui/x-date-pickers": "^7.11.0",
     "@mui/x-tree-view": "^6.17.0",
     "@reduxjs/toolkit": "^1.9.6",
+    "@sentry/react": "^10.26.0",
     "@turf/center": "^6.5.0",
     "@types/i18next": "^13.0.0",
     "@types/leaflet": "^1.9.12",
