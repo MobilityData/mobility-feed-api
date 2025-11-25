@@ -6,6 +6,7 @@ import {
   type Theme,
 } from '@mui/material';
 import { type CSSProperties } from 'react';
+import { fontFamily } from '../../Theme';
 
 export const gbfsValidatorHeroBg = {
   backgroundColor: '#43e0ff',
@@ -234,6 +235,7 @@ export const rowButtonOutlineErrorSx: SxProps<Theme> = (theme: Theme) => ({
   border: `1px solid ${theme.palette.error.main}`,
   color: theme.palette.error.main,
   fontSize: '0.8125rem',
+  fontFamily: fontFamily.secondary,
   fontWeight: 500,
   background: 'transparent',
   '&:hover': {
