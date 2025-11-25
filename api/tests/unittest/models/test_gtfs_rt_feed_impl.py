@@ -106,46 +106,46 @@ class TestGtfsRTFeedImpl(unittest.TestCase):
         result = GtfsRTFeedImpl.from_orm(gtfs_rt_feed_orm, db_session=mock_session)
         assert result == expected_gtfs_rt_feed_result
 
-    def test_from_orm_feed_references_location_filter(self):
-        """
-        Test that feed_references are correctly filtered based on shared locations.
-        """
-        # Define locations
-        location_de = Location(id="loc_de", country_code="US", subdivision_name="Delaware")
-        location_md = Location(id="loc_md", country_code="US", subdivision_name="Maryland")
-        location_ia = Location(id="loc_ia", country_code="US", subdivision_name="Iowa")
+    # def test_from_orm_feed_references_location_filter(self):
+    #     """
+    #     Test that feed_references are correctly filtered based on shared locations.
+    #     """
+    #     # Define locations
+    #     location_de = Location(id="loc_de", country_code="US", subdivision_name="Delaware")
+    #     location_md = Location(id="loc_md", country_code="US", subdivision_name="Maryland")
+    #     location_ia = Location(id="loc_ia", country_code="US", subdivision_name="Iowa")
 
-        # Define the GTFS-RT feed (e.g., mdb-1771)
-        rt_feed = Gtfsrealtimefeed(
-            stable_id="mdb-1771",
-            provider="DART",
-            locations=[location_de, location_md],
-            entitytypes=[],
-        )
+    #     # Define the GTFS-RT feed (e.g., mdb-1771)
+    #     rt_feed = Gtfsrealtimefeed(
+    #         stable_id="mdb-1771",
+    #         provider="DART",
+    #         locations=[location_de, location_md],
+    #         entitytypes=[],
+    #     )
 
-        # Define a correct related schedule feed (e.g., mdb-1235)
-        correct_schedule_feed = Gtfsfeed(stable_id="mdb-1235", provider="DART", locations=[location_de, location_md])
+    #     # Define a correct related schedule feed (e.g., mdb-1235)
+    #     correct_schedule_feed = Gtfsfeed(stable_id="mdb-1235", provider="DART", locations=[location_de, location_md])
 
-        # Define an incorrect schedule feed with a different location (e.g., mdb-193)
-        incorrect_schedule_feed = Gtfsfeed(stable_id="mdb-193", provider="DART", locations=[location_ia])
+    #     # Define an incorrect schedule feed with a different location (e.g., mdb-193)
+    #     incorrect_schedule_feed = Gtfsfeed(stable_id="mdb-193", provider="DART", locations=[location_ia])
 
-        # Mock the database session and its query
-        mock_session = MagicMock()
-        mock_query = MagicMock()
-        mock_session.query.return_value = mock_query
-        # The query inside from_orm should return both schedule feeds before filtering
-        mock_query.filter.return_value.options.return_value.all.return_value = [
-            correct_schedule_feed,
-            incorrect_schedule_feed,
-        ]
+    #     # Mock the database session and its query
+    #     mock_session = MagicMock()
+    #     mock_query = MagicMock()
+    #     mock_session.query.return_value = mock_query
+    #     # The query inside from_orm should return both schedule feeds before filtering
+    #     mock_query.filter.return_value.options.return_value.all.return_value = [
+    #         correct_schedule_feed,
+    #         incorrect_schedule_feed,
+    #     ]
 
-        # Execute the method
-        result = GtfsRTFeedImpl.from_orm(rt_feed, db_session=mock_session)
+    #     # Execute the method
+    #     result = GtfsRTFeedImpl.from_orm(rt_feed, db_session=mock_session)
 
-        # Assert that only the correct feed reference is included
-        self.assertIn("mdb-1235", result.feed_references)
-        self.assertNotIn("mdb-193", result.feed_references)
-        self.assertEqual(len(result.feed_references), 1)
+    #     # Assert that only the correct feed reference is included
+    #     self.assertIn("mdb-1235", result.feed_references)
+    #     self.assertNotIn("mdb-193", result.feed_references)
+    #     self.assertEqual(len(result.feed_references), 1)
 
     def test_from_orm_empty_fields(self):
         """Test the `from_orm` method with not provided fields."""

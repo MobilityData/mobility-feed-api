@@ -29,7 +29,6 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
 
         query = db_session.query(GtfsFeedOrm).filter(
             GtfsFeedOrm.provider == feed.provider,
-            GtfsFeedOrm.feed_name == feed.feed_name,
             GtfsFeedOrm.stable_id != feed.stable_id,
         )
 
