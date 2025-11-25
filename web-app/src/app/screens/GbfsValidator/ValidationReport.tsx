@@ -34,6 +34,7 @@ import {
   ContentTitle,
   ValidationElementCardStyles,
   ValidationErrorPathStyles,
+  rowButtonOutlineErrorSx,
 } from './ValidationReport.styles';
 import { langCodeToName } from '../../services/feeds/utils';
 import { groupErrorsByFile } from './errorGrouping';
@@ -264,8 +265,8 @@ export default function ValidationReport({
                         fg.total > 0 || (fg.systemErrors?.length ?? 0) > 0
                           ? 2
                           : 1,
-                      flexWrap: { xs: 'wrap', sm: 'nowrap'},
-                      gap: { xs: 1, sm: 0}
+                      flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                      gap: { xs: 1, sm: 0 },
                     }}
                     title={`${fg.fileName}.json`}
                     titleTypographyProps={{
@@ -378,7 +379,7 @@ export default function ValidationReport({
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 1.5,
-                                    flexWrap: { xs: 'wrap', sm: 'nowrap' }
+                                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
                                   }}
                                 >
                                   <Chip
@@ -408,7 +409,11 @@ export default function ValidationReport({
                                     }
                                     sx={{
                                       opacity: 0.8,
-                                      minWidth: { xs: 'auto', sm: '125px', md: '225px' },
+                                      minWidth: {
+                                        xs: 'auto',
+                                        sm: '125px',
+                                        md: '225px',
+                                      },
                                     }}
                                   >
                                     {/* Responsive label: hide the word 'occurrences' on md down */}
@@ -436,7 +441,10 @@ export default function ValidationReport({
                                   <Typography
                                     variant='body2'
                                     color='text.secondary'
-                                    sx={{ ml: { xs: 0, sm: 2.5}, overflowX: 'auto' }}
+                                    sx={{
+                                      ml: { xs: 0, sm: 2.5 },
+                                      overflowX: 'auto',
+                                    }}
                                   >
                                     {group.normalizedPath}
                                   </Typography>
@@ -452,7 +460,7 @@ export default function ValidationReport({
                                         display: 'flex',
                                         flexWrap: 'wrap',
                                         gap: 1,
-                                        ml: {xs: 0, sm: 2},
+                                        ml: { xs: 0, sm: 2 },
                                         mt: 0.5,
                                         maxHeight: '500px',
                                         overflowY: 'auto',
@@ -463,7 +471,7 @@ export default function ValidationReport({
                                         <Box
                                           key={j}
                                           role='button'
-                                          tabIndex={0}
+                                          //tabIndex={0}
                                           aria-label={`View details for path ${
                                             occ.error.instancePath ?? '#'
                                           }`}
@@ -489,6 +497,7 @@ export default function ValidationReport({
                                           }}
                                           sx={{
                                             ...ValidationErrorPathStyles(theme),
+                                            position: 'relative',
                                             transition:
                                               'background-color 120ms, box-shadow 120ms',
                                             cursor: 'pointer',
@@ -517,30 +526,15 @@ export default function ValidationReport({
                                           >
                                             {occ.error.instancePath ?? '#'}
                                           </Typography>
-                                          <Button
-                                            size='small'
-                                            color='error'
-                                            variant='outlined'
-                                            disableElevation
+                                          {/* This box is used as an indicator to show users to click the row
+                                          It cannot be a button alone because of accessibility issues with nested buttons */}
+                                          <Box
+                                            component='span'
                                             className='hover-details-btn'
-                                            sx={{
-                                              opacity: 0,
-                                              pointerEvents: 'none',
-                                              transition:
-                                                'opacity 120ms, transform 120ms',
-                                              whiteSpace: 'nowrap',
-                                            }}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              openDetails(
-                                                fg.fileName,
-                                                fg.fileUrl,
-                                                occ.error,
-                                              );
-                                            }}
+                                            sx={rowButtonOutlineErrorSx}
                                           >
                                             Click for details
-                                          </Button>
+                                          </Box>
                                         </Box>
                                       ))}
                                     </Box>
