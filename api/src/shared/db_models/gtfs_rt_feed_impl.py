@@ -27,28 +27,13 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations] if feed.locations else []
         gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes] if feed.entitytypes else []
 
-        # Base query: same provider_id, but not the same feed
-        query = (
-            db_session.query(GtfsFeedOrm)
-            .filter(
-                GtfsFeedOrm.provider_id == feed.provider_id,
-                GtfsFeedOrm.stable_id != feed.stable_id,
-            )
-            .options(joinedload(GtfsFeedOrm.locations))
+        query = db_session.query(GtfsFeedOrm).filter(
+            GtfsFeedOrm.provider == feed.provider,
+            GtfsFeedOrm.feed_name == feed.feed_name,
+            GtfsFeedOrm.stable_id != feed.stable_id,
         )
 
-        # If the GtfsRT feed has locations, require overlap
-        rt_location_ids = {loc.id for loc in feed.locations} if feed.locations else set()
-        feed_references = []
-        for gtfs_feed in query.all():
-            if rt_location_ids:
-                gtfs_location_ids = {loc.id for loc in gtfs_feed.locations}
-                if gtfs_location_ids.isdisjoint(rt_location_ids):
-                    continue
-
-            feed_references.append(gtfs_feed.stable_id)
-
-        gtfs_rt_feed.feed_references = feed_references
+        gtfs_rt_feed.feed_references = [gtfs_feed.stable_id for gtfs_feed in query.all()]
 
         return gtfs_rt_feed
 
