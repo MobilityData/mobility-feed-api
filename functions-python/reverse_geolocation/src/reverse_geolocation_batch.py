@@ -65,8 +65,8 @@ def get_feeds_data(
     return [d for d in data if d["stops_url"]]
 
 
-def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
-    """Parse the request parameters to get the country codes and whether to include only unprocessed feeds."""
+def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool, bool]:
+    """Parse the request parameters"""
     json_request = request.get_json()
     country_codes = json_request.get("country_codes", "").split(",")
     country_codes = [code.strip().upper() for code in country_codes if code]
@@ -78,13 +78,16 @@ def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
     include_only_unprocessed = (
         json_request.get("include_only_unprocessed", True) is True
     )
-    return country_codes, include_only_unprocessed
+    use_cache = bool(json_request.get("use_cache", True)) is True
+    return country_codes, include_only_unprocessed, use_cache
 
 
 def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
     """Batch function to trigger reverse geolocation for feeds."""
     try:
-        country_codes, include_only_unprocessed = parse_request_parameters(request)
+        country_codes, include_only_unprocessed, use_cache = parse_request_parameters(
+            request
+        )
         feeds_data = get_feeds_data(country_codes, include_only_unprocessed)
         logging.info("Valid feeds with latest dataset: %s", len(feeds_data))
 
@@ -93,6 +96,7 @@ def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
                 stable_id=feed["stable_id"],
                 dataset_id=feed["dataset_id"],
                 stops_url=feed["stops_url"],
+                use_cache=use_cache,
             )
         return f"Batch function triggered for {len(feeds_data)} feeds.", 200
     except Exception as e:
@@ -104,13 +108,19 @@ def create_http_processor_task(
     stable_id: str,
     dataset_id: str,
     stops_url: str,
+    use_cache: bool = False,
 ) -> None:
     """
     Create a task to process a group of points.
     """
     client = tasks_v2.CloudTasksClient()
     body = json.dumps(
-        {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_id}
+        {
+            "stable_id": stable_id,
+            "stops_url": stops_url,
+            "dataset_id": dataset_id,
+            "use_cache": use_cache,
+        }
     ).encode()
     queue_name = os.getenv("QUEUE_NAME")
     project_id = os.getenv("PROJECT_ID")
