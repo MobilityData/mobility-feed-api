@@ -330,7 +330,7 @@ async function createGithubIssue(
       labels.push(continent);
     }
   } catch (error) {
-      console.error(`Error finding continent for code ${formData.country}:`, error);
+    logger.error("Error finding continent for code ${formData.country}:", error);
   }
 
   try {
