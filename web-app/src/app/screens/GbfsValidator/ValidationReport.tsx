@@ -471,7 +471,7 @@ export default function ValidationReport({
                                         <Box
                                           key={j}
                                           role='button'
-                                          //tabIndex={0}
+                                          tabIndex={0}
                                           aria-label={`View details for path ${
                                             occ.error.instancePath ?? '#'
                                           }`}

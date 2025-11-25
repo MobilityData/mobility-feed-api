@@ -116,14 +116,6 @@ export const dialogTitleSx: SxProps<Theme> = () => ({
   justifyContent: 'space-between',
 });
 
-export const codeInlineStyle = (theme: Theme): CSSProperties => ({
-  display: 'inline-block',
-  padding: theme.spacing(0.5, 1),
-  borderRadius: 4,
-  background: theme.palette.action.hover,
-  border: `1px solid ${theme.palette.divider}`,
-});
-
 export const highlightedPreSx: SxProps<Theme> = (theme: Theme) => ({
   m: 0,
   p: 1,
@@ -188,8 +180,6 @@ export const keyTypographySx = (
   color: isHitProp ? theme.palette.error.main : 'inherit',
 });
 
-export const arrayListSx = { m: 0, pl: 2 } as CSSProperties;
-
 export const listItemSx = (
   theme: Theme,
   isOffender: boolean,
@@ -202,11 +192,11 @@ export const listItemSx = (
   wordBreak: 'break-word',
 });
 
-export const valueTypographySx = {
+export const valueTypographySx: SxProps<Theme> = (theme: Theme) => ({
   fontFamily: 'inherit',
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
-} as CSSProperties;
+});
 
 export const outlinePreSx: SxProps<Theme> = (theme: Theme) => ({
   m: 0,
