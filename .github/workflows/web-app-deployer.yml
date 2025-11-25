@@ -38,6 +38,10 @@ on:
         description: 1Password GitHub token secret reference
         type: string
         required: false
+      OP_SENTRY_DSN:
+        description: Reference to the 1Password Sentry DSN secret
+        type: string
+        required: false
       ENABLE_QUALITY_CHECKS:
         description: When true the tests and lint checks are performed(default), false will skip. This is only valid in protopype and demo deployments
         type: boolean
@@ -172,6 +176,7 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           SLACK_WEBHOOK_URL: ${{inputs.OP_SLACK_WEBHOOK_URL}}
           ADD_FEED_FORM_GITHUB_TOKEN: ${{inputs.OP_ADD_FEED_FORM_GITHUB_TOKEN}}
+          SENTRY_DSN: ${{inputs.OP_SENTRY_DSN}}
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
@@ -235,6 +240,10 @@ jobs:
             echo "REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI=3600000" >> $GITHUB_ENV
             echo "REACT_APP_FEED_API_BASE_URL=https://api.mobilitydatabase.org" >> $GITHUB_ENV
             echo "REACT_APP_GBFS_VALIDATOR_API_BASE_URL=https://dev.gbfs.api.mobilitydatabase.org" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_DSN=${{ env.SENTRY_DSN }}" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE=0.1" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE=0.1" >> $GITHUB_ENV
+            echo "REACT_APP_SENTRY_TRACES_SAMPLE_RATE=0.05" >> $GITHUB_ENV
           else
             echo "Setting FIREBASE_PROJECT to 'dev'"
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
@@ -253,7 +262,7 @@ jobs:
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL,REACT_APP_GBFS_VALIDATOR_API_BASE_URL
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL,REACT_APP_GBFS_VALIDATOR_API_BASE_URL -optional_variables REACT_APP_SENTRY_DSN,REACT_APP_SENTRY_TRACES_SAMPLE_RATE,REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE,REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE
 
       - name: Run Install for Functions
         if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
