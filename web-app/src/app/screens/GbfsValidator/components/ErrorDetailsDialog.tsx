@@ -33,14 +33,12 @@ import { useGbfsAuth } from '../../../context/GbfsAuthProvider';
 import { removePathFromMessage } from '../errorGrouping';
 import {
   dialogTitleSx,
-  codeInlineStyle,
   highlightedPreSx,
   highlightedContainerSx,
   highlightedTitleSx,
   highlightedInnerSx,
   entryRowSx,
   keyTypographySx,
-  arrayListSx,
   listItemSx,
   valueTypographySx,
   outlinePreSx,
@@ -217,6 +215,7 @@ export function ErrorDetailsDialog({
               isHitProp && arrayIndex == null ? { ref: offendingRef } : {};
             return (
               <Tooltip
+                key={k}
                 title={
                   isHitProp
                     ? removePathFromMessage(
@@ -227,7 +226,7 @@ export function ErrorDetailsDialog({
                 }
                 placement='top-start'
               >
-                <Box key={k} {...rowProps} sx={entryRowSx(theme, isHitProp)}>
+                <Box {...rowProps} sx={entryRowSx(theme, isHitProp)}>
                   <Typography
                     component='span'
                     sx={keyTypographySx(theme, isHitProp)}
@@ -236,7 +235,7 @@ export function ErrorDetailsDialog({
                   </Typography>
 
                   {Array.isArray(v) ? (
-                    <Box component='ol' sx={arrayListSx}>
+                    <Box component='ol' sx={{ m: 0, pl: 2 }}>
                       {v.map((item, idx) => {
                         const isOffender =
                           isHitProp && arrayIndex != null && idx === arrayIndex;
@@ -322,7 +321,7 @@ export function ErrorDetailsDialog({
                     width: '100%',
                     alignItems: 'center',
                     gap: 2,
-                    flexWrap: { xs: 'wrap', sm: 'nowrap'}
+                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
                   }}
                 >
                   <Chip size='small' color='error' label={error.keyword} />
