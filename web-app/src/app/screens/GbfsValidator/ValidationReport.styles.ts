@@ -89,11 +89,17 @@ export const AlertErrorBoxStyles = (
 });
 
 export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
-  padding: theme.spacing(0.5),
   background: theme.palette.background.paper,
   width: '100%',
   overflowX: 'auto',
   fontSize: '0.875em',
+  position: 'relative',
+  display: 'inline-flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: theme.spacing(0.5, 1.25),
+  borderRadius: theme.spacing(1.5),
+
 });
 
 export const ContentTitle = styled(Typography)(({ theme }) => ({
@@ -112,7 +118,7 @@ export const dialogTitleSx: SxProps<Theme> = () => ({
 
 export const codeInlineStyle = (theme: Theme): CSSProperties => ({
   display: 'inline-block',
-  padding: '1px 6px',
+  padding: theme.spacing(0.5, 1),
   borderRadius: 4,
   background: theme.palette.action.hover,
   border: `1px solid ${theme.palette.divider}`,
@@ -131,19 +137,22 @@ export const highlightedPreSx: SxProps<Theme> = (theme: Theme) => ({
 });
 
 export const highlightedContainerSx: SxProps<Theme> = (theme: Theme) => ({
-  border: '2px solid',
-  borderColor: theme.palette.secondary.light,
+  border: '1px solid',
+  borderColor: theme.palette.divider,
   borderRadius: 2,
   overflow: 'hidden',
 });
 
 export const highlightedTitleSx: SxProps<Theme> = (theme: Theme) => ({
   width: '100%',
-  backgroundColor: theme.palette.secondary.light,
+  backgroundColor: theme.palette.background.default,
+  borderBottom: `1px solid ${theme.palette.divider}`,
   p: 1,
-  px: 2,
-  color: theme.palette.secondary.dark,
-  fontWeight: 'bold',
+  px: 1,
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
 });
 
 export const highlightedInnerSx: SxProps<Theme> = (theme: Theme) => ({

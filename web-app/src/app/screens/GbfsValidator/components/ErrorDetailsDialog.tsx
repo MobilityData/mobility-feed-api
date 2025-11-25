@@ -43,7 +43,9 @@ import {
   listItemSx,
   valueTypographySx,
   outlinePreSx,
+  ValidationErrorPathStyles,
 } from '../ValidationReport.styles';
+import DataObjectIcon from '@mui/icons-material/DataObject';
 
 export type FileError = components['schemas']['FileError'];
 
@@ -199,7 +201,13 @@ export function ErrorDetailsDialog({
 
     return (
       <Box sx={highlightedContainerSx}>
-        <Typography sx={highlightedTitleSx}>{error?.instancePath}</Typography>
+        <Box sx={highlightedTitleSx}>
+          <DataObjectIcon />
+          <Typography sx={{ fontWeight: 'bold' }}>
+            {error?.instancePath}
+          </Typography>
+        </Box>
+
         <Box sx={highlightedInnerSx}>
           {entries.map(([k, v]) => {
             const isHitProp = key != null && k === key;
@@ -257,47 +265,67 @@ export function ErrorDetailsDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth PaperProps={{ sx: { backgroundColor: theme.palette.background.default } }}>
       <DialogTitle sx={dialogTitleSx}>
-        <Box component='span'>Validation error in {fileName}.json</Box>
+        <Typography variant='h6'>
+          Validation error in {fileName}.json
+        </Typography>
         <IconButton aria-label='close' onClick={onClose} size='small'>
           <CloseIcon fontSize='small' />
         </IconButton>
       </DialogTitle>
       <DialogContent dividers>
         {error != null && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant='subtitle2'>Instance path</Typography>
-                <Typography component='div'>
-                  <code style={codeInlineStyle(theme)}>
-                    {error.instancePath ?? '#'}
-                  </code>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1}}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box width={'100%'}>
+                <Typography
+                  variant='subtitle2'
+                  sx={{ color: theme.palette.text.secondary}}
+                >
+                  Instance path
                 </Typography>
+                <code style={ValidationErrorPathStyles(theme)}>
+                  {error.instancePath ?? '#'}
+                </code>
               </Box>
-              <Box>
-                <Typography variant='subtitle2'>Schema path</Typography>
-                <Typography component='div'>
-                  <code style={codeInlineStyle(theme)}>
-                    {error.schemaPath ?? '#'}
-                  </code>
+              <Box width={'100%'}>
+                <Typography
+                  variant='subtitle2'
+                  sx={{ color: theme.palette.text.secondary, width: '100%' }}
+                >
+                  Schema path
                 </Typography>
+                <code style={ValidationErrorPathStyles(theme)}>
+                  {error.schemaPath ?? '#'}
+                </code>
+              </Box>
+              <Box sx={{ mt: 2, width: '100%' }}>
+                <Typography
+                  variant='subtitle2'
+                  sx={{ color: theme.palette.text.secondary, width: '100%' }}
+                >
+                  Error Message
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    width: '100%',
+                    alignItems: 'center',
+                    gap: 2,
+                  }}
+                >
+                  <Chip size='small' color='error' label={error.keyword} />
+                  <Typography variant='subtitle1'>
+                    {removePathFromMessage(
+                      error.message,
+                      error.instancePath,
+                    ).replace(': ', '')}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                width: '100%',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <Chip size='small' color='error' label={error.keyword} />
-              <Typography variant='subtitle1'>
-                {removePathFromMessage(error.message, error.instancePath)}
-              </Typography>
-            </Box>
+
             {fileUrl != null && fileUrl !== '' && (
               <Box sx={{ mt: 1 }}>
                 <Box>
