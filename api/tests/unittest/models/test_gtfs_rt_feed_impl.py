@@ -9,7 +9,6 @@ from shared.database_gen.sqlacodegen_models import (
     Location,
     Redirectingid,
     Feed,
-    Gtfsfeed,
 )
 from feeds_gen.models.source_info import SourceInfo
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
