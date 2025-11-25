@@ -214,49 +214,49 @@ export function ErrorDetailsDialog({
             const rowProps =
               isHitProp && arrayIndex == null ? { ref: offendingRef } : {};
             return (
-              <Box key={k} {...rowProps} sx={entryRowSx(theme, isHitProp)}>
-                <Tooltip
-                  title={
-                    isHitProp
-                      ? removePathFromMessage(
-                          error?.message ?? '',
-                          error?.instancePath ?? '',
-                        )
-                      : ''
-                  }
-                  placement='top'
-                >
+              <Tooltip
+                title={
+                  isHitProp
+                    ? removePathFromMessage(
+                        error?.message ?? '',
+                        error?.instancePath ?? '',
+                      ).replace(': ', '')
+                    : ''
+                }
+                placement='top-start'
+              >
+                <Box key={k} {...rowProps} sx={entryRowSx(theme, isHitProp)}>
                   <Typography
                     component='span'
                     sx={keyTypographySx(theme, isHitProp)}
                   >
                     {k}:
                   </Typography>
-                </Tooltip>
 
-                {Array.isArray(v) ? (
-                  <Box component='ol' sx={arrayListSx}>
-                    {v.map((item, idx) => {
-                      const isOffender =
-                        isHitProp && arrayIndex != null && idx === arrayIndex;
-                      return (
-                        <Box
-                          key={idx}
-                          sx={listItemSx(theme, isOffender)}
-                          component='li'
-                          ref={isOffender ? offendingRef : undefined}
-                        >
-                          {formatJson(item, 0)}
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                ) : (
-                  <Typography component='span' sx={valueTypographySx}>
-                    {formatJson(v, 0)}
-                  </Typography>
-                )}
-              </Box>
+                  {Array.isArray(v) ? (
+                    <Box component='ol' sx={arrayListSx}>
+                      {v.map((item, idx) => {
+                        const isOffender =
+                          isHitProp && arrayIndex != null && idx === arrayIndex;
+                        return (
+                          <Box
+                            key={idx}
+                            sx={listItemSx(theme, isOffender)}
+                            component='li'
+                            ref={isOffender ? offendingRef : undefined}
+                          >
+                            {formatJson(item, 0)}
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  ) : (
+                    <Typography component='span' sx={valueTypographySx}>
+                      {formatJson(v, 0)}
+                    </Typography>
+                  )}
+                </Box>
+              </Tooltip>
             );
           })}
         </Box>
@@ -265,7 +265,13 @@ export function ErrorDetailsDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth PaperProps={{ sx: { backgroundColor: theme.palette.background.default } }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth='md'
+      fullWidth
+      PaperProps={{ sx: { backgroundColor: theme.palette.background.default } }}
+    >
       <DialogTitle sx={dialogTitleSx}>
         <Typography variant='h6'>
           Validation error in {fileName}.json
@@ -276,12 +282,12 @@ export function ErrorDetailsDialog({
       </DialogTitle>
       <DialogContent dividers>
         {error != null && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1}}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Box width={'100%'}>
                 <Typography
                   variant='subtitle2'
-                  sx={{ color: theme.palette.text.secondary}}
+                  sx={{ color: theme.palette.text.secondary }}
                 >
                   Instance path
                 </Typography>
