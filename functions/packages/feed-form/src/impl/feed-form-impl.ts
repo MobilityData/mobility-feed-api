@@ -324,14 +324,10 @@ async function createGithubIssue(
   const issueBody = buildGithubIssueBody(formData, spreadsheetId);
 
   const labels = ["feed submission"];
-  try {
-    if (formData.country && formData.country in countries) {
-      const country = countries[formData.country as TCountryCode];
-      const continent = continents[country.continent].toLowerCase();
-      labels.push(continent);
-    }
-  } catch (error) {
-    logger.error("Error mapping ${formData.country} to continent", error);
+  if (formData.country && formData.country in countries) {
+    const country = countries[formData.country as TCountryCode];
+    const continent = continents[country.continent].toLowerCase();
+    if (continent != null) labels.push(continent);
   }
 
   try {
