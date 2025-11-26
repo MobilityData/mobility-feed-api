@@ -78,7 +78,7 @@ def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool, b
     include_only_unprocessed = (
         json_request.get("include_only_unprocessed", True) is True
     )
-    use_cache = bool(json_request.get("use_cache", True)) is True
+    use_cache = bool(json_request.get("use_cache", True))
     return country_codes, include_only_unprocessed, use_cache
 
 
