@@ -4,6 +4,7 @@ import * as logger from "firebase-functions/logger";
 import {type FeedSubmissionFormRequestBody} from "./types";
 import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
 import axios from "axios";
+import {countries, continents, type TCountryCode} from "countries-list";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
@@ -321,13 +322,21 @@ async function createGithubIssue(
     issueTitle += " - Official Feed";
   }
   const issueBody = buildGithubIssueBody(formData, spreadsheetId);
+
+  const labels = ["feed submission"];
+  if (formData.country && formData.country in countries) {
+    const country = countries[formData.country as TCountryCode];
+    const continent = continents[country.continent].toLowerCase();
+    if (continent != null) labels.push(continent);
+  }
+
   try {
     const response = await axios.post(
       githubRepoUrlIssue,
       {
         title: issueTitle,
         body: issueBody,
-        labels: ["feed submission"],
+        labels,
       },
       {
         headers: {
