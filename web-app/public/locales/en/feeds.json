@@ -223,5 +223,15 @@
       "radius": "Radius: {{px}}px"
     }
   },
-  "relatedLinks": "Related Links"
+  "relatedLinks": "Related Links",
+  "externalIds": {
+    "title": "External Identifiers",
+    "tooltips": {
+      "jbda": "Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.",
+      "tdg": "Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.",
+      "ntd": "Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.",
+      "tfs": "Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.",
+      "tld": "Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-."
+    }
+  }
 }
