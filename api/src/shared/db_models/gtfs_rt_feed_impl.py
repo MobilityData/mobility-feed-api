@@ -20,23 +20,13 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         from_attributes = True
 
     @classmethod
-    @with_db_session
-    def from_orm(cls, feed: Gtfsrealtimefeed | None, db_session: Session) -> GtfsRTFeed | None:
+    def from_orm(cls, feed: Gtfsrealtimefeed | None) -> GtfsRTFeed | None:
         gtfs_rt_feed: GtfsRTFeed = super().from_orm(feed)
         if not gtfs_rt_feed:
             return None
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations] if feed.locations else []
         gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes] if feed.entitytypes else []
-
-        provider_value = (feed.provider or "").strip().lower()
-
-        query = db_session.query(FeedOrm).filter(
-            func.lower(func.trim(FeedOrm.provider)) == provider_value,
-            FeedOrm.stable_id != feed.stable_id,
-        )
-
-        gtfs_rt_feed.feed_references = [gtfs_feed.stable_id for gtfs_feed in query.all()]
-
+        gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
         return gtfs_rt_feed
 
     @classmethod
