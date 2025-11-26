@@ -68,9 +68,6 @@ export const ValidationElementCardStyles = (
   bgcolor: 'background.default',
   transition: 'box-shadow 0.3s ease',
   mt: index === 0 ? 0.5 : 0,
-  '&:focus': {
-    boxShadow: `0 0 0 3px ${theme.palette.primary.main}`,
-  },
 });
 
 export const AlertErrorBoxStyles = (

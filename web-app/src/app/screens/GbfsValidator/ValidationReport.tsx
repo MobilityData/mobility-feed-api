@@ -23,9 +23,7 @@ import {
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import LanguageIcon from '@mui/icons-material/Language';
-import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { type components } from '../../services/feeds/gbfs-validator-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { OpenInNew } from '@mui/icons-material';
@@ -40,6 +38,8 @@ import { langCodeToName } from '../../services/feeds/utils';
 import { groupErrorsByFile } from './errorGrouping';
 import { ValidationReportSkeletonLoading } from './ValidationReportSkeletonLoading';
 import ErrorDetailsDialog from './components/ErrorDetailsDialog';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 
 export type ValidationResult = components['schemas']['ValidationResult'];
 export type GbfsFile = components['schemas']['GbfsFile'];
@@ -188,9 +188,7 @@ export default function ValidationReport({
                       : '';
                   return (
                     <ListItem disablePadding key={file.name}>
-                      <ListItemButton
-                        onClick={() => fileGroupRefs.current[index]?.focus()}
-                      >
+                      <ListItemButton>
                         <ListItemIcon>
                           {totalCount > 0 ? (
                             <Badge
@@ -287,12 +285,13 @@ export default function ValidationReport({
                         sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                       >
                         {fg.total > 0 && (
-                          <Chip
-                            size='small'
-                            color='error'
-                            variant='outlined'
-                            label={`${fg.total} errors`}
-                          />
+                          <Typography
+                            color={'error'}
+                            sx={{ fontWeight: 'bold' }}
+                            variant='body2'
+                          >
+                            {`${fg.total} total errors`}
+                          </Typography>
                         )}
                         {fg.fileUrl != null && fg.fileUrl !== '' && (
                           <Button
@@ -356,195 +355,220 @@ export default function ValidationReport({
 
                   {(fg.groups.length > 0 || fg.systemErrors?.length > 0) && (
                     <Box sx={{ px: 2, pb: 2 }}>
-                      {fg.groups.map((group, i) => (
-                        <Box
-                          key={group.key}
-                          sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.25,
-                            py: 0.75,
-                            borderBottom:
-                              i < fg.groups.length - 1 ? '1px solid' : 'none',
-                            borderColor: 'divider',
-                          }}
-                        >
-                          {(() => {
-                            const groupId = `${fg.fileName}::${group.key}`;
-                            const expanded = !!groupedExpanded[groupId];
-                            return (
-                              <>
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 1.5,
-                                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                                  }}
-                                >
-                                  <Chip
-                                    size='small'
-                                    color='error'
-                                    label={`${group.occurrences[0].error.keyword}`}
-                                  />
-                                  <Typography sx={{ fontWeight: 600 }}>
-                                    {group.message.replace(':', '')}
-                                  </Typography>
-                                  <Box sx={{ flexGrow: 1 }} />
-                                  <Button
-                                    size='small'
-                                    color='inherit'
+                      {fg.groups.map((group, i) => {
+                        const groupId = `${fg.fileName}::${group.key}`;
+                        const expanded = !!groupedExpanded[groupId];
+                        return (
+                          <Box
+                            key={group.key}
+                            sx={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.25,
+                              borderBottom:
+                                i < fg.groups.length - 1 ? '1px solid' : 'none',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            {(() => {
+                              return (
+                                <>
+                                  <Box
+                                    sx={{
+                                      py: 0.75,
+                                      px: 0.5,
+                                      cursor: 'pointer',
+                                      // hide/show the details button only on hover/focus of this header
+                                      '.hover-details-btn': {
+                                        opacity: 0,
+                                        pointerEvents: 'none',
+                                        transition: 'opacity 120ms',
+                                      },
+                                      '&:hover': {
+                                        backgroundColor:
+                                          theme.palette.action.hover,
+                                      },
+                                      '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                        {
+                                          opacity: 0.8,
+                                          pointerEvents: 'auto',
+                                        },
+                                    }}
                                     onClick={() => {
                                       setGroupedExpanded((prev) => ({
                                         ...prev,
                                         [groupId]: !expanded,
                                       }));
                                     }}
-                                    startIcon={
-                                      expanded ? (
-                                        <UnfoldLessIcon />
-                                      ) : (
-                                        <UnfoldMoreIcon />
-                                      )
-                                    }
-                                    sx={{
-                                      opacity: 0.8,
-                                      minWidth: {
-                                        xs: 'auto',
-                                        sm: '125px',
-                                        md: '225px',
-                                      },
-                                    }}
                                   >
-                                    {/* Responsive label: hide the word 'occurrences' on md down */}
-                                    <Box
-                                      component='span'
-                                      sx={{
-                                        display: { xs: 'inline', md: 'none' },
-                                      }}
-                                    >
-                                      {expanded ? 'Hide' : 'Show'} (
-                                      {group.occurrences.length})
-                                    </Box>
-                                    <Box
-                                      component='span'
-                                      sx={{
-                                        display: { xs: 'none', md: 'inline' },
-                                      }}
-                                    >
-                                      {expanded ? 'Hide' : 'Show'} occurrences (
-                                      {group.occurrences.length})
-                                    </Box>
-                                  </Button>
-                                </Box>
-                                {group.message !== '' && (
-                                  <Typography
-                                    variant='body2'
-                                    color='text.secondary'
-                                    sx={{
-                                      ml: { xs: 0, sm: 2.5 },
-                                      overflowX: 'auto',
-                                    }}
-                                  >
-                                    {group.normalizedPath}
-                                  </Typography>
-                                )}
-                                <Collapse
-                                  in={expanded}
-                                  timeout='auto'
-                                  unmountOnExit
-                                >
-                                  {group.occurrences.length > 0 && (
                                     <Box
                                       sx={{
                                         display: 'flex',
-                                        flexWrap: 'wrap',
-                                        gap: 1,
-                                        ml: { xs: 0, sm: 2 },
-                                        mt: 0.5,
-                                        maxHeight: '500px',
-                                        overflowY: 'auto',
-                                        p: 0.5,
+                                        alignItems: 'center',
+                                        gap: 1.5,
+                                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
                                       }}
                                     >
-                                      {group.occurrences.map((occ, j) => (
-                                        <Box
-                                          key={j}
-                                          role='button'
-                                          tabIndex={0}
-                                          aria-label={`View details for path ${
-                                            occ.error.instancePath ?? '#'
-                                          }`}
-                                          onClick={() => {
-                                            openDetails(
-                                              fg.fileName,
-                                              fg.fileUrl,
-                                              occ.error,
-                                            );
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (
-                                              e.key === 'Enter' ||
-                                              e.key === ' '
-                                            ) {
-                                              e.preventDefault();
+                                      <Chip
+                                        size='small'
+                                        color='error'
+                                        variant='outlined'
+                                        label={`${group.occurrences[0].error.keyword}`}
+                                      />
+                                      <Typography sx={{ fontWeight: 600 }}>
+                                        {group.message.replace(':', '')}
+                                      </Typography>
+                                      <Box sx={{ flexGrow: 1 }} />
+                                      <Button
+                                        className='hover-details-btn'
+                                        variant='outlined'
+                                        color='error'
+                                        size='small'
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openDetails(
+                                            fg.fileName,
+                                            fg.fileUrl,
+                                            group.occurrences[0].error,
+                                          );
+                                        }}
+                                      >
+                                        View First Error
+                                      </Button>
+                                      <Button
+                                        color='inherit'
+                                        onClick={() => {
+                                          setGroupedExpanded((prev) => ({
+                                            ...prev,
+                                            [groupId]: !expanded,
+                                          }));
+                                        }}
+                                        endIcon={
+                                          expanded ? (
+                                            <ExpandLess />
+                                          ) : (
+                                            <ExpandMore />
+                                          )
+                                        }
+                                        sx={{
+                                          opacity: 0.8,
+                                        }}
+                                      >
+                                        <b>{group.occurrences.length}</b>x
+                                      </Button>
+                                    </Box>
+                                    {group.message !== '' && (
+                                      <Typography
+                                        variant='body2'
+                                        color='text.secondary'
+                                        sx={{
+                                          ml: { xs: 0, sm: 2.5 },
+                                          overflowX: 'auto',
+                                        }}
+                                      >
+                                        {group.normalizedPath}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  <Collapse
+                                    in={expanded}
+                                    timeout='auto'
+                                    unmountOnExit
+                                  >
+                                    {group.occurrences.length > 0 && (
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          flexWrap: 'wrap',
+                                          gap: 1,
+                                          ml: { xs: 0, sm: 2 },
+                                          mt: 0.5,
+                                          maxHeight: '500px',
+                                          overflowY: 'auto',
+                                          p: 0.5,
+                                        }}
+                                      >
+                                        {group.occurrences.map((occ, j) => (
+                                          <Box
+                                            key={j}
+                                            role='button'
+                                            tabIndex={0}
+                                            aria-label={`View details for path ${
+                                              occ.error.instancePath ?? '#'
+                                            }`}
+                                            onClick={() => {
                                               openDetails(
                                                 fg.fileName,
                                                 fg.fileUrl,
                                                 occ.error,
                                               );
-                                            }
-                                          }}
-                                          sx={{
-                                            ...ValidationErrorPathStyles(theme),
-                                            position: 'relative',
-                                            transition:
-                                              'background-color 120ms, box-shadow 120ms',
-                                            cursor: 'pointer',
-                                            '&:hover': {
-                                              boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
-                                            },
-                                            '&:focus-visible': {
-                                              outline: 'none',
-                                              boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
-                                            },
-                                            '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
-                                              {
-                                                opacity: 0.7,
-
-                                                pointerEvents: 'auto',
-                                              },
-                                          }}
-                                        >
-                                          <Typography
-                                            component='span'
-                                            variant='caption'
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (
+                                                e.key === 'Enter' ||
+                                                e.key === ' '
+                                              ) {
+                                                e.preventDefault();
+                                                openDetails(
+                                                  fg.fileName,
+                                                  fg.fileUrl,
+                                                  occ.error,
+                                                );
+                                              }
+                                            }}
                                             sx={{
-                                              fontFamily: 'monospace',
-                                              pr: 3,
+                                              ...ValidationErrorPathStyles(
+                                                theme,
+                                              ),
+                                              position: 'relative',
+                                              transition:
+                                                'background-color 120ms, box-shadow 120ms',
+                                              cursor: 'pointer',
+                                              '&:hover': {
+                                                boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
+                                              },
+                                              '&:focus-visible': {
+                                                outline: 'none',
+                                                boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
+                                              },
+                                              '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                                {
+                                                  opacity: 0.7,
+
+                                                  pointerEvents: 'auto',
+                                                },
                                             }}
                                           >
-                                            {occ.error.instancePath ?? '#'}
-                                          </Typography>
-                                          {/* This box is used as an indicator to show users to click the row
+                                            <Typography
+                                              component='span'
+                                              variant='caption'
+                                              sx={{
+                                                fontFamily: 'monospace',
+                                                pr: 3,
+                                              }}
+                                            >
+                                              {occ.error.instancePath ?? '#'}
+                                            </Typography>
+                                            {/* This box is used as an indicator to show users to click the row
                                           It cannot be a button alone because of accessibility issues with nested buttons */}
-                                          <Box
-                                            component='span'
-                                            className='hover-details-btn'
-                                            sx={rowButtonOutlineErrorSx}
-                                          >
-                                            Click for details
+                                            <Box
+                                              component='span'
+                                              className='hover-details-btn'
+                                              sx={rowButtonOutlineErrorSx}
+                                            >
+                                              Click for details
+                                            </Box>
                                           </Box>
-                                        </Box>
-                                      ))}
-                                    </Box>
-                                  )}
-                                </Collapse>
-                              </>
-                            );
-                          })()}
-                        </Box>
-                      ))}
+                                        ))}
+                                      </Box>
+                                    )}
+                                  </Collapse>
+                                </>
+                              );
+                            })()}
+                          </Box>
+                        );
+                      })}
                       {(fg.systemErrors?.length ?? 0) > 0 && (
                         <Collapse
                           in={!!visibleSystemErrorsByFile[fg.fileName]}
