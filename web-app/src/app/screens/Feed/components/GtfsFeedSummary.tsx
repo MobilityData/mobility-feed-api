@@ -54,6 +54,7 @@ import { getFeatureComponentDecorators } from '../../../utils/consts';
 import Locations from '../../../components/Locations';
 import CopyLinkElement from './CopyLinkElement';
 import { formatDateShort } from '../../../utils/date';
+import ExternalIds from './ExternalIds';
 
 export interface GtfsFeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -151,6 +152,10 @@ export default function GtfsFeedSummary({
                 </>
               </Typography>
             </Tooltip>
+          )}
+
+          {feed?.external_ids != null && feed.external_ids.length > 0 && (
+            <ExternalIds externalIds={feed?.external_ids} />
           )}
         </Box>
       </GroupCard>
@@ -623,6 +628,7 @@ export default function GtfsFeedSummary({
           ))}
         </GroupCard>
       )}
+
       <Dialog
         fullScreen={fullScreen}
         maxWidth='md'
