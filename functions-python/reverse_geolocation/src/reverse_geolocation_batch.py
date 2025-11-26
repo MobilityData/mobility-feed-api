@@ -108,7 +108,7 @@ def create_http_processor_task(
     stable_id: str,
     dataset_id: str,
     stops_url: str,
-    use_cache: bool = False,
+    use_cache: bool = True,
 ) -> None:
     """
     Create a task to process a group of points.
