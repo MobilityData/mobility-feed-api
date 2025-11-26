@@ -107,11 +107,11 @@ def _process_feeds(
                     existing_externalid[0].associated_id,
                 )
             else:
-                feed.externalids = [
+                feed.externalids.append(
                     Externalid(
                         source="transitfeeds", associated_id=row["External Feed ID"]
                     )
-                ]
+                )
             feed.operational_status = "published"
             # Init-on-create (shared fields)
             if is_new:
