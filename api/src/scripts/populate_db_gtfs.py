@@ -118,95 +118,32 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
             feed.entitytypes.clear()
 
-    # def process_feed_references(self, session: "Session"):
-    #     """
-    #     Process the feed references
-    #     """
-    #     self.logger.info("Processing feed references")
-    #     for index, row in self.df.iterrows():
-    #         stable_id = self.get_stable_id(row)
-    #         data_type = self.get_data_type(row)
-    #         if data_type != "gtfs_rt":
-    #             continue
-    #         gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
-    #         static_reference = self.get_safe_value(row, "static_reference", "")
-    #         if static_reference:
-    #             try:
-    #                 gtfs_stable_id = f"mdb-{int(float(static_reference))}"
-    #             except ValueError:
-    #                 gtfs_stable_id = static_reference
-    #             gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
-    #             if not gtfs_feed:
-    #                 self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
-    #                 continue
-    #             already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-    #             if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
-    #                 gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-    #                 # Flush to avoid FK violation
-    #                 session.flush()
-
     def process_feed_references(self, session: "Session"):
         """
-        Process the feed references for GTFS-RT feeds.
-
-        1. Uses 'static_reference' column if present.
-        2. Falls back to matching static feeds by provider name.
+        Process the feed references
         """
         self.logger.info("Processing feed references")
-
         for index, row in self.df.iterrows():
             stable_id = self.get_stable_id(row)
             data_type = self.get_data_type(row)
-
-            # Only process GTFS-RT feeds
             if data_type != "gtfs_rt":
                 continue
-
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
-            if not gtfs_rt_feed:
-                self.logger.warning(f"Could not find GTFS-RT feed {stable_id}")
-                continue
-
-            # Try static_reference column first
-            static_reference = self.get_safe_value(row, "static_reference", "").strip()
-            gtfs_feed = None
-
+            static_reference = self.get_safe_value(row, "static_reference", "")
             if static_reference:
-                # Normalize stable_id
                 try:
                     gtfs_stable_id = f"mdb-{int(float(static_reference))}"
                 except ValueError:
                     gtfs_stable_id = static_reference
-
                 gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
                 if not gtfs_feed:
                     self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
-
-            # Fallback: match by provider if no static_reference or not found
-            if not gtfs_feed:
-                provider_value = (self.get_safe_value(row, "provider", "") or "").strip().lower()
-                if provider_value:
-                    gtfs_feed = (
-                        session.query(Gtfsfeed)
-                        .filter(
-                            Gtfsfeed.data_type == "gtfs",
-                            func.lower(func.trim(Gtfsfeed.provider)) == provider_value,
-                            Gtfsfeed.stable_id != stable_id,
-                        )
-                        .first()
-                    )
-                    if not gtfs_feed:
-                        self.logger.warning(
-                            f"No static GTFS feed found for provider '{provider_value}' for feed {stable_id}"
-                        )
-
-            # Link the feeds if we have a valid static GTFS feed
-            if gtfs_feed:
+                    continue
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-                if gtfs_rt_feed.id not in already_referenced_ids:
-                    gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-                    session.flush()  # Avoid FK violations
-                    self.logger.info(f"Linked GTFS-RT feed {stable_id} to static feed {gtfs_feed.stable_id}")
+                if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
+                    gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
+                    #gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)                    # Flush to avoid FK violation
+                    session.flush()
 
     def process_redirects(self, session: "Session"):
         """
