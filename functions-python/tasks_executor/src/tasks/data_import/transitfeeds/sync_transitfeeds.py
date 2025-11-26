@@ -96,8 +96,8 @@ def _process_feeds(
             existing_externalid = [
                 eid
                 for eid in feed.externalids
-                if
-                eid.source == "transitfeeds" and eid.associated_id == row["External Feed ID"]
+                if eid.source == "transitfeeds"
+                and eid.associated_id == row["External Feed ID"]
             ]
             if existing_externalid:
                 logger.debug(
