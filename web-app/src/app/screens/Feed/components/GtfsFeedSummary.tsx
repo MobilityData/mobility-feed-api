@@ -155,7 +155,7 @@ export default function GtfsFeedSummary({
           )}
 
           {feed?.external_ids != null && feed.external_ids.length > 0 && (
-            <ExternalIds externalIds={feed?.external_ids} />
+            <ExternalIds externalIds={feed.external_ids} />
           )}
         </Box>
       </GroupCard>
