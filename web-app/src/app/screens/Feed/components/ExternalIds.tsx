@@ -19,9 +19,7 @@ export default function ExternalIds({
 }: ExternalIdsProps): React.ReactElement | null {
   const { t } = useTranslation('feeds');
   if (externalIds == null || externalIds.length === 0) return null;
-  const filteredExternalIds = filterFeedExternalIdsToSourceMap(
-    externalIds ?? [],
-  );
+  const filteredExternalIds = filterFeedExternalIdsToSourceMap(externalIds);
   if (filteredExternalIds.length === 0) return null;
   return (
     <Box sx={{ mt: 2, mb: 0 }}>
@@ -33,7 +31,6 @@ export default function ExternalIds({
       </Typography>
       <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {filteredExternalIds.map((externalId, idx) => {
-          if (externalId.source == null) return null;
           const src = externalId.source.toLowerCase();
           const info = externalIdSourceMap[src];
           return (

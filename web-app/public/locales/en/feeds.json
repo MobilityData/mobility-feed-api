@@ -194,7 +194,7 @@
   "fullMapView": {
     "disabledTitle": "Full map view disabled",
     "disabledDescription": "The full map view feature is disabled at the moment. Please try again later.",
-    "dataBlurb":"The visualization reflects data directly from the GTFS feed. Route paths, stops, colors, and labels are all derived from the feed files (routes.txt, trips.txt, stop_times.txt, stops.txt, and shapes.txt where it's defined). If a route doesn’t specify a color, it appears in black. When multiple shapes exist for different trips on the same route, they’re combined into one for display.",
+    "dataBlurb": "The visualization reflects data directly from the GTFS feed. Route paths, stops, colors, and labels are all derived from the feed files (routes.txt, trips.txt, stop_times.txt, stops.txt, and shapes.txt where it's defined). If a route doesn’t specify a color, it appears in black. When multiple shapes exist for different trips on the same route, they’re combined into one for display.",
     "clearAll": "Clear All",
     "hideStops": "Hide Stops",
     "closePanel": "Close",
@@ -227,11 +227,11 @@
   "externalIds": {
     "title": "External Identifiers",
     "tooltips": {
-      "jbda": "Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.",
-      "tdg": "Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.",
-      "ntd": "Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.",
-      "tfs": "Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.",
-      "tld": "Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-."
+      "jbda": "Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>",
+      "tdg": "Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>",
+      "ntd": "Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>",
+      "tfs": "Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>",
+      "tld": "Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>"
     }
   }
 }
