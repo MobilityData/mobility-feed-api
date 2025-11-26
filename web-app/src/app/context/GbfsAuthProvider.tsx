@@ -53,7 +53,9 @@ export function GbfsAuthProvider({
       'username' in auth &&
       'password' in auth &&
       auth.username != null &&
-      auth.password != null
+      auth.username.trim() !== '' &&
+      auth.password != null &&
+      auth.password.trim() !== ''
     ) {
       try {
         const token = btoa(`${auth.username}:${auth.password}`);
@@ -65,7 +67,8 @@ export function GbfsAuthProvider({
     if (
       auth?.authType === AuthTypeEnum.BEARER &&
       'token' in auth &&
-      auth.token != null
+      auth.token != null &&
+      auth.token.trim() !== ''
     ) {
       return { Authorization: `Bearer ${auth.token}` };
     }
@@ -75,8 +78,11 @@ export function GbfsAuthProvider({
       'clientSecret' in auth &&
       'tokenUrl' in auth &&
       auth.clientId != null &&
+      auth.clientId.trim() !== '' &&
       auth.clientSecret != null &&
-      auth.tokenUrl != null
+      auth.clientSecret.trim() !== '' &&
+      auth.tokenUrl != null &&
+      auth.tokenUrl.trim() !== ''
     ) {
       const tokenResp = await fetch(auth.tokenUrl, {
         method: 'POST',
