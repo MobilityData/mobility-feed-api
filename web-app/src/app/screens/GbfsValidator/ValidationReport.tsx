@@ -188,7 +188,9 @@ export default function ValidationReport({
                       : '';
                   return (
                     <ListItem disablePadding key={file.name}>
-                      <ListItemButton>
+                      <ListItemButton
+                        onClick={() => fileGroupRefs.current[index]?.focus()}
+                      >
                         <ListItemIcon>
                           {totalCount > 0 ? (
                             <Badge
