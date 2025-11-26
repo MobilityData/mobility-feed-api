@@ -66,7 +66,15 @@ def get_feeds_data(
 
 
 def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool, bool]:
-    """Parse the request parameters"""
+    """
+    Parse the request parameters.
+
+    Returns:
+        Tuple[List[str], bool, bool]: A tuple containing:
+            - country_codes: List of country codes to filter feeds
+            - include_only_unprocessed: Whether to include only unprocessed feeds
+            - use_cache: Whether to use cache for reverse geolocation
+    """
     json_request = request.get_json()
     country_codes = json_request.get("country_codes", "").split(",")
     country_codes = [code.strip().upper() for code in country_codes if code]
