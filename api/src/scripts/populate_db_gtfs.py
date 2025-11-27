@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 import pycountry
 import pytz
-from sqlalchemy import func
 
 from scripts.load_dataset_on_create import publish_all
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
@@ -15,7 +14,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Redirectingid,
-    Gtfsfeed,
 )
 from utils.data_utils import set_up_defaults
 
@@ -142,7 +140,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
                     gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
-                    #gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)                    # Flush to avoid FK violation
+                    # gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)                    # Flush to avoid FK violation
                     session.flush()
 
     def process_redirects(self, session: "Session"):

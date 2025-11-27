@@ -54,6 +54,7 @@ def test_is_official_overwrite(client: TestClient, values):
     json_response = response.json()
     assert json_response["official"] is expected_official, values["assert_fail_message"]
 
+
 def test_is_feed_reference_overwrite(client: TestClient):
     feed_id = "mdb-1562"
     response = client.request(
@@ -72,8 +73,3 @@ def test_is_feed_reference_overwrite(client: TestClient):
     )
     json_response = response.json()
     assert json_response["feed_references"] == ["mdb-50"]
-
-
-
-
-

@@ -1,7 +1,6 @@
 import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from shared.database.database import with_db_session
 from shared.db_models.feed_impl import FeedImpl
