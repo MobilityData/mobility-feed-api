@@ -73,4 +73,3 @@ def test_is_feed_reference_overwrite(client: TestClient):
     )
     json_response = response.json()
     assert json_response["feed_references"] == ["mdb-50"]
-    
