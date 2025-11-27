@@ -37,8 +37,9 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
-    _get_or_create_feed,
-    _get_or_create_entity_type,
+    get_or_create_feed,
+    get_or_create_entity_type,
+    get_license,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,10 +52,21 @@ GTFS_FORMAT = "GTFS"
 GTFS_RT_FORMAT = "gtfs-rt"
 
 LICENSE_URL_MAP = {
-    "odc-odbl": "https://opendatacommons.org/licenses/odbl/1.0/",
-    "mobility-licence": "https://wiki.lafabriquedesmobilites.fr/wiki/Licence_Mobilit%C3%A9s",
-    "fr-lo": "https://spdx.org/licenses/etalab-2.0.html",
-    "lov2": "https://spdx.org/licenses/etalab-2.0.html",
+    "odc-odbl": {
+        "url": "https://opendatacommons.org/licenses/odbl/1.0/",
+        "id": "ODbL-1.0",
+    },
+    "mobility-licence": {
+        "url": "https://wiki.lafabriquedesmobilites.fr/wiki/Licence_Mobilit%C3%A9s",
+    },
+    "fr-lo": {
+        "url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
+        "id": "etalab-2.0",
+    },
+    "lov2": {
+        "url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
+        "id": "etalab-2.0",
+    },
 }
 
 ENTITY_TYPES_MAP = {
@@ -75,7 +87,7 @@ def _get_license_url(license_id: Optional[str]) -> Optional[str]:
     """
     if not license_id:
         return None
-    return LICENSE_URL_MAP.get(license_id.lower())
+    return LICENSE_URL_MAP.get(license_id.lower(), {}).get("url")
 
 
 def _probe_head_format(
@@ -241,6 +253,7 @@ def _update_common_tdg_fields(
     resource: dict,
     producer_url: str,
     locations: List[Location],
+    db_session: Session,
 ) -> None:
     """
     Update common fields for both schedule GTFS and RT from TDG dataset + resource.
@@ -254,7 +267,11 @@ def _update_common_tdg_fields(
     feed.operational_status = "wip"
 
     feed.license_url = _get_license_url(dataset.get("licence"))
-
+    feed_license = get_license(
+        db_session, LICENSE_URL_MAP.get(dataset.get("licence"), {}).get("id")
+    )
+    if feed_license:
+        feed.license = feed_license
     # Use locations only if not already set
     if locations and (not feed.locations or len(feed.locations) == 0):
         feed.locations = locations
@@ -338,6 +355,7 @@ def _process_tdg_dataset(
     db_session: Session,
     session_http: requests.Session,
     dataset: dict,
+    processed_stable_ids: Optional[set] = None,
 ) -> Tuple[dict, List[Feed]]:
     """
     Process one TDG dataset:
@@ -391,8 +409,13 @@ def _process_tdg_dataset(
         # ---- STATIC GTFS ----
         if res_format == GTFS_FORMAT:
             stable_id = f"tdg-{res_id}"
-            gtfs_feed, is_new = _get_or_create_feed(
-                db_session, Gtfsfeed, stable_id, "gtfs"
+            processed_stable_ids.add(stable_id)
+            gtfs_feed, is_new = get_or_create_feed(
+                db_session,
+                Gtfsfeed,
+                stable_id,
+                "gtfs",
+                official_notes="Imported from Transport.data.gouv.fr as official feed.",
             )
 
             if not is_new:
@@ -406,7 +429,9 @@ def _process_tdg_dataset(
                         stable_id,
                     )
                     processed += 1
-                    static_feeds_by_dataset_id[dataset_id] = gtfs_feed
+                    if dataset_id not in static_feeds_by_dataset_id:
+                        static_feeds_by_dataset_id[dataset_id] = []
+                    static_feeds_by_dataset_id[dataset_id].append(gtfs_feed)
                     continue
 
             # Requirement: if GTFS url returns CSV, skip it (listing, not feed).
@@ -430,7 +455,9 @@ def _process_tdg_dataset(
                 continue
 
             # Apply changes
-            _update_common_tdg_fields(gtfs_feed, dataset, resource, res_url, locations)
+            _update_common_tdg_fields(
+                gtfs_feed, dataset, resource, res_url, locations, db_session
+            )
             _ensure_tdg_external_id(gtfs_feed, res_id)
 
             if dataset_id not in static_feeds_by_dataset_id:
@@ -457,7 +484,8 @@ def _process_tdg_dataset(
             )
 
             rt_stable_id = f"tdg-{res_id}"
-            rt_feed, is_new_rt = _get_or_create_feed(
+            processed_stable_ids.add(rt_stable_id)
+            rt_feed, is_new_rt = get_or_create_feed(
                 db_session, Gtfsrealtimefeed, rt_stable_id, "gtfs_rt"
             )
 
@@ -481,7 +509,9 @@ def _process_tdg_dataset(
                     continue
 
             # Apply changes
-            _update_common_tdg_fields(rt_feed, dataset, resource, res_url, locations)
+            _update_common_tdg_fields(
+                rt_feed, dataset, resource, res_url, locations, db_session
+            )
             _ensure_tdg_external_id(rt_feed, res_id)
 
             # Link RT → schedule
@@ -490,7 +520,7 @@ def _process_tdg_dataset(
             # Add entity types
             entity_types = _get_entity_types_from_resource(resource)
             rt_feed.entitytypes = [
-                _get_or_create_entity_type(db_session, et) for et in entity_types
+                get_or_create_entity_type(db_session, et) for et in entity_types
             ]
 
             if is_new_rt:
@@ -526,6 +556,28 @@ def _process_tdg_dataset(
         "processed": processed,
     }
     return deltas, feeds_to_publish
+
+
+def _deprecate_stale_feeds(db_session, processed_stable_ids):
+    """
+    Deprecate TDG feeds not seen in this import run.
+    """
+    logger.info("Deprecating stale TDG feeds not in processed_stable_ids")
+    tdg_feeds = (
+        db_session.query(Feed)
+        .filter(Feed.stable_id.like("tdg-%"))
+        .filter(~Feed.stable_id.in_(processed_stable_ids))
+        .all()
+    )
+    logger.info("Found %d tdg_feeds stale stable_ids", len(tdg_feeds))
+    deprecated_count = 0
+    for feed in tdg_feeds:
+        if feed.status != "deprecated":
+            feed.status = "deprecated"
+            deprecated_count += 1
+            logger.info("Deprecated stale TDG feed stable_id=%s", feed.stable_id)
+
+    logger.info("Total deprecated stale TDG feeds: %d", deprecated_count)
 
 
 # ---------------------------------------------------------------------------
@@ -567,10 +619,15 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
 
     created_gtfs = updated_gtfs = created_rt = total_processed = 0
     feeds_to_publish: List[Feed] = []
-
+    processed_stable_ids = set()
     for idx, dataset in enumerate(datasets, start=1):
         try:
-            deltas, new_feeds = _process_tdg_dataset(db_session, session_http, dataset)
+            deltas, new_feeds = _process_tdg_dataset(
+                db_session,
+                session_http,
+                dataset,
+                processed_stable_ids=processed_stable_ids,
+            )
 
             created_gtfs += deltas["created_gtfs"]
             updated_gtfs += deltas["updated_gtfs"]
@@ -594,6 +651,8 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
             continue
 
     if not dry_run:
+        # Deprecate TDG feeds not seen in this import
+        _deprecate_stale_feeds(db_session, processed_stable_ids)
         # Last commit for remaining feeds
         commit_changes(db_session, feeds_to_publish, total_processed)
 

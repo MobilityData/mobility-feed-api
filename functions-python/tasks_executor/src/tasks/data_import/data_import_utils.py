@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Tuple, Type, TypeVar
+from typing import Tuple, Type, TypeVar, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,13 +10,14 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Officialstatushistory,
     Entitytype,
+    License,
 )
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="Feed")
 
 
-def _get_or_create_entity_type(session: Session, entity_type_name: str) -> Entitytype:
+def get_or_create_entity_type(session: Session, entity_type_name: str) -> Entitytype:
     """Get or create an Entitytype by name."""
     logger.debug("Looking up Entitytype name=%s", entity_type_name)
     et = session.scalar(select(Entitytype).where(Entitytype.name == entity_type_name))
@@ -45,7 +46,21 @@ def get_feed(
     return feed
 
 
-def _get_or_create_feed(
+def get_license(session: Session, license_id: str) -> Optional[License]:
+    """Get a License by ID."""
+    logger.debug("Lookup License id=%s", license_id)
+    if not license_id:
+        logger.debug("No License ID provided")
+        return None
+    license = session.get(License, license_id)
+    if license:
+        logger.debug("Found existing License id=%s", license_id)
+        return license
+    logger.debug("No License found with id=%s", license_id)
+    return None
+
+
+def get_or_create_feed(
     session: Session,
     model: Type[T],
     stable_id: str,
