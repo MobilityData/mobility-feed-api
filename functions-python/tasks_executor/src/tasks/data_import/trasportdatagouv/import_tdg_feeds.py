@@ -216,6 +216,28 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
 # ---------------------------------------------------------------------------
 
 
+def _deprecate_stale_feeds(db_session, processed_stable_ids):
+    """
+    Deprecate TDG feeds not seen in this import run.
+    """
+    logger.info("Deprecating stale TDG feeds not in processed_stable_ids")
+    tdg_feeds = (
+        db_session.query(Feed)
+        .filter(Feed.stable_id.like("tdg-%"))
+        .filter(~Feed.stable_id.in_(processed_stable_ids))
+        .all()
+    )
+    logger.info("Found %d tdg_feeds stale stable_ids", len(tdg_feeds))
+    deprecated_count = 0
+    for feed in tdg_feeds:
+        if feed.status != "deprecated":
+            feed.status = "deprecated"
+            deprecated_count += 1
+            logger.info("Deprecated stale TDG feed stable_id=%s", feed.stable_id)
+
+    logger.info("Total deprecated stale TDG feeds: %d", deprecated_count)
+
+
 def _ensure_tdg_external_id(feed: Feed, resource_id: str) -> None:
     """
     Ensure that an Externalid(source='tdg', associated_id=<resource_id>) exists.
@@ -556,28 +578,6 @@ def _process_tdg_dataset(
         "processed": processed,
     }
     return deltas, feeds_to_publish
-
-
-def _deprecate_stale_feeds(db_session, processed_stable_ids):
-    """
-    Deprecate TDG feeds not seen in this import run.
-    """
-    logger.info("Deprecating stale TDG feeds not in processed_stable_ids")
-    tdg_feeds = (
-        db_session.query(Feed)
-        .filter(Feed.stable_id.like("tdg-%"))
-        .filter(~Feed.stable_id.in_(processed_stable_ids))
-        .all()
-    )
-    logger.info("Found %d tdg_feeds stale stable_ids", len(tdg_feeds))
-    deprecated_count = 0
-    for feed in tdg_feeds:
-        if feed.status != "deprecated":
-            feed.status = "deprecated"
-            deprecated_count += 1
-            logger.info("Deprecated stale TDG feed stable_id=%s", feed.stable_id)
-
-    logger.info("Total deprecated stale TDG feeds: %d", deprecated_count)
 
 
 # ---------------------------------------------------------------------------
