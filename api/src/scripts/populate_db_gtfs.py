@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -140,7 +141,8 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
                     gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
-                    # gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)                    # Flush to avoid FK violation
+                    print(f"Adding feed reference from {stable_id} to {gtfs_stable_id}")
+                    # Flush to avoid FK violation
                     session.flush()
 
     def process_redirects(self, session: "Session"):
