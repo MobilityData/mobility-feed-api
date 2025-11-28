@@ -129,6 +129,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 continue
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
             static_reference = self.get_safe_value(row, "static_reference", "")
+            gtfs_rt_feed.gtfs_feeds = [] #clear old references
             if static_reference:
                 try:
                     gtfs_stable_id = f"mdb-{int(float(static_reference))}"
@@ -138,12 +139,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 if not gtfs_feed:
                     self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
                     continue
-                already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-                if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
-                    gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
-                    print(f"Adding feed reference from {stable_id} to {gtfs_stable_id}")
-                    # Flush to avoid FK violation
-                    session.flush()
+                gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
+                self.logger.info(f"Adding feed reference from {stable_id} to {gtfs_stable_id}")
+                # Flush to avoid FK violation
+                session.flush()
 
     def process_redirects(self, session: "Session"):
         """
