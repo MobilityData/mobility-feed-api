@@ -104,9 +104,12 @@ class TestReverseGeolocationBatch(unittest.TestCase):
         }.get(value, default)
         from reverse_geolocation_batch import parse_request_parameters
 
-        country_codes, include_only_unprocessed = parse_request_parameters(request)
+        country_codes, include_only_unprocessed, use_cache = parse_request_parameters(
+            request
+        )
         self.assertEqual(["CA", "US"], country_codes)
         self.assertTrue(include_only_unprocessed)
+        self.assertTrue(use_cache)
 
         with pytest.raises(ValueError):
             request.get_json.return_value.get = lambda value, default: {
@@ -121,7 +124,7 @@ class TestReverseGeolocationBatch(unittest.TestCase):
         from reverse_geolocation_batch import reverse_geolocation_batch
 
         request = MagicMock()
-        mock_parse_request.return_value = ["CA", "US"]
+        mock_parse_request.return_value = (["CA", "US"], False, False)
         mock_get_feeds.return_value = [
             {
                 "stable_id": "test_feed",

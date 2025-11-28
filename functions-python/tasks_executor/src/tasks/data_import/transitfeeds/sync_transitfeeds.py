@@ -92,14 +92,30 @@ def _process_feeds(
                 feed_stable_id,
             )
 
-            # Init-on-create (shared fields)
-            if is_new:
-                feed.name = row["Feed Name"]
-                feed.externalids = [
+            # Set transitfeeds Externalid
+            existing_externalid = [
+                eid
+                for eid in feed.externalids
+                if eid.source == "transitfeeds"
+                and eid.associated_id == row["External Feed ID"]
+            ]
+            if existing_externalid:
+                logger.debug(
+                    "[%s] External ID for source 'transitfeeds' already set for %s: %s",
+                    feed_kind.upper(),
+                    feed_stable_id,
+                    existing_externalid[0].associated_id,
+                )
+            else:
+                feed.externalids.append(
                     Externalid(
                         source="transitfeeds", associated_id=row["External Feed ID"]
                     )
-                ]
+                )
+            feed.operational_status = "published"
+            # Init-on-create (shared fields)
+            if is_new:
+                feed.name = row["Feed Name"]
                 feed.provider = row["Provider"]
                 feed.producer_url = row["Producer URL"]
                 logger.debug(

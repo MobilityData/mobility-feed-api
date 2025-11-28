@@ -18,6 +18,7 @@
   "main": "lib/index.js",
   "dependencies": {
     "axios": "^1.7.7",
+    "countries-list": "^3.2.0",
     "firebase": "^10.6.0",
     "firebase-admin": "^11.8.0",
     "firebase-functions": "^4.3.1",
