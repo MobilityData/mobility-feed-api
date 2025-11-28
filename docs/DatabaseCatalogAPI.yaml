@@ -380,7 +380,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/license_id_path_param"
     get:
-      description: Get the specified license from the Mobility Database.
+      description: Get the specified license from the Mobility Database, including the license rules.
       tags:
         - "licenses"
       operationId: getLicense
@@ -393,7 +393,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/License"
+                $ref: "#/components/schemas/LicenseWithRules"
 
 components:
   schemas:
@@ -1019,9 +1019,9 @@ components:
           type: boolean
           example: true
         license_notes:
-          description: TBD
+          description: Notes concerning the relation between the feed and the license.
           type: string
-          example: TBD
+          example: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
 
     Locations:
       type: array
@@ -1218,21 +1218,31 @@ components:
           format: url
           description: HTML validation report URL
           example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
-  #        url_system_errors:
-  #          type: string
-  #          format: url
-  #          description: JSON validation system errors URL
-  #          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
 
-  #    Have to put the enum inline because of a bug in openapi-generator
-  #    DataType:
-  #      type: string
-  #      enum:
-  #        - gtfs
-  #        - gtfs_rt
-  #        - gbfs
-  #      example: gtfs
-    License:
+    LicenseRule:
+      type: object
+      properties:
+        name:
+          description: Name of the rule.
+          type: string
+          example: commercial-use
+        label:
+          description: Label of the rule.
+          type: string
+          example: Commercial use
+        description:
+          description: Description of the rule.
+          type: string
+          example: This license allows the software or data to be used for commercial purposes.
+        type:
+          description: Type of rule.
+          type: string
+          enum:
+            - permission
+            - condition
+            - limitation
+
+    LicenseBase:
       type: object
       properties:
         id:
@@ -1241,15 +1251,15 @@ components:
           example: 0BSD
         type:
           type: string
-          description: TBD
-          example: TBD
+          description: The type of license.
+          example: standard
         is_spdx:
           type: boolean
-          description: TBD
+          description: true if license id spdx.
         name:
           type: string
-          description: TBD
-          example: TBD
+          description: The user facing name of the license.
+          example: BSD Zero Clause License
         url:
           description: A URL where to find the license for the feed.
           type: string
@@ -1257,14 +1267,8 @@ components:
           example: https://www.ladottransit.com/dla.html
         description:
           type: string
-          description: TBD
-          example: TBD
-        license_rules:
-          type: array
-          items:
-            type: string
-            example: private-use
-            description: License rules for this license
+          description: The description of the license.
+          example: This is the OBSD license.
         created_at:
           description: The date and time the license was added to the database, in ISO 8601 date-time format.
           type: string
@@ -1276,10 +1280,22 @@ components:
           example: 2023-07-10T22:06:00Z
           format: date-time
 
+    LicenseWithRules:
+      allOf:
+      - $ref: "#/components/schemas/LicenseBase"
+      - type: object
+        properties:
+          license_rules:
+            type: array
+            items:
+              $ref: "#/components/schemas/LicenseRule"
+
+
     Licenses:
       type: array
       items:
-        $ref: "#/components/schemas/License"
+        $ref: "#/components/schemas/LicenseBase"
+
 
   parameters:
     status:

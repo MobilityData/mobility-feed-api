@@ -14,7 +14,20 @@ from tests.test_utils.token import authHeaders
             "License 1 name",
             "https://license-1",
             "This is license-1",
-            ["license-rule-1", "license-rule-2"],
+            [
+                {
+                    "name": "license-rule-1",
+                    "label": "Rule 1",
+                    "description": "Rule 1 description",
+                    "type": "permission",
+                },
+                {
+                    "name": "license-rule-2",
+                    "label": "Rule 2",
+                    "description": "Rule 2 description",
+                    "type": "condition",
+                },
+            ],
         ),
         (
             "license-2",
@@ -22,7 +35,20 @@ from tests.test_utils.token import authHeaders
             "License 2 name",
             "https://license-2",
             "This is license-2",
-            ["license-rule-2", "license-rule-3"],
+            [
+                {
+                    "name": "license-rule-2",
+                    "label": "Rule 2",
+                    "description": "Rule 2 description",
+                    "type": "condition",
+                },
+                {
+                    "name": "license-rule-3",
+                    "label": "Rule 3",
+                    "description": "Rule 3 description",
+                    "type": "limitation",
+                },
+            ],
         ),
     ],
 )
@@ -44,8 +70,10 @@ def test_get_license_by_id(
     assert body.get("name") == expected_name
     assert body.get("url") == expected_url
     assert body.get("description") == expected_description
-    # license_rules should be present and match expected (order not important)
-    assert set(body.get("license_rules", [])) == set(expected_rules)
+    # license_rules should match expected rule objects (order not important)
+    actual_rules = {rule["name"]: rule for rule in body.get("license_rules", [])}
+    expected_rule_map = {rule["name"]: rule for rule in expected_rules}
+    assert actual_rules == expected_rule_map
 
 
 def test_get_licenses_list_contains_test_licenses(client: TestClient):
@@ -57,7 +85,6 @@ def test_get_licenses_list_contains_test_licenses(client: TestClient):
     ids = {item.get("id") for item in body}
     assert "license-1" in ids
     assert "license-2" in ids
-    # build a mapping of id -> license_rules
-    rules_map = {item.get("id"): set(item.get("license_rules", [])) for item in body}
-    assert rules_map.get("license-1") == set(["license-rule-1", "license-rule-2"])
-    assert rules_map.get("license-2") == set(["license-rule-2", "license-rule-3"])
+    # List endpoint returns the base license schema, so license_rules should not be present.
+    for item in body:
+        assert "license_rules" not in item
