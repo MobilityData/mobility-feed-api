@@ -1,4 +1,3 @@
-import logging
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -129,7 +128,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 continue
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
             static_reference = self.get_safe_value(row, "static_reference", "")
-            gtfs_rt_feed.gtfs_feeds = [] #clear old references
+            gtfs_rt_feed.gtfs_feeds = []
             if static_reference:
                 try:
                     gtfs_stable_id = f"mdb-{int(float(static_reference))}"
