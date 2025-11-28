@@ -1,4 +1,52 @@
 {
+  "licenses": [
+    {
+      "id": "license-1",
+      "type": "standard",
+      "is_spdx": true,
+      "name": "License 1 name",
+      "url": "https://license-1",
+      "description": "This is license-1",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+
+    },
+    {
+      "id": "license-2",
+      "type": "standard",
+      "is_spdx": false,
+      "name": "License 2 name",
+      "url": "https://license-2",
+      "description": "This is license-2",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+
+    }
+  ],
+
+  "license_rules": [
+    {
+      "license_id": "license-1",
+      "rule_id": "license-rule-1"
+    },
+    {
+      "license_id": "license-1",
+      "rule_id": "license-rule-2"
+    },
+    {
+      "license_id": "license-2",
+      "rule_id": "license-rule-2"
+    },
+    {
+      "license_id": "license-2",
+      "rule_id": "license-rule-3"
+    }
+  ],
+
   "feeds": [
     {
       "id": "mdb-60",
@@ -53,7 +101,9 @@
         "authentication_type": 0,
         "authentication_info_url": "",
         "api_key_parameter_name": "",
-        "license_url": ""
+        "license_url": "allo",
+        "license_id": "license-1",
+        "license_notes": "Notes for license-1"
       },
       "locations": [
         {
@@ -91,7 +141,8 @@
         "authentication_type": 0,
         "authentication_info_url": "",
         "api_key_parameter_name": "",
-        "license_url": ""
+        "license_url": "",
+        "license_id": "license-2"
       },
       "locations": [
         {

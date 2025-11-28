@@ -130,7 +130,14 @@ def test_feed_get(client: TestClient, mocker):
     Unit test for get_feeds
     """
     mock_filter = mocker.patch.object(FeedFilter, "filter")
-    mock_filter.return_value.filter.return_value.first.return_value = mock_feed
+    # FeedsApiImpl.get_feed() builds a query like
+    # filter().outerjoin().options().filter().first(); mimic that so FeedImpl.from_orm
+    # receives the actual Feed ORM instead of a MagicMock chain.
+    chain = Mock()
+    for method in ("filter", "outerjoin", "options", "order_by", "limit", "offset"):
+        getattr(chain, method).return_value = chain
+    chain.first.return_value = mock_feed
+    mock_filter.return_value = chain
 
     response = client.request(
         "GET",

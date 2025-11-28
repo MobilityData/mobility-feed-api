@@ -20,6 +20,15 @@ class BaseFeedImpl(BasicFeed):
     def from_orm(cls, feed: Feed | None) -> BasicFeed | None:
         if not feed:
             return None
+        # Determine license_is_spdx from the related License ORM if available
+        license_is_spdx = None
+        try:
+            if getattr(feed, "license", None) is not None:
+                license_is_spdx = feed.license.is_spdx
+        except Exception:
+            # be conservative and keep None if anything goes wrong
+            license_is_spdx = None
+
         return cls(
             id=feed.stable_id,
             data_type=feed.data_type,
@@ -35,6 +44,9 @@ class BaseFeedImpl(BasicFeed):
                 authentication_info_url=feed.authentication_info_url,
                 api_key_parameter_name=feed.api_key_parameter_name,
                 license_url=feed.license_url,
+                license_id=feed.license_id,
+                license_is_spdx=license_is_spdx,
+                license_notes=feed.license_notes,
             ),
             redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )

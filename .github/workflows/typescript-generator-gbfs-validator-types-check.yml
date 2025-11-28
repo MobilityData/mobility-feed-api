@@ -1,10 +1,10 @@
-name: Verify TypeScript Types Generation
+name: Verify TypeScript GBFS Validator Types Generation
 on:
   pull_request:
     branches: 
       - main
     paths:
-      - "docs/DatabaseCatalogAPI.yaml"
+      - "docs/GbfsValidator.yaml"
 
 env:
   NODE_VERSION: "18"
@@ -38,20 +38,19 @@ jobs:
       - name: Install dependencies
         working-directory: web-app
         run: yarn install --frozen-lockfile --prefer-offline
-
-      - name: Generate TypeScript types
+      
+      - name: Generate TypeScript gbfs validator types
         working-directory: web-app
-        run: yarn generate:api-types:output
+        run: yarn generate:gbfs-validator-types:output
         env:
-          OUTPUT_PATH_TYPES: src/app/services/feeds/generated/types.ts
-
-      - name: Upload generated types
+          OUTPUT_PATH_TYPES: src/app/services/feeds/generated/gbfs-validator-types.ts
+      
+      - name: Upload generated gbfs types
         uses: actions/upload-artifact@v4
         with:
           name: generated_types.ts
-          path: web-app/src/app/services/feeds/generated/types.ts
-
-      - name: Compare TypeScript types with existing types
-        working-directory: web-app
-        run: diff src/app/services/feeds/generated/types.ts src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
+          path: web-app/src/app/services/feeds/generated/gbfs-validator-types.ts
       
+      - name: Compare gbfs validator TypeScript types with existing types
+        working-directory: web-app
+        run: diff src/app/services/feeds/generated/gbfs-validator-types.ts src/app/services/feeds/gbfs-validator-types.ts || (echo "Gbfs Validator Types are different!" && exit 1)

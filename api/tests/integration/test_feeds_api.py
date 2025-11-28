@@ -944,3 +944,33 @@ def test_gbfs_feed_id_get(client: TestClient, values):
     if values["response_code"] != 200:
         return
     assert response.json()["id"] == test_id
+
+
+@pytest.mark.parametrize(
+    "feed_id, expected_license_id, expected_is_spdx, expected_license_notes",
+    [
+        ("mdb-70", "license-1", True, "Notes for license-1"),
+        ("mdb-80", "license-2", False, None),
+    ],
+)
+def test_feeds_have_expected_license_info(
+    client: TestClient, feed_id: str, expected_license_id: str, expected_is_spdx: bool, expected_license_notes: str
+):
+    """
+    Verify that specified feeds have the expected license id,
+    license_is_spdx and license_notes from the test fixture.
+    """
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    # Ensure the license_id matches the expected license
+    assert body["source_info"]["license_id"] == expected_license_id
+    # Ensure the license_is_spdx flag matches expectation
+    assert body["source_info"]["license_is_spdx"] is expected_is_spdx
+    # Check license_notes (may be None)
+    assert body["source_info"].get("license_notes") == expected_license_notes

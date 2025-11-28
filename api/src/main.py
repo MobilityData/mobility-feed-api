@@ -24,6 +24,7 @@ from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
 from feeds_gen.apis.search_api import router as SearchApiRouter
+from feeds_gen.apis.licenses_api import router as LicensesApiRouter
 
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
 # returns 200 in the method response. More info, https://github.com/tiangolo/fastapi/issues/1663#issuecomment-730362611
@@ -54,6 +55,7 @@ app.include_router(DatasetsApiRouter)
 app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
+app.include_router(LicensesApiRouter)
 
 
 @app.on_event("startup")

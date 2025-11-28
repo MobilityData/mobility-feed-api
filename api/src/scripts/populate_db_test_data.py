@@ -12,12 +12,14 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Notice,
     Feature,
+    License,
     t_feedsearch,
     Location,
     Officialstatushistory,
     Gbfsversion,
     Gbfsendpoint,
     Gbfsfeed,
+    Rule,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from typing import TYPE_CHECKING
@@ -54,6 +56,32 @@ class DatabasePopulateTestDataHelper:
         # Load the JSON file
         with open(filepath) as f:
             data = json.load(f)
+
+        # Licenses (populate license table first so feeds can reference them)
+        if "licenses" in data:
+            for lic in data["licenses"]:
+                # skip if id missing
+                lic_id = lic.get("id")
+                if not lic_id:
+                    continue
+                existing = db_session.get(License, lic_id)
+                if existing:
+                    # optionally update existing fields if needed
+                    continue
+                license_obj = License(
+                    id=lic_id,
+                    type=lic.get("type", "standard"),
+                    is_spdx=lic.get("is_spdx", False),
+                    name=lic.get("name"),
+                    url=lic.get("url"),
+                    description=lic.get("description"),
+                    content_txt=lic.get("content_txt"),
+                    content_html=lic.get("content_html"),
+                    created_at=lic.get("created_at"),
+                    updated_at=lic.get("updated_at"),
+                )
+                db_session.add(license_obj)
+            db_session.commit()
 
         # GTFS Feeds
         if "feeds" in data:
@@ -130,6 +158,29 @@ class DatabasePopulateTestDataHelper:
                     db_session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
                 )
 
+        # License rules: populate association table by creating missing Rule rows and attaching them to License
+        if "license_rules" in data:
+            for lr in data["license_rules"]:
+                license_id = lr.get("license_id")
+                rule_id = lr.get("rule_id")
+                if not license_id or not rule_id:
+                    continue
+                license_obj = db_session.get(License, license_id)
+                if not license_obj:
+                    self.logger.error(f"No license found with id: {license_id}; skipping license_rule {rule_id}")
+                    continue
+                rule_obj = db_session.get(Rule, rule_id)
+                if not rule_obj:
+                    # Create a minimal Rule entry; label and type set conservatively
+                    rule_obj = Rule(name=rule_id, label=rule_id, type="permission", description=None)
+                    db_session.add(rule_obj)
+                    # flush so the relationship can reference it immediately
+                    db_session.flush()
+                # Attach if not already associated
+                if rule_obj not in license_obj.rules:
+                    license_obj.rules.append(rule_obj)
+            db_session.commit()
+
         # GBFS version
         if "gbfs_versions" in data:
             for version in data["gbfs_versions"]:
@@ -180,9 +231,13 @@ class DatabasePopulateTestDataHelper:
                 note=feed_data["note"],
                 authentication_info_url=None,
                 api_key_parameter_name=None,
-                license_url=None,
+                license_url=feed_data["source_info"]["license_url"],
                 feed_contact_email=feed_data["feed_contact_email"],
                 producer_url=feed_data["source_info"]["producer_url"],
+                # license_id may be missing or an empty string; coerce empty -> None to avoid FK violation
+                license_id=(feed_data["source_info"].get("license_id") or None),
+                # allow empty notes to stay as empty string; coerce if you prefer None
+                license_notes=(feed_data["source_info"].get("license_notes") or None),
                 operational_status="published",
             )
             locations = []
