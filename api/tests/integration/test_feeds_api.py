@@ -768,17 +768,17 @@ def test_gtfs_rt_filters(client, values):
         assert any(feed["id"] in values["expected_feed_ids"] for feed in feeds)
 
 
-@pytest.mark.parametrize(
-    "values",
-    [
-        {"stable_id": "mdb-1562", "target_id": "mdb-40"},
-        {"stable_id": "mdb-1563", "target_id": "mdb-50"},
-    ],
-    ids=[
-        "integer_static_reference",
-        "string_static_reference",
-    ],
-)
+# @pytest.mark.parametrize(
+#     "values",
+#     [
+#         {"stable_id": "mdb-1562", "target_id": "mdb-40"},
+#         {"stable_id": "mdb-1563", "target_id": "mdb-50"},
+#     ],
+#     ids=[
+#         "integer_static_reference",
+#         "string_static_reference",
+#     ],
+# )
 # def test_gtfs_rt_reference(client, values):
 #     """Test /v1/gtfs_rt_feeds to make sure it returns the proper feed_reference for integer and string references."""
 
