@@ -17,13 +17,13 @@ from tests.test_utils.token import authHeaders
             [
                 {
                     "name": "license-rule-1",
-                    "label": "Rule 1",
+                    "label": "license-rule-1-label",
                     "description": "Rule 1 description",
                     "type": "permission",
                 },
                 {
                     "name": "license-rule-2",
-                    "label": "Rule 2",
+                    "label": "license-rule-2-label",
                     "description": "Rule 2 description",
                     "type": "condition",
                 },
@@ -38,13 +38,13 @@ from tests.test_utils.token import authHeaders
             [
                 {
                     "name": "license-rule-2",
-                    "label": "Rule 2",
+                    "label": "license-rule-2-label",
                     "description": "Rule 2 description",
                     "type": "condition",
                 },
                 {
                     "name": "license-rule-3",
-                    "label": "Rule 3",
+                    "label": "license-rule-3-label",
                     "description": "Rule 3 description",
                     "type": "limitation",
                 },
@@ -70,7 +70,7 @@ def test_get_license_by_id(
     assert body.get("name") == expected_name
     assert body.get("url") == expected_url
     assert body.get("description") == expected_description
-    # license_rules should match expected rule objects (order not important)
+    # Transform the license rules array into a dictionary so we don't have to worry about order.
     actual_rules = {rule["name"]: rule for rule in body.get("license_rules", [])}
     expected_rule_map = {rule["name"]: rule for rule in expected_rules}
     assert actual_rules == expected_rule_map

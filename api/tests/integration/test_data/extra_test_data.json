@@ -28,6 +28,27 @@
     }
   ],
 
+  "rules": [
+    {
+      "name": "license-rule-1",
+      "label": "license-rule-1-label",
+      "description": "Rule 1 description",
+      "type": "permission"
+    },
+    {
+      "name": "license-rule-2",
+      "label": "license-rule-2-label",
+      "description": "Rule 2 description",
+      "type": "condition"
+    },
+    {
+      "name": "license-rule-3",
+      "label": "license-rule-3-label",
+      "description": "Rule 3 description",
+      "type": "limitation"
+    }
+  ],
+
   "license_rules": [
     {
       "license_id": "license-1",
