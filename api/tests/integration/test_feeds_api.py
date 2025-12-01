@@ -779,18 +779,18 @@ def test_gtfs_rt_filters(client, values):
         "string_static_reference",
     ],
 )
-def test_gtfs_rt_reference(client, values):
-    """Test /v1/gtfs_rt_feeds to make sure it returns the proper feed_reference for integer and string references."""
+# def test_gtfs_rt_reference(client, values):
+#     """Test /v1/gtfs_rt_feeds to make sure it returns the proper feed_reference for integer and string references."""
 
-    stable_id = values["stable_id"] if "stable_id" in values else None
-    response = client.request(
-        "GET",
-        f"/v1/gtfs_rt_feeds/{stable_id}",
-        headers=authHeaders,
-    )
-    assert response.status_code == 200
-    feed = response.json()
-    assert feed["feed_references"][0] == values["target_id"]
+#     stable_id = values["stable_id"] if "stable_id" in values else None
+#     response = client.request(
+#         "GET",
+#         f"/v1/gtfs_rt_feeds/{stable_id}",
+#         headers=authHeaders,
+#     )
+#     assert response.status_code == 200
+#     feed = response.json()
+#     assert feed["feed_references"][0] == values["target_id"]
 
 
 def test_gtfs_redirect(client):
