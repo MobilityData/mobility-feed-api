@@ -127,21 +127,16 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             if data_type != "gtfs_rt":
                 continue
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
+            gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
+
+            # Wipe any previously persisted raw static_reference on the ORM (avoid stale data)
+            if hasattr(gtfs_rt_feed, "static_reference") and gtfs_rt_feed.static_reference is not None:
+                gtfs_rt_feed.static_reference = None
+                session.add(gtfs_rt_feed)
+                session.flush()
+
+            # Parse CSV static_reference only to derive relationships (do not persist the raw value)
             static_reference = self.get_safe_value(row, "static_reference", "")
-            # gtfs_rt_feed.gtfs_feeds = []
-            # if static_reference:
-            #     try:
-            #         gtfs_stable_id = f"mdb-{int(float(static_reference))}"
-            #     except ValueError:
-            #         gtfs_stable_id = static_reference
-            #     gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
-            #     if not gtfs_feed:
-            #         self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
-            #         continue
-            #     gtfs_rt_feed.gtfs_feeds = [gtfs_feed]
-            #     self.logger.info(f"Adding feed reference from {stable_id} to {gtfs_stable_id}")
-            #     # Flush to avoid FK violation
-            #     session.flush()
             gtfs_rt_feed.gtfs_feeds = []
             if static_reference:
                 raw_tokens = [tok.strip() for tok in str(static_reference).split("|") if tok and tok.strip()]
@@ -158,17 +153,16 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         )
                         continue
                     # Only add if provider matches (normalized)
-                    rt_provider = (gtfs_rt_feed.provider or "").strip().lower()
-                    schedule_provider = (gtfs_feed.provider or "").strip().lower()
-                    if rt_provider and schedule_provider and rt_provider != schedule_provider:
-                        self.logger.info(
-                            f"Skipping static reference {gtfs_stable_id} for {stable_id}: provider mismatch "
-                            f"(gtfs_rt='{gtfs_rt_feed.provider}' vs. schedule='{gtfs_feed.provider}')"
-                        )
-                        continue
+                    # rt_provider = (gtfs_rt_feed.provider or "").strip().lower()
+                    # schedule_provider = (gtfs_feed.provider or "").strip().lower()
+                    # if rt_provider and schedule_provider and rt_provider != schedule_provider:
+                    #     self.logger.info(
+                    #         f"Skipping static reference {gtfs_stable_id} for {stable_id}: provider mismatch "
+                    #         f"(gtfs_rt='{gtfs_rt_feed.provider}' vs. schedule='{gtfs_feed.provider}')"
+                    #     )
+                    #     continue
                     matched_feeds.append(gtfs_feed)
 
-                # Replace persisted references with matched set (or clear if none matched)
                 previous = [f.stable_id for f in getattr(gtfs_rt_feed, "gtfs_feeds", [])] if gtfs_rt_feed else []
                 gtfs_rt_feed.gtfs_feeds = matched_feeds
                 session.add(gtfs_rt_feed)
@@ -176,16 +170,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 self.logger.info(
                     f"Set feed references for {stable_id}: {previous} -> {[f.stable_id for f in matched_feeds]}"
                 )
-
-                # Clear raw static_reference field on the ORM if present (we persist relationships instead)
-                if hasattr(gtfs_rt_feed, "static_reference"):
-                    try:
-                        gtfs_rt_feed.static_reference = None
-                        session.add(gtfs_rt_feed)
-                        session.flush()
-                    except Exception:
-                        # don't block population on clearing this field
-                        self.logger.debug("Failed to clear static_reference attribute for feed %s", stable_id)
 
     def process_redirects(self, session: "Session"):
         """
