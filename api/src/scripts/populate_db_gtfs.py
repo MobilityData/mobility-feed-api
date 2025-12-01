@@ -152,7 +152,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                             f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}"
                         )
                         continue
-                    Only add if provider matches (normalized)
+                    # Only add if provider matches (normalized)
                     rt_provider = (gtfs_rt_feed.provider or "").strip().lower()
                     schedule_provider = (gtfs_feed.provider or "").strip().lower()
                     if rt_provider and schedule_provider and rt_provider != schedule_provider:
