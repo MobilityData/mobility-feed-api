@@ -152,15 +152,15 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                             f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}"
                         )
                         continue
-                    # Only add if provider matches (normalized)
-                    # rt_provider = (gtfs_rt_feed.provider or "").strip().lower()
-                    # schedule_provider = (gtfs_feed.provider or "").strip().lower()
-                    # if rt_provider and schedule_provider and rt_provider != schedule_provider:
-                    #     self.logger.info(
-                    #         f"Skipping static reference {gtfs_stable_id} for {stable_id}: provider mismatch "
-                    #         f"(gtfs_rt='{gtfs_rt_feed.provider}' vs. schedule='{gtfs_feed.provider}')"
-                    #     )
-                    #     continue
+                    Only add if provider matches (normalized)
+                    rt_provider = (gtfs_rt_feed.provider or "").strip().lower()
+                    schedule_provider = (gtfs_feed.provider or "").strip().lower()
+                    if rt_provider and schedule_provider and rt_provider != schedule_provider:
+                        self.logger.info(
+                            f"Skipping static reference {gtfs_stable_id} for {stable_id}: provider mismatch "
+                            f"(gtfs_rt='{gtfs_rt_feed.provider}' vs. schedule='{gtfs_feed.provider}')"
+                        )
+                        continue
                     matched_feeds.append(gtfs_feed)
 
                 previous = [f.stable_id for f in getattr(gtfs_rt_feed, "gtfs_feeds", [])] if gtfs_rt_feed else []
