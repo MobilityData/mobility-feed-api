@@ -34,5 +34,5 @@ class LicenseWithRulesImpl(LicenseWithRules):
 
         return cls(
             **base_license.model_dump(),
-            license_rules=rules or None,
+            license_rules=rules or [],
         )

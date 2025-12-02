@@ -83,6 +83,25 @@ class DatabasePopulateTestDataHelper:
                 db_session.add(license_obj)
             db_session.commit()
 
+        # Rules (optional section to seed rule metadata used by license_rules)
+        if "rules" in data:
+            for rule in data["rules"]:
+                rule_name = rule.get("name")
+                if not rule_name:
+                    continue
+                existing_rule = db_session.get(Rule, rule_name)
+                if existing_rule:
+                    continue
+                db_session.add(
+                    Rule(
+                        name=rule_name,
+                        label=rule.get("label") or rule_name,
+                        type=rule.get("type") or "permission",
+                        description=rule.get("description"),
+                    )
+                )
+            db_session.commit()
+
         # GTFS Feeds
         if "feeds" in data:
             self.populate_test_feeds(data["feeds"], db_session)

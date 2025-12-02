@@ -25,6 +25,18 @@
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-02T00:00:00Z"
 
+    },
+    {
+      "id": "license-3",
+      "type": "standard",
+      "is_spdx": false,
+      "name": "License 3 name",
+      "url": "https://license-3",
+      "description": "This is license-3 without rules",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
     }
   ],
 

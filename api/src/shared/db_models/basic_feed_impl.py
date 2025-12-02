@@ -22,12 +22,8 @@ class BaseFeedImpl(BasicFeed):
             return None
         # Determine license_is_spdx from the related License ORM if available
         license_is_spdx = None
-        try:
-            if getattr(feed, "license", None) is not None:
-                license_is_spdx = feed.license.is_spdx
-        except Exception:
-            # be conservative and keep None if anything goes wrong
-            license_is_spdx = None
+        if getattr(feed, "license", None) is not None:
+            license_is_spdx = feed.license.is_spdx
 
         return cls(
             id=feed.stable_id,

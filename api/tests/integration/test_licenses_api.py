@@ -88,3 +88,12 @@ def test_get_licenses_list_contains_test_licenses(client: TestClient):
     # List endpoint returns the base license schema, so license_rules should not be present.
     for item in body:
         assert "license_rules" not in item
+
+
+def test_license_with_no_rules_returns_empty_list(client: TestClient):
+    """GET /v1/licenses/{id} should return an empty list for license_rules when no rules exist."""
+    response = client.request("GET", "/v1/licenses/license-3", headers=authHeaders)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == "license-3"
+    assert body.get("license_rules") == []
