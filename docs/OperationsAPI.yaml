@@ -1557,7 +1557,7 @@ components:
       x-operation: true
       name: is_spdx
       in: query
-      description: true if license id spdx.
+      description: True if the license ID is SPDX.
       required: False
       schema:
         type: boolean
