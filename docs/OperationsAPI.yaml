@@ -1160,7 +1160,7 @@ components:
           example: standard
         is_spdx:
           type: boolean
-          description: true if license id spdx.
+          description: True if the license ID is an SPDX identifier.
         name:
           type: string
           description: The user facing name of the license.
