@@ -58,6 +58,9 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 authentication_info_url=obj.authentication_info_url,
                 api_key_parameter_name=obj.api_key_parameter_name,
                 license_url=obj.license_url,
+                license_id=obj.license_id,
+                license_notes=obj.license_notes,
+                license_is_spdx=obj.license.is_spdx if obj.license else None,
             ),
             redirects=sorted(
                 [RedirectImpl.from_orm(item) for item in obj.redirectingids],
@@ -123,7 +126,22 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             )
             else update_request.source_info.license_url
         )
-
+        entity.license_id = (
+            None
+            if (
+                update_request.source_info is None
+                or update_request.source_info.license_id is None
+            )
+            else update_request.source_info.license_id
+        )
+        entity.license_notes = (
+            None
+            if (
+                update_request.source_info is None
+                or update_request.source_info.license_notes is None
+            )
+            else update_request.source_info.license_notes
+        )
         redirecting_ids = (
             []
             if update_request.redirects is None

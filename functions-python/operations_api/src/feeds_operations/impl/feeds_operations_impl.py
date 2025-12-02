@@ -368,10 +368,17 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsfeed, new_feed.id)
-        trigger_dataset_download(
-            created_feed,
-            get_execution_id(get_request_context(), "feed-created-process"),
-        )
+        try:
+            trigger_dataset_download(
+                created_feed,
+                get_execution_id(get_request_context(), "feed-created-process"),
+            )
+        except Exception as exc:
+            logging.error(
+                "Failed to trigger dataset download for feed ID: %s. Error: %s",
+                created_feed.stable_id,
+                exc,
+            )
         logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
         refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
         logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)

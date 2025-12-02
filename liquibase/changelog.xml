@@ -85,5 +85,8 @@
     <!-- Fixes feed.created_at default value -->
     <include file="changes/feat_1412_2.sql" relativeToChangelogFile="true"/>
     <!-- Added license FK to Feed table-->
-    <include file="changes/feat_1433.sql" relativeToChangelogFile="true"/>    
+    <include file="changes/feat_1433.sql" relativeToChangelogFile="true"/>
+    <!-- Enhance license queries on id and name columns. -->
+    <!-- Individual transactions are needed to create these indexes, this is why XML file is used -->
+    <include file="changes/feat_1432_indexes.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
