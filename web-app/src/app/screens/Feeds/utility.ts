@@ -1,3 +1,5 @@
+export type AllowedFeedSearchStatus = 'active' | 'inactive' | 'future';
+
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
   isGbfsEnabled: boolean,
@@ -41,3 +43,11 @@ export function getInitialSelectedFeedTypes(
     };
   }
 }
+
+export const parseQueryParamStatus = (
+  queryStatus: string[] | undefined,
+): AllowedFeedSearchStatus[] => {
+  return (queryStatus?.filter((s) =>
+    ['active', 'inactive', 'future'].includes(s),
+  ) ?? []) as AllowedFeedSearchStatus[];
+};
