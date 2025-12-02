@@ -1578,7 +1578,7 @@ components:
       x-operation: true
       name: search_query
       in: query
-      description: General search query to match against license name and label
+      description: General search query to match against license name and ID
       required: False
       schema:
         type: string
