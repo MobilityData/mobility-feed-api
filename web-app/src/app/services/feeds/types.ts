@@ -110,7 +110,7 @@ export interface paths {
     get: operations['getLicenses'];
   };
   '/v1/licenses/{id}': {
-    /** @description Get the specified license from the Mobility Database. */
+    /** @description Get the specified license from the Mobility Database, including the license rules. */
     get: operations['getLicense'];
     parameters: {
       path: {
@@ -578,8 +578,8 @@ export interface components {
        */
       license_is_spdx?: boolean;
       /**
-       * @description TBD
-       * @example TBD
+       * @description Notes concerning the relation between the feed and the license.
+       * @example Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
        */
       license_notes?: string;
     };
@@ -743,22 +743,44 @@ export interface components {
        */
       url_html?: string;
     };
-    License: {
+    LicenseRule: {
+      /**
+       * @description Name of the rule.
+       * @example commercial-use
+       */
+      name?: string;
+      /**
+       * @description Label of the rule.
+       * @example Commercial use
+       */
+      label?: string;
+      /**
+       * @description Description of the rule.
+       * @example This license allows the software or data to be used for commercial purposes.
+       */
+      description?: string;
+      /**
+       * @description Type of rule.
+       * @enum {string}
+       */
+      type?: 'permission' | 'condition' | 'limitation';
+    };
+    LicenseBase: {
       /**
        * @description Unique identifier for the license.
        * @example 0BSD
        */
       id?: string;
       /**
-       * @description TBD
-       * @example TBD
+       * @description The type of license.
+       * @example standard
        */
       type?: string;
-      /** @description TBD */
+      /** @description true if license id spdx. */
       is_spdx?: boolean;
       /**
-       * @description TBD
-       * @example TBD
+       * @description The user facing name of the license.
+       * @example BSD Zero Clause License
        */
       name?: string;
       /**
@@ -768,11 +790,10 @@ export interface components {
        */
       url?: string;
       /**
-       * @description TBD
-       * @example TBD
+       * @description The description of the license.
+       * @example This is the OBSD license.
        */
       description?: string;
-      license_rules?: string[];
       /**
        * Format: date-time
        * @description The date and time the license was added to the database, in ISO 8601 date-time format.
@@ -786,7 +807,10 @@ export interface components {
        */
       updated_at?: string;
     };
-    Licenses: Array<components['schemas']['License']>;
+    LicenseWithRules: components['schemas']['LicenseBase'] & {
+      license_rules?: Array<components['schemas']['LicenseRule']>;
+    };
+    Licenses: Array<components['schemas']['LicenseBase']>;
   };
   responses: never;
   parameters: {
@@ -1188,7 +1212,7 @@ export interface operations {
       };
     };
   };
-  /** @description Get the specified license from the Mobility Database. */
+  /** @description Get the specified license from the Mobility Database, including the license rules. */
   getLicense: {
     parameters: {
       path: {
@@ -1199,7 +1223,7 @@ export interface operations {
       /** @description Successful pull of the license info for the provided ID. */
       200: {
         content: {
-          'application/json': components['schemas']['License'];
+          'application/json': components['schemas']['LicenseWithRules'];
         };
       };
     };
