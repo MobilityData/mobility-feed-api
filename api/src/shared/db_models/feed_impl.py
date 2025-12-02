@@ -1,6 +1,11 @@
+import logging
+
+from sqlalchemy.orm import Session
+
+from shared.database.database import with_db_session
 from shared.db_models.basic_feed_impl import BaseFeedImpl
 from feeds_gen.models.feed import Feed
-from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
+from shared.database_gen.sqlacodegen_models import Feed as FeedOrm, License
 from shared.db_models.external_id_impl import ExternalIdImpl
 from shared.db_models.feed_related_link_impl import FeedRelatedLinkImpl
 
@@ -33,10 +38,18 @@ class FeedImpl(BaseFeedImpl, Feed):
         return feed
 
     @classmethod
-    def to_orm_from_dict(cls, feed_dict: dict | None) -> FeedOrm | None:
+    @with_db_session
+    def to_orm_from_dict(cls, feed_dict: dict | None, db_session: Session | None = None) -> FeedOrm | None:
         """Convert a dictionary representation of a feed to a SQLAlchemy Feed ORM object."""
         if not feed_dict:
             return None
+        license_id = None
+        if feed_dict.get("license_id") is not None:
+            license_orm = db_session.query(License).get(feed_dict["license_id"])
+            if not license_orm:
+                logging.warning("License with id %s not found.", feed_dict["license_id"])
+            license_id = license_orm.id if license_orm else None
+
         result: Feed = FeedOrm(
             id=feed_dict.get("id"),
             stable_id=feed_dict.get("stable_id"),
@@ -51,6 +64,8 @@ class FeedImpl(BaseFeedImpl, Feed):
             authentication_info_url=feed_dict.get("authentication_info_url"),
             api_key_parameter_name=feed_dict.get("api_key_parameter_name"),
             license_url=feed_dict.get("license_url"),
+            license_id=license_id,
+            license_notes=feed_dict.get("license_notes"),
             status=feed_dict.get("status"),
             official=feed_dict.get("official"),
             official_updated_at=feed_dict.get("official_updated_at"),
