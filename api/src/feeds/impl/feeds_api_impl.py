@@ -3,7 +3,7 @@ from typing import List, Union, TypeVar, Optional
 
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, contains_eager, selectinload, Session
 from sqlalchemy.orm.query import Query
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
@@ -72,9 +72,13 @@ class FeedsApiImpl(BaseFeedsApi):
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
 
+        # Use an explicit LEFT OUTER JOIN and contains_eager so the License relationship
+        # is populated from the same SQL result without causing N+1 queries.
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(db_session, FeedOrm))
+            .outerjoin(FeedOrm.license)
+            .options(contains_eager(FeedOrm.license))
             .filter(
                 or_(
                     FeedOrm.operational_status == "published",
@@ -115,7 +119,8 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         # Results are sorted by provider
         feed_query = feed_query.order_by(FeedOrm.provider, FeedOrm.stable_id)
-        feed_query = feed_query.options(*get_joinedload_options())
+        # Ensure license relationship is available to the model conversion without extra queries
+        feed_query = feed_query.options(*get_joinedload_options(), selectinload(FeedOrm.license))
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
