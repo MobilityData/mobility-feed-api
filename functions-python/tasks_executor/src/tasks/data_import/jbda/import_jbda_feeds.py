@@ -39,8 +39,8 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
-    _get_or_create_entity_type,
-    _get_or_create_feed,
+    get_or_create_entity_type,
+    get_or_create_feed,
 )
 
 T = TypeVar("T", bound="Feed")
@@ -307,9 +307,9 @@ def _upsert_rt_feeds(
             )
             continue
 
-        et = _get_or_create_entity_type(db_session, entity_type_name)
+        et = get_or_create_entity_type(db_session, entity_type_name)
         rt_stable_id = f"{stable_id}-{entity_type_name}"
-        rt_feed, is_new_rt = _get_or_create_feed(
+        rt_feed, is_new_rt = get_or_create_feed(
             db_session, Gtfsrealtimefeed, rt_stable_id, "gtfs_rt"
         )
 
@@ -388,9 +388,7 @@ def _process_feed(
 
     # Upsert/lookup schedule feed
     stable_id = f"jbda-{org_id}-{feed_id}"
-    gtfs_feed, is_new_gtfs = _get_or_create_feed(
-        db_session, Gtfsfeed, stable_id, "gtfs"
-    )
+    gtfs_feed, is_new_gtfs = get_or_create_feed(db_session, Gtfsfeed, stable_id, "gtfs")
 
     # Diff detection
     api_sched_fp = _build_api_schedule_fingerprint(item, dbody, producer_url)

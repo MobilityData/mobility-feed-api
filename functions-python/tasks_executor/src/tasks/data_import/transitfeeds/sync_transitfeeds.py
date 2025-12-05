@@ -34,8 +34,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
 )
 from tasks.data_import.data_import_utils import (
-    _get_or_create_feed,
-    _get_or_create_entity_type,
+    get_or_create_feed,
+    get_or_create_entity_type,
     get_feed,
 )
 
@@ -80,7 +80,7 @@ def _process_feeds(
                 feed_stable_id,
             )
 
-            feed, is_new = _get_or_create_feed(
+            feed, is_new = get_or_create_feed(
                 db_session, model_cls, feed_stable_id, feed_kind, is_official=False
             )
             # All TransitFeeds imports are marked deprecated
@@ -274,7 +274,7 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
         )
         if entity_types:
             feed.entitytypes = [
-                _get_or_create_entity_type(session, et) for et in entity_types
+                get_or_create_entity_type(session, et) for et in entity_types
             ]
             logger.info(
                 "[GTFS_RT] Set %d entity types for %s",
