@@ -13,6 +13,8 @@ import {
   Select,
   useTheme,
   Link,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -26,7 +28,7 @@ import {
   gbfsMetricsNavItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
@@ -44,9 +46,15 @@ import ThemeToggle from './ThemeToggle';
 import { useTranslation } from 'react-i18next';
 
 export default function DrawerAppBar(): React.ReactElement {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hasTransitFeedsRedirectParam =
+    searchParams.get('utm_source') === 'transitfeeds';
   const theme = useTheme();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [hasTransitFeedsRedirect, setHasTransitFeedsRedirect] = React.useState(
+    hasTransitFeedsRedirectParam,
+  );
   const [openDialog, setOpenDialog] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('');
   const [navigationItems, setNavigationItems] = React.useState<
@@ -118,7 +126,7 @@ export default function DrawerAppBar(): React.ReactElement {
     <Box
       sx={{
         display: 'flex',
-        height: '64px',
+        height: hasTransitFeedsRedirect ? '115px' : '64px',
         mb: { xs: 2, md: 4 },
       }}
     >
@@ -399,7 +407,32 @@ export default function DrawerAppBar(): React.ReactElement {
             )}
           </Box>
         </Toolbar>
+        {hasTransitFeedsRedirect && (
+          <Alert
+            severity='warning'
+            onClose={() => {
+              setHasTransitFeedsRedirect(false);
+              if (hasTransitFeedsRedirectParam) {
+                searchParams.delete('utm_source');
+                setSearchParams(searchParams);
+              }
+            }}
+            sx={{ '.MuiAlert-message': { pb: { xs: 0, md: 1 } } }}
+          >
+            <AlertTitle>
+              You&apos;ve been redirected from TransitFeeds
+            </AlertTitle>
+            <Box
+              component={'span'}
+              sx={{ display: { xs: 'none', md: 'block' } }}
+            >
+              This page now lives on MobilityDatabase.org, where you&apos;ll
+              find the most up-to-date transit data.
+            </Box>
+          </Alert>
+        )}
       </AppBar>
+
       <nav>
         <Drawer
           container={container}
