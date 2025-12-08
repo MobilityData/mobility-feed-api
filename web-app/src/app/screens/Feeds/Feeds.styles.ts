@@ -13,6 +13,7 @@ export const chipHolderStyles: SxProps<Theme> = (theme) => ({
 export const stickyHeaderStyles = (props: {
   theme: Theme;
   isSticky: boolean;
+  headerBannerVisible: boolean;
 }): SxProps => {
   const styles: SxProps = {
     display: 'flex',
@@ -20,8 +21,8 @@ export const stickyHeaderStyles = (props: {
     position: 'sticky',
     zIndex: 1,
     top: {
-      xs: '56px',
-      sm: '65px',
+      xs: props.headerBannerVisible ? '113px' : '56px',
+      md: props.headerBannerVisible ? '140px' : '65px',
     },
     background: props.theme.palette.background.default,
     transition: 'box-shadow 0.3s ease-in-out',
