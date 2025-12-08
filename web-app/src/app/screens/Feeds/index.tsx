@@ -128,6 +128,7 @@ export default function Feed(): React.ReactElement {
             search_query: activeSearch,
             data_type: getDataTypeParamFromSelectedFeedTypes(
               selectedFeedTypes,
+              selectedStatuses.length > 0 && areStatusFiltersEnabled,
               config.enableGbfsInSearchPage,
             ),
             is_official: isOfficialTagFilterEnabled

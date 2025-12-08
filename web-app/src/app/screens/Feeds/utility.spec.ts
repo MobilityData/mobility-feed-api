@@ -6,67 +6,81 @@ import {
 
 describe('utility.ts', () => {
   describe('getDataTypeParamFromSelectedFeedTypes', () => {
-    test('returns gtfs when only gtfs is selected', () => {
-      const selected = { gtfs: true, gtfs_rt: false, gbfs: false };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+    test('returns gtfs when hasStatusFilters is true regardless of selection', () => {
+      const selected = { gtfs: false, gtfs_rt: true, gbfs: true };
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, true, true)).toBe(
         'gtfs',
       );
     });
 
-    test('returns gtfs_rt when only gtfs_rt is selected', () => {
+    test('returns gtfs when hasStatusFilters is true even with GBFS disabled', () => {
+      const selected = { gtfs: true, gtfs_rt: true, gbfs: false };
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, true, false)).toBe(
+        'gtfs',
+      );
+    });
+
+    test('returns gtfs when only gtfs is selected and no status filters', () => {
+      const selected = { gtfs: true, gtfs_rt: false, gbfs: false };
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
+        'gtfs',
+      );
+    });
+
+    test('returns gtfs_rt when only gtfs_rt is selected and no status filters', () => {
       const selected = { gtfs: false, gtfs_rt: true, gbfs: false };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
         'gtfs_rt',
       );
     });
 
-    test('returns gbfs when only gbfs is selected and GBFS enabled', () => {
+    test('returns gbfs when only gbfs is selected, GBFS enabled, and no status filters', () => {
       const selected = { gtfs: false, gtfs_rt: false, gbfs: true };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
         'gbfs',
       );
     });
 
-    test('ignores gbfs when GBFS is disabled', () => {
+    test('ignores gbfs when GBFS is disabled and no status filters', () => {
       const selected = { gtfs: false, gtfs_rt: false, gbfs: true };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, false)).toBe(
-        'gtfs,gtfs_rt',
-      );
+      expect(
+        getDataTypeParamFromSelectedFeedTypes(selected, false, false),
+      ).toBe('gtfs,gtfs_rt');
     });
 
-    test('returns combined gtfs,gtfs_rt when both selected', () => {
+    test('returns combined gtfs,gtfs_rt when both selected and no status filters', () => {
       const selected = { gtfs: true, gtfs_rt: true, gbfs: false };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
         'gtfs,gtfs_rt',
       );
     });
 
-    test('returns combined gtfs,gtfs_rt,gbfs when all selected and GBFS enabled', () => {
+    test('returns combined gtfs,gtfs_rt,gbfs when all selected, GBFS enabled, and no status filters', () => {
       const selected = { gtfs: true, gtfs_rt: true, gbfs: true };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
         'gtfs,gtfs_rt,gbfs',
       );
     });
 
-    test('returns default all when none selected and GBFS enabled', () => {
+    test('returns default all when none selected, GBFS enabled, and no status filters', () => {
       const selected = { gtfs: false, gtfs_rt: false, gbfs: false };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, true)).toBe(
+      expect(getDataTypeParamFromSelectedFeedTypes(selected, false, true)).toBe(
         'gtfs,gtfs_rt,gbfs',
       );
     });
 
-    test('returns default gtfs,gtfs_rt when none selected and GBFS disabled', () => {
+    test('returns default gtfs,gtfs_rt when none selected, GBFS disabled, and no status filters', () => {
       const selected = { gtfs: false, gtfs_rt: false, gbfs: false };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, false)).toBe(
-        'gtfs,gtfs_rt',
-      );
+      expect(
+        getDataTypeParamFromSelectedFeedTypes(selected, false, false),
+      ).toBe('gtfs,gtfs_rt');
     });
 
-    test('includes gtfs even if gbfs disabled', () => {
+    test('returns only gtfs when gtfs selected, gbfs selected but disabled, and no status filters', () => {
       const selected = { gtfs: true, gtfs_rt: false, gbfs: true };
-      expect(getDataTypeParamFromSelectedFeedTypes(selected, false)).toBe(
-        'gtfs',
-      );
+      expect(
+        getDataTypeParamFromSelectedFeedTypes(selected, false, false),
+      ).toBe('gtfs');
     });
   });
 

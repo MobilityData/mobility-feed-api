@@ -3,8 +3,13 @@ export type AllowedFeedSearchStatus = (typeof ALLOWED_FEED_STATUSES)[number];
 
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
+  hasStatusFilters: boolean,
   isGbfsEnabled: boolean,
 ): string | undefined {
+  if (hasStatusFilters) {
+    return 'gtfs';
+  }
+
   let dataTypeQueryParam = '';
   if (selectedFeedTypes.gtfs) {
     dataTypeQueryParam += 'gtfs';
