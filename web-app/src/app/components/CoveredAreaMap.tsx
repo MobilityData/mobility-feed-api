@@ -270,6 +270,8 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   return (
     <Box
       sx={{
+        position: 'sticky',
+        top: '74px',
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
