@@ -10,7 +10,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
 )
-from tasks.data_import.trasportdatagouv.import_tdg_feeds import (
+from tasks.data_import.transportdatagouv.import_tdg_feeds import (
     import_tdg_handler,
     _get_license_url,
     _probe_head_format,
@@ -49,7 +49,7 @@ class _FakeSessionOK:
 
     TDG_DATASETS_URL = "https://transport.data.gouv.fr/api/datasets?format=gtfs"
 
-    def get(self, url, timeout=60):
+    def get(self, url, timeout=60, headers=None):
         if url == self.TDG_DATASETS_URL:
             return _FakeResponse(
                 [
@@ -197,13 +197,13 @@ class TestImportTDG(unittest.TestCase):
         mock_trigger = MagicMock()
 
         with patch(
-            "tasks.data_import.trasportdatagouv.import_tdg_feeds.requests.Session",
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.requests.Session",
             return_value=_FakeSessionOK(),
         ), patch(
-            "tasks.data_import.trasportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
             0.01,
         ), patch(
-            "tasks.data_import.trasportdatagouv.import_tdg_feeds.trigger_dataset_download",
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.trigger_dataset_download",
             mock_trigger,
         ), patch.dict(
             os.environ,
@@ -279,10 +279,10 @@ class TestImportTDG(unittest.TestCase):
         a failure summary but not raise.
         """
         with patch(
-            "tasks.data_import.trasportdatagouv.import_tdg_feeds.requests.Session",
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.requests.Session",
             return_value=_FakeSessionError(),
         ), patch(
-            "tasks.data_import.trasportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
             0.01,
         ):
             out = import_tdg_handler({"dry_run": True})

@@ -87,7 +87,7 @@ def _get_license_url(license_id: Optional[str]) -> Optional[str]:
     """
     if not license_id:
         return None
-    return LICENSE_URL_MAP.get(license_id.lower(), {}).get("url")
+    return LICENSE_URL_MAP.get(license_id.strip().lower(), {}).get("url")
 
 
 def _probe_head_format(
@@ -137,12 +137,14 @@ def _get_entity_types_from_resource(resource: dict) -> List[str]:
 def _fetch_tdg_datasets(session_http: requests.Session) -> List[dict]:
     """
     Fetch TDG datasets for GTFS import.
-
-    NOTE: This currently fetches a single page like your CSV helper.
-    If TDG is paginated and you need everything, plug in pagination here.
     """
     logger.info("Fetching TDG datasets from %s", TDG_DATASETS_URL)
-    res = session_http.get(TDG_DATASETS_URL, timeout=REQUEST_TIMEOUT_S)
+    headers = {}
+    if os.getenv("TDG_API_TOKEN"):
+        headers = {
+            "Authorization": os.environ.get("TDG_API_TOKEN"),
+        }
+    res = session_http.get(TDG_DATASETS_URL, timeout=REQUEST_TIMEOUT_S, headers=headers)
     res.raise_for_status()
     payload = res.json()
     if isinstance(payload, list):
@@ -166,7 +168,7 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
         "insee": "<code>"
       }
 
-    Rules (from your assumption):
+    Rules:
       - If type == 'pays', use that as the country.
       - If there is no 'pays', assume country = 'France'.
       - region/departement → state_province
@@ -285,7 +287,7 @@ def _update_common_tdg_fields(
     feed.provider = publisher
     feed.producer_url = producer_url
 
-    feed.status = _compute_status_from_end_date((resource.get("metadata") or {}) or {})
+    feed.status = _compute_status_from_end_date(resource.get("metadata") or {})
     feed.operational_status = "wip"
 
     feed.license_url = _get_license_url(dataset.get("licence"))
@@ -337,6 +339,7 @@ def _build_db_schedule_fingerprint_tdg(feed: Gtfsfeed) -> dict:
 
 def _build_api_rt_fingerprint_tdg(
     dataset: dict,
+    resource: dict,
     producer_url: str,
     static_gtfs_stable_ids: List[str],
     rt_stable_id: str,
@@ -348,7 +351,7 @@ def _build_api_rt_fingerprint_tdg(
         "producer_url": producer_url,
         "license_url": _get_license_url(dataset.get("licence")),
         "static_refs": sorted(static_gtfs_stable_ids),
-        "entity_types": sorted(_get_entity_types_from_resource(resource=dataset)),
+        "entity_types": sorted(_get_entity_types_from_resource(resource=resource)),
     }
 
 
@@ -502,7 +505,7 @@ def _process_tdg_dataset(
             static_gtfs_feeds = (
                 static_feeds_by_dataset_id[dataset_id]
                 if dataset_id in static_feeds_by_dataset_id
-                else None
+                else []
             )
 
             rt_stable_id = f"tdg-{res_id}"
@@ -514,6 +517,7 @@ def _process_tdg_dataset(
             if not is_new_rt:
                 api_rt_fp = _build_api_rt_fingerprint_tdg(
                     dataset=dataset,
+                    resource=resource,
                     producer_url=res_url,
                     static_gtfs_stable_ids=[
                         static_gtfs_feed.stable_id
@@ -621,6 +625,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
     feeds_to_publish: List[Feed] = []
     processed_stable_ids = set()
     for idx, dataset in enumerate(datasets, start=1):
+        previous_total_processed = total_processed
         try:
             deltas, new_feeds = _process_tdg_dataset(
                 db_session,
@@ -640,7 +645,9 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
             if (
                 not dry_run
                 and total_processed
-                and total_processed % commit_batch_size == 0
+                and previous_total_processed
+                and total_processed // commit_batch_size
+                > previous_total_processed // commit_batch_size
             ):
                 logger.info("Committing batch at total_processed=%d", total_processed)
                 commit_changes(db_session, feeds_to_publish, total_processed)

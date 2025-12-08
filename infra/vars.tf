@@ -72,3 +72,8 @@ variable "operations_oauth2_client_id" {
   type = string
   description = "value of the OAuth2 client id for the Operations API"
 }
+
+variable "tdg_api_token" {
+    type        = string
+    description = "TDG API key"
+}

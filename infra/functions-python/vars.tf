@@ -71,6 +71,11 @@ variable "jbda_scheduler_schedule" {
     default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
 }
 
+variable "tdg_api_token" {
+    type        = string
+    description = "TDG API key"
+}
+
 variable "transitland_scraping_schedule" {
     type        = string
     description = "Schedule Transitland scraping job"
