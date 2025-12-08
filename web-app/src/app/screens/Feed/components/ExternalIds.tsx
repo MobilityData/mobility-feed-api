@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography, Link } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { type components } from '../../../services/feeds/types';
 import {
@@ -34,7 +34,10 @@ export default function ExternalIds({
           const src = externalId.source.toLowerCase();
           const info = externalIdSourceMap[src];
           return (
-            <Box key={idx} sx={{ display: 'flex', gap: 1 }}>
+            <Box
+              key={idx}
+              sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+            >
               <Typography
                 variant='body1'
                 sx={{ fontWeight: 700, minWidth: 50 }}
@@ -45,9 +48,26 @@ export default function ExternalIds({
                 {externalId.external_id}
               </Typography>
               <Tooltip title={t(info.translationKey)} placement='top'>
-                <IconButton size='small'>
-                  <InfoOutlinedIcon fontSize='inherit' />
-                </IconButton>
+                {info.docsUrl == null ? (
+                  <InfoOutlinedIcon
+                    sx={{
+                      p: '5px',
+                      boxSizing: 'content-box',
+                      fontSize: '1.125rem',
+                    }}
+                  />
+                ) : (
+                  <IconButton
+                    size='small'
+                    color='primary'
+                    component={Link}
+                    href={info.docsUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    <InfoOutlinedIcon fontSize='inherit' />
+                  </IconButton>
+                )}
               </Tooltip>
             </Box>
           );
