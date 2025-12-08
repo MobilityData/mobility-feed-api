@@ -293,6 +293,48 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
     )
 
 
+def _ensure_transitfeeds_externalid(feed, tfs_dataset_id: str) -> None:
+    """
+    Ensure the feed has an Externalid(source='transitfeeds') derived
+    from the TransitFeeds dataset ID (e.g. 'thebus-honolulu/57/20231014'
+    -> associated_id='thebus-honolulu/57').
+    """
+    # Take first two path components: provider/id
+    parts = tfs_dataset_id.split("/")
+    if len(parts) < 2:
+        logger.warning(
+            "Cannot derive associated_id from Dataset ID %s; expected at least 2 segments.",
+            tfs_dataset_id,
+        )
+        return
+
+    associated_id = "/".join(parts[:2])
+
+    # Check if it already exists
+    existing = [
+        eid
+        for eid in getattr(feed, "externalids", [])
+        if eid.source == "transitfeeds" and eid.associated_id == associated_id
+    ]
+    if existing:
+        logger.debug(
+            "Externalid already present for feed %s: %s",
+            feed.stable_id if hasattr(feed, "stable_id") else feed.id,
+            associated_id,
+        )
+        return
+
+    # Create the new Externalid
+    feed.externalids.append(
+        Externalid(source="transitfeeds", associated_id=associated_id)
+    )
+    logger.info(
+        "Added transitfeeds Externalid %s for feed %s",
+        associated_id,
+        feed.stable_id if hasattr(feed, "stable_id") else feed.id,
+    )
+
+
 def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
     """Create/attach historical datasets per feed (idempotent). Returns count added."""
     df = pd.read_csv(
@@ -324,6 +366,9 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
         grouped_df = grouped_df.sort_values(
             by="Dataset ID", ascending=False
         ).reset_index(drop=True)
+
+        first_dataset_id = grouped_df["Dataset ID"].iloc[0]
+        _ensure_transitfeeds_externalid(feed, first_dataset_id)
 
         datasets: list[Gtfsdataset] = []
         latest_candidate_id: Optional[str] = None
