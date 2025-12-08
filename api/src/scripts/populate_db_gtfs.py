@@ -127,13 +127,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             if data_type != "gtfs_rt":
                 continue
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
-            gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
-
-            # Wipe any previously persisted raw static_reference on the ORM (avoid stale data)
-            if hasattr(gtfs_rt_feed, "static_reference") and gtfs_rt_feed.static_reference is not None:
-                gtfs_rt_feed.static_reference = None
-                session.add(gtfs_rt_feed)
-                session.flush()
 
             # Parse CSV static_reference only to derive relationships (do not persist the raw value)
             static_reference = self.get_safe_value(row, "static_reference", "")
