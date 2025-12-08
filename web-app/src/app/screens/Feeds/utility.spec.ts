@@ -115,7 +115,13 @@ describe('utility.ts', () => {
 
     test('filters to allowed values', () => {
       expect(
-        parseQueryParamStatus(['active', 'deprecated', 'inactive', 'future']),
+        parseQueryParamStatus([
+          'active',
+          'deprecated',
+          'inactive',
+          'future',
+          'development',
+        ]),
       ).toEqual(['active', 'inactive', 'future']);
     });
 

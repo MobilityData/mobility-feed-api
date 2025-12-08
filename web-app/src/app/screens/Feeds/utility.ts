@@ -1,4 +1,5 @@
-export type AllowedFeedSearchStatus = 'active' | 'inactive' | 'future';
+const ALLOWED_FEED_STATUSES = ['active', 'inactive', 'future'] as const;
+export type AllowedFeedSearchStatus = (typeof ALLOWED_FEED_STATUSES)[number];
 
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
@@ -48,6 +49,6 @@ export const parseQueryParamStatus = (
   queryStatus: string[] | undefined,
 ): AllowedFeedSearchStatus[] => {
   return (queryStatus?.filter((s) =>
-    ['active', 'inactive', 'future'].includes(s),
+    ALLOWED_FEED_STATUSES.includes(s as AllowedFeedSearchStatus),
   ) ?? []) as AllowedFeedSearchStatus[];
 };
