@@ -1253,7 +1253,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       GCP_REGION = var.gcp_region
-      TDG_API_TOKEN = var.tdg_api_key
+      TDG_API_TOKEN = var.tdg_api_token
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
