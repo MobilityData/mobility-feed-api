@@ -261,10 +261,7 @@ export default function ValidationReport({
                 >
                   <CardHeader
                     sx={{
-                      pb:
-                        fg.total > 0 || (fg.systemErrors?.length ?? 0) > 0
-                          ? 2
-                          : 1,
+                      pb: 1,
                       flexWrap: { xs: 'wrap', sm: 'nowrap' },
                       gap: { xs: 1, sm: 0 },
                     }}
