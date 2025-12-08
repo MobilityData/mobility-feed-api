@@ -9,11 +9,11 @@ on:
         default: true
         type: boolean
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [catalog-sources-updated, gbfs-systems-updated]
+    types: [ catalog-sources-updated, gbfs-systems-updated ]
 
 env:
-  python_version: "3.11"
-  liquibase_version: "4.33.0"
+  python_version: '3.11'
+  liquibase_version: '4.33.0'
 
 jobs:
   resolve-api-meta-qa:
@@ -34,7 +34,7 @@ jobs:
 
   update-content-qa:
     name: QA Update DB content
-    needs: [resolve-api-meta-qa]
+    needs: [ resolve-api-meta-qa ]
     uses: ./.github/workflows/db-update-content.yml
     with:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
@@ -73,7 +73,7 @@ jobs:
 
   update-content-prod:
     name: PROD Update DB content
-    needs: [resolve-api-meta-prod]
+    needs: [ resolve-api-meta-prod ]
     uses: ./.github/workflows/db-update-content.yml
     with:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
@@ -112,7 +112,7 @@ jobs:
 
   update-content-dev:
     name: Dev Update DB content
-    needs: [resolve-api-meta-dev]
+    needs: [ resolve-api-meta-dev ]
     uses: ./.github/workflows/db-update-content.yml
     with:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
@@ -137,15 +137,7 @@ jobs:
 
   notify-slack-on-failure:
     # Run after all relevant jobs and notify if any failed
-    needs:
-      [
-        resolve-api-meta-qa,
-        update-content-qa,
-        resolve-api-meta-prod,
-        update-content-prod,
-        resolve-api-meta-dev,
-        update-content-dev,
-      ]
+    needs: [ resolve-api-meta-qa, update-content-qa, resolve-api-meta-prod, update-content-prod, resolve-api-meta-dev, update-content-dev ]
     if: ${{ always() && contains(join(needs.*.result, ','), 'failure') }}
     runs-on: ubuntu-latest
     steps:
