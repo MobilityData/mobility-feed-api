@@ -130,6 +130,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
 
             # Parse CSV static_reference only to derive relationships (do not persist the raw value)
             static_reference = self.get_safe_value(row, "static_reference", "")
+            previous = [f.stable_id for f in getattr(gtfs_rt_feed, "gtfs_feeds", [])] if gtfs_rt_feed else []
             gtfs_rt_feed.gtfs_feeds = []
             if static_reference:
                 raw_tokens = [tok.strip() for tok in str(static_reference).split("|") if tok and tok.strip()]
@@ -147,7 +148,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         continue
                     matched_feeds.append(gtfs_feed)
 
-                previous = [f.stable_id for f in getattr(gtfs_rt_feed, "gtfs_feeds", [])] if gtfs_rt_feed else []
                 gtfs_rt_feed.gtfs_feeds = matched_feeds
                 session.add(gtfs_rt_feed)
                 session.flush()
