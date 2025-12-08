@@ -50,15 +50,16 @@ export function GbfsAuthProvider({
   > => {
     if (
       auth?.authType === AuthTypeEnum.BASIC &&
-      'username' in auth &&
-      'password' in auth &&
-      auth.username != null &&
-      auth.username.trim() !== '' &&
-      auth.password != null &&
-      auth.password.trim() !== ''
+      // The RFC 7617 describes HTTP Basic Authentication doesn't prohibit the use of an empty username or password
+      (('username' in auth &&
+        auth.username != null &&
+        auth.username.trim() !== '') ||
+        ('password' in auth &&
+          auth.password != null &&
+          auth.password.trim() !== ''))
     ) {
       try {
-        const token = btoa(`${auth.username}:${auth.password}`);
+        const token = btoa(`${auth.username ?? ''}:${auth.password ?? ''}`);
         return { Authorization: `Basic ${token}` };
       } catch {
         return undefined;
