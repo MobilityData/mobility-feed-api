@@ -280,10 +280,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         p: 2,
         backgroundColor: theme.palette.background.default,
         borderRadius: '5px',
-        border:
-          feed?.data_type === 'gbfs'
-            ? `2px solid ${theme.palette.primary.dark}`
-            : 'none', // Temporary until gbfs summary redesign
+        border: 'none'
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

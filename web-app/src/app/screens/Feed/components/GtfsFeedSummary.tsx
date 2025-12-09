@@ -6,6 +6,7 @@ import {
   getLocationName,
   type GTFSFeedType,
   type GTFSRTFeedType,
+  type GBFSFeedType,
 } from '../../../services/feeds/utils';
 import {
   Box,
@@ -59,15 +60,17 @@ import { formatDateShort } from '../../../utils/date';
 import ExternalIds from './ExternalIds';
 
 export interface GtfsFeedSummaryProps {
-  feed: GTFSFeedType | GTFSRTFeedType | undefined;
+  feed: GTFSFeedType | GTFSRTFeedType | GBFSFeedType | undefined;
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
+  autoDiscoveryUrl?: string;
 }
 
 export default function GtfsFeedSummary({
   feed,
   sortedProviders,
   latestDataset,
+  autoDiscoveryUrl,
 }: GtfsFeedSummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -100,8 +103,8 @@ export default function GtfsFeedSummary({
   };
 
   const hasRelatedLinks = (): boolean => {
-    const hasOtherLinks =
-      feed?.related_links != null && feed.related_links?.length > 0;
+    const relatedLinks = (feed as GTFSFeedType)?.related_links;
+    const hasOtherLinks = relatedLinks != null && relatedLinks?.length > 0;
     return hasOtherLinks;
   };
 
@@ -118,7 +121,7 @@ export default function GtfsFeedSummary({
       <GroupCard variant='outlined'>
         <GroupHeader variant='body1'>
           <BusinessIcon fontSize='inherit' />
-          Agency
+          {feed?.data_type === 'gbfs' ? 'Producer' : 'Agency'}
         </GroupHeader>
         <Box sx={{ ml: 2 }}>
           <Typography variant='h6' fontWeight={700} mt={1} mb={0.5}>
@@ -331,7 +334,9 @@ export default function GtfsFeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  Producer Url
+                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl
+                    ? 'Auto-Discovery URL'
+                    : 'Producer URL'}
                 </Typography>
                 <Box
                   sx={{
@@ -359,22 +364,61 @@ export default function GtfsFeedSummary({
                       fontSize: '0.875em',
                     }}
                   >
-                    {feed.source_info.producer_url}
+                    {feed.data_type === 'gbfs' ? autoDiscoveryUrl : feed.source_info.producer_url}
                   </Typography>
                   <IconButton
                     component={Link}
-                    href={feed.source_info.producer_url}
+                    href={feed.data_type === 'gbfs' ? autoDiscoveryUrl : feed.source_info.producer_url}
                     target='_blank'
                     rel='noreferrer'
                     color='secondary'
                     aria-label='download producer URL'
                   >
-                    <DownloadIcon />
+                    {feed.data_type === 'gbfs' ? (
+                      <OpenInNewIcon />
+                    ) : (
+                      <DownloadIcon />
+                    )}
                   </IconButton>
                 </Box>
               </Box>
             </>
           )}
+
+        {(feed as GBFSFeedType)?.provider_url != undefined &&
+          (feed as GBFSFeedType)?.provider_url !== '' && (
+            <>
+              <Box sx={{ ml: 2, mt: 2 }}>
+                <Typography
+                  variant='subtitle2'
+                  sx={{ fontWeight: 700, color: 'text.secondary' }}
+                >
+                  Provider Url
+                </Typography>
+                <Link
+                  href={(feed as GBFSFeedType)?.provider_url}
+                  target='_blank'
+                  rel='noreferrer'
+                  variant='body1'
+                >
+                  {(feed as GBFSFeedType)?.provider_url}
+                </Link>
+              </Box>
+            </>
+          )}
+        {(feed as GBFSFeedType)?.system_id != undefined && (
+          <Box sx={{ ml: 2, mt: 2 }}>
+            <Typography
+              variant='subtitle2'
+              sx={{ fontWeight: 700, color: 'text.secondary' }}
+            >
+              System ID
+            </Typography>
+            <Typography variant='body1'>
+              {(feed as GBFSFeedType)?.system_id}
+            </Typography>
+          </Box>
+        )}
         {feed?.feed_contact_email != null &&
           feed?.feed_contact_email !== '' && (
             <Box sx={{ ml: 2, mt: 3 }}>
@@ -391,9 +435,9 @@ export default function GtfsFeedSummary({
                 size='small'
                 startIcon={<EmailIcon />}
                 component={Link}
-                href={`mailto:${feed.feed_contact_email}`}
+                href={`mailto:${feed?.feed_contact_email}`}
               >
-                {feed.feed_contact_email}
+                {feed?.feed_contact_email}
               </Button>
             </Box>
           )}
@@ -468,8 +512,11 @@ export default function GtfsFeedSummary({
               </Box>
               <Tooltip
                 title={
-                  getFeedStatusData(feed?.status ?? '', theme, t)
-                    ?.toolTipLong ?? ''
+                  getFeedStatusData(
+                    (feed as GTFSFeedType)?.status ?? '',
+                    theme,
+                    t,
+                  )?.toolTipLong ?? ''
                 }
                 placement='top'
               >
@@ -487,29 +534,30 @@ export default function GtfsFeedSummary({
                       height: '1px',
                       width: '100%',
                       background: `radial-gradient(circle,${getFeedStatusData(
-                        feed?.status ?? '',
+                        (feed as GTFSFeedType)?.status ?? '',
                         theme,
                         t,
                       )?.color} 54%, rgba(255, 255, 255, 0) 100%)`,
                     }}
                   >
                     {/* TODO: nice to have, a placement of the chip relative to the current date */}
-                    {feed?.status !== undefined && feed.status === 'active' && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                      >
-                        <FeedStatusChip
-                          status={feed?.status ?? ''}
-                          chipSize='small'
-                          disableTooltip={true}
-                        />
-                      </Box>
-                    )}
+                    {(feed as GTFSFeedType)?.status !== undefined &&
+                      (feed as GTFSFeedType)?.status === 'active' && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <FeedStatusChip
+                            status={(feed as GTFSFeedType)?.status ?? ''}
+                            chipSize='small'
+                            disableTooltip={true}
+                          />
+                        </Box>
+                      )}
                   </Box>
                 </Box>
               </Tooltip>
@@ -639,7 +687,7 @@ export default function GtfsFeedSummary({
             Related Links
           </GroupHeader>
 
-          {feed?.related_links?.map((link, index) => (
+          {(feed as GTFSFeedType)?.related_links?.map((link, index) => (
             <CopyLinkElement
               key={index}
               title={link.code ?? ''}
