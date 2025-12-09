@@ -127,21 +127,33 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             if data_type != "gtfs_rt":
                 continue
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
+
+            # Parse CSV static_reference only to derive relationships (do not persist the raw value)
             static_reference = self.get_safe_value(row, "static_reference", "")
+            previous = [f.stable_id for f in getattr(gtfs_rt_feed, "gtfs_feeds", [])] if gtfs_rt_feed else []
+            gtfs_rt_feed.gtfs_feeds = []
             if static_reference:
-                try:
-                    gtfs_stable_id = f"mdb-{int(float(static_reference))}"
-                except ValueError:
-                    gtfs_stable_id = static_reference
-                gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
-                if not gtfs_feed:
-                    self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
-                    continue
-                already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-                if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
-                    gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-                    # Flush to avoid FK violation
-                    session.flush()
+                raw_tokens = [tok.strip() for tok in str(static_reference).split("|") if tok and tok.strip()]
+                matched_feeds = []
+                for token in raw_tokens:
+                    try:
+                        gtfs_stable_id = f"mdb-{int(float(token))}"
+                    except ValueError:
+                        gtfs_stable_id = token
+                    gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
+                    if not gtfs_feed:
+                        self.logger.warning(
+                            f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}"
+                        )
+                        continue
+                    matched_feeds.append(gtfs_feed)
+
+                gtfs_rt_feed.gtfs_feeds = matched_feeds
+                session.add(gtfs_rt_feed)
+                session.flush()
+                self.logger.info(
+                    f"Set feed references for {stable_id}: {previous} -> {[f.stable_id for f in matched_feeds]}"
+                )
 
     def process_redirects(self, session: "Session"):
         """

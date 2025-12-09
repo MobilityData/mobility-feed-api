@@ -53,3 +53,23 @@ def test_is_official_overwrite(client: TestClient, values):
     assert response.status_code == 200
     json_response = response.json()
     assert json_response["official"] is expected_official, values["assert_fail_message"]
+
+
+def test_is_feed_reference_overwrite(client: TestClient):
+    feed_id = "mdb-1562"
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+    json_response = response.json()
+    assert json_response["feed_references"] == ["mdb-50"]
+
+    feed_id = "mdb-1563"
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+    json_response = response.json()
+    assert json_response["feed_references"] == ["mdb-50"]
