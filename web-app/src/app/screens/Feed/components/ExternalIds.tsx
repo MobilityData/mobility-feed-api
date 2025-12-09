@@ -1,5 +1,12 @@
 import React from 'react';
-import { Box, IconButton, Tooltip, Typography, Link } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  Tooltip,
+  Typography,
+  Link,
+  Button,
+} from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { type components } from '../../../services/feeds/types';
 import {
@@ -38,13 +45,29 @@ export default function ExternalIds({
               key={idx}
               sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
             >
-              <Typography
-                variant='body1'
-                sx={{ fontWeight: 700, minWidth: 50 }}
+              <Button
+                variant='text'
+                sx={{
+                  fontWeight: 700,
+                  minWidth: 'auto',
+                  color: 'text.primary',
+                  textTransform: 'none',
+                  p: 0,
+                  px: 1.5,
+                  ml: -1.5,
+                  fontSize: 'medium',
+                }}
+                component={Link}
+                href={info.docsUrl}
+                target='_blank'
+                rel='noopener noreferrer'
               >
                 {info?.label ?? externalId.source}
-              </Typography>
-              <Typography variant='body1' sx={{ wordBreak: 'break-all' }}>
+              </Button>
+              <Typography
+                variant='body1'
+                sx={{ wordBreak: 'break-all', lineHeight: 1.2 }}
+              >
                 {externalId.external_id}
               </Typography>
               <Tooltip title={t(info.translationKey)} placement='top'>
