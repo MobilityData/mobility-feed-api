@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+  <changeSet id="1432-enable-pg_trgm" author="you">
+    <sql>CREATE EXTENSION IF NOT EXISTS pg_trgm;</sql>
+  </changeSet>
+
+  <!-- Concurrent index: run outside transaction -->
+  <changeSet id="1432-idx-license-lower-id" author="you" runInTransaction="false">
+    <sqlFile path="feat_1432_1.sql" relativeToChangelogFile="true" splitStatements="false"/>
+  </changeSet>
+
+  <changeSet id="1432-idx-license-lower-name" author="you" runInTransaction="false">
+    <sqlFile path="feat_1432_2.sql" relativeToChangelogFile="true" splitStatements="false"/>
+  </changeSet>
+
+  <changeSet id="1432-idx-license-name-trgm" author="you" runInTransaction="false">
+    <sqlFile path="feat_1432_3.sql" relativeToChangelogFile="true" splitStatements="false"/>
+  </changeSet>
+
+</databaseChangeLog>

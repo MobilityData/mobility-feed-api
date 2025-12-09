@@ -1,4 +1,6 @@
 src/feeds_gen/apis/__init__.py
+src/feeds_gen/apis/licenses_api.py
+src/feeds_gen/apis/licenses_api_base.py
 src/feeds_gen/apis/operations_api.py
 src/feeds_gen/apis/operations_api_base.py
 src/feeds_gen/main.py
@@ -22,6 +24,9 @@ src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_rt_feed.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
+src/feeds_gen/models/license_base.py
+src/feeds_gen/models/license_rule.py
+src/feeds_gen/models/license_with_rules.py
 src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/operation_create_request_gtfs_feed.py
