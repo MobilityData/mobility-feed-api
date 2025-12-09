@@ -19,8 +19,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 export interface CopyLinkElementProps {
   title: string;
   url: string;
-  linkType?: 'download' | 'external' | 'email';
+  linkType?: 'download' | 'external' | 'email' | 'internal';
   titleInfo?: string;
+  internalClickAction?: () => void;
 }
 
 export default function CopyLinkElement({
@@ -28,6 +29,7 @@ export default function CopyLinkElement({
   url,
   linkType,
   titleInfo,
+  internalClickAction,
 }: CopyLinkElementProps): ReactElement {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
@@ -52,16 +54,26 @@ export default function CopyLinkElement({
   return (
     <FeedLinkElement>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Button
-          variant='text'
-          sx={{ pl: 0, py: 0.5 }}
-          component={Link}
-          href={formattedUrl}
-          target='_blank'
-          rel='noreferrer'
-        >
-          {title}
-        </Button>
+        {linkType === 'internal' ? (
+          <Button
+            variant='text'
+            sx={{ pl: 0, py: 0.5 }}
+            onClick={internalClickAction}
+          >
+            {title}
+          </Button>
+        ) : (
+          <Button
+            variant='text'
+            sx={{ pl: 0, py: 0.5 }}
+            component={Link}
+            href={formattedUrl}
+            target='_blank'
+            rel='noreferrer'
+          >
+            {title}
+          </Button>
+        )}
         {titleInfo != undefined && (
           <Tooltip title={titleInfo} placement='top'>
             <InfoOutlinedIcon fontSize='inherit' />
