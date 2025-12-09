@@ -23,6 +23,7 @@ import {
 } from '../../store/gbfs-validator-selectors';
 import { useGbfsAuth } from '../../context/GbfsAuthProvider';
 import { ValidationErrorAlert } from './ValidationErrorAlert';
+import { groupErrorsByFile } from './errorGrouping';
 
 export default function ValidationState(): ReactElement {
   const theme = useTheme();
@@ -40,7 +41,7 @@ export default function ValidationState(): ReactElement {
     gbfsVersion,
     numberOfErrors,
     numberOfSystemErrors,
-    filesWithErrors,
+    uniqueErrorCount,
     isValidFeed,
     validatorVersion,
   } = useMemo(() => {
@@ -55,9 +56,10 @@ export default function ValidationState(): ReactElement {
       0,
     );
     const totalErrors = numberOfErrors + numberOfSystemErrors;
-    const filesWithErrors = files.filter(
-      (f) => (f.errors?.length ?? 0) > 0,
-    ).length;
+    const uniqueErrorCount = groupErrorsByFile(files).reduce(
+      (acc, f) => acc + f.groups.length,
+      0,
+    );
     const isValidFeed = totalErrors === 0;
     const validatorVersion =
       validationResult?.summary?.validatorVersion ?? 'N/A';
@@ -65,7 +67,7 @@ export default function ValidationState(): ReactElement {
       gbfsVersion,
       numberOfErrors,
       numberOfSystemErrors,
-      filesWithErrors,
+      uniqueErrorCount,
       isValidFeed,
       validatorVersion,
     };
@@ -191,7 +193,7 @@ export default function ValidationState(): ReactElement {
                     />
 
                     <Chip
-                      label={`${filesWithErrors} Files Errors`}
+                      label={`${uniqueErrorCount} Unique Errors`}
                       color='error'
                       variant='outlined'
                     />

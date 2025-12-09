@@ -1,7 +1,4 @@
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Badge,
   Box,
   Button,
@@ -26,21 +23,23 @@ import {
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import LanguageIcon from '@mui/icons-material/Language';
-import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { type components } from '../../services/feeds/gbfs-validator-types';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OpenInNew } from '@mui/icons-material';
 import {
   ValidationReportTableStyles,
   ContentTitle,
   ValidationElementCardStyles,
   ValidationErrorPathStyles,
+  rowButtonOutlineErrorSx,
 } from './ValidationReport.styles';
 import { langCodeToName } from '../../services/feeds/utils';
+import { groupErrorsByFile } from './errorGrouping';
 import { ValidationReportSkeletonLoading } from './ValidationReportSkeletonLoading';
+import ErrorDetailsDialog from './components/ErrorDetailsDialog';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 
 export type ValidationResult = components['schemas']['ValidationResult'];
 export type GbfsFile = components['schemas']['GbfsFile'];
@@ -56,64 +55,12 @@ export default function ValidationReport({
   loading,
 }: ValidationResultProps): React.ReactElement {
   const theme = useTheme();
-  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
-
-  const [expandedByFile, setExpandedByFile] = useState<
-    Record<string, Set<number>>
-  >({});
-  const [visibleErrorsByFile, setVisibleErrorsByFile] = useState<
-    Record<string, boolean>
-  >({});
   const [visibleSystemErrorsByFile, setVisibleSystemErrorsByFile] = useState<
     Record<string, boolean>
   >({});
-
-  const toggleExpanded = (
-    fileName: string,
-    idx: number,
-    isExpanded: boolean,
-  ): void => {
-    setExpandedByFile((prev) => {
-      const next = { ...prev };
-      const prevSet =
-        prev[fileName] != null ? new Set(prev[fileName]) : new Set<number>();
-      if (isExpanded) prevSet.add(idx);
-      else prevSet.delete(idx);
-      next[fileName] = prevSet;
-      return next;
-    });
-  };
-
-  const collapseAllForFile = (fileName: string): void => {
-    setExpandedByFile((prev) => ({ ...prev, [fileName]: new Set<number>() }));
-  };
-
-  const expandAllForFile = (fileName: string, count: number): void => {
-    const set = new Set<number>();
-    for (let i = 0; i < count; i++) set.add(i);
-    setExpandedByFile((prev) => ({ ...prev, [fileName]: set }));
-  };
-
-  const toggleVisibleErrors = (fileName: string): void => {
-    setVisibleErrorsByFile((prev) => {
-      const nextVisible = !prev[fileName];
-      if (!nextVisible) {
-        setExpandedByFile((prevExp) => ({
-          ...prevExp,
-          [fileName]: new Set<number>(),
-        }));
-      }
-      return { ...prev, [fileName]: nextVisible };
-    });
-  };
-
-  const toggleVisibleSystemErrors = (fileName: string): void => {
-    setVisibleSystemErrorsByFile((prev) => {
-      const nextVisible = !prev[fileName];
-      return { ...prev, [fileName]: nextVisible };
-    });
-  };
-
+  const [groupedExpanded, setGroupedExpanded] = useState<
+    Record<string, boolean>
+  >({});
   const allFiles: GbfsFile[] = validationResult?.summary?.files ?? [];
   const baseFiles: GbfsFile[] = allFiles.filter((f) => f.language == null);
   const languageSpecificFiles: GbfsFile[] = allFiles.filter(
@@ -142,6 +89,35 @@ export default function ValidationReport({
           ),
         ]
       : [...baseFiles];
+  // Group errors by fileName, normalized instancePath and message. Shared util ensures consistency.
+  const groupedByFile = useMemo(
+    () => groupErrorsByFile(filesForLanguage),
+    [filesForLanguage],
+  );
+  const fileGroupRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  // Error details dialog selection state
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
+  const [detailsFileName, setDetailsFileName] = useState<string>('');
+  const [detailsFileUrl, setDetailsFileUrl] = useState<string | undefined>(
+    undefined,
+  );
+  const [detailsError, setDetailsError] = useState<FileError | null>(null);
+
+  const openDetails = (
+    fileName: string,
+    fileUrl: string | undefined,
+    err: FileError,
+  ): void => {
+    setDetailsFileName(fileName);
+    setDetailsFileUrl(fileUrl);
+    setDetailsError(err);
+    setDetailsOpen(true);
+  };
+
+  const closeDetails = (): void => {
+    setDetailsOpen(false);
+  };
 
   if (loading) {
     return <ValidationReportSkeletonLoading></ValidationReportSkeletonLoading>;
@@ -170,6 +146,7 @@ export default function ValidationReport({
               </Tabs>
             </Box>
           )}
+
           <Box
             sx={{
               display: 'flex',
@@ -193,51 +170,58 @@ export default function ValidationReport({
                 }
               >
                 {filesForLanguage.map((file: GbfsFile, index) => {
-                  const hasErrors =
-                    file.errors != null && file.errors.length > 0;
-                  const hasSystemErrors =
-                    file.systemErrors != null && file.systemErrors.length > 0;
+                  const fg = groupedByFile[index];
+                  const numberOfErrors = file.errors?.length ?? 0;
+                  const uniqueCount = fg?.groups.length ?? 0;
+                  const sysCount = fg?.systemErrors?.length ?? 0;
+                  const hasErrors = uniqueCount > 0;
+                  const hasSystemErrors = sysCount > 0;
+                  const totalCount = numberOfErrors + sysCount;
+                  const secondary =
+                    hasErrors || hasSystemErrors
+                      ? [
+                          hasErrors ? `${uniqueCount} unique errors` : null,
+                          hasSystemErrors ? `${sysCount} system errors` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')
+                      : '';
                   return (
                     <ListItem disablePadding key={file.name}>
                       <ListItemButton
-                        onClick={() => cardRefs.current[index]?.focus()}
+                        onClick={() => fileGroupRefs.current[index]?.focus()}
                       >
                         <ListItemIcon>
-                          {hasErrors ? (
+                          {totalCount > 0 ? (
                             <Badge
-                              badgeContent={file?.errors?.length}
-                              color='error'
+                              badgeContent={totalCount}
+                              color={hasErrors ? 'error' : 'warning'}
                             >
-                              <ErrorOutlineIcon
-                                sx={{
-                                  color: theme.palette.error.main,
-                                  mr: 1,
-                                }}
-                              />
-                            </Badge>
-                          ) : hasSystemErrors ? (
-                            <Badge
-                              badgeContent={file?.systemErrors?.length}
-                              color='warning'
-                            >
-                              <WarningAmberOutlinedIcon
-                                sx={{
-                                  color: theme.palette.warning.main,
-                                  mr: 1,
-                                }}
-                              />
+                              {hasErrors ? (
+                                <ErrorOutlineIcon
+                                  sx={{
+                                    color: theme.palette.error.main,
+                                    mr: 1,
+                                  }}
+                                />
+                              ) : (
+                                <WarningAmberOutlinedIcon
+                                  sx={{
+                                    color: theme.palette.warning.main,
+                                    mr: 1,
+                                  }}
+                                />
+                              )}
                             </Badge>
                           ) : (
                             <CheckCircleOutlineIcon
-                              sx={{
-                                color: theme.palette.success.main,
-                                mr: 1,
-                              }}
+                              sx={{ color: theme.palette.success.main, mr: 1 }}
                             />
                           )}
                         </ListItemIcon>
                         <ListItemText
-                          primary={file.name + '.json'}
+                          primary={`${file.name}.json`}
+                          secondary={secondary}
                           sx={{
                             color: hasErrors
                               ? theme.palette.error.main
@@ -268,58 +252,65 @@ export default function ValidationReport({
                   ? `(${langCodeToName(selectedLanguage)})`
                   : ''}
               </ContentTitle>
-              {filesForLanguage.map((file: GbfsFile, index) => {
-                const hasErrors = file.errors != null && file.errors.length > 0;
-                const hasSystemErrors =
-                  file.systemErrors != null && file.systemErrors.length > 0;
-                const errorsCount = file?.errors?.length ?? 0;
-                const systemErrorsCount = file?.systemErrors?.length ?? 0;
-                const fileKey = file.name ?? '';
-                const isAnyExpanded =
-                  (expandedByFile[fileKey ?? '']?.size ?? 0) > 0;
-                const isVisible = !!visibleErrorsByFile[fileKey];
-                const isSystemVisible = !!visibleSystemErrorsByFile[fileKey];
-
-                return (
-                  <Card
-                    key={file.name}
-                    ref={(el) => (cardRefs.current[index] = el)}
-                    tabIndex={-1}
-                    sx={ValidationElementCardStyles(theme, index)}
-                  >
-                    <CardHeader
-                      sx={{ pb: hasErrors || hasSystemErrors ? 2 : 1 }}
-                      title={file.name + '.json'}
-                      titleTypographyProps={{
-                        variant: 'h6',
-                        sx: { fontWeight: 'bold' },
-                      }}
-                      avatar={
-                        hasErrors ? (
-                          <ErrorOutlineIcon color='error' />
-                        ) : hasSystemErrors ? (
-                          <WarningAmberOutlinedIcon color='warning' />
-                        ) : (
-                          <CheckCircleOutlineIcon color='success' />
-                        )
-                      }
-                      action={
-                        <>
+              {groupedByFile.map((fg, index) => (
+                <Card
+                  key={fg.fileName}
+                  ref={(el) => (fileGroupRefs.current[index] = el)}
+                  tabIndex={-1}
+                  sx={ValidationElementCardStyles(theme, index)}
+                >
+                  <CardHeader
+                    sx={{
+                      pb: 1,
+                      flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                      gap: { xs: 1, sm: 0 },
+                    }}
+                    title={`${fg.fileName}.json`}
+                    titleTypographyProps={{
+                      variant: 'h6',
+                      sx: { fontWeight: 'bold' },
+                    }}
+                    avatar={
+                      fg.total > 0 ? (
+                        <ErrorOutlineIcon color='error' />
+                      ) : (fg.systemErrors?.length ?? 0) > 0 ? (
+                        <WarningAmberOutlinedIcon color='warning' />
+                      ) : (
+                        <CheckCircleOutlineIcon color='success' />
+                      )
+                    }
+                    action={
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        {fg.total > 0 && (
+                          <Typography
+                            color={'error'}
+                            sx={{ fontWeight: 'bold' }}
+                            variant='body2'
+                          >
+                            {`${fg.total} total errors`}
+                          </Typography>
+                        )}
+                        {fg.fileUrl != null && fg.fileUrl !== '' && (
                           <Button
                             size='small'
                             endIcon={<OpenInNew />}
                             color={'inherit'}
                             sx={{ opacity: 0.7 }}
                             component={Link}
-                            href={file.url}
+                            href={fg.fileUrl}
                             target='_blank'
                             rel='noopener noreferrer'
                           >
                             View File
                           </Button>
-                        </>
-                      }
-                    />
+                        )}
+                      </Box>
+                    }
+                  />
+                  {((fg.total === 0 && (fg.systemErrors?.length ?? 0) === 0) ||
+                    (fg.systemErrors?.length ?? 0) > 0) && (
                     <Box
                       sx={{
                         px: 2,
@@ -329,216 +320,315 @@ export default function ValidationReport({
                         justifyContent: 'space-between',
                       }}
                     >
-                      {!hasErrors && !hasSystemErrors && (
-                        <Typography
-                          variant='body2'
-                          color={theme.palette.success.main}
-                        >
-                          <b>Valid</b> no errors
-                        </Typography>
-                      )}
-                      {hasErrors && (
-                        <Button
-                          size='small'
-                          color='error'
-                          variant='outlined'
-                          onClick={() => {
-                            toggleVisibleErrors(fileKey);
-                          }}
-                        >
-                          {isVisible ? 'Hide' : 'View'}&#8195;
-                          <b>{errorsCount}</b>&#8195;Error Details
-                        </Button>
-                      )}
-                      {hasSystemErrors && (
+                      {fg.total === 0 &&
+                        (fg.systemErrors?.length ?? 0) === 0 && (
+                          <Typography
+                            variant='body2'
+                            color={theme.palette.success.main}
+                          >
+                            <b>Valid</b> no errors
+                          </Typography>
+                        )}
+                      {(fg.systemErrors?.length ?? 0) > 0 && (
                         <Button
                           size='small'
                           color='warning'
                           variant='outlined'
                           onClick={() => {
-                            toggleVisibleSystemErrors(fileKey);
+                            setVisibleSystemErrorsByFile((prev) => ({
+                              ...prev,
+                              [fg.fileName]: !prev[fg.fileName],
+                            }));
                           }}
-                          sx={{ ml: hasErrors ? 1 : 0 }}
                         >
-                          {isSystemVisible ? 'Hide' : 'View'}&#8195;
-                          <b>{systemErrorsCount}</b>&#8195;System Error Details
-                        </Button>
-                      )}
-                      {hasErrors && isVisible && (
-                        <Button
-                          size='small'
-                          color='inherit'
-                          onClick={() => {
-                            isAnyExpanded
-                              ? collapseAllForFile(fileKey)
-                              : expandAllForFile(fileKey, errorsCount);
-                          }}
-                          startIcon={
-                            isAnyExpanded ? (
-                              <UnfoldLessIcon />
-                            ) : (
-                              <UnfoldMoreIcon />
-                            )
-                          }
-                          sx={{ opacity: 0.8, ml: 1 }}
-                        >
-                          {isAnyExpanded ? 'Collapse all' : 'Expand all'}
+                          {visibleSystemErrorsByFile[fg.fileName]
+                            ? 'Hide'
+                            : 'View'}
+                          &#8195;
+                          <b>{fg.systemErrors?.length ?? 0}</b>&#8195;System
+                          Error Details
                         </Button>
                       )}
                     </Box>
+                  )}
 
-                    {hasErrors && (
-                      <Collapse in={isVisible} timeout='auto' unmountOnExit>
-                        <Divider />
-                        <Box
-                          sx={{
-                            maxHeight: '400px',
-                            overflowY: 'auto',
-                            transition: 'height 200ms',
-                          }}
+                  {(fg.groups.length > 0 || fg.systemErrors?.length > 0) && (
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      {fg.groups.map((group, i) => {
+                        const groupId = `${fg.fileName}::${group.key}`;
+                        const expanded = !!groupedExpanded[groupId];
+                        return (
+                          <Box
+                            key={group.key}
+                            sx={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.25,
+                              borderBottom:
+                                i < fg.groups.length - 1 ? '1px solid' : 'none',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            {(() => {
+                              return (
+                                <>
+                                  <Box
+                                    sx={{
+                                      py: 0.75,
+                                      px: 0.5,
+                                      cursor: 'pointer',
+                                      // hide/show the details button only on hover/focus of this header
+                                      '.hover-details-btn': {
+                                        opacity: 0,
+                                        pointerEvents: 'none',
+                                        transition: 'opacity 120ms',
+                                      },
+                                      '&:hover': {
+                                        backgroundColor:
+                                          theme.palette.action.hover,
+                                      },
+                                      '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                        {
+                                          opacity: 0.8,
+                                          pointerEvents: 'auto',
+                                        },
+                                    }}
+                                    onClick={() => {
+                                      setGroupedExpanded((prev) => ({
+                                        ...prev,
+                                        [groupId]: !expanded,
+                                      }));
+                                    }}
+                                  >
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1.5,
+                                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                                      }}
+                                    >
+                                      <Chip
+                                        size='small'
+                                        color='error'
+                                        variant='outlined'
+                                        label={`${group.occurrences[0].error.keyword}`}
+                                      />
+                                      <Typography sx={{ fontWeight: 600 }}>
+                                        {group.message.replace(':', '')}
+                                      </Typography>
+                                      <Box sx={{ flexGrow: 1 }} />
+                                      <Button
+                                        className='hover-details-btn'
+                                        variant='outlined'
+                                        color='error'
+                                        size='small'
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openDetails(
+                                            fg.fileName,
+                                            fg.fileUrl,
+                                            group.occurrences[0].error,
+                                          );
+                                        }}
+                                      >
+                                        View First Error
+                                      </Button>
+                                      <Button
+                                        color='inherit'
+                                        onClick={() => {
+                                          setGroupedExpanded((prev) => ({
+                                            ...prev,
+                                            [groupId]: !expanded,
+                                          }));
+                                        }}
+                                        endIcon={
+                                          expanded ? (
+                                            <ExpandLess />
+                                          ) : (
+                                            <ExpandMore />
+                                          )
+                                        }
+                                        sx={{
+                                          opacity: 0.8,
+                                        }}
+                                      >
+                                        <b>{group.occurrences.length}</b>x
+                                      </Button>
+                                    </Box>
+                                    {group.message !== '' && (
+                                      <Typography
+                                        variant='body2'
+                                        color='text.secondary'
+                                        sx={{
+                                          ml: { xs: 0, sm: 2.5 },
+                                          overflowX: 'auto',
+                                        }}
+                                      >
+                                        {group.normalizedPath}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  <Collapse
+                                    in={expanded}
+                                    timeout='auto'
+                                    unmountOnExit
+                                  >
+                                    {group.occurrences.length > 0 && (
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          flexWrap: 'wrap',
+                                          gap: 1,
+                                          ml: { xs: 0, sm: 2 },
+                                          mt: 0.5,
+                                          maxHeight: '500px',
+                                          overflowY: 'auto',
+                                          p: 0.5,
+                                        }}
+                                      >
+                                        {group.occurrences.map((occ, j) => (
+                                          <Box
+                                            key={j}
+                                            role='button'
+                                            tabIndex={0}
+                                            aria-label={`View details for path ${
+                                              occ.error.instancePath ?? '#'
+                                            }`}
+                                            onClick={() => {
+                                              openDetails(
+                                                fg.fileName,
+                                                fg.fileUrl,
+                                                occ.error,
+                                              );
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (
+                                                e.key === 'Enter' ||
+                                                e.key === ' '
+                                              ) {
+                                                e.preventDefault();
+                                                openDetails(
+                                                  fg.fileName,
+                                                  fg.fileUrl,
+                                                  occ.error,
+                                                );
+                                              }
+                                            }}
+                                            sx={{
+                                              ...ValidationErrorPathStyles(
+                                                theme,
+                                              ),
+                                              position: 'relative',
+                                              transition:
+                                                'background-color 120ms, box-shadow 120ms',
+                                              cursor: 'pointer',
+                                              '&:hover': {
+                                                boxShadow: `0 0 0 2px ${theme.palette.error.light}`,
+                                              },
+                                              '&:focus-visible': {
+                                                outline: 'none',
+                                                boxShadow: `0 0 0 3px ${theme.palette.error.main}`,
+                                              },
+                                              '&:hover .hover-details-btn, &:focus-visible .hover-details-btn':
+                                                {
+                                                  opacity: 0.7,
+
+                                                  pointerEvents: 'auto',
+                                                },
+                                            }}
+                                          >
+                                            <Typography
+                                              component='span'
+                                              variant='caption'
+                                              sx={{
+                                                fontFamily: 'monospace',
+                                                pr: 3,
+                                              }}
+                                            >
+                                              {occ.error.instancePath ?? '#'}
+                                            </Typography>
+                                            {/* This box is used as an indicator to show users to click the row
+                                          It cannot be a button alone because of accessibility issues with nested buttons */}
+                                            <Box
+                                              component='span'
+                                              className='hover-details-btn'
+                                              sx={rowButtonOutlineErrorSx}
+                                            >
+                                              Click for details
+                                            </Box>
+                                          </Box>
+                                        ))}
+                                      </Box>
+                                    )}
+                                  </Collapse>
+                                </>
+                              );
+                            })()}
+                          </Box>
+                        );
+                      })}
+                      {(fg.systemErrors?.length ?? 0) > 0 && (
+                        <Collapse
+                          in={!!visibleSystemErrorsByFile[fg.fileName]}
+                          timeout='auto'
+                          unmountOnExit
                         >
-                          {file?.errors?.map((error, idx) => (
-                            <Accordion
-                              key={idx}
-                              slotProps={{
-                                transition: { unmountOnExit: true },
-                              }}
-                              sx={{
-                                background: theme.palette.background.default,
-                                '&.Mui-expanded': {
-                                  m: 0,
-                                },
-                                '.MuiAccordionSummary-content.Mui-expanded': {
-                                  my: 1,
-                                },
-                              }}
-                              expanded={
-                                expandedByFile[fileKey]?.has(idx) ?? false
-                              }
-                              onChange={(_, isExpanded) => {
-                                toggleExpanded(fileKey, idx, isExpanded);
-                              }}
-                            >
-                              <AccordionSummary
-                                expandIcon={<ExpandMoreIcon />}
-                                aria-controls={`panel-${fileKey}-${idx}-content`}
-                                id={`panel-${fileKey}-${idx}-header`}
-                              >
-                                <Chip
-                                  size='small'
-                                  color='error'
-                                  label={`#${idx + 1} - ${error.keyword}`}
-                                />
-                                <Typography sx={{ ml: 2 }}>
-                                  {error.message}
-                                </Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box>
-                                  {error.instancePath != null &&
-                                    error.instancePath !== '' && (
-                                      <Box
-                                        sx={{
-                                          display: 'flex',
-                                          gap: 2,
-                                          alignItems: 'center',
-                                        }}
-                                      >
-                                        <Typography
-                                          variant='body2'
-                                          sx={{ width: '120px' }}
-                                        >
-                                          Instance Path:
-                                        </Typography>
-                                        <code
-                                          style={ValidationErrorPathStyles(
-                                            theme,
-                                          )}
-                                        >
-                                          {error.instancePath}
-                                        </code>
-                                      </Box>
-                                    )}
-                                  {error.schemaPath != null &&
-                                    error.schemaPath !== '' && (
-                                      <Box
-                                        sx={{
-                                          display: 'flex',
-                                          gap: 2,
-                                          alignItems: 'center',
-                                          mt: 1,
-                                        }}
-                                      >
-                                        <Typography
-                                          variant='body2'
-                                          sx={{ width: '120px' }}
-                                        >
-                                          Schema Path:
-                                        </Typography>
-                                        <code
-                                          style={ValidationErrorPathStyles(
-                                            theme,
-                                          )}
-                                        >
-                                          {error.schemaPath}
-                                        </code>
-                                      </Box>
-                                    )}
+                          <Divider />
+                          <Box
+                            sx={{
+                              maxHeight: '400px',
+                              overflowY: 'auto',
+                              transition: 'height 200ms',
+                            }}
+                          >
+                            {fg.systemErrors?.map(
+                              (
+                                error: components['schemas']['SystemError'],
+                                idx: number,
+                              ) => (
+                                <Box
+                                  key={`sys-${idx}`}
+                                  sx={{
+                                    p: 1.5,
+                                    borderBottom:
+                                      idx < (fg.systemErrors?.length ?? 0) - 1
+                                        ? '1px solid'
+                                        : 'none',
+                                    borderColor: 'divider',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                  }}
+                                >
+                                  <Chip
+                                    size='small'
+                                    color='warning'
+                                    label={`#${idx + 1} - ${error.error}`}
+                                  />
+                                  <Typography sx={{ ml: 2 }}>
+                                    {error.message}
+                                  </Typography>
                                 </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                          ))}
-                        </Box>
-                      </Collapse>
-                    )}
-                    {hasSystemErrors && (
-                      <Collapse
-                        in={isSystemVisible}
-                        timeout='auto'
-                        unmountOnExit
-                      >
-                        <Divider />
-                        <Box
-                          sx={{
-                            maxHeight: '400px',
-                            overflowY: 'auto',
-                            transition: 'height 200ms',
-                          }}
-                        >
-                          {file?.systemErrors?.map((error, idx: number) => (
-                            <Box
-                              key={`sys-${idx}`}
-                              sx={{
-                                p: 1.5,
-                                borderBottom:
-                                  idx < systemErrorsCount - 1
-                                    ? '1px solid'
-                                    : 'none',
-                                borderColor: 'divider',
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Chip
-                                size='small'
-                                color='warning'
-                                label={`#${idx + 1} - ${error.error}`}
-                              />
-                              <Typography sx={{ ml: 2 }}>
-                                {error.message}
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Box>
-                      </Collapse>
-                    )}
-                  </Card>
-                );
-              })}
+                              ),
+                            )}
+                          </Box>
+                        </Collapse>
+                      )}
+                    </Box>
+                  )}
+                </Card>
+              ))}
             </Box>
           </Box>
         </Box>
       )}
+      <ErrorDetailsDialog
+        open={detailsOpen}
+        onClose={closeDetails}
+        fileName={detailsFileName}
+        fileUrl={detailsFileUrl}
+        error={detailsError}
+      />
     </>
   );
 }
