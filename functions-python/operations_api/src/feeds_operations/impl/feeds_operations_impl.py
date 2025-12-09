@@ -368,6 +368,11 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsfeed, new_feed.id)
+        if created_feed is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create GTFS feed with URL: {new_feed.producer_url}",
+            )
         try:
             trigger_dataset_download(
                 created_feed,

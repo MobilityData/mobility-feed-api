@@ -75,10 +75,18 @@ async def test_get_licenses_with_search_query(db_session):
     fragment = existing.name[:3]
     api = LicensesApiImpl()
 
-    result = await api.get_licenses(limit=10, offset=0, search_query=fragment)
+    result = await api.get_licenses(limit=50, offset=0, search_query=fragment)
 
     assert isinstance(result, list)
+    # True positive: the reference license must be present
     assert any(item.id == existing.id for item in result)
+
+    # False positives: every returned item must match the search criteria
+    # (assuming search is done against name, adapt if implementation differs)
+    lowered_fragment = fragment.lower()
+    assert all(
+        (item.name or "").lower().find(lowered_fragment) != -1 for item in result
+    ), "Search results contain licenses whose names do not match the search fragment"
 
 
 @pytest.mark.asyncio
