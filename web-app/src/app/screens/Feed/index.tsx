@@ -61,7 +61,6 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import DownloadIcon from '@mui/icons-material/Download';
-import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
 import ReactGA from 'react-ga4';
@@ -598,19 +597,12 @@ export default function Feed(): React.ReactElement {
           )}
 
           <Box sx={{ width: { xs: '100%', md: '475px' } }}>
-            {feed.data_type === 'gbfs' && (
-              <GbfsFeedInfo
-                feed={feed as GTFSFeedType}
-                autoDiscoveryUrl={gbfsAutodiscoveryUrl}
-              ></GbfsFeedInfo>
-            )}
-            {(feed.data_type === 'gtfs' || feed.data_type === 'gtfs_rt') && (
-              <GtfsFeedSummary
-                feed={feed}
-                sortedProviders={sortedProviders}
-                latestDataset={latestDataset}
-              ></GtfsFeedSummary>
-            )}
+            <GtfsFeedSummary
+              feed={feed}
+              sortedProviders={sortedProviders}
+              latestDataset={latestDataset}
+              autoDiscoveryUrl={gbfsAutodiscoveryUrl}
+            ></GtfsFeedSummary>
           </Box>
 
           {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (
