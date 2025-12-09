@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { type components } from '../../../services/feeds/types';
+import LicenseDialog from './LicenseDialog';
 import {
   getCountryLocationSummaries,
   getLocationName,
@@ -36,6 +37,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { FeedStatusChip } from '../../../components/FeedStatus';
 import { getEmojiFlag, type TCountryCode } from 'countries-list';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import GavelIcon from '@mui/icons-material/Gavel';
 import { getFeedStatusData } from '../../../utils/feedStatusConsts';
 import { useSelector } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
@@ -73,6 +75,7 @@ export default function GtfsFeedSummary({
     'summary' | 'fullList' | undefined
   >(undefined);
   const [openProvidersDetails, setOpenProvidersDetails] = useState(false);
+  const [openLicenseDetails, setOpenLicenseDetails] = useState(false);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
 
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -97,12 +100,17 @@ export default function GtfsFeedSummary({
   };
 
   const hasRelatedLinks = (): boolean => {
-    const hasLicenseUrl =
-      feed?.source_info?.license_url != undefined &&
-      feed?.source_info?.license_url !== '';
     const hasOtherLinks =
       feed?.related_links != null && feed.related_links?.length > 0;
-    return hasLicenseUrl || hasOtherLinks;
+    return hasOtherLinks;
+  };
+
+  const hasLicenseData = (): boolean => {
+    return (
+      feed?.source_info?.license_url != undefined &&
+      feed?.source_info?.license_id !== undefined &&
+      feed?.source_info?.license_is_spdx !== undefined
+    );
   };
 
   return (
@@ -601,21 +609,35 @@ export default function GtfsFeedSummary({
           </GroupCard>
         )}
 
+      {hasLicenseData() && (
+        <GroupCard variant='outlined'>
+          <GroupHeader variant='body1'>
+            <GavelIcon fontSize='inherit' />
+            License
+          </GroupHeader>
+
+          {feed?.source_info?.license_url != undefined &&
+            feed?.source_info?.license_url !== '' && (
+              <CopyLinkElement
+                title={feed.source_info.license_id ?? 'License'}
+                url={feed.source_info.license_url}
+                linkType='internal'
+                internalClickAction={() => {
+                  if (feed?.source_info?.license_id) {
+                    setOpenLicenseDetails(true);
+                  }
+                }}
+              />
+            )}
+        </GroupCard>
+      )}
+
       {hasRelatedLinks() && (
         <GroupCard variant='outlined'>
           <GroupHeader variant='body1'>
             <LinkIcon fontSize='inherit' />
             Related Links
           </GroupHeader>
-
-          {feed?.source_info?.license_url != undefined &&
-            feed?.source_info?.license_url !== '' && (
-              <CopyLinkElement
-                title='License'
-                url={feed.source_info.license_url}
-                linkType='external'
-              />
-            )}
 
           {feed?.related_links?.map((link, index) => (
             <CopyLinkElement
@@ -705,6 +727,11 @@ export default function GtfsFeedSummary({
           </ul>
         </Box>
       </Dialog>
+      <LicenseDialog
+        open={openLicenseDetails}
+        onClose={() => setOpenLicenseDetails(false)}
+        licenseId={feed?.source_info?.license_id}
+      />
     </>
   );
 }
