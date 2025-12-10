@@ -67,7 +67,6 @@ export const LICENSE_PROFILE_LOADING_LICENSE = `${LICENSE_PROFILE}/loadingLicens
 export const LICENSE_PROFILE_LOADING_LICENSE_SUCCESS = `${LICENSE_PROFILE}/loadingLicenseSuccess`;
 export const LICENSE_PROFILE_LOADING_LICENSE_FAIL = `${LICENSE_PROFILE}/loadingLicenseFail`;
 
-
 export const FEEDS_RESET_FEEDS = `feeds/resetFeeds`;
 export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;
 export const FEEDS_LOADING_FEEDS_SUCCESS = `feeds/loadingFeedsSuccess`;
@@ -97,7 +96,6 @@ export enum LicenseErrorSource {
   DatabaseAPI = 'DatabaseAPI',
 }
 
-
 export interface ProfileError {
   code: string | 'unknown';
   message: string;
@@ -116,7 +114,6 @@ export interface LicenseError {
   source?: LicenseErrorSource;
 }
 
-
 export type ProfileErrors = {
   [Property in ProfileErrorSource]: ProfileError | null;
 };
@@ -128,7 +125,6 @@ export type FeedsErrors = {
 export type LicenseErrors = {
   [Property in LicenseErrorSource]: LicenseError | null;
 };
-
 
 export type FeedErrors = {
   [Property in FeedErrorSource]: FeedError | null;

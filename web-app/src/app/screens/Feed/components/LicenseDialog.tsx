@@ -23,7 +23,6 @@ import {
   selectLicenseErrors,
 } from '../../../store/license-selectors';
 import { loadingLicense } from '../../../store/license-reducer';
-import { useTranslation } from 'react-i18next';
 
 export interface LicenseDialogProps {
   open: boolean;
@@ -36,7 +35,6 @@ export default function LicenseDialog({
   onClose,
   licenseId,
 }: LicenseDialogProps): React.ReactElement {
-  const { t } = useTranslation('feeds'); // Adjust namespace if needed
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useDispatch();
@@ -45,7 +43,7 @@ export default function LicenseDialog({
   const errors = useSelector(selectLicenseErrors);
 
   useEffect(() => {
-    if (open && licenseId) {
+    if (open && licenseId != undefined) {
       dispatch(loadingLicense({ licenseId }));
     }
   }, [open, licenseId, dispatch]);
@@ -116,7 +114,7 @@ export default function LicenseDialog({
 
         {status === 'error' && (
           <Alert severity='error'>
-            {errors.DatabaseAPI?.message || 'Error loading license details'}
+            {errors.DatabaseAPI?.message ?? 'Error loading license details'}
           </Alert>
         )}
 
@@ -127,9 +125,9 @@ export default function LicenseDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Typography variant='h6'>
-                  {license.name || license.id}
+                  {license.name ?? license.id}
                 </Typography>
-                {license?.is_spdx && (
+                {license?.is_spdx != undefined && license.is_spdx && (
                   <Tooltip
                     title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
                     placement='top'
@@ -144,7 +142,7 @@ export default function LicenseDialog({
                   </Tooltip>
                 )}
               </Box>
-              {license.url && (
+              {license.url != undefined && license.url != '' && (
                 <Box mb={2}>
                   <Link
                     href={license.url}
@@ -156,19 +154,22 @@ export default function LicenseDialog({
                   </Link>
                 </Box>
               )}
-              {license.description && (
-                <Typography variant='body1' paragraph>
-                  {license.description}
-                </Typography>
-              )}
+              {license.description != undefined &&
+                license.description != '' && (
+                  <Typography variant='body1' paragraph>
+                    {license.description}
+                  </Typography>
+                )}
             </Box>
             <Box my={2}>
-              {license.license_rules && license.license_rules.length > 0 ? (
+              {license.license_rules != undefined &&
+              license.license_rules.length > 0 ? (
                 <>
                   <Grid container spacing={4}>
                     {rulesData.map((ruleData) => {
                       const hasRules =
-                        ruleData.rules && ruleData.rules.length > 0;
+                        ruleData.rules != undefined &&
+                        ruleData.rules.length > 0;
                       return (
                         <Grid item xs={12} key={ruleData.title}>
                           <Typography
@@ -217,7 +218,7 @@ export default function LicenseDialog({
                                         fontWeight='bold'
                                         sx={{ mr: 1 }}
                                       >
-                                        {rule.label || rule.name}
+                                        {rule.label ?? rule.name}
                                       </Typography>
                                     </Box>
                                     <Typography

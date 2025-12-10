@@ -280,7 +280,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         p: 2,
         backgroundColor: theme.palette.background.default,
         borderRadius: '5px',
-        border: 'none'
+        border: 'none',
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

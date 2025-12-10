@@ -21,5 +21,4 @@ const rootReducer = combineReducers({
   licenseProfile: licenseReducer,
 });
 
-
 export default rootReducer;

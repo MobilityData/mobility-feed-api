@@ -310,4 +310,3 @@ export const getLicense = async (
       client.eject(authMiddleware);
     });
 };
-

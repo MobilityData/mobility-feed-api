@@ -59,19 +59,19 @@ import CopyLinkElement from './CopyLinkElement';
 import { formatDateShort } from '../../../utils/date';
 import ExternalIds from './ExternalIds';
 
-export interface GtfsFeedSummaryProps {
+export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | GBFSFeedType | undefined;
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
   autoDiscoveryUrl?: string;
 }
 
-export default function GtfsFeedSummary({
+export default function FeedSummary({
   feed,
   sortedProviders,
   latestDataset,
   autoDiscoveryUrl,
-}: GtfsFeedSummaryProps): React.ReactElement {
+}: FeedSummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
   const [openLocationDetails, setOpenLocationDetails] = useState<
@@ -333,7 +333,7 @@ export default function GtfsFeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl
+                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl != undefined
                     ? 'Auto-Discovery URL'
                     : 'Producer URL'}
                 </Typography>
@@ -676,31 +676,31 @@ export default function GtfsFeedSummary({
               <GavelIcon fontSize='inherit' />
               License
             </GroupHeader>
-            {feed?.source_info?.license_is_spdx && (
-              <Tooltip
-                title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
-                placement='top'
-              >
-                <Chip
-                  label='SPDX'
-                  size='small'
-                  color='info'
-                  variant='outlined'
-                />
-              </Tooltip>
-            )}
+            {feed?.source_info?.license_is_spdx != undefined &&
+              feed.source_info.license_is_spdx && (
+                <Tooltip
+                  title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
+                  placement='top'
+                >
+                  <Chip
+                    label='SPDX'
+                    size='small'
+                    color='info'
+                    variant='outlined'
+                  />
+                </Tooltip>
+              )}
           </Box>
 
-          {feed?.source_info?.license_id != undefined ? (
+          {feed?.source_info?.license_id != undefined &&
+          feed.source_info.license_id != '' ? (
             <CopyLinkElement
               title={feed.source_info.license_id}
               url={feed.source_info.license_url ?? ''}
               titleInfo='License was added by the Mobility Database team based on either 1) a submission authorized by the transit provider 2) review of the transit providers website.'
               linkType='internal'
               internalClickAction={() => {
-                if (feed?.source_info?.license_id) {
-                  setOpenLicenseDetails(true);
-                }
+                setOpenLicenseDetails(true);
               }}
             />
           ) : (
@@ -814,7 +814,9 @@ export default function GtfsFeedSummary({
       </Dialog>
       <LicenseDialog
         open={openLicenseDetails}
-        onClose={() => setOpenLicenseDetails(false)}
+        onClose={() => {
+          setOpenLicenseDetails(false);
+        }}
         licenseId={feed?.source_info?.license_id}
       />
     </>

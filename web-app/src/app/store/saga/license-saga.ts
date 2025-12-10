@@ -37,10 +37,7 @@ export function* getLicenseSaga({
     const now = Date.now();
     const oneHour = 60 * 60 * 1000;
 
-    if (
-      cachedLicense &&
-      now - cachedLicense.fetchedAt < oneHour
-    ) {
+    if (cachedLicense != null && now - cachedLicense.fetchedAt < oneHour) {
       yield put(
         loadingLicenseSuccess({
           license: cachedLicense.license,
@@ -52,7 +49,11 @@ export function* getLicenseSaga({
 
     if (licenseId !== undefined) {
       const accessToken = (yield call(getUserAccessToken)) as string;
-      const license = (yield call(getLicense, licenseId, accessToken)) as License;
+      const license = (yield call(
+        getLicense,
+        licenseId,
+        accessToken,
+      )) as License;
       yield put(
         loadingLicenseSuccess({
           license,

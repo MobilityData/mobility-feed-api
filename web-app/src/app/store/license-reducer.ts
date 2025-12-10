@@ -41,7 +41,7 @@ export const licenseSlice = createSlice({
       action: PayloadAction<{ license: License; fetchedAt: number }>,
     ) => {
       state.status = 'loaded';
-      if (action.payload.license.id) {
+      if (action.payload.license.id != null) {
         state.data[action.payload.license.id] = {
           license: action.payload.license,
           fetchedAt: action.payload.fetchedAt,

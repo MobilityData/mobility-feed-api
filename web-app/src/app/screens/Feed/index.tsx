@@ -64,7 +64,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
 import ReactGA from 'react-ga4';
-import GtfsFeedSummary from './components/GtfsFeedSummary';
+import FeedSummary from './components/FeedSummary';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -583,12 +583,12 @@ export default function Feed(): React.ReactElement {
           )}
 
           <Box sx={{ width: { xs: '100%', md: '475px' } }}>
-            <GtfsFeedSummary
+            <FeedSummary
               feed={feed}
               sortedProviders={sortedProviders}
               latestDataset={latestDataset}
               autoDiscoveryUrl={gbfsAutodiscoveryUrl}
-            ></GtfsFeedSummary>
+            />
           </Box>
 
           {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (
