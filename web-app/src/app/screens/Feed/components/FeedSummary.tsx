@@ -120,7 +120,7 @@ export default function FeedSummary({
       <GroupCard variant='outlined'>
         <GroupHeader variant='body1'>
           <BusinessIcon fontSize='inherit' />
-          {feed?.data_type === 'gbfs' ? 'Producer' : 'Agency'}
+          {feed?.data_type === 'gbfs' ? t('producer') : t('agency')}
         </GroupHeader>
         <Box sx={{ ml: 2 }}>
           <Typography variant='h6' fontWeight={700} mt={1} mb={0.5}>
@@ -129,7 +129,7 @@ export default function FeedSummary({
               : t('noAgencyProvided')}
             {sortedProviders.length > 4 && (
               <Typography component='span' variant='subtitle2' sx={{ ml: 1 }}>
-                and more
+                {t('feedSummary.andMore')}
               </Typography>
             )}
           </Typography>
@@ -142,7 +142,9 @@ export default function FeedSummary({
               }}
               sx={{ pl: 0 }}
             >
-              View All {sortedProviders.length} Agencies
+              {t('feedSummary.viewAllAgencies', {
+                count: sortedProviders.length,
+              })}
             </Button>
           )}
 
@@ -164,7 +166,7 @@ export default function FeedSummary({
             </Tooltip>
           )}
 
-          {feed?.external_ids != null && feed.external_ids.length > 0 && (
+          {feed?.external_ids != undefined && feed.external_ids.length > 0 && (
             <ExternalIds externalIds={feed.external_ids} />
           )}
         </Box>
@@ -181,7 +183,7 @@ export default function FeedSummary({
         >
           <GroupHeader variant='body1' sx={{ mb: 0 }}>
             <DatasetIcon fontSize='inherit' />
-            Feed Details
+            {t('feeds:feedSummary.routes')}
           </GroupHeader>
           <Chip
             data-testid='data-type'
@@ -196,7 +198,7 @@ export default function FeedSummary({
             variant='subtitle2'
             sx={{ fontWeight: 700, color: 'text.secondary' }}
           >
-            Locations
+            {t('locations')}
           </Typography>
           <Box
             sx={{
@@ -215,16 +217,17 @@ export default function FeedSummary({
                 flexWrap: 'wrap',
               }}
             >
-              {feed?.locations != null && feed?.locations?.length === 1 && (
-                <Typography
-                  variant='h6'
-                  sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
-                >
-                  {getLocationName(feed?.locations)}
-                </Typography>
-              )}
+              {feed?.locations != undefined &&
+                feed?.locations?.length === 1 && (
+                  <Typography
+                    variant='h6'
+                    sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
+                  >
+                    {getLocationName(feed?.locations)}
+                  </Typography>
+                )}
 
-              {feed?.locations != null &&
+              {feed?.locations != undefined &&
                 feed?.locations?.length > 1 &&
                 uniqueCountries.slice(0, 4).map((country, index) => (
                   <Typography
@@ -245,35 +248,40 @@ export default function FeedSummary({
                           setOpenLocationDetails('summary');
                         }}
                       >
-                        + {uniqueCountries.length - 4} more
+                        {t('feedSummary.plusMore', {
+                          count: uniqueCountries.length - 4,
+                        })}
                       </Button>
                     )}
                   </Typography>
                 ))}
             </Box>
 
-            {feed?.locations?.length != null && feed.locations.length > 1 && (
-              <Button
-                variant='text'
-                color='secondary'
-                size='small'
-                onClick={() => {
-                  setOpenLocationDetails('fullList');
-                }}
-                sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
-              >
-                Show Details ({feed?.locations?.length} Locations)
-              </Button>
-            )}
+            {feed?.locations?.length != undefined &&
+              feed.locations.length > 1 && (
+                <Button
+                  variant='text'
+                  color='secondary'
+                  size='small'
+                  onClick={() => {
+                    setOpenLocationDetails('fullList');
+                  }}
+                  sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
+                >
+                  {t('feedSummary.showLocationDetails', {
+                    count: feed?.locations?.length,
+                  })}
+                </Button>
+              )}
           </Box>
 
-          {totalRoutes != undefined && routeTypes != undefined && (
+          {totalRoutes !== undefined && routeTypes !== undefined && (
             <>
               <Typography
                 variant='subtitle2'
                 sx={{ fontWeight: 700, color: 'text.secondary' }}
               >
-                Routes
+                {t('feedSummary.routes')}
               </Typography>
               <Box
                 sx={{
@@ -307,7 +315,9 @@ export default function FeedSummary({
                   })}
                 </Box>
                 <Box sx={{ width: '100%', mt: 0.5 }}>
-                  <Typography variant='body1'>{totalRoutes} routes</Typography>
+                  <Typography variant='body1'>
+                    {t('feedSummary.routesCount', { count: totalRoutes })}
+                  </Typography>
                 </Box>
 
                 <Button
@@ -319,13 +329,13 @@ export default function FeedSummary({
                   to='./map'
                   onClick={handleOpenDetailedMapClick}
                 >
-                  View On Map
+                  {t('feedSummary.viewOnMap')}
                 </Button>
               </Box>
             </>
           )}
         </Box>
-        {feed?.source_info?.producer_url != undefined &&
+        {feed?.source_info?.producer_url !== undefined &&
           feed?.source_info?.producer_url !== '' && (
             <>
               <Box sx={{ ml: 2 }}>
@@ -333,9 +343,9 @@ export default function FeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl != undefined
-                    ? 'Auto-Discovery URL'
-                    : 'Producer URL'}
+                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl !== undefined
+                    ? t('feedSummary.autoDiscoveryUrl')
+                    : t('feedSummary.producerUrl')}
                 </Typography>
                 <Box
                   sx={{
@@ -398,7 +408,7 @@ export default function FeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  Provider Url
+                  {t('feedSummary.providerUrl')}
                 </Typography>
                 <Link
                   href={(feed as GBFSFeedType)?.provider_url}
@@ -417,21 +427,21 @@ export default function FeedSummary({
               variant='subtitle2'
               sx={{ fontWeight: 700, color: 'text.secondary' }}
             >
-              System ID
+              {t('feedSummary.systemId')}
             </Typography>
             <Typography variant='body1'>
               {(feed as GBFSFeedType)?.system_id}
             </Typography>
           </Box>
         )}
-        {feed?.feed_contact_email != null &&
+        {feed?.feed_contact_email !== undefined &&
           feed?.feed_contact_email !== '' && (
             <Box sx={{ ml: 2, mt: 3 }}>
               <Typography
                 variant='subtitle2'
                 sx={{ fontWeight: 700, color: 'text.secondary' }}
               >
-                Feed Contact Email
+                {t('feedContactEmail')}
               </Typography>
               <Button
                 sx={{ mt: 0.5 }}
@@ -448,13 +458,13 @@ export default function FeedSummary({
           )}
       </GroupCard>
 
-      {feed?.source_info?.authentication_info_url != undefined &&
+      {feed?.source_info?.authentication_info_url !== undefined &&
         feed.source_info.authentication_type !== 0 &&
         feed?.source_info.authentication_info_url.trim() !== '' && (
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <LockIcon fontSize='inherit' />
-              Feed Authentication
+              {t('feedSummary.feedAuthentication')}
             </GroupHeader>
             <Box sx={{ ml: 2 }}>
               <Typography variant='h6' sx={{ fontWeight: 700 }}>
@@ -463,7 +473,7 @@ export default function FeedSummary({
                 {feed?.source_info?.authentication_type === 2 &&
                   t('common:httpHeader')}
               </Typography>
-              {feed?.source_info?.authentication_info_url != undefined && (
+              {feed?.source_info?.authentication_info_url !== undefined && (
                 <Button
                   disableElevation
                   variant='text'
@@ -481,12 +491,12 @@ export default function FeedSummary({
           </GroupCard>
         )}
 
-      {latestDataset?.service_date_range_start != undefined &&
-        latestDataset.service_date_range_end != undefined && (
+      {latestDataset?.service_date_range_start !== undefined &&
+        latestDataset.service_date_range_end !== undefined && (
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <CalendarTodayIcon fontSize='inherit' />
-              Service Date Range
+              {t('serviceDateRange')}
               <Tooltip title={t('serviceDateRangeTooltip')} placement='top'>
                 <IconButton size='small'>
                   <InfoOutlinedIcon fontSize='inherit' />
@@ -506,7 +516,7 @@ export default function FeedSummary({
             >
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  Start
+                  {t('common:start')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -569,7 +579,7 @@ export default function FeedSummary({
 
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  End
+                  {t('common:end')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -587,8 +597,8 @@ export default function FeedSummary({
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <LayersIcon fontSize='inherit' />
-              Features
-              <Tooltip title='More Info' placement='top'>
+              {t('features')}
+              <Tooltip title={t('common:moreInfo')} placement='top'>
                 <IconButton
                   href='https://gtfs.org/getting_started/features/overview/'
                   target='_blank'
@@ -650,8 +660,10 @@ export default function FeedSummary({
                           sx={{ ml: 1 }}
                         >
                           {showAllFeatures
-                            ? 'Show less'
-                            : `Show ${allFeatures.length - 6} more`}
+                            ? t('common:showLess')
+                            : t('common:showMore', {
+                                count: allFeatures.length - 6,
+                              })}
                         </Button>
                       </Box>
                     )}
@@ -674,14 +686,11 @@ export default function FeedSummary({
           >
             <GroupHeader variant='body1' sx={{ mb: 0 }}>
               <GavelIcon fontSize='inherit' />
-              License
+              {t('common:license')}
             </GroupHeader>
-            {feed?.source_info?.license_is_spdx != undefined &&
+            {feed?.source_info?.license_is_spdx !== undefined &&
               feed.source_info.license_is_spdx && (
-                <Tooltip
-                  title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
-                  placement='top'
-                >
+                <Tooltip title={t('license.spdxTooltip')} placement='top'>
                   <Chip
                     label='SPDX'
                     size='small'
@@ -693,11 +702,11 @@ export default function FeedSummary({
           </Box>
 
           {feed?.source_info?.license_id != undefined &&
-          feed.source_info.license_id != '' ? (
+          feed.source_info.license_id !== '' ? (
             <CopyLinkElement
               title={feed.source_info.license_id}
               url={feed.source_info.license_url ?? ''}
-              titleInfo='License was added by the Mobility Database team based on either 1) a submission authorized by the transit provider 2) review of the transit providers website.'
+              titleInfo={t('license.licenseTooltip')}
               linkType='internal'
               internalClickAction={() => {
                 setOpenLicenseDetails(true);
@@ -721,7 +730,7 @@ export default function FeedSummary({
         <GroupCard variant='outlined'>
           <GroupHeader variant='body1'>
             <LinkIcon fontSize='inherit' />
-            Related Links
+            {t('relatedLinks')}
           </GroupHeader>
 
           {(feed as GTFSFeedType)?.related_links?.map((link, index) => (
@@ -755,11 +764,12 @@ export default function FeedSummary({
             position: 'absolute',
             right: 8,
             top: 8,
+            color: (theme) => theme.palette.grey[500],
           })}
         >
           <CloseIcon />
         </IconButton>
-        {feed?.locations != null && (
+        {feed?.locations != undefined && (
           <Locations
             locations={feed?.locations}
             startingTab={openLocationDetails}

@@ -23,6 +23,7 @@ import {
   selectLicenseErrors,
 } from '../../../store/license-selectors';
 import { loadingLicense } from '../../../store/license-reducer';
+import { useTranslation } from 'react-i18next';
 
 export interface LicenseDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ export default function LicenseDialog({
   onClose,
   licenseId,
 }: LicenseDialogProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useDispatch();
@@ -50,28 +52,31 @@ export default function LicenseDialog({
 
   const rulesData = [
     {
-      title: 'Permission',
-      subtitle: 'What you can do with this license',
+      title: t('license.permission'),
+      subtitle: t('license.permissionSubtitle'),
       rules: license?.license_rules?.filter(
         (rule) => rule.type === 'permission',
       ),
       color: 'success',
+      emptyMessage: t('license.noPermission'),
     },
     {
-      title: 'Condition',
-      subtitle: 'What you must do to comply',
+      title: t('license.condition'),
+      subtitle: t('license.conditionSubtitle'),
       rules: license?.license_rules?.filter(
         (rule) => rule.type === 'condition',
       ),
       color: 'warning',
+      emptyMessage: t('license.noCondition'),
     },
     {
-      title: 'Limitation',
-      subtitle: 'What this license does not provide',
+      title: t('license.limitation'),
+      subtitle: t('license.limitationSubtitle'),
       rules: license?.license_rules?.filter(
         (rule) => rule.type === 'limitation',
       ),
       color: 'error',
+      emptyMessage: t('license.noLimitation'),
     },
   ];
 
@@ -84,7 +89,7 @@ export default function LicenseDialog({
       sx={{ minWidth: 'sm' }}
     >
       <DialogTitle>
-        License Details
+        {t('license.dialogTitle')}
         <IconButton
           aria-label='close'
           onClick={onClose}
@@ -114,7 +119,7 @@ export default function LicenseDialog({
 
         {status === 'error' && (
           <Alert severity='error'>
-            {errors.DatabaseAPI?.message ?? 'Error loading license details'}
+            {errors.DatabaseAPI?.message ?? t('license.loadingError')}
           </Alert>
         )}
 
@@ -128,10 +133,7 @@ export default function LicenseDialog({
                   {license.name ?? license.id}
                 </Typography>
                 {license?.is_spdx != undefined && license.is_spdx && (
-                  <Tooltip
-                    title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
-                    placement='top'
-                  >
+                  <Tooltip title={t('license.spdxTooltip')} placement='top'>
                     <Chip
                       label='SPDX'
                       size='small'
@@ -237,7 +239,7 @@ export default function LicenseDialog({
                               color='text.secondary'
                               sx={{ fontStyle: 'italic' }}
                             >
-                              No {ruleData.title.toLowerCase()}s
+                              {ruleData.emptyMessage}
                             </Typography>
                           )}
                         </Grid>
@@ -247,12 +249,9 @@ export default function LicenseDialog({
                 </>
               ) : (
                 <>
-                  <Typography variant='h6'>
-                    No usage rules specified.
-                  </Typography>
+                  <Typography variant='h6'>{t('license.noRules')}</Typography>
                   <Typography variant='subtitle1' color='text.secondary' mb={2}>
-                    To contribute to the clarity of the rules for this license
-                    entry, please submit a pull request to:
+                    {t('license.contributeMessage')}
                   </Typography>
                   <Link
                     href={`https://github.com/MobilityData/licenses-aas/blob/main/data/licenses/${license.id}.json`}
