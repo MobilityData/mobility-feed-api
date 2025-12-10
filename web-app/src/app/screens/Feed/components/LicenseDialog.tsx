@@ -7,13 +7,13 @@ import {
   Typography,
   Box,
   CircularProgress,
-  List,
-  ListItem,
-  ListItemText,
   Link,
   Alert,
   Grid,
   Chip,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useSelector, useDispatch } from 'react-redux';
@@ -37,6 +37,8 @@ export default function LicenseDialog({
   licenseId,
 }: LicenseDialogProps): React.ReactElement {
   const { t } = useTranslation('feeds'); // Adjust namespace if needed
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useDispatch();
   const status = useSelector(selectLicenseStatus);
   const license = useSelector(selectActiveLicense);
@@ -48,8 +50,41 @@ export default function LicenseDialog({
     }
   }, [open, licenseId, dispatch]);
 
+  const rulesData = [
+    {
+      title: 'Permission',
+      subtitle: 'What you can do with this license',
+      rules: license?.license_rules?.filter(
+        (rule) => rule.type === 'permission',
+      ),
+      color: 'success',
+    },
+    {
+      title: 'Condition',
+      subtitle: 'What you must do to comply',
+      rules: license?.license_rules?.filter(
+        (rule) => rule.type === 'condition',
+      ),
+      color: 'warning',
+    },
+    {
+      title: 'Limitation',
+      subtitle: 'What this license does not provide',
+      rules: license?.license_rules?.filter(
+        (rule) => rule.type === 'limitation',
+      ),
+      color: 'error',
+    },
+  ];
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth='md'
+      fullScreen={fullScreen}
+      sx={{ minWidth: 'sm' }}
+    >
       <DialogTitle>
         License Details
         <IconButton
@@ -87,82 +122,148 @@ export default function LicenseDialog({
 
         {status === 'loaded' && license != null && (
           <Box>
-            <Typography variant='h6' gutterBottom>
-              {license.name || license.id}
-            </Typography>
-            {license.url && (
-              <Box mb={2}>
-                <Link
-                  href={license.url}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                >
-                  {license.url}
-                </Link>
-              </Box>
-            )}
-            {license.description && (
-              <Typography variant='body1' paragraph>
-                {license.description}
-              </Typography>
-            )}
-
-            {license.license_rules && license.license_rules.length > 0 && (
-              <Box mt={2}>
-                <Typography variant='h6' gutterBottom>
-                  Rules
+            <Box
+              sx={{ borderBottom: '1px solid', borderColor: 'divider', py: 1 }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Typography variant='h6'>
+                  {license.name || license.id}
                 </Typography>
-                <Grid container spacing={2}>
-                  {license.license_rules.map((rule, index) => (
-                    <Grid item xs={12} md={6} key={index}>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          height: '100%',
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            mb: 1,
-                          }}
-                        >
-                          <Typography
-                            variant='subtitle1'
-                            fontWeight='bold'
-                            sx={{ mr: 1 }}
-                          >
-                            {rule.label || rule.name}
-                          </Typography>
-                          {rule.type && (
-                            <Chip
-                              label={rule.type}
-                              size='small'
-                              color={
-                                rule.type === 'permission'
-                                  ? 'success'
-                                  : rule.type === 'condition'
-                                  ? 'warning'
-                                  : 'error'
-                              }
-                              variant='outlined'
-                            />
-                          )}
-                        </Box>
-                        <Typography variant='body2' color='text.secondary'>
-                          {rule.description}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
+                {license?.is_spdx && (
+                  <Tooltip
+                    title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
+                    placement='top'
+                  >
+                    <Chip
+                      label='SPDX'
+                      size='small'
+                      color='info'
+                      variant='outlined'
+                      sx={{ ml: 1, verticalAlign: 'middle' }}
+                    />
+                  </Tooltip>
+                )}
               </Box>
-            )}
+              {license.url && (
+                <Box mb={2}>
+                  <Link
+                    href={license.url}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    sx={{ wordBreak: 'break-word' }}
+                  >
+                    {license.url}
+                  </Link>
+                </Box>
+              )}
+              {license.description && (
+                <Typography variant='body1' paragraph>
+                  {license.description}
+                </Typography>
+              )}
+            </Box>
+            <Box my={2}>
+              {license.license_rules && license.license_rules.length > 0 ? (
+                <>
+                  <Grid container spacing={4}>
+                    {rulesData.map((ruleData) => {
+                      const hasRules =
+                        ruleData.rules && ruleData.rules.length > 0;
+                      return (
+                        <Grid item xs={12} key={ruleData.title}>
+                          <Typography
+                            variant='h6'
+                            sx={{
+                              textTransform: 'capitalize',
+
+                              fontWeight: 'bold',
+                              color: `${ruleData.color}.main`,
+                            }}
+                          >
+                            {ruleData.title}
+                          </Typography>
+                          <Typography
+                            variant='body2'
+                            color='text.secondary'
+                            sx={{ mb: 2 }}
+                          >
+                            {ruleData.subtitle}
+                          </Typography>
+                          {hasRules ? (
+                            <Grid container spacing={2}>
+                              {ruleData.rules?.map((rule, index) => (
+                                <Grid item xs={12} md={6} key={index}>
+                                  <Box
+                                    sx={{
+                                      p: 1.5,
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      borderRadius: 1,
+                                      height: '100%',
+                                      borderLeft: '5px solid',
+                                      borderLeftColor: `${ruleData.color}.main`,
+                                    }}
+                                  >
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start',
+                                        mb: 0.5,
+                                      }}
+                                    >
+                                      <Typography
+                                        variant='subtitle1'
+                                        fontWeight='bold'
+                                        sx={{ mr: 1 }}
+                                      >
+                                        {rule.label || rule.name}
+                                      </Typography>
+                                    </Box>
+                                    <Typography
+                                      variant='body2'
+                                      color='text.secondary'
+                                    >
+                                      {rule.description}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                              ))}
+                            </Grid>
+                          ) : (
+                            <Typography
+                              variant='body2'
+                              color='text.secondary'
+                              sx={{ fontStyle: 'italic' }}
+                            >
+                              No {ruleData.title.toLowerCase()}s
+                            </Typography>
+                          )}
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </>
+              ) : (
+                <>
+                  <Typography variant='h6'>
+                    No usage rules specified.
+                  </Typography>
+                  <Typography variant='subtitle1' color='text.secondary' mb={2}>
+                    To contribute to the clarity of the rules for this license
+                    entry, please submit a pull request to:
+                  </Typography>
+                  <Link
+                    href={`https://github.com/MobilityData/licenses-aas/blob/main/data/licenses/${license.id}.json`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    https://github.com/MobilityData/licenses-aas/blob/main/data/licenses/
+                    {license.id}.json
+                  </Link>
+                </>
+              )}
+            </Box>
           </Box>
         )}
       </DialogContent>
