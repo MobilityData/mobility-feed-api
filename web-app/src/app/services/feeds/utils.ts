@@ -1,4 +1,4 @@
-import { getEmojiFlag, type TCountryCode } from 'countries-list';
+import { getEmojiFlag, type TCountryCode, languages } from 'countries-list';
 import { type paths, type components } from './types';
 
 export type AllFeedsType =
@@ -144,3 +144,9 @@ export function getCountryLocationSummaries(locations: EntityLocations): Array<{
       return lengthB - lengthA;
     });
 }
+
+export const langCodeToName = (code: string): string => {
+  const primary = code.split('-')[0].toLowerCase();
+  const lang = languages[primary as keyof typeof languages];
+  return lang?.name ?? code.toUpperCase();
+};

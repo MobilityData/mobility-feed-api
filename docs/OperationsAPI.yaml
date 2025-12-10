@@ -17,6 +17,8 @@ info:
 tags:
   - name: "operations"
     description: "Mobility Database Operations"
+  - name: "licenses"
+    description: "Licenses of the Mobility Database"
 paths:
   /v1/operations/feeds:
     get:
@@ -226,7 +228,7 @@ paths:
             A feed with the producer_url already exists.
 
         500:
-          description: "An internal server error occurred.  \n"  
+          description: "An internal server error occurred.  \n"
     put:
       description: Update the specified GTFS-RT feed in the Mobility Database.
       tags:
@@ -262,6 +264,45 @@ paths:
           description: >
             An internal server error occurred.
 
+  /v1/operations/licenses:
+    get:
+      description: Get the list of all licenses in the DB.
+      tags:
+        - "licenses"
+      operationId: getLicenses
+      parameters:
+        - $ref: "#/components/parameters/limit_query_param_licenses_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/search_text_query_param_license"
+        - $ref: "#/components/parameters/license_is_spdx_query_param"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful pull of the licenses info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Licenses"
+  /v1/operations/licenses/{id}:
+    parameters:
+      - $ref: "#/components/parameters/license_id_path_param"
+    get:
+      description: Get the specified license from the Mobility Database, including the license rules.
+      tags:
+        - "licenses"
+      operationId: getLicense
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: >
+            Successful pull of the license info for the provided ID.
+
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LicenseWithRules"
 components:
   schemas:
     Redirect:
@@ -289,8 +330,8 @@ components:
             - gtfs_rt
             - gbfs
           example: gtfs
-          #    Have to put the enum inline because of a bug in openapi-generator
-          #          $ref: "#/components/schemas/DataType"
+        #    Have to put the enum inline because of a bug in openapi-generator
+        #          $ref: "#/components/schemas/DataType"
         created_at:
           description: The date and time the feed was added to the database, in ISO 8601 date-time format.
           type: string
@@ -319,8 +360,8 @@ components:
           discriminator:
             propertyName: data_type
             mapping:
-              gtfs: '#/components/schemas/GtfsFeed'
-              gtfs_rt: '#/components/schemas/GtfsRTFeed'
+              gtfs: "#/components/schemas/GtfsFeed"
+              gtfs_rt: "#/components/schemas/GtfsRTFeed"
           properties:
             status:
               description: >
@@ -367,7 +408,7 @@ components:
 
               type: array
               items:
-                $ref: '#/components/schemas/FeedRelatedLink'
+                $ref: "#/components/schemas/FeedRelatedLink"
     FeedRelatedLink:
       type: object
       properties:
@@ -595,8 +636,8 @@ components:
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
-                #              Have to put the enum inline because of a bug in openapi-generator
-                #              $ref: "#/components/schemas/EntityTypes"
+            #              Have to put the enum inline because of a bug in openapi-generator
+            #              $ref: "#/components/schemas/EntityTypes"
             feed_references:
               description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
               type: array
@@ -627,8 +668,8 @@ components:
             - gtfs_rt
             - gbfs
           example: gtfs
-          #    Have to put the enum inline because of a bug in openapi-generator
-          #          $ref: "#/components/schemas/DataType"
+        #    Have to put the enum inline because of a bug in openapi-generator
+        #          $ref: "#/components/schemas/DataType"
         status:
           description: >
             Describes status of the Feed. Should be one of
@@ -646,8 +687,8 @@ components:
             - development
             - future
           example: deprecated
-          #           Have to put the enum inline because of a bug in openapi-generator
-          #          $ref: "#/components/schemas/FeedStatus"
+        #           Have to put the enum inline because of a bug in openapi-generator
+        #          $ref: "#/components/schemas/FeedStatus"
         created_at:
           description: The date and time the feed was added to the database, in ISO 8601 date-time format.
           type: string
@@ -703,8 +744,8 @@ components:
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
-            #              Have to put the enum inline because of a bug in openapi-generator
-            #              $ref: "#/components/schemas/EntityTypes"
+        #              Have to put the enum inline because of a bug in openapi-generator
+        #              $ref: "#/components/schemas/EntityTypes"
         versions:
           type: array
           items:
@@ -809,24 +850,24 @@ components:
               type: integer
               example: 3
               minimum: 0
-              #    Have to put the enum inline because of a bug in openapi-generator
-              #    EntityTypes:
-              #      type: array
-              #      items:
-              #        $ref: "#/components/schemas/EntityType"
+    #    Have to put the enum inline because of a bug in openapi-generator
+    #    EntityTypes:
+    #      type: array
+    #      items:
+    #        $ref: "#/components/schemas/EntityType"
 
-              #    EntityType:
-              #      type: string
-              #      enum:
-              #        - vp
-              #        - tu
-              #        - sa
-              #      example: vp
-              #      description: >
-              #        The type of realtime entry:
-              #          * vp - vehicle positions
-              #          * tu - trip updates
-              #          * sa - service alerts
+    #    EntityType:
+    #      type: string
+    #      enum:
+    #        - vp
+    #        - tu
+    #        - sa
+    #      example: vp
+    #      description: >
+    #        The type of realtime entry:
+    #          * vp - vehicle positions
+    #          * tu - trip updates
+    #          * sa - service alerts
     ExternalIds:
       type: array
       items:
@@ -885,6 +926,18 @@ components:
           type: string
           format: url
           example: https://www.ladottransit.com/dla.html
+        license_id:
+          description: Id of the feed license that can be used to query the license endpoint.
+          type: string
+          example: 0BSD
+        license_is_spdx:
+          description: true if the license is SPDX. false if not.
+          type: boolean
+          example: true
+        license_notes:
+          description: Notes concerning the relation between the feed and the license.
+          type: string
+          example: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
     Locations:
       type: array
       items:
@@ -912,23 +965,23 @@ components:
           description: Primary municipality in english in which the transit system is located.
           type: string
           example: Los Angeles
-          #    Have to put the enum inline because of a bug in openapi-generator
-          #    FeedStatus:
-          #      description: >
-          #        Describes status of the Feed. Should be one of
-          #          * `active` Feed should be used in public trip planners.
-          #          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-          #          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-          #          * `development` Feed is being used for development purposes and should not be used in public trip planners.
-          #          * `future` Feed is not yet active but will be in the future
-          #      type: string
-          #      enum:
-          #        - active
-          #        - deprecated
-          #        - inactive
-          #        - development
-          #        - future
-          #      example: active
+    #    Have to put the enum inline because of a bug in openapi-generator
+    #    FeedStatus:
+    #      description: >
+    #        Describes status of the Feed. Should be one of
+    #          * `active` Feed should be used in public trip planners.
+    #          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+    #          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+    #          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+    #          * `future` Feed is not yet active but will be in the future
+    #      type: string
+    #      enum:
+    #        - active
+    #        - deprecated
+    #        - inactive
+    #        - development
+    #        - future
+    #      example: active
     BasicDataset:
       type: object
       properties:
@@ -1072,6 +1125,78 @@ components:
           format: url
           description: HTML validation report URL
           example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
+    LicenseRule:
+      type: object
+      properties:
+        name:
+          description: Name of the rule.
+          type: string
+          example: commercial-use
+        label:
+          description: Label of the rule.
+          type: string
+          example: Commercial use
+        description:
+          description: Description of the rule.
+          type: string
+          example: This license allows the software or data to be used for commercial purposes.
+        type:
+          description: Type of rule.
+          type: string
+          enum:
+            - permission
+            - condition
+            - limitation
+    LicenseBase:
+      type: object
+      properties:
+        id:
+          description: Unique identifier for the license.
+          type: string
+          example: 0BSD
+        type:
+          type: string
+          description: The type of license.
+          example: standard
+        is_spdx:
+          type: boolean
+          description: True if the license ID is an SPDX identifier.
+        name:
+          type: string
+          description: The user facing name of the license.
+          example: BSD Zero Clause License
+        url:
+          description: A URL where to find the license for the feed.
+          type: string
+          format: url
+          example: https://www.ladottransit.com/dla.html
+        description:
+          type: string
+          description: The description of the license.
+          example: This is the OBSD license.
+        created_at:
+          description: The date and time the license was added to the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        updated_at:
+          description: The last date and time the license was updated in the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+    LicenseWithRules:
+      allOf:
+        - $ref: "#/components/schemas/LicenseBase"
+        - type: object
+          properties:
+            license_rules:
+              type: array
+              items:
+                $ref: "#/components/schemas/LicenseRule"
+    Licenses:
+      type: array
+      items:
+        $ref: "#/components/schemas/LicenseBase"
     OperationCreateRequestGtfsFeed:
       x-operation: true
       type: object
@@ -1142,6 +1267,7 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
+
           type: string
           example: Bus
         note:
@@ -1181,6 +1307,8 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1195,13 +1323,14 @@ components:
         related_links:
           description: >
             A list of related links for the feed.
+
           type: array
           items:
-            $ref: '#/components/schemas/FeedRelatedLink'          
+            $ref: '#/components/schemas/FeedRelatedLink'
       required:
         - source_info
         - operational_status
-        - entity_types        
+        - entity_types
     OperationFeed:
       x-operation: true
       allOf:
@@ -1298,6 +1427,8 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1373,6 +1504,8 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -1390,6 +1523,8 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -1409,6 +1544,55 @@ components:
       schema:
         type: string
         example: mdb-1210
+    license_id_path_param:
+      x-operation: true
+      name: id
+      in: path
+      description: The license ID of the requested license.
+      required: True
+      schema:
+        type: string
+        example: 0BSD
+    license_is_spdx_query_param:
+      x-operation: true
+      name: is_spdx
+      in: query
+      description: True if the license ID is SPDX.
+      required: False
+      schema:
+        type: boolean
+        example: true
+    limit_query_param_licenses_endpoint:
+      x-operation: true
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 100
+        example: 10
+    search_text_query_param_license:
+      x-operation: true
+      name: search_query
+      in: query
+      description: General search query to match against license name and ID
+      required: False
+      schema:
+        type: string
+    offset:
+      x-operation: true
+      name: offset
+      in: query
+      description: Offset of the first item to return.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

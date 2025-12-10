@@ -10,6 +10,9 @@
   "environment_variables": [
     {
       "key": "DATASETS_BUCKET_NAME"
+    },
+    {
+      "key": "TDG_API_TOKEN"
     }
   ],
   "secret_environment_variables": [

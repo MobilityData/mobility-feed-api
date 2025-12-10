@@ -6,6 +6,7 @@ import {
   type Theme,
 } from '@mui/material';
 import { type CSSProperties } from 'react';
+import { fontFamily } from '../../Theme';
 
 export const gbfsValidatorHeroBg = {
   backgroundColor: '#43e0ff',
@@ -67,17 +68,35 @@ export const ValidationElementCardStyles = (
   bgcolor: 'background.default',
   transition: 'box-shadow 0.3s ease',
   mt: index === 0 ? 0.5 : 0,
-  '&:focus': {
-    boxShadow: `0 0 0 3px ${theme.palette.primary.main}`,
-  },
+});
+
+export const AlertErrorBoxStyles = (
+  theme: Theme,
+  showDetails: boolean,
+): SxProps<Theme> => ({
+  whiteSpace: 'pre-wrap',
+  fontFamily:
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  bgcolor: theme.palette.action.hover,
+  p: 1.5,
+  borderRadius: 1,
+  maxHeight: showDetails ? 400 : 140,
+  overflow: 'auto',
+  border: '1px solid',
+  borderColor: 'divider',
 });
 
 export const ValidationErrorPathStyles = (theme: Theme): CSSProperties => ({
-  padding: theme.spacing(0.5),
   background: theme.palette.background.paper,
   width: '100%',
   overflowX: 'auto',
   fontSize: '0.875em',
+  position: 'relative',
+  display: 'inline-flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: theme.spacing(0.5, 1.25),
+  borderRadius: theme.spacing(1.5),
 });
 
 export const ContentTitle = styled(Typography)(({ theme }) => ({
@@ -87,3 +106,127 @@ export const ContentTitle = styled(Typography)(({ theme }) => ({
   lineHeight: '48px',
   fontWeight: 500,
 }));
+
+export const dialogTitleSx: SxProps<Theme> = () => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+});
+
+export const highlightedPreSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  fontFamily: 'monospace',
+});
+
+export const highlightedContainerSx: SxProps<Theme> = (theme: Theme) => ({
+  border: '1px solid',
+  borderColor: theme.palette.divider,
+  borderRadius: 2,
+  overflow: 'hidden',
+});
+
+export const highlightedTitleSx: SxProps<Theme> = (theme: Theme) => ({
+  width: '100%',
+  backgroundColor: theme.palette.background.default,
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  p: 1,
+  px: 1,
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
+});
+
+export const highlightedInnerSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  fontFamily: 'monospace',
+});
+
+export const entryRowSx = (
+  theme: Theme,
+  isHitProp: boolean,
+): SxProps<Theme> => ({
+  display: 'flex',
+  gap: 1,
+  alignItems: 'flex-start',
+  px: 0.5,
+  borderLeft: isHitProp ? '3px solid' : undefined,
+  borderColor: isHitProp ? theme.palette.error.main : undefined,
+  backgroundColor: isHitProp ? 'rgba(244,67,54,0.08)' : undefined,
+  borderRadius: 0.5,
+});
+
+export const keyTypographySx = (
+  theme: Theme,
+  isHitProp: boolean,
+): SxProps<Theme> => ({
+  fontFamily: 'inherit',
+  fontWeight: isHitProp ? 700 : 400,
+  color: isHitProp ? theme.palette.error.main : 'inherit',
+});
+
+export const listItemSx = (
+  theme: Theme,
+  isOffender: boolean,
+): SxProps<Theme> => ({
+  backgroundColor: isOffender ? 'rgba(244,67,54,0.08)' : '',
+  borderLeft: isOffender ? '3px solid' : '',
+  borderColor: isOffender ? theme.palette.error.main : '',
+  pl: isOffender ? 1 : 0,
+  borderRadius: 0.5,
+  wordBreak: 'break-word',
+});
+
+export const valueTypographySx: SxProps<Theme> = (theme: Theme) => ({
+  fontFamily: 'inherit',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+});
+
+export const outlinePreSx: SxProps<Theme> = (theme: Theme) => ({
+  m: 0,
+  p: 1,
+  borderRadius: 1,
+  backgroundColor: theme.palette.action.hover,
+  maxHeight: 300,
+  overflow: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  outline: `2px solid ${theme.palette.error.main}`,
+  outlineOffset: '-2px',
+});
+
+export const rowButtonOutlineErrorSx: SxProps<Theme> = (theme: Theme) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 120ms, transform 120ms',
+  whiteSpace: 'nowrap',
+  px: theme.spacing(1),
+  py: theme.spacing(0.5),
+  borderRadius: '5px',
+  border: `1px solid ${theme.palette.error.main}`,
+  color: theme.palette.error.main,
+  fontSize: '0.8125rem',
+  fontFamily: fontFamily.secondary,
+  fontWeight: 500,
+  background: 'transparent',
+  '&:hover': {
+    backgroundColor: theme.palette.error.light,
+    color: theme.palette.error.contrastText,
+  },
+});

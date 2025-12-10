@@ -34,8 +34,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
 )
 from tasks.data_import.data_import_utils import (
-    _get_or_create_feed,
-    _get_or_create_entity_type,
+    get_or_create_feed,
+    get_or_create_entity_type,
     get_feed,
 )
 
@@ -80,7 +80,7 @@ def _process_feeds(
                 feed_stable_id,
             )
 
-            feed, is_new = _get_or_create_feed(
+            feed, is_new = get_or_create_feed(
                 db_session, model_cls, feed_stable_id, feed_kind, is_official=False
             )
             # All TransitFeeds imports are marked deprecated
@@ -92,14 +92,30 @@ def _process_feeds(
                 feed_stable_id,
             )
 
-            # Init-on-create (shared fields)
-            if is_new:
-                feed.name = row["Feed Name"]
-                feed.externalids = [
+            # Set transitfeeds Externalid
+            existing_externalid = [
+                eid
+                for eid in feed.externalids
+                if eid.source == "transitfeeds"
+                and eid.associated_id == row["External Feed ID"]
+            ]
+            if existing_externalid:
+                logger.debug(
+                    "[%s] External ID for source 'transitfeeds' already set for %s: %s",
+                    feed_kind.upper(),
+                    feed_stable_id,
+                    existing_externalid[0].associated_id,
+                )
+            else:
+                feed.externalids.append(
                     Externalid(
                         source="transitfeeds", associated_id=row["External Feed ID"]
                     )
-                ]
+                )
+            feed.operational_status = "published"
+            # Init-on-create (shared fields)
+            if is_new:
+                feed.name = row["Feed Name"]
                 feed.provider = row["Provider"]
                 feed.producer_url = row["Producer URL"]
                 logger.debug(
@@ -258,7 +274,7 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
         )
         if entity_types:
             feed.entitytypes = [
-                _get_or_create_entity_type(session, et) for et in entity_types
+                get_or_create_entity_type(session, et) for et in entity_types
             ]
             logger.info(
                 "[GTFS_RT] Set %d entity types for %s",
@@ -274,6 +290,48 @@ def _process_transitfeeds_gtfs_rt(db_session: Session, dry_run: bool) -> dict:
         feed_kind="gtfs_rt",
         dry_run=dry_run,
         on_is_new=_rt_on_is_new,
+    )
+
+
+def _ensure_transitfeeds_externalid(feed, tfs_dataset_id: str) -> None:
+    """
+    Ensure the feed has an Externalid(source='transitfeeds') derived
+    from the TransitFeeds dataset ID (e.g. 'thebus-honolulu/57/20231014'
+    -> associated_id='thebus-honolulu/57').
+    """
+    # Take first two path components: provider/id
+    parts = tfs_dataset_id.split("/")
+    if len(parts) < 2:
+        logger.warning(
+            "Cannot derive associated_id from Dataset ID %s; expected at least 2 segments.",
+            tfs_dataset_id,
+        )
+        return
+
+    associated_id = "/".join(parts[:2])
+
+    # Check if it already exists
+    existing = [
+        eid
+        for eid in getattr(feed, "externalids", [])
+        if eid.source == "transitfeeds" and eid.associated_id == associated_id
+    ]
+    if existing:
+        logger.debug(
+            "Externalid already present for feed %s: %s",
+            feed.stable_id if hasattr(feed, "stable_id") else feed.id,
+            associated_id,
+        )
+        return
+
+    # Create the new Externalid
+    feed.externalids.append(
+        Externalid(source="transitfeeds", associated_id=associated_id)
+    )
+    logger.info(
+        "Added transitfeeds Externalid %s for feed %s",
+        associated_id,
+        feed.stable_id if hasattr(feed, "stable_id") else feed.id,
     )
 
 
@@ -308,6 +366,9 @@ def _add_historical_datasets(db_session: Session, dry_run: bool) -> int:
         grouped_df = grouped_df.sort_values(
             by="Dataset ID", ascending=False
         ).reset_index(drop=True)
+
+        first_dataset_id = grouped_df["Dataset ID"].iloc[0]
+        _ensure_transitfeeds_externalid(feed, first_dataset_id)
 
         datasets: list[Gtfsdataset] = []
         latest_candidate_id: Optional[str] = None

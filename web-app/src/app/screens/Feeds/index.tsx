@@ -79,6 +79,9 @@ export default function Feed(): React.ReactElement {
   const feedsData = useSelector(selectFeedsData);
   const feedStatus = useSelector(selectFeedsStatus);
 
+  const hasTransitFeedsRedirectParam =
+    searchParams.get('utm_source') === 'transitfeeds';
+
   // features i/o
   const areNoDataTypesSelected =
     !selectedFeedTypes.gtfs &&
@@ -170,6 +173,9 @@ export default function Feed(): React.ReactElement {
     }
     if (isOfficialFeedSearch) {
       newSearchParams.set('official', 'true');
+    }
+    if (searchParams.get('utm_source') === 'transitfeeds') {
+      newSearchParams.set('utm_source', 'transitfeeds');
     }
     if (searchParams.toString() !== newSearchParams.toString()) {
       setSearchParams(newSearchParams, { replace: false });
@@ -318,7 +324,13 @@ export default function Feed(): React.ReactElement {
             </Typography>
           )}
         </Container>
-        <Box sx={stickyHeaderStyles({ theme, isSticky })}>
+        <Box
+          sx={stickyHeaderStyles({
+            theme,
+            isSticky,
+            headerBannerVisible: hasTransitFeedsRedirectParam,
+          })}
+        >
           <Container
             maxWidth={'xl'}
             component='form'

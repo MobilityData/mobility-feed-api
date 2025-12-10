@@ -1,0 +1,56 @@
+name: Verify TypeScript GBFS Validator Types Generation
+on:
+  pull_request:
+    branches: 
+      - main
+    paths:
+      - "docs/GbfsValidator.yaml"
+
+env:
+  NODE_VERSION: "18"
+
+jobs:
+  generate-and-compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          cache-dependency-path: 'web-app/yarn.lock'
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        id: yarn-cache
+        with:
+          path: |
+            **/node_modules
+            **/.eslintcache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('web-app/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile --prefer-offline
+      
+      - name: Generate TypeScript gbfs validator types
+        working-directory: web-app
+        run: yarn generate:gbfs-validator-types:output
+        env:
+          OUTPUT_PATH_TYPES: src/app/services/feeds/generated/gbfs-validator-types.ts
+      
+      - name: Upload generated gbfs types
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated_types.ts
+          path: web-app/src/app/services/feeds/generated/gbfs-validator-types.ts
+      
+      - name: Compare gbfs validator TypeScript types with existing types
+        working-directory: web-app
+        run: diff src/app/services/feeds/generated/gbfs-validator-types.ts src/app/services/feeds/gbfs-validator-types.ts || (echo "Gbfs Validator Types are different!" && exit 1)

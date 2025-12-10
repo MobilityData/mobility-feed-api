@@ -22,6 +22,7 @@ import functions_framework
 
 from shared.helpers.logger import init_logger
 from tasks.data_import.transitfeeds.sync_transitfeeds import sync_transitfeeds_handler
+from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
@@ -108,6 +109,10 @@ tasks = {
     "sync_transitfeeds_data": {
         "description": "Syncs data from TransitFeeds to the database.",
         "handler": sync_transitfeeds_handler,
+    },
+    "tdg_import": {
+        "description": "Imports TDG data into the system.",
+        "handler": import_tdg_handler,
     },
 }
 
