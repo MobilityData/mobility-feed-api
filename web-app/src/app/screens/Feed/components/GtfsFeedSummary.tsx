@@ -111,8 +111,7 @@ export default function GtfsFeedSummary({
   const hasLicenseData = (): boolean => {
     return (
       feed?.source_info?.license_url != undefined &&
-      feed?.source_info?.license_id !== undefined &&
-      feed?.source_info?.license_is_spdx !== undefined
+      feed?.source_info?.license_url !== ''
     );
   };
 
@@ -364,11 +363,17 @@ export default function GtfsFeedSummary({
                       fontSize: '0.875em',
                     }}
                   >
-                    {feed.data_type === 'gbfs' ? autoDiscoveryUrl : feed.source_info.producer_url}
+                    {feed.data_type === 'gbfs'
+                      ? autoDiscoveryUrl
+                      : feed.source_info.producer_url}
                   </Typography>
                   <IconButton
                     component={Link}
-                    href={feed.data_type === 'gbfs' ? autoDiscoveryUrl : feed.source_info.producer_url}
+                    href={
+                      feed.data_type === 'gbfs'
+                        ? autoDiscoveryUrl
+                        : feed.source_info.producer_url
+                    }
                     target='_blank'
                     rel='noreferrer'
                     color='secondary'
@@ -659,24 +664,56 @@ export default function GtfsFeedSummary({
 
       {hasLicenseData() && (
         <GroupCard variant='outlined'>
-          <GroupHeader variant='body1'>
-            <GavelIcon fontSize='inherit' />
-            License
-          </GroupHeader>
-
-          {feed?.source_info?.license_url != undefined &&
-            feed?.source_info?.license_url !== '' && (
-              <CopyLinkElement
-                title={feed.source_info.license_id ?? 'License'}
-                url={feed.source_info.license_url}
-                linkType='internal'
-                internalClickAction={() => {
-                  if (feed?.source_info?.license_id) {
-                    setOpenLicenseDetails(true);
-                  }
-                }}
-              />
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 1,
+            }}
+          >
+            <GroupHeader variant='body1' sx={{ mb: 0 }}>
+              <GavelIcon fontSize='inherit' />
+              License
+            </GroupHeader>
+            {feed?.source_info?.license_is_spdx && (
+              <Tooltip
+                title='The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.'
+                placement='top'
+              >
+                <Chip
+                  label='SPDX'
+                  size='small'
+                  color='info'
+                  variant='outlined'
+                />
+              </Tooltip>
             )}
+          </Box>
+
+          {feed?.source_info?.license_id != undefined ? (
+            <CopyLinkElement
+              title={feed.source_info.license_id}
+              url={feed.source_info.license_url ?? ''}
+              titleInfo='License was added by the Mobility Database team based on either 1) a submission authorized by the transit provider 2) review of the transit providers website.'
+              linkType='internal'
+              internalClickAction={() => {
+                if (feed?.source_info?.license_id) {
+                  setOpenLicenseDetails(true);
+                }
+              }}
+            />
+          ) : (
+            <Link
+              href={feed?.source_info?.license_url ?? ''}
+              target='_blank'
+              rel='noopener noreferrer'
+              sx={{ wordBreak: 'break-word' }}
+              variant='body1'
+            >
+              {feed?.source_info?.license_url}
+            </Link>
+          )}
         </GroupCard>
       )}
 

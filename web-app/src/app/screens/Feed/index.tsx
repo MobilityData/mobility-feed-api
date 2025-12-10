@@ -566,20 +566,6 @@ export default function Feed(): React.ReactElement {
           </Button>
         )}
         {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
-        {feed?.source_info?.license_url != undefined &&
-          feed?.source_info?.license_url !== '' && (
-            <Button
-              disableElevation
-              variant='outlined'
-              sx={{ marginRight: 2 }}
-              href={feed?.source_info?.license_url}
-              target='_blank'
-              rel='noreferrer'
-              endIcon={<OpenInNewIcon></OpenInNewIcon>}
-            >
-              {t('seeLicense')}
-            </Button>
-          )}
       </Box>
       <Grid item xs={12}>
         <Box

@@ -17,7 +17,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export interface CopyLinkElementProps {
-  title: string;
+  title?: string;
   url: string;
   linkType?: 'download' | 'external' | 'email' | 'internal';
   titleInfo?: string;
@@ -53,46 +53,48 @@ export default function CopyLinkElement({
 
   return (
     <FeedLinkElement>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {linkType === 'internal' ? (
-          <Button
-            variant='text'
-            sx={{ pl: 0, py: 0.5 }}
-            onClick={internalClickAction}
-          >
-            {title}
-          </Button>
-        ) : (
-          <Button
-            variant='text'
-            sx={{ pl: 0, py: 0.5 }}
-            component={Link}
-            href={formattedUrl}
-            target='_blank'
-            rel='noreferrer'
-          >
-            {title}
-          </Button>
-        )}
-        {titleInfo != undefined && (
-          <Tooltip title={titleInfo} placement='top'>
-            <InfoOutlinedIcon fontSize='inherit' />
-          </Tooltip>
-        )}
-        {chipIcon != undefined && chipLabel != undefined && (
-          <Chip
-            clickable
-            component={Link}
-            href={formattedUrl}
-            target='_blank'
-            rel='noreferrer'
-            size='small'
-            label={chipLabel}
-            icon={chipIcon}
-            sx={{ color: 'text.secondary', fontWeight: 400 }}
-          ></Chip>
-        )}
-      </Box>
+      {title != null && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {linkType === 'internal' ? (
+            <Button
+              variant='text'
+              sx={{ pl: 0, py: 0.5 }}
+              onClick={internalClickAction}
+            >
+              {title}
+            </Button>
+          ) : (
+            <Button
+              variant='text'
+              sx={{ pl: 0, py: 0.5 }}
+              component={Link}
+              href={formattedUrl}
+              target='_blank'
+              rel='noreferrer'
+            >
+              {title}
+            </Button>
+          )}
+          {titleInfo != undefined && (
+            <Tooltip title={titleInfo} placement='top'>
+              <InfoOutlinedIcon fontSize='inherit' />
+            </Tooltip>
+          )}
+          {chipIcon != undefined && chipLabel != undefined && (
+            <Chip
+              clickable
+              component={Link}
+              href={formattedUrl}
+              target='_blank'
+              rel='noreferrer'
+              size='small'
+              label={chipLabel}
+              icon={chipIcon}
+              sx={{ color: 'text.secondary', fontWeight: 400 }}
+            ></Chip>
+          )}
+        </Box>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography
           variant='subtitle2'
