@@ -71,6 +71,12 @@ const palette = {
     light: '#D7D4FF',
     contrastText: '#FFFFFF',
   },
+  info: {
+    main: '#01579B',
+  },
+  warning: {
+    main: '#E65100',
+  },
   background: {
     default: '#ffffff',
     paper: '#F8F5F5',
@@ -97,6 +103,12 @@ const darkPalette = {
     main: '#5E6DD9',
     dark: '#3846A6',
     contrastText: '#FFFFFF',
+  },
+  info: {
+    main: '#4FC3F7',
+  },
+  warning: {
+    main: '#FFB74D',
   },
   background: {
     default: '#121212',

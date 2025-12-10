@@ -1,54 +1,54 @@
 {
-    "copyToClipboard": "Copy to clipboard",
-    "copied": "Copied!",
-    "name": "Name",
-    "email": "Email",
-    "organization": "Organization",
-    "signOut": "Sign out",
-    "unknown": "Unknown",
-    "search": "Search",
-    "feeds": "Feeds",
-    "gtfsSchedule": "GTFS Schedule",
-    "gtfsRealtime": "GTFS Realtime",
-    "gtfs": "GTFS Schedule",
-    "gtfs_rt": "GTFS Realtime",
-    "gbfs": "GBFS",
-    "gtfsRealtimeEntities": {
-        "tripUpdates": "Trip Updates",
-        "vehiclePositions": "Vehicle Positions",
-        "serviceAlerts": "Service Alerts"
-    },
-    "loading": "Loading...",
-    "download": "Download",
-    "updated": "Updated",
-    "errors": {
-        "generic": "We are unable to complete your request at the moment."
-    },
-    "others": "others",
-    "apiKey": "API Key",
-    "httpHeader": "HTTP Header",
-    "back": "Back",
-    "and": "and",
-    "next": "Next",
-    "form": {
-        "yes": "Yes",
-        "no": "No",
-        "required": "This field is required",
-        "submit": "Submit",
-        "select": "Select",
-        "notSure": "Not sure"
-    },
-    "country": "Country",
-    "chooseCountry": "Choose a country",
-    "region": "Region",
-    "municipality": "Municipality",
-    "feedback": {
-        "errors": "errors",
-        "noErrors": "No errors",
-        "noWarnings": "No warnings",
-        "warnings": "warnings",
-        "infoNotices": "info notices"
-    },
+  "copyToClipboard": "Copy to clipboard",
+  "copied": "Copied!",
+  "name": "Name",
+  "email": "Email",
+  "organization": "Organization",
+  "signOut": "Sign out",
+  "unknown": "Unknown",
+  "search": "Search",
+  "feeds": "Feeds",
+  "gtfsSchedule": "GTFS Schedule",
+  "gtfsRealtime": "GTFS Realtime",
+  "gtfs": "GTFS Schedule",
+  "gtfs_rt": "GTFS Realtime",
+  "gbfs": "GBFS",
+  "gtfsRealtimeEntities": {
+    "tripUpdates": "Trip Updates",
+    "vehiclePositions": "Vehicle Positions",
+    "serviceAlerts": "Service Alerts"
+  },
+  "loading": "Loading...",
+  "download": "Download",
+  "updated": "Updated",
+  "errors": {
+    "generic": "We are unable to complete your request at the moment."
+  },
+  "others": "others",
+  "apiKey": "API Key",
+  "httpHeader": "HTTP Header",
+  "back": "Back",
+  "and": "and",
+  "next": "Next",
+  "form": {
+    "yes": "Yes",
+    "no": "No",
+    "required": "This field is required",
+    "submit": "Submit",
+    "select": "Select",
+    "notSure": "Not sure"
+  },
+  "country": "Country",
+  "chooseCountry": "Choose a country",
+  "region": "Region",
+  "municipality": "Municipality",
+  "feedback": {
+    "errors": "errors",
+    "noErrors": "No errors",
+    "noWarnings": "No warnings",
+    "warnings": "warnings",
+    "infoNotices": "info notices"
+  },
   "gtfsSpec": {
     "routeType": {
       "0": {
@@ -96,5 +96,11 @@
   "validators": "Validators",
   "gbfsValidator": "GBFS Validator",
   "gtfsValidator": "GTFS Validator",
-  "gtfsRtValidator": "GTFS RT Validator"
+  "gtfsRtValidator": "GTFS RT Validator",
+  "start": "Start",
+  "end": "End",
+  "showLess": "Show less",
+  "showMore": "Show {{count}} more",
+  "moreInfo": "More Info",
+  "license": "License"
 }

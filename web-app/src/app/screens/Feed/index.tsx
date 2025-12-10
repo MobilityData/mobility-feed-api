@@ -61,11 +61,10 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import DownloadIcon from '@mui/icons-material/Download';
-import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
 import ReactGA from 'react-ga4';
-import GtfsFeedSummary from './components/GtfsFeedSummary';
+import FeedSummary from './components/FeedSummary';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -567,20 +566,6 @@ export default function Feed(): React.ReactElement {
           </Button>
         )}
         {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
-        {feed?.source_info?.license_url != undefined &&
-          feed?.source_info?.license_url !== '' && (
-            <Button
-              disableElevation
-              variant='outlined'
-              sx={{ marginRight: 2 }}
-              href={feed?.source_info?.license_url}
-              target='_blank'
-              rel='noreferrer'
-              endIcon={<OpenInNewIcon></OpenInNewIcon>}
-            >
-              {t('seeLicense')}
-            </Button>
-          )}
       </Box>
       <Grid item xs={12}>
         <Box
@@ -598,19 +583,12 @@ export default function Feed(): React.ReactElement {
           )}
 
           <Box sx={{ width: { xs: '100%', md: '475px' } }}>
-            {feed.data_type === 'gbfs' && (
-              <GbfsFeedInfo
-                feed={feed as GTFSFeedType}
-                autoDiscoveryUrl={gbfsAutodiscoveryUrl}
-              ></GbfsFeedInfo>
-            )}
-            {(feed.data_type === 'gtfs' || feed.data_type === 'gtfs_rt') && (
-              <GtfsFeedSummary
-                feed={feed}
-                sortedProviders={sortedProviders}
-                latestDataset={latestDataset}
-              ></GtfsFeedSummary>
-            )}
+            <FeedSummary
+              feed={feed}
+              sortedProviders={sortedProviders}
+              latestDataset={latestDataset}
+              autoDiscoveryUrl={gbfsAutodiscoveryUrl}
+            />
           </Box>
 
           {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (

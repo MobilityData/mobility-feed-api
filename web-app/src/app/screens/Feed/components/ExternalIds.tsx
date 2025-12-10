@@ -45,25 +45,40 @@ export default function ExternalIds({
               key={idx}
               sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
             >
-              <Button
-                variant='text'
-                sx={{
-                  fontWeight: 700,
-                  minWidth: 'auto',
-                  color: 'text.primary',
-                  textTransform: 'none',
-                  p: 0,
-                  px: 1.5,
-                  ml: -1.5,
-                  fontSize: 'medium',
-                }}
-                component={Link}
-                href={info.docsUrl}
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                {info?.label ?? externalId.source}
-              </Button>
+              {info.docsUrl != null ? (
+                <Button
+                  variant='text'
+                  sx={{
+                    fontWeight: 700,
+                    minWidth: 'auto',
+                    color: 'text.primary',
+                    textTransform: 'none',
+                    p: 0,
+                    px: 1.5,
+                    ml: -1.5,
+                    fontSize: 'medium',
+                  }}
+                  component={Link}
+                  href={info.docsUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                >
+                  {info?.label ?? externalId.source}
+                </Button>
+              ) : (
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    minWidth: 'auto',
+                    color: 'text.primary',
+                    pr: 1.5,
+                    fontSize: 'medium',
+                  }}
+                >
+                  {info?.label ?? externalId.source}
+                </Typography>
+              )}
+
               <Typography
                 variant='body1'
                 sx={{ wordBreak: 'break-all', lineHeight: 1.2 }}
