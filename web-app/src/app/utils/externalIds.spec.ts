@@ -52,7 +52,7 @@ describe('filterFeedExternalIdsToSourceMap', () => {
   it('externalIdSourceMap should contain expected keys', () => {
     // ensure the map includes the keys we depend on
     expect(Object.keys(externalIdSourceMap)).toEqual(
-      expect.arrayContaining(['jbda', 'tdg', 'ntd', 'tfs', 'tld']),
+      expect.arrayContaining(['jbda', 'tdg', 'ntd', 'transitfeeds', 'tld']),
     );
   });
 });
