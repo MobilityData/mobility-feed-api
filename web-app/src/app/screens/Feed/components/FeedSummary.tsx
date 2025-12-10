@@ -408,7 +408,9 @@ export default function FeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  {t('feedSummary.providerUrl')}
+                  {feed?.data_type === 'gbfs'
+                    ? t('feedSummary.producerUrl')
+                    : t('feedSummary.providerUrl')}
                 </Typography>
                 <Link
                   href={(feed as GBFSFeedType)?.provider_url}
