@@ -53,8 +53,6 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v4
-      with:
-        ref: main
 
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2
