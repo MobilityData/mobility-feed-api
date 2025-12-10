@@ -22,17 +22,15 @@ import { selectLicenseData } from '../license-selectors';
 
 export function* getLicenseSaga({
   payload: { licenseId },
-}: PayloadAction<{ licenseId: string }>): Generator<
-  StrictEffect,
-  void,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  any
-> {
+}: PayloadAction<{ licenseId: string }>): Generator<StrictEffect, void> {
   try {
     const licensesData = (yield select(selectLicenseData)) as Record<
       string,
       { license: License; fetchedAt: number }
     >;
+    // License data rarely changes, but we use a 1-hour cache duration to ensure
+    // that any updates (e.g., legal changes, corrections) are picked up within a reasonable time.
+    // This balances minimizing network requests with keeping data reasonably fresh.
     const cachedLicense = licensesData[licenseId];
     const now = Date.now();
     const oneHour = 60 * 60 * 1000;

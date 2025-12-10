@@ -55,7 +55,7 @@ export default function CopyLinkElement({
     <FeedLinkElement>
       {title != null && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {linkType === 'internal' ? (
+          {linkType === 'internal' && internalClickAction != undefined ? (
             <Button
               variant='text'
               sx={{ pl: 0, py: 0.5 }}

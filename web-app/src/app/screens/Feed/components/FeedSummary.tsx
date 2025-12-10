@@ -108,13 +108,6 @@ export default function FeedSummary({
     return hasOtherLinks;
   };
 
-  const hasLicenseData = (): boolean => {
-    return (
-      feed?.source_info?.license_url != undefined &&
-      feed?.source_info?.license_url !== ''
-    );
-  };
-
   return (
     <>
       <GroupCard variant='outlined'>
@@ -275,7 +268,7 @@ export default function FeedSummary({
               )}
           </Box>
 
-          {totalRoutes !== undefined && routeTypes !== undefined && (
+          {totalRoutes != undefined && routeTypes != undefined && (
             <>
               <Typography
                 variant='subtitle2'
@@ -335,7 +328,7 @@ export default function FeedSummary({
             </>
           )}
         </Box>
-        {feed?.source_info?.producer_url !== undefined &&
+        {feed?.source_info?.producer_url != undefined &&
           feed?.source_info?.producer_url !== '' && (
             <>
               <Box sx={{ ml: 2 }}>
@@ -343,7 +336,7 @@ export default function FeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl !== undefined
+                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl != undefined
                     ? t('feedSummary.autoDiscoveryUrl')
                     : t('feedSummary.producerUrl')}
                 </Typography>
@@ -380,7 +373,7 @@ export default function FeedSummary({
                   <IconButton
                     component={Link}
                     href={
-                      feed.data_type === 'gbfs'
+                      feed.data_type === 'gbfs' && autoDiscoveryUrl != undefined
                         ? autoDiscoveryUrl
                         : feed.source_info.producer_url
                     }
@@ -436,7 +429,7 @@ export default function FeedSummary({
             </Typography>
           </Box>
         )}
-        {feed?.feed_contact_email !== undefined &&
+        {feed?.feed_contact_email != undefined &&
           feed?.feed_contact_email !== '' && (
             <Box sx={{ ml: 2, mt: 3 }}>
               <Typography
@@ -460,7 +453,7 @@ export default function FeedSummary({
           )}
       </GroupCard>
 
-      {feed?.source_info?.authentication_info_url !== undefined &&
+      {feed?.source_info?.authentication_info_url != undefined &&
         feed.source_info.authentication_type !== 0 &&
         feed?.source_info.authentication_info_url.trim() !== '' && (
           <GroupCard variant='outlined'>
@@ -475,7 +468,7 @@ export default function FeedSummary({
                 {feed?.source_info?.authentication_type === 2 &&
                   t('common:httpHeader')}
               </Typography>
-              {feed?.source_info?.authentication_info_url !== undefined && (
+              {feed?.source_info?.authentication_info_url != undefined && (
                 <Button
                   disableElevation
                   variant='text'
@@ -493,8 +486,8 @@ export default function FeedSummary({
           </GroupCard>
         )}
 
-      {latestDataset?.service_date_range_start !== undefined &&
-        latestDataset.service_date_range_end !== undefined && (
+      {latestDataset?.service_date_range_start != undefined &&
+        latestDataset.service_date_range_end != undefined && (
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <CalendarTodayIcon fontSize='inherit' />
@@ -558,7 +551,7 @@ export default function FeedSummary({
                     }}
                   >
                     {/* TODO: nice to have, a placement of the chip relative to the current date */}
-                    {(feed as GTFSFeedType)?.status !== undefined &&
+                    {(feed as GTFSFeedType)?.status != undefined &&
                       (feed as GTFSFeedType)?.status === 'active' && (
                         <Box
                           sx={{
@@ -676,57 +669,58 @@ export default function FeedSummary({
           </GroupCard>
         )}
 
-      {hasLicenseData() && (
-        <GroupCard variant='outlined'>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              mb: 1,
-            }}
-          >
-            <GroupHeader variant='body1' sx={{ mb: 0 }}>
-              <GavelIcon fontSize='inherit' />
-              {t('common:license')}
-            </GroupHeader>
-            {feed?.source_info?.license_is_spdx !== undefined &&
-              feed.source_info.license_is_spdx && (
-                <Tooltip title={t('license.spdxTooltip')} placement='top'>
-                  <Chip
-                    label='SPDX'
-                    size='small'
-                    color='info'
-                    variant='outlined'
-                  />
-                </Tooltip>
-              )}
-          </Box>
-
-          {feed?.source_info?.license_id != undefined &&
-          feed.source_info.license_id !== '' ? (
-            <CopyLinkElement
-              title={feed.source_info.license_id}
-              url={feed.source_info.license_url ?? ''}
-              titleInfo={t('license.licenseTooltip')}
-              linkType='internal'
-              internalClickAction={() => {
-                setOpenLicenseDetails(true);
+      {feed?.source_info?.license_url != undefined &&
+        feed?.source_info?.license_url !== '' && (
+          <GroupCard variant='outlined'>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mb: 1,
               }}
-            />
-          ) : (
-            <Link
-              href={feed?.source_info?.license_url ?? ''}
-              target='_blank'
-              rel='noopener noreferrer'
-              sx={{ wordBreak: 'break-word' }}
-              variant='body1'
             >
-              {feed?.source_info?.license_url}
-            </Link>
-          )}
-        </GroupCard>
-      )}
+              <GroupHeader variant='body1' sx={{ mb: 0 }}>
+                <GavelIcon fontSize='inherit' />
+                {t('common:license')}
+              </GroupHeader>
+              {feed?.source_info?.license_is_spdx != undefined &&
+                feed.source_info.license_is_spdx && (
+                  <Tooltip title={t('license.spdxTooltip')} placement='top'>
+                    <Chip
+                      label='SPDX'
+                      size='small'
+                      color='info'
+                      variant='outlined'
+                    />
+                  </Tooltip>
+                )}
+            </Box>
+
+            {feed?.source_info?.license_id != undefined &&
+            feed.source_info.license_id !== '' ? (
+              <CopyLinkElement
+                title={feed.source_info.license_id}
+                url={feed.source_info.license_url}
+                titleInfo={t('license.licenseTooltip')}
+                linkType='internal'
+                internalClickAction={() => {
+                  setOpenLicenseDetails(true);
+                }}
+              />
+            ) : (
+              <Link
+                href={feed?.source_info?.license_url ?? ''}
+                target='_blank'
+                rel='noopener noreferrer'
+                sx={{ wordBreak: 'break-word' }}
+                variant='body1'
+              >
+                {feed?.source_info?.license_url}
+              </Link>
+            )}
+          </GroupCard>
+        )}
 
       {hasRelatedLinks() && (
         <GroupCard variant='outlined'>
@@ -754,7 +748,7 @@ export default function FeedSummary({
         onClose={() => {
           setOpenLocationDetails(undefined);
         }}
-        open={openLocationDetails !== undefined}
+        open={openLocationDetails != undefined}
       >
         <DialogTitle>Feed Locations</DialogTitle>
         <IconButton
