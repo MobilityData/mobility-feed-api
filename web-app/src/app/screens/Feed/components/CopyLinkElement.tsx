@@ -19,7 +19,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 export interface CopyLinkElementProps {
   title?: string;
   url: string;
-  linkType?: 'download' | 'external' | 'email' | 'internal';
+  linkType?: 'download' | 'external' | 'email' | 'internal' | 'label';
   titleInfo?: string;
   internalClickAction?: () => void;
 }
@@ -55,7 +55,19 @@ export default function CopyLinkElement({
     <FeedLinkElement>
       {title != null && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {linkType === 'internal' && internalClickAction != undefined ? (
+          {linkType === 'label' ? (
+            <Typography
+              sx={{
+                fontWeight: 700,
+                minWidth: 'auto',
+                color: 'text.primary',
+                pr: 1.5,
+                fontSize: 'medium',
+              }}
+            >
+              {title}
+            </Typography>
+          ) : linkType === 'internal' && internalClickAction != undefined ? (
             <Button
               variant='text'
               sx={{ pl: 0, py: 0.5 }}

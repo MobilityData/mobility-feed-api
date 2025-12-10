@@ -699,15 +699,25 @@ export default function FeedSummary({
 
             {feed?.source_info?.license_id != undefined &&
             feed.source_info.license_id !== '' ? (
-              <CopyLinkElement
-                title={feed.source_info.license_id}
-                url={feed.source_info.license_url}
-                titleInfo={t('license.licenseTooltip')}
-                linkType='internal'
-                internalClickAction={() => {
-                  setOpenLicenseDetails(true);
-                }}
-              />
+              <>
+                <CopyLinkElement
+                  title={feed.source_info.license_id}
+                  url={feed.source_info.license_url}
+                  titleInfo={t('license.licenseTooltip')}
+                  linkType='label'
+                />
+                <Button
+                  variant='text'
+                  color='secondary'
+                  size='small'
+                  sx={{ height: 'fit-content', ml: 1.5 }}
+                  onClick={() => {
+                    setOpenLicenseDetails(true);
+                  }}
+                >
+                  See License Details
+                </Button>
+              </>
             ) : (
               <Link
                 href={feed?.source_info?.license_url ?? ''}
