@@ -89,6 +89,12 @@ jobs:
       env:
         LIQUIBASE_VERSION: ${{ env.liquibase_version }}
       run: |
+        # Check whether github.token is defined (value will be masked in logs)
+        if [ -n "${{ github.token }}" ]; then
+          echo "github.token is defined"
+        else
+          echo "github.token is NOT defined"
+        fi
         curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
         rm -rf liquibase-dist
         mkdir liquibase-dist
