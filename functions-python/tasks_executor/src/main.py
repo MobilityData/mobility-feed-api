@@ -23,6 +23,7 @@ import functions_framework
 from shared.helpers.logger import init_logger
 from tasks.data_import.transitfeeds.sync_transitfeeds import sync_transitfeeds_handler
 from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
+from tasks.data_import.transportdatagouv.redirect_mdb_feeds import update_tdg_redirects_handler
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
@@ -114,6 +115,10 @@ tasks = {
         "description": "Imports TDG data into the system.",
         "handler": import_tdg_handler,
     },
+    "mdb_to_tdg_redirect": {
+        "description": "Redirect duplicate MDB feeds to TDG imported feeds.",
+        "handler": update_tdg_redirects_handler,
+    }
 }
 
 
