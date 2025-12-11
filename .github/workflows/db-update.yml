@@ -96,6 +96,17 @@ jobs:
           echo "github.token is NOT defined"
         fi
         curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+        # Show file size and warn if it's suspiciously small (possible HTML error)
+        if [ -f liquibase.tar.gz ]; then
+          echo "Downloaded liquibase.tar.gz size:" && ls -lh liquibase.tar.gz
+          FILE_SIZE_BYTES=$(stat -c%s liquibase.tar.gz || stat -f%z liquibase.tar.gz)
+          echo "Size (bytes): ${FILE_SIZE_BYTES}"
+          if [ "${FILE_SIZE_BYTES}" -lt 10240 ]; then
+            echo "WARNING: Downloaded file is under 10KB; likely an HTML error page or bad asset."
+          fi
+        else
+          echo "ERROR: liquibase.tar.gz was not created" && exit 1
+        fi
         rm -rf liquibase-dist
         mkdir liquibase-dist
         tar -xzf liquibase.tar.gz -C liquibase-dist
@@ -103,7 +114,15 @@ jobs:
         sudo mv liquibase-dist /usr/local/liquibase
         sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
         liquibase --version
-    
+
+    - name: Upload Liquibase archive artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: liquibase-archive
+        path: liquibase.tar.gz
+        if-no-files-found: warn
+
     - name: Run Liquibase
       if: ${{ !inputs.DRY_RUN }}
       working-directory: ${{ github.workspace }}/liquibase
@@ -114,4 +133,3 @@ jobs:
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE
         liquibase update
-
