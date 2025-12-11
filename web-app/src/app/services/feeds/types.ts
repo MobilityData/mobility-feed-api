@@ -791,7 +791,7 @@ export interface components {
       url?: string;
       /**
        * @description The description of the license.
-       * @example This is the OBSD license.
+       * @example This is the 0BSD license.
        */
       description?: string;
       /**

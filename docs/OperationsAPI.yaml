@@ -1173,7 +1173,7 @@ components:
         description:
           type: string
           description: The description of the license.
-          example: This is the OBSD license.
+          example: This is the 0BSD license.
         created_at:
           description: The date and time the license was added to the database, in ISO 8601 date-time format.
           type: string
