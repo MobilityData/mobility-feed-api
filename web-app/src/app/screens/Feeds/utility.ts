@@ -1,7 +1,15 @@
+const ALLOWED_FEED_STATUSES = ['active', 'inactive', 'future'] as const;
+export type AllowedFeedSearchStatus = (typeof ALLOWED_FEED_STATUSES)[number];
+
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
+  hasStatusFilters: boolean,
   isGbfsEnabled: boolean,
 ): string | undefined {
+  if (hasStatusFilters) {
+    return 'gtfs';
+  }
+
   let dataTypeQueryParam = '';
   if (selectedFeedTypes.gtfs) {
     dataTypeQueryParam += 'gtfs';
@@ -41,3 +49,11 @@ export function getInitialSelectedFeedTypes(
     };
   }
 }
+
+export const parseQueryParamStatus = (
+  queryStatus: string[] | undefined,
+): AllowedFeedSearchStatus[] => {
+  return (queryStatus?.filter((s) =>
+    ALLOWED_FEED_STATUSES.includes(s as AllowedFeedSearchStatus),
+  ) ?? []) as AllowedFeedSearchStatus[];
+};
