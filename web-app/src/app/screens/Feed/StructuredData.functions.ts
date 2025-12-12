@@ -251,8 +251,8 @@ export default function generateFeedStructuredData(
   // For gtfs rt
   relatedFeeds?: AllFeedType[],
   relatedGtfsFeeds?: GTFSFeedType[],
-): StructureDataInterface {
-  let structuredData: StructureDataInterface = {};
+): StructureDataInterface | undefined {
+  let structuredData: StructureDataInterface | undefined;
   if (feed?.data_type === 'gtfs') {
     structuredData = getGtfsStructuredData(feed as GTFSFeedType, description);
   } else if (feed?.data_type === 'gbfs') {
