@@ -89,5 +89,6 @@
     <!-- Enhance license queries on id and name columns. -->
     <!-- Individual transactions are needed to create these indexes, this is why XML file is used -->
     <include file="changes/feat_1432_indexes.xml" relativeToChangelogFile="true"/>
+    <!-- Materialized view updated. Changed hosted_url column type to text -->
     <include file="changes/feat_1507.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
