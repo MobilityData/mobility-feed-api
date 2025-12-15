@@ -62,6 +62,11 @@ export const FEED_PROFILE_LOADING_RELATED_FEEDS = `${FEED_PROFILE}/loadingRelate
 export const FEED_PROFILE_LOADING_RELATED_FEEDS_SUCCESS = `${FEED_PROFILE}/loadingRelatedFeedsSuccess`;
 export const FEED_PROFILE_LOADING_RELATED_FEEDS_FAIL = `${FEED_PROFILE}/loadingRelatedFeedsFail`;
 
+export const LICENSE_PROFILE = 'licenseProfile';
+export const LICENSE_PROFILE_LOADING_LICENSE = `${LICENSE_PROFILE}/loadingLicense`;
+export const LICENSE_PROFILE_LOADING_LICENSE_SUCCESS = `${LICENSE_PROFILE}/loadingLicenseSuccess`;
+export const LICENSE_PROFILE_LOADING_LICENSE_FAIL = `${LICENSE_PROFILE}/loadingLicenseFail`;
+
 export const FEEDS_RESET_FEEDS = `feeds/resetFeeds`;
 export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;
 export const FEEDS_LOADING_FEEDS_SUCCESS = `feeds/loadingFeedsSuccess`;
@@ -87,6 +92,10 @@ export enum FeedErrorSource {
   DatabaseAPI = 'DatabaseAPI',
 }
 
+export enum LicenseErrorSource {
+  DatabaseAPI = 'DatabaseAPI',
+}
+
 export interface ProfileError {
   code: string | 'unknown';
   message: string;
@@ -99,12 +108,22 @@ export interface FeedError {
   source?: FeedErrorSource;
 }
 
+export interface LicenseError {
+  code: string | 'unknown';
+  message: string;
+  source?: LicenseErrorSource;
+}
+
 export type ProfileErrors = {
   [Property in ProfileErrorSource]: ProfileError | null;
 };
 
 export type FeedsErrors = {
   [Property in FeedErrorSource]: FeedError | null;
+};
+
+export type LicenseErrors = {
+  [Property in LicenseErrorSource]: LicenseError | null;
 };
 
 export type FeedErrors = {

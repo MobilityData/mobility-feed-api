@@ -54,6 +54,7 @@
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
   "producer": "Producer",
+  "agency": "Agency",
   "producerDownloadUrl": "Producer download URL",
   "copyDownloadUrl": "Copy download URL",
   "producerUrlCopied": "Producer url copied to clipboard",
@@ -233,5 +234,37 @@
       "tfs": "Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>",
       "tld": "Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>"
     }
+  },
+  "license": {
+    "dialogTitle": "License Details",
+    "loadingError": "Error loading license details",
+    "spdxTooltip": "The Software Package Data Exchange (SPDX) is an open standard for communicating software bill of material information, including licenses.",
+    "licenseTooltip": "License was added by the Mobility Database team based on either 1) a submission authorized by the transit provider 2) review of the transit providers website.",
+    "permission": "Permission",
+    "permissionSubtitle": "What you can do with this license",
+    "condition": "Condition",
+    "conditionSubtitle": "What you must do to comply",
+    "limitation": "Limitation",
+    "limitationSubtitle": "What this license does not provide",
+    "noPermission": "No permissions",
+    "noCondition": "No conditions",
+    "noLimitation": "No limitations",
+    "noRules": "No usage rules specified.",
+    "contributeMessage": "To contribute to the clarity of the rules for this license entry, please submit a pull request to:"
+  },
+  "noAgencyProvided": "No agency provided",
+  "feedSummary": {
+    "viewAllAgencies": "View All {{count}} Agencies",
+    "andMore": "and more",
+    "plusMore": "+ {{count}} more",
+    "showLocationDetails": "Show Details ({{count}} Locations)",
+    "routes": "Routes",
+    "routesCount": "{{count}} routes",
+    "viewOnMap": "View On Map",
+    "autoDiscoveryUrl": "Auto-Discovery URL",
+    "producerUrl": "Producer URL",
+    "providerUrl": "Provider URL",
+    "systemId": "System ID",
+    "feedAuthentication": "Feed Authentication"
   }
 }

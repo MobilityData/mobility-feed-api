@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { type components } from '../../../services/feeds/types';
+import LicenseDialog from './LicenseDialog';
 import {
   getCountryLocationSummaries,
   getLocationName,
   type GTFSFeedType,
   type GTFSRTFeedType,
+  type GBFSFeedType,
 } from '../../../services/feeds/utils';
 import {
   Box,
@@ -36,6 +38,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { FeedStatusChip } from '../../../components/FeedStatus';
 import { getEmojiFlag, type TCountryCode } from 'countries-list';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import GavelIcon from '@mui/icons-material/Gavel';
 import { getFeedStatusData } from '../../../utils/feedStatusConsts';
 import { useSelector } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
@@ -56,23 +59,26 @@ import CopyLinkElement from './CopyLinkElement';
 import { formatDateShort } from '../../../utils/date';
 import ExternalIds from './ExternalIds';
 
-export interface GtfsFeedSummaryProps {
-  feed: GTFSFeedType | GTFSRTFeedType | undefined;
+export interface FeedSummaryProps {
+  feed: GTFSFeedType | GTFSRTFeedType | GBFSFeedType | undefined;
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
+  autoDiscoveryUrl?: string;
 }
 
-export default function GtfsFeedSummary({
+export default function FeedSummary({
   feed,
   sortedProviders,
   latestDataset,
-}: GtfsFeedSummaryProps): React.ReactElement {
+  autoDiscoveryUrl,
+}: FeedSummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
   const [openLocationDetails, setOpenLocationDetails] = useState<
     'summary' | 'fullList' | undefined
   >(undefined);
   const [openProvidersDetails, setOpenProvidersDetails] = useState(false);
+  const [openLicenseDetails, setOpenLicenseDetails] = useState(false);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
 
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -97,12 +103,9 @@ export default function GtfsFeedSummary({
   };
 
   const hasRelatedLinks = (): boolean => {
-    const hasLicenseUrl =
-      feed?.source_info?.license_url != undefined &&
-      feed?.source_info?.license_url !== '';
-    const hasOtherLinks =
-      feed?.related_links != null && feed.related_links?.length > 0;
-    return hasLicenseUrl || hasOtherLinks;
+    const relatedLinks = (feed as GTFSFeedType)?.related_links;
+    const hasOtherLinks = relatedLinks != null && relatedLinks?.length > 0;
+    return hasOtherLinks;
   };
 
   return (
@@ -110,7 +113,7 @@ export default function GtfsFeedSummary({
       <GroupCard variant='outlined'>
         <GroupHeader variant='body1'>
           <BusinessIcon fontSize='inherit' />
-          Agency
+          {feed?.data_type === 'gbfs' ? t('producer') : t('agency')}
         </GroupHeader>
         <Box sx={{ ml: 2 }}>
           <Typography variant='h6' fontWeight={700} mt={1} mb={0.5}>
@@ -119,7 +122,7 @@ export default function GtfsFeedSummary({
               : t('noAgencyProvided')}
             {sortedProviders.length > 4 && (
               <Typography component='span' variant='subtitle2' sx={{ ml: 1 }}>
-                and more
+                {t('feedSummary.andMore')}
               </Typography>
             )}
           </Typography>
@@ -132,7 +135,9 @@ export default function GtfsFeedSummary({
               }}
               sx={{ pl: 0 }}
             >
-              View All {sortedProviders.length} Agencies
+              {t('feedSummary.viewAllAgencies', {
+                count: sortedProviders.length,
+              })}
             </Button>
           )}
 
@@ -154,7 +159,7 @@ export default function GtfsFeedSummary({
             </Tooltip>
           )}
 
-          {feed?.external_ids != null && feed.external_ids.length > 0 && (
+          {feed?.external_ids != undefined && feed.external_ids.length > 0 && (
             <ExternalIds externalIds={feed.external_ids} />
           )}
         </Box>
@@ -171,7 +176,7 @@ export default function GtfsFeedSummary({
         >
           <GroupHeader variant='body1' sx={{ mb: 0 }}>
             <DatasetIcon fontSize='inherit' />
-            Feed Details
+            {t('feeds:feedSummary.routes')}
           </GroupHeader>
           <Chip
             data-testid='data-type'
@@ -186,7 +191,7 @@ export default function GtfsFeedSummary({
             variant='subtitle2'
             sx={{ fontWeight: 700, color: 'text.secondary' }}
           >
-            Locations
+            {t('locations')}
           </Typography>
           <Box
             sx={{
@@ -205,16 +210,17 @@ export default function GtfsFeedSummary({
                 flexWrap: 'wrap',
               }}
             >
-              {feed?.locations != null && feed?.locations?.length === 1 && (
-                <Typography
-                  variant='h6'
-                  sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
-                >
-                  {getLocationName(feed?.locations)}
-                </Typography>
-              )}
+              {feed?.locations != undefined &&
+                feed?.locations?.length === 1 && (
+                  <Typography
+                    variant='h6'
+                    sx={{ whiteSpace: 'nowrap', fontWeight: 700, mr: 1, mb: 0 }}
+                  >
+                    {getLocationName(feed?.locations)}
+                  </Typography>
+                )}
 
-              {feed?.locations != null &&
+              {feed?.locations != undefined &&
                 feed?.locations?.length > 1 &&
                 uniqueCountries.slice(0, 4).map((country, index) => (
                   <Typography
@@ -235,26 +241,31 @@ export default function GtfsFeedSummary({
                           setOpenLocationDetails('summary');
                         }}
                       >
-                        + {uniqueCountries.length - 4} more
+                        {t('feedSummary.plusMore', {
+                          count: uniqueCountries.length - 4,
+                        })}
                       </Button>
                     )}
                   </Typography>
                 ))}
             </Box>
 
-            {feed?.locations?.length != null && feed.locations.length > 1 && (
-              <Button
-                variant='text'
-                color='secondary'
-                size='small'
-                onClick={() => {
-                  setOpenLocationDetails('fullList');
-                }}
-                sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
-              >
-                Show Details ({feed?.locations?.length} Locations)
-              </Button>
-            )}
+            {feed?.locations?.length != undefined &&
+              feed.locations.length > 1 && (
+                <Button
+                  variant='text'
+                  color='secondary'
+                  size='small'
+                  onClick={() => {
+                    setOpenLocationDetails('fullList');
+                  }}
+                  sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
+                >
+                  {t('feedSummary.showLocationDetails', {
+                    count: feed?.locations?.length,
+                  })}
+                </Button>
+              )}
           </Box>
 
           {totalRoutes != undefined && routeTypes != undefined && (
@@ -263,7 +274,7 @@ export default function GtfsFeedSummary({
                 variant='subtitle2'
                 sx={{ fontWeight: 700, color: 'text.secondary' }}
               >
-                Routes
+                {t('feedSummary.routes')}
               </Typography>
               <Box
                 sx={{
@@ -297,7 +308,9 @@ export default function GtfsFeedSummary({
                   })}
                 </Box>
                 <Box sx={{ width: '100%', mt: 0.5 }}>
-                  <Typography variant='body1'>{totalRoutes} routes</Typography>
+                  <Typography variant='body1'>
+                    {t('feedSummary.routesCount', { count: totalRoutes })}
+                  </Typography>
                 </Box>
 
                 <Button
@@ -309,7 +322,7 @@ export default function GtfsFeedSummary({
                   to='./map'
                   onClick={handleOpenDetailedMapClick}
                 >
-                  View On Map
+                  {t('feedSummary.viewOnMap')}
                 </Button>
               </Box>
             </>
@@ -323,7 +336,9 @@ export default function GtfsFeedSummary({
                   variant='subtitle2'
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
-                  Producer Url
+                  {feed?.data_type === 'gbfs' && autoDiscoveryUrl != undefined
+                    ? t('feedSummary.autoDiscoveryUrl')
+                    : t('feedSummary.producerUrl')}
                 </Typography>
                 <Box
                   sx={{
@@ -351,30 +366,77 @@ export default function GtfsFeedSummary({
                       fontSize: '0.875em',
                     }}
                   >
-                    {feed.source_info.producer_url}
+                    {feed.data_type === 'gbfs'
+                      ? autoDiscoveryUrl
+                      : feed.source_info.producer_url}
                   </Typography>
                   <IconButton
                     component={Link}
-                    href={feed.source_info.producer_url}
+                    href={
+                      feed.data_type === 'gbfs' && autoDiscoveryUrl != undefined
+                        ? autoDiscoveryUrl
+                        : feed.source_info.producer_url
+                    }
                     target='_blank'
                     rel='noreferrer'
                     color='secondary'
                     aria-label='download producer URL'
                   >
-                    <DownloadIcon />
+                    {feed.data_type === 'gbfs' ? (
+                      <OpenInNewIcon />
+                    ) : (
+                      <DownloadIcon />
+                    )}
                   </IconButton>
                 </Box>
               </Box>
             </>
           )}
-        {feed?.feed_contact_email != null &&
+
+        {(feed as GBFSFeedType)?.provider_url != undefined &&
+          (feed as GBFSFeedType)?.provider_url !== '' && (
+            <>
+              <Box sx={{ ml: 2, mt: 2 }}>
+                <Typography
+                  variant='subtitle2'
+                  sx={{ fontWeight: 700, color: 'text.secondary' }}
+                >
+                  {feed?.data_type === 'gbfs'
+                    ? t('feedSummary.producerUrl')
+                    : t('feedSummary.providerUrl')}
+                </Typography>
+                <Link
+                  href={(feed as GBFSFeedType)?.provider_url}
+                  target='_blank'
+                  rel='noreferrer'
+                  variant='body1'
+                >
+                  {(feed as GBFSFeedType)?.provider_url}
+                </Link>
+              </Box>
+            </>
+          )}
+        {(feed as GBFSFeedType)?.system_id != undefined && (
+          <Box sx={{ ml: 2, mt: 2 }}>
+            <Typography
+              variant='subtitle2'
+              sx={{ fontWeight: 700, color: 'text.secondary' }}
+            >
+              {t('feedSummary.systemId')}
+            </Typography>
+            <Typography variant='body1'>
+              {(feed as GBFSFeedType)?.system_id}
+            </Typography>
+          </Box>
+        )}
+        {feed?.feed_contact_email != undefined &&
           feed?.feed_contact_email !== '' && (
             <Box sx={{ ml: 2, mt: 3 }}>
               <Typography
                 variant='subtitle2'
                 sx={{ fontWeight: 700, color: 'text.secondary' }}
               >
-                Feed Contact Email
+                {t('feedContactEmail')}
               </Typography>
               <Button
                 sx={{ mt: 0.5 }}
@@ -383,9 +445,9 @@ export default function GtfsFeedSummary({
                 size='small'
                 startIcon={<EmailIcon />}
                 component={Link}
-                href={`mailto:${feed.feed_contact_email}`}
+                href={`mailto:${feed?.feed_contact_email}`}
               >
-                {feed.feed_contact_email}
+                {feed?.feed_contact_email}
               </Button>
             </Box>
           )}
@@ -397,7 +459,7 @@ export default function GtfsFeedSummary({
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <LockIcon fontSize='inherit' />
-              Feed Authentication
+              {t('feedSummary.feedAuthentication')}
             </GroupHeader>
             <Box sx={{ ml: 2 }}>
               <Typography variant='h6' sx={{ fontWeight: 700 }}>
@@ -429,7 +491,7 @@ export default function GtfsFeedSummary({
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <CalendarTodayIcon fontSize='inherit' />
-              Service Date Range
+              {t('serviceDateRange')}
               <Tooltip title={t('serviceDateRangeTooltip')} placement='top'>
                 <IconButton size='small'>
                   <InfoOutlinedIcon fontSize='inherit' />
@@ -449,7 +511,7 @@ export default function GtfsFeedSummary({
             >
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  Start
+                  {t('common:start')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -460,8 +522,11 @@ export default function GtfsFeedSummary({
               </Box>
               <Tooltip
                 title={
-                  getFeedStatusData(feed?.status ?? '', theme, t)
-                    ?.toolTipLong ?? ''
+                  getFeedStatusData(
+                    (feed as GTFSFeedType)?.status ?? '',
+                    theme,
+                    t,
+                  )?.toolTipLong ?? ''
                 }
                 placement='top'
               >
@@ -479,36 +544,37 @@ export default function GtfsFeedSummary({
                       height: '1px',
                       width: '100%',
                       background: `radial-gradient(circle,${getFeedStatusData(
-                        feed?.status ?? '',
+                        (feed as GTFSFeedType)?.status ?? '',
                         theme,
                         t,
                       )?.color} 54%, rgba(255, 255, 255, 0) 100%)`,
                     }}
                   >
                     {/* TODO: nice to have, a placement of the chip relative to the current date */}
-                    {feed?.status !== undefined && feed.status === 'active' && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                      >
-                        <FeedStatusChip
-                          status={feed?.status ?? ''}
-                          chipSize='small'
-                          disableTooltip={true}
-                        />
-                      </Box>
-                    )}
+                    {(feed as GTFSFeedType)?.status != undefined &&
+                      (feed as GTFSFeedType)?.status === 'active' && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <FeedStatusChip
+                            status={(feed as GTFSFeedType)?.status ?? ''}
+                            chipSize='small'
+                            disableTooltip={true}
+                          />
+                        </Box>
+                      )}
                   </Box>
                 </Box>
               </Tooltip>
 
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  End
+                  {t('common:end')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -526,8 +592,8 @@ export default function GtfsFeedSummary({
           <GroupCard variant='outlined'>
             <GroupHeader variant='body1'>
               <LayersIcon fontSize='inherit' />
-              Features
-              <Tooltip title='More Info' placement='top'>
+              {t('features')}
+              <Tooltip title={t('common:moreInfo')} placement='top'>
                 <IconButton
                   href='https://gtfs.org/getting_started/features/overview/'
                   target='_blank'
@@ -589,8 +655,10 @@ export default function GtfsFeedSummary({
                           sx={{ ml: 1 }}
                         >
                           {showAllFeatures
-                            ? 'Show less'
-                            : `Show ${allFeatures.length - 6} more`}
+                            ? t('common:showLess')
+                            : t('common:showMore', {
+                                count: allFeatures.length - 6,
+                              })}
                         </Button>
                       </Box>
                     )}
@@ -601,23 +669,77 @@ export default function GtfsFeedSummary({
           </GroupCard>
         )}
 
+      {feed?.source_info?.license_url != undefined &&
+        feed?.source_info?.license_url !== '' && (
+          <GroupCard variant='outlined'>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mb: 1,
+              }}
+            >
+              <GroupHeader variant='body1' sx={{ mb: 0 }}>
+                <GavelIcon fontSize='inherit' />
+                {t('common:license')}
+              </GroupHeader>
+              {feed?.source_info?.license_is_spdx != undefined &&
+                feed.source_info.license_is_spdx && (
+                  <Tooltip title={t('license.spdxTooltip')} placement='top'>
+                    <Chip
+                      label='SPDX'
+                      size='small'
+                      color='info'
+                      variant='outlined'
+                    />
+                  </Tooltip>
+                )}
+            </Box>
+
+            {feed?.source_info?.license_id != undefined &&
+            feed.source_info.license_id !== '' ? (
+              <>
+                <CopyLinkElement
+                  title={feed.source_info.license_id}
+                  url={feed.source_info.license_url}
+                  titleInfo={t('license.licenseTooltip')}
+                  linkType='label'
+                />
+                <Button
+                  variant='text'
+                  color='secondary'
+                  size='small'
+                  sx={{ height: 'fit-content', ml: 1.5 }}
+                  onClick={() => {
+                    setOpenLicenseDetails(true);
+                  }}
+                >
+                  See License Details
+                </Button>
+              </>
+            ) : (
+              <Link
+                href={feed?.source_info?.license_url ?? ''}
+                target='_blank'
+                rel='noopener noreferrer'
+                sx={{ wordBreak: 'break-word' }}
+                variant='body1'
+              >
+                {feed?.source_info?.license_url}
+              </Link>
+            )}
+          </GroupCard>
+        )}
+
       {hasRelatedLinks() && (
         <GroupCard variant='outlined'>
           <GroupHeader variant='body1'>
             <LinkIcon fontSize='inherit' />
-            Related Links
+            {t('relatedLinks')}
           </GroupHeader>
 
-          {feed?.source_info?.license_url != undefined &&
-            feed?.source_info?.license_url !== '' && (
-              <CopyLinkElement
-                title='License'
-                url={feed.source_info.license_url}
-                linkType='external'
-              />
-            )}
-
-          {feed?.related_links?.map((link, index) => (
+          {(feed as GTFSFeedType)?.related_links?.map((link, index) => (
             <CopyLinkElement
               key={index}
               title={link.code ?? ''}
@@ -636,7 +758,7 @@ export default function GtfsFeedSummary({
         onClose={() => {
           setOpenLocationDetails(undefined);
         }}
-        open={openLocationDetails !== undefined}
+        open={openLocationDetails != undefined}
       >
         <DialogTitle>Feed Locations</DialogTitle>
         <IconButton
@@ -648,11 +770,12 @@ export default function GtfsFeedSummary({
             position: 'absolute',
             right: 8,
             top: 8,
+            color: (theme) => theme.palette.grey[500],
           })}
         >
           <CloseIcon />
         </IconButton>
-        {feed?.locations != null && (
+        {feed?.locations != undefined && (
           <Locations
             locations={feed?.locations}
             startingTab={openLocationDetails}
@@ -705,6 +828,13 @@ export default function GtfsFeedSummary({
           </ul>
         </Box>
       </Dialog>
+      <LicenseDialog
+        open={openLicenseDetails}
+        onClose={() => {
+          setOpenLicenseDetails(false);
+        }}
+        licenseId={feed?.source_info?.license_id}
+      />
     </>
   );
 }

@@ -23,7 +23,7 @@ export const externalIdSourceMap: Record<
     docsUrl:
       'https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks',
   },
-  tfs: {
+  transitfeeds: {
     label: 'TransitFeeds',
     translationKey: 'externalIds.tooltips.tfs',
   },

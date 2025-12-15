@@ -287,3 +287,26 @@ export const searchFeeds = async (
       client.eject(authMiddleware);
     });
 };
+
+export const getLicense = async (
+  id: string,
+  accessToken: string,
+): Promise<
+  | paths['/v1/licenses/{id}']['get']['responses'][200]['content']['application/json']
+  | undefined
+> => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
+  return await client
+    .GET('/v1/licenses/{id}', { params: { path: { id } } })
+    .then((response) => {
+      const data = response.data;
+      return data;
+    })
+    .catch(function (error) {
+      throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
+    });
+};
