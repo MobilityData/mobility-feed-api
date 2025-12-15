@@ -107,6 +107,7 @@ def _update_feed_redirect(
         source_id=mdb_feed.id,
         redirect_comment="Redirecting post TDG import",
     )
+    mdb_feed.status = "deprecated"
     db_session.add(redirect)
     counters["redirects_created"] = 1
     return counters
