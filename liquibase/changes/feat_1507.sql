@@ -1,7 +1,8 @@
 -- Change hosted_url column type to text to accommodate longer URLs
 DROP MATERIALIZED VIEW IF EXISTS feedsearch;
 ALTER TABLE gtfsdataset ALTER COLUMN hosted_url TYPE text;
--- Recreate the FeedSearch materialized view
+-- Recreate the FeedSearch materialized view. 
+-- This CREATE MATERIALIZED VIEW is the same as the one in feat_1396.sql, with no change.
 CREATE MATERIALIZED VIEW FeedSearch AS
 SELECT
     -- feed
