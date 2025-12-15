@@ -82,8 +82,8 @@ def _update_feed_redirect(
     redirect = (
         db_session.query(Redirectingid)
         .filter(
-            Redirectingid.target_id == tdg_stable_id,
-            Redirectingid.source_id == mdb_stable_id,
+            Redirectingid.target_id == tdg_feed.id,
+            Redirectingid.source_id == mdb_feed.id,
         )
         .one_or_none()
     )
@@ -103,8 +103,8 @@ def _update_feed_redirect(
         tdg_stable_id,
     )
     redirect = Redirectingid(
-        target_id=tdg_stable_id,
-        source_id=mdb_stable_id,
+        target_id=tdg_feed.id,
+        source_id=mdb_feed.id,
         redirect_comment="Redirecting post TDG import",
     )
     db_session.add(redirect)
