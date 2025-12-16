@@ -153,6 +153,16 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
+      /**
+       * @description The ID that can be use to find the feed data in an external or legacy database.
+       * <ul>
+       *   <li><b>JBDA</b>: Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.</li>
+       *   <li><b>TDG</b>: Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.</li>
+       *   <li><b>NTD</b>: Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.</li>
+       *   <li><b>TransitFeeds</b>: Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.</li>
+       *   <li><b>Transit.land</b>: Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>.</li>
+       * </ul>
+       */
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -408,6 +418,16 @@ export interface components {
        * @example true
        */
       official?: boolean;
+      /**
+       * @description The ID that can be use to find the feed data in an external or legacy database.
+       * <ul>
+       *   <li><b>JBDA</b>: Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.</li>
+       *   <li><b>TDG</b>: Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.</li>
+       *   <li><b>NTD</b>: Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.</li>
+       *   <li><b>TransitFeeds</b>: Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.</li>
+       *   <li><b>Transit.land</b>: Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>.</li>
+       * </ul>
+       */
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -516,10 +536,28 @@ export interface components {
         unique_info_count?: number;
       };
     };
+    /**
+     * @description The ID that can be use to find the feed data in an external or legacy database.
+     * <ul>
+     *   <li><b>JBDA</b>: Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.</li>
+     *   <li><b>TDG</b>: Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.</li>
+     *   <li><b>NTD</b>: Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.</li>
+     *   <li><b>TransitFeeds</b>: Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.</li>
+     *   <li><b>Transit.land</b>: Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>.</li>
+     * </ul>
+     */
     ExternalIds: Array<components['schemas']['ExternalId']>;
     ExternalId: {
       /**
-       * @description The ID that can be use to find the feed data in an external or legacy database.
+       * @description The ID that can be used to find the feed data in an external or legacy database.
+       * <ul>
+       *   <li><b>JBDA</b>: Automatically imported from http://docs.gtfs-data.jp/api.v2.html. Pattern is jbda-<organisation_id>-<feed_id>.</li>
+       *   <li><b>TDG</b>: Automatically imported from https://doc.transport.data.gouv.fr/outils/outils-disponibles-sur-le-pan/api. Pattern is tdg-<resource_id>.</li>
+       *   <li><b>NTD</b>: Automatically imported from https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks. Pattern is ntd-<ntd_id>.</li>
+       *   <li><b>TransitFeeds</b>: Automatically imported from old TransitFeeds website. Pattern is tfs-<feed_id>.</li>
+       *   <li><b>Transit.land</b>: Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>.</li>
+       * </ul>
+       *
        * @example 1210
        */
       external_id?: string;
