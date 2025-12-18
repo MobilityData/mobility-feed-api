@@ -13,8 +13,8 @@ from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Externali
 
 
 class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
-    def __init__(self, filepaths):
-        super().__init__(filepaths)
+    def __init__(self, filepaths, test_mode=False):
+        super().__init__(filepaths, test_mode)
 
     def filter_data(self):
         """Filter out rows with Authentication Info and duplicate System IDs"""
