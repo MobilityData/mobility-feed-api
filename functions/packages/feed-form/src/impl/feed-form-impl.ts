@@ -327,7 +327,7 @@ async function createGithubIssue(
   if (formData.country && formData.country in countries) {
     const country = countries[formData.country as TCountryCode];
     const continent = continents[country.continent].toLowerCase();
-    if (continent != null) labels.push(continent);
+    if (continent != null) labels.push(`region/${continent}`);
   }
 
   try {
