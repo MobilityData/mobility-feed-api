@@ -75,6 +75,7 @@ cascade_entities = {
         Feed.officialstatushistories,  # officialstatushistory_feed_id_fkey
         Feed.redirectingids,  # redirectingid_source_id_fkey
         Feed.redirectingids_,  # redirectingid_target_id_fkey
+        Feed.feed_license_changes,
     ],
     Gbfsfeed: [
         Gbfsfeed.gbfsversions,  # gbfsversion_feed_id_fkey

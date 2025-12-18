@@ -26,12 +26,12 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
     GTFS - Helper class to populate the database
     """
 
-    def __init__(self, filepaths):
+    def __init__(self, filepaths, test_mode=False):
         """
         Specify a list of files to load the csv data from.
         Can also be a single string with a file name.
         """
-        super().__init__(filepaths)
+        super().__init__(filepaths, test_mode)
         # Keep track of the feeds that have been added to the database
         self.added_gtfs_feeds = []
 

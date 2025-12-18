@@ -1,5 +1,14 @@
+# The contents of this file will be added to the database after the sources_test.csv of the parent directories.
+# So we can replicate some feeds here that are a slight change from the ones in the parent source_test.csv
+# and see the effect.
+# We want to make sure the is_official flag is handled properly in that case.
+# Normally changing to True or False should change the original value but changing to an empty cell should not
 mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_name,location.municipality,provider,is_official,name,note,feed_contact_email,static_reference,urls.direct_download,urls.authentication_type,urls.authentication_info,urls.api_key_parameter_name,urls.latest,urls.license,location.bounding_box.minimum_latitude,location.bounding_box.maximum_latitude,location.bounding_box.minimum_longitude,location.bounding_box.maximum_longitude,location.bounding_box.extracted_on,status,features,redirect.id,redirect.comment
+# For mdb-40, change is_official from TRUE to empty. Should retain True# For mdb-40, change is_official from TRUE to empty. Should retain True
 40,gtfs,,CA,Ontario,London,London Transit Commission,,,,croy@londontransit.ca,,http://www.londontransit.ca/gtfsfeed/google_transit.zip,0,,,https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ca-ontario-london-transit-commission-gtfs-2.zip?alt=media,https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/,42.905244,43.051188,-81.36311,-81.137591,2022-02-22T19:51:34+00:00,inactive,,,
+# For mdb-50, change is_official from FALSE to empty. Should retain False
 50,gtfs,,CA,Ontario,Barrie,ZBarrie Transit,,,,,,http://www.myridebarrie.ca/gtfs/Google_transit.zip,,,,https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ca-ontario-barrie-transit-gtfs-3.zip?alt=media,https://www.barrie.ca/services-payments/transportation-parking/barrie-transit/barrie-gtfs,44.3218044,44.42020676,-79.74063237,-79.61089569,2022-03-01T22:43:25+00:00,deprecated,,40|mdb-702,Some|Comment
+# For mdb-1562, change is_official from FALSE to TRUE. Should change to True
 1562,gtfs-rt,sa,CA,BC,Vancouver,Vancouver-Transit(éèàçíóúČ),TRUE,Realtime(ŘŤÜÎ),,,50,http://foo.org/google_transit.zip,0,,,,,,,,,,active,,10,
+# For mdb-1563, change is_official from TRUE to FALSE. Should change to False
 1563,gtfs-rt,tu,US,SomeState,SomeCity,SomeCity Bus,FALSE,RT,,,mdb-50,http://bar.com,0,,,,,,,,,,inactive,,10,
