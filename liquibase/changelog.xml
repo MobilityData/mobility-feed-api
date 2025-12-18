@@ -93,4 +93,6 @@
     <include file="changes/feat_1507.sql" relativeToChangelogFile="true"/>
     <!-- Added constraint on operational status -->
     <include file="changes/fix_operation_status_constraint.sql" relativeToChangelogFile="true"/>
+    <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
+    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
