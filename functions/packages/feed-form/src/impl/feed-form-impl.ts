@@ -330,6 +330,10 @@ async function createGithubIssue(
     if (continent != null) labels.push(`region/${continent}`);
   }
 
+  if (formData.authType !== "None - 0") {
+    labels.push("auth required");
+  }
+
   try {
     const response = await axios.post(
       githubRepoUrlIssue,
