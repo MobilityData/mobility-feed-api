@@ -30,8 +30,10 @@ import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
 import {
+  type AllowedFeedSearchStatus,
   getDataTypeParamFromSelectedFeedTypes,
   getInitialSelectedFeedTypes,
+  parseQueryParamStatus,
 } from './utility';
 import {
   chipHolderStyles,
@@ -65,6 +67,9 @@ export default function Feed(): React.ReactElement {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     searchParams.get('features')?.split(',') ?? [],
   );
+  const [selectedStatuses, setSelectedStatuses] = useState<
+    AllowedFeedSearchStatus[]
+  >(parseQueryParamStatus(searchParams.get('status')?.split(',')));
   const [selectGbfsVersions, setSelectGbfsVersions] = useState<string[]>(
     searchParams.get('gbfs_versions')?.split(',') ?? [],
   );
@@ -94,6 +99,9 @@ export default function Feed(): React.ReactElement {
   const areFeatureFiltersEnabled =
     (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
     selectedFeedTypes.gtfs;
+  const areStatusFiltersEnabled =
+    (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
+    selectedFeedTypes.gtfs;
   const areGBFSFiltersEnabled =
     selectedFeedTypes.gbfs &&
     !selectedFeedTypes.gtfs_rt &&
@@ -120,14 +128,16 @@ export default function Feed(): React.ReactElement {
             search_query: activeSearch,
             data_type: getDataTypeParamFromSelectedFeedTypes(
               selectedFeedTypes,
+              selectedStatuses.length > 0 && areStatusFiltersEnabled,
               config.enableGbfsInSearchPage,
             ),
             is_official: isOfficialTagFilterEnabled
               ? isOfficialFeedSearch || undefined
               : undefined,
-            // Fixed status values for now, until a status filter is implemented
-            // Filtering out deprecated feeds
-            status: ['active', 'inactive', 'development', 'future'],
+            status:
+              areStatusFiltersEnabled && selectedStatuses.length > 0
+                ? selectedStatuses
+                : ['active', 'inactive', 'development', 'future'],
             feature: areFeatureFiltersEnabled ? selectedFeatures : undefined,
             version: areGBFSFiltersEnabled
               ? selectGbfsVersions.join(',').replaceAll('v', '')
@@ -144,6 +154,7 @@ export default function Feed(): React.ReactElement {
     searchLimit,
     isOfficialFeedSearch,
     selectedFeatures,
+    selectedStatuses,
     selectGbfsVersions,
   ]);
 
@@ -168,6 +179,9 @@ export default function Feed(): React.ReactElement {
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
     }
+    if (selectedStatuses.length > 0) {
+      newSearchParams.set('status', selectedStatuses.join(','));
+    }
     if (selectGbfsVersions.length > 0) {
       newSearchParams.set('gbfs_versions', selectGbfsVersions.join(','));
     }
@@ -185,6 +199,7 @@ export default function Feed(): React.ReactElement {
     activePagination,
     selectedFeedTypes,
     selectedFeatures,
+    selectedStatuses,
     selectGbfsVersions,
     isOfficialFeedSearch,
   ]);
@@ -206,6 +221,12 @@ export default function Feed(): React.ReactElement {
     const newFeatures = searchParams.get('features')?.split(',') ?? [];
     if (newFeatures.join(',') !== selectedFeatures.join(',')) {
       setSelectedFeatures([...newFeatures]);
+    }
+
+    const newStatusesRaw = searchParams.get('status')?.split(',') ?? [];
+    const newStatuses = parseQueryParamStatus(newStatusesRaw);
+    if (newStatuses.join(',') !== selectedStatuses.join(',')) {
+      setSelectedStatuses([...newStatuses]);
     }
 
     const newGbfsVersions = searchParams.get('gbfs_versions')?.split(',') ?? [];
@@ -263,6 +284,7 @@ export default function Feed(): React.ReactElement {
       gbfs: false,
     });
     setSelectedFeatures([]);
+    setSelectedStatuses([]);
     setSelectGbfsVersions([]);
     setIsOfficialFeedSearch(false);
   }
@@ -400,6 +422,7 @@ export default function Feed(): React.ReactElement {
                 selectedFeedTypes={selectedFeedTypes}
                 isOfficialFeedSearch={isOfficialFeedSearch}
                 selectedFeatures={selectedFeatures}
+                selectedStatuses={selectedStatuses}
                 selectedGbfsVersions={selectGbfsVersions}
                 setSelectedFeedTypes={(feedTypes) => {
                   setActivePagination(1);
@@ -413,12 +436,17 @@ export default function Feed(): React.ReactElement {
                   setActivePagination(1);
                   setSelectedFeatures(features);
                 }}
+                setSelectedStatuses={(statuses) => {
+                  setActivePagination(1);
+                  setSelectedStatuses(statuses);
+                }}
                 setSelectedGbfsVerions={(versions) => {
                   setSelectGbfsVersions(versions);
                   setActivePagination(1);
                 }}
                 isOfficialTagFilterEnabled={isOfficialTagFilterEnabled}
                 areFeatureFiltersEnabled={areFeatureFiltersEnabled}
+                areStatusFiltersEnabled={areStatusFiltersEnabled}
                 areGBFSFiltersEnabled={areGBFSFiltersEnabled}
               ></SearchFilters>
             </Grid>
@@ -498,6 +526,22 @@ export default function Feed(): React.ReactElement {
                     />
                   ))}
 
+                {areStatusFiltersEnabled &&
+                  selectedStatuses.map((status) => (
+                    <Chip
+                      color='primary'
+                      variant='outlined'
+                      size='small'
+                      label={t('feedStatus.' + status + '.label')}
+                      key={status}
+                      onDelete={() => {
+                        setSelectedStatuses([
+                          ...selectedStatuses.filter((s) => s !== status),
+                        ]);
+                      }}
+                    />
+                  ))}
+
                 {areGBFSFiltersEnabled &&
                   selectGbfsVersions.map((gbfsVersion) => (
                     <Chip
@@ -517,6 +561,7 @@ export default function Feed(): React.ReactElement {
                   ))}
 
                 {(selectedFeatures.length > 0 ||
+                  selectedStatuses.length > 0 ||
                   selectGbfsVersions.length > 0 ||
                   isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
