@@ -288,7 +288,7 @@ def _update_common_tdg_fields(
     feed.producer_url = producer_url
 
     feed.status = _compute_status_from_end_date(resource.get("metadata") or {})
-    feed.operational_status = "wip"
+    feed.operational_status = "published"
 
     feed.license_url = _get_license_url(dataset.get("licence"))
     feed_license = get_license(

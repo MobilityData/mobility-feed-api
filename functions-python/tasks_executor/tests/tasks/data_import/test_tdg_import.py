@@ -242,7 +242,7 @@ class TestImportTDG(unittest.TestCase):
             "https://opendatacommons.org/licenses/odbl/1.0/",
         )
         self.assertEqual(sched.status, "active")
-        self.assertEqual(sched.operational_status, "wip")
+        self.assertEqual(sched.operational_status, "published")
 
         # Check RT feed in DB and its links
         rt: Optional[Gtfsrealtimefeed] = (

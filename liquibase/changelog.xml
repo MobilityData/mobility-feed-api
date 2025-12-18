@@ -91,4 +91,6 @@
     <include file="changes/feat_1432_indexes.xml" relativeToChangelogFile="true"/>
     <!-- Materialized view recreated - changed hosted_url column type to text to accomodate longer URLs. Materialized view is the same as feat_1396.sql -->
     <include file="changes/feat_1507.sql" relativeToChangelogFile="true"/>
+    <!-- Added constraint on operational status -->
+    <include file="changes/fix_operation_status_constraint.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
