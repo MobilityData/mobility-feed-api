@@ -42,6 +42,8 @@ interface FormFirstStepProps {
   setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
 
+const realtimeFeedURLPrefix = "https://mobilitydatabase.org/feeds/gtfs/";
+
 export default function FormFirstStep({
   initialValues,
   submitFormData,
@@ -289,7 +291,7 @@ export default function FormFirstStep({
                           <span>
                             {t('form.feedAlreadyExists')}
                             <a href=
-                              {errors.feedLink.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                              {errors.feedLink.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
                               {t(errors.feedLink.message.replace('Feed Exists:',''))}
                             </a>
                           </span>

@@ -32,6 +32,8 @@ interface FormSecondStepRTProps {
   handleBack: (formData: Partial<FeedSubmissionFormFormInput>) => void;
 }
 
+const realtimeFeedURLPrefix = "https://mobilitydatabase.org/feeds/gtfs_rt/";
+
 export default function FormSecondStepRT({
   initialValues,
   submitFormData,
@@ -124,7 +126,7 @@ export default function FormSecondStepRT({
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a href=
-                            {errors.serviceAlerts.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {errors.serviceAlerts.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
                             {t(errors.serviceAlerts.message.replace('Feed Exists:',''))}
                           </a>
                         </span>
@@ -201,7 +203,7 @@ export default function FormSecondStepRT({
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a href=
-                            {errors.tripUpdates.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {errors.tripUpdates.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
                             {t(errors.tripUpdates.message.replace('Feed Exists:',''))}
                           </a>
                         </span>
@@ -278,7 +280,7 @@ export default function FormSecondStepRT({
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a href=
-                            {errors.vehiclePositions.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {errors.vehiclePositions.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
                             {t(errors.vehiclePositions.message.replace('Feed Exists:',''))}
                           </a>
                         </span>
