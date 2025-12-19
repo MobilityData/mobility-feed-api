@@ -10,7 +10,7 @@ import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink } from '../../../services/feeds/utils';
+import { isValidFeedLink, checkFeedUrlExistsInCsv } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
   tripUpdates: string;
@@ -78,29 +78,6 @@ export default function FormSecondStepRT({
     }
   }, [tripUpdates, vehiclePositions, serviceAlerts]);
 
-  const gtfsRtLinkValidation = (
-    rtType: 'tu' | 'vp' | 'sa',
-  ): boolean | string => {
-    if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
-      switch (rtType) {
-        case 'tu':
-          return tripUpdates !== ''
-            ? isValidFeedLink(tripUpdates) || t('form.errorUrl')
-            : true;
-        case 'vp':
-          return vehiclePositions !== ''
-            ? isValidFeedLink(vehiclePositions) || t('form.errorUrl')
-            : true;
-        case 'sa':
-          return serviceAlerts !== ''
-            ? isValidFeedLink(serviceAlerts) || t('form.errorUrl')
-            : true;
-      }
-    } else {
-      return t('form.atLeastOneRealtimeFeed');
-    }
-  };
-
   return (
     <>
       <Typography
@@ -125,14 +102,36 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='serviceAlerts'
-                rules={{ validate: () => gtfsRtLinkValidation('sa') }}
+                rules={{
+                  required: t('form.feedLinkRequired'),
+                  validate: async (value) => {
+                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    const exists = await checkFeedUrlExistsInCsv(value ?? '');
+                    if (exists) {
+                      return `Feed Exists:${exists}`;
+                    }
+                    return true;
+                  },
+                }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
                     {...field}
-                    helperText={errors.serviceAlerts?.message ?? ''}
                     error={errors.serviceAlerts !== undefined}
                     data-cy='serviceAlertFeed'
+                    helperText={
+                      errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
+                        <span>
+                          {t('form.feedAlreadyExists')}
+                          <a href=
+                            {errors.serviceAlerts.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {t(errors.serviceAlerts.message.replace('Feed Exists:',''))}
+                          </a>
+                        </span>
+                      ) : (
+                        errors.serviceAlerts?.message ?? ''
+                      )
+                    }
                   />
                 )}
               />
@@ -181,13 +180,35 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='tripUpdates'
-                rules={{ validate: () => gtfsRtLinkValidation('tu') }}
+                rules={{
+                  required: t('form.feedLinkRequired'),
+                  validate: async (value) => {
+                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    const exists = await checkFeedUrlExistsInCsv(value ?? '');
+                    if (exists) {
+                      return `Feed Exists:${exists}`;
+                    }
+                    return true;
+                  },
+                }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
                     {...field}
-                    helperText={errors.tripUpdates?.message ?? ''}
                     error={errors.tripUpdates !== undefined}
+                    helperText={
+                      errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
+                        <span>
+                          {t('form.feedAlreadyExists')}
+                          <a href=
+                            {errors.tripUpdates.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {t(errors.tripUpdates.message.replace('Feed Exists:',''))}
+                          </a>
+                        </span>
+                      ) : (
+                        errors.tripUpdates?.message ?? ''
+                      )
+                    }
                   />
                 )}
               />
@@ -236,13 +257,35 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='vehiclePositions'
-                rules={{ validate: () => gtfsRtLinkValidation('vp') }}
+                rules={{
+                  required: t('form.feedLinkRequired'),
+                  validate: async (value) => {
+                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    const exists = await checkFeedUrlExistsInCsv(value ?? '');
+                    if (exists) {
+                      return `Feed Exists:${exists}`;
+                    }
+                    return true;
+                  },
+                }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
                     {...field}
-                    helperText={errors.vehiclePositions?.message ?? ''}
                     error={errors.vehiclePositions !== undefined}
+                    helperText={
+                      errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
+                        <span>
+                          {t('form.feedAlreadyExists')}
+                          <a href=
+                            {errors.vehiclePositions.message.replace('Feed Exists:', `https://mobilitydatabase.org/feeds/gtfs/`)} target="_blank" rel="noopener noreferrer">
+                            {t(errors.vehiclePositions.message.replace('Feed Exists:',''))}
+                          </a>
+                        </span>
+                      ) : (
+                        errors.vehiclePositions?.message ?? ''
+                      )
+                    }
                   />
                 )}
               />

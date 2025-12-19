@@ -46,6 +46,7 @@
     "errorSubmitting": "An error occurred while submitting the form.",
     "submittingFeed": "Submitting the feed...",
     "errorUrl": "The URL must start with a valid protocol: http:// or https://",
+    "feedAlreadyExists": "This feed URL already exists in the Mobility Database: ",
     "unofficialDesc": "Why was this feed created?",
     "unofficialDescPlaceholder": "Does this feed exist for research purposes, a specific app, etc?",
     "updateFreq": "How often is this feed updated?",
