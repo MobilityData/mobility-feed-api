@@ -170,7 +170,9 @@ export async function checkFeedUrlExistsInCsv(
     if (
       parsed.data == null ||
       !Array.isArray(parsed.data) ||
-      !parsed.data.every((row) => typeof row === 'object' && row !== null)
+      !parsed.data.every(
+        (row: unknown) => typeof row === 'object' && row !== null,
+      )
     ) {
       return null;
     }
