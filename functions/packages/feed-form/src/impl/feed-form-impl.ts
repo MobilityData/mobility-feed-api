@@ -327,17 +327,7 @@ async function createGithubIssue(
   if (formData.country && formData.country in countries) {
     const country = countries[formData.country as TCountryCode];
     const continent = continents[country.continent].toLowerCase();
-    if (continent != null) labels.push(`region/${continent}`);
-  }
-
-  if (formData.authType !== "None - 0") {
-    labels.push("auth required");
-  }
-
-  if (!isValidZipUrl(formData.feedLink)) {
-    if(!await isValidZipDownload(formData.feedLink)) {
-      labels.push("invalid");
-    }
+    if (continent != null) labels.push(continent);
   }
 
   try {
@@ -451,38 +441,3 @@ export function buildGithubIssueBody(
   return content;
 }
 /* eslint-enable */
-
-/**
- * Parses the provided URL to check if it is a valid ZIP file URL
- * @param url The direct download URL provided in the feed form
- * @returns {boolean} Whether the URL is a valid ZIP file URL
- */
-function isValidZipUrl(url: string | undefined | null): boolean {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname.toLowerCase().endsWith(".zip");
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Checks if the provided URL points to a valid ZIP file by making a HEAD request
- * @param url The direct download URL provided in the feed form
- * @returns {boolean} Whether the URL downloads a valid ZIP file
- */
-async function isValidZipDownload(url: string | undefined | null): Promise<boolean> {
-  try {
-    if (!url) return false;
-    const response = await axios.head(url, {maxRedirects: 2});
-    const contentType = response.headers["content-type"];
-    const contentDisposition = response.headers["content-disposition"];
-
-    if (contentType && contentType.includes("zip")) return true;
-    if (contentDisposition && contentDisposition.includes("zip")) return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
