@@ -174,6 +174,8 @@ def fetch_data(admin_level, country_code, location_type, country_name=None):
                 "name:en": all_tags.get("name:en"),
                 "name:fr": all_tags.get("name:fr"),
                 "geometry": row.geometry,
+                "alt_name": all_tags.get("alt_name"),
+                "alt_name:en": all_tags.get("alt_name"),
             }
         )
     return data
@@ -203,6 +205,7 @@ def save_to_database(data, db_session=None):
         geopolygon.iso_3166_1_code = row["iso3166_1"]
         geopolygon.iso_3166_2_code = row["iso3166_2"]
         geopolygon.name = row["name:en"] if row["name:en"] else row["name"]
+        geopolygon.alt_name = row["alt_name"] if row["alt_name"] else row["alt_name:en"]
         geopolygon.geometry = WKTElement(row["geometry"], srid=4326)
     db_session.commit()
 
