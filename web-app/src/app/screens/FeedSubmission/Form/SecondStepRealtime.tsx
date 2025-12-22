@@ -138,7 +138,12 @@ export default function FormSecondStepRT({
                             target='_blank'
                             rel='noopener noreferrer'
                           >
-                            {t(errors.serviceAlerts.message.replace('Feed Exists:', ''))}
+                            {t(
+                              errors.serviceAlerts.message.replace(
+                                'Feed Exists:',
+                                '',
+                              ),
+                            )}
                           </a>
                         </span>
                       ) : (
@@ -223,7 +228,12 @@ export default function FormSecondStepRT({
                             target='_blank'
                             rel='noopener noreferrer'
                           >
-                            {t(errors.tripUpdates.message.replace('Feed Exists:', ''))}
+                            {t(
+                              errors.tripUpdates.message.replace(
+                                'Feed Exists:',
+                                '',
+                              ),
+                            )}
                           </a>
                         </span>
                       ) : (
@@ -297,7 +307,10 @@ export default function FormSecondStepRT({
                     {...field}
                     error={errors.vehiclePositions !== undefined}
                     helperText={
-                      typeof errors.vehiclePositions?.message === 'string' && errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
+                      typeof
+                        errors.vehiclePositions?.message === 'string' && errors.vehiclePositions?.message?.startsWith
+                          ('Feed Exists:',
+                          ) ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a
@@ -308,7 +321,12 @@ export default function FormSecondStepRT({
                             target='_blank'
                             rel='noopener noreferrer'
                           >
-                            {t(errors.vehiclePositions.message.replace('Feed Exists:', ''))}
+                            {t(
+                              errors.vehiclePositions.message.replace(
+                                'Feed Exists:',
+                                '',
+                              ),
+                            )}
                           </a>
                         </span>
                       ) : (

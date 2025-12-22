@@ -160,7 +160,7 @@ export const langCodeToName = (code: string): string => {
  */
 export async function checkFeedUrlExistsInCsv(
   feedUrl: string,
-  csvUrl = 'https://files.mobilitydatabase.org/feeds_v2.csv'
+  csvUrl = 'https://files.mobilitydatabase.org/feeds_v2.csv',
 ): Promise<string | null> {
   try {
     const response = await fetch(csvUrl);
