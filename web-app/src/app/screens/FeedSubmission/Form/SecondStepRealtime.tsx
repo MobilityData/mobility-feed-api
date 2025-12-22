@@ -10,7 +10,10 @@ import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink, checkFeedUrlExistsInCsv, } from '../../../services/feeds/utils';
+import {
+  isValidFeedLink,
+  checkFeedUrlExistsInCsv,
+} from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
   tripUpdates: string;
@@ -107,9 +110,11 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    if (!isValidFeedLink(value ?? '')) {
+                      return t('form.errorUrl');
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
-                    if (exists) {
+                    if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
                     }
                     return true;
@@ -122,13 +127,13 @@ export default function FormSecondStepRT({
                     error={errors.serviceAlerts !== undefined}
                     data-cy='serviceAlertFeed'
                     helperText={
-                      errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
+                      typeof errors.serviceAlerts?.message === 'string' && errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                             <a
                               href={errors.serviceAlerts.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target='_blank'
+                              rel='noopener noreferrer'
                             >
                               {t(errors.serviceAlerts.message.replace('Feed Exists:', ''))}
                             </a>
@@ -188,9 +193,11 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    if (!isValidFeedLink(value ?? '')) {
+                      return t('form.errorUrl');
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
-                    if (exists) {
+                    if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
                     }
                     return true;
@@ -202,13 +209,13 @@ export default function FormSecondStepRT({
                     {...field}
                     error={errors.tripUpdates !== undefined}
                     helperText={
-                      errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
+                      typeof errors.tripUpdates?.message === 'string' && errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                             <a
                               href={errors.tripUpdates.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target='_blank'
+                              rel='noopener noreferrer'
                             >
                               {t(errors.tripUpdates.message.replace('Feed Exists:', ''))}
                             </a>
@@ -268,9 +275,11 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                    if (!isValidFeedLink(value ?? '')) {
+                      return t('form.errorUrl');
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
-                    if (exists) {
+                    if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
                     }
                     return true;
@@ -282,13 +291,13 @@ export default function FormSecondStepRT({
                     {...field}
                     error={errors.vehiclePositions !== undefined}
                     helperText={
-                      errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
+                      typeof errors.vehiclePositions?.message === 'string' && errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                             <a
                               href={errors.vehiclePositions.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target='_blank'
+                              rel='noopener noreferrer'
                             >
                               {t(errors.vehiclePositions.message.replace('Feed Exists:', ''))}
                             </a>

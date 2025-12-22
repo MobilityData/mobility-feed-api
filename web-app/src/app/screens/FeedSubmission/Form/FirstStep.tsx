@@ -21,7 +21,10 @@ import {
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink, checkFeedUrlExistsInCsv, } from '../../../services/feeds/utils';
+import {
+  isValidFeedLink,
+  checkFeedUrlExistsInCsv,
+} from '../../../services/feeds/utils';
 import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormFormInputFirstStep {
@@ -42,7 +45,7 @@ interface FormFirstStepProps {
   setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
 
-const realtimeFeedURLPrefix = 'https://mobilitydatabase.org/feeds/gtfs/';
+const scheduleFeedURLPrefix = 'https://mobilitydatabase.org/feeds/gtfs/';
 
 export default function FormFirstStep({
   initialValues,
@@ -293,9 +296,12 @@ export default function FormFirstStep({
                           <span>
                             {t('form.feedAlreadyExists')}
                             <a
-                              href={errors.feedLink.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              href={errors.feedLink.message.replace(
+                                'Feed Exists:',
+                                `${scheduleFeedURLPrefix}`
+                              )}
+                              target='_blank'
+                              rel='noopener noreferrer'
                             >
                               {t(errors.feedLink.message.replace('Feed Exists:', ''))}
                             </a>
