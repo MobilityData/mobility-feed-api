@@ -131,9 +131,11 @@ export default function FormSecondStepRT({
                 control={control}
                 name='serviceAlerts'
                 rules={{
-                  required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    gtfsRtLinkValidation('sa');
+                    const atLeastOneFeed = gtfsRtLinkValidation('sa');
+                    if (atLeastOneFeed !== true) {
+                      return atLeastOneFeed;
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
@@ -148,7 +150,7 @@ export default function FormSecondStepRT({
                     error={errors.serviceAlerts !== undefined}
                     data-cy='serviceAlertFeed'
                     helperText={
-                      errors.serviceAlerts?.message === 'string' &&
+                      typeof errors.serviceAlerts?.message === 'string' &&
                       errors.serviceAlerts?.message?.startsWith(
                         'Feed Exists:',
                       ) ? (
@@ -223,9 +225,11 @@ export default function FormSecondStepRT({
                 control={control}
                 name='tripUpdates'
                 rules={{
-                  required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    gtfsRtLinkValidation('tu');
+                    const atLeastOneFeed = gtfsRtLinkValidation('tu');
+                    if (atLeastOneFeed !== true) {
+                      return atLeastOneFeed;
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
@@ -239,7 +243,7 @@ export default function FormSecondStepRT({
                     {...field}
                     error={errors.tripUpdates !== undefined}
                     helperText={
-                      errors.tripUpdates?.message === 'string' &&
+                      typeof errors.tripUpdates?.message === 'string' &&
                       errors.tripUpdates?.message?.startsWith(
                         'Feed Exists:',
                       ) ? (
@@ -314,9 +318,11 @@ export default function FormSecondStepRT({
                 control={control}
                 name='vehiclePositions'
                 rules={{
-                  required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    gtfsRtLinkValidation('vp');
+                    const atLeastOneFeed = gtfsRtLinkValidation('vp');
+                    if (atLeastOneFeed !== true) {
+                      return atLeastOneFeed;
+                    }
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
@@ -330,7 +336,7 @@ export default function FormSecondStepRT({
                     {...field}
                     error={errors.vehiclePositions !== undefined}
                     helperText={
-                      errors.vehiclePositions?.message === 'string' &&
+                      typeof errors.vehiclePositions?.message === 'string' &&
                       errors.vehiclePositions?.message?.startsWith(
                         'Feed Exists:',
                       ) ? (

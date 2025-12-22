@@ -292,7 +292,7 @@ export default function FormFirstStep({
                       error={errors.feedLink !== undefined}
                       {...field}
                       helperText={
-                        errors.feedLink?.message === 'string' &&
+                        typeof errors.feedLink?.message === 'string' &&
                         errors.feedLink?.message?.startsWith('Feed Exists:') ? (
                           <span>
                             {t('form.feedAlreadyExists')}
