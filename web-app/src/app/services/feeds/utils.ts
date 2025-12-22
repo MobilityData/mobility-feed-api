@@ -166,7 +166,7 @@ export async function checkFeedUrlExistsInCsv(
     const response = await fetch(csvUrl);
     if (!response.ok) throw new Error('Failed to fetch CSV');
     const csvText = await response.text();
-    const parsed = Papa.parse(csvText, { header: true });
+    const parsed = Papa.parse<FeedCsvRow>(csvText, { header: true });
     if (
       parsed.data == null ||
       !Array.isArray(parsed.data) ||
