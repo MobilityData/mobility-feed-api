@@ -292,11 +292,9 @@ export default function FormFirstStep({
                       error={errors.feedLink !== undefined}
                       {...field}
                       helperText={
-                      errors.feedLink?.message === 'string' &&
-                        errors.feedLink?.message?.startsWith(
-                          'Feed Exists:',
-                        ) ? (
-                        <span>
+                        errors.feedLink?.message === 'string' &&
+                        errors.feedLink?.message?.startsWith('Feed Exists:') ? (
+                          <span>
                             {t('form.feedAlreadyExists')}
                             <a
                               href={errors.feedLink.message.replace(
