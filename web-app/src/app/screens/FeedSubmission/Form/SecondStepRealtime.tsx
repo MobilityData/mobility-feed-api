@@ -10,7 +10,7 @@ import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink, checkFeedUrlExistsInCsv } from '../../../services/feeds/utils';
+import { isValidFeedLink, checkFeedUrlExistsInCsv, } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
   tripUpdates: string;
@@ -32,7 +32,7 @@ interface FormSecondStepRTProps {
   handleBack: (formData: Partial<FeedSubmissionFormFormInput>) => void;
 }
 
-const realtimeFeedURLPrefix = "https://mobilitydatabase.org/feeds/gtfs_rt/";
+const realtimeFeedURLPrefix = 'https://mobilitydatabase.org/feeds/gtfs_rt/';
 
 export default function FormSecondStepRT({
   initialValues,
@@ -125,10 +125,13 @@ export default function FormSecondStepRT({
                       errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                          <a href=
-                            {errors.serviceAlerts.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
-                            {t(errors.serviceAlerts.message.replace('Feed Exists:',''))}
-                          </a>
+                            <a
+                              href={errors.serviceAlerts.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {t(errors.serviceAlerts.message.replace('Feed Exists:', ''))}
+                            </a>
                         </span>
                       ) : (
                         errors.serviceAlerts?.message ?? ''
@@ -202,10 +205,13 @@ export default function FormSecondStepRT({
                       errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                          <a href=
-                            {errors.tripUpdates.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
-                            {t(errors.tripUpdates.message.replace('Feed Exists:',''))}
-                          </a>
+                            <a
+                              href={errors.tripUpdates.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {t(errors.tripUpdates.message.replace('Feed Exists:', ''))}
+                            </a>
                         </span>
                       ) : (
                         errors.tripUpdates?.message ?? ''
@@ -279,10 +285,13 @@ export default function FormSecondStepRT({
                       errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                          <a href=
-                            {errors.vehiclePositions.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
-                            {t(errors.vehiclePositions.message.replace('Feed Exists:',''))}
-                          </a>
+                            <a
+                              href={errors.vehiclePositions.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {t(errors.vehiclePositions.message.replace('Feed Exists:', ''))}
+                            </a>
                         </span>
                       ) : (
                         errors.vehiclePositions?.message ?? ''

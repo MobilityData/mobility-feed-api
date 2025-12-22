@@ -21,7 +21,7 @@ import {
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink, checkFeedUrlExistsInCsv } from '../../../services/feeds/utils';
+import { isValidFeedLink, checkFeedUrlExistsInCsv, } from '../../../services/feeds/utils';
 import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormFormInputFirstStep {
@@ -42,7 +42,7 @@ interface FormFirstStepProps {
   setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
 
-const realtimeFeedURLPrefix = "https://mobilitydatabase.org/feeds/gtfs/";
+const realtimeFeedURLPrefix = 'https://mobilitydatabase.org/feeds/gtfs/';
 
 export default function FormFirstStep({
   initialValues,
@@ -270,9 +270,11 @@ export default function FormFirstStep({
                   rules={{
                     required: t('form.feedLinkRequired'),
                     validate: async (value) => {
-                      if (!isValidFeedLink(value ?? '')) return t('form.errorUrl');
+                      if (!isValidFeedLink(value ?? '')) {
+                        return t('form.errorUrl');
+                      }
                       const exists = await checkFeedUrlExistsInCsv(value ?? '');
-                      if (exists) {
+                      if (typeof exists === 'string' && exists.length > 0) {
                         return `Feed Exists:${exists}`;
                       }
                       return true;
@@ -287,12 +289,15 @@ export default function FormFirstStep({
                       error={errors.feedLink !== undefined}
                       {...field}
                       helperText={
-                        errors.feedLink?.message?.startsWith('Feed Exists:') ? (
+                        typeof errors.feedLink?.message === 'string' && errors.feedLink.message.startsWith('Feed Exists:') ? (
                           <span>
                             {t('form.feedAlreadyExists')}
-                            <a href=
-                              {errors.feedLink.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)} target="_blank" rel="noopener noreferrer">
-                              {t(errors.feedLink.message.replace('Feed Exists:',''))}
+                            <a
+                              href={errors.feedLink.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {t(errors.feedLink.message.replace('Feed Exists:', ''))}
                             </a>
                           </span>
                         ) : (
