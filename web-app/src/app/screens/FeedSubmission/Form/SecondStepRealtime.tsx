@@ -128,7 +128,9 @@ export default function FormSecondStepRT({
                     data-cy='serviceAlertFeed'
                     helperText={
                       errors.serviceAlerts?.message === 'string' &&
-                        errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
+                        errors.serviceAlerts?.message?.startsWith(
+                          'Feed Exists:',
+                        ) ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a
@@ -219,7 +221,9 @@ export default function FormSecondStepRT({
                     error={errors.tripUpdates !== undefined}
                     helperText={
                       errors.tripUpdates?.message === 'string' &&
-                        errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
+                        errors.tripUpdates?.message?.startsWith(
+                          'Feed Exists:',
+                        ) ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a
@@ -310,7 +314,9 @@ export default function FormSecondStepRT({
                     error={errors.vehiclePositions !== undefined}
                     helperText={
                       errors.vehiclePositions?.message === 'string' &&
-                        errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
+                        errors.vehiclePositions?.message?.startsWith(
+                          'Feed Exists:',
+                        ) ? (
                         <span>
                           {t('form.feedAlreadyExists')}
                           <a

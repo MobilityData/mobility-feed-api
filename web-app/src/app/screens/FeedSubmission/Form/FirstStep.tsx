@@ -292,8 +292,11 @@ export default function FormFirstStep({
                       error={errors.feedLink !== undefined}
                       {...field}
                       helperText={
-                        typeof errors.feedLink?.message === 'string' && errors.feedLink.message.startsWith('Feed Exists:') ? (
-                          <span>
+                      errors.feedLink?.message === 'string' &&
+                        errors.feedLink?.message?.startsWith(
+                          'Feed Exists:',
+                        ) ? (
+                        <span>
                             {t('form.feedAlreadyExists')}
                             <a
                               href={errors.feedLink.message.replace(
@@ -303,7 +306,12 @@ export default function FormFirstStep({
                               target='_blank'
                               rel='noopener noreferrer'
                             >
-                              {t(errors.feedLink.message.replace('Feed Exists:', ''))}
+                              {t(
+                                errors.feedLink.message.replace(
+                                  'Feed Exists:',
+                                  '',
+                                ),
+                              )}
                             </a>
                           </span>
                         ) : (

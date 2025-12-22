@@ -167,14 +167,12 @@ export async function checkFeedUrlExistsInCsv(
     if (!response.ok) throw new Error('Failed to fetch CSV');
     const csvText = await response.text();
     const parsed = Papa.parse(csvText, { header: true });
-    if (!parsed.data || !Array.isArray(parsed.data) || !parsed.data.every((row) => typeof row === 'object' && row !== null)) {
-      return null;
-    }
-    type FeedCsvRow = { 'urls.direct_download'?: string; id?: string };
-    const rows = parsed.data as FeedCsvRow[];
-    const match = rows.find((row) => row['urls.direct_download'] === feedUrl);
-    return match?.id ?? null;
+    if (!parsed.data || !Array.isArray(parsed.data)) return null;
+    const match = (parsed.data as any[]).find(
+      (row) => row['urls.direct_download'] === feedUrl,
+    );
+    return match ? match['id'] : null;
   } catch (e) {
-    return null
+    return null;
   }
 }
