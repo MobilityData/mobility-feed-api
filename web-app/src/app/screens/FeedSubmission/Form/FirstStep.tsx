@@ -21,7 +21,10 @@ import {
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidFeedLink } from '../../../services/feeds/utils';
+import {
+  isValidFeedLink,
+  checkFeedUrlExistsInCsv,
+} from '../../../services/feeds/utils';
 import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormFormInputFirstStep {
@@ -41,6 +44,8 @@ interface FormFirstStepProps {
   submitFormData: (formData: Partial<FeedSubmissionFormFormInput>) => void;
   setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
+
+const scheduleFeedURLPrefix = 'https://mobilitydatabase.org/feeds/gtfs/';
 
 export default function FormFirstStep({
   initialValues,
@@ -267,8 +272,16 @@ export default function FormFirstStep({
                 <Controller
                   rules={{
                     required: t('form.feedLinkRequired'),
-                    validate: (value) =>
-                      isValidFeedLink(value ?? '') || t('form.errorUrl'),
+                    validate: async (value) => {
+                      if (!isValidFeedLink(value ?? '')) {
+                        return t('form.errorUrl');
+                      }
+                      const exists = await checkFeedUrlExistsInCsv(value ?? '');
+                      if (typeof exists === 'string' && exists.length > 0) {
+                        return `Feed Exists:${exists}`;
+                      }
+                      return true;
+                    },
                   }}
                   control={control}
                   name='feedLink'
@@ -276,9 +289,33 @@ export default function FormFirstStep({
                     <TextField
                       data-cy='feedLink'
                       className='md-small-input'
-                      helperText={errors.feedLink?.message ?? ''}
                       error={errors.feedLink !== undefined}
                       {...field}
+                      helperText={
+                        typeof errors.feedLink?.message === 'string' &&
+                        errors.feedLink?.message?.startsWith('Feed Exists:') ? (
+                          <span>
+                            {t('form.feedAlreadyExists')}
+                            <a
+                              href={errors.feedLink.message.replace(
+                                'Feed Exists:',
+                                `${scheduleFeedURLPrefix}`,
+                              )}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                            >
+                              {t(
+                                errors.feedLink.message.replace(
+                                  'Feed Exists:',
+                                  '',
+                                ),
+                              )}
+                            </a>
+                          </span>
+                        ) : (
+                          errors.feedLink?.message ?? ''
+                        )
+                      }
                     />
                   )}
                 />
