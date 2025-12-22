@@ -172,6 +172,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 "name:en": "Toronto",
                 "iso3166_1": None,
                 "iso3166_2": None,
+                "alt_name": None,
+                "alt_name:en": None,
             },
             {
                 "osm_id": 2,
@@ -181,6 +183,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 "name:en": "Ontario",
                 "iso3166_1": None,
                 "iso3166_2": "CA-ON",
+                "alt_name": None,
+                "alt_name:en": None,
             },
             {
                 "osm_id": 3,
@@ -190,6 +194,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 "name:en": "Canada",
                 "iso3166_1": "CA",
                 "iso3166_2": None,
+                "alt_name": None,
+                "alt_name:en": None,
             },
             {
                 "osm_id": 5,
@@ -199,6 +205,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 "name:en": "Canada",
                 "iso3166_1": "CA",
                 "iso3166_2": None,
+                "alt_name": "Kanada",
+                "alt_name:en": None,
             },
         ]
         db_session = MagicMock()
