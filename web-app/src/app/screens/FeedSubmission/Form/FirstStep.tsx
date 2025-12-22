@@ -298,7 +298,7 @@ export default function FormFirstStep({
                             <a
                               href={errors.feedLink.message.replace(
                                 'Feed Exists:',
-                                `${scheduleFeedURLPrefix}`
+                                `${scheduleFeedURLPrefix}`,
                               )}
                               target='_blank'
                               rel='noopener noreferrer'

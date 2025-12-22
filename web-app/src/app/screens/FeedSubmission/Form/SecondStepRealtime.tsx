@@ -130,13 +130,16 @@ export default function FormSecondStepRT({
                       typeof errors.serviceAlerts?.message === 'string' && errors.serviceAlerts?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                            <a
-                              href={errors.serviceAlerts.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                            >
-                              {t(errors.serviceAlerts.message.replace('Feed Exists:', ''))}
-                            </a>
+                          <a
+                            href={errors.serviceAlerts.message.replace(
+                              'Feed Exists:',
+                              `${realtimeFeedURLPrefix}`,
+                            )}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                          >
+                            {t(errors.serviceAlerts.message.replace('Feed Exists:', ''))}
+                          </a>
                         </span>
                       ) : (
                         errors.serviceAlerts?.message ?? ''
@@ -212,13 +215,16 @@ export default function FormSecondStepRT({
                       typeof errors.tripUpdates?.message === 'string' && errors.tripUpdates?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                            <a
-                              href={errors.tripUpdates.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                            >
-                              {t(errors.tripUpdates.message.replace('Feed Exists:', ''))}
-                            </a>
+                          <a
+                            href={errors.tripUpdates.message.replace(
+                              'Feed Exists:',
+                              `${realtimeFeedURLPrefix}`,
+                            )}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                          >
+                            {t(errors.tripUpdates.message.replace('Feed Exists:', ''))}
+                          </a>
                         </span>
                       ) : (
                         errors.tripUpdates?.message ?? ''
@@ -294,13 +300,16 @@ export default function FormSecondStepRT({
                       typeof errors.vehiclePositions?.message === 'string' && errors.vehiclePositions?.message?.startsWith('Feed Exists:') ? (
                         <span>
                           {t('form.feedAlreadyExists')}
-                            <a
-                              href={errors.vehiclePositions.message.replace('Feed Exists:', `${realtimeFeedURLPrefix}`)}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                            >
-                              {t(errors.vehiclePositions.message.replace('Feed Exists:', ''))}
-                            </a>
+                          <a
+                            href={errors.vehiclePositions.message.replace(
+                              'Feed Exists:',
+                              `${realtimeFeedURLPrefix}`,
+                            )}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                          >
+                            {t(errors.vehiclePositions.message.replace('Feed Exists:', ''))}
+                          </a>
                         </span>
                       ) : (
                         errors.vehiclePositions?.message ?? ''
