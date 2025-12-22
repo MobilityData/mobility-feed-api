@@ -83,6 +83,29 @@ export default function FormSecondStepRT({
     }
   }, [tripUpdates, vehiclePositions, serviceAlerts]);
 
+  const gtfsRtLinkValidation = (
+    rtType: 'tu' | 'vp' | 'sa',
+  ): boolean | string => {
+    if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
+      switch (rtType) {
+        case 'tu':
+          return tripUpdates !== ''
+            ? isValidFeedLink(tripUpdates) || t('form.errorUrl')
+            : true;
+        case 'vp':
+          return vehiclePositions !== ''
+            ? isValidFeedLink(vehiclePositions) || t('form.errorUrl')
+            : true;
+        case 'sa':
+          return serviceAlerts !== ''
+            ? isValidFeedLink(serviceAlerts) || t('form.errorUrl')
+            : true;
+      }
+    } else {
+      return t('form.atLeastOneRealtimeFeed');
+    }
+  };
+
   return (
     <>
       <Typography
@@ -110,9 +133,7 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) {
-                      return t('form.errorUrl');
-                    }
+                    gtfsRtLinkValidation('sa');
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
@@ -204,9 +225,7 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) {
-                      return t('form.errorUrl');
-                    }
+                    gtfsRtLinkValidation('tu');
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;
@@ -297,9 +316,7 @@ export default function FormSecondStepRT({
                 rules={{
                   required: t('form.feedLinkRequired'),
                   validate: async (value) => {
-                    if (!isValidFeedLink(value ?? '')) {
-                      return t('form.errorUrl');
-                    }
+                    gtfsRtLinkValidation('vp');
                     const exists = await checkFeedUrlExistsInCsv(value ?? '');
                     if (typeof exists === 'string' && exists.length > 0) {
                       return `Feed Exists:${exists}`;

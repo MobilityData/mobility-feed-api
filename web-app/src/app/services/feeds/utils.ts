@@ -183,7 +183,7 @@ export async function checkFeedUrlExistsInCsv(
 }
 
 /**
- * Type guard to check if a row from the CSV matches the FeedCsvRow interface.
+ * FeedCsvRow interface with fields
  */
 interface FeedCsvRow {
   'urls.direct_download'?: string;
@@ -191,7 +191,7 @@ interface FeedCsvRow {
 }
 
 /**
- *
+ * Type guard to check if a row from the CSV matches the FeedCsvRow interface.
  * @param row CSV row
  * @returns check if csv has valid column names
  */
