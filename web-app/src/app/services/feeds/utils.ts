@@ -170,20 +170,37 @@ export async function checkFeedUrlExistsInCsv(
     if (
       parsed.data == null ||
       !Array.isArray(parsed.data) ||
-      !parsed.data.every(
-        (row: unknown) => typeof row === 'object' && row !== null,
-      )
+      !parsed.data.every(isFeedCsvRow)
     ) {
       return null;
     }
-    interface FeedCsvRow {
-      'urls.direct_download'?: string;
-      id?: string;
-    }
-    const rows = parsed.data as FeedCsvRow[];
+    const rows = parsed.data;
     const match = rows.find((row) => row['urls.direct_download'] === feedUrl);
     return typeof match?.id === 'string' ? match.id : null;
   } catch (e) {
     return null;
   }
+}
+
+/**
+ * Type guard to check if a row from the CSV matches the FeedCsvRow interface.
+ */
+interface FeedCsvRow {
+  'urls.direct_download'?: string;
+  id: string;
+}
+
+/**
+ *
+ * @param row CSV row
+ * @returns check if csv has valid column names
+ */
+function isFeedCsvRow(row: unknown): row is FeedCsvRow {
+  if (typeof row !== 'object' || row === null) return false;
+  const obj = row as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    (obj['urls.direct_download'] === undefined ||
+      typeof obj['urls.direct_download'] === 'string')
+  );
 }
