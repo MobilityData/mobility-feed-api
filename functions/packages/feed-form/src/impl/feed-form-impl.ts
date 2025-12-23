@@ -355,6 +355,19 @@ async function createGithubIssue(
         },
       }
     );
+
+    const issueNodeId = response.data.node_id;
+    const projectId = "PVT_kwDOAnHxDs4Ayxl6";
+    const statusFieldId = "PVTSSF_lADOAnHxDs4Ayxl6zgorIUI";
+    const backlogOptionId = "8e14ac56";
+    await addIssueToProjectV2(
+      issueNodeId,
+      githubToken,
+      projectId,
+      statusFieldId,
+      backlogOptionId
+    );
+
     return response.data.html_url;
   } catch (error) {
     logger.error("Error creating GitHub issue:", error);
@@ -484,5 +497,89 @@ async function isValidZipDownload(url: string | undefined | null): Promise<boole
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Adds a GitHub issue to a project with a specific status
+ * @param {string} issueNodeId The ID of the created issue
+ * @param {string} githubToken GitHub token
+ * @param {string} projectId The ID of the project
+ * @param {string} statusFieldId The ID of the Status field
+ * @param {string} statusOptionId The ID of the status option
+ */
+async function addIssueToProjectV2(
+  issueNodeId: string,
+  githubToken: string,
+  projectId: string,
+  statusFieldId: string,
+  statusOptionId: string
+) {
+  try {
+    const addToProjectMutation = `
+      mutation($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+          item {
+            id
+          }
+        }
+      }
+    `;
+
+    const addToProjectResponse = await axios.post(
+      "https://api.github.com/graphql",
+      {
+        query: addToProjectMutation,
+        variables: {
+          projectId,
+          contentId: issueNodeId,
+        },
+      },
+      {
+        headers: {
+          Authorization: `bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    const itemId = addToProjectResponse.data.data.addProjectV2ItemById.item.id;
+
+    const updateStatusMutation = `
+      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: ProjectV2FieldValue!) {
+        updateProjectV2ItemFieldValue(
+          input: {projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value}
+        ) {
+          projectV2Item {
+            id
+          }
+        }
+      }
+    `;
+
+    await axios.post(
+      "https://api.github.com/graphql",
+      {
+        query: updateStatusMutation,
+        variables: {
+          projectId,
+          itemId,
+          fieldId: statusFieldId,
+          value: {
+            singleSelectOptionId: statusOptionId,
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    logger.info("Successfully added issue to Feed Submissions Backlog");
+  } catch (error) {
+    logger.error("Error adding issue to Feed Submissions Backlog:", error);
   }
 }
