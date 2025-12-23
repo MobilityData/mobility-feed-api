@@ -467,7 +467,7 @@ export function buildGithubIssueBody(
 
 /**
  * Parses the provided URL to check if it is a valid ZIP file URL
- * @param {string | undefined | null } url The direct download URL provided in the feed form
+ * @param {string | undefined | null } url The direct download URL
  * @return {boolean} Whether the URL is a valid ZIP file URL
  */
 function isValidZipUrl(url: string | undefined | null): boolean {
