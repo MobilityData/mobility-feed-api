@@ -335,7 +335,7 @@ async function createGithubIssue(
   }
 
   if (!isValidZipUrl(formData.feedLink)) {
-    if(!await isValidZipDownload(formData.feedLink)) {
+    if (!await isValidZipDownload(formData.feedLink)) {
       labels.push("invalid");
     }
   }
@@ -467,8 +467,8 @@ export function buildGithubIssueBody(
 
 /**
  * Parses the provided URL to check if it is a valid ZIP file URL
- * @param url The direct download URL provided in the feed form
- * @returns {boolean} Whether the URL is a valid ZIP file URL
+ * @param {string | undefined | null } url The direct download URL provided in the feed form
+ * @return {boolean} Whether the URL is a valid ZIP file URL
  */
 function isValidZipUrl(url: string | undefined | null): boolean {
   if (!url) return false;
@@ -481,11 +481,13 @@ function isValidZipUrl(url: string | undefined | null): boolean {
 }
 
 /**
- * Checks if the provided URL points to a valid ZIP file by making a HEAD request
- * @param url The direct download URL provided in the feed form
- * @returns {boolean} Whether the URL downloads a valid ZIP file
+ * Checks if URL points to a valid ZIP file by making HEAD request
+ * @param {string | undefined | null } url The download URL
+ * @return {boolean} Whether the URL downloads a valid ZIP file
  */
-async function isValidZipDownload(url: string | undefined | null): Promise<boolean> {
+async function isValidZipDownload(
+  url: string | undefined | null
+): Promise<boolean> {
   try {
     if (!url) return false;
     const response = await axios.head(url, {maxRedirects: 2});
@@ -518,10 +520,10 @@ async function addIssueToProjectV2(
   try {
     const addToProjectMutation = `
       mutation($projectId: ID!, $contentId: ID!) {
-        addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
-          item {
-            id
-          }
+        addProjectV2ItemById(
+          input: {projectId: $projectId, contentId: $contentId}
+        ) {
+          item { id }
         }
       }
     `;
@@ -546,13 +548,21 @@ async function addIssueToProjectV2(
     const itemId = addToProjectResponse.data.data.addProjectV2ItemById.item.id;
 
     const updateStatusMutation = `
-      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: ProjectV2FieldValue!) {
+      mutation(
+        $projectId: ID!
+        $itemId: ID!
+        $fieldId: ID!
+        $value: ProjectV2FieldValue!
+      ) {
         updateProjectV2ItemFieldValue(
-          input: {projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value}
-        ) {
-          projectV2Item {
-            id
+          input: {
+            projectId: $projectId
+            itemId: $itemId
+            fieldId: $fieldId
+            value: $value
           }
+        ) {
+          projectV2Item { id }
         }
       }
     `;
