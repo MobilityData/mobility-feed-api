@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useState, useMemo, useContext } from 'react';
 import {
   ThemeProvider as MuiThemeProvider,
@@ -10,7 +12,7 @@ import type ContextProviderProps from '../interface/ContextProviderProps';
 const ThemeContext = createContext({ toggleTheme: () => {} });
 
 function getInitialThemeMode(prefersDarkMode: boolean): ThemeModeEnum {
-  if (localStorage.getItem('theme') != undefined) {
+  if (typeof window !== 'undefined' && localStorage.getItem('theme') != null) {
     return localStorage.getItem('theme') as ThemeModeEnum;
   } else {
     return prefersDarkMode ? ThemeModeEnum.dark : ThemeModeEnum.light;

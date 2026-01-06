@@ -7,7 +7,7 @@ import {
   PURGE,
   REGISTER,
 } from 'redux-persist';
-import storage from 'redux-persist/lib/storage';
+import storage from './storage';
 import {
   configureStore,
   type ThunkAction,
@@ -76,7 +76,7 @@ export const store = makeStore();
 
 // Expose store to Cypress e2e tests
 /* eslint-disable */
-if (window.Cypress) {
+if (typeof window !== 'undefined' && (window as any).Cypress) {
   (window as any).store = store;
 }
 /* eslint-enable */

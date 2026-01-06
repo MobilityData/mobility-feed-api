@@ -3,10 +3,11 @@ import type { paths } from './types';
 import { type AllFeedsParams, type AllFeedType } from './utils';
 import { getEnvConfig } from '../../utils/config';
 
-const API_BASE_URL = getEnvConfig('REACT_APP_FEED_API_BASE_URL');
+// Issue here the base URL from environment config
+const API_BASE_URL = getEnvConfig('NEXT_PUBLIC_FEED_API_BASE_URL');
 
 const client = createClient<paths>({
-  baseUrl: `${API_BASE_URL}`,
+  baseUrl: 'https://api-dev.mobilitydatabase.org', // TODO: API_BASE returns localhost (weird)
   querySerializer: {
     // serialize arrays as comma-separated values
     // More info: https://swagger.io/docs/specification/serialization/#query
@@ -272,8 +273,11 @@ export const searchFeeds = async (
   | paths['/v1/search']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
+  console.log('Searching feeds with params!!:', params);
   const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  console.log('client before use');
   client.use(authMiddleware);
+  console.log('client after use');
   return await client
     .GET('/v1/search', { params })
     .then((response) => {
@@ -281,6 +285,7 @@ export const searchFeeds = async (
       return data;
     })
     .catch(function (error) {
+      console.log('Error in searchFeeds:', error);
       throw error;
     })
     .finally(() => {

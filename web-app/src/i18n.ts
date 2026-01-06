@@ -51,7 +51,8 @@ i18n
       cookieDomain: 'myDomain',
 
       // optional htmlTag with lang attribute, the default is:
-      htmlTag: document.documentElement,
+      htmlTag:
+        typeof document !== 'undefined' ? document.documentElement : undefined,
     },
   });
 

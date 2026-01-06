@@ -2,8 +2,8 @@ import './App.css';
 import AppRouter from './router/Router';
 import { BrowserRouter } from 'react-router-dom';
 import { RemoteConfigProvider } from './context/RemoteConfigProvider';
-import { useDispatch } from 'react-redux';
-import { anonymousLogin } from './store/profile-reducer';
+// import { useDispatch } from 'react-redux';
+// import { anonymousLogin } from './store/profile-reducer';
 import i18n from '../i18n';
 import { Suspense, useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -14,20 +14,20 @@ import AppContainer from './AppContainer';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 function App(): React.ReactElement {
-  const dispatch = useDispatch();
-  const [isAppReady, setIsAppReady] = useState(false);
+  //const dispatch = useDispatch();
+  const [isAppReady, setIsAppReady] = useState(true);
 
-  useEffect(() => {
-    app.auth().onAuthStateChanged((user) => {
-      if (user != null) {
-        setIsAppReady(true);
-      } else {
-        setIsAppReady(false);
-        dispatch(anonymousLogin());
-      }
-    });
-    dispatch(anonymousLogin());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   app.auth().onAuthStateChanged((user) => {
+  //     if (user != null) {
+  //       setIsAppReady(true);
+  //     } else {
+  //       setIsAppReady(false);
+  //       dispatch(anonymousLogin());
+  //     }
+  //   });
+  //   dispatch(anonymousLogin());
+  // }, [dispatch]);
 
   return (
     <HelmetProvider>
