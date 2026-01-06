@@ -120,7 +120,7 @@ export default function ForgotPassword(): React.ReactElement {
             </Alert>
           ) : null}
           <ReCAPTCHA
-            sitekey={getEnvConfig('REACT_APP_RECAPTCHA_SITE_KEY')}
+            sitekey={getEnvConfig('NEXT_PUBLIC_RECAPTCHA_SITE_KEY')}
             onChange={onChangeReCaptcha}
             data-testid='reCaptcha'
             style={{ alignSelf: 'center', margin: 'normal' }}

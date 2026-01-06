@@ -1,3 +1,5 @@
+'use client';
+
 import { Typography, useTheme } from '@mui/material';
 import {
   type GTFSFeedType,

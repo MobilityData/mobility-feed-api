@@ -12,7 +12,7 @@ export const getEnvConfig = (key: string): string => {
 export const getProjectShortName = (): 'dev' | 'qa' | 'prod' => {
   // Example value: mobility-feeds-dev
   let result: 'dev' | 'qa' | 'prod' = 'prod';
-  const projectId = getEnvConfig('REACT_APP_FIREBASE_PROJECT_ID');
+  const projectId = getEnvConfig('NEXT_PUBLIC_FIREBASE_PROJECT_ID');
   if (projectId.length > 0) {
     const nameSections = projectId.split('-');
     if (nameSections.length == 3) {

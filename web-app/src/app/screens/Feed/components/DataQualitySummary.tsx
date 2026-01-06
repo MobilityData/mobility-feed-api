@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Box, Chip } from '@mui/material';
 import { CheckCircle, ReportOutlined } from '@mui/icons-material';

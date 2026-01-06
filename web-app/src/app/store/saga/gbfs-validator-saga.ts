@@ -9,7 +9,7 @@ import { getEnvConfig } from '../../utils/config';
 import type { components } from '../../services/feeds/gbfs-validator-types';
 
 const getValidatorBaseUrl = (): string =>
-  getEnvConfig('REACT_APP_GBFS_VALIDATOR_API_BASE_URL');
+  getEnvConfig('NEXT_PUBLIC_GBFS_VALIDATOR_API_BASE_URL');
 
 function* runValidation(
   action: ReturnType<typeof validateStart>,
