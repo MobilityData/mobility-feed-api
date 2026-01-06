@@ -1,3 +1,5 @@
+'use client';
+
 import { OpenInNew } from '@mui/icons-material';
 import {
   Box,
@@ -12,7 +14,7 @@ import {
   Link,
 } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   ACCOUNT_TARGET,
   gbfsMetricsNavItems,
@@ -41,7 +43,7 @@ export default function DrawerContent({
   metricsOptionsEnabled,
 }: DrawerContentProps): JSX.Element {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const navigateTo = useNavigate();
+  const router = useRouter();
   const { config } = useRemoteConfig();
   const { t } = useTranslation('common');
   const theme = useTheme();
@@ -51,7 +53,7 @@ export default function DrawerContent({
       <Box
         sx={{ display: 'flex', alignItems: 'center' }}
         onClick={() => {
-          navigateTo('/');
+          router.push('/');
         }}
       >
         <picture style={{ display: 'flex' }}>

@@ -1,17 +1,12 @@
 import React from 'react';
 import '../styles/Footer.css';
 import TwitterIcon from '@mui/icons-material/Twitter';
-import { Button, IconButton, useTheme } from '@mui/material';
+import { Button, IconButton } from '@mui/material';
 import { GitHub, LinkedIn, OpenInNew } from '@mui/icons-material';
 import { MOBILITY_DATA_LINKS } from '../constants/Navigation';
 import { fontFamily } from '../Theme';
 
 const Footer: React.FC = () => {
-  const theme = useTheme();
-  const navigateTo = (link: string): void => {
-    window.open(link, '_blank');
-  };
-
   const SlackSvg = (
     <svg
       xmlns='http://www.w3.org/2000/svg'
@@ -20,7 +15,9 @@ const Footer: React.FC = () => {
       viewBox='0 0 24 24'
     >
       <path
-        fill={theme.palette.primary.main}
+        // fill={theme.palette.primary.main}
+
+        fill={'#000'}
         d='M6 15a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2h2zm1 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2zm2-8a2 2 0 0 1-2-2a2 2 0 0 1 2-2a2 2 0 0 1 2 2v2zm0 1a2 2 0 0 1 2 2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2a2 2 0 0 1 2-2zm8 2a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2zm-1 0a2 2 0 0 1-2 2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2a2 2 0 0 1 2 2zm-2 8a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2v-2zm0-1a2 2 0 0 1-2-2a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2a2 2 0 0 1-2 2z'
       />
     </svg>
@@ -51,9 +48,10 @@ const Footer: React.FC = () => {
           aria-label='twitter'
           className='link-button'
           color='primary'
-          onClick={() => {
-            navigateTo(MOBILITY_DATA_LINKS.twitter);
-          }}
+          component='a'
+          href={MOBILITY_DATA_LINKS.twitter}
+          target='_blank'
+          rel='noreferrer'
         >
           <TwitterIcon />
         </IconButton>
@@ -61,9 +59,10 @@ const Footer: React.FC = () => {
           aria-label='slack'
           className='link-button'
           color='primary'
-          onClick={() => {
-            navigateTo(MOBILITY_DATA_LINKS.slack);
-          }}
+          component='a'
+          href={MOBILITY_DATA_LINKS.slack}
+          target='_blank'
+          rel='noreferrer'
         >
           {SlackSvg}
         </IconButton>
@@ -71,9 +70,10 @@ const Footer: React.FC = () => {
           aria-label='linkedin'
           className='link-button'
           color='primary'
-          onClick={() => {
-            navigateTo(MOBILITY_DATA_LINKS.linkedin);
-          }}
+          component='a'
+          href={MOBILITY_DATA_LINKS.linkedin}
+          target='_blank'
+          rel='noreferrer'
         >
           <LinkedIn />
         </IconButton>
@@ -81,9 +81,10 @@ const Footer: React.FC = () => {
           aria-label='github'
           className='link-button'
           color='primary'
-          onClick={() => {
-            navigateTo(MOBILITY_DATA_LINKS.github);
-          }}
+          component='a'
+          href={MOBILITY_DATA_LINKS.github}
+          target='_blank'
+          rel='noreferrer'
         >
           <GitHub />
         </IconButton>

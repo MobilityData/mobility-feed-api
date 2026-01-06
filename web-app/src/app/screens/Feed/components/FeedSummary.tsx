@@ -1,3 +1,6 @@
+'use client';
+
+// TODO: needs to be a server friendly component
 import { useMemo, useState } from 'react';
 import { type components } from '../../../services/feeds/types';
 import LicenseDialog from './LicenseDialog';
@@ -16,7 +19,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
-  Link,
+  Link as MuiLink,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -40,13 +43,8 @@ import { getEmojiFlag, type TCountryCode } from 'countries-list';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import GavelIcon from '@mui/icons-material/Gavel';
 import { getFeedStatusData } from '../../../utils/feedStatusConsts';
-import { useSelector } from 'react-redux';
-import { Link as RouterLink } from 'react-router-dom';
+import Link from 'next/link';
 import ReactGA from 'react-ga4';
-import {
-  selectGtfsDatasetRoutesTotal,
-  selectGtfsDatasetRouteTypes,
-} from '../../../store/supporting-files-selectors';
 import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
 import {
   featureChipsStyle,
@@ -64,6 +62,8 @@ export interface FeedSummaryProps {
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
   autoDiscoveryUrl?: string;
+  totalRoutes?: number;
+  routeTypes?: string[];
 }
 
 export default function FeedSummary({
@@ -71,6 +71,8 @@ export default function FeedSummary({
   sortedProviders,
   latestDataset,
   autoDiscoveryUrl,
+  routeTypes,
+  totalRoutes,
 }: FeedSummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -82,8 +84,6 @@ export default function FeedSummary({
   const [showAllFeatures, setShowAllFeatures] = useState(false);
 
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
-  const totalRoutes = useSelector(selectGtfsDatasetRoutesTotal);
-  const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
 
   const uniqueCountries = useMemo(() => {
     return getCountryLocationSummaries(feed?.locations ?? []).map(
@@ -318,8 +318,8 @@ export default function FeedSummary({
                   color='secondary'
                   size='small'
                   sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
-                  component={RouterLink}
-                  to='./map'
+                  component={Link}
+                  href='./map'
                   onClick={handleOpenDetailedMapClick}
                 >
                   {t('feedSummary.viewOnMap')}
@@ -405,14 +405,14 @@ export default function FeedSummary({
                     ? t('feedSummary.producerUrl')
                     : t('feedSummary.providerUrl')}
                 </Typography>
-                <Link
+                <MuiLink
                   href={(feed as GBFSFeedType)?.provider_url}
                   target='_blank'
                   rel='noreferrer'
                   variant='body1'
                 >
                   {(feed as GBFSFeedType)?.provider_url}
-                </Link>
+                </MuiLink>
               </Box>
             </>
           )}
@@ -444,7 +444,7 @@ export default function FeedSummary({
                 color='secondary'
                 size='small'
                 startIcon={<EmailIcon />}
-                component={Link}
+                component={MuiLink}
                 href={`mailto:${feed?.feed_contact_email}`}
               >
                 {feed?.feed_contact_email}
@@ -617,7 +617,7 @@ export default function FeedSummary({
                       const featureDecorators =
                         getFeatureComponentDecorators(feature);
                       return (
-                        <Grid item key={feature} data-testid='feature-chips'>
+                        <Grid key={feature} data-testid='feature-chips'>
                           <Tooltip
                             title={`Group: ${featureDecorators.component}`}
                             key={index}
@@ -625,7 +625,7 @@ export default function FeedSummary({
                           >
                             <Chip
                               size='small'
-                              component={Link}
+                              component={MuiLink}
                               label={feature}
                               variant='filled'
                               sx={{
@@ -719,7 +719,7 @@ export default function FeedSummary({
                 </Button>
               </>
             ) : (
-              <Link
+              <MuiLink
                 href={feed?.source_info?.license_url ?? ''}
                 target='_blank'
                 rel='noopener noreferrer'
@@ -727,7 +727,7 @@ export default function FeedSummary({
                 variant='body1'
               >
                 {feed?.source_info?.license_url}
-              </Link>
+              </MuiLink>
             )}
           </GroupCard>
         )}

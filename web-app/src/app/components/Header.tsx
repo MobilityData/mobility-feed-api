@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import {
   AppBar,
@@ -28,7 +30,7 @@ import {
   gbfsMetricsNavItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
@@ -46,11 +48,11 @@ import ThemeToggle from './ThemeToggle';
 import { useTranslation } from 'react-i18next';
 
 export default function DrawerAppBar(): React.ReactElement {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const hasTransitFeedsRedirectParam =
     searchParams.get('utm_source') === 'transitfeeds';
   const theme = useTheme();
-  const location = useLocation();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [hasTransitFeedsRedirect, setHasTransitFeedsRedirect] = React.useState(
     hasTransitFeedsRedirectParam,
@@ -71,27 +73,27 @@ export default function DrawerAppBar(): React.ReactElement {
   });
 
   React.useEffect(() => {
-    setActiveTab(location.pathname);
-  }, [location.pathname]);
+    setActiveTab(pathname ?? '');
+  }, [pathname]);
 
   React.useEffect(() => {
     setNavigationItems(buildNavigationItems(config));
   }, [config]);
 
-  const navigateTo = useNavigate();
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const userEmail = useSelector(selectUserEmail);
+  const router = useRouter();
+  const isAuthenticated = true;// useSelector(selectIsAuthenticated);
+  //const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
   };
 
   const handleNavigation = (navigationItem: NavigationItem | string): void => {
-    if (typeof navigationItem === 'string') navigateTo(navigationItem);
+    if (typeof navigationItem === 'string') router.push(navigationItem);
     else {
       if (navigationItem.external === true)
         window.open(navigationItem.target, '_blank', 'noopener noreferrer');
-      else navigateTo(navigationItem.target);
+      else router.push(navigationItem.target);
     }
     setMobileOpen(false);
   };
@@ -119,8 +121,8 @@ export default function DrawerAppBar(): React.ReactElement {
     handleNavigation(item);
   };
 
-  const metricsOptionsEnabled =
-    config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+  const metricsOptionsEnabled = false;
+    //config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
 
   return (
     <Box
@@ -413,8 +415,11 @@ export default function DrawerAppBar(): React.ReactElement {
             onClose={() => {
               setHasTransitFeedsRedirect(false);
               if (hasTransitFeedsRedirectParam) {
-                searchParams.delete('utm_source');
-                setSearchParams(searchParams);
+                // Remove utm_source from URL
+                const newSearchParams = new URLSearchParams(searchParams);
+                newSearchParams.delete('utm_source');
+                const newPath = `${pathname}?${newSearchParams.toString()}`;
+                router.replace(newPath);
               }
             }}
             sx={{ '.MuiAlert-message': { pb: { xs: 0, md: 1 } } }}
@@ -434,7 +439,7 @@ export default function DrawerAppBar(): React.ReactElement {
       </AppBar>
 
       <nav>
-        <Drawer
+        {/* <Drawer
           container={container}
           variant='temporary'
           open={mobileOpen}
@@ -453,7 +458,7 @@ export default function DrawerAppBar(): React.ReactElement {
             navigationItems={navigationItems}
             metricsOptionsEnabled={metricsOptionsEnabled}
           />
-        </Drawer>
+        </Drawer> */}
       </nav>
       <LogoutConfirmModal
         openDialog={openDialog}
