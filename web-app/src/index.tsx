@@ -11,7 +11,7 @@ import ContextProviders from './app/components/Context';
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from './app/context/ThemeProvider';
 
-const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
+const gaId = getEnvConfig('NEXT_PUBLIC_GOOGLE_ANALYTICS_ID');
 if (gaId.length > 0) {
   ReactGA.initialize(gaId);
   ReactGA.send('pageview');

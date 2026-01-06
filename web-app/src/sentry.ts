@@ -20,22 +20,22 @@ const parseSampleRate = (
   return parsed;
 };
 
-const dsn = process.env.REACT_APP_SENTRY_DSN || '';
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || '';
 const environment =
-  process.env.REACT_APP_FIREBASE_PROJECT_ID ||
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
   process.env.NODE_ENV ||
   'mobility-feeds-dev';
 const release = packageJson.version;
 const tracesSampleRate = parseSampleRate(
-  process.env.REACT_APP_SENTRY_TRACES_SAMPLE_RATE,
+  process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
   0.05,
 );
 const replaysSessionSampleRate = parseSampleRate(
-  process.env.REACT_APP_SENTRY_REPLAY_SESSION_SAMPLE_RATE,
+  process.env.NEXT_PUBLIC_SENTRY_REPLAY_SESSION_SAMPLE_RATE,
   0.0,
 );
 const replaysOnErrorSampleRate = parseSampleRate(
-  process.env.REACT_APP_SENTRY_REPLAY_ERROR_SAMPLE_RATE,
+  process.env.NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE,
   1.0,
 );
 
