@@ -42,12 +42,12 @@ import 'firebase/compat/remote-config';
 import 'firebase/compat/auth';
 
 const firebaseConfig = {
-  apiKey: Cypress.env('REACT_APP_FIREBASE_API_KEY'),
-  authDomain: Cypress.env('REACT_APP_FIREBASE_AUTH_DOMAIN'),
-  projectId: Cypress.env('REACT_APP_FIREBASE_PROJECT_ID'),
-  storageBucket: Cypress.env('REACT_APP_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: Cypress.env('REACT_APP_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: Cypress.env('REACT_APP_FIREBASE_APP_ID'),
+  apiKey: Cypress.env('NEXT_PUBLIC_FIREBASE_API_KEY'),
+  authDomain: Cypress.env('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+  projectId: Cypress.env('NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
+  storageBucket: Cypress.env('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: Cypress.env('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: Cypress.env('NEXT_PUBLIC_FIREBASE_APP_ID'),
 };
 
 const app = firebase.initializeApp(firebaseConfig);
