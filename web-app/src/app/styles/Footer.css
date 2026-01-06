@@ -5,8 +5,6 @@
     font-size: 13px;
     box-sizing: border-box;
     min-height: 210px;
-    position: absolute;
-    bottom: 0;
 }
 
 .link-button:hover {
