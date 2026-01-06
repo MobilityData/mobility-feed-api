@@ -109,7 +109,7 @@ export default function FormFirstStep({
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               error={errors.isOfficialProducer !== undefined}
@@ -145,7 +145,7 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
-          <Grid item sx={{ '&.MuiGrid-item': { pt: '4px' } }}>
+          <Grid sx={{ '&.MuiGrid-item': { pt: '4px' } }}>
             <FormControl
               component='fieldset'
               error={errors.isOfficialFeed !== undefined}
@@ -185,7 +185,7 @@ export default function FormFirstStep({
           {/* New fields for unofficial feeds, moved right after isOfficialFeed */}
           {isOfficialFeed === 'no' && (
             <>
-              <Grid item>
+              <Grid>
                 <FormControl component='fieldset' fullWidth>
                   <FormLabel>{t('form.unofficialDesc')}</FormLabel>
                   <Controller
@@ -204,7 +204,7 @@ export default function FormFirstStep({
                   />
                 </FormControl>
               </Grid>
-              <Grid item>
+              <Grid >
                 <FormControl component='fieldset' fullWidth>
                   <FormLabel>{t('form.updateFreq')}</FormLabel>
                   <Controller
@@ -223,7 +223,7 @@ export default function FormFirstStep({
               </Grid>
             </>
           )}
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset'>
               <FormLabel required>{t('dataType')}</FormLabel>
               <Controller
@@ -242,7 +242,7 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel>{t('transitProviderName')}</FormLabel>
               <Controller
@@ -255,7 +255,7 @@ export default function FormFirstStep({
             </FormControl>
           </Grid>
           {dataType === 'gtfs' && (
-            <Grid item>
+            <Grid>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -286,7 +286,7 @@ export default function FormFirstStep({
             </Grid>
           )}
 
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               error={errors.dataType !== undefined}
@@ -310,7 +310,7 @@ export default function FormFirstStep({
             </FormControl>
           </Grid>
           {dataType === 'gtfs' && isUpdatingFeed === 'yes' && (
-            <Grid item>
+            <Grid>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -342,7 +342,7 @@ export default function FormFirstStep({
           )}
 
           <Grid container spacing={2}>
-            <Grid item>
+            <Grid>
               <Button
                 type='submit'
                 variant='contained'

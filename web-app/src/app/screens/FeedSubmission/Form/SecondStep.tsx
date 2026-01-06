@@ -61,7 +61,7 @@ export default function FormSecondStep({
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               error={errors.country !== undefined}
@@ -98,7 +98,7 @@ export default function FormSecondStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>{t('common:region')}</FormLabel>
               <Controller
@@ -110,7 +110,7 @@ export default function FormSecondStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>
                 {t('common:municipality')}
@@ -124,7 +124,7 @@ export default function FormSecondStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>{t('common:name')}</FormLabel>
               <FormLabelDescription>
@@ -139,7 +139,7 @@ export default function FormSecondStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               fullWidth
@@ -168,7 +168,7 @@ export default function FormSecondStep({
           </Grid>
 
           <Grid container spacing={2}>
-            <Grid item>
+            <Grid>
               <Button
                 onClick={() => {
                   handleBack(getValues());
@@ -179,7 +179,7 @@ export default function FormSecondStep({
                 {t('common:back')}
               </Button>
             </Grid>
-            <Grid item>
+            <Grid>
               <Button
                 type='submit'
                 variant='contained'
