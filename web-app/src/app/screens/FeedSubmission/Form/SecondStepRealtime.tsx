@@ -113,7 +113,7 @@ export default function FormSecondStepRT({
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               fullWidth
@@ -139,7 +139,7 @@ export default function FormSecondStepRT({
             </FormControl>
           </Grid>
           {isFeedUpdate && (
-            <Grid item mb={2}>
+            <Grid mb={2}>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -169,7 +169,7 @@ export default function FormSecondStepRT({
               </FormControl>
             </Grid>
           )}
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               fullWidth
@@ -194,7 +194,7 @@ export default function FormSecondStepRT({
             </FormControl>
           </Grid>
           {isFeedUpdate && (
-            <Grid item mb={2}>
+            <Grid mb={2}>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -224,7 +224,7 @@ export default function FormSecondStepRT({
               </FormControl>
             </Grid>
           )}
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               fullWidth
@@ -249,7 +249,7 @@ export default function FormSecondStepRT({
             </FormControl>
           </Grid>
           {isFeedUpdate && (
-            <Grid item mb={2}>
+            <Grid mb={2}>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -280,7 +280,7 @@ export default function FormSecondStepRT({
             </Grid>
           )}
 
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               fullWidth
@@ -310,7 +310,7 @@ export default function FormSecondStepRT({
             </FormControl>
           </Grid>
           <Grid container spacing={2}>
-            <Grid item>
+            <Grid>
               <Button
                 onClick={() => {
                   handleBack(getValues());
@@ -321,7 +321,7 @@ export default function FormSecondStepRT({
                 {t('common:back')}
               </Button>
             </Grid>
-            <Grid item>
+            <Grid>
               <Button
                 type='submit'
                 variant='contained'

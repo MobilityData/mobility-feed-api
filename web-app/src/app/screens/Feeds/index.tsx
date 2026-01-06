@@ -389,9 +389,7 @@ export default function Feed(): React.ReactElement {
             }}
           >
             <Grid
-              item
-              xs={12}
-              md={2}
+              size={{xs: 12, md: 2}}
               sx={{
                 minWidth: config.enableFeatureFilterSearch ? '275px' : '220px',
                 pr: 2,
@@ -424,7 +422,7 @@ export default function Feed(): React.ReactElement {
               ></SearchFilters>
             </Grid>
 
-            <Grid item xs={12} md={10}>
+            <Grid size={{xs: 12, md: 10}}>
               <Box sx={chipHolderStyles}>
                 {selectedFeedTypes.gtfs && (
                   <Chip
@@ -534,7 +532,7 @@ export default function Feed(): React.ReactElement {
                 )}
               </Box>
               {feedStatus === 'loading' && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Skeleton
                     animation='wave'
                     variant='text'
@@ -560,7 +558,7 @@ export default function Feed(): React.ReactElement {
               )}
 
               {feedStatus === 'error' && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <h3>{t('common:errors.generic')}</h3>
                   <Typography>
                     <Trans i18nKey='errorAndContact'>
@@ -582,7 +580,7 @@ export default function Feed(): React.ReactElement {
               {feedsData !== undefined && feedStatus === 'loaded' && (
                 <>
                   {feedsData?.results?.length === 0 && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <h3>{t('noResults', { activeSearch })}</h3>
                       <Typography>{t('searchSuggestions')}</Typography>
                       <ul>
@@ -611,8 +609,7 @@ export default function Feed(): React.ReactElement {
                     feedsData?.results?.length > 0 && (
                       <TableContainer sx={{ overflowX: 'initial' }}>
                         <Grid
-                          item
-                          xs={12}
+                          size={12}
                           sx={{
                             display: 'flex',
                             justifyContent: 'space-between',

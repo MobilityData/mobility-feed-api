@@ -69,7 +69,7 @@ export default function FormFourthStep({
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend' data-cy='dataProducerEmailLabel'>
                 {t('dataProducerEmail')}
@@ -90,7 +90,7 @@ export default function FormFourthStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               error={errors.isInterestedInQualityAudit !== undefined}
@@ -124,7 +124,7 @@ export default function FormFourthStep({
             </FormControl>
           </Grid>
           {isInterestedInQualityAudit === 'yes' && (
-            <Grid item>
+            <Grid>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -147,7 +147,7 @@ export default function FormFourthStep({
               </FormControl>
             </Grid>
           )}
-          <Grid item>
+          <Grid>
             <FormControl
               component='fieldset'
               error={errors.hasLogoPermission !== undefined}
@@ -181,7 +181,7 @@ export default function FormFourthStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset' fullWidth>
               <FormLabel>{t('whatToolsCreateGtfs')}</FormLabel>
               <FormLabelDescription>
@@ -203,7 +203,7 @@ export default function FormFourthStep({
           </Grid>
 
           <Grid container spacing={2}>
-            <Grid item>
+            <Grid>
               <Button
                 onClick={() => {
                   handleBack(getValues());
@@ -214,7 +214,7 @@ export default function FormFourthStep({
                 {t('common:back')}
               </Button>
             </Grid>
-            <Grid item>
+            <Grid>
               <Button
                 type='submit'
                 variant='contained'

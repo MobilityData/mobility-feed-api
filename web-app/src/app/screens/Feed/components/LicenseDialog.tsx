@@ -173,7 +173,7 @@ export default function LicenseDialog({
                         ruleData.rules != undefined &&
                         ruleData.rules.length > 0;
                       return (
-                        <Grid item xs={12} key={ruleData.title}>
+                        <Grid size={12} key={ruleData.title}>
                           <Typography
                             variant='h6'
                             sx={{
@@ -195,7 +195,7 @@ export default function LicenseDialog({
                           {hasRules ? (
                             <Grid container spacing={2}>
                               {ruleData.rules?.map((rule, index) => (
-                                <Grid item xs={12} md={6} key={index}>
+                                <Grid  size={{xs: 12, md: 6}} key={index}>
                                   <Box
                                     sx={{
                                       p: 1.5,

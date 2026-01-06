@@ -93,7 +93,7 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
 
   return (
     <Grid container spacing={3} sx={{ maxWidth: '1200px' }}>
-      <Grid item xs={12} md={8}>
+      <Grid size={{xs: 12, md: 8}}>
         <Typography variant='subtitle1' gutterBottom>
           Notices
         </Typography>
@@ -108,7 +108,7 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
           </Box>
         )}
       </Grid>
-      <Grid item xs={12} md={4}>
+      <Grid size={{xs: 12, md: 4}}>
         <Typography variant='subtitle1' gutterBottom>
           Monthly Notice Count Trends
         </Typography>

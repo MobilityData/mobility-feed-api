@@ -78,7 +78,7 @@ export default function FormThirdStep({
         <Grid container direction={'column'} rowSpacing={2}>
           {/* Show required emptyLicenseUsage if official producer and no license provided */}
           {isOfficialProducer && noLicenseProvided && (
-            <Grid item>
+            <Grid>
               <FormControl
                 component='fieldset'
                 fullWidth
@@ -111,7 +111,7 @@ export default function FormThirdStep({
               </FormControl>
             </Grid>
           )}
-          <Grid item>
+          <Grid>
             <FormControl component='fieldset'>
               <FormLabel>{t('isAuthRequired')}</FormLabel>
               <FormLabelDescription>
@@ -134,7 +134,7 @@ export default function FormThirdStep({
           </Grid>
           {authType !== 'None - 0' && (
             <>
-              <Grid item>
+              <Grid>
                 <FormControl
                   component='fieldset'
                   error={errors.authType !== undefined}
@@ -172,7 +172,7 @@ export default function FormThirdStep({
                   />
                 </FormControl>
               </Grid>
-              <Grid item>
+              <Grid>
                 <FormControl
                   component='fieldset'
                   fullWidth
@@ -200,7 +200,7 @@ export default function FormThirdStep({
                   />
                 </FormControl>
               </Grid>
-              <Grid item>
+              <Grid>
                 <FormControl component='fieldset' fullWidth>
                   <FormLabel>{t('form.authType.parameterName')}</FormLabel>
                   <FormLabelDescription>
@@ -219,7 +219,7 @@ export default function FormThirdStep({
           )}
 
           <Grid container spacing={2}>
-            <Grid item>
+            <Grid>
               <Button
                 onClick={() => {
                   handleBack(getValues());
@@ -230,7 +230,7 @@ export default function FormThirdStep({
                 {t('common:back')}
               </Button>
             </Grid>
-            <Grid item>
+            <Grid>
               <Button
                 type='submit'
                 variant='contained'

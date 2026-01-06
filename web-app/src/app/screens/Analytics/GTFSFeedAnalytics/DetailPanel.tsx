@@ -75,7 +75,7 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
   return (
     <Box sx={{ maxWidth: '800px', margin: 'auto', padding: 2 }}>
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{xs: 12, md: 6}}>
           <Typography variant='subtitle1' gutterBottom>
             Monthly Feed Validation Metrics
           </Typography>
@@ -101,7 +101,7 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
             </LineChart>
           </ResponsiveContainer>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{xs: 12, md: 6}}>
           <Box
             sx={{
               padding: 2,
