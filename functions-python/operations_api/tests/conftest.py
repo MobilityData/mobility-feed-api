@@ -40,6 +40,7 @@ feed_mdb_41 = Gtfsrealtimefeed(
     feed_contact_email="feed_contact_email",
     provider="provider A",
     entitytypes=[Entitytype(name="vp")],
+    operational_status="published",
 )
 
 feed_mdb_40 = Gtfsfeed(
@@ -76,6 +77,7 @@ feed_mdb_400 = Gtfsfeed(
     feed_contact_email="feed_contact_email",
     provider="provider C",
     gtfs_rt_feeds=[],
+    operational_status="published",
 )
 
 # Test license objects used by LicensesApiImpl tests

@@ -123,6 +123,18 @@ class OperationsApiImpl(BaseOperationsApi):
             limit_int = int(limit) if limit else 50
             offset_int = int(offset) if offset else 0
 
+            # filtered but unpaginated for total
+            total_query = get_feeds_query(
+                db_session=db_session,
+                search_query=search_query,
+                operation_status=operation_status,
+                data_type=data_type,
+                limit=None,
+                offset=None,
+                model=Feed,
+            )
+            total = total_query.count()
+
             query = get_feeds_query(
                 db_session=db_session,
                 search_query=search_query,
@@ -135,14 +147,10 @@ class OperationsApiImpl(BaseOperationsApi):
 
             logging.info("Executing query with data_type: %s", data_type)
 
-            total = query.count()
             feeds = query.all()
             logging.info("Retrieved %d feeds from database", len(feeds))
 
-            feed_list = []
-            for feed in feeds:
-                feed_list.append(OperationFeedImpl.from_orm(feed))
-
+            feed_list = [OperationFeedImpl.from_orm(feed) for feed in feeds]
             response = GetFeeds200Response(
                 total=total, offset=offset_int, limit=limit_int, feeds=feed_list
             )
