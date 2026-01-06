@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect } from 'react';
 import type ContextProviderProps from '../interface/ContextProviderProps';
 import { Provider } from 'react-redux';

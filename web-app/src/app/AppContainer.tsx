@@ -9,7 +9,7 @@ import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
 const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
-  const isAppLoading = useSelector(selectLoadingApp);
+  const isAppLoading = false;//useSelector(selectLoadingApp);
   const location = useLocation();
   const canonicalUrl = window.location.origin + location.pathname;
 
@@ -31,7 +31,6 @@ const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
         ) : (
           <>
             {children}
-            <Footer />
           </>
         )}
       </Box>

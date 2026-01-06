@@ -1,0 +1,51 @@
+import { cookies } from 'next/headers';
+import { app } from '../../firebase';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+
+/**
+ * Retrieves the Firebase access token from the 'firebase_token' cookie.
+ * If the cookie is missing, performs a server-side anonymous login to generate a token.
+ * This ensures SSR pages can access the API even for direct, unauthenticated visits.
+ */
+export async function getSSRAccessToken(): Promise<string> {
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get('firebase_token');
+
+  if (tokenCookie?.value) {
+    try {
+      // Basic JWT decoding to check expiry
+      const token = tokenCookie.value;
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(
+        Buffer.from(payloadBase64, 'base64').toString(),
+      );
+      const now = Math.floor(Date.now() / 1000);
+
+      if (payload.exp && payload.exp > now) {
+        return token;
+      }
+      console.log(
+        'SSR: Token found in cookie is expired, falling back to anonymous login.',
+      );
+    } catch (error) {
+      console.error('SSR: Error decoding token from cookie:', error);
+    }
+  }
+
+  // Fallback: Server-side Anonymous Login
+  // We use NONE persistence to verify we don't store this session in any shared environment storage
+  try {
+    const auth = app.auth();
+    await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+    const userCredential = await auth.signInAnonymously();
+    if (userCredential.user) {
+      const token = await userCredential.user.getIdToken();
+      return token;
+    }
+  } catch (error) {
+    console.error('Error during SSR anonymous login:', error);
+  }
+
+  return '';
+}

@@ -54,8 +54,8 @@ export enum ThemeModeEnum {
 }
 
 export const fontFamily = {
-  primary: '"Mulish"',
-  secondary: '"IBM Plex Mono"',
+  primary: 'var(--font-mulish)',
+  secondary: 'var(--font-ibm-plex-mono)',
 };
 
 const palette = {
