@@ -355,7 +355,7 @@ export default function Feed(): React.ReactElement {
     feedId,
     structuredData,
     <Box sx={{ position: 'relative' }}>
-      <Grid container item xs={12} spacing={3} alignItems={'end'}>
+      <Grid container size={12} spacing={3} alignItems={'end'}>
         <Button
           sx={{ py: 0 }}
           size='large'
@@ -372,7 +372,7 @@ export default function Feed(): React.ReactElement {
           {t('common:back')}
         </Button>
 
-        <Grid item>
+        <Grid>
           <Typography
             sx={{
               a: {
@@ -402,7 +402,7 @@ export default function Feed(): React.ReactElement {
         <FeedTitle sortedProviders={sortedProviders} feed={feed} />
       </Box>
       {feed?.feed_name !== '' && feed?.data_type === 'gtfs' && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography
             sx={{
               fontWeight: 'bold',
@@ -491,7 +491,7 @@ export default function Feed(): React.ReactElement {
 
       {feed?.data_type === 'gtfs_rt' &&
         (feed as GTFSRTFeedType)?.entity_types != undefined && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Typography variant='h5'>
               {' '}
               {((feed as GTFSRTFeedType)?.entity_types ?? [])
@@ -522,7 +522,7 @@ export default function Feed(): React.ReactElement {
           </WarningContentBox>
         )}
       {hasFeedRedirect && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <WarningContentBox>
             <Trans i18nKey='feedHasBeenReplaced'>
               This feed has been replaced with a different producer URL.
@@ -567,10 +567,9 @@ export default function Feed(): React.ReactElement {
         )}
         {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
       </Box>
-      <Grid item xs={12}>
+      <Grid size={12}>
         <Box
           sx={feedDetailContentContainerStyle({
-            theme,
             isGtfsRT: feed?.data_type === 'gtfs_rt',
           })}
         >
@@ -605,7 +604,7 @@ export default function Feed(): React.ReactElement {
       )}
 
       {feed?.data_type === 'gtfs' && hasDatasets && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <PreviousDatasets
             datasets={datasets}
             isLoadingDatasets={datasetLoadingStatus === 'loading'}
