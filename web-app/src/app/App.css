@@ -40,6 +40,6 @@
 #app-main-container {
   position: relative;
   min-height: 100vh;
-  padding-bottom: 230px; /* footer space */
+  padding-bottom: 20px;
   box-sizing: border-box;
 }
