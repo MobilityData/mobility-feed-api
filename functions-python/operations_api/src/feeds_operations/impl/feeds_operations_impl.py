@@ -111,6 +111,7 @@ class OperationsApiImpl(BaseOperationsApi):
     @with_db_session
     async def get_feeds(
         self,
+        search_query: Optional[str] = None,
         operation_status: Optional[str] = None,
         data_type: Optional[str] = None,
         offset: str = "0",
@@ -124,6 +125,7 @@ class OperationsApiImpl(BaseOperationsApi):
 
             query = get_feeds_query(
                 db_session=db_session,
+                search_query=search_query,
                 operation_status=operation_status,
                 data_type=data_type,
                 limit=limit_int,

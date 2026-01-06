@@ -231,3 +231,35 @@ async def test_get_feeds_unpublished_with_data_type():
     for feed in rt_response.feeds:
         assert feed.operational_status == "unpublished"
         assert feed.data_type == "gtfs_rt"
+
+
+@pytest.mark.asyncio
+async def test_get_feeds_search_query():
+    """
+    Test get_feeds endpoint with search query filter.
+    Should return only feeds matching the search query.
+    """
+    api = OperationsApiImpl()
+
+    response = await api.get_feeds(search_query="RT")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].feed_name == "London Transit Commission(RT"
+
+    response = await api.get_feeds(search_query=" Provider B ")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].provider == "provider B"
+
+    response = await api.get_feeds(search_query="mdb-41")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].stable_id == "mdb-41"
+
+    response = await api.get_feeds(search_query="mdb")
+    assert response is not None
+    assert response.total == 3
+    assert len(response.feeds) == 3

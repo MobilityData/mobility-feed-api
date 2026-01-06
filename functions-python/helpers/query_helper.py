@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from typing import Type
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.query import Query
 
@@ -75,6 +75,7 @@ def get_eager_loading_options(model: Type[Feed]):
 
 def get_feeds_query(
     db_session: Session,
+    search_query: str | None = None,
     operation_status: str | None = None,
     data_type: str | None = None,
     limit: int | None = None,
@@ -86,6 +87,7 @@ def get_feeds_query(
 
     Args:
         db_session: SQLAlchemy session
+        search_query: Optional general search query
         operation_status: Optional filter for operational status (wip or published)
         data_type: Optional filter for feed type (gtfs or gtfs_rt)
         limit: Maximum number of items to return
@@ -114,6 +116,16 @@ def get_feeds_query(
             conditions.append(model.operational_status == operation_status)
             logging.info("Added operational_status filter: %s", operation_status)
 
+        if search_query and search_query.strip():
+            search_pattern = f"%{search_query.strip()}%"
+            conditions.append(
+                or_(
+                    model.stable_id.ilike(search_pattern),
+                    model.feed_name.ilike(search_pattern),
+                    model.provider.ilike(search_pattern),
+                )
+            )
+            logging.info("Added search_query filter: %s", search_query)
         query = db_session.query(model)
         logging.info("Created base query with model %s", model.__name__)
 
