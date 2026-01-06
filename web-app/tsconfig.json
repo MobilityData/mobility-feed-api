@@ -19,14 +19,31 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "jest", "cypress"],
+    "types": [
+      "node",
+      "jest",
+      "cypress"
+    ],
     "paths": {
-      "react": [ "./node_modules/@types/react" ]
-    }
+      "react": [
+        "./node_modules/@types/react"
+      ]
+    },
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "src",
     "cypress/**/*.ts",
-    "jest-global-setup.ts"
+    "jest-global-setup.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
+  "exclude": [
+    "node_modules"
+  ]
 }

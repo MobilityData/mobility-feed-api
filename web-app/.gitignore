@@ -29,3 +29,5 @@ cypress/screenshots
 cypress/videos
 
 .env.*
+
+.next
