@@ -1,7 +1,8 @@
+'use client';
+
 import { Box, styled, type SxProps, type Theme } from '@mui/material';
 
 export const feedDetailContentContainerStyle = (props: {
-  theme: Theme;
   isGtfsRT: boolean;
 }): SxProps => {
   return {

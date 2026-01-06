@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -10,7 +12,7 @@ import {
   Fab,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { WarningContentBox } from './WarningContentBox';
@@ -213,7 +215,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             size='small'
             sx={{ position: 'absolute', top: 16, right: 16 }}
             component={Link}
-            to='./map'
+            href='./map'
           >
             <ZoomOutMapIcon></ZoomOutMapIcon>
           </Fab>
@@ -324,7 +326,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
                   variant='text'
                   disableElevation
                   component={Link}
-                  to='./map'
+                  href='./map'
                   onClick={handleOpenDetailedMapClick}
                   endIcon={<OpenInNewIcon></OpenInNewIcon>}
                 >

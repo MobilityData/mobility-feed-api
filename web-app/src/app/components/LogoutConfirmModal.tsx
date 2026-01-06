@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Box,
   DialogTitle,
@@ -11,7 +13,7 @@ import React from 'react';
 import { useAppDispatch } from '../hooks';
 import { logout } from '../store/profile-reducer';
 import { SIGN_OUT_TARGET } from '../constants/Navigation';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 interface ConfirmModalProps {
   openDialog: boolean;
@@ -23,10 +25,14 @@ export default function ConfirmModal({
   setOpenDialog,
 }: ConfirmModalProps): React.ReactElement {
   const dispatch = useAppDispatch();
-  const navigateTo = useNavigate();
+  const router = useRouter();
   const confirmLogout = (): void => {
     dispatch(
-      logout({ redirectScreen: SIGN_OUT_TARGET, navigateTo, propagate: true }),
+      logout({
+        redirectScreen: SIGN_OUT_TARGET,
+        navigateTo: ((path: string) => router.push(path)) as any,
+        propagate: true,
+      }),
     );
     setOpenDialog(false);
   };
