@@ -1,3 +1,5 @@
+'use client';
+
 import { Chip, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { verificationBadgeStyle } from '../styles/VerificationBadge.styles';
