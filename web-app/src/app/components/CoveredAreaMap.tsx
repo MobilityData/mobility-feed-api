@@ -17,12 +17,15 @@ import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { WarningContentBox } from './WarningContentBox';
 import { mapBoxPositionStyle } from '../screens/Feed/Feed.styles';
-import {
-  type GeoJSONData,
-  type GeoJSONDataGBFS,
-  MapGeoJSON,
-} from './MapGeoJSON';
-import { Map } from './Map';
+import dynamic from 'next/dynamic';
+import { type GeoJSONData, type GeoJSONDataGBFS } from './MapGeoJSON';
+const MapGeoJSON = dynamic(
+  () => import('./MapGeoJSON').then((mod) => mod.MapGeoJSON),
+  { ssr: false },
+);
+const Map = dynamic(() => import('./Map').then((mod) => mod.Map), {
+  ssr: false,
+});
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
@@ -200,7 +203,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       view === 'gtfsVisualizationView' && feed?.data_type === 'gtfs';
 
     if (displayBoundingBoxMap && boundingBox != undefined) {
-      return <Map polygon={boundingBox} />;
+      return <Map key={`bbox-${feed?.id}`} polygon={boundingBox} />;
     }
 
     if (
@@ -245,6 +248,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         feed?.data_type === 'gtfs' ? boundingBox ?? [] : gbfsGeoJsonBoundingBox;
       return (
         <MapGeoJSON
+          key={`geojson-${feed?.id}`}
           geoJSONData={geoJsonData}
           polygon={feedBoundingBox}
           displayMapDetails={feed?.data_type === 'gtfs'}
@@ -394,7 +398,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         )}
 
       {(boundingBox != undefined || !geoJsonError) && (
-        <Box sx={mapBoxPositionStyle}>
+        <Box key={view} sx={mapBoxPositionStyle}>
           {geoJsonLoading || routesJsonLoadingStatus === 'loading' ? (
             <Skeleton
               variant='rectangular'

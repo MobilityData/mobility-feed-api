@@ -1,18 +1,20 @@
+'use client';
+
 import * as React from 'react';
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
-import {
-  type LatLngBoundsExpression,
-  type LatLngExpression,
-  type LeafletMouseEvent,
-} from 'leaflet';
+import MapGL, {
+  NavigationControl,
+  Source,
+  Layer,
+  Popup,
+} from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { type LatLngExpression } from 'leaflet';
 import { Trans, useTranslation } from 'react-i18next';
 import { PopupTable } from './PopupTable';
-import { createRoot } from 'react-dom/client';
 import { useTheme } from '@mui/material/styles';
-import { ThemeModeEnum } from '../Theme';
 import { Box, Typography, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { getBoundsFromCoordinates } from './GtfsVisualizationMap.functions';
 
 export interface GeoJSONData {
   type: 'FeatureCollection' | 'Feature' | 'GeometryCollection';
@@ -43,13 +45,15 @@ export const MapGeoJSON = (
   const theme = useTheme();
   const { t } = useTranslation('feeds');
   const { geoJSONData, displayMapDetails = true } = props;
+  const [ready, setReady] = React.useState(false);
+  const [popupInfo, setPopupInfo] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    setReady(true);
+  }, []);
+
   const bounds = React.useMemo(() => {
-    return props.polygon.length > 0
-      ? (props.polygon as LatLngBoundsExpression)
-      : ([
-          [0, 0],
-          [0, 0],
-        ] as LatLngBoundsExpression);
+    return getBoundsFromCoordinates(props.polygon as any);
   }, [props.polygon]);
 
   if (!displayMapDetails) {
@@ -60,141 +64,170 @@ export const MapGeoJSON = (
     });
   }
 
-  const handleFeatureClick = (
-    e: LeafletMouseEvent,
-    previousColor: string,
-  ): void => {
-    const currentSelection = e.target as L.Path;
-    currentSelection.setStyle({ color: theme.palette.primary.main });
-    currentSelection.on('popupclose', () => {
-      currentSelection.setStyle({ color: previousColor });
-    });
-  };
-
-  const mapTiles =
-    theme.palette.mode === ThemeModeEnum.dark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  if (!ready) {
+    return (
+      <Box
+        style={{ minHeight: '400px', height: '100%', width: '100%' }}
+        data-testid='map-geojson-loading'
+      />
+    );
+  }
 
   return (
     <Box
       sx={{
-        '.leaflet-popup-content-wrapper': {
-          background: theme.palette.background.default,
-        },
-        '.leaflet-popup-tip': {
-          background: theme.palette.background.default,
-        },
         minHeight: '400px',
         height: '100%',
+        position: 'relative',
       }}
     >
-      <MapContainer
-        bounds={bounds}
-        zoom={8}
-        style={{ minHeight: '400px', height: '100%' }}
+      <MapGL
+        initialViewState={{
+          bounds,
+          fitBoundsOptions: { padding: 50 },
+        }}
+        style={{ minHeight: '400px', height: '100%', width: '100%' }}
         data-testid='geojson-map'
+        interactiveLayerIds={['geojson-fill']}
+        onClick={(e) => {
+          const feature = e.features?.[0];
+          if (feature != null) {
+            setPopupInfo({
+              lngLat: e.lngLat,
+              properties: feature.properties,
+            });
+          }
+        }}
+        mapStyle={{
+          version: 8,
+          sources: {
+            'raster-tiles': {
+              type: 'raster',
+              tiles: [theme.map.basemapTileUrl],
+              tileSize: 256,
+              attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            },
+          },
+          layers: [
+            {
+              id: 'basemap',
+              type: 'raster',
+              source: 'raster-tiles',
+              minzoom: 0,
+              maxzoom: 22,
+            },
+          ],
+        }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={mapTiles}
-        />
-        {props.geoJSONData !== null && displayMapDetails && (
+        <Source id='geojson-source' type='geojson' data={geoJSONData as any}>
+          <Layer
+            id='geojson-fill'
+            type='fill'
+            paint={{
+              'fill-color': [
+                'coalesce',
+                ['get', 'color'],
+                theme.palette.primary.main,
+              ],
+              'fill-opacity': 0.3,
+            }}
+          />
+          <Layer
+            id='geojson-outline'
+            type='line'
+            paint={{
+              'line-color': [
+                'coalesce',
+                ['get', 'color'],
+                theme.palette.primary.main,
+              ],
+              'line-width': 2,
+            }}
+          />
+        </Source>
+        <NavigationControl position='top-right' />
+        {popupInfo != null && (
+          <Popup
+            longitude={popupInfo.lngLat.lng}
+            latitude={popupInfo.lngLat.lat}
+            anchor='bottom'
+            onClose={() => {
+              setPopupInfo(null);
+            }}
+            closeOnClick={false}
+          >
+            <PopupTable properties={popupInfo.properties} theme={theme} />
+          </Popup>
+        )}
+      </MapGL>
+      {props.geoJSONData !== null && displayMapDetails && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 20,
+            right: 16,
+            background: theme.palette.background.paper,
+            padding: 1,
+            borderRadius: 2,
+            boxShadow: 3,
+            maxWidth: 175,
+            zIndex: 1000,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography style={{ fontSize: '0.85rem', fontWeight: 800 }}>
+              {t('heatmapIntensity')}
+            </Typography>
+            <Tooltip
+              title={
+                <React.Fragment>
+                  <Typography sx={{ fontWeight: 800 }}>
+                    <strong>{t('heatmapExplanationTitle')}</strong>
+                  </Typography>
+                  <div>
+                    {' '}
+                    <Trans
+                      i18nKey={t('heatmapExplanationContent')}
+                      components={{ code: <code /> }}
+                    />
+                  </div>
+                </React.Fragment>
+              }
+            >
+              <InfoOutlinedIcon
+                sx={{
+                  fontSize: '16px',
+                  color: theme.palette.text.secondary,
+                  cursor: 'pointer',
+                }}
+              />
+            </Tooltip>
+          </Box>
           <Box
             sx={{
-              position: 'absolute',
-              bottom: 20,
-              right: 16,
-              background: theme.palette.background.paper,
-              padding: 1,
-              borderRadius: 2,
-              boxShadow: 3,
-              maxWidth: 175,
-              zIndex: 1000,
+              width: '100%',
+              height: '16px',
+              background: `linear-gradient(to right, #fb8c58, #7f0000)`,
+              marginTop: 2,
+              marginBottom: 1,
+              borderRadius: 1,
+            }}
+          />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '0.75rem',
+              gap: 2,
+              color: theme.palette.text.secondary,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography style={{ fontSize: '0.85rem', fontWeight: 800 }}>
-                {t('heatmapIntensity')}
-              </Typography>
-              <Tooltip
-                title={
-                  <React.Fragment>
-                    <Typography sx={{ fontWeight: 800 }}>
-                      <strong>{t('heatmapExplanationTitle')}</strong>
-                    </Typography>
-                    <div>
-                      {' '}
-                      <Trans
-                        i18nKey={t('heatmapExplanationContent')}
-                        components={{ code: <code /> }}
-                      />
-                    </div>
-                  </React.Fragment>
-                }
-              >
-                <InfoOutlinedIcon
-                  sx={{
-                    fontSize: '16px',
-                    color: theme.palette.text.secondary,
-                    cursor: 'pointer',
-                  }}
-                />
-              </Tooltip>
-            </Box>
-            <Box
-              sx={{
-                width: '100%',
-                height: '16px',
-                background: `linear-gradient(to right, #fb8c58, #7f0000)`,
-                marginTop: 2,
-                marginBottom: 1,
-                borderRadius: 1,
-              }}
-            />
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.75rem',
-                gap: 2,
-                color: theme.palette.text.secondary,
-              }}
-            >
-              <span>{t('heatmapLower')}</span>
-              <span>{t('heatmapHigher')}</span>
-            </Box>
+            <span>{t('heatmapLower')}</span>
+            <span>{t('heatmapHigher')}</span>
           </Box>
-        )}
-
-        {geoJSONData !== null && (
-          <GeoJSON
-            data={geoJSONData}
-            onEachFeature={(feature, layer) => {
-              const container = document.createElement('div');
-              container.style.background = theme.palette.background.default;
-              const root = createRoot(container);
-              const featureProperties = feature?.properties ?? {};
-              root.render(
-                <PopupTable properties={featureProperties} theme={theme} />,
-              );
-              layer.bindPopup(container);
-              // Handle feature clicks
-              layer.on({
-                click: (e) => {
-                  handleFeatureClick(e, featureProperties?.color ?? '#3388ff');
-                },
-              });
-            }}
-            style={(feature) => ({
-              weight: 3,
-              opacity: 1,
-              color: feature?.properties?.color ?? '#3388ff',
-              fillOpacity: 0.3,
-            })}
-          />
-        )}
-      </MapContainer>
+        </Box>
+      )}
     </Box>
   );
 };

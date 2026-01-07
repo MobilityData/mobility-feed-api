@@ -1,3 +1,5 @@
+'use client';
+
 import { type RouteIdsInput } from '../utils/precompute';
 import {
   type ExpressionSpecification,
