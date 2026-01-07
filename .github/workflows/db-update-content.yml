@@ -137,11 +137,18 @@ jobs:
     - name: Get full path of sources.csv
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
       id: getpath
-      run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
+      run: echo "GTFS_PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
+
+    - name: GTFS - Upload sources.csv file for verification
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: sources-${{ inputs.ENVIRONMENT }}-verification.csv
+        path: ${{ steps.getpath.outputs.GTFS_PATH }}
 
     - name: GTFS - Update Database Content
       if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
-      run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
+      run: scripts/populate-db.sh ${{ steps.getpath.outputs.GTFS_PATH }} > populate.log
 
     - name: GTFS - Upload log file for verification
       if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
@@ -157,11 +164,18 @@ jobs:
     - name: Get full path of systems.csv
       if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
       id: getsyspath
-      run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
+      run: echo "GBFS_PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
+
+    - name: GBFS - Upload systems.csv file for verification
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: systems-${{ inputs.ENVIRONMENT }}-verification.csv
+        path: ${{ steps.getpath.outputs.GBFS_PATH }}
 
     - name: GBFS - Update Database Content
       if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
-      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
+      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.GBFS_PATH }} gbfs >> populate-gbfs.log
 
     - name: GBFS - Upload log file for verification
       if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
