@@ -109,7 +109,7 @@ class OperationsApiImpl(BaseOperationsApi):
             )
 
     @with_db_session
-    async def get_feeds(
+    def handle_get_feeds(
         self,
         search_query: Optional[str] = None,
         operation_status: Optional[str] = None,
@@ -162,6 +162,20 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(
                 status_code=500, detail=f"Internal server error: {str(e)}"
             )
+
+    async def get_feeds(
+        self,
+        search_query: Optional[str] = None,
+        operation_status: Optional[str] = None,
+        data_type: Optional[str] = None,
+        offset: str = "0",
+        limit: str = "50",
+        db_session: Session = None,
+    ) -> GetFeeds200Response:
+        """Get a list of feeds with optional filtering and pagination."""
+        return self.handle_get_feeds(
+            search_query, operation_status, data_type, offset, limit
+        )
 
     @with_db_session
     async def get_gtfs_feed(
