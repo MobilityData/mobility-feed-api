@@ -38,8 +38,9 @@ feed_mdb_41 = Gtfsrealtimefeed(
     stable_id="mdb-41",
     status="active",
     feed_contact_email="feed_contact_email",
-    provider="provider",
+    provider="provider A",
     entitytypes=[Entitytype(name="vp")],
+    operational_status="published",
 )
 
 feed_mdb_40 = Gtfsfeed(
@@ -56,7 +57,7 @@ feed_mdb_40 = Gtfsfeed(
     stable_id="mdb-40",
     status="active",
     feed_contact_email="feed_contact_email",
-    provider="provider",
+    provider="provider B",
     gtfs_rt_feeds=[feed_mdb_41],
     operational_status="wip",
 )
@@ -74,8 +75,9 @@ feed_mdb_400 = Gtfsfeed(
     stable_id="mdb-400",
     status="active",
     feed_contact_email="feed_contact_email",
-    provider="provider",
+    provider="provider C",
     gtfs_rt_feeds=[],
+    operational_status="published",
 )
 
 # Test license objects used by LicensesApiImpl tests
