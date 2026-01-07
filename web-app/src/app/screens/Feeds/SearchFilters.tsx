@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { DATASET_FEATURES, groupFeaturesByComponent } from '../../utils/consts';
 import { type GbfsVersionConfig } from '../../interface/RemoteConfig';
 import { SearchHeader } from '../../styles/Filters.styles';
+import { type AllowedFeedSearchStatus } from './utility';
 
 function setInitialExpandGroup(): Record<string, boolean> {
   const expandGroup: Record<string, boolean> = {};
@@ -24,13 +25,16 @@ interface SearchFiltersProps {
   selectedFeedTypes: Record<string, boolean>;
   isOfficialFeedSearch: boolean;
   selectedFeatures: string[];
+  selectedStatuses: AllowedFeedSearchStatus[];
   selectedGbfsVersions: string[];
   setSelectedFeedTypes: (selectedFeedTypes: Record<string, boolean>) => void;
   setIsOfficialFeedSearch: (isOfficialFeedSearch: boolean) => void;
   setSelectedFeatures: (selectedFeatures: string[]) => void;
+  setSelectedStatuses: (selectedStatuses: AllowedFeedSearchStatus[]) => void;
   setSelectedGbfsVerions: (selectedVersions: string[]) => void;
   isOfficialTagFilterEnabled: boolean;
   areFeatureFiltersEnabled: boolean;
+  areStatusFiltersEnabled: boolean;
   areGBFSFiltersEnabled: boolean;
 }
 
@@ -38,13 +42,16 @@ export function SearchFilters({
   selectedFeedTypes,
   isOfficialFeedSearch,
   selectedFeatures,
+  selectedStatuses,
   selectedGbfsVersions,
   setSelectedFeedTypes,
   setIsOfficialFeedSearch,
   setSelectedFeatures,
+  setSelectedStatuses,
   setSelectedGbfsVerions,
   isOfficialTagFilterEnabled,
   areFeatureFiltersEnabled,
+  areStatusFiltersEnabled,
   areGBFSFiltersEnabled,
 }: SearchFiltersProps): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -57,6 +64,7 @@ export function SearchFilters({
   >({
     features: areFeatureFiltersEnabled,
     tags: isOfficialTagFilterEnabled,
+    status: areStatusFiltersEnabled,
     gbfsVersions: true,
   });
   const [featureCheckboxData, setFeatureCheckboxData] = useState<
@@ -164,10 +172,94 @@ export function SearchFilters({
         </>
       )}
 
+      <Accordion
+        disableGutters
+        sx={{
+          border: 0,
+          '&::before': {
+            display: 'none',
+          },
+        }}
+        variant={'outlined'}
+        expanded={expandedCategories.status && areStatusFiltersEnabled}
+        onChange={() => {
+          setExpandedCategories({
+            ...expandedCategories,
+            status: !expandedCategories.status,
+          });
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls='panel-status-content'
+          sx={{ px: 0 }}
+        >
+          <SearchHeader
+            variant='h6'
+            sx={areStatusFiltersEnabled ? {} : { opacity: 0.5 }}
+          >
+            Status
+          </SearchHeader>
+        </AccordionSummary>
+        <AccordionDetails
+          sx={{
+            p: 0,
+            m: 0,
+            border: 0,
+            '&.Mui-expanded': { m: 0, minHeight: 'initial' },
+          }}
+        >
+          <NestedCheckboxList
+            disableAll={!areStatusFiltersEnabled}
+            debounceTime={300}
+            checkboxData={[
+              {
+                title: t('feedStatus.active.label'),
+                checked: selectedStatuses.includes('active'),
+                type: 'checkbox',
+                props: { key: 'active' },
+              },
+              {
+                title: t('feedStatus.inactive.label'),
+                checked: selectedStatuses.includes('inactive'),
+                type: 'checkbox',
+                props: { key: 'inactive' },
+              },
+              {
+                title: t('feedStatus.future.label'),
+                checked: selectedStatuses.includes('future'),
+                type: 'checkbox',
+                props: { key: 'future' },
+              },
+            ]}
+            onCheckboxChange={(checkboxData) => {
+              const statuses: AllowedFeedSearchStatus[] = [];
+              checkboxData.forEach((cb) => {
+                if (cb.checked) {
+                  if (
+                    cb.props?.key === 'active' ||
+                    cb.props?.key === 'inactive' ||
+                    cb.props?.key === 'future'
+                  ) {
+                    statuses.push(cb.props.key);
+                  }
+                }
+              });
+              setSelectedStatuses(statuses);
+            }}
+          />
+        </AccordionDetails>
+      </Accordion>
+
       {config.enableFeatureFilterSearch && (
         <Accordion
           disableGutters
-          sx={{ border: 0 }}
+          sx={{
+            border: 0,
+            '&::before': {
+              display: 'none',
+            },
+          }}
           variant={'outlined'}
           expanded={expandedCategories.features && areFeatureFiltersEnabled}
           onChange={() => {
