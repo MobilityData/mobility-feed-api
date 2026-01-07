@@ -10,7 +10,6 @@ import ChangePassword from '../screens/ChangePassword';
 import Home from '../screens/Home';
 import ForgotPassword from '../screens/ForgotPassword';
 import FAQ from '../screens/FAQ';
-import About from '../screens/About';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
@@ -91,7 +90,6 @@ export const AppRouter: React.FC = () => {
       </Route>
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />
-      <Route path='about' element={<About />} />
       <Route path='contact-us' element={<ContactUs />} />
       <Route path='feeds' element={<Feeds />} />
       <Route
