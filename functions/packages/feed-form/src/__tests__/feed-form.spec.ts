@@ -2,55 +2,94 @@ import {
   buildFeedRow,
   buildFeedRows,
   SheetCol,
+  writeToSheet,
 } from "../impl/feed-form-impl";
-import {type FeedSubmissionFormRequestBody} from "../impl/types";
+import * as logger from "firebase-functions/logger";
+import {sampleRequestBodyGTFS, sampleRequestBodyGTFSRT} from "../impl/__mocks__/FeedSubmissionFormRequestBody.mock";
+import {HttpsError} from "firebase-functions/v2/https";
 
-const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
-  name: "Sample Feed",
-  isOfficialProducer: "yes",
-  isOfficialFeed: "yes",
-  dataType: "gtfs",
-  transitProviderName: "Sample Transit Provider",
-  feedLink: "https://example.com/feed",
-  isUpdatingFeed: "yes",
-  oldFeedLink: "https://example.com/old-feed",
-  licensePath: "/path/to/license",
-  country: "USA",
-  region: "California",
-  municipality: "San Francisco",
-  tripUpdates: "",
-  vehiclePositions: "",
-  serviceAlerts: "",
-  gtfsRelatedScheduleLink: "https://example.com/gtfs-schedule",
-  authType: "None - 0",
-  authSignupLink: "https://example.com/signup",
-  authParameterName: "auth_token",
-  dataProducerEmail: "producer@example.com",
-  isInterestedInQualityAudit: "yes",
-  userInterviewEmail: "interviewee@example.com",
-  whatToolsUsedText: "Google Sheets, Node.js",
-  hasLogoPermission: "yes",
-  unofficialDesc: "For research purposes",
-  updateFreq: "every month",
-  emptyLicenseUsage: "unsure",
-};
+jest.mock("google-spreadsheet", () => ({
+  GoogleSpreadsheet: jest.fn().mockImplementation(() => ({
+    loadInfo: jest.fn(),
+    sheetsByIndex: [
+      {
+        addRows: jest.fn(),
+      },
+    ],
+  })),
+}));
+jest.mock("google-auth-library", () => ({
+  GoogleAuth: jest.fn(),
+}));
 
-const sampleRequestBodyGTFSRT: FeedSubmissionFormRequestBody = {
-  ...sampleRequestBodyGTFS,
-  dataType: "gtfs_rt",
-  feedLink: "",
-  tripUpdates: "https://example.com/gtfs-realtime-trip-update",
-  vehiclePositions: "https://example.com/gtfs-realtime-vehicle-position",
-  serviceAlerts: "https://example.com/gtfs-realtime-service-alerts",
-  oldTripUpdates: "https://example.com/old-feed-tu",
-  oldServiceAlerts: "https://example.com/old-feed-sa",
-  oldVehiclePositions: "https://example.com/old-feed-vp",
-};
+const mockCreateGithubIssue = jest.fn().mockResolvedValue("https://github.com/issue/1");
+const mockSendSlackWebhook = jest.fn().mockResolvedValue(undefined);
+
+jest.mock("../impl/utils/github-issue", () => ({
+  createGithubIssue: (...args: any[]) => mockCreateGithubIssue(...args),
+}));
+jest.mock("../impl/utils/slack", () => ({
+  sendSlackWebhook: (...args: any[]) => mockSendSlackWebhook(...args),
+}));
+
+jest.spyOn(logger, "error").mockImplementation(() => {});
+
+const defaultEnv = process.env;
 
 describe("Feed Form Implementation", () => {
+
   beforeAll(() => {
     const mockDate = new Date("2023-08-01T00:00:00Z");
     jest.spyOn(global, "Date").mockImplementation(() => mockDate);
+  });
+
+    beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...defaultEnv };
+    process.env.FEED_SUBMIT_GOOGLE_SHEET_ID = "sheet123";
+    process.env.GCLOUD_PROJECT = "mobility-feeds-prod";
+    process.env.GITHUB_TOKEN = "token";
+    process.env.SLACK_WEBHOOK_URL = "https://slack";
+  });
+
+  afterAll(() => {
+    process.env = defaultEnv;
+  });
+
+  it("should throw HttpsError if sheet ID is not defined", async () => {
+    process.env.FEED_SUBMIT_GOOGLE_SHEET_ID = "";
+    const mockRequest = {
+      auth: { uid: "user1" },
+      data: sampleRequestBodyGTFS,
+    };
+    await expect(writeToSheet(mockRequest as any)).rejects.toThrow(HttpsError);
+    expect(logger.error).toHaveBeenCalledWith(
+      "Error writing to sheet:",
+      expect.any(HttpsError)
+    );
+  });
+
+  it("writeToSheet writes to sheet, creates github issue, sends slack, returns success", async () => {
+    const mockRequest = {
+      auth: { uid: "user1" },
+      data: sampleRequestBodyGTFS,
+    };
+    const result = await writeToSheet(mockRequest as any);
+    const { GoogleSpreadsheet } = require("google-spreadsheet");
+    expect(GoogleSpreadsheet).toHaveBeenCalledWith("sheet123", expect.anything());
+    const doc = GoogleSpreadsheet.mock.results[0].value;
+    expect(doc.loadInfo).toHaveBeenCalled();
+    expect(doc.sheetsByIndex[0].addRows).toHaveBeenCalledWith(
+      expect.any(Array),
+      { insert: true }
+    );
+    expect(mockCreateGithubIssue).toHaveBeenCalled();
+    expect(mockSendSlackWebhook).toHaveBeenCalledWith(
+      "sheet123",
+      "https://github.com/issue/1",
+      true
+    );
+    expect(result).toEqual({ message: "Data written to the new sheet successfully!" });
   });
 
   it("should build the rows if gtfs schedule", () => {

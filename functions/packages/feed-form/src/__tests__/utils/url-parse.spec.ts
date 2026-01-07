@@ -1,4 +1,4 @@
-import { isValidZipUrl, isValidZipDownload } from "../impl/utils";
+import { isValidZipUrl, isValidZipDownload } from "../../impl/utils/url-parse";
 import axios from "axios";
 
 jest.mock("axios");
