@@ -31,27 +31,60 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import { WEB_VALIDATOR_LINK } from '../../../constants/Navigation';
 import { formatServiceDateRange } from '../Feed.functions';
 import { useTranslation } from 'react-i18next';
+import { useAppSelector } from '../../../hooks';
+import { getGtfsFeedDatasets } from '../../../services/feeds';
 
 export interface PreviousDatasetsProps {
-  datasets:
-    | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
-    | undefined;
-  isLoadingDatasets: boolean;
-  hasloadedAllDatasets: boolean;
-  loadMoreDatasets: (offset: number) => void;
+  initialDatasets?: paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json'];
+  feedId: string;
 }
 
 export default function PreviousDatasets({
-  datasets,
-  isLoadingDatasets,
-  hasloadedAllDatasets,
-  loadMoreDatasets,
+  initialDatasets,
+  feedId,
 }: PreviousDatasetsProps): React.ReactElement {
   const theme = useTheme();
   const { t } = useTranslation('feeds');
+  const [datasets, setDatasets] = React.useState(initialDatasets || []);
+  const [isLoadingDatasets, setIsLoadingDatasets] = React.useState(false);
+  const [hasloadedAllDatasets, setHasLoadedAllDatasets] = React.useState(
+    (initialDatasets?.length || 0) < 10,
+  );
   const [scrollPosition, setScrollPosition] = React.useState(0);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+
+  const accessToken = useAppSelector(
+    (state) => state.userProfile.user?.accessToken,
+  );
+
+  const loadMoreDatasets = React.useCallback(
+    async (offset: number) => {
+      if (isLoadingDatasets || hasloadedAllDatasets || !accessToken) return;
+
+      setIsLoadingDatasets(true);
+      try {
+        const newDatasets = await getGtfsFeedDatasets(feedId, accessToken, {
+          limit: 10,
+          offset,
+        });
+
+        if (newDatasets) {
+          if (newDatasets.length < 10) {
+            setHasLoadedAllDatasets(true);
+          }
+          setDatasets((prev) => [...prev, ...newDatasets]);
+        } else {
+          setHasLoadedAllDatasets(true);
+        }
+      } catch (error) {
+        console.error('Error loading more datasets:', error);
+      } finally {
+        setIsLoadingDatasets(false);
+      }
+    },
+    [feedId, accessToken, isLoadingDatasets, hasloadedAllDatasets],
+  );
 
   React.useEffect(() => {
     const observer = new IntersectionObserver(
@@ -76,7 +109,7 @@ export default function PreviousDatasets({
     return () => {
       if (bottomRef.current != null) observer.unobserve(bottomRef.current);
     };
-  }, [datasets, hasloadedAllDatasets]);
+  }, [datasets, hasloadedAllDatasets, isLoadingDatasets, loadMoreDatasets]);
 
   /**
    * When datasets loads, the default behavior is to bring the user to the bottom
@@ -90,7 +123,7 @@ export default function PreviousDatasets({
         list.scrollTop = scrollPosition + 150;
       }
     }
-  }, [datasets]);
+  }, [datasets, scrollPosition]);
 
   return (
     <>
