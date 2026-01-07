@@ -279,14 +279,14 @@ paths:
       parameters:
         - name: offset
           in: query
-          description: Number of items to skip for pagination.
+          description: Number of items to skip for pagination. Defined as string rather than integer due to https://github.com/OpenAPITools/openapi-generator/issues/21905
           required: false
           schema:
             type: string
             default: "0"
         - name: limit
           in: query
-          description: Maximum number of items to return.
+          description: Maximum number of items to return. Defined as string rather than integer due to https://github.com/OpenAPITools/openapi-generator/issues/21905
           required: false
           schema:
             type: string
