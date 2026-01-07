@@ -27,6 +27,12 @@ paths:
       tags:
         - "operations"
       parameters:
+        - name: search_query
+          in: query
+          description: General search query to match against feed stable id, feed name and feed provider.
+          required: False
+          schema:
+            type: string      
         - name: operation_status
           in: query
           description: Filter feeds by operational status.
