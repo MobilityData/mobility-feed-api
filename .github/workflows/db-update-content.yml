@@ -171,7 +171,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: systems-${{ inputs.ENVIRONMENT }}-verification.csv
-        path: ${{ steps.getpath.outputs.GBFS_PATH }}
+        path: ${{ steps.getsyspath.outputs.GBFS_PATH }}
 
     - name: GBFS - Update Database Content
       if: ${{ !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
