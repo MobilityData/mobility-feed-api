@@ -1,13 +1,15 @@
 import { Container, Typography, Button } from '@mui/material';
-import { MainPageHeader } from '../styles/PageHeader.style';
-import { ColoredContainer } from '../styles/PageLayout.style';
+// import { MainPageHeader } from '../styles/PageHeader.style';
+// import { ColoredContainer } from '../styles/PageLayout.style';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function Page() {
   return (
     <Container component='main'>
-      <MainPageHeader>About</MainPageHeader>
-      <ColoredContainer maxWidth={false} sx={{ mt: 3 }}>
+      {/* <MainPageHeader>About</MainPageHeader> */}
+      {/* <ColoredContainer maxWidth={false} sx={{ mt: 3 }}> */}
+      <h1>About</h1>
+      <Container>
         <Typography sx={{ fontWeight: 700 }}>
           The Mobility Database is an open catalog including over 4000 GTFS,
           GTFS Realtime, and GBFS feeds in over 75 countries. It integrates with
@@ -92,7 +94,7 @@ export default function Page() {
             </li>
           </ul>
         </Typography>
-      </ColoredContainer>
+      </Container>
     </Container>
   );
 }
