@@ -277,8 +277,21 @@ paths:
         - "licenses"
       operationId: getLicenses
       parameters:
-        - $ref: "#/components/parameters/limit_query_param_licenses_endpoint"
-        - $ref: "#/components/parameters/offset"
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination.
+          required: false
+          schema:
+            type: string
+            default: "0"
+        - name: limit
+          in: query
+          description: Maximum number of items to return.
+          required: false
+          schema:
+            type: string
+            default: "50"
+            example: "100"
         - $ref: "#/components/parameters/search_text_query_param_license"
         - $ref: "#/components/parameters/license_is_spdx_query_param"
       security:
