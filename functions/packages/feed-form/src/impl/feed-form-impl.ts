@@ -5,6 +5,7 @@ import {type FeedSubmissionFormRequestBody} from "./types";
 import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
 import axios from "axios";
 import {countries, continents, type TCountryCode} from "countries-list";
+import {isValidZipUrl, isValidZipDownload} from "./utils";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
@@ -211,7 +212,7 @@ export function buildFeedRow(
  * @param {string} githubIssueUrl The URL of the created GitHub issue
  * @param {boolean} isOfficialSource Whether the feed is an official source
  */
-async function sendSlackWebhook(
+export async function sendSlackWebhook(
   spreadsheetId: string,
   githubIssueUrl: string,
   isOfficialSource: boolean
@@ -308,7 +309,7 @@ async function sendSlackWebhook(
  * @param  {string} githubToken github token to create the issue
  * @return {Promise<string>} The URL of the created GitHub issue
  */
-async function createGithubIssue(
+export async function createGithubIssue(
   formData: FeedSubmissionFormRequestBody,
   spreadsheetId: string,
   githubToken: string
@@ -327,7 +328,17 @@ async function createGithubIssue(
   if (formData.country && formData.country in countries) {
     const country = countries[formData.country as TCountryCode];
     const continent = continents[country.continent].toLowerCase();
-    if (continent != null) labels.push(continent);
+    if (continent != null) labels.push(`region/${continent}`);
+  }
+
+  if (formData.authType !== "None - 0") {
+    labels.push("auth required");
+  }
+
+  if (!isValidZipUrl(formData.feedLink)) {
+    if (!await isValidZipDownload(formData.feedLink)) {
+      labels.push("invalid");
+    }
   }
 
   try {
