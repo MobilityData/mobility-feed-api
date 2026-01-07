@@ -1,15 +1,9 @@
-'use client';
-
-import * as React from 'react';
-
-import Container from '@mui/material/Container';
-import { Button, Typography } from '@mui/material';
-import { OpenInNew } from '@mui/icons-material';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { Container, Typography, Button } from '@mui/material';
 import { MainPageHeader } from '../styles/PageHeader.style';
 import { ColoredContainer } from '../styles/PageLayout.style';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
-export default function About(): React.ReactElement {
+export default function Page() {
   return (
     <Container component='main'>
       <MainPageHeader>About</MainPageHeader>
@@ -28,7 +22,7 @@ export default function About(): React.ReactElement {
             component={'a'}
             variant='contained'
             sx={{ mt: 3 }}
-            endIcon={<OpenInNew />}
+            endIcon={<OpenInNewIcon />}
             href='https://mobilitydata.org/'
             rel='noreferrer'
             target='_blank'
