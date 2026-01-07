@@ -605,14 +605,14 @@ export default function Feed(): React.ReactElement {
 
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid size={12}>
-          <PreviousDatasets
+          {/* <PreviousDatasets
             datasets={datasets}
             isLoadingDatasets={datasetLoadingStatus === 'loading'}
             hasloadedAllDatasets={hasLoadedAllDatasets ?? false}
             loadMoreDatasets={(offset: number) => {
               loadDatasets(offset);
             }}
-          />
+          /> */}
         </Grid>
       )}
     </Box>,
