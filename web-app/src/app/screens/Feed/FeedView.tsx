@@ -1,4 +1,3 @@
-
 import { Box, Container, CssBaseline, Grid, Typography } from '@mui/material';
 
 // Components
@@ -6,6 +5,7 @@ import FeedTitle from './components/FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
 import DataQualitySummary from './components/DataQualitySummary';
 import CoveredAreaMap from '../../components/CoveredAreaMap';
+import { Map } from '../../components/Map';
 import FeedSummary from './components/FeedSummary';
 import AssociatedFeeds from './components/AssociatedFeeds';
 import GbfsVersions from './components/GbfsVersions';
@@ -26,14 +26,19 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import ClientDownloadButton from './components/ClientDownloadButton';
+import { type LatLngExpression } from 'leaflet';
 
 type Props = {
   feed: any; // Using explicit type would be better, but 'any' allows quick porting of varied feed types
   feedDataType: string;
-  // We can also pass other preloaded data here if fetched in page.tsx
+  initialDatasets?: any[];
 };
 
-export default function FeedView({ feed, feedDataType }: Props) {
+export default function FeedView({
+  feed,
+  feedDataType,
+  initialDatasets,
+}: Props) {
   if (!feed) return <Box>Feed not found</Box>;
 
   // Basic derived data
@@ -64,10 +69,24 @@ export default function FeedView({ feed, feedDataType }: Props) {
       : undefined; // Simplified
 
   // Bounding box logic
-  let boundingBox = undefined;
-  if (feed.latest_dataset?.bounding_box) {
-    boundingBox = feed.latest_dataset.bounding_box;
-  }
+  // TODO: put it in better place
+  const getBoundingBox = (): LatLngExpression[] | undefined => {
+    if (
+      feed?.bounding_box?.maximum_latitude == undefined ||
+      feed?.bounding_box.maximum_longitude == undefined ||
+      feed?.bounding_box.minimum_latitude == undefined ||
+      feed?.bounding_box.minimum_longitude == undefined
+    ) {
+      return undefined;
+    }
+    return [
+      [feed.bounding_box.minimum_latitude, feed.bounding_box.minimum_longitude],
+      [feed.bounding_box.minimum_latitude, feed.bounding_box.maximum_longitude],
+      [feed.bounding_box.maximum_latitude, feed.bounding_box.maximum_longitude],
+      [feed.bounding_box.maximum_latitude, feed.bounding_box.minimum_longitude],
+    ];
+  };
+  let boundingBox = getBoundingBox();
 
   // Derived state for warnings
 
@@ -212,12 +231,12 @@ export default function FeedView({ feed, feedDataType }: Props) {
               <GbfsVersions feed={feed as GBFSFeedType}></GbfsVersions>
             )}
 
-            {/* Previous Datasets */}
-            {/* This requires fetching datasets. page.tsx should fetch initial list. */}
             {feed.data_type === 'gtfs' && (
               <Grid size={12}>
-                {/* <PreviousDatasets ... /> - Needs client logic or pre-fetched data props */}
-                <Typography>Previous Datasets (Server Placeholder)</Typography>
+                <PreviousDatasets
+                  initialDatasets={initialDatasets}
+                  feedId={feed.id}
+                />
               </Grid>
             )}
           </Box>
