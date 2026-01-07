@@ -45,7 +45,7 @@ class DatabasePopulateHelper:
     Helper class to populate the database
     """
 
-    def __init__(self, filepaths):
+    def __init__(self, filepaths, test_mode=False):
         """
         Specify a list of files to load the csv data from.
         Can also be a single string with a file name.
@@ -60,7 +60,10 @@ class DatabasePopulateHelper:
             filepaths = [filepaths]
 
         for filepath in filepaths:
-            new_df = pandas.read_csv(filepath, low_memory=False)
+            if test_mode:
+                new_df = pandas.read_csv(filepath, comment="#", low_memory=False)
+            else:
+                new_df = pandas.read_csv(filepath, low_memory=False)
             self.df = pandas.concat([self.df, new_df])
 
         self.filter_data()

@@ -72,7 +72,7 @@ def _populate_db_phase(db: Database, data_dirs: List[str]):
         if (filepath := os.path.join(directory, "sources_test.csv")) and os.path.isfile(filepath)
     ]
     if csv_filepaths:
-        gtfs_db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
+        gtfs_db_helper = GTFSDatabasePopulateHelper(csv_filepaths, test_mode=True)
         gtfs_db_helper.initialize(trigger_downstream_tasks=False)
 
     # GBFS
@@ -82,7 +82,9 @@ def _populate_db_phase(db: Database, data_dirs: List[str]):
         if (filepath := os.path.join(directory, "systems_test.csv")) and os.path.isfile(filepath)
     ]
     if gbfs_csv_filepaths:
-        GBFSDatabasePopulateHelper(gbfs_csv_filepaths).initialize(trigger_downstream_tasks=False, fetch_url=False)
+        GBFSDatabasePopulateHelper(gbfs_csv_filepaths, test_mode=True).initialize(
+            trigger_downstream_tasks=False, fetch_url=False
+        )
 
     # Extra test data
     json_filepaths = [

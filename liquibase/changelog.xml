@@ -93,6 +93,13 @@
     <include file="changes/feat_1507.sql" relativeToChangelogFile="true"/>
     <!-- Added constraint on operational status -->
     <include file="changes/fix_operation_status_constraint.sql" relativeToChangelogFile="true"/>
+    <!--  Adding alt_name to the geopolygon table  -->
+    <include file="changes/feat_1479.sql" relativeToChangelogFile="true"/>
+    <!-- Centralized materialized view definitions.
+         Views are rebuilt from source SQL files using runOnChange. -->
+    <!-- Keep this at the end to ensure all table and schema changes
+         are applied before materialized views are rebuilt. -->
+    <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
     <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
-    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>
+    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
 </databaseChangeLog>

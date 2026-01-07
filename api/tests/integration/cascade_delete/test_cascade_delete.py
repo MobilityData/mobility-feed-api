@@ -25,6 +25,7 @@ from shared.database_gen.sqlacodegen_models import (
     Notice,
     Gtfsfeed,
     Geopolygon,
+    FeedLicenseChange,
 )
 
 from sqlalchemy import text
@@ -186,6 +187,24 @@ def test_delete_feed_cascadeto_redirectingid(test_database):
         session.commit()
         assoc_count = session.execute(text("SELECT COUNT(*) FROM redirectingid")).scalar()
         assert assoc_count == 0
+
+
+def test_delete_feed_cascadeto_feed_license_changes(test_database):
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        feed_license_change = FeedLicenseChange(feed_id="f1")
+        session.add_all([feed, feed_license_change])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM feed_license_change where feed_id = 'f1'",
+            ],
+            feed,
+        )
 
 
 def test_delete_gbfsfeed_cascadeto_gbfsversion_cascadeto_gbfsendpoint_cascadeto_gbfsendpointhttpaccesslog(
