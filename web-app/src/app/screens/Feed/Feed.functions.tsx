@@ -42,13 +42,13 @@ export function generateDescriptionMetaTag(
   }
   let dataTypeVerbose = '';
   if (dataType === 'gtfs') {
-    dataTypeVerbose = t('common:gtfsSchedule');
+    dataTypeVerbose = t('common.gtfsSchedule');
   } else if (dataType === 'gtfs_rt') {
-    dataTypeVerbose = t('common:gtfsRealtime');
+    dataTypeVerbose = t('common.gtfsRealtime');
   } else if (dataType === 'gbfs') {
-    dataTypeVerbose = t('common:gbfs');
+    dataTypeVerbose = t('common.gbfs');
   }
-  return t('detailPageDescription', { formattedName, dataTypeVerbose });
+  return t('feeds.detailPageDescription', { formattedName, dataTypeVerbose });
 }
 
 export function generatePageTitle(
