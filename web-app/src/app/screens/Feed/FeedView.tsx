@@ -14,6 +14,7 @@ import { WarningContentBox } from '../../components/WarningContentBox';
 import FeedNavigationControls from './components/FeedNavigationControls';
 
 import { getTranslations } from 'next-intl/server';
+//import { getRemoteConfigValues } from '../../../lib/remote-config.server';
 
 // Styles
 import {
@@ -42,6 +43,7 @@ export default async function FeedView({
   initialDatasets,
 }: Props) {
   const t = await getTranslations('feeds');
+  // const remoteConfig = await getRemoteConfigValues();(how to use remote config)
   if (!feed) return <Box>Feed not found</Box>;
 
   // Basic derived data
