@@ -1,7 +1,7 @@
 # Called when the Mobility Catalog is updated.
 name: Mobility Catalog Update
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Manual trigger
     inputs:
       DRY_RUN:
         description: Dry run. Skip applying schema and content updates

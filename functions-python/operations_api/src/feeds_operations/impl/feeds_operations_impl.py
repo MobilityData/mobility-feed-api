@@ -109,8 +109,9 @@ class OperationsApiImpl(BaseOperationsApi):
             )
 
     @with_db_session
-    async def get_feeds(
+    def handle_get_feeds(
         self,
+        search_query: Optional[str] = None,
         operation_status: Optional[str] = None,
         data_type: Optional[str] = None,
         offset: str = "0",
@@ -122,8 +123,21 @@ class OperationsApiImpl(BaseOperationsApi):
             limit_int = int(limit) if limit else 50
             offset_int = int(offset) if offset else 0
 
+            # filtered but unpaginated for total
+            total_query = get_feeds_query(
+                db_session=db_session,
+                search_query=search_query,
+                operation_status=operation_status,
+                data_type=data_type,
+                limit=None,
+                offset=None,
+                model=Feed,
+            )
+            total = total_query.count()
+
             query = get_feeds_query(
                 db_session=db_session,
+                search_query=search_query,
                 operation_status=operation_status,
                 data_type=data_type,
                 limit=limit_int,
@@ -133,14 +147,10 @@ class OperationsApiImpl(BaseOperationsApi):
 
             logging.info("Executing query with data_type: %s", data_type)
 
-            total = query.count()
             feeds = query.all()
             logging.info("Retrieved %d feeds from database", len(feeds))
 
-            feed_list = []
-            for feed in feeds:
-                feed_list.append(OperationFeedImpl.from_orm(feed))
-
+            feed_list = [OperationFeedImpl.from_orm(feed) for feed in feeds]
             response = GetFeeds200Response(
                 total=total, offset=offset_int, limit=limit_int, feeds=feed_list
             )
@@ -152,6 +162,20 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(
                 status_code=500, detail=f"Internal server error: {str(e)}"
             )
+
+    async def get_feeds(
+        self,
+        search_query: Optional[str] = None,
+        operation_status: Optional[str] = None,
+        data_type: Optional[str] = None,
+        offset: str = "0",
+        limit: str = "50",
+        db_session: Session = None,
+    ) -> GetFeeds200Response:
+        """Get a list of feeds with optional filtering and pagination."""
+        return self.handle_get_feeds(
+            search_query, operation_status, data_type, offset, limit
+        )
 
     @with_db_session
     async def get_gtfs_feed(
