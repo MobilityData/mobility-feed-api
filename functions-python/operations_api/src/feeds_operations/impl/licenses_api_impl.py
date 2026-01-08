@@ -93,8 +93,15 @@ class LicensesApiImpl(BaseLicensesApi):
             is_spdx,
         )
 
-        limit_int = int(limit)
-        offset_int = int(offset)
+        try:
+            limit_int = int(limit)
+            offset_int = int(offset)
+        except (TypeError, ValueError):
+            logging.error(
+                "Invalid pagination parameters: limit=%s offset=%s", limit, offset
+            )
+            raise HTTPException(status_code=400, detail="Invalid limit or offset")
+
         query = db_session.query(OrmLicense)
 
         # Text search by name or id
