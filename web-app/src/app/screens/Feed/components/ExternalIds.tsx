@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import {
   Box,
@@ -85,7 +87,7 @@ export default function ExternalIds({
               >
                 {externalId.external_id}
               </Typography>
-              <Tooltip title={t(info.translationKey)} placement='top'>
+              <Tooltip title={t('externalIds.tooltips.tdg')} placement='top'>
                 {info.docsUrl == null ? (
                   <InfoOutlinedIcon
                     sx={{

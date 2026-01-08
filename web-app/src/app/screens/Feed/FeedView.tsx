@@ -14,7 +14,6 @@ import { WarningContentBox } from '../../components/WarningContentBox';
 import FeedNavigationControls from './components/FeedNavigationControls';
 
 import { getTranslations } from 'next-intl/server';
-//import { getRemoteConfigValues } from '../../../lib/remote-config.server';
 
 // Styles
 import {
@@ -47,7 +46,6 @@ export default async function FeedView({
   relatedGtfsRtFeeds = [],
 }: Props) {
   const t = await getTranslations('feeds');
-  // const remoteConfig = await getRemoteConfigValues();(how to use remote config)
   if (!feed) return <Box>Feed not found</Box>;
 
   // Basic derived data
@@ -107,9 +105,6 @@ export default async function FeedView({
     >
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        <Typography variant='h4' component='h1' sx={{ mb: 2 }}>
-          {t('transitProviderName')}
-        </Typography>
         <Box
           sx={{
             width: '100%',
@@ -129,8 +124,6 @@ export default async function FeedView({
             />
 
             <Box sx={{ mt: 2 }}>
-              {/* FeedTitle internally might use useTranslation, ensure it is Client or handles it */}
-              {/* If FeedTitle is just UI, it's fine. */}
               <FeedTitle sortedProviders={sortedProviders} feed={feed} />
             </Box>
 

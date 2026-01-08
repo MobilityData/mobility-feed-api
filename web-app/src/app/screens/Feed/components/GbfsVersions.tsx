@@ -64,6 +64,8 @@ export default function GbfsVersions({
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const theme = useTheme();
   const t = useTranslations('gbfs');
+  const tFeeds = useTranslations('feeds');
+  const tCommon = useTranslations('common');
 
   const getGbfsVersionUrl = (version: string, feature: string): string => {
     if (
@@ -161,10 +163,10 @@ export default function GbfsVersions({
                       label={
                         item.latest_validation_report?.total_error != null &&
                         item.latest_validation_report?.total_error > 0
-                          ? `${item.latest_validation_report?.total_error} ${t(
-                              'common:feedback.errors',
+                          ? `${item.latest_validation_report?.total_error} ${tCommon(
+                              'feedback.errors',
                             )}`
-                          : t('common:feedback.noErrors')
+                          : tCommon('feedback.noErrors')
                       }
                       variant='outlined'
                       color={
@@ -185,7 +187,7 @@ export default function GbfsVersions({
                     component={'div'}
                     sx={{ mt: '-2px', mb: 2 }}
                   >
-                    {t('feeds:qualityReportUpdated')}
+                    {tFeeds('qualityReportUpdated')}
                     {': '}
                     {displayFormattedDate(
                       item.latest_validation_report?.validated_at ?? '',
@@ -241,7 +243,7 @@ export default function GbfsVersions({
                   </Box>
                   <Box>
                     <Typography variant='h6' sx={{ mt: 1, fontSize: '1.1rem' }}>
-                      {t('feeds:features')}
+                      {tFeeds('features')}
                     </Typography>
                     <Box
                       sx={{

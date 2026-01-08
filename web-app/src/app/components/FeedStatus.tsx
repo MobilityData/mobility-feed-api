@@ -1,3 +1,5 @@
+'use client';
+
 import { Box, Chip, Tooltip, useTheme } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import { getFeedStatusData } from '../utils/feedStatusConsts';

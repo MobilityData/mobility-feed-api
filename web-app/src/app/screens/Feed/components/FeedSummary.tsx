@@ -75,6 +75,7 @@ export default function FeedSummary({
   totalRoutes,
 }: FeedSummaryProps): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const theme = useTheme();
   const [openLocationDetails, setOpenLocationDetails] = useState<
     'summary' | 'fullList' | undefined
@@ -176,12 +177,12 @@ export default function FeedSummary({
         >
           <GroupHeader variant='body1' sx={{ mb: 0 }}>
             <DatasetIcon fontSize='inherit' />
-            {t('feeds:feedSummary.routes')}
+            {t('feedSummary.routes')}
           </GroupHeader>
           <Chip
             data-testid='data-type'
             size='small'
-            label={t('common:' + feed?.data_type)}
+            label={tCommon(feed?.data_type ?? '')}
             color='secondary'
           ></Chip>
         </Box>
@@ -464,9 +465,9 @@ export default function FeedSummary({
             <Box sx={{ ml: 2 }}>
               <Typography variant='h6' sx={{ fontWeight: 700 }}>
                 {feed?.source_info?.authentication_type === 1 &&
-                  t('common:apiKey')}
+                  tCommon('apiKey')}
                 {feed?.source_info?.authentication_type === 2 &&
-                  t('common:httpHeader')}
+                  tCommon('httpHeader')}
               </Typography>
               {feed?.source_info?.authentication_info_url != undefined && (
                 <Button
@@ -511,7 +512,7 @@ export default function FeedSummary({
             >
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  {t('common:start')}
+                  {tCommon('start')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -574,7 +575,7 @@ export default function FeedSummary({
 
               <Box>
                 <Typography variant='subtitle2' sx={{ lineHeight: 1.5 }}>
-                  {t('common:end')}
+                  {tCommon('end')}
                 </Typography>
                 <Typography variant='body1' sx={{ fontWeight: 700 }}>
                   {formatDateShort(
@@ -593,7 +594,7 @@ export default function FeedSummary({
             <GroupHeader variant='body1'>
               <LayersIcon fontSize='inherit' />
               {t('features')}
-              <Tooltip title={t('common:moreInfo')} placement='top'>
+              <Tooltip title={tCommon('moreInfo')} placement='top'>
                 <IconButton
                   href='https://gtfs.org/getting_started/features/overview/'
                   target='_blank'
@@ -655,8 +656,8 @@ export default function FeedSummary({
                           sx={{ ml: 1 }}
                         >
                           {showAllFeatures
-                            ? t('common:showLess')
-                            : t('common:showMore', {
+                            ? tCommon('showLess')
+                            : tCommon('showMore', {
                                 count: allFeatures.length - 6,
                               })}
                         </Button>
@@ -682,7 +683,7 @@ export default function FeedSummary({
             >
               <GroupHeader variant='body1' sx={{ mb: 0 }}>
                 <GavelIcon fontSize='inherit' />
-                {t('common:license')}
+                {tCommon('license')}
               </GroupHeader>
               {feed?.source_info?.license_is_spdx != undefined &&
                 feed.source_info.license_is_spdx && (

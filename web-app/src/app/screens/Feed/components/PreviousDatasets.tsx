@@ -45,6 +45,7 @@ export default function PreviousDatasets({
 }: PreviousDatasetsProps): React.ReactElement {
   const theme = useTheme();
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const [datasets, setDatasets] = React.useState(initialDatasets || []);
   const [isLoadingDatasets, setIsLoadingDatasets] = React.useState(false);
   const [hasloadedAllDatasets, setHasLoadedAllDatasets] = React.useState(
@@ -218,10 +219,10 @@ export default function PreviousDatasets({
                                 undefined &&
                               dataset?.validation_report?.unique_error_count > 0
                                 ? `${dataset?.validation_report
-                                    ?.unique_error_count} ${t(
-                                    'common:feedback.errors',
+                                    ?.unique_error_count} ${tCommon(
+                                    'feedback.errors',
                                   )}`
-                                : t('common:feedback.noErrors')
+                                : tCommon('feedback.noErrors')
                             }
                             color={
                               dataset?.validation_report?.unique_error_count !=
@@ -255,10 +256,10 @@ export default function PreviousDatasets({
                               dataset?.validation_report?.unique_warning_count >
                                 0
                                 ? `${dataset?.validation_report
-                                    ?.unique_warning_count} ${t(
-                                    'common:feedback.warnings',
+                                    ?.unique_warning_count} ${tCommon(
+                                    'feedback.warnings',
                                   )}`
-                                : t('common:feedback.noWarnings')
+                                : tCommon('feedback.noWarnings')
                             }
                             color={
                               dataset?.validation_report
@@ -281,7 +282,7 @@ export default function PreviousDatasets({
                             label={`${
                               dataset?.validation_report?.unique_info_count ??
                               '0'
-                            } ${t('common:feedback.infoNotices')}`}
+                            } ${tCommon('feedback.infoNotices')}`}
                             color='primary'
                             variant='outlined'
                           />
@@ -312,7 +313,7 @@ export default function PreviousDatasets({
                               href={dataset.hosted_url}
                               rel='noreferrer nofollow'
                             >
-                              {t('common:download')}
+                              {tCommon('download')}
                             </Button>
                           </Tooltip>
                         )}

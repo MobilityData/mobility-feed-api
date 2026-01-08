@@ -1,15 +1,13 @@
-'use client';
-
 import * as React from 'react';
 import { Box, Chip } from '@mui/material';
 import { CheckCircle, ReportOutlined } from '@mui/icons-material';
 import { type components } from '../../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { WarningContentBox } from '../../../components/WarningContentBox';
-import { useTranslations } from 'next-intl';
 import { FeedStatusChip } from '../../../components/FeedStatus';
-import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 import OfficialChip from '../../../components/OfficialChip';
+import { getTranslations } from 'next-intl/server';
+import { getRemoteConfigValues } from '../../../../lib/remote-config.server';
 
 export interface DataQualitySummaryProps {
   feedStatus: components['schemas']['Feed']['status'];
@@ -17,13 +15,15 @@ export interface DataQualitySummaryProps {
   latestDataset: components['schemas']['GtfsDataset'] | undefined;
 }
 
-export default function DataQualitySummary({
+export default async function DataQualitySummary({
   feedStatus,
   isOfficialFeed,
   latestDataset,
-}: DataQualitySummaryProps): React.ReactElement {
-  const t = useTranslations('feeds');
-  const { config } = useRemoteConfig();
+}: DataQualitySummaryProps): Promise<React.ReactElement> {
+  const t = await getTranslations('feeds');
+  const tCommon = await getTranslations('common');
+  const config = await getRemoteConfigValues();
+
   return (
     <Box data-testid='data-quality-summary' sx={{ my: 2 }}>
       {latestDataset?.validation_report == undefined && (
@@ -58,8 +58,8 @@ export default function DataQualitySummary({
                     undefined &&
                   latestDataset?.validation_report?.unique_error_count > 0
                     ? `${latestDataset?.validation_report
-                        ?.unique_error_count} ${t('common:feedback.errors')}`
-                    : t('common:feedback.noErrors')
+                        ?.unique_error_count} ${tCommon('feedback.errors')}`
+                    : tCommon('feedback.noErrors')
                 }
                 color={
                   latestDataset?.validation_report?.unique_error_count !==
@@ -92,10 +92,10 @@ export default function DataQualitySummary({
                     undefined &&
                   latestDataset?.validation_report?.unique_warning_count > 0
                     ? `${latestDataset?.validation_report
-                        ?.unique_warning_count} ${t(
-                        'common:feedback.warnings',
+                        ?.unique_warning_count} ${tCommon(
+                        'feedback.warnings',
                       )}`
-                    : t('common:feedback.noWarnings')
+                    : tCommon('feedback.noWarnings')
                 }
                 color={
                   latestDataset?.validation_report?.unique_warning_count !==
@@ -117,7 +117,7 @@ export default function DataQualitySummary({
                 rel='noopener noreferrer nofollow'
                 label={`${
                   latestDataset?.validation_report?.unique_info_count ?? '0'
-                } ${t('common:feedback.infoNotices')}`}
+                } ${tCommon('feedback.infoNotices')}`}
                 color='primary'
                 variant='outlined'
               />

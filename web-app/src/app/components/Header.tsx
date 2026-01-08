@@ -31,8 +31,6 @@ import {
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';

@@ -1,23 +1,20 @@
-'use client';
-
-import { Typography, useTheme } from '@mui/material';
+import { Typography } from '@mui/material';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../../services/feeds/utils';
-import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 
 interface FeedTitleProps {
   sortedProviders: string[];
   feed: GTFSFeedType | GTFSRTFeedType;
 }
 
-export default function FeedTitle({
+export default async function FeedTitle({
   sortedProviders,
   feed,
-}: FeedTitleProps): React.ReactElement {
-  const t = useTranslations('feeds');
-  const theme = useTheme();
+}: FeedTitleProps): Promise<React.ReactElement> {
+  const t = await getTranslations('feeds');
   const mainProvider = sortedProviders[0];
   let extraProviders: string | undefined;
   let realtimeFeedName: string | undefined;
@@ -35,8 +32,8 @@ export default function FeedTitle({
   return (
     <Typography
       component='h1'
+      color='primary'
       sx={{
-        color: theme.palette.primary.main,
         fontWeight: 'bold',
         fontSize: { xs: 24, sm: 36 },
         lineHeight: 'normal',
