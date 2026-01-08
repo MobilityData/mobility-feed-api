@@ -1,14 +1,13 @@
 import * as React from 'react';
 import Container from '@mui/material/Container';
 import { Button, Typography } from '@mui/material';
-import { MainPageHeader } from '../styles/PageHeader.style';
 import { ColoredContainer } from '../styles/PageLayout.style';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function FAQ(): React.ReactElement {
   return (
     <Container component='main'>
-      <MainPageHeader>Frequently Asked Questions (FAQ) </MainPageHeader>
+      <Typography variant='h1'>Frequently Asked Questions (FAQ) </Typography>
       <ColoredContainer maxWidth={false} sx={{ mt: 3 }}>
         <Typography
           variant='h5'

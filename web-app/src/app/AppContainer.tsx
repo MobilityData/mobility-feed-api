@@ -23,7 +23,6 @@ const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
         <link rel='canonical' href={canonicalUrl} />
       </Helmet>
       <Box id='app-main-container'>
-        <Header />
         {isAppLoading ? (
           <Box sx={{ width: '100%', mt: '-31px' }}>
             <LinearProgress />

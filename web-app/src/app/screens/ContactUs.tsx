@@ -5,7 +5,6 @@ import { Button, Card, styled, Typography, useTheme } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useTranslations } from 'next-intl';
-import { MainPageHeader } from '../styles/PageHeader.style';
 
 const ContactUsItem = styled(Card)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -49,7 +48,7 @@ export default function ContactUs(): React.ReactElement {
   );
   return (
     <Container component='main' maxWidth={'lg'}>
-      <MainPageHeader>{t('title')}</MainPageHeader>
+      <Typography variant='h1'>{t('title')}</Typography>
       <Box
         sx={{
           mt: 2,

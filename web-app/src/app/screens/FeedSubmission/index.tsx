@@ -13,7 +13,6 @@ import { selectIsAuthenticated } from '../../store/profile-selectors';
 import { useTranslations } from 'next-intl';
 import { useLocation } from 'react-router-dom';
 import FeedSubmissionForm from './Form';
-import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
 
 function Component(): React.ReactElement {
@@ -34,7 +33,7 @@ function Component(): React.ReactElement {
       >
         {!isAuthenticated && (
           <>
-            <MainPageHeader>{t('form.addOrUpdateFeed')}</MainPageHeader>
+            <Typography variant='h1'>{t('form.addOrUpdateFeed')}</Typography>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
             <Button variant='contained' href='/sign-up?add_feed=true'>
               {t('form.signUpAction')}
@@ -87,9 +86,7 @@ function Component(): React.ReactElement {
               </Typography>
             </ColoredContainer>
             <Container maxWidth='md'>
-              <MainPageHeader sx={{ my: 3 }}>
-                Add or update a feed
-              </MainPageHeader>
+              <Typography variant='h1' sx={{ my: 3 }}>Add or update a feed</Typography>
               <FeedSubmissionForm />
             </Container>
           </>
