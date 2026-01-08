@@ -40,7 +40,7 @@ class LicensesApiImpl(BaseLicensesApi):
     """
 
     @with_db_session
-    async def get_license(
+    def handle_get_license(
         self,
         id: StrictStr,
         db_session: Session = None,
@@ -59,11 +59,21 @@ class LicensesApiImpl(BaseLicensesApi):
         # Build Pydantic model from ORM object attributes
         return LicenseWithRulesImpl.from_orm(license_orm)
 
-    @with_db_session
-    async def get_licenses(
+    async def get_license(
         self,
-        limit: int,
-        offset: int,
+        id: StrictStr,
+    ) -> LicenseWithRules:
+        """Get the specified license from the Mobility Database.
+
+        Raises 404 if the license is not found.
+        """
+        return self.handle_get_license(id)
+
+    @with_db_session
+    def handle_get_licenses(
+        self,
+        offset: str = "0",
+        limit: str = "100",
         search_query: Optional[StrictStr] = None,
         is_spdx: Optional[bool] = None,
         db_session: Session = None,
@@ -83,6 +93,15 @@ class LicensesApiImpl(BaseLicensesApi):
             is_spdx,
         )
 
+        try:
+            limit_int = int(limit)
+            offset_int = int(offset)
+        except (TypeError, ValueError):
+            logging.error(
+                "Invalid pagination parameters: limit=%s offset=%s", limit, offset
+            )
+            raise HTTPException(status_code=400, detail="Invalid limit or offset")
+
         query = db_session.query(OrmLicense)
 
         # Text search by name or id
@@ -101,9 +120,24 @@ class LicensesApiImpl(BaseLicensesApi):
         if is_spdx is not None:
             query = query.filter(OrmLicense.is_spdx == is_spdx)
 
-        query = query.order_by(OrmLicense.id).offset(offset).limit(limit)
+        query = query.order_by(OrmLicense.id).offset(offset_int).limit(limit_int)
         items: List[OrmLicense] = query.all()
 
         logging.info("Fetched %d licenses", len(items))
 
         return [LicenseBaseImpl.from_orm(item) for item in items]
+
+    async def get_licenses(
+        self,
+        offset: str = "0",
+        limit: str = "100",
+        search_query: Optional[StrictStr] = None,
+        is_spdx: Optional[bool] = None,
+    ) -> List[LicenseBase]:
+        """Get the list of licenses from the Mobility Database.
+
+        Supports pagination via `limit` and `offset`, optional
+        case-insensitive text search on license name / id, and
+        optional filtering by SPDX status.
+        """
+        return self.handle_get_licenses(offset, limit, search_query, is_spdx)
