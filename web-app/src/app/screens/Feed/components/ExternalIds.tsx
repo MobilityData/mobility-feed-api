@@ -13,7 +13,7 @@ import {
   externalIdSourceMap,
   filterFeedExternalIdsToSourceMap,
 } from '../../../utils/externalIds';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 type ExternalIdInfo = components['schemas']['ExternalIds'];
 
@@ -24,7 +24,7 @@ export interface ExternalIdsProps {
 export default function ExternalIds({
   externalIds,
 }: ExternalIdsProps): React.ReactElement | null {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   if (externalIds == null || externalIds.length === 0) return null;
   const filteredExternalIds = filterFeedExternalIdsToSourceMap(externalIds);
   if (filteredExternalIds.length === 0) return null;

@@ -13,6 +13,8 @@ import PreviousDatasets from './components/PreviousDatasets';
 import { WarningContentBox } from '../../components/WarningContentBox';
 import FeedNavigationControls from './components/FeedNavigationControls';
 
+import { getTranslations } from 'next-intl/server';
+
 // Styles
 import {
   ctaContainerStyle,
@@ -34,11 +36,12 @@ type Props = {
   initialDatasets?: any[];
 };
 
-export default function FeedView({
+export default async function FeedView({
   feed,
   feedDataType,
   initialDatasets,
 }: Props) {
+  const t = await getTranslations('feeds');
   if (!feed) return <Box>Feed not found</Box>;
 
   // Basic derived data

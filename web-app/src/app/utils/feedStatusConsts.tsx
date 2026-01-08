@@ -1,5 +1,5 @@
 import { type Theme } from '@mui/material';
-import { type TFunction } from 'i18next';
+
 
 export interface FeedStatusData {
   toolTip: string;
@@ -12,7 +12,7 @@ export interface FeedStatusData {
 export function getFeedStatusData(
   status: string,
   theme: Theme,
-  t: TFunction,
+  t: any,
 ): FeedStatusData | undefined {
   const data: Record<string, FeedStatusData> = {
     active: {

@@ -1,5 +1,5 @@
 import { Popper, Box, Typography, useTheme } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 interface PopoverListProps {
   popoverData: string[];
@@ -13,7 +13,7 @@ export default function PopoverList({
   title,
 }: PopoverListProps): React.ReactElement {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   return (
     <Popper
       open={popoverData !== undefined}

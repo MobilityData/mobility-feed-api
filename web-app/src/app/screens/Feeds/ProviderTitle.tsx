@@ -3,7 +3,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
 interface ProviderTitleProps {
@@ -18,7 +18,7 @@ export default function ProviderTitle({
   setAnchorEl,
 }: ProviderTitleProps): React.ReactElement {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const providers =
     feed?.provider
       ?.split(',')

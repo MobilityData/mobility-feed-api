@@ -27,7 +27,7 @@ import { fontFamily } from '../Theme';
 import { mobileNavElementStyle } from './Header.style';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 const websiteTile = 'Mobility Database';
 
@@ -45,7 +45,7 @@ export default function DrawerContent({
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const router = useRouter();
   const { config } = useRemoteConfig();
-  const { t } = useTranslation('common');
+  const t = useTranslations('common');
   const theme = useTheme();
 
   return (

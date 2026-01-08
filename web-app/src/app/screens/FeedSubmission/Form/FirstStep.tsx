@@ -20,7 +20,7 @@ import {
 } from 'react-hook-form';
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { isValidFeedLink } from '../../../services/feeds/utils';
 import FormLabelDescription from './components/FormLabelDescription';
 
@@ -47,7 +47,7 @@ export default function FormFirstStep({
   submitFormData,
   setNumberOfSteps,
 }: FormFirstStepProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const {
     control,
     handleSubmit,

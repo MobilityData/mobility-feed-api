@@ -30,7 +30,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import { WEB_VALIDATOR_LINK } from '../../../constants/Navigation';
 import { formatServiceDateRange } from '../Feed.functions';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { useAppSelector } from '../../../hooks';
 import { getGtfsFeedDatasets } from '../../../services/feeds';
 
@@ -44,7 +44,7 @@ export default function PreviousDatasets({
   feedId,
 }: PreviousDatasetsProps): React.ReactElement {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const [datasets, setDatasets] = React.useState(initialDatasets || []);
   const [isLoadingDatasets, setIsLoadingDatasets] = React.useState(false);
   const [hasloadedAllDatasets, setHasLoadedAllDatasets] = React.useState(

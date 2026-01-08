@@ -39,7 +39,7 @@ import PreviousDatasets from './components/PreviousDatasets';
 import DataQualitySummary from './components/DataQualitySummary';
 import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { Helmet } from 'react-helmet-async';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
@@ -74,7 +74,7 @@ const wrapComponent = (
   structuredData: Record<string, unknown> | undefined,
   child: React.ReactElement,
 ): React.ReactElement => {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   return (
     <Container
@@ -140,7 +140,7 @@ const handleOpenFullQualityReportClick = (): void => {
 };
 
 export default function Feed(): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const { feedId, feedDataType } = useParams();
@@ -512,28 +512,29 @@ export default function Feed(): React.ReactElement {
         !hasDatasets &&
         !hasFeedRedirect && (
           <WarningContentBox>
-            <Trans i18nKey='unableToDownloadFeed'>
-              Unable to download this feed. If there is a more recent URL for
-              this feed,{' '}
-              <Button variant='text' className='inline' href='/contribute'>
-                please submit it here
-              </Button>
-            </Trans>
+            {t.rich('unableToDownloadFeed', {
+              link: (chunks) => (
+                <Button variant='text' className='inline' href='/contribute'>
+                  {chunks}
+                </Button>
+              ),
+            })}
           </WarningContentBox>
         )}
       {hasFeedRedirect && (
         <Grid size={12}>
           <WarningContentBox>
-            <Trans i18nKey='feedHasBeenReplaced'>
-              This feed has been replaced with a different producer URL.
-              <Button
-                variant='text'
-                className='inline'
-                href={`/feeds/${feed?.redirects?.[0]?.target_id}`}
-              >
-                Go to the new feed here
-              </Button>
-            </Trans>
+            {t.rich('feedHasBeenReplaced', {
+              link: (chunks) => (
+                <Button
+                  variant='text'
+                  className='inline'
+                  href={`/feeds/${feed?.redirects?.[0]?.target_id}`}
+                >
+                  {chunks}
+                </Button>
+              ),
+            })}
           </WarningContentBox>
         </Grid>
       )}

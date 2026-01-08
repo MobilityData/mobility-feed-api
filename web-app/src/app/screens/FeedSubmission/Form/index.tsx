@@ -14,7 +14,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import FormThirdStep from './ThirdStep';
 import { submitNewFeedForm } from '../../../services/feeds/add-feed-form-service';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
 export type AuthTypes =
@@ -90,7 +90,7 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
 };
 
 export default function FeedSubmissionForm(): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const [searchParams, setSearchParams] = useSearchParams();
   const [isSubmitLoading, setIsSubmitLoading] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<undefined | string>(

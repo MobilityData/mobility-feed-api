@@ -15,7 +15,7 @@ import {
   useWatch,
 } from 'react-hook-form';
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormInputFourthStep {
@@ -37,7 +37,7 @@ export default function FormFourthStep({
   submitFormData,
   handleBack,
 }: FormFourthStepProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const {
     control,
     handleSubmit,

@@ -4,7 +4,7 @@ import * as React from 'react';
 import UpdateIcon from '@mui/icons-material/Update';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 type GtfsRtEntitySelection = 'vp' | 'tu' | 'sa';
 
@@ -43,7 +43,7 @@ export default function GtfsRtEntities({
   entities,
   includeName = false,
 }: GtfsRtEntitiesProps): React.ReactElement {
-  const { t } = useTranslation('common');
+  const t = useTranslations('common');
   const entityData = {
     vp: {
       icon: (

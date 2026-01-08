@@ -18,7 +18,7 @@ import {
   getLocationName,
   getCountryLocationSummaries,
 } from '../../services/feeds/utils';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
 import { getEmojiFlag, type TCountryCode } from 'countries-list';
@@ -38,7 +38,7 @@ const HeaderTableCell = styled(TableCell)(() => ({
 export const getDataTypeElement = (
   dataType: 'gtfs' | 'gtfs_rt' | 'gbfs',
 ): JSX.Element => {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const DataTypeHolder = ({
     children,
   }: {
@@ -73,7 +73,7 @@ export default function SearchTable({
   const [providersPopoverData, setProvidersPopoverData] = React.useState<
     string[] | undefined
   >(undefined);
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   if (feedsData === undefined) return <></>;
 
   // Reason for all component overrite is for SEO purposes.

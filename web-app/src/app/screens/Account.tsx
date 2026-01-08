@@ -41,7 +41,7 @@ import {
   formatTokenExpiration,
   getTimeLeftForTokenExpiration,
 } from '../utils/date';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 interface APIAccountState {
   showRefreshToken: boolean;
@@ -56,7 +56,7 @@ enum TokenTypes {
 }
 
 export default function APIAccount(): React.ReactElement {
-  const { t } = useTranslation('account');
+  const t = useTranslations('account');
   const apiURL = 'https://api.mobilitydatabase.org/v1';
   const dispatch = useAppDispatch();
   const theme = useTheme();

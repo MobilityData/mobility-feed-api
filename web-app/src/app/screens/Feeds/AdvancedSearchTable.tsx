@@ -16,7 +16,7 @@ import {
 } from '../../services/feeds/utils';
 import * as React from 'react';
 import { FeedStatusIndicator } from '../../components/FeedStatus';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import LockIcon from '@mui/icons-material/Lock';
 import GtfsRtEntities from './GtfsRtEntities';
 import { getEmojiFlag, type TCountryCode } from 'countries-list';
@@ -121,7 +121,8 @@ export default function AdvancedSearchTable({
   selectedFeatures,
   selectedGbfsVersions,
 }: AdvancedSearchTableProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [popoverData, setPopoverData] = React.useState<string[] | undefined>(
     undefined,
@@ -220,7 +221,7 @@ export default function AdvancedSearchTable({
                     variant='body1'
                     sx={{ mr: 1, fontWeight: 'bold' }}
                   >
-                    {t(`common:${feed.data_type}`)}
+                    {tCommon(`${feed.data_type}`)}
                   </Typography>
                 </Box>
               </Box>

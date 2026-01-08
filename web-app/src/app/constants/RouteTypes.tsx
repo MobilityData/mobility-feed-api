@@ -13,7 +13,6 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PlaceIcon from '@mui/icons-material/Place';
 import DirectionsSubwayIcon from '@mui/icons-material/DirectionsSubway';
 import type { SvgIconComponent } from '@mui/icons-material';
-import type { TFunction } from 'i18next';
 import * as React from 'react';
 
 export interface RouteTypeMetadata {
@@ -92,11 +91,11 @@ export const getStopByLocationTypeOrDefault = (
 
 export const getRouteTypeTranslatedName = (
   routeTypeId: string,
-  t: TFunction,
+  t: any,
 ): string => {
   const routeType = getRouteByTypeOrDefault(routeTypeId);
   return !(routeType.isDefault ?? false)
-    ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
+    ? t(`gtfsSpec.routeType.${routeTypeId}.name`)
     : routeType.name;
 };
 
