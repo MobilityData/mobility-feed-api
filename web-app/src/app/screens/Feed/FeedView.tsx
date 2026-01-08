@@ -101,6 +101,9 @@ export default async function FeedView({
     >
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Typography variant='h4' component='h1' sx={{ mb: 2 }}>
+          {t('transitProviderName')}
+        </Typography>
         <Box
           sx={{
             width: '100%',

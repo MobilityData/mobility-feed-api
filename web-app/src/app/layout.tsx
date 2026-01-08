@@ -2,6 +2,8 @@ import * as React from 'react';
 import ThemeRegistry from './registry';
 
 import { Providers } from './providers';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 
 export const metadata = {
   title: 'Mobility Database',
@@ -26,20 +28,25 @@ const ibmPlexMono = IBM_Plex_Mono({
   variable: '--font-ibm-plex-mono',
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang='en'>
+    <html lang={locale}>
       <body className={`${mulish.variable} ${ibmPlexMono.variable}`}>
         <ThemeRegistry>
-          <Providers>
-            <Header />
-            <main id='next'>{children}</main>
-            <Footer />
-          </Providers>
+          <NextIntlClientProvider messages={messages}>
+            <Providers>
+              <Header />
+              <main id='next'>{children}</main>
+              <Footer />
+            </Providers>
+          </NextIntlClientProvider>
         </ThemeRegistry>
       </body>
     </html>
