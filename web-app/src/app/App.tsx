@@ -5,14 +5,12 @@ import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 // import { useDispatch } from 'react-redux';
 // import { anonymousLogin } from './store/profile-reducer';
 import { Suspense, useState } from 'react';
-import { app } from '../firebase';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import AppContainer from './AppContainer';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 function App(): React.ReactElement {
-  //const dispatch = useDispatch();
   const [isAppReady, setIsAppReady] = useState(true);
 
   // useEffect(() => {
@@ -37,7 +35,6 @@ function App(): React.ReactElement {
           }
         />
       </Helmet>
-      <RemoteConfigProvider>
         <Suspense>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <BrowserRouter>
@@ -45,7 +42,6 @@ function App(): React.ReactElement {
             </BrowserRouter>
           </LocalizationProvider>
         </Suspense>
-      </RemoteConfigProvider>
     </HelmetProvider>
   );
 }

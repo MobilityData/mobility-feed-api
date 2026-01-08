@@ -1,14 +1,8 @@
-import { remoteConfig } from '../../firebase';
-
-type FirebaseDefaultConfig = typeof remoteConfig.defaultConfig;
-
-export interface BypassConfig {
-  regex: string[];
-}
-
 export type GbfsVersionConfig = string[];
 
-export interface RemoteConfigValues extends FirebaseDefaultConfig {
+// FEATUTRE BYPASS CURRENTLY DISABLED
+export interface RemoteConfigValues {
+  [key: string]: boolean | number | string;
   enableAppleSSO: boolean;
   enableFeedsPage: boolean;
   enableLanguageToggle: boolean;
@@ -48,10 +42,6 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   gbfsValidator: boolean;
 }
 
-const featureByPassDefault: BypassConfig = {
-  regex: [],
-};
-
 const gbfsVersionsDefault: GbfsVersionConfig = [];
 
 // Add default values for remote config here
@@ -65,7 +55,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
     'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev',
   gbfsMetricsBucketEndpoint:
     'https://storage.googleapis.com/mobilitydata-gbfs-analytics-dev',
-  featureFlagBypass: JSON.stringify(featureByPassDefault),
+  featureFlagBypass: '',
   enableFeatureFilterSearch: false,
   enableIsOfficialFilterSearch: false,
   enableFeedStatusBadge: false,
@@ -78,4 +68,3 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   gbfsValidator: false,
 };
 
-remoteConfig.defaultConfig = defaultRemoteConfigValues;

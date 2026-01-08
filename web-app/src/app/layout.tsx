@@ -4,6 +4,7 @@ import ThemeRegistry from './registry';
 import { Providers } from './providers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
+import { getRemoteConfigValues } from '../lib/remote-config.server';
 
 export const metadata = {
   title: 'Mobility Database',
@@ -33,15 +34,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // TODO await a promise .al
   const locale = await getLocale();
   const messages = await getMessages();
+  const remoteConfig = await getRemoteConfigValues();
 
   return (
     <html lang={locale}>
       <body className={`${mulish.variable} ${ibmPlexMono.variable}`}>
         <ThemeRegistry>
           <NextIntlClientProvider messages={messages}>
-            <Providers>
+            <Providers remoteConfig={remoteConfig}>
               <Header />
               <main id='next'>{children}</main>
               <Footer />
