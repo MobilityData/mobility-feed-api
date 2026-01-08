@@ -87,6 +87,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             ),
             redirects=item.redirect_ids,
             locations=item.locations,
+            created_at=item.created_at,
             latest_dataset=LatestDataset(
                 id=item.latest_dataset_id,
                 hosted_url=item.latest_dataset_hosted_url,
@@ -133,6 +134,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             locations=item.locations,
             entity_types=item.entities,
             feed_references=item.feed_reference_ids,
+            created_at=item.created_at,
         )
         assert result == expected
 
