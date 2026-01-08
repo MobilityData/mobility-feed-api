@@ -35,12 +35,16 @@ type Props = {
   feed: any; // Using explicit type would be better, but 'any' allows quick porting of varied feed types
   feedDataType: string;
   initialDatasets?: any[];
+  relatedFeeds?: GTFSFeedType[];
+  relatedGtfsRtFeeds?: GTFSRTFeedType[];
 };
 
 export default async function FeedView({
   feed,
   feedDataType,
   initialDatasets,
+  relatedFeeds = [],
+  relatedGtfsRtFeeds = [],
 }: Props) {
   const t = await getTranslations('feeds');
   // const remoteConfig = await getRemoteConfigValues();(how to use remote config)
@@ -226,11 +230,12 @@ export default async function FeedView({
                   />
                 </Box>
                 {feed?.data_type === 'gtfs_rt' && (
-                  /* Associated feeds need to be fetched or passed. 
-                                In FeedClient it was fetching `relatedFeeds`.
-                                We strictly should fetch them in page.tsx and pass as props. 
-                                For now we skip or can pass empty list. */
-                  <AssociatedFeeds feeds={[]} gtfsRtFeeds={[]} />
+                  <AssociatedFeeds
+                    feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
+                    gtfsRtFeeds={relatedGtfsRtFeeds.filter(
+                      (f) => f?.id !== feed.id,
+                    )}
+                  />
                 )}
               </Box>
             </Grid>
