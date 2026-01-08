@@ -40,7 +40,6 @@ import {
   stickyHeaderStyles,
 } from './Feeds.styles';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
-import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
 import AdvancedSearchTable from './AdvancedSearchTable';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
@@ -317,7 +316,7 @@ export default function Feed(): React.ReactElement {
           maxWidth={'xl'}
           sx={{ boxSizing: 'content-box' }}
         >
-          <MainPageHeader ref={containerRef}>{tCommon('feeds')}</MainPageHeader>
+          <Typography variant='h1' ref={containerRef}>{tCommon('feeds')}</Typography>
           {activeSearch !== '' && (
             <Typography variant='subtitle1'>
               {t('searchFor')}: <b>{activeSearch}</b>

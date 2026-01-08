@@ -251,6 +251,13 @@ export const getTheme = (mode: ThemeModeEnum): Theme => {
             },
           },
         ],
+        styleOverrides: {
+          h1: {
+            fontWeight: 700,
+            color: chosenPalette.primary.main,
+            fontSize: '2.125rem', // h4 size
+          },
+        },
       },
     },
   });
