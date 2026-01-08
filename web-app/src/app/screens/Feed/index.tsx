@@ -415,13 +415,13 @@ export default function Feed(): React.ReactElement {
         </Grid>
       )}
 
-      {feed?.data_type === 'gtfs' && (
+      {/* {feed?.data_type === 'gtfs' && (
         <DataQualitySummary
           feedStatus={feed?.status}
           isOfficialFeed={feed.official === true}
           latestDataset={latestDataset}
         />
-      )}
+      )} */}
       {feed?.data_type === 'gtfs_rt' && feed.official === true && (
         <Box sx={{ my: 1 }}>
           <OfficialChip></OfficialChip>

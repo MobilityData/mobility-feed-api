@@ -1,32 +1,30 @@
-'use client';
-
 import { Button, Grid, Typography } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
+import { headers } from 'next/headers';
 
 type Props = {
   feedDataType: string;
   feedId: string;
 };
 
-export default function FeedNavigationControls({
+export default async function FeedNavigationControls({
   feedDataType,
   feedId,
 }: Props) {
-  const router = useRouter();
-  const t = useTranslations('common');
+  const t = await getTranslations('common');
+  const headersList = await headers();
+  const referer = headersList.get('referer') ?? '/feeds';
 
   return (
-    <Grid container size={12} spacing={3} alignItems={'end'}>
+    <Grid container spacing={3} alignItems='flex-end'>
       <Button
         sx={{ py: 0 }}
         size='large'
         startIcon={<ChevronLeft />}
         color={'inherit'}
-        onClick={() => {
-          router.back();
-        }}
+        component={'a'}
+        href={referer}
       >
         {t('back')}
       </Button>
