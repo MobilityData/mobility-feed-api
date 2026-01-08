@@ -9,7 +9,7 @@ import MapGL, {
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type LatLngExpression } from 'leaflet';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { PopupTable } from './PopupTable';
 import { useTheme } from '@mui/material/styles';
 import { Box, Typography, Tooltip } from '@mui/material';
@@ -43,7 +43,7 @@ export const MapGeoJSON = (
   props: React.PropsWithChildren<MapProps>,
 ): JSX.Element => {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const { geoJSONData, displayMapDetails = true } = props;
   const [ready, setReady] = React.useState(false);
   const [popupInfo, setPopupInfo] = React.useState<any | null>(null);
@@ -186,11 +186,9 @@ export const MapGeoJSON = (
                     <strong>{t('heatmapExplanationTitle')}</strong>
                   </Typography>
                   <div>
-                    {' '}
-                    <Trans
-                      i18nKey={t('heatmapExplanationContent')}
-                      components={{ code: <code /> }}
-                    />
+                    {t.rich('heatmapExplanationContent', {
+                      code: (chunks) => <code>{chunks}</code>,
+                    })}
                   </div>
                 </React.Fragment>
               }

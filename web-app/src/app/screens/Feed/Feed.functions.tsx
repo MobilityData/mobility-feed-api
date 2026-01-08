@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { type TFunction } from 'i18next';
+
 import { type GBFSVersionType } from '../../services/feeds/utils';
 import { type LatLngExpression } from 'leaflet';
 
@@ -28,7 +28,7 @@ export function getFeedFormattedName(
 }
 
 export function generateDescriptionMetaTag(
-  t: TFunction<'feeds'>,
+  t: any,
   sortedProviders: string[],
   dataType: 'gtfs' | 'gtfs_rt' | 'gbfs' | undefined,
   feedName?: string,

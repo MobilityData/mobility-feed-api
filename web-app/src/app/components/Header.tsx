@@ -36,7 +36,6 @@ import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
@@ -45,7 +44,7 @@ import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 import { animatedButtonStyling } from './Header.style';
 import DrawerContent from './HeaderMobileDrawer';
 import ThemeToggle from './ThemeToggle';
-import { useTranslation } from 'react-i18next';
+import { useTranslations, useLocale } from 'next-intl';
 
 export default function DrawerAppBar(): React.ReactElement {
   const searchParams = useSearchParams();
@@ -62,15 +61,9 @@ export default function DrawerAppBar(): React.ReactElement {
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
   >(buildNavigationItems(defaultRemoteConfigValues));
-  const [currentLanguage, setCurrentLanguage] = React.useState<
-    string | undefined
-  >(i18n.language);
+  const locale = useLocale();
   const { config } = useRemoteConfig();
-  const { t } = useTranslation('common');
-
-  i18n.on('languageChanged', (lang) => {
-    setCurrentLanguage(i18n.language);
-  });
+  const t = useTranslations('common');
 
   React.useEffect(() => {
     setActiveTab(pathname ?? '');
@@ -81,7 +74,7 @@ export default function DrawerAppBar(): React.ReactElement {
   }, [config]);
 
   const router = useRouter();
-  const isAuthenticated = true;// useSelector(selectIsAuthenticated);
+  const isAuthenticated = true; // useSelector(selectIsAuthenticated);
   //const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
@@ -122,7 +115,7 @@ export default function DrawerAppBar(): React.ReactElement {
   };
 
   const metricsOptionsEnabled = false;
-    //config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+  //config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
 
   return (
     <Box
@@ -393,12 +386,31 @@ export default function DrawerAppBar(): React.ReactElement {
               </Button>
             )}
             <ThemeToggle></ThemeToggle>
-            {/* Testing language tool */}
-            {config.enableLanguageToggle && currentLanguage !== undefined && (
+            {/* Testing language tool -> to revisit */}
+            {config.enableLanguageToggle && (
               <Select
-                value={currentLanguage}
-                onChange={(lang) => {
-                  void i18n.changeLanguage(lang.target.value);
+                value={locale}
+                onChange={(e) => {
+                  const newLocale = e.target.value;
+                  const currentHost = window.location.host;
+                  const currentProtocol = window.location.protocol;
+                  const currentPath =
+                    window.location.pathname + window.location.search;
+
+                  let newHost = currentHost;
+                  if (newLocale === 'fr') {
+                    if (!currentHost.startsWith('fr.')) {
+                      newHost = 'fr.' + currentHost;
+                    }
+                  } else {
+                    if (currentHost.startsWith('fr.')) {
+                      newHost = currentHost.replace('fr.', '');
+                    }
+                  }
+
+                  if (newHost !== currentHost) {
+                    window.location.href = `${currentProtocol}//${newHost}${currentPath}`;
+                  }
                 }}
                 variant='standard'
                 inputProps={{ 'aria-label': 'language select' }}

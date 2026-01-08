@@ -10,14 +10,14 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { selectIsAuthenticated } from '../../store/profile-selectors';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { useLocation } from 'react-router-dom';
 import FeedSubmissionForm from './Form';
 import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
 
 function Component(): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const location = useLocation();
   const [showLoginSuccess, setShowLoginSuccess] = React.useState(
     location.state?.from === 'registration',

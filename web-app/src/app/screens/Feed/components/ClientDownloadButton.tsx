@@ -2,11 +2,11 @@
 
 import { Button } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 export default function ClientDownloadButton({ url }: { url: string }) {
   
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
 
   const handleDownloadLatestClick = async (): Promise<void> => {
     const ReactGA = (await import('react-ga4')).default;

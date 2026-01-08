@@ -3,7 +3,7 @@
 import { Button, Grid, Typography } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 type Props = {
   feedDataType: string;
@@ -15,7 +15,7 @@ export default function FeedNavigationControls({
   feedId,
 }: Props) {
   const router = useRouter();
-  const { t } = useTranslation(['common', 'feeds']); // Ensure namespaces are loaded
+  const t = useTranslations('common');
 
   return (
     <Grid container size={12} spacing={3} alignItems={'end'}>
@@ -28,7 +28,7 @@ export default function FeedNavigationControls({
           router.back();
         }}
       >
-        {t('common:back')}
+        {t('back')}
       </Button>
 
       <Grid>
@@ -40,7 +40,7 @@ export default function FeedNavigationControls({
           }}
         >
           <Button variant='text' href='/feeds' className='inline'>
-            {t('common:feeds')}
+            {t('feeds')}
           </Button>
           /
           <Button
@@ -48,7 +48,7 @@ export default function FeedNavigationControls({
             href={`/feeds?${feedDataType}=true`}
             className='inline'
           >
-            {t(`common:${feedDataType}`)}
+            {t(`${feedDataType}`)}
           </Button>
           / {feedDataType === 'gbfs' ? feedId?.replace('gbfs-', '') : feedId}
         </Typography>

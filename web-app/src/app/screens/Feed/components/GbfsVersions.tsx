@@ -12,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -63,7 +63,7 @@ export default function GbfsVersions({
 }: GbfsVersionsProps): React.ReactElement {
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const theme = useTheme();
-  const { t } = useTranslation('gbfs');
+  const t = useTranslations('gbfs');
 
   const getGbfsVersionUrl = (version: string, feature: string): string => {
     if (

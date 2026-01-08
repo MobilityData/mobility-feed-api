@@ -25,7 +25,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { GroupCard, GroupHeader } from '../FeedSummary.styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LinkIcon from '@mui/icons-material/Link';
@@ -74,7 +74,7 @@ export default function FeedSummary({
   routeTypes,
   totalRoutes,
 }: FeedSummaryProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const [openLocationDetails, setOpenLocationDetails] = useState<
     'summary' | 'fullList' | undefined

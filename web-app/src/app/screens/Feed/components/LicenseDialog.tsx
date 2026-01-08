@@ -23,7 +23,7 @@ import {
   selectLicenseErrors,
 } from '../../../store/license-selectors';
 import { loadingLicense } from '../../../store/license-reducer';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 export interface LicenseDialogProps {
   open: boolean;
@@ -36,7 +36,7 @@ export default function LicenseDialog({
   onClose,
   licenseId,
 }: LicenseDialogProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useDispatch();

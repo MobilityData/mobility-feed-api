@@ -1,5 +1,5 @@
 import { Box, Chip, Tooltip, useTheme } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { getFeedStatusData } from '../utils/feedStatusConsts';
 
 export interface FeedStatusProps {
@@ -11,7 +11,7 @@ export interface FeedStatusProps {
 export const FeedStatusIndicator = (
   props: React.PropsWithChildren<FeedStatusProps>,
 ): JSX.Element => {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const statusData = getFeedStatusData(props.status, theme, t);
   return (
@@ -36,7 +36,7 @@ export const FeedStatusIndicator = (
 export const FeedStatusChip = (
   props: React.PropsWithChildren<FeedStatusProps>,
 ): JSX.Element => {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const statusData = getFeedStatusData(props.status, theme, t);
   return (

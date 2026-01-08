@@ -1,7 +1,7 @@
 'use client';
 
 import { Chip, Tooltip } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { verificationBadgeStyle } from '../styles/VerificationBadge.styles';
 import VerifiedIcon from '@mui/icons-material/Verified';
 
@@ -12,7 +12,7 @@ interface OfficialChipProps {
 export default function OfficialChip({
   isLongDisplay = true,
 }: OfficialChipProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   return (
     <>
       {isLongDisplay ? (

@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { Controller, type SubmitHandler, useForm } from 'react-hook-form';
 import { type FeedSubmissionFormFormInput } from '.';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { getCountryDataList } from 'countries-list';
 import { useState } from 'react';
 import FormLabelDescription from './components/FormLabelDescription';
@@ -36,7 +36,7 @@ export default function FormSecondStep({
   handleBack,
 }: FormSecondStepProps): React.ReactElement {
   const [countryList] = useState(getCountryDataList());
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const {
     control,
     handleSubmit,

@@ -2,10 +2,10 @@
 
 import { Button } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 export default function ClientQualityReportButton({ url }: { url: string }) {
-  const { t } = useTranslation('feeds'); // Assumes i18n is available client-side
+  const t = useTranslations('feeds'); // Assumes i18n is available client-side
 
   const handleOpenFullQualityReportClick = async (): Promise<void> => {
     const ReactGA = (await import('react-ga4')).default;

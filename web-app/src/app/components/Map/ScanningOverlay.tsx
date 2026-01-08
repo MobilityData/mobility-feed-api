@@ -6,7 +6,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 interface ScanningOverlayProps {
   totalTiles: number;
@@ -30,7 +30,7 @@ export const ScanningOverlay = (
     cancelRequestRef,
   } = props;
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const progressPct =
     totalTiles > 0
       ? Math.min(100, Math.round((scannedTiles / totalTiles) * 100))
@@ -125,7 +125,7 @@ export const ScanningOverlay = (
             disabled={cancelRequestRef.current}
             aria-label={t('scanning.cancel')}
           >
-            {t('scanning.cancel', 'Cancel scan')}
+            {t('scanning.cancel')}
           </Button>
         </Box>
       </Box>

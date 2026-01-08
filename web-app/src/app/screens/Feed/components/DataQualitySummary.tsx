@@ -6,7 +6,7 @@ import { CheckCircle, ReportOutlined } from '@mui/icons-material';
 import { type components } from '../../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { WarningContentBox } from '../../../components/WarningContentBox';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { FeedStatusChip } from '../../../components/FeedStatus';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 import OfficialChip from '../../../components/OfficialChip';
@@ -22,7 +22,7 @@ export default function DataQualitySummary({
   isOfficialFeed,
   latestDataset,
 }: DataQualitySummaryProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const { config } = useRemoteConfig();
   return (
     <Box data-testid='data-quality-summary' sx={{ my: 2 }}>

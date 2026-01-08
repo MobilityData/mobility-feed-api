@@ -26,7 +26,7 @@ const MapGeoJSON = dynamic(
 const Map = dynamic(() => import('./Map').then((mod) => mod.Map), {
   ssr: false,
 });
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
 import { type GTFSFeedType, type AllFeedType } from '../services/feeds/utils';
@@ -74,7 +74,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   latestDataset,
   feed,
 }) => {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const { config } = useRemoteConfig();
 

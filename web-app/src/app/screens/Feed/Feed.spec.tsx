@@ -3,7 +3,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
-import { type TFunction } from 'i18next';
+
 import {
   formatProvidersSorted,
   generatePageTitle,

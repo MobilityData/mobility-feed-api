@@ -9,7 +9,7 @@ import {
 import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { isValidFeedLink } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
@@ -37,7 +37,7 @@ export default function FormSecondStepRT({
   submitFormData,
   handleBack,
 }: FormSecondStepRTProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const {
     control,
     handleSubmit,

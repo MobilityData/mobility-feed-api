@@ -24,7 +24,7 @@ import NestedCheckboxList, {
   type CheckboxStructure,
 } from '../../../components/NestedCheckboxList';
 import { CenterFocusStrong, ChevronLeft } from '@mui/icons-material';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import { SearchHeader } from '../../../styles/Filters.styles';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -54,7 +54,7 @@ import type { GTFSFeedType } from '../../../services/feeds/utils';
 import RouteSelector from '../../../components/RouteSelector';
 
 export default function FullMapView(): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const { config } = useRemoteConfig();
 
   const { feedId } = useParams();

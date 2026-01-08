@@ -5,7 +5,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../../services/feeds/utils';
-import { useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 
 interface FeedTitleProps {
   sortedProviders: string[];
@@ -16,7 +16,7 @@ export default function FeedTitle({
   sortedProviders,
   feed,
 }: FeedTitleProps): React.ReactElement {
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
   const theme = useTheme();
   const mainProvider = sortedProviders[0];
   let extraProviders: string | undefined;

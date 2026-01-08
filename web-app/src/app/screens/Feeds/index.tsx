@@ -29,7 +29,7 @@ import {
 } from '../../store/feeds-selectors';
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslations } from 'next-intl';
 import {
   getDataTypeParamFromSelectedFeedTypes,
   getInitialSelectedFeedTypes,
@@ -48,7 +48,8 @@ import { SearchFilters } from './SearchFilters';
 
 export default function Feed(): React.ReactElement {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
@@ -311,9 +312,7 @@ export default function Feed(): React.ReactElement {
           maxWidth={'xl'}
           sx={{ boxSizing: 'content-box' }}
         >
-          <MainPageHeader ref={containerRef}>
-            {t('common:feeds')}
-          </MainPageHeader>
+          <MainPageHeader ref={containerRef}>{tCommon('feeds')}</MainPageHeader>
           {activeSearch !== '' && (
             <Typography variant='subtitle1'>
               {t('searchFor')}: <b>{activeSearch}</b>
@@ -368,7 +367,7 @@ export default function Feed(): React.ReactElement {
               type='submit'
               sx={{ m: 1, height: '55px', mr: 0 }}
             >
-              {t('common:search')}
+              {tCommon('search')}
             </Button>
           </Container>
         </Box>
@@ -384,7 +383,7 @@ export default function Feed(): React.ReactElement {
             }}
           >
             <Grid
-              size={{xs: 12, md: 2}}
+              size={{ xs: 12, md: 2 }}
               sx={{
                 minWidth: '275px',
                 pr: 2,
@@ -417,14 +416,14 @@ export default function Feed(): React.ReactElement {
               ></SearchFilters>
             </Grid>
 
-            <Grid size={{xs: 12, md: 10}}>
+            <Grid size={{ xs: 12, md: 10 }}>
               <Box sx={chipHolderStyles}>
                 {selectedFeedTypes.gtfs && (
                   <Chip
                     color='primary'
                     variant='outlined'
                     size='small'
-                    label={t('common:gtfsSchedule')}
+                    label={tCommon('gtfsSchedule')}
                     onDelete={() => {
                       setActivePagination(1);
                       setSelectedFeedTypes({
@@ -439,7 +438,7 @@ export default function Feed(): React.ReactElement {
                     color='primary'
                     variant='outlined'
                     size='small'
-                    label={t('common:gtfsRealtime')}
+                    label={tCommon('gtfsRealtime')}
                     onDelete={() => {
                       setActivePagination(1);
                       setSelectedFeedTypes({
@@ -454,7 +453,7 @@ export default function Feed(): React.ReactElement {
                     color='primary'
                     variant='outlined'
                     size='small'
-                    label={t('common:gbfs')}
+                    label={tCommon('gbfs')}
                     onDelete={() => {
                       setActivePagination(1);
                       setSelectedFeedTypes({
@@ -554,9 +553,9 @@ export default function Feed(): React.ReactElement {
 
               {feedStatus === 'error' && (
                 <Grid size={12}>
-                  <h3>{t('common:errors.generic')}</h3>
+                  <h3>{tCommon('errors.generic')}</h3>
                   <Typography>
-                    <Trans i18nKey='errorAndContact'>
+                    {/* <Trans i18nKey='errorAndContact'>
                       Please check your internet connection and try again. If
                       the problem persists
                       <Button
@@ -567,7 +566,7 @@ export default function Feed(): React.ReactElement {
                         contact us
                       </Button>
                       for for further assistance.
-                    </Trans>
+                    </Trans> */}
                   </Typography>
                 </Grid>
               )}
