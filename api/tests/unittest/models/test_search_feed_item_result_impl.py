@@ -25,6 +25,7 @@ search_item = FeedSearchRow(
     status="active",
     feed_name="feed_name",
     official=None,
+    created_at=fake.date_time_this_month(),
     note="note",
     feed_contact_email="feed_contact_email",
     producer_url="producer_url",
