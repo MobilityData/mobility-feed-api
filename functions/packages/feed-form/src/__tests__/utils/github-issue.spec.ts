@@ -3,7 +3,7 @@ import axios from "axios";
 import * as logger from "firebase-functions/logger";
 import { isValidZipUrl, isValidZipDownload } from "../../impl/utils/url-parse";
 import {FeedSubmissionFormRequestBody} from "../../impl/types";
-import {sampleRequestBodyGTFS} from "../../impl/__mocks__/FeedSubmissionFormRequestBody.mock";
+import {sampleRequestBodyGTFS} from "../../impl/__mocks__/feed-submission-form-request-body.mock";
 
 jest.mock("axios");
 jest.mock("firebase-functions/logger");

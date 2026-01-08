@@ -5,7 +5,7 @@ import {
   writeToSheet,
 } from "../impl/feed-form-impl";
 import * as logger from "firebase-functions/logger";
-import {sampleRequestBodyGTFS, sampleRequestBodyGTFSRT} from "../impl/__mocks__/FeedSubmissionFormRequestBody.mock";
+import {sampleRequestBodyGTFS, sampleRequestBodyGTFSRT} from "../impl/__mocks__/feed-submission-form-request-body.mock";
 import {HttpsError} from "firebase-functions/v2/https";
 
 jest.mock("google-spreadsheet", () => ({
