@@ -38,7 +38,7 @@ const HeaderTableCell = styled(TableCell)(() => ({
 export const getDataTypeElement = (
   dataType: 'gtfs' | 'gtfs_rt' | 'gbfs',
 ): JSX.Element => {
-  const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const DataTypeHolder = ({
     children,
   }: {
@@ -57,11 +57,11 @@ export const getDataTypeElement = (
     );
   };
   if (dataType === 'gtfs') {
-    return <DataTypeHolder>{t('common:gtfsSchedule')}</DataTypeHolder>;
+    return <DataTypeHolder>{tCommon('gtfsSchedule')}</DataTypeHolder>;
   } else if (dataType === 'gtfs_rt') {
-    return <DataTypeHolder>{t('common:gtfsRealtime')}</DataTypeHolder>;
+    return <DataTypeHolder>{tCommon('gtfsRealtime')}</DataTypeHolder>;
   } else {
-    return <DataTypeHolder>{t('common:gbfs')}</DataTypeHolder>;
+    return <DataTypeHolder>{tCommon('gbfs')}</DataTypeHolder>;
   }
 };
 

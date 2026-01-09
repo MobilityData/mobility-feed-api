@@ -48,6 +48,7 @@ export default function FormFirstStep({
   setNumberOfSteps,
 }: FormFirstStepProps): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const {
     control,
     handleSubmit,
@@ -118,7 +119,7 @@ export default function FormFirstStep({
                 {t('areYouOfficialProducer')}
               </FormLabel>
               <Controller
-                rules={{ required: t('common:form.required') }}
+                rules={{ required: tCommon('form.required') }}
                 control={control}
                 name='isOfficialProducer'
                 render={({ field }) => (
@@ -127,13 +128,13 @@ export default function FormFirstStep({
                       <FormControlLabel
                         value='yes'
                         control={<Radio />}
-                        label={t('common:form.yes')}
+                        label={tCommon('form.yes')}
                         data-cy='isOfficialProducerYes'
                       />
                       <FormControlLabel
                         value='no'
                         control={<Radio />}
-                        label={t('common:form.no')}
+                        label={tCommon('form.no')}
                         data-cy='isOfficialProducerNo'
                       />
                     </RadioGroup>
@@ -167,10 +168,10 @@ export default function FormFirstStep({
                       data-cy='isOfficialFeed'
                       sx={{ width: '200px' }}
                     >
-                      <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
-                      <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                      <MenuItem value={'yes'}>{tCommon('form.yes')}</MenuItem>
+                      <MenuItem value={'no'}>{tCommon('form.no')}</MenuItem>
                       <MenuItem value={'unsure'}>
-                        {t('common:form.notSure')}
+                        {tCommon('form.notSure')}
                       </MenuItem>
                     </Select>
                     <FormHelperText>
@@ -232,10 +233,10 @@ export default function FormFirstStep({
                 render={({ field }) => (
                   <Select {...field} data-cy='dataType' sx={{ width: '200px' }}>
                     <MenuItem value={'gtfs'}>
-                      {t('common:gtfsSchedule')}
+                      {tCommon('gtfsSchedule')}
                     </MenuItem>
                     <MenuItem value={'gtfs_rt'}>
-                      {t('common:gtfsRealtime')}
+                      {tCommon('gtfsRealtime')}
                     </MenuItem>
                   </Select>
                 )}
@@ -293,7 +294,7 @@ export default function FormFirstStep({
             >
               <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
               <Controller
-                rules={{ required: t('common:form.required') }}
+                rules={{ required: tCommon('form.required') }}
                 control={control}
                 name='isUpdatingFeed'
                 render={({ field }) => (
@@ -302,8 +303,8 @@ export default function FormFirstStep({
                     sx={{ width: '200px' }}
                     data-cy='isUpdatingFeed'
                   >
-                    <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
-                    <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                    <MenuItem value={'yes'}>{tCommon('form.yes')}</MenuItem>
+                    <MenuItem value={'no'}>{tCommon('form.no')}</MenuItem>
                   </Select>
                 )}
               />
@@ -349,7 +350,7 @@ export default function FormFirstStep({
                 sx={{ mt: 3, mb: 2 }}
                 data-cy='submitFirstStep'
               >
-                {t('common:next')}
+                {tCommon('next')}
               </Button>
             </Grid>
           </Grid>

@@ -75,6 +75,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   feed,
 }) => {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const theme = useTheme();
   const { config } = useRemoteConfig();
 
@@ -314,7 +315,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
                 color='text.secondary'
                 sx={{ display: 'block', px: 1 }}
               >
-                {t('common:updated')}:{' '}
+                {tCommon('updated')}:{' '}
                 {displayFormattedDate(
                   (geoJsonData as GeoJSONDataGBFS).extracted_at,
                 )}

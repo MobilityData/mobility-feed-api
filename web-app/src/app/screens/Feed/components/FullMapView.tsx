@@ -55,6 +55,7 @@ import RouteSelector from '../../../components/RouteSelector';
 
 export default function FullMapView(): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const { config } = useRemoteConfig();
 
   const { feedId } = useParams();
@@ -348,7 +349,7 @@ export default function FullMapView(): React.ReactElement {
                 }
               }}
             >
-              {t('common:back')}
+              {tCommon('back')}
             </Button>
             <Button
               size='large'
