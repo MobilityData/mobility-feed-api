@@ -557,18 +557,17 @@ export default function Feed(): React.ReactElement {
                 <Grid size={12}>
                   <h3>{tCommon('errors.generic')}</h3>
                   <Typography>
-                    {/* <Trans i18nKey='errorAndContact'>
-                      Please check your internet connection and try again. If
-                      the problem persists
-                      <Button
-                        variant='text'
-                        className='inline'
-                        href={'mailto:api@mobilitydata.org'}
-                      >
-                        contact us
-                      </Button>
-                      for for further assistance.
-                    </Trans> */}
+                    {t.rich('errorAndContact', {
+                      contactLink: (chunks) => (
+                        <Button
+                          variant='text'
+                          className='inline'
+                          href={'mailto:api@mobilitydata.org'}
+                        >
+                          {chunks}
+                        </Button>
+                      ),
+                    })}
                   </Typography>
                 </Grid>
               )}

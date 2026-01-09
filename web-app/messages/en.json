@@ -128,7 +128,7 @@
     "stopCode": "Stop Code",
     "viewStopInfo": "View Stop Info",
     "gtfsVisualizationViewLabel": "GTFS Visualization View",
-    "errorAndContact": "Please check your internet connection and try again. If the problem persists <link>contact us</link> for for further assistance.",
+    "errorAndContact": "Please check your internet connection and try again. If the problem persists <contactLink>contact us</contactLink> for further assistance.",
     "errorLoadingFeed": "There was an error loading the feed.",
     "errorLoadingQualityReport": "Unable to generate data quality report.",
     "form": {
