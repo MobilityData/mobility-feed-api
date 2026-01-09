@@ -1,3 +1,5 @@
+'use client';
+
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import NestedCheckboxList, {
   type CheckboxStructure,
@@ -137,6 +139,7 @@ export function SearchFilters({
           if (config.enableGbfsInSearchPage) {
             checkedFeedTypes.gbfs = checkboxData[2].checked;
           }
+          console.log('Setting feed types from NestedCheckboxList', checkedFeedTypes);
           setSelectedFeedTypes(checkedFeedTypes);
         }}
       ></NestedCheckboxList>

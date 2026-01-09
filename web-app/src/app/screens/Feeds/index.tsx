@@ -27,7 +27,7 @@ import {
   selectFeedsData,
   selectFeedsStatus,
 } from '../../store/feeds-selectors';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import SearchTable from './SearchTable';
 import { useTranslations } from 'next-intl';
 import {
@@ -51,7 +51,9 @@ export default function Feed(): React.ReactElement {
   const t = useTranslations('feeds');
   const tCommon = useTranslations('common');
   const { config } = useRemoteConfig();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
     getInitialSelectedFeedTypes(searchParams),
@@ -179,7 +181,8 @@ export default function Feed(): React.ReactElement {
       newSearchParams.set('utm_source', 'transitfeeds');
     }
     if (searchParams.toString() !== newSearchParams.toString()) {
-      setSearchParams(newSearchParams, { replace: false });
+      const queryString = newSearchParams.toString();
+      router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
     }
   }, [
     activeSearch,
@@ -400,7 +403,7 @@ export default function Feed(): React.ReactElement {
                 selectedGbfsVersions={selectGbfsVersions}
                 setSelectedFeedTypes={(feedTypes) => {
                   setActivePagination(1);
-                  setSelectedFeedTypes(feedTypes);
+                  setSelectedFeedTypes({...feedTypes});
                 }}
                 setIsOfficialFeedSearch={(isOfficial) => {
                   setActivePagination(1);
