@@ -1,13 +1,9 @@
 import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './types';
 import { type AllFeedsParams, type AllFeedType } from './utils';
-import { getEnvConfig } from '../../utils/config';
-
-// Issue here the base URL from environment config
-const API_BASE_URL = getEnvConfig('NEXT_PUBLIC_FEED_API_BASE_URL');
 
 const client = createClient<paths>({
-  baseUrl: 'https://api-dev.mobilitydatabase.org', // TODO: API_BASE returns localhost (weird)
+  baseUrl: String(process.env.NEXT_PUBLIC_FEED_API_BASE_URL),
   querySerializer: {
     // serialize arrays as comma-separated values
     // More info: https://swagger.io/docs/specification/serialization/#query
@@ -66,6 +62,7 @@ export const getFeed = async (
   | undefined
 > => {
   const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  console.log("get feed", client)
   client.use(authMiddleware);
   return await client
     .GET('/v1/feeds/{id}', { params: { path: { id: feedId } } })
