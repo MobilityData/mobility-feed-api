@@ -9,8 +9,6 @@ export interface BypassConfig {
 export type GbfsVersionConfig = string[];
 
 export interface RemoteConfigValues extends FirebaseDefaultConfig {
-  enableAppleSSO: boolean;
-  enableFeedsPage: boolean;
   enableLanguageToggle: boolean;
   /**
    * Enables the feed submission stepper
@@ -56,8 +54,6 @@ const gbfsVersionsDefault: GbfsVersionConfig = [];
 
 // Add default values for remote config here
 export const defaultRemoteConfigValues: RemoteConfigValues = {
-  enableAppleSSO: false,
-  enableFeedsPage: false,
   enableLanguageToggle: false,
   enableFeedSubmissionStepper: false,
   enableMetrics: false,
