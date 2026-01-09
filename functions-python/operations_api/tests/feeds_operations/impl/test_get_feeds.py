@@ -87,21 +87,21 @@ async def test_get_feeds_pagination():
     api = OperationsApiImpl()
 
     response = await api.get_feeds(limit=1)
-    assert response.total == 1
+    assert response.total == 3
     assert response.limit == 1
     assert response.offset == 0
     assert len(response.feeds) == 1
     first_feed = response.feeds[0]
 
     response = await api.get_feeds(offset=1, limit=1)
-    assert response.total == 1
+    assert response.total == 3
     assert response.limit == 1
     assert response.offset == 1
     assert len(response.feeds) == 1
     assert response.feeds[0].stable_id != first_feed.stable_id
 
     response = await api.get_feeds(offset=3)
-    assert response.total == 0
+    assert response.total == 3
     assert response.limit == 50
     assert response.offset == 3
     assert len(response.feeds) == 0
@@ -149,26 +149,20 @@ async def test_get_feeds_combined_filters():
 
     base_response = await api.get_feeds()
     assert base_response is not None
-    print(f"\nTotal feeds in database: {len(base_response.feeds)}")
 
     gtfs_response = await api.get_feeds(data_type="gtfs")
     assert gtfs_response is not None
-    print(f"Total GTFS feeds: {len(gtfs_response.feeds)}")
-    for feed in gtfs_response.feeds:
-        print(f"GTFS Feed: {feed.stable_id}, status: {feed.operational_status}")
 
     wip_response = await api.get_feeds(operation_status="wip")
     assert wip_response is not None
-    print(f"Total WIP feeds: {len(wip_response.feeds)}")
-    for feed in wip_response.feeds:
-        print(f"WIP Feed: {feed.stable_id}, type: {feed.data_type}")
 
-    response = await api.get_feeds(data_type="gtfs", operation_status="wip")
+    response = await api.get_feeds(data_type="gtfs", operation_status="published")
     assert response is not None
     wip_gtfs_feeds = response.feeds
-    print(f"Total WIP GTFS feeds: {len(wip_gtfs_feeds)}")
 
-    assert len(wip_gtfs_feeds) == 0
+    assert len(wip_gtfs_feeds) == 1
+    assert wip_gtfs_feeds[0].data_type == "gtfs"
+    assert wip_gtfs_feeds[0].operational_status == "published"
 
     response = await api.get_feeds(data_type="gtfs", limit=1, offset=1)
     assert response is not None
@@ -231,3 +225,35 @@ async def test_get_feeds_unpublished_with_data_type():
     for feed in rt_response.feeds:
         assert feed.operational_status == "unpublished"
         assert feed.data_type == "gtfs_rt"
+
+
+@pytest.mark.asyncio
+async def test_get_feeds_search_query():
+    """
+    Test get_feeds endpoint with search query filter.
+    Should return only feeds matching the search query.
+    """
+    api = OperationsApiImpl()
+
+    response = await api.get_feeds(search_query="RT")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].feed_name == "London Transit Commission(RT"
+
+    response = await api.get_feeds(search_query=" Provider B ")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].provider == "provider B"
+
+    response = await api.get_feeds(search_query="mdb-41")
+    assert response is not None
+    assert response.total == 1
+    assert len(response.feeds) == 1
+    assert response.feeds[0].stable_id == "mdb-41"
+
+    response = await api.get_feeds(search_query="mdb")
+    assert response is not None
+    assert response.total == 3
+    assert len(response.feeds) == 3

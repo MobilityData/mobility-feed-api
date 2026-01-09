@@ -27,6 +27,12 @@ paths:
       tags:
         - "operations"
       parameters:
+        - name: search_query
+          in: query
+          description: General search query to match against feed stable id, feed name and feed provider.
+          required: False
+          schema:
+            type: string      
         - name: operation_status
           in: query
           description: Filter feeds by operational status.
@@ -271,8 +277,21 @@ paths:
         - "licenses"
       operationId: getLicenses
       parameters:
-        - $ref: "#/components/parameters/limit_query_param_licenses_endpoint"
-        - $ref: "#/components/parameters/offset"
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination. Defined as string rather than integer due to https://github.com/OpenAPITools/openapi-generator/issues/21905
+          required: false
+          schema:
+            type: string
+            default: "0"
+        - name: limit
+          in: query
+          description: Maximum number of items to return. Defined as string rather than integer due to https://github.com/OpenAPITools/openapi-generator/issues/21905
+          required: false
+          schema:
+            type: string
+            default: "50"
+            example: "100"
         - $ref: "#/components/parameters/search_text_query_param_license"
         - $ref: "#/components/parameters/license_is_spdx_query_param"
       security:
