@@ -273,11 +273,8 @@ export const searchFeeds = async (
   | paths['/v1/search']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
-  console.log('Searching feeds with params!!:', params);
   const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
-  console.log('client before use');
   client.use(authMiddleware);
-  console.log('client after use');
   return await client
     .GET('/v1/search', { params })
     .then((response) => {

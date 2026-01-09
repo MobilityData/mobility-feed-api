@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Box,
   Checkbox,
@@ -133,15 +135,21 @@ export default function NestedCheckboxList({
                       edge={'end'}
                       aria-label='expand'
                       onClick={() => {
-                        checkboxData.seeChildren =
-                          checkboxData.seeChildren === undefined
-                            ? true
-                            : !checkboxData.seeChildren;
-                        checkboxStructure[index] = checkboxData;
-                        setCheckboxStructure([...checkboxStructure]);
-                        if (onExpandGroupChange !== undefined) {
-                          onExpandGroupChange([...checkboxStructure]);
-                        }
+                        setCheckboxStructure((prev) => {
+                          const newData = {
+                            ...checkboxData,
+                            seeChildren:
+                              checkboxData.seeChildren === undefined
+                                ? true
+                                : !checkboxData.seeChildren,
+                          };
+                          const newStructure = [...prev];
+                          newStructure[index] = newData;
+                          if (onExpandGroupChange !== undefined) {
+                            onExpandGroupChange(newStructure);
+                          }
+                          return newStructure;
+                        });
                       }}
                     >
                       {!disableAll &&
@@ -164,12 +172,18 @@ export default function NestedCheckboxList({
                 sx={{ p: 0 }}
                 onClick={() => {
                   setCheckboxStructure((prev) => {
-                    checkboxData.checked = !checkboxData.checked;
-                    checkboxData.children?.forEach((child) => {
-                      child.checked = checkboxData.checked;
-                    });
-                    prev[index] = checkboxData;
-                    return [...prev];
+                    const newCheckedValue = !checkboxData.checked;
+                    const newData = {
+                      ...checkboxData,
+                      checked: newCheckedValue,
+                      children: checkboxData.children?.map((child) => ({
+                        ...child,
+                        checked: newCheckedValue,
+                      })),
+                    };
+                    const newStructure = [...prev];
+                    newStructure[index] = newData;
+                    return newStructure;
                   });
                   setHasChange(true);
                 }}
@@ -218,9 +232,13 @@ export default function NestedCheckboxList({
                     checkboxData={checkboxData.children}
                     onCheckboxChange={(children) => {
                       setCheckboxStructure((prev) => {
-                        checkboxData.children = children;
-                        prev[index] = checkboxData;
-                        return [...prev];
+                        const newData = {
+                          ...checkboxData,
+                          children,
+                        };
+                        const newStructure = [...prev];
+                        newStructure[index] = newData;
+                        return newStructure;
                       });
                       setHasChange(true);
                     }}

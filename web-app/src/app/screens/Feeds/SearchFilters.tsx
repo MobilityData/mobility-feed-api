@@ -1,3 +1,5 @@
+'use client';
+
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import NestedCheckboxList, {
   type CheckboxStructure,
