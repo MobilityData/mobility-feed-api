@@ -57,6 +57,7 @@ enum TokenTypes {
 
 export default function APIAccount(): React.ReactElement {
   const t = useTranslations('account');
+  const tCommon = useTranslations('common');
   const apiURL = 'https://api.mobilitydatabase.org/v1';
   const dispatch = useAppDispatch();
   const theme = useTheme();
@@ -70,8 +71,8 @@ export default function APIAccount(): React.ReactElement {
     copyAccessTokenToClipboard: t('accessToken.copyTokenToClipboard'),
     copyRefreshToken: t('refreshToken.copy'),
     copyRefreshTokenToClipboard: t('refreshToken.copyToClipboard'),
-    copyToClipboard: t('common:copyToClipboard'),
-    copied: t('common:copied'),
+    copyToClipboard: tCommon('copyToClipboard'),
+    copied: tCommon('copied'),
     tokenUnavailable: t('accessToken.unavailable'),
   };
 
@@ -344,20 +345,20 @@ export default function APIAccount(): React.ReactElement {
             {t('userDetails')}
           </Typography>
           <Typography variant='body1'>
-            <b>{t('common:name')}:</b>
-            {' ' + (user?.fullName ?? t('common:unknown'))}
+            <b>{tCommon('name')}:</b>
+            {' ' + (user?.fullName ?? tCommon('unknown'))}
           </Typography>
           <Typography variant='body1'>
             {user?.email !== undefined && user?.email !== '' ? (
               <Typography variant='body1' component={'span'}>
-                <b>{t('common:email')}:</b>{' '}
-                {' ' + (user?.email ?? t('common:unknown'))}
+                <b>{tCommon('email')}:</b>{' '}
+                {' ' + (user?.email ?? tCommon('unknown'))}
               </Typography>
             ) : null}
           </Typography>
           {user?.organization !== undefined && (
             <Typography variant='body1'>
-              <b>{t('common:organization')}:</b> {' ' + user?.organization}
+              <b>{tCommon('organization')}:</b> {' ' + user?.organization}
             </Typography>
           )}
           {user?.isRegisteredToReceiveAPIAnnouncements === true ? (
@@ -400,7 +401,7 @@ export default function APIAccount(): React.ReactElement {
               onClick={handleSignOutClick}
               data-cy='signOutButton'
             >
-              {t('common:signOut')}
+              {tCommon('signOut')}
             </Button>
           </Box>
         </Paper>
