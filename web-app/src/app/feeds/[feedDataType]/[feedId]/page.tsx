@@ -72,8 +72,8 @@ const fetchRelatedFeeds = cache(
       const feeds = await Promise.all(feedPromises);
       // Filter out failed fetches and separate by type
       const validFeeds = feeds.filter((f) => f !== undefined);
-      const gtfsFeeds = validFeeds.filter((f) => f.data_type === 'gtfs');
-      const gtfsRtFeeds = validFeeds.filter((f) => f.data_type === 'gtfs_rt');
+      const gtfsFeeds = validFeeds.filter((f) => f?.data_type === 'gtfs');
+      const gtfsRtFeeds = validFeeds.filter((f) => f?.data_type === 'gtfs_rt');
       return { gtfsFeeds, gtfsRtFeeds };
     } catch (e) {
       console.error('Error fetching related feeds', e);
