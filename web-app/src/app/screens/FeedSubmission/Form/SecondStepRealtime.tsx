@@ -38,6 +38,7 @@ export default function FormSecondStepRT({
   handleBack,
 }: FormSecondStepRTProps): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const {
     control,
     handleSubmit,
@@ -318,7 +319,7 @@ export default function FormSecondStepRT({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                {t('common:back')}
+                {tCommon('back')}
               </Button>
             </Grid>
             <Grid>
@@ -328,7 +329,7 @@ export default function FormSecondStepRT({
                 sx={{ mt: 3, mb: 2 }}
                 data-cy='secondStepRtSubmit'
               >
-                {t('common:next')}
+                {tCommon('next')}
               </Button>
             </Grid>
           </Grid>

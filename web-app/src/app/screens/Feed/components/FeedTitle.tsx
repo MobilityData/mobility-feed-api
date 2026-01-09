@@ -14,13 +14,13 @@ export default async function FeedTitle({
   sortedProviders,
   feed,
 }: FeedTitleProps): Promise<React.ReactElement> {
-  const t = await getTranslations('feeds');
+  const tCommon = await getTranslations('common');
   const mainProvider = sortedProviders[0];
   let extraProviders: string | undefined;
   let realtimeFeedName: string | undefined;
   if (sortedProviders.length > 1) {
     extraProviders =
-      '+' + (sortedProviders.length - 1) + ' ' + t('common:others');
+      '+' + (sortedProviders.length - 1) + ' ' + tCommon('others');
   }
   if (
     feed?.data_type === 'gtfs_rt' &&

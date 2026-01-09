@@ -43,6 +43,8 @@ import { animatedButtonStyling } from './Header.style';
 import DrawerContent from './HeaderMobileDrawer';
 import ThemeToggle from './ThemeToggle';
 import { useTranslations, useLocale } from 'next-intl';
+import { useSelector } from 'react-redux';
+import { selectIsAuthenticated, selectUserEmail } from '../store/profile-selectors';
 
 export default function DrawerAppBar(): React.ReactElement {
   const searchParams = useSearchParams();
@@ -72,8 +74,8 @@ export default function DrawerAppBar(): React.ReactElement {
   }, [config]);
 
   const router = useRouter();
-  const isAuthenticated = true; // useSelector(selectIsAuthenticated);
-  //const userEmail = useSelector(selectUserEmail);
+  const isAuthenticated =  useSelector(selectIsAuthenticated);
+  const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
@@ -112,8 +114,7 @@ export default function DrawerAppBar(): React.ReactElement {
     handleNavigation(item);
   };
 
-  const metricsOptionsEnabled = false;
-  //config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+  const metricsOptionsEnabled = config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
 
   return (
     <Box
@@ -449,7 +450,7 @@ export default function DrawerAppBar(): React.ReactElement {
       </AppBar>
 
       <nav>
-        {/* <Drawer
+        <Drawer
           container={container}
           variant='temporary'
           open={mobileOpen}
@@ -468,7 +469,7 @@ export default function DrawerAppBar(): React.ReactElement {
             navigationItems={navigationItems}
             metricsOptionsEnabled={metricsOptionsEnabled}
           />
-        </Drawer> */}
+        </Drawer>
       </nav>
       <LogoutConfirmModal
         openDialog={openDialog}

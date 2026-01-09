@@ -38,6 +38,7 @@ export default function FormFourthStep({
   handleBack,
 }: FormFourthStepProps): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const {
     control,
     handleSubmit,
@@ -104,7 +105,7 @@ export default function FormFourthStep({
               <Controller
                 control={control}
                 name='isInterestedInQualityAudit'
-                rules={{ required: t('common:form.required') }}
+                rules={{ required: tCommon('form.required') }}
                 render={({ field }) => (
                   <>
                     <Select
@@ -112,8 +113,8 @@ export default function FormFourthStep({
                       sx={{ width: '200px' }}
                       data-cy='interestedInAudit'
                     >
-                      <MenuItem value='yes'>{t('common:form:yes')}</MenuItem>
-                      <MenuItem value='no'>{t('common:form:no')}</MenuItem>
+                      <MenuItem value='yes'>{tCommon('form:yes')}</MenuItem>
+                      <MenuItem value='no'>{tCommon('form:no')}</MenuItem>
                     </Select>
                     <FormHelperText>
                       {errors.isInterestedInQualityAudit?.message ?? ''}
@@ -162,7 +163,7 @@ export default function FormFourthStep({
               <Controller
                 control={control}
                 name='hasLogoPermission'
-                rules={{ required: t('common:form.required') }}
+                rules={{ required: tCommon('form.required') }}
                 render={({ field }) => (
                   <>
                     <Select
@@ -170,8 +171,8 @@ export default function FormFourthStep({
                       sx={{ width: '200px' }}
                       data-cy='logoPermission'
                     >
-                      <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
-                      <MenuItem value='no'>{t('common:form.no')}</MenuItem>
+                      <MenuItem value='yes'>{tCommon('form.yes')}</MenuItem>
+                      <MenuItem value='no'>{tCommon('form.no')}</MenuItem>
                     </Select>
                     <FormHelperText>
                       {errors.hasLogoPermission?.message ?? ''}
@@ -211,7 +212,7 @@ export default function FormFourthStep({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                {t('common:back')}
+                {tCommon('back')}
               </Button>
             </Grid>
             <Grid>
@@ -221,7 +222,7 @@ export default function FormFourthStep({
                 sx={{ mt: 3, mb: 2 }}
                 data-cy='fourthStepSubmit'
               >
-                {t('common:form.submit')}
+                {tCommon('form.submit')}
               </Button>
             </Grid>
           </Grid>

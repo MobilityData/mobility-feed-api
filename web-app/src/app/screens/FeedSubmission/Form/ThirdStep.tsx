@@ -38,6 +38,7 @@ export default function FormThirdStep({
   handleBack,
 }: FormThirdStepProps): React.ReactElement {
   const t = useTranslations('feeds');
+  const tCommon = useTranslations('common');
   const {
     control,
     handleSubmit,
@@ -90,17 +91,17 @@ export default function FormThirdStep({
                 <Controller
                   control={control}
                   name='emptyLicenseUsage'
-                  rules={{ required: t('common:form.required') }}
+                  rules={{ required: tCommon('form.required') }}
                   render={({ field }) => (
                     <Select
                       {...field}
                       sx={{ width: '200px' }}
                       data-cy='emptyLicenseUsage'
                     >
-                      <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
-                      <MenuItem value='no'>{t('common:form.no')}</MenuItem>
+                      <MenuItem value='yes'>{tCommon('form.yes')}</MenuItem>
+                      <MenuItem value='no'>{tCommon('form.no')}</MenuItem>
                       <MenuItem value='unsure'>
-                        {t('common:form.notSure')}
+                        {tCommon('form.notSure')}
                       </MenuItem>
                     </Select>
                   )}
@@ -126,9 +127,9 @@ export default function FormThirdStep({
                 data-cy='isAuthRequired'
               >
                 <MenuItem value='choiceRequired'>
-                  {t('common:form.yes')}
+                  {tCommon('form.yes')}
                 </MenuItem>
-                <MenuItem value='None - 0'>{t('common:form:no')}</MenuItem>
+                <MenuItem value='None - 0'>{tCommon('form:no')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -146,7 +147,7 @@ export default function FormThirdStep({
                     control={control}
                     name='authType'
                     rules={{
-                      required: t('common:form.required'),
+                      required: tCommon('form.required'),
                       validate: (value) =>
                         value !== 'choiceRequired' ||
                         t('selectAuthenticationType'),
@@ -155,7 +156,7 @@ export default function FormThirdStep({
                       <>
                         <Select {...field} sx={{ width: '200px' }}>
                           <MenuItem value='choiceRequired'>
-                            <em>{t('common:form.select')}</em>
+                            <em>{tCommon('form.select')}</em>
                           </MenuItem>
                           <MenuItem value='API key - 1'>
                             {t('form.authType.apiKey')}
@@ -185,7 +186,7 @@ export default function FormThirdStep({
                     control={control}
                     name='authSignupLink'
                     rules={{
-                      required: t('common:form.required'),
+                      required: tCommon('form.required'),
                       validate: (value) =>
                         isValidFeedLink(value ?? '') || t('form.errorUrl'),
                     }}
@@ -227,7 +228,7 @@ export default function FormThirdStep({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                {t('common:back')}
+                {tCommon('back')}
               </Button>
             </Grid>
             <Grid>
@@ -237,7 +238,7 @@ export default function FormThirdStep({
                 sx={{ mt: 3, mb: 2 }}
                 data-cy='thirdStepSubmit'
               >
-                {t('common:next')}
+                {tCommon('next')}
               </Button>
             </Grid>
           </Grid>
