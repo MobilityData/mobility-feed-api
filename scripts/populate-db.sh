@@ -3,7 +3,7 @@
 #
 # This script populates the local instance of the database.
 # As a requirement, you need to have the local instance of the database running on the port defined in config/.env.local
-# The csv file containing the data has to be in the same format as https://bit.ly/catalogs-csv
+# The csv file containing the data has to be in the same format as https://share.mobilitydata.org/catalogs-csv
 # Usage:
 #   populate-db.sh <path to sources.csv> [data_type]
 #
