@@ -132,7 +132,7 @@ jobs:
 
     - name: Download csv version of the database
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
-      run: wget -O sources.csv https://bit.ly/catalogs-csv
+      run: wget -O sources.csv https://share.mobilitydata.org/catalogs-csv
 
     - name: Get full path of sources.csv
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
