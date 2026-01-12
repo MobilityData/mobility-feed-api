@@ -120,7 +120,6 @@ export default function Feed(): React.ReactElement {
             search_query: activeSearch,
             data_type: getDataTypeParamFromSelectedFeedTypes(
               selectedFeedTypes,
-              config.enableGbfsInSearchPage,
             ),
             is_official: isOfficialTagFilterEnabled
               ? isOfficialFeedSearch || undefined
@@ -162,7 +161,7 @@ export default function Feed(): React.ReactElement {
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
     }
-    if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
+    if (selectedFeedTypes.gbfs) {
       newSearchParams.set('gbfs', 'true');
     }
     if (selectedFeatures.length > 0) {
@@ -392,7 +391,7 @@ export default function Feed(): React.ReactElement {
               xs={12}
               md={2}
               sx={{
-                minWidth: config.enableFeatureFilterSearch ? '275px' : '220px',
+                minWidth: '220px',
                 pr: 2,
               }}
             >
