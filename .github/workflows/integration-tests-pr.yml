@@ -44,7 +44,7 @@ jobs:
         python-version: ${{ env.python_version }}
 
     - name: Download csv version of the database
-      run: wget -O sources.csv https://share.mobilitydata.org/catalogs-csv
+      run: wget -O sources.csv https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
 
     - name: Get full path of sources.csv
       id: getpath

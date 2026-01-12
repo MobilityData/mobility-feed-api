@@ -118,7 +118,7 @@ export default function Contribute(): React.ReactElement {
             information, transit providers should add a new feed on the catalogs
             when their feed URL changes. Transit providers should review{' '}
             <a
-              href='https://share.mobilitydata.org/catalogs-csv'
+              href='https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media'
               target='_blank'
               rel='noreferrer'
             >
