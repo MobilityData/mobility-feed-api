@@ -20,7 +20,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 import requests
 from sqlalchemy.exc import IntegrityError
@@ -180,8 +180,7 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
     Rules:
       - If type == 'pays', use that as the country.
       - If there is no 'pays', assume country = 'France'.
-      - region/departement → state_province
-      - commune/epci      → municipality (city_name)
+      - region/departement/commune/epci → state_province (kept as-is)
     """
     covered_areas = dataset.get("covered_area", []) or []
 
@@ -225,6 +224,50 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
 # ---------------------------------------------------------------------------
 # Feed helpers
 # ---------------------------------------------------------------------------
+
+TFeed = TypeVar("TFeed", bound=Feed)
+
+
+def _delete_and_recreate_feed_if_type_changed(
+    db_session: Session,
+    model_cls: Type[TFeed],
+    stable_id: str,
+    feed_type: str,
+    **get_or_create_kwargs: Any,
+) -> Tuple[TFeed, bool]:
+    """
+    If a Feed exists with the same stable_id but is a different polymorphic type
+    (e.g., GTFS-RT in DB but now TDG says it's GTFS), delete the old entity and
+    recreate using the requested model class.
+
+    Returns: (feed, is_new)
+      - is_new True when created (including after deletion/recreate)
+      - is_new False when existing row already matches model_cls
+    """
+    existing: Optional[Feed] = (
+        db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
+    )
+
+    if existing is not None and not isinstance(existing, model_cls):
+        logger.info(
+            "TDG feed type changed for stable_id=%s: db_type=%s -> new_type=%s. Deleting and recreating.",
+            stable_id,
+            type(existing).__name__,
+            model_cls.__name__,
+        )
+        db_session.delete(existing)
+        # flush so the new insert doesn't collide on stable_id unique constraint
+        db_session.flush()
+
+    # Now create or get the correct type
+    feed, is_new = get_or_create_feed(
+        db_session,
+        model_cls,
+        stable_id,
+        feed_type,
+        **get_or_create_kwargs,
+    )
+    return feed, is_new
 
 
 def _deprecate_stale_feeds(db_session, processed_stable_ids):
@@ -305,7 +348,6 @@ def _update_common_tdg_fields(
         )
         raise InvalidTDGFeedError("TDG dataset.publisher.name is missing")
     if not producer_url:
-        # Stop processing this feed/resource: it's invalid
         logger.warning(
             "Skipping TDG resource due to missing producer URL "
             "(dataset_id=%s resource_id=%s title=%s)",
@@ -419,6 +461,8 @@ def _process_tdg_dataset(
       - create/update RT feeds linked to the schedule
       - attach locations
       - use diffing to avoid unnecessary DB writes
+      - IMPORTANT: if a stable_id exists in DB but with the wrong entity type
+        (GTFS <-> GTFS-RT flip), delete the old entity and create the new one.
     Returns:
       (deltas_dict, feeds_to_publish)
     """
@@ -465,11 +509,12 @@ def _process_tdg_dataset(
                     )
                     continue
 
+                stable_id = f"tdg-{res_id}"
+                processed_stable_ids.add(stable_id)
+
                 # ---- STATIC GTFS ----
                 if res_format == GTFS_FORMAT:
-                    stable_id = f"tdg-{res_id}"
-                    processed_stable_ids.add(stable_id)
-                    gtfs_feed, is_new = get_or_create_feed(
+                    gtfs_feed, is_new = _delete_and_recreate_feed_if_type_changed(
                         db_session,
                         Gtfsfeed,
                         stable_id,
@@ -536,10 +581,11 @@ def _process_tdg_dataset(
                 elif res_format == GTFS_RT_FORMAT:
                     static_gtfs_feeds = static_feeds_by_dataset_id.get(dataset_id, [])
 
-                    rt_stable_id = f"tdg-{res_id}"
-                    processed_stable_ids.add(rt_stable_id)
-                    rt_feed, is_new_rt = get_or_create_feed(
-                        db_session, Gtfsrealtimefeed, rt_stable_id, "gtfs_rt"
+                    rt_feed, is_new_rt = _delete_and_recreate_feed_if_type_changed(
+                        db_session,
+                        Gtfsrealtimefeed,
+                        stable_id,
+                        "gtfs_rt",
                     )
 
                     if not is_new_rt:
@@ -551,13 +597,13 @@ def _process_tdg_dataset(
                                 static_gtfs_feed.stable_id
                                 for static_gtfs_feed in static_gtfs_feeds
                             ],
-                            rt_stable_id=rt_stable_id,
+                            rt_stable_id=stable_id,
                         )
                         db_rt_fp = _build_db_rt_fingerprint_tdg(rt_feed)
                         if db_rt_fp == api_rt_fp:
                             logger.info(
                                 "No change detected; skipping TDG RT feed stable_id=%s",
-                                rt_stable_id,
+                                stable_id,
                             )
                             processed += 1
                             continue
@@ -567,7 +613,7 @@ def _process_tdg_dataset(
                     )
                     _ensure_tdg_external_id(rt_feed, res_id)
 
-                    # Link RT → schedule
+                    # Link RT → schedule (can be empty if schedule missing)
                     rt_feed.gtfs_feeds = static_gtfs_feeds
 
                     # Add entity types
@@ -580,13 +626,13 @@ def _process_tdg_dataset(
                         created_rt += 1
                         logger.info(
                             "Created TDG RT feed stable_id=%s linked_to=%s",
-                            rt_stable_id,
+                            stable_id,
                             ", ".join([f.stable_id for f in static_gtfs_feeds]),
                         )
                     else:
                         logger.info(
                             "Updated TDG RT feed stable_id=%s linked_to=%s",
-                            rt_stable_id,
+                            stable_id,
                             ", ".join([f.stable_id for f in static_gtfs_feeds]),
                         )
 
@@ -630,6 +676,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
       - iterate over datasets
       - batch commit + trigger dataset downloads for new schedule feeds
       - use diffing to avoid unnecessary DB writes
+      - delete/recreate entity if stable_id flips GTFS <-> GTFS-RT
     """
     logger.info("Starting TDG import dry_run=%s", dry_run)
     session_http = requests.Session()
@@ -657,6 +704,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
     created_gtfs = updated_gtfs = created_rt = total_processed = 0
     feeds_to_publish: List[Feed] = []
     processed_stable_ids = set()
+
     for idx, dataset in enumerate(datasets, start=1):
         previous_total_processed = total_processed
         try:
