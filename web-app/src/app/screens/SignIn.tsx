@@ -11,7 +11,6 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import {
   login,
   loginFail,

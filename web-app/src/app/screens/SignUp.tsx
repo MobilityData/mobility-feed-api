@@ -46,8 +46,6 @@ import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { useEffect } from 'react';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function SignUp(): React.ReactElement {
