@@ -248,7 +248,7 @@ def _delete_and_recreate_feed_if_type_changed(
         db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
     )
 
-    if existing is not None and not isinstance(existing, model_cls):
+    if existing is not None and not existing.data_type == feed_type:
         logger.info(
             "TDG feed type changed for stable_id=%s: db_type=%s -> new_type=%s. Deleting and recreating.",
             stable_id,
