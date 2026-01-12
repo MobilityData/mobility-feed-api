@@ -194,11 +194,12 @@ export default function AdvancedSearchTable({
                   {feed.official === true && (
                     <OfficialChip isLongDisplay={false}></OfficialChip>
                   )}
-                  {feed.data_type !== 'gbfs' && (
-                    <FeedStatusIndicator
-                      status={feed.status}
-                    ></FeedStatusIndicator>
-                  )}
+                  {feed.data_type !== 'gbfs' &&
+                    feed.data_type !== 'gtfs_rt' && (
+                      <FeedStatusIndicator
+                        status={feed.status}
+                      ></FeedStatusIndicator>
+                    )}
                 </Box>
 
                 <Box
