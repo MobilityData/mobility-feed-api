@@ -195,7 +195,7 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
               <Button
                 variant='text'
                 className='inline'
-                href={'https://bit.ly/catalogs-csv'}
+                href={'https://share.mobilitydata.org/catalogs-csv'}
                 endIcon={<FileDownloadIcon />}
               >
                 the spreadsheet of feeds already in the Mobility Database
