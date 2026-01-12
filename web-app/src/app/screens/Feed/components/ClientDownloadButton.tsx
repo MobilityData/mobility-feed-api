@@ -9,6 +9,7 @@ export default function ClientDownloadButton({ url }: { url: string }) {
   const t = useTranslations('feeds');
 
   const handleDownloadLatestClick = async (): Promise<void> => {
+    // Lazy load react-ga4 to avoid loading it unnecessarily
     const ReactGA = (await import('react-ga4')).default;
     ReactGA.event({
       category: 'engagement',
