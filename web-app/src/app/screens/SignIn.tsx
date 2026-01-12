@@ -47,7 +47,6 @@ import {
   POST_REGISTRATION_TARGET,
 } from '../constants/Navigation';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
-import { useEffect } from 'react';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
