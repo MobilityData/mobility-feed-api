@@ -118,6 +118,10 @@ export interface paths {
       };
     };
   };
+  '/v1/licenses:match': {
+    /** @description Get the list of matching licenses based on the provided license URL */
+    post: operations['getMatchingLicenses'];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -849,6 +853,97 @@ export interface components {
       license_rules?: Array<components['schemas']['LicenseRule']>;
     };
     Licenses: Array<components['schemas']['LicenseBase']>;
+    /**
+     * @description Matching a license
+     * @example {
+     *   "license_id": "CC-BY-4.0",
+     *   "license_url": "https://creativecommons.org/licenses/by/4.0/deed.nl",
+     *   "normalized_url": "creativecommons.org/licenses/by/4.0",
+     *   "match_type": "heuristic",
+     *   "confidence": 0.99,
+     *   "spdx_id": "CC-BY-4.0",
+     *   "matched_name": "Creative Commons Attribution 4.0 International",
+     *   "matched_catalog_url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+     *   "matched_source": "cc-resolver",
+     *   "notes": "Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.",
+     *   "regional_id": "CC-BY-4.0-nl"
+     * }
+     */
+    MatchingLicense: {
+      /**
+       * @description Unique identifier for the license (typically SPDX ID)
+       * @example CC-BY-4.0
+       */
+      license_id?: string;
+      /**
+       * @description Original license URL provided for resolution
+       * @example https://creativecommons.org/licenses/by/4.0/
+       */
+      license_url?: string;
+      /**
+       * @description URL after normalization (lowercased, trimmed, protocol removed)
+       * @example creativecommons.org/licenses/by/4.0
+       */
+      normalized_url?: string;
+      /**
+       * @description Type of match performed. One of:
+       *   - 'exact': Direct match found in database
+       *   - 'heuristic': Matched via pattern-based rules (CC resolver, common patterns)
+       *   - 'fuzzy': Similarity-based match against same-host licenses
+       *   - 'none': No match found
+       *
+       * @example heuristic
+       */
+      match_type?: string;
+      /**
+       * @description Match confidence score (0.0-1.0), examples:
+       *   - 1.0: Exact match
+       *   - 0.99: Creative Commons resolved
+       *   - 0.95: Pattern heuristic match
+       *   - 0.0-1.0: Fuzzy match score based on string similarity
+       *
+       * @example 0.99
+       */
+      confidence?: number;
+      /**
+       * @description SPDX License Identifier if matched (e.g., 'CC-BY-4.0', 'MIT')
+       * @example CC-BY-4.0
+       */
+      spdx_id?: string;
+      /**
+       * @description Human-readable name of the matched license
+       * @example Creative Commons Attribution 4.0 International
+       */
+      matched_name?: string;
+      /**
+       * @description Canonical URL from the license catalog/database
+       * @example https://creativecommons.org/licenses/by/4.0/legalcode
+       */
+      matched_catalog_url?: string;
+      /**
+       * @description Source of the match. Examples:
+       *   - 'db.license': Exact match from database
+       *   - 'cc-resolver': Creative Commons license resolver
+       *   - 'pattern-heuristics': Generic pattern matching
+       *
+       * @example cc-resolver
+       */
+      matched_source?: string;
+      /**
+       * @description Additional context about the match (e.g., version normalization, locale detection)
+       * @example Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
+       */
+      notes?: string;
+      /**
+       * @description Regional/jurisdictional variant identifier for ported licenses
+       *   (e.g., 'CC-BY-2.1-jp' for Japan-ported Creative Commons)
+       *
+       * @example CC-BY-4.0-nl
+       */
+      regional_id?: string;
+    };
+    /** @description List of MatchingLicense */
+    MatchingLicenses: Array<components['schemas']['MatchingLicense']>;
   };
   responses: never;
   parameters: {
@@ -1262,6 +1357,30 @@ export interface operations {
       200: {
         content: {
           'application/json': components['schemas']['LicenseWithRules'];
+        };
+      };
+    };
+  };
+  /** @description Get the list of matching licenses based on the provided license URL */
+  getMatchingLicenses: {
+    /** @description Payload containing the license URL to match against the database. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: url
+           * @description The license URL to resolve and match against the database.
+           * @example https://creativecommons.org/licenses/by/4.0/deed.nl
+           */
+          license_url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The list of matching licenses if any. */
+      200: {
+        content: {
+          'application/json': components['schemas']['MatchingLicenses'];
         };
       };
     };
