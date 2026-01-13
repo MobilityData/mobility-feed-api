@@ -31,8 +31,8 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import { WEB_VALIDATOR_LINK } from '../../../constants/Navigation';
 import { formatServiceDateRange } from '../Feed.functions';
 import { useTranslations } from 'next-intl';
-import { useAppSelector } from '../../../hooks';
 import { getGtfsFeedDatasets } from '../../../services/feeds';
+import { getUserAccessToken } from '../../../services/profile-service';
 
 export interface PreviousDatasetsProps {
   initialDatasets?: paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json'];
@@ -55,22 +55,19 @@ export default function PreviousDatasets({
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
-  const accessToken = useAppSelector(
-    (state) => state.userProfile.user?.accessToken,
-  );
-
   const loadMoreDatasets = React.useCallback(
     async (offset: number) => {
-      if (isLoadingDatasets || hasloadedAllDatasets || !accessToken) return;
+      if (isLoadingDatasets || hasloadedAllDatasets) return;
 
       setIsLoadingDatasets(true);
       try {
+        const accessToken = await getUserAccessToken();
         const newDatasets = await getGtfsFeedDatasets(feedId, accessToken, {
           limit: 10,
           offset,
         });
 
-        if (newDatasets) {
+        if (newDatasets && newDatasets.length > 0) {
           if (newDatasets.length < 10) {
             setHasLoadedAllDatasets(true);
           }
@@ -80,35 +77,46 @@ export default function PreviousDatasets({
         }
       } catch (error) {
         console.error('Error loading more datasets:', error);
+        setHasLoadedAllDatasets(true);
       } finally {
         setIsLoadingDatasets(false);
       }
     },
-    [feedId, accessToken, isLoadingDatasets, hasloadedAllDatasets],
+    [feedId, isLoadingDatasets, hasloadedAllDatasets],
   );
 
   React.useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
+        const entry = entries[0];
         if (
-          entries[0].isIntersecting &&
+          entry.isIntersecting &&
           !hasloadedAllDatasets &&
-          !isLoadingDatasets
+          !isLoadingDatasets &&
+          datasets.length > 0
         ) {
-          const currentNumberOfDatasets = datasets?.length ?? 0;
+          const currentNumberOfDatasets = datasets.length;
           const currentScrollPosition = listRef.current?.scrollTop ?? 0;
           loadMoreDatasets(currentNumberOfDatasets);
           setScrollPosition(currentScrollPosition);
         }
       },
-      { root: null, threshold: 1.0 },
+      { 
+        root: listRef.current, 
+        threshold: 1.0,
+        rootMargin: '20px'
+      },
     );
 
-    if (bottomRef.current != null) {
-      observer.observe(bottomRef.current);
+    const bottomElement = bottomRef.current;
+    if (bottomElement) {
+      observer.observe(bottomElement);
     }
+    
     return () => {
-      if (bottomRef.current != null) observer.unobserve(bottomRef.current);
+      if (bottomElement) {
+        observer.unobserve(bottomElement);
+      }
     };
   }, [datasets, hasloadedAllDatasets, isLoadingDatasets, loadMoreDatasets]);
 
