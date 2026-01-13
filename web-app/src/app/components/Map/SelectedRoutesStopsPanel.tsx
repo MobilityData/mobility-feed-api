@@ -56,7 +56,7 @@ export const SelectedRoutesStopsPanel = (
           className='drag-handle'
         >
           <Typography variant='subtitle2' sx={{ fontWeight: 600 }}>
-            {t('selectedRouteStops.title', {
+            {t('selectedRouteStops.title_one', {
               count: filteredRoutes.length,
             })}{' '}
             ({selectedRouteStops.length})
@@ -65,7 +65,7 @@ export const SelectedRoutesStopsPanel = (
             variant='caption'
             sx={{ color: theme.palette.text.secondary }}
           >
-            {t('selectedRouteStops.routeIds', {
+            {t('selectedRouteStops.routeIds_one', {
               count: filteredRoutes.length,
             })}
             : {filteredRoutes.join(' | ')}

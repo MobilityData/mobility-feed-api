@@ -44,7 +44,7 @@ import {
   selectUserProfile,
 } from '../../../store/selectors';
 import { useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { clearDataset } from '../../../store/dataset-reducer';
 import { useAppDispatch } from '../../../hooks';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
@@ -58,8 +58,9 @@ export default function FullMapView(): React.ReactElement {
   const tCommon = useTranslations('common');
   const { config } = useRemoteConfig();
 
-  const { feedId } = useParams();
-  const navigate = useNavigate();
+  const params = useParams();
+  const router = useRouter();
+  const feedId = params.feedId as string;
 
   const theme = useTheme();
   const dispatch = useAppDispatch();
@@ -137,7 +138,7 @@ export default function FullMapView(): React.ReactElement {
 
   const getUniqueRouteTypesCheckboxData = (): CheckboxStructure[] =>
     (routeTypes ?? []).map((routeTypeId) => {
-      const translatedName = getRouteTypeTranslatedName(routeTypeId, t);
+      const translatedName = getRouteTypeTranslatedName(routeTypeId, tCommon);
       return {
         title: translatedName,
         checked: filteredRouteTypeIds.includes(routeTypeId),
@@ -343,9 +344,9 @@ export default function FullMapView(): React.ReactElement {
               sx={{ pl: 0, display: { xs: 'none', md: 'inline-flex' } }}
               onClick={() => {
                 if (!hasError && feedId != null) {
-                  navigate(`/feeds/${feedId}`);
+                  router.push(`/feeds/gtfs/${feedId}`);
                 } else {
-                  navigate('/');
+                  router.push('/');
                 }
               }}
             >
@@ -485,9 +486,9 @@ export default function FullMapView(): React.ReactElement {
               sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
               onClick={() => {
                 if (!hasError && feedId != null) {
-                  navigate(`/feeds/${feedId}`);
+                  router.push(`/feeds/gtfs/${feedId}`);
                 } else {
-                  navigate('/');
+                  router.push('/');
                 }
               }}
             >

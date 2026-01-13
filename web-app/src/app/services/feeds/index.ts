@@ -64,7 +64,6 @@ export const getFeed = async (
   | undefined
 > => {
   const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
-  console.log("get feed", client)
   client.use(authMiddleware);
   return await client
     .GET('/v1/feeds/{id}', { params: { path: { id: feedId } } })

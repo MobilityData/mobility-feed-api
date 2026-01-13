@@ -320,7 +320,7 @@ export default function FeedSummary({
                   size='small'
                   sx={{ height: 'fit-content', mt: 0.5, ml: '-5px' }}
                   component={Link}
-                  href='./map'
+                  href={`/feeds/${feed?.data_type}/${feed?.id}/map`}
                   onClick={handleOpenDetailedMapClick}
                 >
                   {t('feedSummary.viewOnMap')}

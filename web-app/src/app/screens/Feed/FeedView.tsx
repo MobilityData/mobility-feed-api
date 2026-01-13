@@ -176,7 +176,6 @@ export default async function FeedView({
             )}
 
             <Box>
-              {/* Attribution Section - extracted simplified */}
               {latestDataset?.validation_report?.validated_at && (
                 <Typography variant='caption' component='div'>
                   {`Quality Report Updated: ${new Date(
