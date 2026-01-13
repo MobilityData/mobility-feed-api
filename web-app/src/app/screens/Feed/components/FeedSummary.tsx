@@ -301,7 +301,7 @@ export default function FeedSummary({
                           variant='h6'
                           sx={{ fontWeight: 700, mr: 0.5 }}
                         >
-                          {getRouteTypeTranslatedName(routeType, t)}
+                          {getRouteTypeTranslatedName(routeType, tCommon)}
                           {index < routeTypes.length - 1 ? ',' : ''}
                         </Typography>
                       </Box>

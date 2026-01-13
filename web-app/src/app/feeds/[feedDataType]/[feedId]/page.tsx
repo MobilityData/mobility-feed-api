@@ -7,11 +7,12 @@ import {
   getGbfsFeed,
   getGtfsRtFeed,
   getGtfsFeedDatasets,
+  getGtfsFeedRoutes,
 } from '../../../services/feeds';
 import { notFound } from 'next/navigation';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { getSSRAccessToken } from '../../../utils/auth-server';
-import { GTFSRTFeedType } from '../../../services/feeds/utils';
+import { GTFSFeedType, GTFSRTFeedType } from '../../../services/feeds/utils';
 import {
   formatProvidersSorted,
   generatePageTitle,
@@ -78,6 +79,39 @@ const fetchRelatedFeeds = cache(
     } catch (e) {
       console.error('Error fetching related feeds', e);
       return { gtfsFeeds: [], gtfsRtFeeds: [] };
+    }
+  },
+);
+
+// TODO: extract this logic
+const fetchRoutesData = cache(
+  async (feedId: string, datasetId: string) => {
+    try {
+      const routes = await getGtfsFeedRoutes(feedId, datasetId);
+      if (!routes) {
+        return { totalRoutes: undefined, routeTypes: undefined };
+      }
+      const totalRoutes = routes.length;
+      // Extract unique route types and sort them
+      const uniqueRouteTypesSet = new Set<string>();
+      for (const route of routes) {
+        const raw = route.routeType;
+        const routeTypeStr = raw == null ? undefined : String(raw).trim();
+        if (routeTypeStr != undefined) {
+          uniqueRouteTypesSet.add(routeTypeStr);
+        }
+      }
+      const routeTypes = Array.from(uniqueRouteTypesSet).sort((a, b) => {
+        const validNumberA = a.trim() !== '' && Number.isFinite(Number(a));
+        const validNumberB = b.trim() !== '' && Number.isFinite(Number(b));
+        if (!validNumberA && !validNumberB) return a.localeCompare(b);
+        if (!validNumberA || !validNumberB) return validNumberA ? -1 : 1;
+        return Number(a) - Number(b);
+      });
+      return { totalRoutes, routeTypes };
+    } catch (e) {
+      console.error('Error fetching routes data', e);
+      return { totalRoutes: undefined, routeTypes: undefined };
     }
   },
 );
@@ -180,6 +214,14 @@ export default async function FeedPage({ params }: Props) {
     ? fetchRelatedFeeds((feed as GTFSRTFeedType)?.feed_references ?? [], accessToken)
     : Promise.resolve({ gtfsFeeds: undefined, gtfsRtFeeds: undefined }));
 
+  // Fetch routes data for GTFS feeds
+  const { totalRoutes, routeTypes } = await (feedDataType === 'gtfs'
+    ? fetchRoutesData(
+        feedId,
+        (feed as GTFSFeedType)?.visualization_dataset_id ?? '',
+      )
+    : Promise.resolve({ totalRoutes: undefined, routeTypes: undefined }));
+
   return (
     <FeedView
       feed={feed}
@@ -187,6 +229,8 @@ export default async function FeedPage({ params }: Props) {
       initialDatasets={initialDatasets}
       relatedFeeds={gtfsFeeds}
       relatedGtfsRtFeeds={gtfsRtFeeds}
+      totalRoutes={totalRoutes}
+      routeTypes={routeTypes}
     />
   );
 }

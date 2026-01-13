@@ -23,19 +23,24 @@ import {
 
 // Utils
 import {
+  BasicFeedType,
   type GBFSFeedType,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import ClientDownloadButton from './components/ClientDownloadButton';
 import { type LatLngExpression } from 'leaflet';
+import { type components } from '../../services/feeds/types';
+import ClientQualityReportButton from './components/ClientQualityReportButton';
 
 type Props = {
-  feed: any; // Using explicit type would be better, but 'any' allows quick porting of varied feed types
+  feed: BasicFeedType;
   feedDataType: string;
-  initialDatasets?: any[];
+  initialDatasets?: components['schemas']['GtfsDataset'][];
   relatedFeeds?: GTFSFeedType[];
   relatedGtfsRtFeeds?: GTFSRTFeedType[];
+  totalRoutes?: number;
+  routeTypes?: string[];
 };
 
 export default async function FeedView({
@@ -44,9 +49,11 @@ export default async function FeedView({
   initialDatasets,
   relatedFeeds = [],
   relatedGtfsRtFeeds = [],
+  totalRoutes,
+  routeTypes,
 }: Props) {
   const t = await getTranslations('feeds');
-  if (!feed) return <Box>Feed not found</Box>;
+  if (feed == undefined) return <Box>Feed not found</Box>;
 
   // Basic derived data
   const sortedProviders = feed.provider
@@ -60,6 +67,8 @@ export default async function FeedView({
     feed?.data_type === 'gtfs'
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
+
+  console.log('FdownloadLatestUrled:', downloadLatestUrl);
 
   const hasFeedRedirect = feed?.redirects && feed.redirects.length > 0;
 
@@ -78,23 +87,34 @@ export default async function FeedView({
   // Bounding box logic
   // TODO: put it in better place
   const getBoundingBox = (): LatLngExpression[] | undefined => {
+    if(feed == undefined ||feed.data_type !== 'gtfs') {
+      return undefined;
+    }
+    const gtfsFeed: GTFSFeedType = feed;
     if (
-      feed?.bounding_box?.maximum_latitude == undefined ||
-      feed?.bounding_box.maximum_longitude == undefined ||
-      feed?.bounding_box.minimum_latitude == undefined ||
-      feed?.bounding_box.minimum_longitude == undefined
+      gtfsFeed.bounding_box?.maximum_latitude == undefined ||
+      gtfsFeed.bounding_box?.maximum_longitude == undefined ||
+      gtfsFeed.bounding_box?.minimum_latitude == undefined ||
+      gtfsFeed.bounding_box?.minimum_longitude == undefined
     ) {
       return undefined;
     }
     return [
-      [feed.bounding_box.minimum_latitude, feed.bounding_box.minimum_longitude],
-      [feed.bounding_box.minimum_latitude, feed.bounding_box.maximum_longitude],
-      [feed.bounding_box.maximum_latitude, feed.bounding_box.maximum_longitude],
-      [feed.bounding_box.maximum_latitude, feed.bounding_box.minimum_longitude],
+      [gtfsFeed.bounding_box.minimum_latitude, gtfsFeed.bounding_box.minimum_longitude],
+      [gtfsFeed.bounding_box.minimum_latitude, gtfsFeed.bounding_box.maximum_longitude],
+      [gtfsFeed.bounding_box.maximum_latitude, gtfsFeed.bounding_box.maximum_longitude],
+      [gtfsFeed.bounding_box.maximum_latitude, gtfsFeed.bounding_box.minimum_longitude],
     ];
   };
   let boundingBox = getBoundingBox();
 
+  // TODO: clean this up
+  let latestDataset: components['schemas']['GtfsDataset'] | undefined = undefined;
+  if (feed.data_type === 'gtfs') {
+    const gtfsFeed: GTFSFeedType = feed;
+    latestDataset = initialDatasets?.find(dataset => dataset.id === gtfsFeed.latest_dataset?.id);
+  }
+  console.log('latest dataset', latestDataset);
   // Derived state for warnings
 
   return (
@@ -119,8 +139,8 @@ export default async function FeedView({
         >
           <Box sx={{ position: 'relative' }}>
             <FeedNavigationControls
-              feedDataType={feed.data_type}
-              feedId={feed.id}
+              feedDataType={feed.data_type ?? ''}
+              feedId={feed.id ?? ''}
             />
 
             <Box sx={{ mt: 2 }}>
@@ -145,7 +165,7 @@ export default async function FeedView({
               <DataQualitySummary
                 feedStatus={feed?.status}
                 isOfficialFeed={feed.official === true}
-                latestDataset={feed.latest_dataset}
+                latestDataset={(feed as GTFSFeedType)?.latest_dataset}
               />
             )}
 
@@ -157,14 +177,25 @@ export default async function FeedView({
 
             <Box>
               {/* Attribution Section - extracted simplified */}
-              {feed.latest_dataset?.validation_report?.validated_at && (
+              {latestDataset?.validation_report?.validated_at && (
                 <Typography variant='caption' component='div'>
                   {`Quality Report Updated: ${new Date(
-                    feed.latest_dataset.validation_report.validated_at,
+                    latestDataset.validation_report.validated_at,
                   ).toDateString()}`}
                 </Typography>
               )}
-              {/* ... Add other attributions ... */}
+              {feed?.official_updated_at != undefined && (
+                  <Typography
+                    data-testid='last-updated'
+                    variant={'caption'}
+                    width={'100%'}
+                    component={'div'}
+                  >
+                    {`${t('officialFeedUpdated')}: ${new Date(
+                      feed?.official_updated_at,
+                    ).toDateString()}`}
+                  </Typography>
+                )}
             </Box>
 
             {/* Warnings */}
@@ -182,9 +213,9 @@ export default async function FeedView({
               {feed.data_type === 'gtfs' && downloadLatestUrl && (
                 <ClientDownloadButton url={downloadLatestUrl} />
               )}
-              {feed.latest_dataset?.validation_report?.url_html && (
-                <ClientDownloadButton
-                  url={feed.latest_dataset.validation_report.url_html}
+              {latestDataset?.validation_report?.url_html && (
+                <ClientQualityReportButton
+                  url={latestDataset.validation_report.url_html}
                 />
               )}
             </Box>
@@ -210,7 +241,7 @@ export default async function FeedView({
                 {(feed.data_type === 'gtfs' || feed.data_type === 'gbfs') && (
                   <CoveredAreaMap
                     boundingBox={boundingBox}
-                    latestDataset={feed.latest_dataset}
+                    latestDataset={latestDataset}
                     feed={feed}
                   />
                 )}
@@ -218,8 +249,10 @@ export default async function FeedView({
                   <FeedSummary
                     feed={feed}
                     sortedProviders={sortedProviders}
-                    latestDataset={feed.latest_dataset}
+                    latestDataset={latestDataset}
                     autoDiscoveryUrl={gbfsAutodiscoveryUrl}
+                    totalRoutes={totalRoutes}
+                    routeTypes={routeTypes}
                   />
                 </Box>
                 {feed?.data_type === 'gtfs_rt' && (
@@ -241,7 +274,7 @@ export default async function FeedView({
               <Grid size={12}>
                 <PreviousDatasets
                   initialDatasets={initialDatasets}
-                  feedId={feed.id}
+                  feedId={feed.id ?? ''}
                 />
               </Grid>
             )}

@@ -87,7 +87,7 @@ export default function ExternalIds({
               >
                 {externalId.external_id}
               </Typography>
-              <Tooltip title={t('externalIds.tooltips.tdg')} placement='top'>
+              <Tooltip title={t(info.translationKey)} placement='top'>
                 {info.docsUrl == null ? (
                   <InfoOutlinedIcon
                     sx={{

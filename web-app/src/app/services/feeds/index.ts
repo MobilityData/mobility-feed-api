@@ -1,6 +1,8 @@
 import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './types';
 import { type AllFeedsParams, type AllFeedType } from './utils';
+import { type GtfsRoute } from '../../types';
+import { getFeedFilesBaseUrl } from '../../utils/config';
 
 const client = createClient<paths>({
   baseUrl: String(process.env.NEXT_PUBLIC_FEED_API_BASE_URL),
@@ -308,4 +310,38 @@ export const getLicense = async (
     .finally(() => {
       client.eject(authMiddleware);
     });
+};
+
+/**
+ * Builds the URL for the routes.json file for a given feed and dataset.
+ * @param feedId - The feed ID
+ * @param datasetId - The dataset ID (visualization_dataset_id )
+ * @returns The URL for the routes.json file
+ */
+export function buildRoutesUrl(feedId: string, datasetId: string): string {
+  return `${getFeedFilesBaseUrl()}/${feedId}/${datasetId}/pmtiles/routes.json`;
+}
+
+/**
+ * Fetches the routes.json data for a GTFS feed.
+ * @param feedId - The feed ID
+ * @param datasetId - The dataset ID (visualization_dataset_id)
+ * @returns An array of GtfsRoute objects, or undefined if the fetch fails
+ */
+export const getGtfsFeedRoutes = async (
+  feedId: string,
+  datasetId: string,
+): Promise<GtfsRoute[] | undefined> => {
+  const url = buildRoutesUrl(feedId, datasetId);
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) {
+      console.error(`Failed to fetch routes: ${res.status} ${res.statusText}`);
+      return undefined;
+    }
+    return (await res.json()) as GtfsRoute[];
+  } catch (error) {
+    console.error('Error fetching routes.json:', error);
+    return undefined;
+  }
 };
