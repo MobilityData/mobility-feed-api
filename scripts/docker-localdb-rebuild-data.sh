@@ -100,7 +100,7 @@ $SCRIPT_PATH/db-gen.sh
 if [ "$POPULATE_DB" = true ]; then
     # download the latest csv file and populate the db
     mkdir $SCRIPT_PATH/../data/
-    wget -O $SCRIPT_PATH/../data/$target_csv_file https://bit.ly/catalogs-csv
+    wget -O $SCRIPT_PATH/../data/$target_csv_file https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
     # populate db
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
