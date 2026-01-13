@@ -1,13 +1,17 @@
 from typing import List, Optional
 
 from feeds_gen.apis.licenses_api_base import BaseLicensesApi
+from feeds_gen.models.get_matching_licenses_request import GetMatchingLicensesRequest
 from feeds_gen.models.license_with_rules import LicenseWithRules
 from feeds_gen.models.license_base import LicenseBase
+from feeds_gen.models.matching_license import MatchingLicense
+from shared.common.license_utils import resolve_license
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License as LicenseOrm
 from feeds.impl.error_handling import raise_http_error
 from shared.db_models.license_with_rules_impl import LicenseWithRulesImpl
 from shared.db_models.license_base_impl import LicenseBaseImpl
+from shared.db_models.matching_license_impl import MatchingLicenseImpl
 
 
 class LicensesApiImpl(BaseLicensesApi):
@@ -42,3 +46,19 @@ class LicensesApiImpl(BaseLicensesApi):
             return [LicenseBaseImpl.from_orm(lic) for lic in results]
         except Exception as e:
             raise_http_error(500, f"Error retrieving licenses: {e}")
+
+    @with_db_session
+    def get_matching_licenses(
+        self,
+        get_matching_licenses_request: GetMatchingLicensesRequest,
+        db_session,
+    ) -> List[MatchingLicense]:
+        """Get the list of matching licenses based on the provided license URL"""
+        try:
+            domain_matching_licenses = resolve_license(
+                get_matching_licenses_request.license_url,
+                db_session,
+            )
+            return [MatchingLicenseImpl.from_domain(matching_license) for matching_license in domain_matching_licenses]
+        except Exception as e:
+            raise_http_error(500, f"Error retrieving matching licenses: {e}")

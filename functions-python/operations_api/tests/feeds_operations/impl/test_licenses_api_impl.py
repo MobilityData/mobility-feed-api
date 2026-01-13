@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from feeds_operations.impl.licenses_api_impl import LicensesApiImpl
 from feeds_gen.models.license_with_rules import LicenseWithRules
 from feeds_gen.models.license_base import LicenseBase
+from feeds_gen.models.matching_license import MatchingLicense
+from feeds_gen.models.get_matching_licenses_request import GetMatchingLicensesRequest
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import License as OrmLicense
 from test_shared.test_utils.database_utils import default_db_url
@@ -157,3 +159,80 @@ async def test_get_licenses_includes_rules_for_each_item(db_session):
             assert isinstance(detailed, LicenseWithRules)
             assert detailed.license_rules is not None
             assert [r.name for r in detailed.license_rules] == ["attribution"]
+
+
+@pytest.mark.asyncio
+async def test_get_matching_licenses_success(monkeypatch, db_session):
+    """Happy path: resolve_license returns one or more matches and they are mapped to MatchingLicense models."""
+
+    # Arrange
+    api = LicensesApiImpl()
+    url = "https://licenses.example.com/custom-test"
+    request = GetMatchingLicensesRequest(license_url=url)
+
+    # Build a fake domain object compatible with MatchingLicenseImpl.from_domain
+    domain_match = MatchingLicense(
+        license_id="custom-test",
+        confidence=0.9,
+        license_url=url,
+    )
+
+    def fake_resolve(license_url, db_session):  # signature matches resolve_license
+        assert license_url == url
+        return [domain_match]
+
+    # Patch resolve_license where it's imported in the implementation
+    monkeypatch.setattr(
+        "feeds_operations.impl.licenses_api_impl.resolve_license", fake_resolve
+    )
+
+    # Act
+    result = await api.get_matching_licenses(request)
+
+    # Assert
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], MatchingLicense)
+    assert result[0].license_id == "custom-test"
+
+
+@pytest.mark.asyncio
+async def test_get_matching_licenses_propagates_http_exception(monkeypatch):
+    """If resolve_license raises an HTTPException, it should be propagated unchanged."""
+
+    api = LicensesApiImpl()
+    request = GetMatchingLicensesRequest(license_url="https://invalid")
+
+    def fake_resolve(license_url, db_session):
+        raise Exception("Invalid license URL")
+
+    monkeypatch.setattr(
+        "feeds_operations.impl.licenses_api_impl.resolve_license", fake_resolve
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await api.get_matching_licenses(request)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Error retrieving matching licenses"
+
+
+@pytest.mark.asyncio
+async def test_get_matching_licenses_unexpected_error(monkeypatch):
+    """If an unexpected exception occurs, API should respond with a 500 HTTPException."""
+
+    api = LicensesApiImpl()
+    request = GetMatchingLicensesRequest(license_url="https://boom.example.com")
+
+    def fake_resolve(license_url, db_session):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "feeds_operations.impl.licenses_api_impl.resolve_license", fake_resolve
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await api.get_matching_licenses(request)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Error retrieving matching licenses"

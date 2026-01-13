@@ -12,7 +12,36 @@ from shared.database_gen.sqlacodegen_models import License
 
 @dataclass
 class MatchingLicense:
-    """Response structure for license URL resolution."""
+    """Response structure for license URL resolution.
+
+    Represents a matched license result from the resolution process, containing
+    identification, matching metadata, and confidence scoring.
+
+    Attributes:
+        license_id: Unique identifier for the license (typically SPDX ID)
+        license_url: Original license URL provided for resolution
+        normalized_url: URL after normalization (lowercased, trimmed, protocol removed)
+        match_type: Type of match performed. One of:
+            - 'exact': Direct match found in database
+            - 'heuristic': Matched via pattern-based rules (CC resolver, common patterns)
+            - 'fuzzy': Similarity-based match against same-host licenses
+            - 'none': No match found
+        confidence: Match confidence score (0.0-1.0)
+            - 1.0: Exact match
+            - 0.99: Creative Commons resolved
+            - 0.95: Pattern heuristic match
+            - 0.0-1.0: Fuzzy match score based on string similarity
+        spdx_id: SPDX License Identifier if matched (e.g., 'CC-BY-4.0', 'MIT')
+        matched_name: Human-readable name of the matched license
+        matched_catalog_url: Canonical URL from the license catalog/database
+        matched_source: Source of the match. One of:
+            - 'db.license': Exact match from database
+            - 'cc-resolver': Creative Commons license resolver
+            - 'pattern-heuristics': Generic pattern matching
+        notes: Additional context about the match (e.g., version normalization, locale detection)
+        regional_id: Regional/jurisdictional variant identifier for ported licenses
+            (e.g., 'CC-BY-2.1-jp' for Japan-ported Creative Commons)
+    """
 
     license_id: str
     license_url: str

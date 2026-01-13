@@ -394,7 +394,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LicenseWithRules"
-
+  /v1/licenses:match:
+    post:
+      description: Get the list of matching licenses based on the provided license URL
+      tags:
+        - "licenses"
+      operationId: getMatchingLicenses
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Payload containing the license URL to match against the database.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - license_url
+              properties:
+                license_url:
+                  description: The license URL to resolve and match against the database.
+                  type: string
+                  format: url
+                  example: https://creativecommons.org/licenses/by/4.0/deed.nl
+      responses:
+        "200":
+          description: The list of matching licenses if any.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchingLicenses"
 components:
   schemas:
     Redirect:
@@ -1331,6 +1360,88 @@ components:
       items:
         $ref: "#/components/schemas/LicenseBase"
 
+    MatchingLicense:
+      type: object
+      description: Matching a license
+      properties:
+        license_id:
+          description: Unique identifier for the license (typically SPDX ID)
+          type: string
+          example: CC-BY-4.0
+        license_url:
+          description: Original license URL provided for resolution
+          type: string
+          example: https://creativecommons.org/licenses/by/4.0/
+        normalized_url:
+          description: URL after normalization (lowercased, trimmed, protocol removed)
+          type: string
+          example: creativecommons.org/licenses/by/4.0
+        match_type:
+          description: >
+            Type of match performed. One of:
+              - 'exact': Direct match found in database
+              - 'heuristic': Matched via pattern-based rules (CC resolver, common patterns)
+              - 'fuzzy': Similarity-based match against same-host licenses
+              - 'none': No match found
+          type: string
+          example: heuristic
+        confidence:
+          description: >
+            Match confidence score (0.0-1.0), examples:
+              - 1.0: Exact match
+              - 0.99: Creative Commons resolved
+              - 0.95: Pattern heuristic match
+              - 0.0-1.0: Fuzzy match score based on string similarity
+          type: number
+          example: 0.99
+        spdx_id:
+          description: SPDX License Identifier if matched (e.g., 'CC-BY-4.0', 'MIT')
+          type: string
+          example: CC-BY-4.0
+        matched_name:
+          description: Human-readable name of the matched license
+          type: string
+          example: Creative Commons Attribution 4.0 International
+        matched_catalog_url:
+          description: Canonical URL from the license catalog/database
+          type: string
+          example: https://creativecommons.org/licenses/by/4.0/legalcode
+        matched_source:
+          description: >
+            Source of the match. Examples:
+              - 'db.license': Exact match from database
+              - 'cc-resolver': Creative Commons license resolver
+              - 'pattern-heuristics': Generic pattern matching
+          type: string
+          example: cc-resolver
+        notes:
+          description: Additional context about the match (e.g., version normalization, locale detection)
+          type: string
+          example: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
+        regional_id:
+          description: >
+            Regional/jurisdictional variant identifier for ported licenses
+              (e.g., 'CC-BY-2.1-jp' for Japan-ported Creative Commons)
+          type: string
+          example: CC-BY-4.0-nl
+      example:
+        license_id: CC-BY-4.0
+        license_url: https://creativecommons.org/licenses/by/4.0/deed.nl
+        normalized_url: creativecommons.org/licenses/by/4.0
+        match_type: heuristic
+        confidence: 0.99
+        spdx_id: CC-BY-4.0
+        matched_name: Creative Commons Attribution 4.0 International
+        matched_catalog_url: https://creativecommons.org/licenses/by/4.0/legalcode
+        matched_source: cc-resolver
+        notes: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
+        regional_id: CC-BY-4.0-nl
+
+    MatchingLicenses:
+      description: List of MatchingLicense
+      type: array
+      items: 
+        $ref: "#/components/schemas/MatchingLicense"
 
   parameters:
     status:
