@@ -1,4 +1,4 @@
-import { Box, Container, CssBaseline, Grid, Typography } from '@mui/material';
+import { Box, Button, Container, CssBaseline, Grid, Typography } from '@mui/material';
 
 // Components
 import FeedTitle from './components/FeedTitle';
@@ -12,6 +12,7 @@ import GbfsVersions from './components/GbfsVersions';
 import PreviousDatasets from './components/PreviousDatasets';
 import { WarningContentBox } from '../../components/WarningContentBox';
 import FeedNavigationControls from './components/FeedNavigationControls';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { getTranslations } from 'next-intl/server';
 
@@ -53,7 +54,11 @@ export default async function FeedView({
   routeTypes,
 }: Props) {
   const t = await getTranslations('feeds');
+  const tGbfs = await getTranslations('gbfs');
   if (feed == undefined) return <Box>Feed not found</Box>;
+
+  console.log('relatedFeeds', relatedFeeds);
+  console.log('relatedGtfsRtFeeds', relatedGtfsRtFeeds);
 
   // Basic derived data
   const sortedProviders = feed.provider
@@ -67,8 +72,25 @@ export default async function FeedView({
     feed?.data_type === 'gtfs'
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
-
-  console.log('FdownloadLatestUrled:', downloadLatestUrl);
+  
+    const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
+      if (gbfsAutodiscoveryUrl == undefined) {
+        return <></>;
+      }
+      return (
+        <Button
+          disableElevation
+          variant='contained'
+          sx={{ marginRight: 2 }}
+          href={gbfsAutodiscoveryUrl}
+          target='_blank'
+          rel='noreferrer'
+          endIcon={<OpenInNewIcon></OpenInNewIcon>}
+        >
+          {tGbfs('openAutoDiscoveryUrl')}
+        </Button>
+      );
+    };
 
   const hasFeedRedirect = feed?.redirects && feed.redirects.length > 0;
 
@@ -217,6 +239,7 @@ export default async function FeedView({
                   url={latestDataset.validation_report.url_html}
                 />
               )}
+              {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
             </Box>
 
             <Grid size={12}>
