@@ -8,6 +8,7 @@ import {
   getGtfsRtFeed,
   getGtfsFeedDatasets,
   getGtfsFeedRoutes,
+  getGtfsFeedAssociatedGtfsRtFeeds,
 } from '../../../services/feeds';
 import { notFound } from 'next/navigation';
 import type { Metadata, ResolvingMetadata } from 'next';
@@ -209,10 +210,26 @@ export default async function FeedPage({ params }: Props) {
     notFound();
   }
 
-  const { gtfsFeeds, gtfsRtFeeds } = await (feedDataType === 'gtfs_rt' &&
-  (feed as GTFSRTFeedType)?.feed_references
-    ? fetchRelatedFeeds((feed as GTFSRTFeedType)?.feed_references ?? [], accessToken)
-    : Promise.resolve({ gtfsFeeds: undefined, gtfsRtFeeds: undefined }));
+  console.log('Feed data type:', (feed as GTFSRTFeedType)?.feed_references);
+
+  let gtfsFeedsRelated: GTFSFeedType[] = [];
+  let gtfsRtFeedsRelated: GTFSRTFeedType[] = [];
+  if( feed.data_type === 'gtfs_rt') {
+    const gtfsRtFeed: GTFSRTFeedType = feed;
+    // TODO: optimize to avoid double fetching. Need a new endpoint
+    const {gtfsFeeds, gtfsRtFeeds} = await fetchRelatedFeeds(gtfsRtFeed?.feed_references ?? [], accessToken)
+    let promises = gtfsFeeds.map(gtfsFeed => getGtfsFeedAssociatedGtfsRtFeeds(gtfsFeed?.id ?? '', accessToken));
+    const associatedGtfsRtFeedsArrays = await Promise.all(promises);
+    gtfsFeedsRelated = gtfsFeeds;
+    const allGtfsRtFeeds = [...gtfsRtFeeds, ...associatedGtfsRtFeedsArrays.flat()];
+    const uniqueGtfsRtFeedsMap = new Map();
+    allGtfsRtFeeds.forEach(feed => {
+      if (feed?.id) {
+        uniqueGtfsRtFeedsMap.set(feed.id, feed);
+      }
+    });
+    gtfsRtFeedsRelated = Array.from(uniqueGtfsRtFeedsMap.values());
+  }
 
   // Fetch routes data for GTFS feeds
   const { totalRoutes, routeTypes } = await (feedDataType === 'gtfs'
@@ -227,8 +244,8 @@ export default async function FeedPage({ params }: Props) {
       feed={feed}
       feedDataType={feedDataType}
       initialDatasets={initialDatasets}
-      relatedFeeds={gtfsFeeds}
-      relatedGtfsRtFeeds={gtfsRtFeeds}
+      relatedFeeds={gtfsFeedsRelated}
+      relatedGtfsRtFeeds={gtfsRtFeedsRelated}
       totalRoutes={totalRoutes}
       routeTypes={routeTypes}
     />
