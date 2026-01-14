@@ -890,7 +890,6 @@ export interface components {
        *   - 'exact': Direct match found in database
        *   - 'heuristic': Matched via pattern-based rules (CC resolver, common patterns)
        *   - 'fuzzy': Similarity-based match against same-host licenses
-       *   - 'none': No match found
        *
        * @example heuristic
        */
