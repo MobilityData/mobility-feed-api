@@ -15,7 +15,6 @@ describe('Navigation Elements', () => {
   it('should return feed nav item if feature flag enabled', () => {
     const featureFlags: RemoteConfigValues = {
       ...defaultRemoteConfigValues,
-      enableFeedsPage: true,
     };
     const navigationItems = buildNavigationItems(featureFlags);
     const feedsNavigation = navigationItems.find(
