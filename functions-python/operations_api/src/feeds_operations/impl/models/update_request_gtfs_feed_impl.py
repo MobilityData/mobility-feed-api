@@ -122,7 +122,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             None
             if (
                 update_request.source_info is None
-                or update_request.source_info.license_url is None
+                or not update_request.source_info.license_url
             )
             else update_request.source_info.license_url
         )
@@ -130,7 +130,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             None
             if (
                 update_request.source_info is None
-                or update_request.source_info.license_id is None
+                or not update_request.source_info.license_id
             )
             else update_request.source_info.license_id
         )
@@ -138,7 +138,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             None
             if (
                 update_request.source_info is None
-                or update_request.source_info.license_notes is None
+                or not update_request.source_info.license_notes
             )
             else update_request.source_info.license_notes
         )

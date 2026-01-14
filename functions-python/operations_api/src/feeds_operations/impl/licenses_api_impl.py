@@ -23,12 +23,16 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from feeds_gen.apis.licenses_api_base import BaseLicensesApi
+from feeds_gen.models.get_matching_licenses_request import GetMatchingLicensesRequest
 from feeds_gen.models.license_base import LicenseBase
 from feeds_gen.models.license_with_rules import LicenseWithRules
+from feeds_gen.models.matching_license import MatchingLicense
+from shared.common.license_utils import resolve_license
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License as OrmLicense
 from shared.db_models.license_base_impl import LicenseBaseImpl
 from shared.db_models.license_with_rules_impl import LicenseWithRulesImpl
+from shared.db_models.matching_license_impl import MatchingLicenseImpl
 
 
 class LicensesApiImpl(BaseLicensesApi):
@@ -141,3 +145,32 @@ class LicensesApiImpl(BaseLicensesApi):
         optional filtering by SPDX status.
         """
         return self.handle_get_licenses(offset, limit, search_query, is_spdx)
+
+    @with_db_session
+    def handle_get_matching_licenses(
+        self,
+        get_matching_licenses_request: GetMatchingLicensesRequest,
+        db_session,
+    ) -> List[MatchingLicense]:
+        """Get the list of matching licenses based on the provided license URL"""
+        try:
+            domain_matching_licenses = resolve_license(
+                license_url=get_matching_licenses_request.license_url,
+                db_session=db_session,
+            )
+            return [
+                MatchingLicenseImpl.from_domain(matching_license)
+                for matching_license in domain_matching_licenses
+            ]
+        except Exception as e:
+            logging.error("Error retrieving matching licenses: {%s}", e)
+            raise HTTPException(
+                status_code=500, detail="Error retrieving matching licenses"
+            )
+
+    async def get_matching_licenses(
+        self,
+        get_matching_licenses_request: GetMatchingLicensesRequest,
+    ) -> List[MatchingLicense]:
+        """Get the list of matching licenses based on the provided license URL"""
+        return self.handle_get_matching_licenses(get_matching_licenses_request)

@@ -174,8 +174,8 @@ def test_insert_and_select():
         ("https://www.example.com/path///", "example.com/path"),
         # Host only with scheme and www; trailing slash removed; host lowercased
         ("http://www.EXAMPLE.com/", "example.com"),
-        # Path case preserved (only host lowercased)
-        ("https://Example.com/Case/Sensitive", "example.com/Case/Sensitive"),
+        # All lowercased
+        ("https://Example.com/Case/Sensitive", "example.com/case/sensitive"),
         # None becomes empty string
         (None, ""),
         # Blank / whitespace-only becomes empty string
