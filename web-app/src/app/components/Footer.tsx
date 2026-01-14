@@ -1,12 +1,15 @@
+'use client';
 import React from 'react';
 import '../styles/Footer.css';
 import TwitterIcon from '@mui/icons-material/Twitter';
-import { Button, IconButton } from '@mui/material';
+import { Button, IconButton, useTheme } from '@mui/material';
 import { GitHub, LinkedIn, OpenInNew } from '@mui/icons-material';
 import { MOBILITY_DATA_LINKS } from '../constants/Navigation';
 import { fontFamily } from '../Theme';
 
 const Footer: React.FC = () => {
+  // TODO: revisit theming for SSR components 
+  const theme = useTheme();
   const SlackSvg = (
     <svg
       xmlns='http://www.w3.org/2000/svg'
@@ -15,9 +18,7 @@ const Footer: React.FC = () => {
       viewBox='0 0 24 24'
     >
       <path
-        // fill={theme.palette.primary.main}
-
-        fill={'#000'}
+        fill={theme.palette.primary.main}
         d='M6 15a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2h2zm1 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2zm2-8a2 2 0 0 1-2-2a2 2 0 0 1 2-2a2 2 0 0 1 2 2v2zm0 1a2 2 0 0 1 2 2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2a2 2 0 0 1 2-2zm8 2a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2zm-1 0a2 2 0 0 1-2 2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2a2 2 0 0 1 2 2zm-2 8a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2v-2zm0-1a2 2 0 0 1-2-2a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2a2 2 0 0 1-2 2z'
       />
     </svg>
