@@ -21,6 +21,7 @@ import os
 import random
 import uuid
 import zipfile
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List
@@ -31,6 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
@@ -44,6 +46,9 @@ from shared.helpers.utils import (
 from pipeline_tasks import create_pipeline_tasks
 
 init_logger()
+
+# Limit the available memory of the process so if an OOM exception happens it can be handled properly by our code
+limit_gcp_memory()
 
 
 @dataclass
@@ -268,28 +273,88 @@ class DatasetProcessor:
 
     @with_db_session
     def process_from_bucket(self, db_session, public=True) -> Optional[DatasetFile]:
+        """Process an existing dataset from the GCP bucket and update related DB entities.
+
+        To reduce local disk usage, we no longer unzip all files at once. Instead, we:
+        - Download the dataset ZIP to a temporary local file.
+        - Iterate over each member of the ZIP.
+        - Extract a single file to a temporary path under WORKING_DIR.
+        - Upload that file immediately to GCS and record it as a Gtfsfile.
+        - Delete the local temporary extracted file before moving to the next one.
         """
-        Process an existing dataset from the GCP bucket updates the related database entities
-        :return: The DatasetFile object created
-        """
-        temp_file_path = None
+        temp_zip_path = None
         try:
-            temp_file_path = self.generate_temp_filename()
+            temp_zip_path = self.generate_temp_filename()
             blob_file_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
-            self.logger.info(f"Processing dataset from bucket: {blob_file_path}")
+            self.logger.info("Processing dataset from bucket: %s", blob_file_path)
             download_from_gcs(
-                os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_file_path
+                os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_zip_path
             )
 
-            extracted_files_path = self.unzip_files(temp_file_path)
+            # Stream files from ZIP to GCS one by one to minimize disk usage
+            bucket = storage.Client().get_bucket(self.bucket_name)
+            extracted_files: List[Gtfsfile] = []
+            working_dir = os.getenv("WORKING_DIR", "/in-memory")
 
-            _, extracted_files = self.upload_files_to_storage(
-                temp_file_path,
-                self.dataset_stable_id,
-                extracted_files_path,
-                public=public,
-                skip_dataset_upload=True,  # Skip the upload of the dataset file
-            )
+            if not zipfile.is_zipfile(temp_zip_path):
+                self.logger.error(
+                    "The downloaded file %s is not a valid ZIP file.", temp_zip_path
+                )
+                raise ValueError("Downloaded dataset is not a valid ZIP file.")
+
+            with zipfile.ZipFile(temp_zip_path, "r") as zf:
+                for member in zf.infolist():
+                    # Skip directories
+                    if member.is_dir():
+                        continue
+
+                    # Extract a single file to a temporary path
+                    temp_extracted_path = os.path.join(
+                        working_dir,
+                        f"{self.feed_stable_id}-{self.dataset_stable_id}-{member.filename.replace('/', '_')}",
+                    )
+
+                    self.logger.info(
+                        "Extracting %s to %s", member.filename, temp_extracted_path
+                    )
+                    with zf.open(member, "r") as src, open(
+                        temp_extracted_path, "wb"
+                    ) as dst:
+                        shutil.copyfileobj(src, dst)
+
+                    # Upload this single file to GCS under extracted/
+                    if os.path.isfile(temp_extracted_path):
+                        target_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted/{member.filename}"
+                        file_blob = bucket.blob(target_path)
+                        file_blob.upload_from_filename(temp_extracted_path)
+                        if public:
+                            file_blob.make_public()
+                        self.logger.info(
+                            "Uploaded extracted file %s to %s",
+                            member.filename,
+                            file_blob.public_url,
+                        )
+
+                        extracted_files.append(
+                            Gtfsfile(
+                                id=str(uuid.uuid4()),
+                                file_name=member.filename,
+                                file_size_bytes=os.path.getsize(temp_extracted_path),
+                                hosted_url=file_blob.public_url if public else None,
+                                hash=get_hash_from_file(temp_extracted_path),
+                            )
+                        )
+
+                    # Remove the local temporary extracted file to free disk space
+                    try:
+                        if os.path.exists(temp_extracted_path):
+                            os.remove(temp_extracted_path)
+                    except Exception as cleanup_err:
+                        self.logger.warning(
+                            "Failed to remove temporary file %s: %s",
+                            temp_extracted_path,
+                            cleanup_err,
+                        )
 
             dataset_file = DatasetFile(
                 stable_id=self.dataset_stable_id,
@@ -297,11 +362,12 @@ class DatasetProcessor:
                 hosted_url=f"{self.public_hosted_datasets_url}/{blob_file_path}",
                 extracted_files=extracted_files,
                 zipped_size=(
-                    os.path.getsize(temp_file_path)
-                    if os.path.exists(temp_file_path)
+                    os.path.getsize(temp_zip_path)
+                    if os.path.exists(temp_zip_path)
                     else None
                 ),
             )
+
             dataset, latest = self.create_dataset_entities(
                 dataset_file, skip_dataset_creation=True, db_session=db_session
             )
@@ -319,8 +385,8 @@ class DatasetProcessor:
                 raise ValueError("Dataset update failed, dataset is None.")
             return dataset_file
         finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            if temp_zip_path and os.path.exists(temp_zip_path):
+                os.remove(temp_zip_path)
 
     def unzip_files(self, temp_file_path):
         extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
