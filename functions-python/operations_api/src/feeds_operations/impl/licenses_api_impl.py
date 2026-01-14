@@ -155,8 +155,8 @@ class LicensesApiImpl(BaseLicensesApi):
         """Get the list of matching licenses based on the provided license URL"""
         try:
             domain_matching_licenses = resolve_license(
-                get_matching_licenses_request.license_url,
-                db_session,
+                license_url=get_matching_licenses_request.license_url,
+                db_session=db_session,
             )
             return [
                 MatchingLicenseImpl.from_domain(matching_license)
