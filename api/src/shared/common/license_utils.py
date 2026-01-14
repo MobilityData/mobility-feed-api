@@ -66,7 +66,6 @@ COMMON_PATTERNS = [
     (re.compile(r"opensource\.org/licenses/MIT/?", re.I), "MIT"),
     (re.compile(r"choosealicense\.com/licenses/mit/?", re.I), "MIT"),
     (re.compile(r"choosealicense\.com/licenses/apache-2\.0/?", re.I), "Apache-2.0"),
-    # add Etalab / Québec, etc., once verified
 ]
 
 
@@ -281,6 +280,47 @@ def resolve_fuzzy_match(
     return results
 
 
+def find_exact_match_license_url(url_normalized: str, db_session: Session | None) -> License | None:
+    """Find exact match of normalized license URL in DB (License.url)."""
+    if not db_session:
+        return None
+    # Compare normalized strings using SQL functions on License.url
+    return (
+        db_session.query(License)
+        .filter(normalize_url_str(url_normalized) == func.lower(func.trim(normalize_url(License.url))))
+        .first()
+    )
+
+
+def extract_spdx_id_from_url(url: str) -> Optional[str]:
+    """Extract an SPDX license ID from an SPDX-style URL if present.
+
+    Recognizes URLs of the form used on spdx.org, for example::
+
+        https://spdx.org/licenses/ODbL-1.0.html
+        http://spdx.org/licenses/MIT
+
+    The function is conservative and only returns an SPDX ID when it finds a
+    path segment under ``/licenses/`` that looks like an SPDX identifier. Any
+    optional ``.html`` suffix is stripped.
+    """
+    # Work with a normalized string but keep path structure intact
+    n = normalize_url_str(url)
+
+    # Match host 'spdx.org' and capture the token after '/licenses/' up to
+    # an optional '.html' suffix and optional trailing slash.
+    m = re.search(r"spdx\.org/licenses/([^/?#]+?)(?:\.html)?/?$", n, re.I)
+    if not m:
+        return None
+
+    spdx_id = m.group(1)
+    # Basic sanity check: SPDX IDs are typically alnum plus '-', '.' (e.g. 'CC-BY-4.0')
+    if not re.fullmatch(r"[A-Za-z0-9.+-]+", spdx_id):
+        return None
+
+    return spdx_id
+
+
 def resolve_license(
     license_url: str,
     allow_fuzzy: bool = True,
@@ -290,11 +330,12 @@ def resolve_license(
     """Resolve a license URL to one or more SPDX candidates using multiple strategies.
 
     Strategies (in order of precedence):
-      1) Exact match in DB(db.license)            -> return [exact]
-      2) Creative Commons resolver(cc-resolver)    -> return [cc]
-      3) Generic heuristics(pattern-heuristics)           -> return [heuristic]
-      4) Fuzzy (same host candidates) -> return [fuzzy...]
-      5) No match                     -> return [none]
+      1) Exact match in DB (``db.license``)                 -> return [exact]
+      2) Creative Commons resolver (``cc-resolver``)       -> return [cc]
+      3) SPDX catalog URL resolver (``spdx.org/licenses``) -> return [spdx]
+      4) Generic heuristics (pattern-based)                -> return [heuristic]
+      5) Fuzzy (same-host candidates)                      -> return [fuzzy...]
+      6) No match                                          -> return []
 
     Args:
         license_url (str): The license URL to resolve.
@@ -350,7 +391,29 @@ def resolve_license(
             )
         ]
 
-    # 3) Generic heuristics
+    # 3) SPDX catalog URL (spdx.org/licenses/<ID>[.html])
+    spdx_id = extract_spdx_id_from_url(url_str)
+    if spdx_id:
+        # Try to enrich from DB if a matching License row exists
+        db_lic: License | None = db_session.query(License).filter(License.id == spdx_id).one_or_none()
+        if db_lic is not None:
+            return [
+                MatchingLicense(
+                    license_id=db_lic.id,
+                    license_url=url_str,
+                    normalized_url=url_normalized,
+                    spdx_id=spdx_id,
+                    match_type="heuristic",
+                    confidence=0.98,
+                    matched_name=db_lic.name,
+                    matched_catalog_url=db_lic.url,
+                    matched_source="spdx-resolver",
+                )
+            ]
+        else:
+            logging.warning("SPDX ID %s resolved from URL but not found in DB", spdx_id)
+
+    # 4) Generic heuristics
     heuristic_match = heuristic_spdx(url_str)
     if heuristic_match:
         return [
@@ -366,7 +429,7 @@ def resolve_license(
             )
         ]
 
-    # 4) Fuzzy (same host candidates only)
+    # 5) Fuzzy (same host candidates only)
     if allow_fuzzy and url_host and db_session is not None:
         fuzzy_results = resolve_fuzzy_match(
             url_str=url_str,
@@ -378,17 +441,5 @@ def resolve_license(
         if fuzzy_results:
             return fuzzy_results
 
-    # 5) No match
+    # 6) No match
     return []
-
-
-def find_exact_match_license_url(url_normalized: str, db_session: Session | None) -> License | None:
-    """Find exact match of normalized license URL in DB (License.url)."""
-    if not db_session:
-        return None
-    # Compare normalized strings using SQL functions on License.url
-    return (
-        db_session.query(License)
-        .filter(normalize_url_str(url_normalized) == func.lower(func.trim(normalize_url(License.url))))
-        .first()
-    )
