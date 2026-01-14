@@ -11,7 +11,6 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import {
   login,
   loginFail,
@@ -48,7 +47,6 @@ import {
   POST_REGISTRATION_TARGET,
 } from '../constants/Navigation';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
-import { useEffect } from 'react';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -59,13 +57,8 @@ export default function SignIn(): React.ReactElement {
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
-  const [enableAppleSSO, setEnableAppleSSO] = React.useState(false);
   const [searchParams] = useSearchParams();
-  const { config } = useRemoteConfig();
 
-  useEffect(() => {
-    setEnableAppleSSO(config.enableAppleSSO as boolean);
-  });
   const SignInSchema = Yup.object().shape({
     email: Yup.string()
       .email('Email format is invalid.')
@@ -315,19 +308,17 @@ export default function SignIn(): React.ReactElement {
         >
           Sign In With Github
         </Button>
-        {enableAppleSSO && (
-          <Button
-            variant='outlined'
-            color='primary'
-            sx={{ mb: 2 }}
-            startIcon={<AppleIcon />}
-            onClick={() => {
-              signInWithProvider(OauthProvider.Apple);
-            }}
-          >
-            Sign in With Apple
-          </Button>
-        )}
+        <Button
+          variant='outlined'
+          color='primary'
+          sx={{ mb: 2 }}
+          startIcon={<AppleIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Apple);
+          }}
+        >
+          Sign in With Apple
+        </Button>
       </Box>
     </Container>
   );

@@ -1,6 +1,5 @@
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
-  isGbfsEnabled: boolean,
 ): string | undefined {
   let dataTypeQueryParam = '';
   if (selectedFeedTypes.gtfs) {
@@ -10,14 +9,12 @@ export function getDataTypeParamFromSelectedFeedTypes(
     dataTypeQueryParam +=
       (dataTypeQueryParam.length > 0 ? ',' : '') + 'gtfs_rt';
   }
-  if (selectedFeedTypes.gbfs && isGbfsEnabled) {
+  if (selectedFeedTypes.gbfs) {
     dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gbfs';
   }
   return dataTypeQueryParam.length > 0
     ? dataTypeQueryParam
-    : isGbfsEnabled
-      ? 'gtfs,gtfs_rt,gbfs'
-      : 'gtfs,gtfs_rt';
+    : 'gtfs,gtfs_rt,gbfs';
 }
 
 export function getInitialSelectedFeedTypes(

@@ -10,8 +10,6 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { selectIsAuthenticated } from '../../store/profile-selectors';
-import { useRemoteConfig } from '../../context/RemoteConfigProvider';
-import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import FeedSubmissionForm from './Form';
@@ -102,9 +100,5 @@ function Component(): React.ReactElement {
 }
 
 export default function Home(): React.ReactElement {
-  const { config } = useRemoteConfig();
-  if (config.enableFeedSubmissionStepper) {
-    return <Component />;
-  }
-  return <Contribute />;
+  return <Component />;
 }
