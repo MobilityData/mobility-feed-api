@@ -1,28 +1,36 @@
 # Mobility Feeds API UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-Using node v18.16.0 (npm v9.5.1)
+This project is built with [Next.js](https://nextjs.org/) using the App Router.
+Using node v24.12.0 (npm v11.6.2) (yarn v1.22.22)
 
 ## Installing packages
 It is preferred to install the packages using `yarn` over `npm install`
 
 ## Configuration variables
-React scripts can inject all necessary environment variables into the application in development mode and the JS bundle files. 
+Next.js can inject all necessary environment variables into the application in development mode and the JS bundle files. 
 Steps to set environment variables:
-- Create a file based on `src/.env.rename_me` with the name `src/.env.{environment}`. Example, `src/.env.dev`.
+- Create a file based on `.env.rename_me` with the name `.env.development` (for dev) or `.env` (for prod)
 - Replace all key values with the desired content.
 - Done! You can now start or build the application with the commands described below.
 
 ### Adding a new environment variable
-To add a new environment variable, add the variable name to the `src/.env.{environment}` and modify the GitHub actions injecting the value per environment. When adding a new variable, make sure that the variable name is prefixed with `REACT_APP`; otherwise, the react app will not read the variable.
+To add a new environment variable, add the variable name to the `.env.{environment}` and modify the GitHub actions injecting the value per environment. When adding a new variable, make sure that the variable name is prefixed with `NEXT_PUBLIC_` for client-side usage; otherwise, the Next.js app will not read the variable on the client side.
 
 ## Available Scripts
 
 In the project directory, you can run:
 
 - Runs the app in the development mode:
+It will automatically use environment variables located in `.env.development`
 ```
-yarn start:dev
+yarn run start:dev
+```
+
+- Running a production build
+It will build then run the application in production and serve it locally using environment variables located in `.env`
+Since it uses the files from the build, it will not hot reload
+```
+yarn run start:prod
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
@@ -35,19 +43,19 @@ You will also see any lint errors in the console.
 yarn test
 ```
 
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-- Builds the app locally to the `build` folder:
+- Builds the app for production:
 ```
-yarn build:dev
+yarn build:prod
 ```
 
-It bundles React in production mode for a target Firebase environment.
+It bundles the application in production mode using Next.js optimization.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The build is optimized and ready for deployment.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Start the production build locally:
+```
+yarn start:prod
+```
 
 - Linter check
 ```
@@ -92,14 +100,30 @@ yarn start:dev
 ```
 In a different terminal,
 ```
-yarn cypress-run
+yarn cypress:run
 ```
 - Opens Cypress in the interactive GUI
 ```
-yarn cypress-open
+yarn cypress:open
 ```
+
+## API Types Generation
+
+The project includes scripts for generating TypeScript types from OpenAPI specifications:
+
+- Generate API types from main database catalog:
+```
+yarn generate:api-types
+```
+
+- Generate GBFS validator types:
+```
+yarn generate:gbfs-validator-types
+```
+
 ## References
 
- - You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+ - You can learn more in the [Next.js documentation](https://nextjs.org/docs).
  - To learn React, check out the [React documentation](https://reactjs.org/).
  - [Firebase Documentation](https://firebase.google.com/docs).
+ - [next-intl Documentation](https://next-intl-docs.vercel.app/) for internationalization.
