@@ -39,9 +39,9 @@ import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
-import { selectLatestGbfsVersion } from '../store/feed-selectors';
 import { selectGtfsDatasetRoutesLoadingStatus } from '../store/supporting-files-selectors';
 import { type LatestDatasetLite } from './GtfsVisualizationMap.functions';
+import { type GBFSFeedType, type GBFSVersionType } from '../services/feeds/utils';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
@@ -52,12 +52,14 @@ interface CoveredAreaMapProps {
 export const fetchGeoJson = async (
   latestDatasetUrl: string,
 ): Promise<GeoJSONData | GeoJSONDataGBFS> => {
+  console.log('fetchGeoJson latestDatasetUrl:', latestDatasetUrl);
   const geoJsonUrl = latestDatasetUrl
     .split('/')
     .slice(0, -2)
     .concat('geolocation.geojson')
     .join('/');
   const response = await fetch(geoJsonUrl);
+  console.log('fetchGeoJson response:', response);
   if (!response.ok) {
     throw new Error('Failed to fetch GeoJSON');
   }
@@ -88,7 +90,32 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     feed?.data_type === 'gtfs' ? 'gtfsVisualizationView' : 'boundingBoxView',
   );
 
-  const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
+  const latestGbfsVersion = useMemo((): GBFSVersionType | undefined => {
+    if (feed?.data_type !== 'gbfs') return undefined;
+    const gbfsFeed = feed as GBFSFeedType;
+    // First try to find autodiscovery version
+    const autodiscoveryVersion = gbfsFeed?.versions?.find(
+      (v) => v.source === 'autodiscovery',
+    );
+    if (autodiscoveryVersion !== undefined) {
+      return autodiscoveryVersion;
+    }
+    // Otherwise sort by version number and return the latest
+    const sortedVersions = gbfsFeed?.versions
+      ?.filter((v) => v.version !== undefined)
+      .sort((a, b) => {
+        if (a.version === undefined) return -1;
+        if (b.version === undefined) return 1;
+        if (a.version < b.version) return 1;
+        if (a.version > b.version) return -1;
+        return 0;
+      });
+    if (sortedVersions !== undefined && sortedVersions.length > 0) {
+      return sortedVersions[0];
+    }
+    return undefined;
+  }, [feed]);
+
   const routesJsonLoadingStatus = useSelector(
     selectGtfsDatasetRoutesLoadingStatus,
   );
@@ -109,6 +136,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   };
 
   useEffect(() => {
+    console.log('CoveredAreaMap useEffect triggered', feed);
     if (feed?.data_type === 'gbfs') {
       const latestGbfsVersionReportUrl =
         latestGbfsVersion?.latest_validation_report?.report_summary_url;

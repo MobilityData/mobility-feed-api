@@ -210,8 +210,6 @@ export default async function FeedPage({ params }: Props) {
     notFound();
   }
 
-  console.log('Feed data type:', (feed as GTFSRTFeedType)?.feed_references);
-
   let gtfsFeedsRelated: GTFSFeedType[] = [];
   let gtfsRtFeedsRelated: GTFSRTFeedType[] = [];
   if( feed.data_type === 'gtfs_rt') {

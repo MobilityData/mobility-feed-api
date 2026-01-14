@@ -1,7 +1,6 @@
 import { Button, Grid, Typography } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import { getTranslations } from 'next-intl/server';
-import { headers } from 'next/headers';
 
 type Props = {
   feedDataType: string;
@@ -13,8 +12,6 @@ export default async function FeedNavigationControls({
   feedId,
 }: Props) {
   const t = await getTranslations('common');
-  const headersList = await headers();
-  const referer = headersList.get('referer') ?? '/feeds';
 
   return (
     <Grid container spacing={3} alignItems='flex-end'>
@@ -24,7 +21,7 @@ export default async function FeedNavigationControls({
         startIcon={<ChevronLeft />}
         color={'inherit'}
         component={'a'}
-        href={referer}
+        href='/feeds'
       >
         {t('back')}
       </Button>

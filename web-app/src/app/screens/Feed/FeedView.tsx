@@ -5,7 +5,6 @@ import FeedTitle from './components/FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
 import DataQualitySummary from './components/DataQualitySummary';
 import CoveredAreaMap from '../../components/CoveredAreaMap';
-import { Map } from '../../components/Map';
 import FeedSummary from './components/FeedSummary';
 import AssociatedFeeds from './components/AssociatedFeeds';
 import GbfsVersions from './components/GbfsVersions';
@@ -17,10 +16,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { getTranslations } from 'next-intl/server';
 
 // Styles
-import {
-  ctaContainerStyle,
-  feedDetailContentContainerStyle,
-} from './Feed.styles';
+import { ctaContainerStyle } from './Feed.styles';
 
 // Utils
 import {
@@ -55,10 +51,8 @@ export default async function FeedView({
 }: Props) {
   const t = await getTranslations('feeds');
   const tGbfs = await getTranslations('gbfs');
+  const tCommon = await getTranslations('common');
   if (feed == undefined) return <Box>Feed not found</Box>;
-
-  console.log('relatedFeeds', relatedFeeds);
-  console.log('relatedGtfsRtFeeds', relatedGtfsRtFeeds);
 
   // Basic derived data
   const sortedProviders = feed.provider
@@ -94,12 +88,7 @@ export default async function FeedView({
 
   const hasFeedRedirect = feed?.redirects && feed.redirects.length > 0;
 
-  // Note: Some complex logic from the original FeedClient (like loading additional datasets on mount)
-  // is skipped here in favor of Server Rendered initial state.
-  // To support "Previous Datasets" fully, we might need a Client Component that takes the initial list
-  // and allows fetching more, OR fetch them all on server (pagination support).
 
-  // For now we render the Shell of the view.
 
   const gbfsAutodiscoveryUrl =
     feed?.data_type === 'gbfs'
@@ -136,8 +125,9 @@ export default async function FeedView({
     const gtfsFeed: GTFSFeedType = feed;
     latestDataset = initialDatasets?.find(dataset => dataset.id === gtfsFeed.latest_dataset?.id);
   }
-  console.log('latest dataset', latestDataset);
+
   // Derived state for warnings
+  const hasDatasets = initialDatasets != undefined && initialDatasets.length > 0;
 
   return (
     <Container
@@ -199,8 +189,13 @@ export default async function FeedView({
 
             <Box>
               {latestDataset?.validation_report?.validated_at && (
-                <Typography variant='caption' component='div'>
-                  {`Quality Report Updated: ${new Date(
+                <Typography
+                  data-testid='last-updated'
+                  variant='caption'
+                  width={'100%'}
+                  component='div'
+                >
+                  {`${t('qualityReportUpdated')}: ${new Date(
                     latestDataset.validation_report.validated_at,
                   ).toDateString()}`}
                 </Typography>
@@ -217,14 +212,90 @@ export default async function FeedView({
                     ).toDateString()}`}
                   </Typography>
                 )}
+                {feed.external_ids?.some((eId) => eId.source === 'tld') === true && (
+                  <Typography
+                    data-testid='transitland-attribution'
+                    variant={'caption'}
+                    width={'100%'}
+                    component={'div'}
+                  >
+                    {t('dataAttribution')}{' '}
+                    <a
+                      rel='noreferrer nofollow'
+                      target='_blank'
+                      href='https://www.transit.land/terms'
+                    >
+                      Transitland
+                    </a>
+                  </Typography>
+                )}
+                {feed.external_ids?.some((eId) => eId.source === 'ntd') === true && (
+                  <Typography
+                    data-testid='fta-attribution'
+                    variant={'caption'}
+                    width={'100%'}
+                    component={'div'}
+                  >
+                    {t('dataAttribution')}
+                    {' the United States '}
+                    <a
+                      rel='noreferrer nofollow'
+                      target='_blank'
+                      href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
+                    >
+                      National Transit Database
+                    </a>
+                  </Typography>
+                )}
             </Box>
 
+            {feed?.data_type === 'gtfs_rt' &&
+              (feed as GTFSRTFeedType)?.entity_types != undefined && (
+                <Grid size={12}>
+                  <Typography variant='h5'>
+                    {' '}
+                    {((feed as GTFSRTFeedType)?.entity_types ?? [])
+                      .map(
+                        (entityType) =>
+                          ({
+                            tu: tCommon('gtfsRealtimeEntities.tripUpdates'),
+                            vp: tCommon('gtfsRealtimeEntities.vehiclePositions'),
+                            sa: tCommon('gtfsRealtimeEntities.serviceAlerts'),
+                          } as Record<string, string>)[entityType],
+                      )
+                      .join(` ${tCommon('and')} `)}
+                  </Typography>
+                </Grid>
+              )}
+
             {/* Warnings */}
+            {feedDataType === 'gtfs' &&
+              !hasDatasets &&
+              !hasFeedRedirect && (
+                <WarningContentBox>
+                  {t.rich('unableToDownloadFeed', {
+                    link: (chunks) => (
+                      <Button variant='text' className='inline' href='/contribute'>
+                        {chunks}
+                      </Button>
+                    ),
+                  })}
+                </WarningContentBox>
+              )}
             {hasFeedRedirect && (
               <Grid size={12}>
                 <WarningContentBox>
-                  This feed has been replaced...
-                  {/* Use Client Component for interactive warning if needed or just Text */}
+                  {t.rich('feedHasBeenReplaced', {
+                    link: (chunks) => (
+                      <Button
+                        variant='text'
+                        className='inline'
+                        href={`/feeds/${feed?.redirects?.[0]?.target_id}`}
+                      >
+                        {chunks}
+                      </Button>
+                    ),
+                  })}
                 </WarningContentBox>
               </Grid>
             )}
