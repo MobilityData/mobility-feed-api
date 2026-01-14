@@ -387,7 +387,7 @@ export default function Feed(): React.ReactElement {
               xs={12}
               md={2}
               sx={{
-                minWidth: '220px',
+                minWidth: '275px',
                 pr: 2,
               }}
             >

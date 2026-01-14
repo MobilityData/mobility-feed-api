@@ -77,6 +77,11 @@ export function SearchFilters({
       checked: selectedFeedTypes.gtfs_rt,
       type: 'checkbox',
     },
+    {
+      title: t('common:gbfs'),
+      checked: selectedFeedTypes.gbfs,
+      type: 'checkbox',
+    },
   ];
 
   function generateCheckboxStructure(): CheckboxStructure[] {
@@ -123,7 +128,7 @@ export function SearchFilters({
             ...selectedFeedTypes,
             gtfs: checkboxData[0].checked,
             gtfs_rt: checkboxData[1].checked,
-            gbfs: false,
+            gbfs: checkboxData[2].checked,
           };
           setSelectedFeedTypes(checkedFeedTypes);
         }}
