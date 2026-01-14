@@ -292,7 +292,7 @@ def find_exact_match_license_url(url_normalized: str, db_session: Session | None
     )
 
 
-def extract_spdx_id_from_url(url: str) -> Optional[str]:
+def extract_spdx_id_from_url(url_normalized: str) -> Optional[str]:
     """Extract an SPDX license ID from an SPDX-style URL if present.
 
     Recognizes URLs of the form used on spdx.org, for example::
@@ -304,16 +304,13 @@ def extract_spdx_id_from_url(url: str) -> Optional[str]:
     path segment under ``/licenses/`` that looks like an SPDX identifier. Any
     optional ``.html`` suffix is stripped.
     """
-    # Work with a normalized string but keep path structure intact
-    n = normalize_url_str(url)
-
     # Match host 'spdx.org' and capture the token after '/licenses/' up to
     # an optional '.html' suffix and optional trailing slash.
-    m = re.search(r"spdx\.org/licenses/([^/?#]+?)(?:\.html)?/?$", n, re.I)
-    if not m:
+    match = re.search(r"spdx\.org/licenses/([^/?#]+?)(?:\.html)?/?$", url_normalized, re.I)
+    if not match:
         return None
 
-    spdx_id = m.group(1)
+    spdx_id = match.group(1)
     # Basic sanity check: SPDX IDs are typically alnum plus '-', '.' (e.g. 'CC-BY-4.0')
     if not re.fullmatch(r"[A-Za-z0-9.+-]+", spdx_id):
         return None
@@ -392,10 +389,12 @@ def resolve_license(
         ]
 
     # 3) SPDX catalog URL (spdx.org/licenses/<ID>[.html])
-    spdx_id = extract_spdx_id_from_url(url_str)
+    spdx_id = extract_spdx_id_from_url(url_normalized)
     if spdx_id:
         # Try to enrich from DB if a matching License row exists
-        db_lic: License | None = db_session.query(License).filter(License.id == spdx_id).one_or_none()
+        db_lic: License | None = (
+            db_session.query(License).filter(func.lower(License.id) == func.lower(spdx_id)).one_or_none()
+        )
         if db_lic is not None:
             return [
                 MatchingLicense(
