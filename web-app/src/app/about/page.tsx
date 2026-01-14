@@ -1,13 +1,21 @@
 import { Container, Typography, Button } from '@mui/material';
-// import { ColoredContainer } from '../styles/PageLayout.style';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function Page() {
   return (
     <Container component='main'>
-      {/* <ColoredContainer maxWidth={false} sx={{ mt: 3 }}> */}
       <Typography variant='h1'>About</Typography>
-      <Container>
+      {/* ColoredContainer: This component uses style which is a client use only. Investigate pattern for SSR optimal Theme rendering */}
+      <Container
+        sx={{
+          backgroundColor: 'background.paper',
+          borderRadius: '6px',
+          paddingTop: 3,
+          paddingBottom: 3,
+          mt: 3,
+        }}
+        maxWidth={false}
+      >
         <Typography sx={{ fontWeight: 700 }}>
           The Mobility Database is an open catalog including over 4000 GTFS,
           GTFS Realtime, and GBFS feeds in over 75 countries. It integrates with
