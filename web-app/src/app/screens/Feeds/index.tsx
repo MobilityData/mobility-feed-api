@@ -38,7 +38,6 @@ import {
   searchBarStyles,
   stickyHeaderStyles,
 } from './Feeds.styles';
-import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
 import AdvancedSearchTable from './AdvancedSearchTable';
@@ -49,7 +48,6 @@ import { SearchFilters } from './SearchFilters';
 export default function Feed(): React.ReactElement {
   const theme = useTheme();
   const { t } = useTranslation('feeds');
-  const { config } = useRemoteConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
@@ -118,9 +116,7 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: getDataTypeParamFromSelectedFeedTypes(
-              selectedFeedTypes,
-            ),
+            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
             is_official: isOfficialTagFilterEnabled
               ? isOfficialFeedSearch || undefined
               : undefined,
