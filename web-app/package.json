@@ -57,7 +57,7 @@
   "scripts": {
     "build:prod": "next build",
     "start:dev": "next dev",
-    "start:prod": "next start",
+    "start:prod": "next build && next start",
     "lint": "next lint",
     "test": "react-scripts test --watchAll",
     "test:ci": "CI=true react-scripts test",
