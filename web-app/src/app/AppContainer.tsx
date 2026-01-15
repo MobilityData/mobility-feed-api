@@ -1,11 +1,15 @@
+'use client';
+
 import * as React from 'react';
 import { Box, LinearProgress } from '@mui/material';
 import type ContextProviderProps from './interface/ContextProviderProps';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { selectLoadingApp } from './store/selectors';
+import { useSelector } from 'react-redux';
 
 const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
-  const isAppLoading = false; // useSelector(selectLoadingApp);
+  const isAppLoading = useSelector(selectLoadingApp);
   const location = useLocation();
   const canonicalUrl = window.location.origin + location.pathname;
 
