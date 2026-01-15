@@ -37,9 +37,12 @@
   }
 }
 
+
 #app-main-container {
   position: relative;
-  min-height: 100vh;
+  /* 100vh - header margin - header - footer - footer padding */
+  /* Not perfect, to revisit: for client loading state */
+  min-height: calc(100vh - 32px - 64px - 232px - 20px);
   padding-bottom: 20px;
   box-sizing: border-box;
 }

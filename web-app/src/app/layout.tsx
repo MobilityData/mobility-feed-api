@@ -14,6 +14,7 @@ export const metadata = {
 import { Mulish, IBM_Plex_Mono } from 'next/font/google';
 import Footer from './components/Footer';
 import Header from './components/Header';
+import { Container } from '@mui/material';
 
 const mulish = Mulish({
   weight: ['400', '700'],
@@ -46,7 +47,15 @@ export default async function RootLayout({
           <NextIntlClientProvider messages={messages}>
             <Providers remoteConfig={remoteConfig}>
               <Header />
-              <main id='next'>{children}</main>
+              <Container
+                component={'main'}
+                id='next'
+                  /* 100vh - header margin - header - footer - footer padding */
+                  /* Not perfect, to revisit: for client loading state */
+                sx={{ minHeight: 'calc(100vh - 32px - 64px - 232px - 20px)' }}
+              >
+                {children}
+              </Container>
               <Footer />
             </Providers>
           </NextIntlClientProvider>
