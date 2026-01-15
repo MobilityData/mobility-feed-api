@@ -25,6 +25,7 @@ src/feeds_gen/models/gbfs_endpoint.py
 src/feeds_gen/models/gbfs_feed.py
 src/feeds_gen/models/gbfs_validation_report.py
 src/feeds_gen/models/gbfs_version.py
+src/feeds_gen/models/get_matching_licenses_request.py
 src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_rt_feed.py
@@ -34,6 +35,7 @@ src/feeds_gen/models/license_base.py
 src/feeds_gen/models/license_rule.py
 src/feeds_gen/models/license_with_rules.py
 src/feeds_gen/models/location.py
+src/feeds_gen/models/matching_license.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/redirect.py
 src/feeds_gen/models/search_feed_item_result.py

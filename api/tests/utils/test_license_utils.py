@@ -156,6 +156,39 @@ class TestLicenseUtils(unittest.TestCase):
         self.assertEqual(results[0].match_type, "heuristic")
 
     @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
+    def test_resolve_license_spdx_catalog_url_db_hit(self, _mock_find):
+        """SPDX catalog URLs (spdx.org/licenses/ID) should resolve via SPDX branch when license exists in DB."""
+        spdx_url = "https://spdx.org/licenses/ODbL-1.0.html"
+        lic = self._make_license("odbl-1.0", "https://spdx.org/licenses/ODbL-1.0.html", "ODbL 1.0")
+        # Configure session to return our license when queried by ID
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = lic
+
+        results = resolve_license(spdx_url, db_session=self.session)
+
+        self.assertEqual(len(results), 1)
+        r = results[0]
+        # Implementation currently lowercases the SPDX ID extracted from the URL
+        self.assertEqual(r.spdx_id, "odbl-1.0")
+        self.assertEqual(r.license_id, "odbl-1.0")
+        self.assertEqual(r.match_type, "heuristic")
+        self.assertEqual(r.matched_source, "spdx-resolver")
+        self.assertEqual(r.matched_name, "ODbL 1.0")
+        self.assertEqual(r.matched_catalog_url, "https://spdx.org/licenses/ODbL-1.0.html")
+
+    @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
+    def test_resolve_license_spdx_catalog_url_db_miss(self, _mock_find):
+        """When SPDX ID is parsed from URL but not present in DB,
+        resolver should log and return no SPDX-based result."""
+        spdx_url = "https://spdx.org/licenses/ODbL-1.0.html"
+        # Simulate no matching License in DB
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        results = resolve_license(spdx_url, db_session=self.session)
+
+        # Current behavior: we only log a warning and return an empty list when SPDX ID is not found in DB.
+        self.assertEqual(results, [])
+
+    @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
     def test_resolve_license_generic_heuristic(self, _mock_find):
         # Provide URL that matches heuristic patterns
         results = resolve_license("https://choosealicense.com/licenses/mit/", db_session=self.session)

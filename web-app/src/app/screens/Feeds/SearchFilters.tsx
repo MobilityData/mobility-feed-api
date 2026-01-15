@@ -77,15 +77,12 @@ export function SearchFilters({
       checked: selectedFeedTypes.gtfs_rt,
       type: 'checkbox',
     },
-  ];
-
-  if (config.enableGbfsInSearchPage) {
-    dataTypesCheckboxData.push({
+    {
       title: t('common:gbfs'),
       checked: selectedFeedTypes.gbfs,
       type: 'checkbox',
-    });
-  }
+    },
+  ];
 
   function generateCheckboxStructure(): CheckboxStructure[] {
     const groupedFeatures = groupFeaturesByComponent(
@@ -131,162 +128,154 @@ export function SearchFilters({
             ...selectedFeedTypes,
             gtfs: checkboxData[0].checked,
             gtfs_rt: checkboxData[1].checked,
-            gbfs: false,
+            gbfs: checkboxData[2].checked,
           };
-          if (config.enableGbfsInSearchPage) {
-            checkedFeedTypes.gbfs = checkboxData[2].checked;
-          }
           setSelectedFeedTypes(checkedFeedTypes);
         }}
       ></NestedCheckboxList>
-      {config.enableIsOfficialFilterSearch && (
-        <>
+
+      <>
+        <SearchHeader
+          variant='h6'
+          sx={isOfficialTagFilterEnabled ? {} : { opacity: 0.5 }}
+          className='no-collapse'
+        >
+          Tags
+        </SearchHeader>
+        <NestedCheckboxList
+          disableAll={!isOfficialTagFilterEnabled}
+          checkboxData={[
+            {
+              title: 'Official Feeds',
+              checked: isOfficialFeedSearch,
+              type: 'checkbox',
+            },
+          ]}
+          onCheckboxChange={(checkboxData) => {
+            setIsOfficialFeedSearch(checkboxData[0].checked);
+          }}
+        ></NestedCheckboxList>
+      </>
+
+      <Accordion
+        disableGutters
+        sx={{ border: 0 }}
+        variant={'outlined'}
+        expanded={expandedCategories.features && areFeatureFiltersEnabled}
+        onChange={() => {
+          setExpandedCategories({
+            ...expandedCategories,
+            features: !expandedCategories.features,
+          });
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls='panel1bh-content'
+          sx={{
+            px: 0,
+          }}
+        >
           <SearchHeader
             variant='h6'
-            sx={isOfficialTagFilterEnabled ? {} : { opacity: 0.5 }}
-            className='no-collapse'
+            sx={areFeatureFiltersEnabled ? {} : { opacity: 0.5 }}
           >
-            Tags
+            Features
           </SearchHeader>
+        </AccordionSummary>
+        <AccordionDetails
+          sx={{
+            p: 0,
+            m: 0,
+            border: 0,
+            '&.Mui-expanded': { m: 0, minHeight: 'initial' },
+          }}
+        >
           <NestedCheckboxList
-            disableAll={!isOfficialTagFilterEnabled}
-            checkboxData={[
-              {
-                title: 'Official Feeds',
-                checked: isOfficialFeedSearch,
-                type: 'checkbox',
-              },
-            ]}
+            disableAll={!areFeatureFiltersEnabled}
+            debounceTime={500}
+            checkboxData={featureCheckboxData}
+            onExpandGroupChange={(checkboxData) => {
+              const newExpandGroup: Record<string, boolean> = {};
+              checkboxData.forEach((cd) => {
+                if (cd.seeChildren !== undefined) {
+                  newExpandGroup[cd.title] = cd.seeChildren;
+                }
+              });
+              setExpandedElements({
+                ...expandedElements,
+                ...newExpandGroup,
+              });
+            }}
             onCheckboxChange={(checkboxData) => {
-              setIsOfficialFeedSearch(checkboxData[0].checked);
+              const selelectedFeatures: string[] = [];
+              checkboxData.forEach((checkbox) => {
+                if (checkbox.children !== undefined) {
+                  checkbox.children.forEach((child) => {
+                    if (child.checked) {
+                      selelectedFeatures.push(child.title);
+                    }
+                  });
+                }
+              });
+              setSelectedFeatures([...selelectedFeatures]);
+            }}
+          />
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion
+        disableGutters
+        variant={'outlined'}
+        sx={{
+          border: 0,
+          '&::before': {
+            display: 'none',
+          },
+        }}
+        expanded={expandedCategories.gbfsVersions && areGBFSFiltersEnabled}
+        onChange={() => {
+          setExpandedCategories({
+            ...expandedCategories,
+            gbfsVersions: !expandedCategories.gbfsVersions,
+          });
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls='panel1bh-content'
+          sx={{
+            px: 0,
+          }}
+        >
+          <SearchHeader
+            variant='h6'
+            sx={areGBFSFiltersEnabled ? {} : { opacity: 0.5 }}
+          >
+            GBFS Versions
+          </SearchHeader>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0, m: 0, border: 0 }}>
+          <NestedCheckboxList
+            disableAll={!areGBFSFiltersEnabled}
+            debounceTime={500}
+            checkboxData={gbfsVersionsObject.map((version) => ({
+              title: version,
+              checked: selectedGbfsVersions.includes(version),
+              type: 'checkbox',
+            }))}
+            onCheckboxChange={(checkboxData) => {
+              const selectedVersions: string[] = [];
+              checkboxData.forEach((checkbox) => {
+                if (checkbox.checked) {
+                  selectedVersions.push(checkbox.title);
+                }
+              });
+              setSelectedGbfsVerions([...selectedVersions]);
             }}
           ></NestedCheckboxList>
-        </>
-      )}
-
-      {config.enableFeatureFilterSearch && (
-        <Accordion
-          disableGutters
-          sx={{ border: 0 }}
-          variant={'outlined'}
-          expanded={expandedCategories.features && areFeatureFiltersEnabled}
-          onChange={() => {
-            setExpandedCategories({
-              ...expandedCategories,
-              features: !expandedCategories.features,
-            });
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls='panel1bh-content'
-            sx={{
-              px: 0,
-            }}
-          >
-            <SearchHeader
-              variant='h6'
-              sx={areFeatureFiltersEnabled ? {} : { opacity: 0.5 }}
-            >
-              Features
-            </SearchHeader>
-          </AccordionSummary>
-          <AccordionDetails
-            sx={{
-              p: 0,
-              m: 0,
-              border: 0,
-              '&.Mui-expanded': { m: 0, minHeight: 'initial' },
-            }}
-          >
-            <NestedCheckboxList
-              disableAll={!areFeatureFiltersEnabled}
-              debounceTime={500}
-              checkboxData={featureCheckboxData}
-              onExpandGroupChange={(checkboxData) => {
-                const newExpandGroup: Record<string, boolean> = {};
-                checkboxData.forEach((cd) => {
-                  if (cd.seeChildren !== undefined) {
-                    newExpandGroup[cd.title] = cd.seeChildren;
-                  }
-                });
-                setExpandedElements({
-                  ...expandedElements,
-                  ...newExpandGroup,
-                });
-              }}
-              onCheckboxChange={(checkboxData) => {
-                const selelectedFeatures: string[] = [];
-                checkboxData.forEach((checkbox) => {
-                  if (checkbox.children !== undefined) {
-                    checkbox.children.forEach((child) => {
-                      if (child.checked) {
-                        selelectedFeatures.push(child.title);
-                      }
-                    });
-                  }
-                });
-                setSelectedFeatures([...selelectedFeatures]);
-              }}
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-
-      {config.enableGbfsInSearchPage && (
-        <Accordion
-          disableGutters
-          variant={'outlined'}
-          sx={{
-            border: 0,
-            '&::before': {
-              display: 'none',
-            },
-          }}
-          expanded={expandedCategories.gbfsVersions && areGBFSFiltersEnabled}
-          onChange={() => {
-            setExpandedCategories({
-              ...expandedCategories,
-              gbfsVersions: !expandedCategories.gbfsVersions,
-            });
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls='panel1bh-content'
-            sx={{
-              px: 0,
-            }}
-          >
-            <SearchHeader
-              variant='h6'
-              sx={areGBFSFiltersEnabled ? {} : { opacity: 0.5 }}
-            >
-              GBFS Versions
-            </SearchHeader>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 0, m: 0, border: 0 }}>
-            <NestedCheckboxList
-              disableAll={!areGBFSFiltersEnabled}
-              debounceTime={500}
-              checkboxData={gbfsVersionsObject.map((version) => ({
-                title: version,
-                checked: selectedGbfsVersions.includes(version),
-                type: 'checkbox',
-              }))}
-              onCheckboxChange={(checkboxData) => {
-                const selectedVersions: string[] = [];
-                checkboxData.forEach((checkbox) => {
-                  if (checkbox.checked) {
-                    selectedVersions.push(checkbox.title);
-                  }
-                });
-                setSelectedGbfsVerions([...selectedVersions]);
-              }}
-            ></NestedCheckboxList>
-          </AccordionDetails>
-        </Accordion>
-      )}
+        </AccordionDetails>
+      </Accordion>
     </>
   );
 }
