@@ -129,7 +129,7 @@ export default function FormThirdStep({
                 <MenuItem value='choiceRequired'>
                   {tCommon('form.yes')}
                 </MenuItem>
-                <MenuItem value='None - 0'>{tCommon('form:no')}</MenuItem>
+                <MenuItem value='None - 0'>{tCommon('form.no')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>

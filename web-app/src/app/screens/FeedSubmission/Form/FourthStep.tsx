@@ -113,8 +113,8 @@ export default function FormFourthStep({
                       sx={{ width: '200px' }}
                       data-cy='interestedInAudit'
                     >
-                      <MenuItem value='yes'>{tCommon('form:yes')}</MenuItem>
-                      <MenuItem value='no'>{tCommon('form:no')}</MenuItem>
+                      <MenuItem value='yes'>{tCommon('form.yes')}</MenuItem>
+                      <MenuItem value='no'>{tCommon('form.no')}</MenuItem>
                     </Select>
                     <FormHelperText>
                       {errors.isInterestedInQualityAudit?.message ?? ''}
