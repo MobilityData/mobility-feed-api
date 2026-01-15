@@ -11,7 +11,7 @@ export interface FeedStatusData {
 export function getFeedStatusData(
   status: string,
   theme: Theme,
-  t: any,
+  t: (key: string) => string,
 ): FeedStatusData | undefined {
   const data: Record<string, FeedStatusData> = {
     active: {

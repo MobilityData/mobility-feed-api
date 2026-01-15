@@ -17,7 +17,10 @@ interface ProvidersProps {
 }
 
 /// FOR SSR all these providers will need to be refactored
-export function Providers({ children, remoteConfig }: ProvidersProps) {
+export function Providers({
+  children,
+  remoteConfig,
+}: ProvidersProps): JSX.Element {
   return (
     <ContextProviders>
       <AuthTokenSync />

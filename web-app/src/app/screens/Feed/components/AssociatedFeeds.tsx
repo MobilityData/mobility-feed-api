@@ -16,7 +16,7 @@ import {
   type AllFeedType,
   type GTFSRTFeedType,
 } from '../../../services/feeds/utils';
-import { default as NextLink } from 'next/link';
+import NextLink from 'next/link';
 
 export interface AssociatedFeedsProps {
   feeds: AllFeedType[] | undefined;

@@ -46,10 +46,10 @@ export default function PreviousDatasets({
   const theme = useTheme();
   const t = useTranslations('feeds');
   const tCommon = useTranslations('common');
-  const [datasets, setDatasets] = React.useState(initialDatasets || []);
+  const [datasets, setDatasets] = React.useState(initialDatasets ?? []);
   const [isLoadingDatasets, setIsLoadingDatasets] = React.useState(false);
   const [hasloadedAllDatasets, setHasLoadedAllDatasets] = React.useState(
-    (initialDatasets?.length || 0) < 10,
+    (initialDatasets?.length ?? 0) < 10,
   );
   const [scrollPosition, setScrollPosition] = React.useState(0);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -67,7 +67,10 @@ export default function PreviousDatasets({
           offset,
         });
 
-        if (newDatasets && newDatasets.length > 0) {
+        if (
+          newDatasets != null &&
+          newDatasets.length > 0
+        ) {
           if (newDatasets.length < 10) {
             setHasLoadedAllDatasets(true);
           }
@@ -97,7 +100,7 @@ export default function PreviousDatasets({
         ) {
           const currentNumberOfDatasets = datasets.length;
           const currentScrollPosition = listRef.current?.scrollTop ?? 0;
-          loadMoreDatasets(currentNumberOfDatasets);
+          void loadMoreDatasets(currentNumberOfDatasets);
           setScrollPosition(currentScrollPosition);
         }
       },
@@ -109,12 +112,12 @@ export default function PreviousDatasets({
     );
 
     const bottomElement = bottomRef.current;
-    if (bottomElement) {
+    if (bottomElement != null) {
       observer.observe(bottomElement);
     }
 
     return () => {
-      if (bottomElement) {
+      if (bottomElement != null) {
         observer.unobserve(bottomElement);
       }
     };

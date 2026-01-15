@@ -34,7 +34,7 @@ export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}): Promise<JSX.Element> {
   // TODO await a promise .al
   const locale = await getLocale();
   const messages = await getMessages();

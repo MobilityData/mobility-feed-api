@@ -91,7 +91,7 @@ export const getStopByLocationTypeOrDefault = (
 
 export const getRouteTypeTranslatedName = (
   routeTypeId: string,
-  t: any,
+  t: (key: string) => string,
 ): string => {
   const routeType = getRouteByTypeOrDefault(routeTypeId);
   return !(routeType.isDefault ?? false)

@@ -4,7 +4,11 @@ import { Button } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useTranslations } from 'next-intl';
 
-export default function ClientDownloadButton({ url }: { url: string }) {
+export default function ClientDownloadButton({
+  url,
+}: {
+  url: string;
+}): JSX.Element {
   const t = useTranslations('feeds');
 
   const handleDownloadLatestClick = async (): Promise<void> => {
@@ -26,7 +30,9 @@ export default function ClientDownloadButton({ url }: { url: string }) {
       rel='noreferrer nofollow'
       id='download-latest-button'
       endIcon={<DownloadIcon />}
-      onClick={handleDownloadLatestClick}
+      onClick={() => {
+        void handleDownloadLatestClick();
+      }}
     >
       {t('downloadLatest')}
     </Button>

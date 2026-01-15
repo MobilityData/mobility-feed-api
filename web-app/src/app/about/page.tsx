@@ -1,7 +1,7 @@
 import { Container, Typography, Button } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
-export default function Page() {
+export default function Page(): JSX.Element {
   return (
     <Container component='main'>
       <Typography variant='h1'>About</Typography>

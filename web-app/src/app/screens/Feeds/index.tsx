@@ -177,7 +177,9 @@ export default function Feed(): React.ReactElement {
     }
     if (searchParams.toString() !== newSearchParams.toString()) {
       const queryString = newSearchParams.toString();
-      router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
+      router.push(
+        `${pathname}${queryString.length > 0 ? `?${queryString}` : ''}`,
+      );
     }
   }, [
     activeSearch,

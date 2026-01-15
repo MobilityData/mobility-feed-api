@@ -139,7 +139,6 @@ const handleOpenFullQualityReportClick = (): void => {
 
 export default function Feed(): React.ReactElement {
   const t = useTranslations('feeds');
-  const theme = useTheme();
   const dispatch = useAppDispatch();
   const { feedId, feedDataType } = useParams();
   const user = useSelector(selectUserProfile);

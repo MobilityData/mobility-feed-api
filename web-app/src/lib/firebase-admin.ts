@@ -11,7 +11,7 @@ import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 let adminApp: App | undefined;
 
 export function getFirebaseAdminApp(): App {
-  if (adminApp) {
+  if (adminApp != undefined) {
     return adminApp;
   }
 
@@ -24,7 +24,10 @@ export function getFirebaseAdminApp(): App {
   // Check if we have explicit credentials via environment variable
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (serviceAccountJson) {
+  if (
+    serviceAccountJson != null &&
+    serviceAccountJson.length > 0
+  ) {
     try {
       const serviceAccount = JSON.parse(serviceAccountJson);
       adminApp = initializeApp({
@@ -37,7 +40,7 @@ export function getFirebaseAdminApp(): App {
     }
   }
 
-  if (!adminApp) {
+  if (adminApp == undefined) {
     // Use Application Default Credentials (works on Cloud Run automatically)
     adminApp = initializeApp({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,

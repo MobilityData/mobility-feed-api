@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 const App = dynamic(async () => await import('../App'), { ssr: false });
 
-export default function Page() {
+export default function Page(): JSX.Element | null {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
