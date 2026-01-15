@@ -609,7 +609,7 @@ export default function FullMapView(): React.ReactElement {
                             { value: 14, label: '14' },
                           ]}
                           onChange={(_, v) => {
-                            setCustomStopRadius(v as number);
+                            setCustomStopRadius(v);
                           }}
                           aria-label={t(
                             'fullMapView.style.customStopRadiusAria',

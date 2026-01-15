@@ -163,9 +163,8 @@ export default function GbfsVersions({
                       label={
                         item.latest_validation_report?.total_error != null &&
                         item.latest_validation_report?.total_error > 0
-                          ? `${item.latest_validation_report?.total_error} ${tCommon(
-                              'feedback.errors',
-                            )}`
+                          ? `${item.latest_validation_report
+                              ?.total_error} ${tCommon('feedback.errors')}`
                           : tCommon('feedback.noErrors')
                       }
                       variant='outlined'

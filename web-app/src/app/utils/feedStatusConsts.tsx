@@ -1,6 +1,5 @@
 import { type Theme } from '@mui/material';
 
-
 export interface FeedStatusData {
   toolTip: string;
   label: string;

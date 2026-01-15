@@ -101,10 +101,10 @@ export default function PreviousDatasets({
           setScrollPosition(currentScrollPosition);
         }
       },
-      { 
-        root: listRef.current, 
+      {
+        root: listRef.current,
         threshold: 1.0,
-        rootMargin: '20px'
+        rootMargin: '20px',
       },
     );
 
@@ -112,7 +112,7 @@ export default function PreviousDatasets({
     if (bottomElement) {
       observer.observe(bottomElement);
     }
-    
+
     return () => {
       if (bottomElement) {
         observer.unobserve(bottomElement);

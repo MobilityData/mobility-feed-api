@@ -1,10 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
-import {
-  getRemoteConfig,
-  type RemoteConfigParameter,
-} from 'firebase-admin/remote-config';
+import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { getFirebaseAdminApp } from './firebase-admin';
 import {
   defaultRemoteConfigValues,
@@ -62,7 +59,7 @@ async function fetchRemoteConfigFromFirebase(): Promise<RemoteConfigValues> {
     const fetchedConfig = { ...defaultRemoteConfigValues };
 
     // Process each parameter from the template
-    for (const [key, parameter] of Object.entries(template.parameters) as [string, RemoteConfigParameter][]) {
+    for (const [key, parameter] of Object.entries(template.parameters)) {
       if (key in defaultRemoteConfigValues && parameter.defaultValue) {
         const defaultVal = parameter.defaultValue as { value?: string };
         if (defaultVal.value !== undefined) {
@@ -123,5 +120,5 @@ export const getRemoteConfigValues = cache(
 export async function refreshRemoteConfig(): Promise<RemoteConfigValues> {
   cachedConfig = null;
   cacheTimestamp = 0;
-  return getRemoteConfigValues();
+  return await getRemoteConfigValues();
 }

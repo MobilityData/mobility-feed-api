@@ -92,9 +92,7 @@ export default async function DataQualitySummary({
                     undefined &&
                   latestDataset?.validation_report?.unique_warning_count > 0
                     ? `${latestDataset?.validation_report
-                        ?.unique_warning_count} ${tCommon(
-                        'feedback.warnings',
-                      )}`
+                        ?.unique_warning_count} ${tCommon('feedback.warnings')}`
                     : tCommon('feedback.noWarnings')
                 }
                 color={

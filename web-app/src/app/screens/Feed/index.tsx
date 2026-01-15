@@ -35,8 +35,6 @@ import {
   selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import PreviousDatasets from './components/PreviousDatasets';
-import DataQualitySummary from './components/DataQualitySummary';
 import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
 import { useTranslations } from 'next-intl';

@@ -49,4 +49,3 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableDetailedCoveredArea: false,
   gbfsValidator: false,
 };
-

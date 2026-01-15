@@ -38,13 +38,13 @@ function App(): React.ReactElement {
           }
         />
       </Helmet>
-        <Suspense>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <BrowserRouter>
-              <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
-            </BrowserRouter>
-          </LocalizationProvider>
-        </Suspense>
+      <Suspense>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <BrowserRouter>
+            <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
+          </BrowserRouter>
+        </LocalizationProvider>
+      </Suspense>
     </HelmetProvider>
   );
 }

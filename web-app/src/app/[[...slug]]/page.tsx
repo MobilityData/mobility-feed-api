@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-const App = dynamic(() => import('../App'), { ssr: false });
+const App = dynamic(async () => await import('../App'), { ssr: false });
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);

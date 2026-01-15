@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { app } from '../../firebase';
 import { useDispatch } from 'react-redux';
-import { anonymousLogin } from '../store/profile-reducer';
 import { setAuthTokenAction } from '../actions/auth-actions';
 
 export default function AuthTokenSync() {
@@ -19,20 +18,8 @@ export default function AuthTokenSync() {
       }
     });
 
-    /// OG
-    const unsubscribe2 = app.auth().onAuthStateChanged((user) => {
-      if (user != null) {
-        //setIsAppReady(true);
-      } else {
-        //setIsAppReady(false);
-        dispatch(anonymousLogin());
-      }
-    });
-    //dispatch(anonymousLogin());
-
     return () => {
       unsubscribe();
-      unsubscribe2();
     };
   }, []);
 

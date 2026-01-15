@@ -5,7 +5,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import { useTranslations } from 'next-intl';
 
 export default function ClientDownloadButton({ url }: { url: string }) {
-  
   const t = useTranslations('feeds');
 
   const handleDownloadLatestClick = async (): Promise<void> => {

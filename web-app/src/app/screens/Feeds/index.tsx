@@ -314,7 +314,9 @@ export default function Feed(): React.ReactElement {
           maxWidth={'xl'}
           sx={{ boxSizing: 'content-box' }}
         >
-          <Typography variant='h1' ref={containerRef}>{tCommon('feeds')}</Typography>
+          <Typography variant='h1' ref={containerRef}>
+            {tCommon('feeds')}
+          </Typography>
           {activeSearch !== '' && (
             <Typography variant='subtitle1'>
               {t('searchFor')}: <b>{activeSearch}</b>
@@ -398,7 +400,7 @@ export default function Feed(): React.ReactElement {
                 selectedGbfsVersions={selectGbfsVersions}
                 setSelectedFeedTypes={(feedTypes) => {
                   setActivePagination(1);
-                  setSelectedFeedTypes({...feedTypes});
+                  setSelectedFeedTypes({ ...feedTypes });
                 }}
                 setIsOfficialFeedSearch={(isOfficial) => {
                   setActivePagination(1);

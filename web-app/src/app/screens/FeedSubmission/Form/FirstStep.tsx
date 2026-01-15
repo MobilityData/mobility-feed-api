@@ -205,7 +205,7 @@ export default function FormFirstStep({
                   />
                 </FormControl>
               </Grid>
-              <Grid >
+              <Grid>
                 <FormControl component='fieldset' fullWidth>
                   <FormLabel>{t('form.updateFreq')}</FormLabel>
                   <Controller

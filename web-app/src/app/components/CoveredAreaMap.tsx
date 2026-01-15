@@ -19,17 +19,15 @@ import { WarningContentBox } from './WarningContentBox';
 import { mapBoxPositionStyle } from '../screens/Feed/Feed.styles';
 import dynamic from 'next/dynamic';
 import { type GeoJSONData, type GeoJSONDataGBFS } from './MapGeoJSON';
-const MapGeoJSON = dynamic(
-  () => import('./MapGeoJSON').then((mod) => mod.MapGeoJSON),
-  { ssr: false },
-);
-const Map = dynamic(() => import('./Map').then((mod) => mod.Map), {
-  ssr: false,
-});
 import { useTranslations } from 'next-intl';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
-import { type GTFSFeedType, type AllFeedType } from '../services/feeds/utils';
+import {
+  type GTFSFeedType,
+  type AllFeedType,
+  type GBFSFeedType,
+  type GBFSVersionType,
+} from '../services/feeds/utils';
 import { OpenInNew } from '@mui/icons-material';
 import { computeBoundingBox } from '../screens/Feed/Feed.functions';
 import { displayFormattedDate } from '../utils/date';
@@ -41,7 +39,13 @@ import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
 import { selectGtfsDatasetRoutesLoadingStatus } from '../store/supporting-files-selectors';
 import { type LatestDatasetLite } from './GtfsVisualizationMap.functions';
-import { type GBFSFeedType, type GBFSVersionType } from '../services/feeds/utils';
+const MapGeoJSON = dynamic(
+  async () => await import('./MapGeoJSON').then((mod) => mod.MapGeoJSON),
+  { ssr: false },
+);
+const Map = dynamic(async () => await import('./Map').then((mod) => mod.Map), {
+  ssr: false,
+});
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];

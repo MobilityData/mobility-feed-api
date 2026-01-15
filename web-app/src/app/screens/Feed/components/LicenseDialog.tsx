@@ -195,7 +195,7 @@ export default function LicenseDialog({
                           {hasRules ? (
                             <Grid container spacing={2}>
                               {ruleData.rules?.map((rule, index) => (
-                                <Grid  size={{xs: 12, md: 6}} key={index}>
+                                <Grid size={{ xs: 12, md: 6 }} key={index}>
                                   <Box
                                     sx={{
                                       p: 1.5,

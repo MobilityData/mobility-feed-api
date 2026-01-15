@@ -62,7 +62,7 @@ if (dsn) {
     dsn,
     environment,
     release,
-    integrations: integrations,
+    integrations,
     tracesSampleRate,
     replaysSessionSampleRate,
     replaysOnErrorSampleRate,
@@ -72,11 +72,11 @@ if (dsn) {
       if (event.user) {
         delete event.user.ip_address;
       }
-      if (event.contexts && event.contexts.geo) {
+      if (event.contexts?.geo) {
         delete event.contexts.geo;
       }
       return event;
-    }
+    },
   });
 }
 

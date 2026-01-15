@@ -8,7 +8,7 @@ import { MOBILITY_DATA_LINKS } from '../constants/Navigation';
 import { fontFamily } from '../Theme';
 
 const Footer: React.FC = () => {
-  // TODO: revisit theming for SSR components 
+  // TODO: revisit theming for SSR components
   const theme = useTheme();
   const SlackSvg = (
     <svg

@@ -15,4 +15,3 @@ export const app = firebase.initializeApp(firebaseConfig);
 if (typeof window !== 'undefined' && (window as any).Cypress) {
   app.auth().useEmulator('http://localhost:9099/');
 }
-

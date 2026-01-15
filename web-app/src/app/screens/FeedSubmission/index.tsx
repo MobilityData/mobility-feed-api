@@ -86,7 +86,9 @@ function Component(): React.ReactElement {
               </Typography>
             </ColoredContainer>
             <Container maxWidth='md'>
-              <Typography variant='h1' sx={{ my: 3 }}>Add or update a feed</Typography>
+              <Typography variant='h1' sx={{ my: 3 }}>
+                Add or update a feed
+              </Typography>
               <FeedSubmissionForm />
             </Container>
           </>

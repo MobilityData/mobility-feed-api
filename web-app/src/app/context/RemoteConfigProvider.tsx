@@ -38,4 +38,3 @@ export const RemoteConfigProvider = ({
 export const useRemoteConfig = (): {
   config: RemoteConfigValues;
 } => useContext(RemoteConfigContext);
-

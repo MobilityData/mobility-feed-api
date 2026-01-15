@@ -44,7 +44,10 @@ import DrawerContent from './HeaderMobileDrawer';
 import ThemeToggle from './ThemeToggle';
 import { useTranslations, useLocale } from 'next-intl';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, selectUserEmail } from '../store/profile-selectors';
+import {
+  selectIsAuthenticated,
+  selectUserEmail,
+} from '../store/profile-selectors';
 
 export default function DrawerAppBar(): React.ReactElement {
   const searchParams = useSearchParams();
@@ -74,7 +77,7 @@ export default function DrawerAppBar(): React.ReactElement {
   }, [config]);
 
   const router = useRouter();
-  const isAuthenticated =  useSelector(selectIsAuthenticated);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
@@ -114,7 +117,8 @@ export default function DrawerAppBar(): React.ReactElement {
     handleNavigation(item);
   };
 
-  const metricsOptionsEnabled = config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+  const metricsOptionsEnabled =
+    config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
 
   return (
     <Box

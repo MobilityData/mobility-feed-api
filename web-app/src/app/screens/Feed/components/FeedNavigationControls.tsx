@@ -2,10 +2,10 @@ import { Button, Grid, Typography } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import { getTranslations } from 'next-intl/server';
 
-type Props = {
+interface Props {
   feedDataType: string;
   feedId: string;
-};
+}
 
 export default async function FeedNavigationControls({
   feedDataType,

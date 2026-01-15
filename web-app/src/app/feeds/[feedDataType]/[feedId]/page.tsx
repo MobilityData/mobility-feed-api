@@ -13,7 +13,10 @@ import {
 import { notFound } from 'next/navigation';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { getSSRAccessToken } from '../../../utils/auth-server';
-import { GTFSFeedType, GTFSRTFeedType } from '../../../services/feeds/utils';
+import {
+  type GTFSFeedType,
+  type GTFSRTFeedType,
+} from '../../../services/feeds/utils';
 import {
   formatProvidersSorted,
   generatePageTitle,
@@ -22,15 +25,15 @@ import {
 import generateFeedStructuredData from '../../../screens/Feed/StructuredData.functions';
 import { getTranslations } from 'next-intl/server';
 
-type Props = {
+interface Props {
   params: { feedDataType: string; feedId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
-};
+  searchParams: Record<string, string | string[] | undefined>;
+}
 
 const fetchFeedData = cache(
   async (feedDataType: string, feedId: string, accessToken: string) => {
     try {
-      let feed = undefined;
+      let feed;
       if (feedDataType === 'gtfs') {
         feed = await getGtfsFeed(feedId, accessToken);
       } else if (feedDataType === 'gtfs_rt') {
@@ -65,11 +68,12 @@ const fetchInitialDatasets = cache(
 const fetchRelatedFeeds = cache(
   async (feedReferences: string[], accessToken: string) => {
     try {
-      const feedPromises = feedReferences.map((feedId) =>
-        getFeed(feedId, accessToken).catch((e) => {
-          console.error(`Error fetching feed ${feedId}`, e);
-          return undefined;
-        }),
+      const feedPromises = feedReferences.map(
+        async (feedId) =>
+          await getFeed(feedId, accessToken).catch((e) => {
+            console.error(`Error fetching feed ${feedId}`, e);
+            return undefined;
+          }),
       );
       const feeds = await Promise.all(feedPromises);
       // Filter out failed fetches and separate by type
@@ -85,37 +89,35 @@ const fetchRelatedFeeds = cache(
 );
 
 // TODO: extract this logic
-const fetchRoutesData = cache(
-  async (feedId: string, datasetId: string) => {
-    try {
-      const routes = await getGtfsFeedRoutes(feedId, datasetId);
-      if (!routes) {
-        return { totalRoutes: undefined, routeTypes: undefined };
-      }
-      const totalRoutes = routes.length;
-      // Extract unique route types and sort them
-      const uniqueRouteTypesSet = new Set<string>();
-      for (const route of routes) {
-        const raw = route.routeType;
-        const routeTypeStr = raw == null ? undefined : String(raw).trim();
-        if (routeTypeStr != undefined) {
-          uniqueRouteTypesSet.add(routeTypeStr);
-        }
-      }
-      const routeTypes = Array.from(uniqueRouteTypesSet).sort((a, b) => {
-        const validNumberA = a.trim() !== '' && Number.isFinite(Number(a));
-        const validNumberB = b.trim() !== '' && Number.isFinite(Number(b));
-        if (!validNumberA && !validNumberB) return a.localeCompare(b);
-        if (!validNumberA || !validNumberB) return validNumberA ? -1 : 1;
-        return Number(a) - Number(b);
-      });
-      return { totalRoutes, routeTypes };
-    } catch (e) {
-      console.error('Error fetching routes data', e);
+const fetchRoutesData = cache(async (feedId: string, datasetId: string) => {
+  try {
+    const routes = await getGtfsFeedRoutes(feedId, datasetId);
+    if (!routes) {
       return { totalRoutes: undefined, routeTypes: undefined };
     }
-  },
-);
+    const totalRoutes = routes.length;
+    // Extract unique route types and sort them
+    const uniqueRouteTypesSet = new Set<string>();
+    for (const route of routes) {
+      const raw = route.routeType;
+      const routeTypeStr = raw == null ? undefined : String(raw).trim();
+      if (routeTypeStr != undefined) {
+        uniqueRouteTypesSet.add(routeTypeStr);
+      }
+    }
+    const routeTypes = Array.from(uniqueRouteTypesSet).sort((a, b) => {
+      const validNumberA = a.trim() !== '' && Number.isFinite(Number(a));
+      const validNumberB = b.trim() !== '' && Number.isFinite(Number(b));
+      if (!validNumberA && !validNumberB) return a.localeCompare(b);
+      if (!validNumberA || !validNumberB) return validNumberA ? -1 : 1;
+      return Number(a) - Number(b);
+    });
+    return { totalRoutes, routeTypes };
+  } catch (e) {
+    console.error('Error fetching routes data', e);
+    return { totalRoutes: undefined, routeTypes: undefined };
+  }
+});
 
 export async function generateMetadata(
   { params, searchParams }: Props,
@@ -194,7 +196,6 @@ export default async function FeedPage({ params }: Props) {
   const { feedId, feedDataType } = await params;
   const accessToken = await getSSRAccessToken();
 
-
   const feedPromise = fetchFeedData(feedDataType, feedId, accessToken);
   const datasetsPromise =
     feedDataType === 'gtfs'
@@ -212,16 +213,25 @@ export default async function FeedPage({ params }: Props) {
 
   let gtfsFeedsRelated: GTFSFeedType[] = [];
   let gtfsRtFeedsRelated: GTFSRTFeedType[] = [];
-  if( feed.data_type === 'gtfs_rt') {
+  if (feed.data_type === 'gtfs_rt') {
     const gtfsRtFeed: GTFSRTFeedType = feed;
     // TODO: optimize to avoid double fetching. Need a new endpoint
-    const {gtfsFeeds, gtfsRtFeeds} = await fetchRelatedFeeds(gtfsRtFeed?.feed_references ?? [], accessToken)
-    let promises = gtfsFeeds.map(gtfsFeed => getGtfsFeedAssociatedGtfsRtFeeds(gtfsFeed?.id ?? '', accessToken));
+    const { gtfsFeeds, gtfsRtFeeds } = await fetchRelatedFeeds(
+      gtfsRtFeed?.feed_references ?? [],
+      accessToken,
+    );
+    const promises = gtfsFeeds.map(
+      async (gtfsFeed) =>
+        await getGtfsFeedAssociatedGtfsRtFeeds(gtfsFeed?.id ?? '', accessToken),
+    );
     const associatedGtfsRtFeedsArrays = await Promise.all(promises);
     gtfsFeedsRelated = gtfsFeeds;
-    const allGtfsRtFeeds = [...gtfsRtFeeds, ...associatedGtfsRtFeedsArrays.flat()];
+    const allGtfsRtFeeds = [
+      ...gtfsRtFeeds,
+      ...associatedGtfsRtFeedsArrays.flat(),
+    ];
     const uniqueGtfsRtFeedsMap = new Map();
-    allGtfsRtFeeds.forEach(feed => {
+    allGtfsRtFeeds.forEach((feed) => {
       if (feed?.id) {
         uniqueGtfsRtFeedsMap.set(feed.id, feed);
       }

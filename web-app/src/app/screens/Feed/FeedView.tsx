@@ -1,4 +1,11 @@
-import { Box, Button, Container, CssBaseline, Grid, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Container,
+  CssBaseline,
+  Grid,
+  Typography,
+} from '@mui/material';
 
 // Components
 import FeedTitle from './components/FeedTitle';
@@ -20,7 +27,7 @@ import { ctaContainerStyle } from './Feed.styles';
 
 // Utils
 import {
-  BasicFeedType,
+  type BasicFeedType,
   type GBFSFeedType,
   type GTFSFeedType,
   type GTFSRTFeedType,
@@ -30,15 +37,15 @@ import { type LatLngExpression } from 'leaflet';
 import { type components } from '../../services/feeds/types';
 import ClientQualityReportButton from './components/ClientQualityReportButton';
 
-type Props = {
+interface Props {
   feed: BasicFeedType;
   feedDataType: string;
-  initialDatasets?: components['schemas']['GtfsDataset'][];
+  initialDatasets?: Array<components['schemas']['GtfsDataset']>;
   relatedFeeds?: GTFSFeedType[];
   relatedGtfsRtFeeds?: GTFSRTFeedType[];
   totalRoutes?: number;
   routeTypes?: string[];
-};
+}
 
 export default async function FeedView({
   feed,
@@ -66,29 +73,27 @@ export default async function FeedView({
     feed?.data_type === 'gtfs'
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
-  
-    const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
-      if (gbfsAutodiscoveryUrl == undefined) {
-        return <></>;
-      }
-      return (
-        <Button
-          disableElevation
-          variant='contained'
-          sx={{ marginRight: 2 }}
-          href={gbfsAutodiscoveryUrl}
-          target='_blank'
-          rel='noreferrer'
-          endIcon={<OpenInNewIcon></OpenInNewIcon>}
-        >
-          {tGbfs('openAutoDiscoveryUrl')}
-        </Button>
-      );
-    };
+
+  const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
+    if (gbfsAutodiscoveryUrl == undefined) {
+      return <></>;
+    }
+    return (
+      <Button
+        disableElevation
+        variant='contained'
+        sx={{ marginRight: 2 }}
+        href={gbfsAutodiscoveryUrl}
+        target='_blank'
+        rel='noreferrer'
+        endIcon={<OpenInNewIcon></OpenInNewIcon>}
+      >
+        {tGbfs('openAutoDiscoveryUrl')}
+      </Button>
+    );
+  };
 
   const hasFeedRedirect = feed?.redirects && feed.redirects.length > 0;
-
-
 
   const gbfsAutodiscoveryUrl =
     feed?.data_type === 'gbfs'
@@ -98,7 +103,7 @@ export default async function FeedView({
   // Bounding box logic
   // TODO: put it in better place
   const getBoundingBox = (): LatLngExpression[] | undefined => {
-    if(feed == undefined ||feed.data_type !== 'gtfs') {
+    if (feed == undefined || feed.data_type !== 'gtfs') {
       return undefined;
     }
     const gtfsFeed: GTFSFeedType = feed;
@@ -111,23 +116,38 @@ export default async function FeedView({
       return undefined;
     }
     return [
-      [gtfsFeed.bounding_box.minimum_latitude, gtfsFeed.bounding_box.minimum_longitude],
-      [gtfsFeed.bounding_box.minimum_latitude, gtfsFeed.bounding_box.maximum_longitude],
-      [gtfsFeed.bounding_box.maximum_latitude, gtfsFeed.bounding_box.maximum_longitude],
-      [gtfsFeed.bounding_box.maximum_latitude, gtfsFeed.bounding_box.minimum_longitude],
+      [
+        gtfsFeed.bounding_box.minimum_latitude,
+        gtfsFeed.bounding_box.minimum_longitude,
+      ],
+      [
+        gtfsFeed.bounding_box.minimum_latitude,
+        gtfsFeed.bounding_box.maximum_longitude,
+      ],
+      [
+        gtfsFeed.bounding_box.maximum_latitude,
+        gtfsFeed.bounding_box.maximum_longitude,
+      ],
+      [
+        gtfsFeed.bounding_box.maximum_latitude,
+        gtfsFeed.bounding_box.minimum_longitude,
+      ],
     ];
   };
-  let boundingBox = getBoundingBox();
+  const boundingBox = getBoundingBox();
 
   // TODO: clean this up
-  let latestDataset: components['schemas']['GtfsDataset'] | undefined = undefined;
+  let latestDataset: components['schemas']['GtfsDataset'] | undefined;
   if (feed.data_type === 'gtfs') {
     const gtfsFeed: GTFSFeedType = feed;
-    latestDataset = initialDatasets?.find(dataset => dataset.id === gtfsFeed.latest_dataset?.id);
+    latestDataset = initialDatasets?.find(
+      (dataset) => dataset.id === gtfsFeed.latest_dataset?.id,
+    );
   }
 
   // Derived state for warnings
-  const hasDatasets = initialDatasets != undefined && initialDatasets.length > 0;
+  const hasDatasets =
+    initialDatasets != undefined && initialDatasets.length > 0;
 
   return (
     <Container
@@ -201,52 +221,54 @@ export default async function FeedView({
                 </Typography>
               )}
               {feed?.official_updated_at != undefined && (
-                  <Typography
-                    data-testid='last-updated'
-                    variant={'caption'}
-                    width={'100%'}
-                    component={'div'}
+                <Typography
+                  data-testid='last-updated'
+                  variant={'caption'}
+                  width={'100%'}
+                  component={'div'}
+                >
+                  {`${t('officialFeedUpdated')}: ${new Date(
+                    feed?.official_updated_at,
+                  ).toDateString()}`}
+                </Typography>
+              )}
+              {feed.external_ids?.some((eId) => eId.source === 'tld') ===
+                true && (
+                <Typography
+                  data-testid='transitland-attribution'
+                  variant={'caption'}
+                  width={'100%'}
+                  component={'div'}
+                >
+                  {t('dataAttribution')}{' '}
+                  <a
+                    rel='noreferrer nofollow'
+                    target='_blank'
+                    href='https://www.transit.land/terms'
                   >
-                    {`${t('officialFeedUpdated')}: ${new Date(
-                      feed?.official_updated_at,
-                    ).toDateString()}`}
-                  </Typography>
-                )}
-                {feed.external_ids?.some((eId) => eId.source === 'tld') === true && (
-                  <Typography
-                    data-testid='transitland-attribution'
-                    variant={'caption'}
-                    width={'100%'}
-                    component={'div'}
+                    Transitland
+                  </a>
+                </Typography>
+              )}
+              {feed.external_ids?.some((eId) => eId.source === 'ntd') ===
+                true && (
+                <Typography
+                  data-testid='fta-attribution'
+                  variant={'caption'}
+                  width={'100%'}
+                  component={'div'}
+                >
+                  {t('dataAttribution')}
+                  {' the United States '}
+                  <a
+                    rel='noreferrer nofollow'
+                    target='_blank'
+                    href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
                   >
-                    {t('dataAttribution')}{' '}
-                    <a
-                      rel='noreferrer nofollow'
-                      target='_blank'
-                      href='https://www.transit.land/terms'
-                    >
-                      Transitland
-                    </a>
-                  </Typography>
-                )}
-                {feed.external_ids?.some((eId) => eId.source === 'ntd') === true && (
-                  <Typography
-                    data-testid='fta-attribution'
-                    variant={'caption'}
-                    width={'100%'}
-                    component={'div'}
-                  >
-                    {t('dataAttribution')}
-                    {' the United States '}
-                    <a
-                      rel='noreferrer nofollow'
-                      target='_blank'
-                      href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
-                    >
-                      National Transit Database
-                    </a>
-                  </Typography>
-                )}
+                    National Transit Database
+                  </a>
+                </Typography>
+              )}
             </Box>
 
             {feed?.data_type === 'gtfs_rt' &&
@@ -257,11 +279,15 @@ export default async function FeedView({
                     {((feed as GTFSRTFeedType)?.entity_types ?? [])
                       .map(
                         (entityType) =>
-                          ({
-                            tu: tCommon('gtfsRealtimeEntities.tripUpdates'),
-                            vp: tCommon('gtfsRealtimeEntities.vehiclePositions'),
-                            sa: tCommon('gtfsRealtimeEntities.serviceAlerts'),
-                          } as Record<string, string>)[entityType],
+                          (
+                            ({
+                              tu: tCommon('gtfsRealtimeEntities.tripUpdates'),
+                              vp: tCommon(
+                                'gtfsRealtimeEntities.vehiclePositions',
+                              ),
+                              sa: tCommon('gtfsRealtimeEntities.serviceAlerts'),
+                            }) as Record<string, string>
+                          )[entityType],
                       )
                       .join(` ${tCommon('and')} `)}
                   </Typography>
@@ -269,19 +295,21 @@ export default async function FeedView({
               )}
 
             {/* Warnings */}
-            {feedDataType === 'gtfs' &&
-              !hasDatasets &&
-              !hasFeedRedirect && (
-                <WarningContentBox>
-                  {t.rich('unableToDownloadFeed', {
-                    link: (chunks) => (
-                      <Button variant='text' className='inline' href='/contribute'>
-                        {chunks}
-                      </Button>
-                    ),
-                  })}
-                </WarningContentBox>
-              )}
+            {feedDataType === 'gtfs' && !hasDatasets && !hasFeedRedirect && (
+              <WarningContentBox>
+                {t.rich('unableToDownloadFeed', {
+                  link: (chunks) => (
+                    <Button
+                      variant='text'
+                      className='inline'
+                      href='/contribute'
+                    >
+                      {chunks}
+                    </Button>
+                  ),
+                })}
+              </WarningContentBox>
+            )}
             {hasFeedRedirect && (
               <Grid size={12}>
                 <WarningContentBox>

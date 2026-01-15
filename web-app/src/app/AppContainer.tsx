@@ -1,15 +1,11 @@
 import * as React from 'react';
-import { useSelector } from 'react-redux';
 import { Box, LinearProgress } from '@mui/material';
-import { selectLoadingApp } from './store/selectors';
 import type ContextProviderProps from './interface/ContextProviderProps';
-import Footer from './components/Footer';
-import Header from './components/Header';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
 const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
-  const isAppLoading = false;//useSelector(selectLoadingApp);
+  const isAppLoading = false; // useSelector(selectLoadingApp);
   const location = useLocation();
   const canonicalUrl = window.location.origin + location.pathname;
 
@@ -28,9 +24,7 @@ const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
             <LinearProgress />
           </Box>
         ) : (
-          <>
-            {children}
-          </>
+          <>{children}</>
         )}
       </Box>
     </>
