@@ -21,6 +21,11 @@
       "unused-imports",
       "prettier"
     ],
+    "settings": {
+      "react": {
+        "version": "detect"
+      }
+    },
     "rules": {
       "@typescript-eslint/no-unused-vars": "error",
       "no-console": "warn",
