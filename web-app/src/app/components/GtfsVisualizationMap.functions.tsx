@@ -9,6 +9,7 @@ import {
   type ExpressionSpecification,
   type LngLatBoundsLike,
 } from 'maplibre-gl';
+import { type LatLngTuple } from 'leaflet';
 
 export interface LatestDatasetLite {
   hosted_url?: string;
@@ -68,7 +69,7 @@ export function generateStopColorExpression(
 }
 
 export const getBoundsFromCoordinates = (
-  coordinates: Array<[number, number]>,
+  coordinates: LatLngTuple[],
 ): LngLatBoundsLike => {
   let minLng = Number.POSITIVE_INFINITY;
   let minLat = Number.POSITIVE_INFINITY;

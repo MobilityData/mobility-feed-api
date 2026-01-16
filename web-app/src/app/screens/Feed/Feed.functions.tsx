@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 
 import { type GBFSVersionType } from '../../services/feeds/utils';
-import { type LatLngExpression } from 'leaflet';
+import { type LatLngTuple } from 'leaflet';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -130,7 +130,7 @@ export const sortGbfsVersions = (
 /* eslint-disable */
 export function computeBoundingBox(
   geojson: any,
-): LatLngExpression[] | undefined {
+): LatLngTuple[] | undefined {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,

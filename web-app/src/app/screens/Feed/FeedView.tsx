@@ -33,7 +33,7 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import ClientDownloadButton from './components/ClientDownloadButton';
-import { type LatLngExpression } from 'leaflet';
+import { type LatLngTuple } from 'leaflet';
 import { type components } from '../../services/feeds/types';
 import ClientQualityReportButton from './components/ClientQualityReportButton';
 
@@ -102,7 +102,7 @@ export default async function FeedView({
 
   // Bounding box logic
   // TODO: put it in better place
-  const getBoundingBox = (): LatLngExpression[] | undefined => {
+  const getBoundingBox = (): LatLngTuple[] | undefined => {
     if (feed == undefined || feed.data_type !== 'gtfs') {
       return undefined;
     }

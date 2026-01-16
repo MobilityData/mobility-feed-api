@@ -10,7 +10,7 @@ import {
   isGtfsRtFeedType,
 } from '../services/feeds/utils';
 import { type RootState } from './store';
-import type { LatLngExpression } from 'leaflet';
+import type { LatLngTuple } from 'leaflet';
 
 export const selectFeedData = (state: RootState): BasicFeedType => {
   return state.feedProfile.data;
@@ -100,7 +100,7 @@ export const selectRelatedGtfsRTFeedsData = (
 
 export const selectFeedBoundingBox = (
   state: RootState,
-): LatLngExpression[] | undefined => {
+): LatLngTuple[] | undefined => {
   if (
     !(
       isGtfsFeedType(state.feedProfile.data) ||

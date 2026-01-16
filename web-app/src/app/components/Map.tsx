@@ -8,13 +8,13 @@ import MapGL, {
   MapProvider,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { type LatLngExpression } from 'leaflet';
+import { type LatLngTuple } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { getBoundsFromCoordinates } from './GtfsVisualizationMap.functions';
 
 export interface MapProps {
-  polygon: LatLngExpression[];
+  polygon: LatLngTuple[];
 }
 
 export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
@@ -26,7 +26,7 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
   }, []);
 
   const bounds = React.useMemo(() => {
-    return getBoundsFromCoordinates(props.polygon as any);
+    return getBoundsFromCoordinates(props.polygon);
   }, [props.polygon]);
 
   if (!ready) {
@@ -39,8 +39,7 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
   }
   // Convert LatLngExpression[] to GeoJSON ring for Source
   const coordinates = props.polygon.map((p) => {
-    if (Array.isArray(p)) return [p[1], p[0]]; // [lng, lat]
-    return [(p as any).lng, (p as any).lat];
+    return [p[1], p[0]];
   });
 
   // Ensure it's a closed ring for a polygon
@@ -52,12 +51,13 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
     coordinates.push(coordinates[0]);
   }
 
-  const polygonGeoJSON: any = {
+  const polygonGeoJSON: GeoJSON.Feature<GeoJSON.Polygon> = {
     type: 'Feature',
     geometry: {
       type: 'Polygon',
       coordinates: [coordinates],
     },
+    properties: {}
   };
 
   return (
