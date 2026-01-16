@@ -1,5 +1,5 @@
 [flake8]
 max-line-length = 120
-exclude = .git,__pycache__,__init__.py,.mypy_cache,.pytest_cache,venv,build,feeds_gen,database_gen
+exclude = .git,__pycache__,__init__.py,.mypy_cache,.pytest_cache,venv,.venv,build,feeds_gen,database_gen
 # Ignored because conflict with black
 extend-ignore = E203

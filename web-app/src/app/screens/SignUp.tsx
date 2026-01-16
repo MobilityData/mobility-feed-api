@@ -46,8 +46,6 @@ import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { useEffect } from 'react';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function SignUp(): React.ReactElement {
@@ -61,12 +59,6 @@ export default function SignUp(): React.ReactElement {
   const signUpError = useSelector(selectSignUpError);
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
-  const [enableAppleSSO, setEnableAppleSSO] = React.useState(false);
-  const { config } = useRemoteConfig();
-
-  useEffect(() => {
-    setEnableAppleSSO(config.enableAppleSSO as boolean);
-  });
 
   const SignUpSchema = Yup.object().shape({
     email: Yup.string()
@@ -418,19 +410,17 @@ export default function SignUp(): React.ReactElement {
         >
           Sign Up With GitHub
         </Button>
-        {enableAppleSSO && (
-          <Button
-            variant='outlined'
-            color='primary'
-            sx={{ mb: 2 }}
-            startIcon={<AppleIcon />}
-            onClick={() => {
-              signInWithProvider(OauthProvider.Apple);
-            }}
-          >
-            Sign Up With Apple
-          </Button>
-        )}
+        <Button
+          variant='outlined'
+          color='primary'
+          sx={{ mb: 2 }}
+          startIcon={<AppleIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Apple);
+          }}
+        >
+          Sign Up With Apple
+        </Button>
       </Box>
     </Container>
   );

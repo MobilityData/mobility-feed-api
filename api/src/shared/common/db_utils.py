@@ -552,9 +552,6 @@ def normalize_url_str(url: str | None) -> str:
     u = re.sub(r"^www\.", "", u, flags=re.I)
     # remove trailing slashes
     u = re.sub(r"/+$", "", u)
-    if "/" in u:
-        host, rest = u.split("/", 1)
-        return host.lower() + "/" + rest
     return u.lower()
 
 
