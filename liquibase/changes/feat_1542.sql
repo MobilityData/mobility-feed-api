@@ -1,0 +1,1 @@
+ALTER TABLE gtfsfile ALTER COLUMN hosted_url TYPE text;
