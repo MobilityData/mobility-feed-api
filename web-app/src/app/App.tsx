@@ -40,6 +40,7 @@ function App(): React.ReactElement {
       </Helmet>
       <Suspense>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
+          {/* BrowserRouter will be deprecated in favor of Next AppRouter */}
           <BrowserRouter>
             <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
           </BrowserRouter>

@@ -1,5 +1,7 @@
 'use client';
 
+// This page is temporary to ease the migration to Next.js App Router
+// It will be deprecated once the migration is fully complete
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
