@@ -31,3 +31,4 @@ cypress/videos
 .env.*
 
 .next
+next-env.d.ts
