@@ -486,7 +486,7 @@ export default function FullMapView(): React.ReactElement {
               sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
               onClick={() => {
                 if (!hasError && feedId != null) {
-                  router.push(`/feeds/gtfs/${feedId}`);
+                  router.push(`/feeds/${feed?.data_type}/${feedId}`);
                 } else {
                   router.push('/');
                 }

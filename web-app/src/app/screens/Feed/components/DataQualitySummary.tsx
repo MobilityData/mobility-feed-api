@@ -15,14 +15,17 @@ export interface DataQualitySummaryProps {
   latestDataset: components['schemas']['GtfsDataset'] | undefined;
 }
 
+// Because this is a server component, the page will not render until the data is ready, hence the async
 export default async function DataQualitySummary({
   feedStatus,
   isOfficialFeed,
   latestDataset,
 }: DataQualitySummaryProps): Promise<React.ReactElement> {
-  const t = await getTranslations('feeds');
-  const tCommon = await getTranslations('common');
-  const config = await getRemoteConfigValues();
+  const [t, tCommon, config] = await Promise.all([
+    getTranslations('feeds'),
+    getTranslations('common'),
+    getRemoteConfigValues(),
+  ]);
 
   return (
     <Box data-testid='data-quality-summary' sx={{ my: 2 }}>

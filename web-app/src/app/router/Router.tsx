@@ -108,10 +108,6 @@ export const AppRouter: React.FC = () => {
         path='feeds/gtfs_rt'
         element={<Navigate to='/feeds?gtfs_rt=true' replace />}
       />
-      <Route path='feeds/:feedId' element={<Feed />} />
-      <Route path='feeds/:feedDataType/:feedId' element={<Feed />} />
-      <Route path='feeds/:feedId/map' element={<FullMapView />} />
-      <Route path='feeds/:feedDataType/:feedId/map' element={<FullMapView />} />
       <Route path='contribute' element={<FeedSubmission />} />
       <Route path='contribute/submitted' element={<FeedSubmitted />} />
       <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />
