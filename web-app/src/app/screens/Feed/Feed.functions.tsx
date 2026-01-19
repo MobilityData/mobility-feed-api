@@ -28,7 +28,8 @@ export function getFeedFormattedName(
 }
 
 export function generateDescriptionMetaTag(
-  t: any,
+  // Look into proper typing for t
+  t: (key: string, options?: Record<string, string>) => string,
   sortedProviders: string[],
   dataType: 'gtfs' | 'gtfs_rt' | 'gbfs' | undefined,
   feedName?: string,
@@ -129,7 +130,7 @@ export const sortGbfsVersions = (
 // Discuss if gbfs-feeds endpoint should include the bounding box
 /* eslint-disable */
 export function computeBoundingBox(
-  geojson: any,
+  geojson: GeoJSON.FeatureCollection,
 ): LatLngTuple[] | undefined {
   let minX = Infinity,
     minY = Infinity,

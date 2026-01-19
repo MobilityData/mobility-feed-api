@@ -1,3 +1,6 @@
+// This component is deprecated in favor of FeedView
+// They should have the same functionality
+
 import {
   Box,
   Button,

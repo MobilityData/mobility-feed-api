@@ -38,11 +38,6 @@ export const MapElement = (
 ): JSX.Element => {
   const theme = useTheme();
   const t = useTranslations('feeds');
-  // Previous code consideration
-  // if (!i18n.isInitialized || !i18n.hasResourceBundle(i18n.language, 'feeds')) {
-  //   // render fallback (no t()) to avoid updates during render
-  //   return <></>;
-  // }
   const limit = props.dataDisplayLimit ?? 10;
   const formatSet = new Set<string>();
   const formattedElements: MapElementType[] = [];

@@ -16,7 +16,7 @@ interface ProvidersProps {
   remoteConfig: RemoteConfigValues;
 }
 
-/// FOR SSR all these providers will need to be refactored
+/// To revisit which providers are needed at this level
 export function Providers({
   children,
   remoteConfig,

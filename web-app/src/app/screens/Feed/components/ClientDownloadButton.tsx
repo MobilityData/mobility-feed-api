@@ -1,5 +1,8 @@
 'use client';
 
+// TODO: look into SSR patterns for components like this
+// That require client-side only libraries like react-ga4
+
 import { Button } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useTranslations } from 'next-intl';
