@@ -155,11 +155,11 @@ describe.only('getProviderElement', () => {
 
   it('should display the correct data type depending on the feed type', () => {
     const { getByText } = render(getDataTypeElement('gtfs'));
-    expect(getByText('common:gtfsSchedule')).toBeInTheDocument();
+    expect(getByText('gtfsSchedule')).toBeInTheDocument();
   });
 
   it('should display the correct data type depending on the feed type', () => {
     const { getByText } = render(getDataTypeElement('gtfs_rt'));
-    expect(getByText('common:gtfsRealtime')).toBeInTheDocument();
+    expect(getByText('gtfsRealtime')).toBeInTheDocument();
   });
 });

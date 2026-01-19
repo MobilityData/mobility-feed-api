@@ -10,7 +10,18 @@ import {
   buildRoutesUrl,
 } from './supporting-files-saga';
 
+// Mock the entire http module
+jest.mock('../../services/http', () => ({
+  getJson: jest.fn(),
+}));
+
+const mockedHttp = http as jest.Mocked<typeof http>;
+
 describe('supporting-files-saga', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('worker saga dispatches success when getJson resolves', async () => {
     const fakeData = {
       type: 'FeatureCollection',
@@ -18,7 +29,7 @@ describe('supporting-files-saga', () => {
       extracted_at: '2025-01-01T00:00:00Z',
       extraction_url: 'http://example.com/source',
     };
-    const getJsonSpy = jest.spyOn(http, 'getJson').mockResolvedValue(fakeData);
+    mockedHttp.getJson.mockResolvedValue(fakeData);
 
     const dispatched: unknown[] = [];
 
@@ -34,7 +45,7 @@ describe('supporting-files-saga', () => {
       }),
     ).toPromise();
 
-    expect(getJsonSpy).toHaveBeenCalledWith('http://example.com');
+    expect(mockedHttp.getJson).toHaveBeenCalledWith('http://example.com');
     expect(dispatched).toContainEqual(
       loadingSupportingFileSuccess({
         key: 'gtfsGeolocationGeojson',
@@ -43,13 +54,10 @@ describe('supporting-files-saga', () => {
         data: fakeData,
       }),
     );
-    getJsonSpy.mockRestore();
   });
 
   it('worker saga dispatches fail when getJson throws', async () => {
-    const getJsonSpy = jest
-      .spyOn(http, 'getJson')
-      .mockRejectedValue(new Error('Network error'));
+    mockedHttp.getJson.mockRejectedValue(new Error('Network error'));
 
     const dispatched: unknown[] = [];
 
@@ -65,7 +73,7 @@ describe('supporting-files-saga', () => {
       }),
     ).toPromise();
 
-    expect(getJsonSpy).toHaveBeenCalledWith('http://example.com');
+    expect(mockedHttp.getJson).toHaveBeenCalledWith('http://example.com');
     expect(
       dispatched.some(
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -73,7 +81,6 @@ describe('supporting-files-saga', () => {
         (action) => action.type === loadingSupportingFileFail.type,
       ),
     ).toBe(true);
-    getJsonSpy.mockRestore();
   });
 
   it('buildRoutesUrl creates correct URL', () => {

@@ -3,6 +3,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   formatProvidersSorted,
@@ -116,46 +117,46 @@ describe('Feed page', () => {
     ]);
   });
 
-  it('should format the page title correctly when there are more than one and gtfs', () => {
+  it('should format the page title correctly when there are more than one and gtfs', async () => {
     const formattedProviders = formatProvidersSorted(mockFeed?.provider ?? '');
-    render(
-      <FeedTitle
-        sortedProviders={formattedProviders}
-        feed={mockFeed}
-      ></FeedTitle>,
+
+    const screen = renderToStaticMarkup(
+      await FeedTitle({
+        sortedProviders: formattedProviders,
+        feed: mockFeed,
+      }),
     );
-    expect(screen.getByText('AVL')).toBeTruthy();
-    expect(screen.getByText('+6 common:others')).toBeTruthy();
+
+    expect(screen).toContain('AVL');
+    expect(screen).toContain('+6 others');
   });
 
-  it('should format the page title correctly when there are more than one and gtfs_rt', () => {
+  it('should format the page title correctly when there are more than one and gtfs_rt', async () => {
     const formattedProviders = formatProvidersSorted(
       mockFeedRT?.provider ?? '',
     );
-    render(
-      <FeedTitle
-        sortedProviders={formattedProviders}
-        feed={mockFeedRT}
-      ></FeedTitle>,
+    const screen = renderToStaticMarkup(
+      await FeedTitle({
+        sortedProviders: formattedProviders,
+        feed: mockFeedRT,
+      }),
     );
-    expect(
-      screen.getByText('AT Metro - Auckland Transport Developer'),
-    ).toBeTruthy();
-    expect(screen.getByText('+3 common:others')).toBeTruthy();
+    expect(screen).toContain('AT Metro - Auckland Transport Developer');
+    expect(screen).toContain('+3 others');
   });
 
-  it('should format the page title correctly when there is only one provider', () => {
+  it('should format the page title correctly when there is only one provider', async () => {
     const formattedProviders = formatProvidersSorted(
       mockFeedOneProvider?.provider ?? '',
     );
-    render(
-      <FeedTitle
-        sortedProviders={formattedProviders}
-        feed={mockFeedOneProvider}
-      ></FeedTitle>,
+    const screen = renderToStaticMarkup(
+      await FeedTitle({
+        sortedProviders: formattedProviders,
+        feed: mockFeedOneProvider,
+      }),
     );
-    expect(screen.getByText('AVL')).toBeTruthy();
-    expect(screen.queryByText('+')).toBeNull();
+    expect(screen).toContain('AVL');
+    expect(screen).not.toContain('+');
   });
 
   it('should generate the correct page title', () => {
@@ -205,15 +206,16 @@ describe('Feed page', () => {
   it('should generate the correct page description', () => {
     const mockT = jest.fn((key, params) => {
       switch (key) {
-        case 'common:gtfsSchedule':
+        case 'common.gtfsSchedule':
           return 'GTFS schedule';
-        case 'common:gtfsRealtime':
+        case 'common.gtfsRealtime':
           return 'GTFS realtime';
-        case 'detailPageDescription':
+        case 'common.gbfs':
+          return 'GBFS';
+        case 'feeds.detailPageDescription':
           return `Explore the ${params.formattedName} ${params.dataTypeVerbose} feed details with access to a quality data insights`;
-          break;
       }
-    }) as unknown as TFunction<'feeds', undefined>;
+    }) as unknown as any;
 
     const descriptionAllInfo = generateDescriptionMetaTag(
       mockT,
