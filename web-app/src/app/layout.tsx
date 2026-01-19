@@ -17,14 +17,14 @@ export const metadata = {
 };
 
 const mulish = Mulish({
-  weight: ['400', '700'],
+  weight: ['400', '500', '700'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-mulish',
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
-  weight: ['400', '700'],
+  weight: ['400', '500', '700'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-ibm-plex-mono',
@@ -35,7 +35,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }): Promise<JSX.Element> {
-  // TODO await a promise .al
   const locale = await getLocale();
   const messages = await getMessages();
   const remoteConfig = await getRemoteConfigValues();
