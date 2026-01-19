@@ -18,11 +18,12 @@ export default async function Page({ params }: Props): Promise<JSX.Element> {
   const accessToken = await getSSRAccessToken();
 
   // IMPORTANT: here feedDataType is actually feedId (due to routing hack)
-  const feed = await getFeed(feedDataType, accessToken);
+  const feedId = feedDataType;
+  const feed = await getFeed(feedId, accessToken);
 
   if (feed == undefined) {
     notFound();
   }
 
-  redirect(`/feeds/${feed.data_type}/${feed.id}`);
+  redirect(`/feeds/${feed.data_type}/${feedId}`);
 }
