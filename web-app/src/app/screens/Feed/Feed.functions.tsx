@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 
 import { type GBFSVersionType } from '../../services/feeds/utils';
 import { type LatLngTuple } from 'leaflet';
+import { type GeoJSONData, type GeoJSONDataGBFS } from '../../types';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -130,8 +131,12 @@ export const sortGbfsVersions = (
 // Discuss if gbfs-feeds endpoint should include the bounding box
 /* eslint-disable */
 export function computeBoundingBox(
-  geojson: GeoJSON.FeatureCollection,
+  geojson: GeoJSONData | GeoJSONDataGBFS,
 ): LatLngTuple[] | undefined {
+  if (geojson == null) {
+    return undefined;
+  }
+
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -165,7 +170,7 @@ export function computeBoundingBox(
   }
 
   if (geojson.type === 'FeatureCollection') {
-    geojson.features.forEach((f: any) => extractCoords(f.geometry));
+    geojson.features?.forEach((f: any) => extractCoords(f.geometry));
   }
 
   if (

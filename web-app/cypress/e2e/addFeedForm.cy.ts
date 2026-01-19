@@ -8,21 +8,28 @@ describe('Add Feed Form', () => {
     });
     cy.visit('/');
     cy.get('[data-testid="home-title"]').should('exist');
-    cy.createNewUserAndSignIn('cypressTestUser@mobilitydata.org', 'BigCoolPassword123!');
+    cy.createNewUserAndSignIn(
+      'cypressTestUser@mobilitydata.org',
+      'BigCoolPassword123!',
+    );
 
     cy.get('[data-cy="accountHeader"]').should('exist'); // assures that the user is signed in
     cy.visit('/contribute');
     // Assures that the firebase remote config has loaded for the first test
     // Optimizations can be made to make the first test run faster
     // Long timeout is to assure no flakiness
-    cy.get('[data-cy=isOfficialProducerYes]', { timeout: 25000 }).should('exist');
+    cy.get('[data-cy=isOfficialProducerYes]', { timeout: 25000 }).should(
+      'exist',
+    );
   });
 
   describe('Success Flows', () => {
     it('should submit a new gtfs scheduled feed as official producer', () => {
       cy.get('[data-cy=isOfficialProducerYes]').click({ force: true });
       cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
-      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
+        force: true,
+      });
       cy.get('[data-cy=submitFirstStep]').click();
       cy.url().should('include', '/contribute?step=2');
       // step 2
@@ -30,14 +37,14 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=secondStepSubmit]').click();
       cy.url().should('include', '/contribute?step=3');
       // step 3: fill required emptyLicenseUsage if present
-      cy.get('body').then($body => {
+      cy.get('body').then(($body) => {
         if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
           cy.get('[data-cy="emptyLicenseUsage"]').click();
           cy.get('li').should('have.length.at.least', 1);
-          cy.get('li').then($lis => {
+          cy.get('li').then(($lis) => {
             const texts = $lis.map((i, el) => el.textContent).get();
             cy.log('Dropdown options:', texts.join(', '));
-            expect(texts).to.include('Not sure');
+            cy.wrap(texts).should('include', 'Not sure');
           });
           cy.contains('li', 'Not sure').click();
         }
@@ -45,7 +52,9 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=thirdStepSubmit]').click();
       cy.url().should('include', '/contribute?step=4');
       // step 4
-      cy.get('[data-cy=dataProducerEmail] input').type('audio@stm.com', { force: true });
+      cy.get('[data-cy=dataProducerEmail] input').type('audio@stm.com', {
+        force: true,
+      });
       cy.muiDropdownSelect('[data-cy=interestedInAudit]', 'no');
       cy.muiDropdownSelect('[data-cy=logoPermission]', 'yes');
       cy.get('[data-cy=fourthStepSubmit]').click();
@@ -86,7 +95,9 @@ describe('Add Feed Form', () => {
       // Step 1 values
       cy.get('[data-cy=isOfficialProducerYes]').click();
       cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
-      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
+        force: true,
+      });
       cy.get('[data-cy=oldFeedLink] input').type('https://example.com/feedOld');
       cy.get('[data-cy=submitFirstStep]').click();
       // Step 2
@@ -135,11 +146,17 @@ describe('Add Feed Form', () => {
     cy.get('[data-cy=unofficialDesc]').should('exist');
     cy.get('[data-cy=updateFreq]').should('exist');
     // Fill in the new fields (ensure only one element is targeted)
-    cy.get('[data-cy=unofficialDesc] textarea').first().type('For research purposes', { force: true });
-    cy.get('[data-cy=updateFreq] input').first().type('every month', { force: true });
+    cy.get('[data-cy=unofficialDesc] textarea')
+      .first()
+      .type('For research purposes', { force: true });
+    cy.get('[data-cy=updateFreq] input')
+      .first()
+      .type('every month', { force: true });
     // Continue with the rest of the form
     cy.muiDropdownSelect('[data-cy=dataType]', 'gtfs');
-    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
+      force: true,
+    });
     cy.get('[data-cy=submitFirstStep]').click();
     cy.url().should('include', '/contribute?step=2');
   });
@@ -147,7 +164,9 @@ describe('Add Feed Form', () => {
   it('should show and require emptyLicenseUsage with Unsure option if official producer and no license', () => {
     cy.get('[data-cy=isOfficialProducerYes]').click();
     cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
-    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
+      force: true,
+    });
     cy.get('[data-cy=submitFirstStep]').click();
     cy.url().should('include', '/contribute?step=2');
     // step 2: leave license blank
@@ -163,11 +182,11 @@ describe('Add Feed Form', () => {
     // Open dropdown and check options with debug output
     cy.get('[data-cy="emptyLicenseUsage"]').click();
     cy.get('li').should('have.length.at.least', 1);
-    cy.get('li').then($lis => {
+    cy.get('li').then(($lis) => {
       const texts = $lis.map((i, el) => el.textContent).get();
       // Debug output
       cy.log('Dropdown options:', texts.join(', '));
-      expect(texts).to.include('Not sure');
+      cy.wrap(texts).should('include', 'Not sure');
     });
     cy.contains('li', 'Not sure').click();
     cy.get('[data-cy="thirdStepSubmit"]').click();
