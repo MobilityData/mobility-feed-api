@@ -12,10 +12,7 @@ export async function getSSRAccessToken(): Promise<string> {
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get('firebase_token');
 
-  if (
-    tokenCookie?.value != null &&
-    tokenCookie.value.length > 0
-  ) {
+  if (tokenCookie?.value != null && tokenCookie.value.length > 0) {
     try {
       // Basic JWT decoding to check expiry
       const token = tokenCookie.value;
@@ -25,10 +22,7 @@ export async function getSSRAccessToken(): Promise<string> {
       );
       const now = Math.floor(Date.now() / 1000);
 
-      if (
-        payload.exp != null &&
-        payload.exp > now
-      ) {
+      if (payload.exp != null && payload.exp > now) {
         return token;
       }
       console.log(

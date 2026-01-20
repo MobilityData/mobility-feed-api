@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup } from '@testing-library/react';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,

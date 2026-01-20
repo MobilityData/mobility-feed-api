@@ -13,8 +13,8 @@ jest.mock('next-intl', () => ({
 }));
 
 jest.mock('next-intl/server', () => ({
-  getTranslations: jest.fn().mockImplementation((namespace) => {
-    return Promise.resolve((key: string) => {
+  getTranslations: jest.fn().mockImplementation(async (namespace) => {
+    return await Promise.resolve((key: string) => {
       if (namespace === 'common') {
         switch (key) {
           case 'others':

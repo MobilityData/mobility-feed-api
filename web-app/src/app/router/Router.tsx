@@ -13,7 +13,6 @@ import FAQ from '../screens/FAQ';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
-import Feed from '../screens/Feed';
 import Feeds from '../screens/Feeds';
 import { SIGN_OUT_TARGET } from '../constants/Navigation';
 import {
@@ -33,7 +32,6 @@ import GBFSFeedAnalytics from '../screens/Analytics/GBFSFeedAnalytics';
 import GBFSNoticeAnalytics from '../screens/Analytics/GBFSNoticeAnalytics';
 import GBFSVersionAnalytics from '../screens/Analytics/GBFSVersionAnalytics';
 import ContactUs from '../screens/ContactUs';
-import FullMapView from '../screens/Feed/components/FullMapView';
 import GbfsValidator from '../screens/GbfsValidator';
 import { GbfsAuthProvider } from '../context/GbfsAuthProvider';
 

@@ -22,7 +22,6 @@ import {
   ACCOUNT_TARGET,
   COMPLETE_REGISTRATION_TARGET,
 } from '../constants/Navigation';
-import { getEnvConfig } from '../utils/config';
 import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function ForgotPassword(): React.ReactElement {

@@ -5,7 +5,9 @@ import feedJson from '../../cypress/fixtures/feed_test-516.json';
 import gtfsFeedJson from '../../cypress/fixtures/gtfs_feed_test-516.json';
 import datasetsFeedJson from '../../cypress/fixtures/feed_datasets_test-516.json';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_FEED_API_BASE_URL || 'https://api-dev.mobilitydatabase.org';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_FEED_API_BASE_URL ||
+  'https://api-dev.mobilitydatabase.org';
 
 export const handlers = [
   // Mock GET /v1/feeds/{id} - basic feed info

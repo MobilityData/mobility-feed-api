@@ -1,4 +1,3 @@
-import './sentry';
 import { SentryErrorBoundary } from './sentry';
 import SentryErrorFallback from './app/components/SentryErrorFallback';
 import React from 'react';
@@ -39,5 +38,5 @@ root.render(
         </SentryErrorBoundary>
       </ContextProviders>
     </ThemeProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

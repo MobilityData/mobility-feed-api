@@ -57,7 +57,7 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       type: 'Polygon',
       coordinates: [coordinates],
     },
-    properties: {}
+    properties: {},
   };
 
   return (

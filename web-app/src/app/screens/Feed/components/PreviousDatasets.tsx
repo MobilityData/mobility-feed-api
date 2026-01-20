@@ -67,10 +67,7 @@ export default function PreviousDatasets({
           offset,
         });
 
-        if (
-          newDatasets != null &&
-          newDatasets.length > 0
-        ) {
+        if (newDatasets != null && newDatasets.length > 0) {
           if (newDatasets.length < 10) {
             setHasLoadedAllDatasets(true);
           }

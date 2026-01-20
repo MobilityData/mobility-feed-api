@@ -44,7 +44,6 @@ import {
 } from '../constants/Validation';
 import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
