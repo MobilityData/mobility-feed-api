@@ -25,12 +25,7 @@ export async function getSSRAccessToken(): Promise<string> {
       if (payload.exp != null && payload.exp > now) {
         return token;
       }
-      console.log(
-        'SSR: Token found in cookie is expired, falling back to anonymous login.',
-      );
-    } catch (error) {
-      console.error('SSR: Error decoding token from cookie:', error);
-    }
+    } catch (error) {}
   }
 
   // Fallback: Server-side Anonymous Login
@@ -43,9 +38,7 @@ export async function getSSRAccessToken(): Promise<string> {
       const token = await userCredential.user.getIdToken();
       return token;
     }
-  } catch (error) {
-    console.error('Error during SSR anonymous login:', error);
-  }
+  } catch (error) {}
 
   return '';
 }

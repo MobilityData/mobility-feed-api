@@ -215,7 +215,7 @@ describe('Feed page', () => {
         case 'feeds.detailPageDescription':
           return `Explore the ${params.formattedName} ${params.dataTypeVerbose} feed details with access to a quality data insights`;
       }
-    }) as unknown as any;
+    }) as unknown as (key: string, options?: Record<string, string>) => string;
 
     const descriptionAllInfo = generateDescriptionMetaTag(
       mockT,

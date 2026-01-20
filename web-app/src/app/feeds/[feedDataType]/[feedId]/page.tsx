@@ -45,7 +45,6 @@ const fetchFeedData = cache(
       }
       return feed;
     } catch (e) {
-      console.error('Error fetching feed', e);
       return undefined;
     }
   },
@@ -59,7 +58,6 @@ const fetchInitialDatasets = cache(
       });
       return datasets;
     } catch (e) {
-      console.error('Error fetching initial datasets', e);
       return [];
     }
   },
@@ -71,7 +69,6 @@ const fetchRelatedFeeds = cache(
       const feedPromises = feedReferences.map(
         async (feedId) =>
           await getFeed(feedId, accessToken).catch((e) => {
-            console.error(`Error fetching feed ${feedId}`, e);
             return undefined;
           }),
       );
@@ -82,7 +79,6 @@ const fetchRelatedFeeds = cache(
       const gtfsRtFeeds = validFeeds.filter((f) => f?.data_type === 'gtfs_rt');
       return { gtfsFeeds, gtfsRtFeeds };
     } catch (e) {
-      console.error('Error fetching related feeds', e);
       return { gtfsFeeds: [], gtfsRtFeeds: [] };
     }
   },
@@ -114,7 +110,6 @@ const fetchRoutesData = cache(async (feedId: string, datasetId: string) => {
     });
     return { totalRoutes, routeTypes };
   } catch (e) {
-    console.error('Error fetching routes data', e);
     return { totalRoutes: undefined, routeTypes: undefined };
   }
 });

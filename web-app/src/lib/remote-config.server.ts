@@ -60,7 +60,10 @@ async function fetchRemoteConfigFromFirebase(): Promise<RemoteConfigValues> {
 
     // Process each parameter from the template
     for (const [key, parameter] of Object.entries(template.parameters)) {
-      if (key in defaultRemoteConfigValues && parameter.defaultValue) {
+      if (
+        key in defaultRemoteConfigValues &&
+        parameter.defaultValue != undefined
+      ) {
         const defaultVal = parameter.defaultValue as { value?: string };
         if (defaultVal.value !== undefined) {
           const parsedValue = parseConfigValue(
@@ -96,7 +99,7 @@ export const getRemoteConfigValues = cache(
     const cacheAge = (now - cacheTimestamp) / 1000;
 
     // Return cached config if still valid
-    if (cachedConfig && cacheAge < CACHE_DURATION_SECONDS) {
+    if (cachedConfig != undefined && cacheAge < CACHE_DURATION_SECONDS) {
       return cachedConfig;
     }
 

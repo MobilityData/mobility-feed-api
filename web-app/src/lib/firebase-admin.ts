@@ -24,10 +24,7 @@ export function getFirebaseAdminApp(): App {
   // Check if we have explicit credentials via environment variable
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (
-    serviceAccountJson != null &&
-    serviceAccountJson.length > 0
-  ) {
+  if (serviceAccountJson != null && serviceAccountJson.length > 0) {
     try {
       const serviceAccount = JSON.parse(serviceAccountJson);
       adminApp = initializeApp({

@@ -8,7 +8,7 @@ import MapGL, {
   Popup,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { type LatLngExpression } from 'leaflet';
+import { type LatLngTuple } from 'leaflet';
 import { useTranslations } from 'next-intl';
 import { PopupTable } from './PopupTable';
 import { useTheme } from '@mui/material/styles';
@@ -35,7 +35,7 @@ export interface GeoJSONDataGBFS extends GeoJSONData {
 
 export interface MapProps {
   geoJSONData: GeoJSONData | null;
-  polygon: LatLngExpression[];
+  polygon: LatLngTuple[];
   displayMapDetails?: boolean;
 }
 
@@ -46,14 +46,17 @@ export const MapGeoJSON = (
   const t = useTranslations('feeds');
   const { geoJSONData, displayMapDetails = true } = props;
   const [ready, setReady] = React.useState(false);
-  const [popupInfo, setPopupInfo] = React.useState<any | null>(null);
+  const [popupInfo, setPopupInfo] = React.useState<{
+    lngLat: { lng: number; lat: number };
+    properties: Record<string, string | number>;
+  } | null>(null);
 
   React.useEffect(() => {
     setReady(true);
   }, []);
 
   const bounds = React.useMemo(() => {
-    return getBoundsFromCoordinates(props.polygon as any);
+    return getBoundsFromCoordinates(props.polygon);
   }, [props.polygon]);
 
   if (!displayMapDetails) {
@@ -120,7 +123,11 @@ export const MapGeoJSON = (
           ],
         }}
       >
-        <Source id='geojson-source' type='geojson' data={geoJSONData as any}>
+        <Source
+          id='geojson-source'
+          type='geojson'
+          data={geoJSONData as GeoJSON.FeatureCollection}
+        >
           <Layer
             id='geojson-fill'
             type='fill'

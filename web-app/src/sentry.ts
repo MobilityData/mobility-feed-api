@@ -20,10 +20,10 @@ const parseSampleRate = (
   return parsed;
 };
 
-const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || '';
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN ?? '';
 const environment =
-  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-  process.env.NODE_ENV ||
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ??
+  process.env.NODE_ENV ??
   'mobility-feeds-dev';
 const release = packageJson.version;
 const tracesSampleRate = parseSampleRate(
@@ -39,7 +39,7 @@ const replaysOnErrorSampleRate = parseSampleRate(
   1.0,
 );
 
-if (dsn) {
+if (dsn.length > 0) {
   const routerTracingIntegration =
     Sentry.reactRouterV6BrowserTracingIntegration({
       useEffect: React.useEffect,
@@ -50,11 +50,11 @@ if (dsn) {
     });
 
   const integrations = [];
-  if (routerTracingIntegration) {
+  if (routerTracingIntegration != null) {
     integrations.push(routerTracingIntegration);
   }
   const replayIntegration = Sentry.replayIntegration?.();
-  if (replayIntegration) {
+  if (replayIntegration != null) {
     integrations.push(replayIntegration);
   }
 
@@ -69,10 +69,10 @@ if (dsn) {
     ignoreErrors: [/ResizeObserver loop limit exceeded/i],
     beforeSend(event) {
       // remove user IP and geo context
-      if (event.user) {
+      if (event.user != null) {
         delete event.user.ip_address;
       }
-      if (event.contexts?.geo) {
+      if (event.contexts?.geo != null) {
         delete event.contexts.geo;
       }
       return event;

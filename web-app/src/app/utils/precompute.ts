@@ -257,9 +257,6 @@ export function createPrecomputation(deps: PrecomputeDeps): {
           const lat2 = Number(f.geometry?.coordinates?.[1] ?? 0);
           const lon2 = Number(f.geometry?.coordinates?.[0] ?? 0);
           if (isNaN(lat2) || isNaN(lon2) || lat2 === 0 || lon2 === 0) {
-            console.error(
-              `invalid stop ${stopId} (${lng},${lat}) for route ${rid} (${stopName})`,
-            );
           }
           byRouteId[rid].push({
             isStop: true,
@@ -310,8 +307,6 @@ export function createPrecomputation(deps: PrecomputeDeps): {
         .catch((e) => {
           if (e.name === 'CancellationError') {
             // cancelled by user, ignore
-          } else {
-            console.error('Precomputation error:', e);
           }
         });
     });

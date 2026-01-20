@@ -30,9 +30,9 @@ export default function ConfirmModal({
     dispatch(
       logout({
         redirectScreen: SIGN_OUT_TARGET,
-        navigateTo: ((path: string) => {
-          router.push(path);
-        }) as any,
+        navigateTo: (path) => {
+          router.push(String(path));
+        },
         propagate: true,
       }),
     );
