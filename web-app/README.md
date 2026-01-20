@@ -90,21 +90,21 @@ npx firebase hosting:channel:deploy {channel_name}
 Component and E2E tests are executed with [Cypress](https://docs.cypress.io/). Cypress tests are located in the cypress folder.
 
 Cypress useful commands:
-- Run the firebase emulator in a separate terminal
+- E2E tests require a mock server to run to mock api endpoints
 ```
-yarn run firebase:auth:emulator:dev
+yarn run e2e:setup
 ```
-- Run local headless tests
+Will start the dev environment with mock server. It's equal to running 
 ```
-yarn start:dev
+yarn run firebase:auth:emulator:dev + yarn run start:dev:mock"
 ```
 In a different terminal,
 ```
-yarn cypress:run
+yarn e2e:run
 ```
 - Opens Cypress in the interactive GUI
 ```
-yarn cypress:open
+yarn e2e:open
 ```
 
 ## API Types Generation

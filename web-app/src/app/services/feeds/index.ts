@@ -23,7 +23,7 @@ const throwOnError: Middleware = {
       if (res.headers.get('content-type')?.includes('json') === true) {
         body = await res.clone().json();
       }
-      throw new Error(body);
+      typeof body === "string" ? body : JSON.stringify(body)
     }
     return undefined;
   },

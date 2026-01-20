@@ -12,6 +12,10 @@ const nextConfig = {
       transform: '@mui/icons-material/{{member}}',
     },
   },
+  // Enable instrumentation hook for MSW
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
 export default withNextIntl(nextConfig);

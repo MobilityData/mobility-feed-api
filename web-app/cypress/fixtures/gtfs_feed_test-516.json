@@ -40,12 +40,23 @@
         "downloaded_at": "2024-07-10T14:00:15.488196Z",
         "hash": "5d778850ac280d4ef8e5f49cc490f7592750b6673496096a132b8bed2381460e",
         "validation_report": {
+            "validated_at": "2024-07-10T14:00:25Z",
+            "features": [
+                "Transfers",
+                "Shapes",
+                "Route Colors",
+                "Headsigns",
+                "Location Types"
+            ],
+            "validator_version": "5.0.2-SNAPSHOT",
             "total_error": 0,
             "total_warning": 124,
             "total_info": 0,
             "unique_error_count": 0,
             "unique_warning_count": 6,
-            "unique_info_count": 0
+            "unique_info_count": 0,
+            "url_json": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/report_5.0.2-SNAPSHOT.json",
+            "url_html": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/report_5.0.2-SNAPSHOT.html"
         }
     }
 }

@@ -12,7 +12,8 @@ const chosenEnv = isEnvEmpty(localEnv) ? ciEnv : localEnv;
 export default defineConfig({
   env: chosenEnv,
   e2e: {
-    baseUrl: 'http://localhost:3000',
+    // Use CYPRESS_BASE_URL env var if set (for e2e:run/e2e:open), otherwise default to 3000
+    baseUrl: process.env.CYPRESS_BASE_URL || 'http://localhost:3000',
   },
   video: true,
 });
