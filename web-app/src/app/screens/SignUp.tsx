@@ -349,7 +349,7 @@ export default function SignUp(): React.ReactElement {
           ) : null}
           <Box m={1}>
             <ReCAPTCHA
-              sitekey={getEnvConfig('NEXT_PUBLIC_RECAPTCHA_SITE_KEY')}
+              sitekey={String(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY)}
               onChange={onChangeReCaptcha}
               data-testid='reCaptcha'
               style={{ alignSelf: 'center', margin: 'normal' }}

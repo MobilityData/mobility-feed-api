@@ -81,7 +81,7 @@ export function SearchFilters({
       type: 'checkbox',
     },
     {
-      title: t('common:gbfs'),
+      title: tCommon('gbfs'),
       checked: selectedFeedTypes.gbfs,
       type: 'checkbox',
     },
