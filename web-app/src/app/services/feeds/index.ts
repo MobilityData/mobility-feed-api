@@ -23,7 +23,9 @@ const throwOnError: Middleware = {
       if (res.headers.get('content-type')?.includes('json') === true) {
         body = await res.clone().json();
       }
-      typeof body === 'string' ? body : JSON.stringify(body);
+      const errorMessage =
+        typeof body === 'string' ? body : JSON.stringify(body);
+      throw new Error(errorMessage);
     }
     return undefined;
   },
@@ -280,7 +282,6 @@ export const searchFeeds = async (
       return data;
     })
     .catch(function (error) {
-      console.log('Error in searchFeeds:', error);
       throw error;
     })
     .finally(() => {
@@ -335,12 +336,10 @@ export const getGtfsFeedRoutes = async (
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) {
-      console.error(`Failed to fetch routes: ${res.status} ${res.statusText}`);
       return undefined;
     }
     return (await res.json()) as GtfsRoute[];
   } catch (error) {
-    console.error('Error fetching routes.json:', error);
     return undefined;
   }
 };

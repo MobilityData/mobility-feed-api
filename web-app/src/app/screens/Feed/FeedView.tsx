@@ -58,19 +58,20 @@ export default async function FeedView({
   relatedGtfsRtFeeds = [],
   totalRoutes,
   routeTypes,
-}: Props) {
+}: Props): Promise<React.ReactElement> {
   const t = await getTranslations('feeds');
   const tGbfs = await getTranslations('gbfs');
   const tCommon = await getTranslations('common');
   if (feed == undefined) return <Box>Feed not found</Box>;
 
   // Basic derived data
-  const sortedProviders = feed.provider
-    ? String(feed.provider)
-        .split(',')
-        .map((s) => s.trim())
-        .sort()
-    : [];
+  const sortedProviders =
+    feed.provider != null && String(feed.provider).trim().length > 0
+      ? String(feed.provider)
+          .split(',')
+          .map((s) => s.trim())
+          .sort()
+      : [];
 
   const downloadLatestUrl =
     feed?.data_type === 'gtfs'
@@ -96,7 +97,7 @@ export default async function FeedView({
     );
   };
 
-  const hasFeedRedirect = feed?.redirects && feed.redirects.length > 0;
+  const hasFeedRedirect = feed?.redirects != null && feed.redirects.length > 0;
 
   const gbfsAutodiscoveryUrl =
     feed?.data_type === 'gbfs'
@@ -211,7 +212,7 @@ export default async function FeedView({
             )}
 
             <Box>
-              {latestDataset?.validation_report?.validated_at && (
+              {latestDataset?.validation_report?.validated_at != null && (
                 <Typography
                   data-testid='last-updated'
                   variant='caption'
@@ -289,7 +290,7 @@ export default async function FeedView({
                                 'gtfsRealtimeEntities.vehiclePositions',
                               ),
                               sa: tCommon('gtfsRealtimeEntities.serviceAlerts'),
-                            }) as Record<string, string>
+                            }) as const satisfies Record<string, string>
                           )[entityType],
                       )
                       .join(` ${tCommon('and')} `)}
@@ -333,14 +334,17 @@ export default async function FeedView({
 
             {/* CTA Buttons */}
             <Box sx={ctaContainerStyle}>
-              {feed.data_type === 'gtfs' && downloadLatestUrl && (
-                <ClientDownloadButton url={downloadLatestUrl} />
-              )}
-              {latestDataset?.validation_report?.url_html && (
-                <ClientQualityReportButton
-                  url={latestDataset.validation_report.url_html}
-                />
-              )}
+              {feed.data_type === 'gtfs' &&
+                downloadLatestUrl != null &&
+                downloadLatestUrl.length > 0 && (
+                  <ClientDownloadButton url={downloadLatestUrl} />
+                )}
+              {latestDataset?.validation_report?.url_html != null &&
+                latestDataset.validation_report.url_html.length > 0 && (
+                  <ClientQualityReportButton
+                    url={latestDataset.validation_report.url_html}
+                  />
+                )}
               {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
             </Box>
 

@@ -7,7 +7,7 @@
  * MSW is only enabled when NEXT_PUBLIC_API_MOCKING is set to 'enabled'
  */
 
-export async function register() {
+export async function register(): Promise<void> {
   if (process.env.NEXT_PUBLIC_API_MOCKING === 'enabled') {
     if (process.env.NEXT_RUNTIME === 'nodejs') {
       const { server } = await import('./mocks/server');

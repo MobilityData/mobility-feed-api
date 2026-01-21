@@ -76,7 +76,6 @@ export default function PreviousDatasets({
           setHasLoadedAllDatasets(true);
         }
       } catch (error) {
-        console.error('Error loading more datasets:', error);
         setHasLoadedAllDatasets(true);
       } finally {
         setIsLoadingDatasets(false);

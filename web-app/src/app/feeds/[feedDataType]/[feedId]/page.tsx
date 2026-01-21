@@ -26,8 +26,7 @@ import generateFeedStructuredData from '../../../screens/Feed/StructuredData.fun
 import { getTranslations } from 'next-intl/server';
 
 interface Props {
-  params: { feedDataType: string; feedId: string };
-  searchParams: Record<string, string | string[] | undefined>;
+  params: Promise<{ feedDataType: string; feedId: string }>;
 }
 
 const fetchFeedData = cache(
@@ -88,7 +87,7 @@ const fetchRelatedFeeds = cache(
 const fetchRoutesData = cache(async (feedId: string, datasetId: string) => {
   try {
     const routes = await getGtfsFeedRoutes(feedId, datasetId);
-    if (!routes) {
+    if (routes == null) {
       return { totalRoutes: undefined, routeTypes: undefined };
     }
     const totalRoutes = routes.length;
@@ -97,7 +96,7 @@ const fetchRoutesData = cache(async (feedId: string, datasetId: string) => {
     for (const route of routes) {
       const raw = route.routeType;
       const routeTypeStr = raw == null ? undefined : String(raw).trim();
-      if (routeTypeStr != undefined) {
+      if (routeTypeStr != null) {
         uniqueRouteTypesSet.add(routeTypeStr);
       }
     }
@@ -115,7 +114,7 @@ const fetchRoutesData = cache(async (feedId: string, datasetId: string) => {
 });
 
 export async function generateMetadata(
-  { params, searchParams }: Props,
+  { params }: Props,
   parent: ResolvingMetadata,
 ): Promise<Metadata> {
   const { feedId, feedDataType } = await params;
@@ -124,7 +123,7 @@ export async function generateMetadata(
 
   const feed = await fetchFeedData(feedDataType, feedId, accessToken);
 
-  if (!feed) {
+  if (feed == null) {
     return {
       title: 'Feed Not Found | Mobility Database',
     };
@@ -132,7 +131,8 @@ export async function generateMetadata(
 
   // Fetch related feeds for GTFS-RT to generate complete structured data
   const { gtfsFeeds, gtfsRtFeeds } =
-    feedDataType === 'gtfs_rt' && (feed as GTFSRTFeedType)?.feed_references
+    feedDataType === 'gtfs_rt' &&
+    (feed as GTFSRTFeedType)?.feed_references != null
       ? await fetchRelatedFeeds(
           (feed as GTFSRTFeedType)?.feed_references ?? [],
           accessToken,
@@ -143,13 +143,13 @@ export async function generateMetadata(
   const title = generatePageTitle(
     sortedProviders,
     feed.data_type as 'gtfs' | 'gtfs_rt' | 'gbfs',
-    (feed as any)?.feed_name,
+    (feed as { feed_name?: string })?.feed_name,
   );
   const description = generateDescriptionMetaTag(
     t,
     sortedProviders,
     feed.data_type as 'gtfs' | 'gtfs_rt' | 'gbfs',
-    (feed as any)?.feed_name,
+    (feed as { feed_name?: string })?.feed_name,
   );
 
   // Generate structured data for SEO
@@ -180,14 +180,16 @@ export async function generateMetadata(
     },
     other: {
       // Structured data for JSON-LD
-      ...(structuredData && {
+      ...(structuredData != null && {
         'script:ld+json': JSON.stringify(structuredData),
       }),
     },
   };
 }
 
-export default async function FeedPage({ params }: Props) {
+export default async function FeedPage({
+  params,
+}: Props): Promise<React.ReactElement> {
   const { feedId, feedDataType } = await params;
   const accessToken = await getSSRAccessToken();
 
@@ -202,7 +204,7 @@ export default async function FeedPage({ params }: Props) {
     datasetsPromise,
   ]);
 
-  if (feed == undefined) {
+  if (feed == null) {
     notFound();
   }
 
@@ -215,32 +217,38 @@ export default async function FeedPage({ params }: Props) {
       gtfsRtFeed?.feed_references ?? [],
       accessToken,
     );
-    const promises = gtfsFeeds.map(
-      async (gtfsFeed) =>
-        await getGtfsFeedAssociatedGtfsRtFeeds(gtfsFeed?.id ?? '', accessToken),
+
+    const associatedGtfsRtFeedsArrays = await Promise.all(
+      gtfsFeeds.map(
+        async (gtfsFeed) =>
+          await getGtfsFeedAssociatedGtfsRtFeeds(
+            gtfsFeed?.id ?? '',
+            accessToken,
+          ),
+      ),
     );
-    const associatedGtfsRtFeedsArrays = await Promise.all(promises);
     gtfsFeedsRelated = gtfsFeeds;
     const allGtfsRtFeeds = [
       ...gtfsRtFeeds,
       ...associatedGtfsRtFeedsArrays.flat(),
     ];
     const uniqueGtfsRtFeedsMap = new Map();
-    allGtfsRtFeeds.forEach((feed) => {
-      if (feed?.id) {
-        uniqueGtfsRtFeedsMap.set(feed.id, feed);
+    allGtfsRtFeeds.forEach((feedItem) => {
+      if (feedItem?.id != null) {
+        uniqueGtfsRtFeedsMap.set(feedItem.id, feedItem);
       }
     });
     gtfsRtFeedsRelated = Array.from(uniqueGtfsRtFeedsMap.values());
   }
 
   // Fetch routes data for GTFS feeds
-  const { totalRoutes, routeTypes } = await (feedDataType === 'gtfs'
-    ? fetchRoutesData(
-        feedId,
-        (feed as GTFSFeedType)?.visualization_dataset_id ?? '',
-      )
-    : Promise.resolve({ totalRoutes: undefined, routeTypes: undefined }));
+  const { totalRoutes, routeTypes } =
+    feedDataType === 'gtfs'
+      ? await fetchRoutesData(
+          feedId,
+          (feed as GTFSFeedType)?.visualization_dataset_id ?? '',
+        )
+      : { totalRoutes: undefined, routeTypes: undefined };
 
   return (
     <FeedView

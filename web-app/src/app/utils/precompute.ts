@@ -176,8 +176,7 @@ export function createPrecomputation(deps: PrecomputeDeps): {
     for (let r = 0; r < rows; r++) {
       const cy = minLat + (r + 0.5) * latStep;
       for (let c = 0; c < cols; c++) {
-        if (cancelRequestRef.current === true) {
-          // user requested to cancel
+        if (cancelRequestRef.current) {
           throw new CancellationError();
         }
         const cx = minLng + (c + 0.5) * lngStep;
@@ -257,6 +256,7 @@ export function createPrecomputation(deps: PrecomputeDeps): {
           const lat2 = Number(f.geometry?.coordinates?.[1] ?? 0);
           const lon2 = Number(f.geometry?.coordinates?.[0] ?? 0);
           if (isNaN(lat2) || isNaN(lon2) || lat2 === 0 || lon2 === 0) {
+            // Skip invalid coordinates
           }
           byRouteId[rid].push({
             isStop: true,
@@ -306,7 +306,7 @@ export function createPrecomputation(deps: PrecomputeDeps): {
         .then(() => {})
         .catch((e) => {
           if (e.name === 'CancellationError') {
-            // cancelled by user, ignore
+            console.error('Precomputation cancelled by user.');
           }
         });
     });

@@ -5,12 +5,13 @@
  *  IMPORTANT: This url structure will need to be reviewed in the future once our urls could contain agencies
  */
 
+import { type JSX } from 'react';
 import { getFeed } from '../../services/feeds';
 import { getSSRAccessToken } from '../../utils/auth-server';
 import { notFound, redirect } from 'next/navigation';
 
 interface Props {
-  params: { feedDataType: string };
+  params: Promise<{ feedDataType: string }>;
 }
 
 export default async function Page({ params }: Props): Promise<JSX.Element> {
