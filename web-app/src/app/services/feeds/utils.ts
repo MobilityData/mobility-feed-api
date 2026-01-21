@@ -1,3 +1,4 @@
+import Papa from 'papaparse';
 import { getEmojiFlag, type TCountryCode, languages } from 'countries-list';
 import { type paths, type components } from './types';
 
@@ -150,3 +151,35 @@ export const langCodeToName = (code: string): string => {
   const lang = languages[primary as keyof typeof languages];
   return lang?.name ?? code.toUpperCase();
 };
+
+/**
+ * Checks if a feed URL exists in the urls.direct_download column of the feeds_v2.csv file.
+ * @param feedUrl The URL to check for existence.
+ * @param csvUrl The CSV file URL (default: feeds_v2.csv from Mobility Database)
+ * @returns Promise<boolean> true if exists, false otherwise
+ */
+export async function checkFeedUrlExistsInCsv(
+  feedUrl: string,
+  csvUrl = 'https://files.mobilitydatabase.org/feeds_v2.csv',
+): Promise<string | null> {
+  try {
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error('Failed to fetch CSV');
+    const csvText = await response.text();
+    const parsed = Papa.parse<FeedCsvRow>(csvText, { header: true });
+    if (parsed.data == null || !Array.isArray(parsed.data)) return null;
+    const rows = parsed.data;
+    const match = rows.find((row) => row['urls.direct_download'] === feedUrl);
+    return typeof match?.id === 'string' ? match.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * FeedCsvRow interface with fields
+ */
+interface FeedCsvRow {
+  'urls.direct_download'?: string;
+  id: string;
+}
