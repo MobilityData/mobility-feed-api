@@ -32,6 +32,13 @@ export interface FeedSubmissionFormFormInput {
   oldFeedLink?: string;
   isUpdatingFeed?: YesNoFormInput;
   licensePath?: string;
+  // Selected SPDX license id from ThirdStep selector (mock/demo)
+  licenseSpdxId?: string | null;
+  // Custom license builder (mock/demo only, not sent to backend)
+  customLicenseEnabled?: boolean;
+  customLicensePermissions?: string[];
+  customLicenseConditions?: string[];
+  customLicenseLimitations?: string[];
   country?: string;
   region?: string;
   municipality?: string;
@@ -65,6 +72,11 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   oldFeedLink: '',
   isUpdatingFeed: 'no',
   licensePath: '',
+  licenseSpdxId: null,
+  customLicenseEnabled: false,
+  customLicensePermissions: [],
+  customLicenseConditions: [],
+  customLicenseLimitations: [],
   country: '',
   region: '',
   municipality: '',
@@ -186,7 +198,15 @@ export default function FeedSubmissionForm(): React.ReactElement {
     setIsSubmitLoading(true);
     setFormData(finalData);
     try {
-      const requestBody = { ...finalData };
+      // Do not send mock/demo-only fields to the backend
+      const {
+        licenseSpdxId: _omitLicenseSpdxId,
+        customLicenseEnabled: _omitCustomEnabled,
+        customLicensePermissions: _omitCustomPerms,
+        customLicenseConditions: _omitCustomConds,
+        customLicenseLimitations: _omitCustomLims,
+        ...requestBody
+      } = finalData;
       await submitNewFeedForm(requestBody);
       handleNext();
     } catch (error) {

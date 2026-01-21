@@ -21,7 +21,6 @@ export interface FeedSubmissionFormInputSecondStep {
   region: string;
   municipality: string;
   name: string;
-  licensePath?: string;
 }
 
 interface FormSecondStepProps {
@@ -48,7 +47,6 @@ export default function FormSecondStep({
       region: initialValues.region,
       municipality: initialValues.municipality,
       name: initialValues.name,
-      licensePath: initialValues.licensePath,
     },
   });
   const onSubmit: SubmitHandler<FeedSubmissionFormInputSecondStep> = (data) => {
@@ -139,33 +137,7 @@ export default function FormSecondStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.licensePath !== undefined}
-            >
-              <FormLabel component='legend'>{t('linkToLicense')}</FormLabel>
-              <Controller
-                rules={{
-                  validate: (value) => {
-                    if (value === '' || value === undefined) return true;
-                    return /^https?:\/\//.test(value) || t('form.errorUrl');
-                  },
-                }}
-                control={control}
-                name='licensePath'
-                render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    {...field}
-                    helperText={errors.licensePath?.message ?? ''}
-                    error={errors.licensePath !== undefined}
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
+          {/* License URL moved to Third step to keep all license info together */}
 
           <Grid container spacing={2}>
             <Grid item>
