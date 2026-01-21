@@ -51,7 +51,7 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 
 resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
-  database_version = "POSTGRES_13"
+  database_version = "POSTGRES_14"
   region           = var.gcp_region
   # This property protects the DB from deletion only for terraform commands
   # settings.deletion_protection_enabled protects the DB from deletion in the GCP console and GCP API

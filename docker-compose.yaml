@@ -1,7 +1,7 @@
 services:
   postgres:
     container_name: database
-    image: postgis/postgis:13-3.5
+    image: postgis/postgis:14-3.3
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
@@ -25,7 +25,7 @@ services:
       - local
   postgres-test:
     container_name: database_test
-    image: postgis/postgis:13-3.5
+    image: postgis/postgis:14-3.3
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
