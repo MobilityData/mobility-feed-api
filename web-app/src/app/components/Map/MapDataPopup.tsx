@@ -17,7 +17,7 @@ interface MapDataPopupProps {
 
 export const MapDataPopup = (
   props: React.PropsWithChildren<MapDataPopupProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const { mapClickRouteData, mapClickStopData, onPopupClose } = props;
   const theme = useTheme();
   const t = useTranslations('feeds');

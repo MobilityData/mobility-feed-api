@@ -5,7 +5,7 @@ import { WarningAmberOutlined } from '@mui/icons-material';
 
 export const WarningContentBox = (
   props: React.PropsWithChildren,
-): JSX.Element => {
+): React.ReactElement => {
   return (
     <ContentBox
       title={''}

@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { app } from '../../firebase';
 import { setAuthTokenAction } from '../actions/auth-actions';
 
-export default function AuthTokenSync(): JSX.Element | null {
+export default function AuthTokenSync(): ReactElement | null {
   useEffect(() => {
     // Sets the auth token in a httpOnly cookie for server side requests
     // Uses Next.js const cookieStore = await cookies(); for cookie management

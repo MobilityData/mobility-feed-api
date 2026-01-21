@@ -41,7 +41,7 @@ export interface MapProps {
 
 export const MapGeoJSON = (
   props: React.PropsWithChildren<MapProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const theme = useTheme();
   const t = useTranslations('feeds');
   const { geoJSONData, displayMapDetails = true } = props;

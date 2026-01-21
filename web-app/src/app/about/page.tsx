@@ -1,7 +1,8 @@
 import { Container, Typography, Button } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { type ReactElement } from 'react';
 
-export default function Page(): JSX.Element {
+export default function Page(): ReactElement {
   return (
     <Container component='main'>
       <Typography variant='h1'>About</Typography>

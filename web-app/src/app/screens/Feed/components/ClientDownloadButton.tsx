@@ -11,7 +11,7 @@ export default function ClientDownloadButton({
   url,
 }: {
   url: string;
-}): JSX.Element {
+}): React.ReactElement {
   const t = useTranslations('feeds');
 
   const handleDownloadLatestClick = async (): Promise<void> => {

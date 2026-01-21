@@ -6,7 +6,7 @@ export default function ThemeRegistry({
   children,
 }: {
   children: React.ReactNode;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <AppRouterCacheProvider options={{ key: 'mui' }}>
       <ThemeProvider>{children}</ThemeProvider>

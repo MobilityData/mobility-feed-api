@@ -17,7 +17,9 @@ export interface MapProps {
   polygon: LatLngTuple[];
 }
 
-export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
+export const Map = (
+  props: React.PropsWithChildren<MapProps>,
+): React.ReactElement => {
   const theme = useTheme();
   const [ready, setReady] = React.useState(false);
 

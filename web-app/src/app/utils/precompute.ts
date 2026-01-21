@@ -16,7 +16,7 @@ class CancellationError extends Error {
 
 export interface PrecomputeDeps {
   // runtime inputs
-  mapRef: RefObject<MapRef>;
+  mapRef: RefObject<MapRef | null>;
   bounds: LngLatBoundsLike;
   preview: boolean;
   cancelRequestRef: RefObject<boolean>;

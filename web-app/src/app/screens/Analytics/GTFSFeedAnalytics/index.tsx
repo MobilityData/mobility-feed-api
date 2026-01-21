@@ -62,7 +62,7 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
     (state: RootState) => state.gtfsAnalytics.selectedFile,
   );
 
-  const getFileDisplayKey = (file: AnalyticsFile): JSX.Element => {
+  const getFileDisplayKey = (file: AnalyticsFile): React.ReactElement => {
     const dateString = file.file_name.split('_')[1]; // Extracting the year and month
     const date = new Date(dateString.replace('.json', '')); // Creating a date object
     const formattedDate = date.toLocaleDateString('en-CA', {

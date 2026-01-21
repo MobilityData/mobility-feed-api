@@ -25,7 +25,7 @@ export default function ProviderTitle({
       .filter((x) => x)
       .sort() ?? [];
   const displayName = providers[0];
-  let manyProviders: JSX.Element | undefined;
+  let manyProviders: React.ReactElement | undefined;
   if (providers.length > 1) {
     manyProviders = (
       <span

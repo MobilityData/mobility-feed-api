@@ -2,6 +2,7 @@ import * as React from 'react';
 import ThemeRegistry from './registry';
 
 import { Providers } from './providers';
+import { type ReactElement } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { getRemoteConfigValues } from '../lib/remote-config.server';
@@ -34,7 +35,7 @@ export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
-}): Promise<JSX.Element> {
+}): Promise<ReactElement> {
   const locale = await getLocale();
   const messages = await getMessages();
   const remoteConfig = await getRemoteConfigValues();

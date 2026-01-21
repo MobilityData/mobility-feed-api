@@ -27,7 +27,7 @@ export interface DatasetComponentFeature extends DatasetFeature {
 
 interface ComprehensiveDatasetFeature extends DatasetFeature {
   color: string;
-  icon: JSX.Element;
+  icon: React.ReactElement;
 }
 
 export function groupFeaturesByComponent(
@@ -68,7 +68,7 @@ export function getFeatureComponentDecorators(
 
 export function getComponentDecorators(component: string): {
   color: string;
-  icon: JSX.Element;
+  icon: React.ReactElement;
 } {
   switch (component) {
     case 'Accessibility':

@@ -16,7 +16,7 @@ export const ProtectedRoute = ({
 }: {
   targetStatus?: string;
   redirect?: string;
-}): JSX.Element => {
+}): React.ReactElement => {
   const userProfileStatus = useSelector(selectUserProfileStatus);
   useEffect(() => {
     app.auth();

@@ -41,7 +41,7 @@ export default function DrawerContent({
   onLogoutClick,
   navigationItems,
   metricsOptionsEnabled,
-}: DrawerContentProps): JSX.Element {
+}: DrawerContentProps): React.ReactElement {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const router = useRouter();
   const { config } = useRemoteConfig();

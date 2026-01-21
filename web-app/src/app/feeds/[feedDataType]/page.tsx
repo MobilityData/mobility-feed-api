@@ -5,7 +5,7 @@
  *  IMPORTANT: This url structure will need to be reviewed in the future once our urls could contain agencies
  */
 
-import { type JSX } from 'react';
+import { type ReactElement } from 'react';
 import { getFeed } from '../../services/feeds';
 import { getSSRAccessToken } from '../../utils/auth-server';
 import { notFound, redirect } from 'next/navigation';
@@ -14,7 +14,7 @@ interface Props {
   params: Promise<{ feedDataType: string }>;
 }
 
-export default async function Page({ params }: Props): Promise<JSX.Element> {
+export default async function Page({ params }: Props): Promise<ReactElement> {
   const { feedDataType } = await params;
   const accessToken = await getSSRAccessToken();
 

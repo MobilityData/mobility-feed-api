@@ -37,13 +37,13 @@ const HeaderTableCell = styled(TableCell)(() => ({
 
 export const getDataTypeElement = (
   dataType: 'gtfs' | 'gtfs_rt' | 'gbfs',
-): JSX.Element => {
+): React.ReactElement => {
   const tCommon = useTranslations('common');
   const DataTypeHolder = ({
     children,
   }: {
     children: React.ReactNode;
-  }): JSX.Element => {
+  }): React.ReactElement => {
     return (
       <Box
         sx={{

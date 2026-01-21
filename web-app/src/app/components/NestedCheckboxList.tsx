@@ -86,7 +86,7 @@ export default function NestedCheckboxList({
   onExpandGroupChange,
   disableAll = false,
   debounceTime = 0,
-}: NestedCheckboxListProps): JSX.Element {
+}: NestedCheckboxListProps): React.ReactElement {
   const [checkboxStructure, setCheckboxStructure] = React.useState<
     CheckboxStructure[]
   >([...checkboxData]);

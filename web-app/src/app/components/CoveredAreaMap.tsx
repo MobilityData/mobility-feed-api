@@ -20,7 +20,7 @@ import { mapBoxPositionStyle } from '../screens/Feed/Feed.styles';
 import dynamic from 'next/dynamic';
 import { type GeoJSONData, type GeoJSONDataGBFS } from './MapGeoJSON';
 import { useTranslations } from 'next-intl';
-import type { LatLngExpression, LatLngTuple } from 'leaflet';
+import type { LatLngTuple } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
 import {
   type GTFSFeedType,
@@ -208,7 +208,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     return undefined;
   };
 
-  const renderMap = (): JSX.Element => {
+  const renderMap = (): React.ReactElement => {
     const displayBoundingBoxMap =
       view === 'boundingBoxView' &&
       (feed?.data_type === 'gtfs' ||
@@ -259,7 +259,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           setGeoJsonError(true);
         }
       }
-      const feedBoundingBox: LatLngExpression[] =
+      const feedBoundingBox: LatLngTuple[] =
         feed?.data_type === 'gtfs' ? boundingBox ?? [] : gbfsGeoJsonBoundingBox;
       return (
         <MapGeoJSON

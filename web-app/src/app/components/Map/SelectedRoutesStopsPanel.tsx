@@ -13,7 +13,7 @@ interface SelectedRoutesStopsPanelProps {
 
 export const SelectedRoutesStopsPanel = (
   props: React.PropsWithChildren<SelectedRoutesStopsPanelProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const {
     filteredRoutes,
     selectedRouteStops,

@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { type ReactElement } from 'react';
 import { cache } from 'react';
 import FeedView from '../../../screens/Feed/FeedView';
 import {
@@ -189,7 +189,7 @@ export async function generateMetadata(
 
 export default async function FeedPage({
   params,
-}: Props): Promise<React.ReactElement> {
+}: Props): Promise<ReactElement> {
   const { feedId, feedDataType } = await params;
   const accessToken = await getSSRAccessToken();
 

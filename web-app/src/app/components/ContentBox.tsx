@@ -14,7 +14,7 @@ export interface ContentBoxProps {
 
 export const ContentBox = (
   props: React.PropsWithChildren<ContentBoxProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const theme = useTheme();
   return (
     <Box

@@ -12,7 +12,7 @@ export interface FeedStatusProps {
 
 export const FeedStatusIndicator = (
   props: React.PropsWithChildren<FeedStatusProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const t = useTranslations('feeds');
   const theme = useTheme();
   const statusData = getFeedStatusData(props.status, theme, t);
@@ -37,7 +37,7 @@ export const FeedStatusIndicator = (
 
 export const FeedStatusChip = (
   props: React.PropsWithChildren<FeedStatusProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const t = useTranslations('feeds');
   const theme = useTheme();
   const statusData = getFeedStatusData(props.status, theme, t);

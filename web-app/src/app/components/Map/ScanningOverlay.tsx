@@ -21,7 +21,7 @@ interface ScanningOverlayProps {
 
 export const ScanningOverlay = (
   props: React.PropsWithChildren<ScanningOverlayProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const {
     totalTiles,
     scannedTiles,

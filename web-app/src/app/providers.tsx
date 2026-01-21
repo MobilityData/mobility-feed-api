@@ -20,7 +20,7 @@ interface ProvidersProps {
 export function Providers({
   children,
   remoteConfig,
-}: ProvidersProps): JSX.Element {
+}: ProvidersProps): React.ReactElement {
   return (
     <ContextProviders>
       <AuthTokenSync />

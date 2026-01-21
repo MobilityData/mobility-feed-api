@@ -33,7 +33,7 @@ export default function CopyLinkElement({
 }: CopyLinkElementProps): ReactElement {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-  let chipIcon: JSX.Element | undefined;
+  let chipIcon: React.ReactElement | undefined;
   let chipLabel: string | undefined;
   switch (linkType) {
     case 'download':

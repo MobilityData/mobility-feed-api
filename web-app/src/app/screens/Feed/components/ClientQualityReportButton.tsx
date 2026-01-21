@@ -11,7 +11,7 @@ export default function ClientQualityReportButton({
   url,
 }: {
   url: string;
-}): JSX.Element {
+}): React.ReactElement {
   const t = useTranslations('feeds');
 
   const handleOpenFullQualityReportClick = async (): Promise<void> => {

@@ -25,7 +25,7 @@ export interface AssociatedFeedsProps {
 
 const renderAssociatedGTFSFeedRow = (
   assocFeed: GTFSFeedType,
-): JSX.Element | undefined => {
+): React.ReactElement | undefined => {
   const theme = useTheme();
   if (assocFeed === undefined) {
     return undefined;
@@ -69,7 +69,7 @@ const renderAssociatedGTFSFeedRow = (
 
 const renderAssociatedGTFSRTFeedRow = (
   assocGTFSRTFeed: GTFSRTFeedType,
-): JSX.Element | undefined => {
+): React.ReactElement | undefined => {
   const theme = useTheme();
   if (assocGTFSRTFeed === undefined) {
     return undefined;

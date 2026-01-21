@@ -93,7 +93,7 @@ const renderGTFSRTDetails = (
 const renderGBFSDetails = (
   gbfsFeedSearchElement: SearchFeedItem,
   selectedGbfsVersions: string[],
-): JSX.Element => {
+): React.ReactElement => {
   const theme = useTheme();
   return (
     <Box>

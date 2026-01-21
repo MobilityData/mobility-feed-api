@@ -10,7 +10,7 @@ interface Props {
 export default async function FeedNavigationControls({
   feedDataType,
   feedId,
-}: Props): Promise<JSX.Element> {
+}: Props): Promise<React.ReactElement> {
   const t = await getTranslations('common');
 
   return (

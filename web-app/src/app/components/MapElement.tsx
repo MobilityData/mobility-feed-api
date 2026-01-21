@@ -35,7 +35,7 @@ export interface MapElementProps {
 
 export const MapElement = (
   props: React.PropsWithChildren<MapElementProps>,
-): JSX.Element => {
+): React.ReactElement => {
   const theme = useTheme();
   const t = useTranslations('feeds');
   const limit = props.dataDisplayLimit ?? 10;
@@ -53,7 +53,9 @@ export const MapElement = (
   );
   const elementLeftover = uniqueElementNames.size - formattedElements.length;
 
-  const renderRouteMapElement = (element: MapRouteElement): JSX.Element => {
+  const renderRouteMapElement = (
+    element: MapRouteElement,
+  ): React.ReactElement => {
     return (
       <Box
         sx={{
@@ -89,7 +91,7 @@ export const MapElement = (
   const renderStopMapElement = (
     element: MapStopElement,
     iconColor: string,
-  ): JSX.Element => {
+  ): React.ReactElement => {
     return (
       <Box
         sx={{

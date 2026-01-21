@@ -78,7 +78,7 @@ export const formatServiceDateRange = (
   dateStart: string,
   dateEnd: string,
   timeZone?: string,
-): JSX.Element => {
+): React.ReactElement => {
   const startDate = new Date(dateStart);
   const endDate = new Date(dateEnd);
   const usedTimezone = timeZone ?? 'UTC';

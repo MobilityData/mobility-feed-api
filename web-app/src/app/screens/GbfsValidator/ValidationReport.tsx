@@ -255,7 +255,9 @@ export default function ValidationReport({
               {groupedByFile.map((fg, index) => (
                 <Card
                   key={fg.fileName}
-                  ref={(el) => (fileGroupRefs.current[index] = el)}
+                  ref={(el) => {
+                    fileGroupRefs.current[index] = el;
+                  }}
                   tabIndex={-1}
                   sx={ValidationElementCardStyles(theme, index)}
                 >

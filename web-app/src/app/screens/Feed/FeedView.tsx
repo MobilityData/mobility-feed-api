@@ -78,7 +78,7 @@ export default async function FeedView({
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
 
-  const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
+  const gbfsOpenFeedUrlElement = (): React.ReactElement => {
     if (gbfsAutodiscoveryUrl == undefined) {
       return <></>;
     }

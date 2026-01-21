@@ -33,7 +33,7 @@ const ActionBox = ({
   iconHeight,
   buttonHref,
   buttonText,
-}: ActionBoxProps): JSX.Element => (
+}: ActionBoxProps): React.ReactElement => (
   <Box
     sx={{
       display: 'flex',

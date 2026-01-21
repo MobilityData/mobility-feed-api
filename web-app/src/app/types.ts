@@ -3,12 +3,13 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
 } from 'firebase/auth';
+import { type ReactElement } from 'react';
 
 export type ChildrenElement =
   | string
-  | JSX.Element
-  | JSX.Element[]
-  | (() => JSX.Element);
+  | ReactElement
+  | ReactElement[]
+  | (() => ReactElement);
 
 export interface EmailLogin {
   email: string;
