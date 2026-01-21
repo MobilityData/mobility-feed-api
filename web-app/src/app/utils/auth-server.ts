@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { app } from '../../firebase';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
+// TODO: for anonymous auth use fireabse admin
 
 /**
  * Retrieves the Firebase access token from the 'firebase_token' cookie.

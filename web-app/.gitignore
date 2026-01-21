@@ -32,3 +32,4 @@ cypress/videos
 
 .next
 next-env.d.ts
+.vercel
