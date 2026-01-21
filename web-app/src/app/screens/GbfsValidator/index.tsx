@@ -1,8 +1,6 @@
 import { OpenInNew } from '@mui/icons-material';
 import { Box, Button, Link, Typography, useTheme } from '@mui/material';
 import React, { useEffect } from 'react';
-import gbfsLogo from './gbfs.svg';
-import githubLogo from './github.svg';
 import GbfsFeedSearchInput from './GbfsFeedSearchInput';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -130,7 +128,7 @@ export default function GbfsValidator(): React.ReactElement {
                     <Box
                       sx={{ width: '225px' }}
                       component={'img'}
-                      src={gbfsLogo}
+                      src='/assets/gbfs.svg'
                       alt='gbfs logo'
                     ></Box>
                   </Box>
@@ -180,7 +178,7 @@ export default function GbfsValidator(): React.ReactElement {
                     <Box
                       sx={{ width: '225px' }}
                       component={'img'}
-                      src={githubLogo}
+                      src='/assets/github.svg'
                       alt='github logo'
                     ></Box>
                   </Box>
