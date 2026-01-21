@@ -5,18 +5,17 @@ import {
   validateFailure,
   type ValidateRequestBody,
 } from '../gbfs-validator-reducer';
-import { getEnvConfig } from '../../utils/config';
 import type { components } from '../../services/feeds/gbfs-validator-types';
 
-const getValidatorBaseUrl = (): string =>
-  getEnvConfig('NEXT_PUBLIC_GBFS_VALIDATOR_API_BASE_URL');
+const getValidatorBaseUrl =
+  String(process.env.NEXT_PUBLIC_GBFS_VALIDATOR_API_BASE_URL) ?? '';
 
 function* runValidation(
   action: ReturnType<typeof validateStart>,
 ): Generator<unknown, void, never> {
   try {
     const payload: ValidateRequestBody = action.payload;
-    const url = `${getValidatorBaseUrl().replace(/\/$/, '')}/validate`;
+    const url = `${getValidatorBaseUrl.replace(/\/$/, '')}/validate`;
     const response: Response = yield call(fetch, url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
