@@ -1,0 +1,1040 @@
+stable_id,provider,country_code,subdivision_name,municipality
+mdb-100,Anaheim Resort Transportation (ART),US,California,Orange
+mdb-1000,Komunikacja Miejska Przemyśl,PL,Subcarpathian Voivodeship,Przemyśl
+mdb-1001,Koleje Wielkopolskie,PL,Wielkopolskie,
+mdb-1002,Komunikacja Miejska - Krosno,PL,Subcarpathian Voivodeship,Jasło County
+mdb-1003,TRAM Barcelona (Tranvía Metropolitano Barcelona),ES,Catalonia,Barcelona
+mdb-1004,TRAM Barcelona Besós (Tranvía Metropolitano Barcelona),ES,Catalonia,Badalona
+mdb-1009,ZDMiKP w Bydgoszczy,PL,Kuyavian-Pomeranian Voivodeship,Bydgoszcz
+mdb-101,Foothill Transit,US,California,Los Angeles County
+mdb-1010,Gmina Zaklad Komunalny (GZK Bystry),PL,Warmian-Masurian Voivodeship,Giżycko County
+mdb-1011,Koleje Mazowieckie (KM),PL,Łódź Voivodeship,Kutno County
+mdb-1012,Miejskie Przedsiębiorstwo Komunikacyjne w Lomzy (MPK ZB w Łomży),PL,Podlaskie Voivodeship,Łomża
+mdb-1013,Zarząd Transportu Miejskiego Lublin (ZTM Lublin),PL,Lublin Voivodeship,Łęczna County
+mdb-1016,UABS-Banlieue Sahel,TN,Al Kaf,أبة
+mdb-1017,Metro de Málaga,ES,Andalusia,Málaga
+mdb-1018,Monkey Forest Ubud Shuttle,ID,Bali,Bali
+mdb-1021,Instituto Regulador del Transporte del Municipio de Managua,NI,Departamento de Managua,Ciudad Sandino (Municipio)
+mdb-1022,Nicaragua,NI,Departamento de Managua,Managua (Municipio)
+mdb-1023,MapaNica Estelí,NI,Estelí,Estelí (Municipio)
+mdb-1027,Republic of Serbia,RS,City of Belgrade,Barajevo Urban Municipality
+mdb-1028,Câmara Municipal de Águeda,PT,Aveiro,Águeda
+mdb-1029,Auckland Transport,NZ,Auckland,Auckland
+mdb-103,El Monte Transit,US,California,Los Angeles County
+mdb-1031,Trentino Trasporti Esercizio (TTE),IT,Lombardy,Anfo
+mdb-1038,Transtejo,PT,Lisbon,Misericórdia
+mdb-1039,TRAM Alicante,ES,Valencian Community,Alacant / Alicante
+mdb-104,Corona Cruiser,US,California,Corona
+mdb-1040,Kautra,LT,Alytus County,Druskininkų savivaldybė
+mdb-1041,Kauno viešasis transportas (KVT),LT,Kaunas County,Akademijos seniūnija
+mdb-1042,Klaipėda Transport,LT,Klaipeda County,Agluonėnų seniūnija
+mdb-1043,Panevezio Autobusu Parkas,LT,Panevezys County,Panevėžio miesto savivaldybė
+mdb-1044,Vilnius Transport,LT,Vilnius County,Avižienių seniūnija
+mdb-1047,Delcomar,IT,Sardinia,Câdesédda/Calasetta
+mdb-1048,Collegamenti marittimi Moby,IT,Regione Autonoma della Sardegna,
+mdb-1049,ASARA GIUSEPPE EREDI AUTOSERVIZI S.R.L.,IT,Sardinia,Abbasanta
+mdb-1050,Collegamenti marittimi Sardinia Ferries,FR,Corsica,Ajaccio
+mdb-1051,Collegamenti marittimi Tirrenia,IT,Regione Autonoma della Sardegna,
+mdb-1052,TRENITALIA,IT,Sardinia,Abbasanta
+mdb-1054,MetroValencia,ES,Valencian Community,Albalat dels Sorells
+mdb-1058,Ferrotramviaria,IT,Apulia,Andria
+mdb-1059,Autolinee Varesine,IT,Lombardy,Agra
+mdb-106,Beaumont Transit,US,California,Beaumont
+mdb-1062,Automobilistico,IT,Veneto,Adria
+mdb-1063,Navigazione,IT,Veneto,Cavallino-Treporti
+mdb-1066,Società Gestione Multipla (SGM),IT,Apulia,Cavallino
+mdb-1067,Roseville Transit,US,California,Rocklin
+mdb-1068,Toremar Toscana Regionale Marittima,IT,Tuscany,Campo nell'Elba
+mdb-1069,Transilien SNCF,FR,Centre-Loire Valley,Broué
+mdb-107,Mountain Transit,US,California,Big Bear Lake
+mdb-1070,Miskolc Városi Közlekedési (MVK),HU,Borsod-Abaúj-Zemplén,Felsőzsolca
+mdb-1071,BayBus,NZ,Bay of Plenty,Kawerau District
+mdb-1072,Wielicka Komunikacja Wewnątrzgminna,PL,Lesser Poland Voivodeship,Kraków County
+mdb-1073,"Yuanlin Passenger Transport (General Manager), CH_中鹿客運(公總) (Zhonglu Passenger Transport (Public Service)), CH_彰化客運(公總) (Changhua Passenger Transport (Public Service))",TW,,
+mdb-1076,"SMRT, SBS Transit (SBST), Land Transport Authority (LTA), Go Ahead Singapore (GAS), Tower Transit (TTS)",MY,Johor,Johor Bahru
+mdb-1077,OVapi,AT,Lower Austria,Bezirk Amstetten
+mdb-108,SunLine Transit Agency,US,California,Riverside County
+mdb-1082,Hofmann Omnibusverkehr GmbH,CZ,Hlavní město Praha,Prague
+mdb-1083,"Fengyuan Passenger Transport, TC_台中客運 (Taichung Passenger Transport), TC_仁友客運 (Renyou Passenger Transport), TC_統聯客運 (Tonglian Passenger Transport), TC_巨業交通 (Juye Traffic), TC_全航客運 (All Air Passenger Transport), TC_和欣客運 (Hexin Passenger Transport), TC_東南客運 (Southeast Passenger Transport),  TC_豐榮客運 (Fengrong Passenger Transport), TC_苗栗客運 (Miaoli Passenger Transport), TC_中台灣客運 (Central Taiwan Passenger Transport), TC_總達客運(公總) (Total passenger (common total)), TC_全航客運(公總) (All-air passenger (common total)), TC_中鹿客運(公總) (Zhonglu Passenger Transport (General)), TC_台中客運(公總) (Taichung Passenger Transport (Common Service)), TC_豐原客運(公總) (Fengyuan Passenger Transport (General)), TC_巨業交通(公總) (Juye Traffic (Public)), TC_彰化客運(公總) (Changhua Passenger Transport (Common Service)), TC_員林客運(公總) (Yuanlin Passenger Transport (General Public Service)), TC_杉林溪遊樂事業(公總) (Shanlinxi Recreation Business (Public Office)), TC_南投客運(公總) (Nantou Passenger Transport (Common Service)), TC_四方公司 (TC_Sifang Company), TC_捷順交通 (Jeshun Transportation), TC_中鹿客運 (Zhonglu Passenger Transport), TC_國光客運(公總) (Guoguang Passenger Transport (General)), TC_國光客運 (Guoguang Passenger Transport), TC_建明客運 (Jianming Passenger Transport), TC_阿羅哈客運(公總) (Aloha Passenger Transport (General)), TC_統聯客運(公總) (Tonglian Passenger Transport (Common Service)), TC_花蓮客運(公總) (Hualien Passenger Transport (General)), TC_總達客運 (Total passenger transport), TC_小黃公車 (Little Yellow Bus), TC_新竹客運(公總) (Hsinchu Passenger Transport (General)), TC_和欣客運(公總) (Hexin Passenger Transport (General Public Service)), TC_臺西客運(公總) (Taixi Passenger Transport (Common Service)
+), TC_大有巴士(公總) (Dayou bus (public bus)), TC_苗栗客運(公總) (Miaoli Passenger Transport (Common Service)), TC_臺中捷運公司 (Taichung MRT Corporation)",TW,Taichung,
+mdb-1084,SWEG Markgräflerland,DE,Baden-Württemberg,Freiburg
+mdb-1085,Verkehrsverbund Pforzheim-Enzkreis (VPE),DE,Baden-Württemberg,Enzkreis
+mdb-1086,Transperth,AU,Western Australia,City Of Albany
+mdb-1088,Société des Transports Intercommunaux de Bruxelles/Maatschappij voor het Intercommunaal Vervoer te Brussel (STIB / MIVB),BE,Brussels-Capital,Anderlecht
+mdb-1089,Regional Rail Transport Germany,AT,Carinthia,Bezirk Spittal an der Drau
+mdb-1090,Public Transport Germany,FI,,
+mdb-1091,"DPN, AVL, CFL, CFLBus, RGTR, TICE, TRAM",BE,Wallonia,Arlon
+mdb-1093,"Regional Bus Stuttgart GmbH RBS, FMO, Regiobus Stuttgart, Friedrich Müller Omnibusunternehmen",DE,Baden-Württemberg,
+mdb-1094,"Rurtalbahn GmbH, ABELLIO Rail, VIAS GmbH, Aachener Straßenbahn und Energieversorgungs-AG, Rurtalbus GmbH, WestVerkehr GmbH, Staatsbahnen, National Express, ASEAG Netliner",BE,Wallonia,Bütgenbach
+mdb-1095,"ABuss OÜ, Aktsiaselts Hansa Bussiliinid, Aktsiaselts MK Autobuss, Alukvik OÜ, Arilix OÜ, AS Lux Express Estonia, Asunduse osaühing, ATG Bussiliinid OÜ, Atko Bussiliinid AS, ATKO Liinid OÜ, ATKO Transport OÜ, Ekspress-Auto L Osaühing, Ekspressbussiliinid osaühing, Elmar Purga FIE, ELRON, Estonian Lines OÜ, GoBus AS, HANSABUSS AS, Kalle Bussid OÜ, MEELIS HEEK, MK Reis-X OÜ, NAJA OÜ, Osaühing Bristol Takso, OSAÜHING FREMANTI, osaühing Tulisilm, OV Ida-Bus OÜ, OÜ Baltic Shuttle, PRESTO osaühing, Radix Transport OÜ, Rannu Rukkilill E.S.T. OÜ, Saaremaa vald, SEBE Aktsiaselts, Sirel Reisid OÜ, Taisto Express OÜ, Tallinna Linnatranspordi AS, TS Laevad OÜ, Tõnu Tours OÜ, Valgis osaühing",AT,Carinthia,Klagenfurt am Wörthersee
+mdb-1098,Waltti - Hämeenlinna,FI,Kanta-Häme,Hämeenlinna
+mdb-11,Amtrak,CA,British Columbia,Vancouver
+mdb-1100,"TUA TRANSDEV, Envibus, Keolis, STCAR",FR,,
+mdb-1102,"Porvoon Museorautatie, Pieksämäen Höyryveturiyhdistys ry",FI,,
+mdb-1103,"Transport for Greater Manchester Arriva in the North West, Atlantic Travel, Bestway Travel, Belle Vue Coaches, Blackburn Private Hire, The Burnley Bus Company, Bullocks Coaches, Cumfy Bus, D&G Bus, Don Fraser Coaches Ltd, Finch Coaches, First Halifax, Calder Valley & Huddersfield, First in Greater Manchester, Little Gem, Go North West, Diamond Bus North West, Harris Travel, Hattons Transport, Hiltons Travel, High Peak, Huyton Travel, Holmeswood Coaches, Link Network, The Blackburn Bus Company, Maghull Coaches, Metrolink, Olympia Travel UK Ltd, Preston Bus, Nexus Move, Rosso, Tyrers, Stagecoach Merseyside and South Lancashire, Stagecoach in Greater Manchester, Selwyn's Travel, South Pennine C.T., Stotts, Travel Assist, Team Pennine, Viking Coaches, Vision Bus, Warrington's Own Buses",GB,England,Blackburn with Darwen
+mdb-1104,"CFR Călători, Astra Trans Carpatic, Calea Ferată din Moldova, Interregional Calatori, Regio Călători, Softrans, Transferoviar Calatori",RO,,
+mdb-1105,"HM Transport Inc. and Robinsons Malls, Froehlich Tours,RRCG Transport, Lingkod Pinoy Bus Liner, Inc., MetroExpress, Tas Trans",PH,,
+mdb-1106,"Manila Light Rail Transit Authority, LTFRB, Manila Metro Rail Transit Corporation, MARINA, Philippine National Railways, The Fort Bus",PH,Pambansang Punong Rehiyon,Manila
+mdb-1108,"Régime Général des Transports Routiers, Ville de Luxembourg - Service Autobus, Chemins de Fer Luxembourgeois, Syndicat des Tramways Intercommunaux dans le Canton d'Esch, Luxtram, Société Nationale des Chemins de Fer Luxembourgeois",BE,Wallonia,Arlon
+mdb-1111,Codiac Transport,CA,New Brunswick,
+mdb-1112,Communauté urbaine du Grand Nancy,FR,Grand-Est,Nancy
+mdb-1114,"Finferries, Alandstrafiken, Rosita Oy, JS Ferryway Ltd Oy, Kuljetus-Savolainen Oy, Archipelago Lines Oy, Sundqvist Investments Oy Ab, Pörtö Line, Nordic Coast Line, Yksityinen, HSL, Vitharun, Espoon kaupunki, Suomen saaristokuljetus, Norsöline, JT-Line Oy, A&S Ravintolat, Merisataman lauttaliikenne, NJK Blekholmen, Ferra Oy, City Cruisers, Aava Lines Oy, Helsingin Risteilypalvelut/TMSJ Group Oy",FI,,
+mdb-1115,"Freiburger Verkehrs AG (VAG), R.A.S.T. Reisen (RAST), Tuniberg Express",DE,Baden-Württemberg,Freiburg im Breisgau
+mdb-1117,Réseau STAN,FR,Grand Est,Art-sur-Meurthe
+mdb-1119,"Horários do Funchal - Transportes Públicos, S.A",PT,Madeira,Camacha
+mdb-1120,"Niš-ekspres, Lasta a.d. Beograd, Strela-Obrenovac",RS,Nisava Administrative District,Градска општина Медијана
+mdb-1123,Komunikacja Miejska Łomianki,PL,Mazowieckie,Łomianki
+mdb-1125,POS-ELY Joensuu,FI,,
+mdb-1127,Waltti - Kotka,FI,Kymenlaakso,Hamina
+mdb-1128,Waltti - Kouvola,FI,Kymenlaakso,Kouvola
+mdb-1129,"Haarasilta Toivo Samuli, Järvisen Liikenne Oy, Koiviston Auto Oy, Lehtimäen Liikenne Oy, Bus Travel Oy Reissu Ruoti, Tilausliikenne Kuisma Ky",FI,Päijät-Häme,Asikkala
+mdb-113,Sage Stage,US,California,Alturas
+mdb-1130,Mikkeli,FI,South Savo,Hirvensalmi
+mdb-1131,Waltti - Vaasa,FI,Ostrobothnia,Korsholm
+mdb-1132,Metlink,NZ,Manawatu-Whanganui,Horowhenua District
+mdb-1135,Bizkaibus,ES,Autonomous Community of the Basque Country,Abadiño
+mdb-1139,"DB, SBB, EC, ÖBB, NS, DSB, MAV, CD, PKP, RE, DPN, RZD, SWX, CFL",AT,Carinthia,Bezirk Klagenfurt-Land
+mdb-1144,InterCity Group,NZ,Auckland,Auckland
+mdb-1146,Mar Chiquita SRL,AR,Córdoba,Córdoba
+mdb-1150,Komunikacja Miejska Płock,PL,Masovian Voivodeship,Płock
+mdb-1151,Komunikacja Miejska Bielawa Dzierżoniów,PL,Lower Silesian Voivodeship,Dzierżoniów County
+mdb-1152,Bürgerbus Leupoldsgrün (Landkreis Hof),DE,Bavaria,Landkreis Hof
+mdb-1154,Regione Piemonte,IT,Piedmont,
+mdb-1158,SRTMedenine,TN,,
+mdb-116,"Tehama Rural Area Express (TRAX), Susanville Indian Rancheria Public Transportation Program",US,California,Anderson
+mdb-1161,TRAINOSE,BG,Blagoevgrad,Blagoevgrad
+mdb-1162,El Transbordador de Vizcaya,ES,Autonomous Community of the Basque Country,Getxo
+mdb-117,Siskiyou County,US,California,Fort Jones
+mdb-1170,Trenitalia Piemonte,FR,Auvergne-Rhône-Alpes,Modane
+mdb-1172,Verkehrsverbund Mittelthüringen (VMT),DE,Bavaria,Bamberg
+mdb-1173,Verkehrsverbund Rhein-Neckar,DE,Baden-Württemberg,Heidelberg
+mdb-1175,ZDZiT Olsztyn,PL,Warmian-Masurian Voivodeship,Olsztyn
+mdb-1176,ZTZ Rybnik,PL,Silesian Voivodeship,Racibórz County
+mdb-1178,Blue & Gold Fleet,US,California,Alameda County
+mdb-1179,Agence métropolitaine de transport,CA,Quebec,Brossard
+mdb-118,Lassen Rural Bus (LRB),US,California,Lassen County
+mdb-1180,MRC les Moulins,CA,Quebec,Bois-des-Filion
+mdb-1182,MRC de Deux-Montagnes,CA,Quebec,Deux-Montagnes
+mdb-1183,Filsland Verkehrsverbund,DE,Baden-Württemberg,Alb-Donau-Kreis
+mdb-1186,Петербургский метрополитен - Petersburg Metro,RU,Leningrad oblast,Pavlovo
+mdb-119,Plumas Transit,US,California,Lassen County
+mdb-1192,Collegamenti marittimi Grimaldi,ES,Catalonia,Barcelona
+mdb-1194,"Bus Company S.r.l., Gunetto Autolinee S.r.l., Bus Company S.r.l., GelosoBus S.r.l., RT Piemonte S.r.l., Autolinee Nuova Benese S.r.l., Autolinee Allasia S.r.l., Nuova S.A.A.R. S.r.l., SAV Autolinee S.r.l., S.A.C. S.r.l., Autolinee Valle Pesio S.r.l., ACTP S.r.l., Nuova Beccaria S.r.l., Giors S.n.c., Consorzio Trasporti GRANDA BUS",IT,Liguria,Cairo Montenotte
+mdb-1198,Long Beach Transit (LBT),US,California,Artesia
+mdb-1199,Société Nationale des Transports Ferroviaires (SNTF Algeria),DZ,Aïn Defla,Ain Defla District
+mdb-12,Avalon Transit,US,California,Avalon
+mdb-1202,OstalbMobil – Verkehrsverbund,DE,Baden-Württemberg,Landkreis Göppingen
+mdb-1205,SNCF,BE,Flanders,Kortrijk
+mdb-1210,"Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)",US,California,Los Angeles
+mdb-1212,Société Régionale Wallonne du Transport,BE,Brussels-Capital,Auderghem - Oudergem
+mdb-1220,Colectivos Buenos Aires,AR,Autonomous City of Buenos Aires,Autonomous City of Buenos Aires
+mdb-1224,Rurtalbahn GmbH | ABELLIO Rail | VIAS GmbH| Aachener Straßenbahn und Energieversorgungs-AG | Rurtalbus GmbH | WestVerkehr GmbH | Staatsbahnen | National Express | ASEAG Netliner,BE,Wallonia,Bütgenbach
+mdb-1227,Waltti - Joensuu,FI,North Karelia,Ilomantsi
+mdb-1229,Bogor Angkots,ID,West Java,West Java
+mdb-1246,Santa Barbara Metropolitan Transit District (MTD),US,California,Carpinteria
+mdb-1251,MerseyLink,AU,Tasmania,
+mdb-1252,HofBus,DE,Bavaria,Hof
+mdb-1255,Komia Liikenne,FI,Etelä-Pohjanmaa,Seinäjoki
+mdb-1258,Pays de la Loire,AT,Lower Austria,St. Pölten
+mdb-1259,TER Pays de la Loire,BE,Brussels-Capital,Saint-Gilles - Sint-Gillis
+mdb-1260,Tram Train,FR,Pays-de-la-Loire,Nantes
+mdb-1262,Delhi Transport Corporation,IN,Delhi,Alipur Tehsil
+mdb-1264,Azienda Varesina Trasporti (AVT),IT,Lombardy,Varese
+mdb-1265,Collegamenti marittimi Grandi Navi Veloci,ES,Catalonia,Barcelona
+mdb-1270,Zarząd Transportu Publicznego w Krakowie (ZTP Kraków),PL,Lesser Poland Voivodeship,Krakow
+mdb-1271,Komunikacja Miejska - Bolesławiec,PL,Lower Silesian Voivodeship,Bolesławiec County
+mdb-1272,"Cascais Próxima, E.M., S.A.",PT,Lisbon,Alcabideche
+mdb-1273,Kragujevac,RS,Sumadija Administrative District,Batocina Municipality
+mdb-1281,Mornington Railway,AU,Victoria,Shire of Mornington Peninsula
+mdb-1288,VINE Transit,US,California,American Canyon
+mdb-1290,PKP Szybka Kolej Miejska (SKM),PL,Pomeranian Voivodeship,Gdańsk
+mdb-1291,Régie Autonome des Transports Parisiens,FR,Ile-de-France,Essonne
+mdb-1292,Rejseplanen,DE,Hamburg,Hamburg
+mdb-1294,Roma Servizi per la Mobilità,IT,Lazio,Anguillara Sabazia
+mdb-1295,Yolo County Transportation District (Yolobus),US,California,Davis
+mdb-13,"San Diego International Airport, Metropolitan Transit System (MTS)",US,California,El Cajon
+mdb-1309,Massachusetts Ferry Service,US,New York,New York County
+mdb-1311,Chiltern Railways,GB,England,Barnsley
+mdb-1313,Metro Christchurch,NZ,Canterbury,Christchurch City
+mdb-1316,La Burundesa S.A.,ES,Autonomous Community of the Basque Country,Irun
+mdb-1317,POSELY,FI,,
+mdb-1319,Trenitalia | Contram Mobilita s.c.p.a. | Trasfer Soc. Cons. a.r.l. | Adriabus spa | Soc. Consortile A.T.M.A. | Start Spa,IT,Emilia-Romagna,Alto Reno Terme
+mdb-1320,Trafiklab,SE,Gävleborg County,Gävleborg County
+mdb-1326,Zarząd Transportu Publicznego w Krakowie (ZTP Kraków),PL,Lesser Poland Voivodeship,Krakow
+mdb-1329,Department of Municipalities and Transport,AE,Abu Dhabi Emirate,
+mdb-1332,Stanislaus Regional Transit Authority (StanRTA),US,California,Alameda County
+mdb-14,North County Transit District (NCTD),US,California,Carlsbad
+mdb-15,Orange County Transportation Authority (OCTA),US,California,Aliso Viejo
+mdb-159,Verde Lynx,US,California,Sacramento County
+mdb-16,Laguna Beach Transit (LBT),US,California,Dana Point
+mdb-17,Yuma County Intergovernmental Public Transportation Authority (YCIPTA),US,California,El Centro
+mdb-1782,SNCF,BE,Brussels-Capital,Saint-Gilles - Sint-Gillis
+mdb-1783,SNCF,BE,Brussels-Capital,Saint-Gilles - Sint-Gillis
+mdb-1788,City of Wasco,US,California,Wasco
+mdb-1791,City Transport Secretary of Rio de Janeiro,BR,Rio de Janeiro,Região Metropolitana do Rio de Janeiro
+mdb-1806,Miramichi Transit,CA,New Brunswick,Miramichi
+mdb-1807,SOMATRA,ML,Bamako,Bamako
+mdb-1808,Anbessa City Bus Service Enterprise,ET,Addis Ababa,Addis Ababa
+mdb-1809,Addis Ababa Transport Authority,ET,Addis Ababa,
+mdb-1810,Socatur,CM,Littoral,Wouri
+mdb-1811,Douala Yellow Taxis,CM,Littoral,Wouri
+mdb-1812,"Freetown Poda-Poda, Sierra Leone Road Transport Corporation, Tagrin Ferry, Freetown Taxi Cab",SL,North Western Province,Port Loko District
+mdb-1813,"14-Seater Paratransit Taxi, Buses operated by Pioneer or Awakula Enumme",UG,Central Region,Kampala Capital City
+mdb-1814,INGEROP,GH,Ashanti,Kumasi
+mdb-1815,DigitalMatatus,KE,Kajiado County,Kajiado County
+mdb-1816,Vitalis Transport,MA,Tangier-Tetouan-Al Hoceima,caïdat d'Allyene عليين
+mdb-1817,GoMonrovia,US,California,Monrovia
+mdb-1818,City of Dixon,US,California,Dixon
+mdb-1819,Anaheim Regional Transportation,US,California,Anaheim
+mdb-1820,Réseau Mistral,FR,Provence-Alpes-Côte-d'Azur,Toulon
+mdb-1823,Eshot,TR,Izmir,Aliağa
+mdb-1824,METRO İZMİR,TR,Kocaeli,Izmit
+mdb-1825,"Agyad, Box Paratransit, Cooperative paratransit 29 Seater (Grey Licenseplates), Cairo Transport Authority, Minibus licensed by CTA, Green Bus, El Masreya, Paratransit 8 Seater Suzuki Chevrolet or DMF (Blue Licenseplates), Paratransit 14 Seater Microbus (Orange Licenseplates)",EG,Al Sharqia Governorate,Al Sharqia Governorate
+mdb-1827,Ljubljanski Potniški Promet,SI,Brezovica,Brezovica
+mdb-1828,IZBAN,TR,Izmir,Aliağa
+mdb-1829,TRAM İZMİR,TR,Izmir,Çiğli
+mdb-1830,"Pumabús, Corredores Concesionados, Sistema de Transporte Colectivo Metro, Metrobús, Servicio de Tren Ligero, Ferrocarriles Suburbanos, Trolebús, Red de Transporte de Pasajeros, Cablebus",MX,Mexico City,Álvaro Obregón
+mdb-1831,Office of Transport and Traffic Policy and Planning,LA,Vientiane Prefecture,Sikhottabong District
+mdb-1832,"Železničná spoločnosť Slovensko, a.s.",AT,Burgenland,Baumgarten/Pajngrt
+mdb-1833,Kautra,LT,Alytus County,Alovės seniūnija
+mdb-1834,Busturas,LT,Kaunas County,Babtų seniūnija
+mdb-1835,Kochi buses and boats,IN,Kerala,Aluva
+mdb-1837,BreizhGo,FR,Brittany,Côtes-d'Armor
+mdb-1838,SEMO,FR,Normandy,Seine-Eure
+mdb-1842,UCSC Transportation and Parking Services,US,California,Santa Cruz
+mdb-1856,Railways of the Generalitat of Catalonia (Ferrocarrils de la Generalitat de Catalunya),ES,Catalonia,Abrera
+mdb-1858,Belleville Transit,CA,Ontario,Belleville
+mdb-1859,Société nationale des chemins de fer belges (NMBS-SNCB),AT,Lower Austria,St. Pölten
+mdb-1860,DeWaterbus,BE,Flanders,Antwerp
+mdb-1864,"Sociedad de Transportes Linea N°5 S.A., Sociedad de Transporte A. Alemania - P. Nuevo S.A - Línea Nº1, Transportes Línea Número Dos Limitada, Transp. P.De Valdivia-P.Las Casas Ltda. Nº3, Transportes Sta. Rosa Limitada., Taxibuses Numero Seis S.A., Empresa Tobalaba, Mall, Cajón S. A. Línea Nº7, Empresa de Transportes Línea Nº 8 P.L. Casas S.A., E. de Transportes de Pasajeros Línea Nueve S.A, Empresa de Transportes Altamira S.A, Fesub",CL,La Araucanía,Temuco
+mdb-1865,"Asociación Gremial Buses Manzanal, Trans-O'higgins, Expreso Rancagua, Asociación de taxibuses Isabel Riquelme, Empresa de Transportes Cordillera Limitada., Asociacion Gremial de Taxibuses Cachapoal de Rancagua",CL,Libertador General Bernardo O'Higgins,Rancagua
+mdb-1866,"Abate Molina Ltda, Sotratal s.a, Taxutal s.a, Interbus, Talmocur, Buscarril",CL,Maule,Talca
+mdb-1868,TEC,BE,Brussels-Capital,Auderghem - Oudergem
+mdb-1870,Generalitat Valenciana (Intercity bus),ES,Aragon,Abejuela
+mdb-1871,Rider Express,CA,Alberta,Alberta
+mdb-1872,Clean Air Express,US,California,Goleta
+mdb-1882,Fluo,FR,Grand Est,"Bar-le-Duc, Verdun, Commercy"
+mdb-1883,TAC,CH,Geneva,Geneva
+mdb-1886,Bmob,FR,Normandy,Bernay
+mdb-1889,Ales'Y,FR,Occitania,Alès
+mdb-1892,Tout'enbus,FR,Auvergne-Rhône-Alpes,Ucel
+mdb-1898,Agglobus,FR,Centre-Loire Valley,Bourges
+mdb-1899,Les Saisies,FR,Auvergne-Rhône-Alpes,Albertville
+mdb-19,Humboldt Transit Authority,US,California,Arcata
+mdb-1901,"Dopravní podnik města Olomouce, a. s.",CZ,Olomouc Region,Bukovany
+mdb-1902,"Dopravní podnik měst Liberce a Jablonce nad Nisou, a. s.",CZ,Liberecký kraj,Bedřichov
+mdb-1903,V-BUSZ KFT,HU,Veszprém,Veszprém
+mdb-1907,Białostocka Komunikacja Miejska,PL,Podlaskie Voivodeship,Białystok
+mdb-1908,Koleje Małopolskie,PL,Lesser Poland Voivodeship,Bochnia County
+mdb-1909,Transjakarta,ID,Banten,Benda
+mdb-1914,"Ayuntamiento del Municipio de Santiago, Oficina Metropolitana de Servicios de Autobuses, Instituto Nacional de Tránsito y Transporte Terrestre",DO,Dajabón,Dajabón
+mdb-1915,OSYPA,CY,Limassol District,Limassol District
+mdb-1916,OSEA,CY,Famagusta District,Famagusta District
+mdb-1917,Intercity buses,CY,Famagusta District,Famagusta District
+mdb-1918,NPT,CY,Larnaca District,Larnaca District
+mdb-1919,LPT,CY,Larnaca District,Larnaca District
+mdb-1924,Hong Kong Government Transport Department,CN,Guangdong Province,Futian District
+mdb-1927,Transportes Urbanos de Braga (TUB),PT,Braga,Adaúfe
+mdb-1928,Brighton & Hove Bus,GB,England,Brighton and Hove
+mdb-1929,Borders Buses,GB,England,Cumbria
+mdb-1930,Blackpool Transport,GB,England,Blackpool
+mdb-1931,Cardiff Bus,GB,Wales,Cardiff
+mdb-1932,Carousel Buses,GB,England,England
+mdb-1933,East Yorkshire,GB,England,Calderdale
+mdb-1934,Go Cornwall Bus,GB,England,Cornwall
+mdb-1935,Go North East,GB,England,County Durham
+mdb-1936,Go North West,GB,Manchester,
+mdb-1937,Green Line 702,GB,England,Bracknell Forest
+mdb-1938,Hedingham and Chambers,GB,England,Essex
+mdb-1939,Intalink,GB,England,Bedford
+mdb-1940,konectbus,GB,England,Norfolk
+mdb-1941,McGill's Buses,GB,Scotland,East Dunbartonshire
+mdb-1942,Metrobus,GB,England,Brighton and Hove
+mdb-1943,Morebus,GB,England,Dorset
+mdb-1944,Newbury & District,GB,England,Hampshire
+mdb-1945,Newport Bus,GB,England,City of Bristol
+mdb-1946,Nottingham City Transport,GB,England,City of Nottingham
+mdb-1947,Oxford Bus,GB,England,City of Westminster
+mdb-1948,Plymouth Citybus,GB,England,Cornwall
+mdb-1949,Reading Buses,GB,England,Bracknell Forest
+mdb-1950,Salisbury Reds,GB,England,Dorset
+mdb-1951,Southern Vectis,GB,England,Isle of Wight
+mdb-1952,Swindon's Bus Company,GB,England,Bath and North East Somerset
+mdb-1953,Transdev Blazefield,GB,England,Blackburn with Darwen
+mdb-1954,Unibus,GB,England,Dorset
+mdb-1955,Unilink,GB,England,Hampshire
+mdb-1956,Warrington's Own Buses,GB,England,Cheshire East
+mdb-1957,West Coast Motors,GB,Scotland,Argyll and Bute
+mdb-1959,Sheger City Bus,ET,Addis Ababa,
+mdb-1960,"Harare Kombis, City Shuttle",ZW,Harare,
+mdb-1961,"Kigali Bus Services, Rwanda Federation of Transport Cooperatives (RFTC), Royal Express",RW,Kigali City,Gasabo District
+mdb-1962,"Kigali Bus Services, Rwanda Federation of Transport Cooperatives (RFTC), Royal Express",RW,Kigali City,Gasabo District
+mdb-1963,"Esprit de Mort, Esprit de Vie, Transco, Taxi Jaune, Moto",CD,Kinshasa,Kinshasa
+mdb-1964,"Esprit de Mort, Esprit de Vie, Transco, Taxi Jaune",CD,Kinshasa,Kinshasa
+mdb-1965,"Esprit de Mort, Esprit de Vie, Transco, Taxi Jaune",ZA,Western Cape,Cape Winelands District Municipality
+mdb-1970,Shuttler,CH,Bern,Interlaken-Oberhasli administrative district
+mdb-1974,Tri Delta Transit,US,California,Contra Costa County
+mdb-1984,Consiliul Judetean Vrancea,RO,Galați,Galați
+mdb-1985,Aeroexpreso,BO,La Paz,Provincia Manco Kapac
+mdb-1988,Communauté dʼAgglomération Amiens Métropole,FR,Hauts-de-France,Allonville
+mdb-1991,BC Transit (Central Fraser Valley | Chilliwack | Agassiz-Harrison | Hope),CA,British Columbia,Abbotsford
+mdb-1992,Red Deer Transit,CA,Alberta,City of Red Deer
+mdb-1993,Go Transit,CA,Ontario,Ajax
+mdb-1994,Brampton Transit,CA,Ontario,Brampton
+mdb-1995,Union Pearson Express (UP Express),CA,Ontario,Mississauga
+mdb-1996,Société de Transport de Sherbrooke,CA,Quebec,Sherbrooke
+mdb-1997,Lethbridge Transit,CA,Alberta,Lethbridge
+mdb-1999,Beach Cities Transit,US,California,El Segundo
+mdb-2,London Transit Commission,CA,Ontario,London
+mdb-20,Redwood Coast Transit (RCT),US,California,Del Norte County
+mdb-2002,STGA - réseau Möbius,FR,New Aquitaine,Angoulême
+mdb-2008,ASPO Olbia,IT,Sardinia,Loiri-Poltu Santu Paolu/Loiri Porto San Paolo
+mdb-2009,Azienda Trasporti Pubblici (ATP Sassari),IT,Sardinia,Posthudorra/Porto Torres
+mdb-2012,SIMUR Bogota,CO,Distrito Capital de Bogotá,
+mdb-2014,UK aggregate feed,GB,,
+mdb-2015,Pasažieru Vilciens,EE,Valga maakond,Valga vald
+mdb-2016,Liepājas sabiedriskais transports,LV,Courland,Liepaja
+mdb-2017,Rēzeknes satiksme,LV,,
+mdb-2018,Jūrmalas autobusu satiksme,LV,Vidzeme,Jūrmala
+mdb-2020,STP Brindisi,IT,Apulia,Ostuni
+mdb-2021,STP Brindisi,IT,Apulia,Brindisi
+mdb-2022,STP Brindisi,IT,Apulia,Brindisi
+mdb-2023,STP Brindisi,IT,Apulia,Francavilla Fontana
+mdb-2027,Carris Metropolitana,PT,Évora,Landeira
+mdb-2030,reLAXsan,US,California,Los Angeles
+mdb-2031,Aquabus Ferries,CA,British Columbia,Vancouver
+mdb-2033,Secretaría de Movilidad Oaxaca,MX,Oaxaca,Ánimas Trujano
+mdb-2034,Direccion General de Transporte Publico de Puerto Vallarta,MX,Jalisco,Puerto Vallarta
+mdb-2036,Bean Shuttle,AT,Lower Austria,Bezirk Bruck an der Leitha
+mdb-2053,Systemaufgaben Kundeninformation SKI+,CH,Appenzell Ausserrhoden,Vorderland
+mdb-2055,Daytrip Shuttle,IT,Campania,Naples
+mdb-2056,Daytrip Shuttle,PT,Coimbra,"Sé Nova, Santa Cruz, Almedina e São Bartolomeu"
+mdb-2057,CP - Comboios de Portugal,PT,Aveiro,Águeda e Borralha
+mdb-2059,Morro Bay Transit,US,California,Morro Bay
+mdb-2077,Socatur,CM,Littoral,Wouri
+mdb-2078,Divers opérateurs,CI,Abidjan,
+mdb-2079,Broome County Transit (B.C. Transit),US,New York,Binghamton
+mdb-2084,Miejski Zakład Komunikacji w Wejherowie (MZK Wejherowo),PL,Pomeranian Voivodeship,Wejherowo County
+mdb-2085,Komunikacja Autobusowa Świnoujście (KA Świnoujście),PL,West Pomeranian Voivodeship,Kamień County
+mdb-2086,Miejski Zakład Komunikacji w Ełku (MZK Ełk),PL,Warmian-Masurian Voivodeship,Ełk County
+mdb-2087,Polregio,DE,Berlin,Berlin
+mdb-2088,Polskie Koleje Państwowe Intercity (PKP Intercity),CZ,Moravskoslezský kraj,Bohumín
+mdb-2089,Urząd Miasta Torunia (MZK Toruń),PL,Kuyavian-Pomeranian Voivodeship,Toruń
+mdb-209,Academy Bus,US,New York,New York County
+mdb-2090,MZDiK Radom,PL,Masovian Voivodeship,Radom
+mdb-2091,Warszawska Kolej Dojazdowa (WKD),PL,Masovian Voivodeship,Grodzisk Mazowiecki County
+mdb-2092,Warszawski Transport Publiczny (ZTM Warszawa),PL,Masovian Voivodeship,Grójec County
+mdb-2093,Zarząd Transportu Miejskiego Gdańsk (ZTM Gdańsk),PL,Pomeranian Voivodeship,Gdańsk
+mdb-2094,Zarząd Dróg i Zieleni Gdynia (ZKM Gdynia),PL,Pomeranian Voivodeship,Gdańsk
+mdb-2098,Asociația de Dezvoltare Intercomunitară pentru Transport Public București – Ilfov (TPBI),RO,Bucharest,Bucharest
+mdb-2099,Tursib Sibiu,RO,Sibiu,Sibiu
+mdb-2100,CT BUS Constanța,RO,Constanța,Constanța
+mdb-2101,Oradea Transport Local,HU,Hajdú-Bihar,Ártánd
+mdb-2102,Transurbis Zalău,RO,Sălaj,Sălaj
+mdb-2106,Transbus Buzău,RO,Buzău,Buzău
+mdb-2107,Servicii Publice Municipale Târgoviște,RO,Dâmbovița,Dâmbovița
+mdb-2108,Transport Călători Express Ploiești,RO,Prahova,Prahova
+mdb-211,Alhambra Community Transit,US,California,Los Angeles County
+mdb-2114,Transport Urban Sinaia,RO,Prahova,Prahova
+mdb-2115,RAT Craiova,RO,Dolj,Dolj
+mdb-2116,Compania de Transport Public Iași,RO,Iași,Iași
+mdb-2119,Trolleybus Transport Pleven,BG,Pleven,Pleven
+mdb-2121,Compania de Transport Public Cluj-Napoca,RO,Cluj,Cluj
+mdb-2126,Société de transport de Montréal (STM),CA,Quebec,Baie-D'Urfé
+mdb-2131,Saint John Transit,CA,New Brunswick,Grand Bay-Westfield
+mdb-2132,T3 Transit,CA,Prince Edward Island,Brackley
+mdb-2134,Daytrip Shuttle,MX,Quintana Roo,Benito Juárez
+mdb-2135,El Dorado Transit Agency,US,California,El Dorado County
+mdb-2136,Elk Grove Transit,US,California,Sacramento
+mdb-2137,Sacramento Regional Transit (SacRT),US,California,Placer County
+mdb-2138,OBB Personenverkehr AG Kundenservice,AT,Burgenland,Baumgarten/Pajngrt
+mdb-214,Antelope Valley Transit Authority (AVTA),US,California,Beverly Hills
+mdb-2141,Consorcio de Transportes de Mallorca,ES,Balearic Islands,Alaró
+mdb-2142,Exo Le Richelain / Roussillon,CA,Quebec,Brossard
+mdb-2143,Regia Autonomă De Transport Brașov,RO,Brașov,Brașov
+mdb-2148,Sociedade de Transportes Colectivos do Porto,PT,Porto,Águas Santas
+mdb-2149,BurbankBus,US,California,Burbank
+mdb-2150,Gobierno de Navarra (Navarra intercity bus),ES,Aragon,Mallén
+mdb-2151,Daytrip Shuttle,CR,Alajuela Province,Cantón Alajuela
+mdb-2154,Ottawa-Carleton Regional Transit Commission (OC Transpo),CA,Ontario,Cumberland
+mdb-2155,Integrated Transit System of the South Moravian Region (IDS JMK),AT,Lower Austria,Bezirk Hollabrunn
+mdb-2172,Manteca Transit,US,California,Lathrop
+mdb-2174,MOVE Stanislaus,US,California,Alameda County
+mdb-2180,San Joaquin Regional Transit District,US,California,San Joaquin County
+mdb-2186,Stanislaus Regional Transit Authority,US,California,Alameda County
+mdb-2187,City of Tracy,US,California,
+mdb-2190,Palo Verde Valley Transit Agency,US,California,Blythe
+mdb-22,Curry Public Transit,US,California,Del Norte County
+mdb-220,City of Banning Transit,US,California,Banning
+mdb-2200,TMT Trujillo - Gerencia de Transporte,PE,La Libertad,El Porvenir
+mdb-2201,Montebello Bus Lines,US,California,Alhambra
+mdb-2202,Spirit Bus,US,California,Alhambra
+mdb-2203,South County Transit Link,US,California,Sacramento County
+mdb-2204,Kings Area Rural Transit,US,California,Avenal
+mdb-2207,Glenn Transit Service,US,California,Butte County
+mdb-2210,El Segundo Transportation,US,California,El Segundo
+mdb-2212,Empresa Malagueña de Transportes (EMT),ES,Andalusia,Málaga
+mdb-2224,Emery Go-Round,US,California,Alameda County
+mdb-2231,Karlsruher Verkehrsverbund,DE,Baden-Württemberg,Baden-Baden
+mdb-2233,Arvin Transit,US,California,Arvin
+mdb-2234,Camarillo Area Transit,US,California,Camarillo
+mdb-2235,San Juan Capistrano Free Weekend Trolley,US,California,San Juan Capistrano
+mdb-2236,Taft Area Transit,US,California,Taft
+mdb-2237,Thousand Oaks Transit,US,California,Thousand Oaks
+mdb-2238,West Berkeley Shuttle,US,California,Berkeley
+mdb-2243,Arcadia Transit,US,California,Los Angeles County
+mdb-2247,Baldwin Park Transit,US,California,Irwindale
+mdb-2248,Cudahy Area Rapid Transit,US,California,Bell
+mdb-2249,City of Bell (La Campana),US,California,Bell
+mdb-2250,La Puente LINK,US,California,Los Angeles County
+mdb-2251,Sierra Madre Gateway Coach,US,California,Pasadena
+mdb-2253,Toronto Transit Commission (TTC),CA,Ontario,East York
+mdb-226,University of California Berkeley Shuttle (Bear Transit),US,California,Albany
+mdb-227,Bellflower Bus,US,California,Los Angeles County
+mdb-2270,GTrans,US,California,Carson
+mdb-2272,Santa Maria Area Transit,US,California,San Luis Obispo County
+mdb-2273,Stanislaus Regional Transit (StaRT),US,California,Alameda County
+mdb-2275,Auburn Transit,US,California,Auburn
+mdb-2276,Société des transports de Rimouski,CA,Quebec,Rimouski
+mdb-2279,Ridgecrest Transit,US,California,Kern County
+mdb-228,Bell Gardens Trolley,US,California,Bell Gardens
+mdb-2295,Amtrak San Joaquins,US,California,Antioch
+mdb-2297,Amtrak Vermonter,US,New York,City of Saratoga Springs
+mdb-2312,Hudson Link,US,New York,Airmont
+mdb-2315,Thousand Oaks Transit - Kanan Shuttle,US,California,Agoura Hills
+mdb-2317,Kiryas Joel Area Transit,US,New York,Kiryas Joel
+mdb-2321,Megabus,CA,Ontario,Brockville
+mdb-2324,Middletown Area Transit,US,New York,Middletown
+mdb-2328,North Lake Tahoe Express,US,California,Nevada County
+mdb-2329,eBus,NZ,Nelson,Nelson
+mdb-233,Birnie Bus,US,New York,Delaware County
+mdb-2333,Münchner Verkehrsgesellschaft (MVG),DE,Bavaria,Landkreis Dachau
+mdb-2336,MSRTC Transit,IN,Maharashtra,Ratnagiri
+mdb-2337,Latvia by Gustavs Svalbe gsvalbe.id.lv,EE,Valga maakond,Valga vald
+mdb-2341,"Regia Transport Electric Chișinău, Î.M. Parcul Urban de Autobuze",MD,Chișinău Municipality,Chișinău Municipality
+mdb-2345,Municipality of Tirana,AL,Tirana County,Dajt
+mdb-2353,Westchester County Bee-Line System (WCDOT),US,New York,Ardsley
+mdb-2357,Metro do Porto,PT,Porto,Árvore
+mdb-2359,Transports Metropolitans de Barcelona (TMB),ES,Catalonia,Badalona
+mdb-236,Blossom Express,US,California,San Joaquin County
+mdb-2360,Mitteldeutscher Verkehrsverbund GmbH (MDV),DE,Brandenburg,Elbe-Elster
+mdb-2361,Dana Point Trolley,US,California,Dana Point
+mdb-2362,San Clemente Trolley,US,California,Dana Point
+mdb-2364,Transport for Ireland (TFI),GB,Northern Ireland,Northern Ireland
+mdb-2366,"Mi Transporte, Mi Transporte Eléctrico, Mi Macro, Mi Tren, SiTren",MX,Jalisco,El Salto
+mdb-2367,METROFOR,BR,Ceará,Região Geográfica Intermediária de Fortaleza
+mdb-2370,Trasporto Passeggeri Emilia-Romagna,IT,Emilia-Romagna,Bologna
+mdb-2371,Trasporto Passeggeri Emilia-Romagna,IT,Emilia-Romagna,Alfonsine
+mdb-2372,Trasporto Passeggeri Emilia-Romagna,IT,Emilia-Romagna,Alto Reno Terme
+mdb-2373,AMAT Palermo S.P.A.,IT,Sicily,Altofonte
+mdb-2374,Lvivavtodor,UA,Lviv Oblast,Lviv Raion
+mdb-2377,Željeznički prevoz Crne Gore,ME,Bar Municipality,Limljani
+mdb-2379,Société de transport collectif de Pierre-De Saurel,CA,Quebec,Longueuil
+mdb-2381,Isparta Özel Halk Otobüsleri,TR,Gaziantep,Şahinbey
+mdb-2385,B-Bus,LT,Kaunas County,Balbieriškio seniūnija
+mdb-2386,Nouvelle-Aquitaine Mobilités,ES,Aragon,Canfranc
+mdb-2387,Zarząd Transportu Miejskiego Rzeszów (ZTM Rzeszów),PL,Subcarpathian Voivodeship,Łańcut County
+mdb-2389,Hullo Ferries,CA,British Columbia,Nanaimo
+mdb-2393,NVBW - Nahverkehrsgesellschaft Baden-Württemberg mbH,AT,Carinthia,Bezirk Spittal an der Drau
+mdb-2394,Yosemite Area Regional Transportation System (YARTS),US,California,Fresno
+mdb-2399,ZTM Katowice,PL,Lesser Poland Voivodeship,Oświęcim County
+mdb-2400,Empresa Municipal de Transportes de Fuenlabrada (EMTF),ES,Community of Madrid,Fuenlabrada
+mdb-2407,Metro Sabanas,CO,Sucre,Sucre
+mdb-2408,"Metro Transportes do Sul, Metro Sul do Tejo",PT,Setúbal,"Almada, Cova da Piedade, Pragal e Cacilhas"
+mdb-2417,Maritime Bus,CA,New Brunswick,Burton Parish
+mdb-2421,County Connection (CCCTA),US,California,Alameda County
+mdb-2425,Santa Cruz Metro (SCMTD),US,California,Santa Clara County
+mdb-2449,Transport for New South Wales,AU,Australian Capital Territory,Australian Capital Territory
+mdb-2450,"Red Metropolitana de Movilida, EFE Trenes de Chile, Bus de Acercamiento Aeropuerto, Metro de Santiago",CL,Región del Libertador General Bernardo O'Higgins,Provincia de Cachapoal
+mdb-2455,Alameda-Contra Costa Transit District (AC Transit),US,California,Alameda County
+mdb-2457,Hyderabad Metro Rail Ltd.,IN,Telangana,Amberpet mandal
+mdb-2460,Fredericton Transit,CA,New Brunswick,Douglas Parish
+mdb-2461,PKS Kalisz,PL,Greater Poland Voivodeship,Kalisz
+mdb-2462,BC Transit (Hazelton | Kitimat | Terrace),CA,British Columbia,Area B (Suskwa/Kitwanga/Kispiox)
+mdb-2463,BC Transit (Quesnel),CA,British Columbia,Area A (Red Bluff/Quesnel South)
+mdb-2464,BC Transit (Revelstoke),CA,British Columbia,Revelstoke
+mdb-2466,BC Transit (Salt Spring Island),CA,British Columbia,Salt Spring Island Electoral Area
+mdb-2467,BC Transit (Mount Waddington),CA,British Columbia,Area B (Quatsino Sound/Cape Scott)
+mdb-2468,BC Transit (Ashcroft-Cache Creek-Clinton Transit System),CA,British Columbia,Ashcroft
+mdb-2469,BC Transit (100 Mile House),CA,British Columbia,100 Mile House
+mdb-2470,BC Transit (Pemberton Valley),CA,British Columbia,Area C (Pemberton Valley/Mount Currie/D'Arcy)
+mdb-2471,BC Transit (Merritt),CA,British Columbia,Area M (Beautiful Nicola Valley - North)
+mdb-2472,BC Transit (Smithers),CA,British Columbia,Area A (Hudson Bay Mountain)
+mdb-2473,BC Transit (Nanaimo),CA,British Columbia,Area A (Cassidy/Cedar)
+mdb-25,Eastern Sierra Transit,US,California,Inyo County
+mdb-2508,BC Transit (Shuswap | Vernon),CA,British Columbia,Area B (Westside/Swan Lake/Kalamalka Lake)
+mdb-2510,BC Transit (Bulkley-Nechako | Prince George),CA,British Columbia,Area A (Hudson Bay Mountain)
+mdb-2514,BC Transit (Campbell River Transit),CA,British Columbia,Area D (Oyster Bay/Buttle Lake)
+mdb-2515,BC Transit (Clearwater),CA,British Columbia,Area A (Wells Gray Country)
+mdb-2519,Ministry of Transport and Road Safety,IL,Center District,haSharon Subdistrict
+mdb-2520,BC Transit (Columbia Valley | Cranbrook | Elk Valley | Kimberley),CA,British Columbia,Area A (Upper Flathead/Elk Valley)
+mdb-2524,BC Transit (Comox Valley Transit System),CA,British Columbia,Area A (Baynes Sound)
+mdb-2528,BC Transit (Cowichan Valley Regional Transit System),CA,British Columbia,Area A (Mill Bay / Malahat)
+mdb-2529,BC Transit (Powell River Regional Transit System),CA,British Columbia,Area A (Malaspina/Toba)
+mdb-2532,BC Transit (South Okanagan-Similkameen),CA,British Columbia,Area A (Osoyoos Lake)
+mdb-2536,BC Transit (Creston Valley),CA,British Columbia,Area A
+mdb-2543,BC Transit (Port Edward | Prince Rupert),CA,British Columbia,Port Edward
+mdb-2547,BC Transit (Fort St John Transit System),CA,British Columbia,Fort St. John
+mdb-2551,BC Transit (Kamloops Transit System),CA,British Columbia,British Columbia
+mdb-2555,BC Transit (Kelowna Regional Transit System),CA,British Columbia,British Columbia
+mdb-2563,BC Transit (Squamish),CA,British Columbia,British Columbia
+mdb-2567,BC Transit (Sunshine Coast Transit System),CA,British Columbia,Area B (Halfmoon Bay)
+mdb-2571,BC Transit (Victoria Regional Transit System),CA,British Columbia,British Columbia
+mdb-2575,BC Transit (West Coast),CA,British Columbia,Area C (Long Beach)
+mdb-2579,BC Transit (West Kootenay Transit System),CA,British Columbia,Area A (Pend Oreille/Bear Creek)
+mdb-2583,BC Transit (Whistler Transit System),CA,British Columbia,Whistler Resort Municipality
+mdb-2587,BC Transit (Williams Lake),CA,British Columbia,British Columbia
+mdb-2591,Medicine Hat Transit,CA,Alberta,Medicine Hat
+mdb-2595,Bangalore Metropolitan Transport Corporation (BMTC),IN,Karnataka,Anekal
+mdb-2596,Nuup Bussii A/S,GL,Sermersooq,Sermersooq
+mdb-2597,Zarząd Komunikacji Miejskiej w Elblągu (ZKM Elbląg),PL,Warmian-Masurian Voivodeship,Elbląg
+mdb-2598,Zarząd Transportu Publicznego w Krakowie (ZTP Kraków),PL,Lesser Poland Voivodeship,Krakow
+mdb-2602,Moose Jaw Transit,CA,Saskatchewan,Moose Jaw
+mdb-2603,Rouyn-Noranda,CA,Quebec,Rouyn-Noranda
+mdb-2610,AMT Genova,IT,Liguria,Casella
+mdb-2611,St Lawrence County Public Transit,US,New York,Franklin County
+mdb-2615,Sark Shipping,GG,,
+mdb-2618,Hamilton Street Railway,CA,Ontario,Burlington
+mdb-2632,Viação Senhor do Bonfim,BR,Rio de Janeiro,Angra dos Reis
+mdb-2635,Dublin Bus,IE,Leinster,County Dublin
+mdb-2636,Bus Éireann,GB,Northern Ireland,Northern Ireland
+mdb-2637,Irish Rail,GB,Northern Ireland,Northern Ireland
+mdb-2638,LUAS,IE,Leinster,County Dublin
+mdb-2639,GoAhead Ireland,IE,Leinster,County Dublin
+mdb-2640,Aircoach,GB,Northern Ireland,Northern Ireland
+mdb-2648,Huntington Park Express,US,California,Bell
+mdb-2650,Gloversville Transit System,US,New York,City of Johnstown
+mdb-2651,Verkehrsverbund Rhein-Ruhr,DE,North Rhine-Westphalia,
+mdb-2653,Renfe commuter trains (Cercanias),ES,Andalusia,Álora
+mdb-2661,TrafikLab,AT,Carinthia,Villach
+mdb-2666,Azienda Trasporti MIlanesi (ATM),IT,Lombardy,Arese
+mdb-2667,The Santa Cruzer,US,California,Santa Cruz
+mdb-2668,Centrale Operativa REgionale (CORE) Calabria,IT,Basilicata,Castelluccio Inferiore
+mdb-2675,Transport Canberra,AU,Australian Capital Territory,Canberra
+mdb-2680,Funicular de Artxanda,ES,Autonomous Community of the Basque Country,Bilbao
+mdb-2681,Bilbobus,ES,Autonomous Community of the Basque Country,Arrigorriaga
+mdb-2682,dBus (Donostiabus),ES,Autonomous Community of the Basque Country,Astigarraga
+mdb-2683,Metro Bilbao,ES,Autonomous Community of the Basque Country,Barakaldo
+mdb-2684,Altamont Corridor Express,US,California,Alameda County
+mdb-2687,Gruppo Torinese Trasporti,IT,Piemont,Agliè
+mdb-2688,Essex County Council,GB,England,Cambridgeshire
+mdb-2689,Kombus,PL,Greater Poland Voivodeship,Poznań
+mdb-2690,Junta de Extremadura (Extremadura Regional Government Buses),ES,Castile and León,Béjar
+mdb-2691,La Regional Vallisoletana S.A,ES,Castile and León,Arroyo de la Encomienda
+mdb-27,Airport Valet Express,US,California,Kern County
+mdb-2708,SamTrans,US,California,San Mateo County
+mdb-2709,Trinity Transit,US,California,Humboldt County
+mdb-2710,Kocaeli Toplu Taşıma,TR,Kocaeli,
+mdb-2711,Urban Buses Dos Hermanas,ES,Andalusia,Dos Hermanas
+mdb-2712,Samar Buses,ES,Andalusia,Alcaudete
+mdb-2713,AUCORSA (Autobuses de Córdoba S.A.),ES,Andalusia,Cordova
+mdb-2714,Vectalia Movilidad (Cáceres city bus),ES,Extremadura,Cáceres
+mdb-2715,Euskotren,ES,Autonomous Community of the Basque Country,Abadiño
+mdb-2716,Transports Municipals D’Egara (TMESA) Terrassa city bus,ES,Catalonia,Rubí
+mdb-2717,Renfe Feve,ES,Castile and León,Boñar
+mdb-2718,Autobuses La Unión (ALU),ES,Autonomous Community of the Basque Country,Abanto y Ciérvana-Abanto Zierbena
+mdb-2719,Pamplona Region Bus (TCC Pamplona),ES,Navarre,Ansoáin/Antsoain
+mdb-2720,Consorcio Regional de Transportes de Madrid CRTM Commuter Network (Red de Cercanías),ES,Castile and León,Real Sitio de San Ildefonso
+mdb-2721,Network of Metropolitan Transport Consortiums of Andalusia,ES,Andalusia,Adra
+mdb-2722,Ferry Fred. Olsen (Fred Olsen Express),ES,Tenerife,
+mdb-2723,Unauto (Ruiz Group),ES,Castile-La Mancha,Toledo
+mdb-2724,Auif Irunbus (Lurraldebus),ES,Autonomous Community of the Basque Country,Hondarribia/Fontarrabie
+mdb-2725,Lurraldebus Oiartzun (Xorrola),ES,Autonomous Community of the Basque Country,Oiartzun
+mdb-2726,Lurraldebus Tolosaldea,ES,Autonomous Community of the Basque Country,Abaltzisketa
+mdb-2727,AECFA (Spanish Association for the Coordination and Facilitation of Time Strips),ES,Andalusia,Almeria
+mdb-2728,Lurraldebus Zarautz,ES,Autonomous Community of the Basque Country,Zarautz
+mdb-2729,Tranvía de Murcia (TDM),ES,Region of Murcia,Murcia
+mdb-2730,AUVASA (Valladolid city bus),ES,Castile and León,Arroyo de la Encomienda
+mdb-2731,Lurraldebus Ekialdebus,ES,Autonomous Community of the Basque Country,Astigarraga
+mdb-2732,Lurraldebus Goierrialdea,ES,Autonomous Community of the Basque Country,Altzaga
+mdb-2733,Lurraldebus Arrasate,ES,Autonomous Community of the Basque Country,Arrasate / Mondragón
+mdb-2734,Lurraldebus - Hernani Urban (Hernani city bus),ES,Autonomous Community of the Basque Country,Hernani
+mdb-2735,Lurraldebus Eibar,ES,Autonomous Community of the Basque Country,Eibar
+mdb-2736,Lurraldebus Guipuzcoana (La Guipuzcoana),ES,Autonomous Community of the Basque Country,Aizarnazabal
+mdb-2737,Oñati urban (Oñatiko herribusa),ES,Autonomous Community of the Basque Country,Oñati
+mdb-2748,Gobierno de Cantabria (Buses in Cantabria),ES,Aragon,Teruel
+mdb-2749,TCC Barcelona Buses,ES,Catalonia,Sant Sadurní d'Anoia
+mdb-2750,Pujol,ES,Catalonia,Blanes
+mdb-2751,Transports Municipals del Gironés SAU (TMG) Girona city bus,ES,Catalonia,Aiguaviva
+mdb-2752,Autocares Rías Baixas (Rías Baixas Coaches),ES,Galicia,A Estrada
+mdb-2753,Autobusos de Lleida (Lleida buses),ES,Catalonia,Lleida
+mdb-2754,Moventis Empresa Casas (Casas Company Buses),ES,Catalonia,Alella
+mdb-2755,Moventis Sarbus (Buses Sarbus – La Vallesana),ES,Catalonia,Albatàrrec
+mdb-2756,Lurraldebus Euskotren bus,ES,Autonomous Community of the Basque Country,Abadiño
+mdb-2757,Lurraldebus TBH (Interurban Tolosa Buruntzaldea),ES,Autonomous Community of the Basque Country,Andoain
+mdb-2758,Tolosa City Council (Urbano de Tolosa),ES,Autonomous Community of the Basque Country,Tolosa
+mdb-2759,Lurraldebus Urbano de Errentería (Errenteria Urbanoa),ES,Autonomous Community of the Basque Country,Astigarraga
+mdb-2760,Lurraldebus Lasarte,ES,Autonomous Community of the Basque Country,Lasarte-Oria
+mdb-2761,Direxis Masats,ES,Catalonia,Castellfollit del Boix
+mdb-2762,TUS (Transportes Urbanos de Santander),ES,Cantabria,Santander
+mdb-2763,TIB Transports of the Balearic Islands - CIME Consell Insular de Menorca (Menorca Island Bus),ES,Balearic Islands,Alaior
+mdb-2764,Moventis Sarfa (Sarfa buses),ES,Catalonia,Albanyà
+mdb-2765,Urban Buses of Ciudad Real (AISA),ES,Castile-La Mancha,Ciudad Real
+mdb-2766,TIB Transports de les Illes Balears - CTM Transport Consortium of Mallorcam (Public transport on the island of Mallorca),ES,Balearic Islands,Alaró
+mdb-2767,La Coruña Tram Company SA,ES,Galicia,A Coruña
+mdb-2768,Avanza Grupo (Mataró city bus),ES,Catalonia,Mataró
+mdb-2769,Granada City Council (Granada city bus),ES,Andalusia,Cenes de la Vega
+mdb-2770,TUSSAM (Seville bus and tram),ES,Andalusia,Alcalá de Guadaíra
+mdb-2771,Castelló de la Plana Town Hall (city bus),ES,Valencian Community,Borriol
+mdb-2772,Avanza Grupo (Ávila city bus),ES,Castile and León,Ávila
+mdb-2773,Avanza Grupo (Zaragoza urban transport),ES,Aragon,Zaragoza
+mdb-2774,Autocares Baraza (Baraza Coaches),ES,Andalusia,Antas
+mdb-2775,Direxis TGO (Transportes Generales de Olesa),ES,Catalonia,Abrera
+mdb-2776,Lurraldebus Pesa,ES,Autonomous Community of the Basque Country,Abadiño
+mdb-2777,EMT Tarragona,ES,Catalonia,Altafulla
+mdb-2778,Rodil,ES,Galicia,A Fonsagrada
+mdb-2779,Autocorb Coaches,ES,Catalonia,Barcelona
+mdb-2780,Costa Coaches,ES,Galicia,A Baña
+mdb-2781,Metro de Sevilla,ES,Andalusia,Dos Hermanas
+mdb-2782,Palma City Council (Palma de Mallorca city bus),ES,Balearic Islands,Calvià
+mdb-2783,City Council of Las Palmas de Gran Canaria (city bus),ES,Canary Islands,Las Palmas de Gran Canaria
+mdb-2784,Public Works Agency of the Andalusian Regional Government (Metro de Grenada),ES,Andalusia,Albolote
+mdb-2785,Ouigo,ES,Andalusia,Cordova
+mdb-2786,Viagón Coaches,ES,Castile and León,Alba de Yeltes
+mdb-2787,Alvarez Travelers Coaches,ES,Castile and León,Asturianos
+mdb-2788,Kbus (Barakaldo urban),ES,Autonomous Community of the Basque Country,Barakaldo
+mdb-2789,El Transbordador de Vizcaya (Bizkaia Bridge Ferry),ES,Autonomous Community of the Basque Country,Getxo
+mdb-2790,Sopela Town Hall,ES,Autonomous Community of the Basque Country,Sopelana
+mdb-2791,Leioa City Council (Lejoan Busa),ES,Autonomous Community of the Basque Country,Leioa
+mdb-2792,Etxebarri Town Hall,ES,Autonomous Community of the Basque Country,Basauri
+mdb-2793,Erandio City Council (Erandio! Busa),ES,Autonomous Community of the Basque Country,Erandio
+mdb-2794,Lázara Coaches,ES,Galicia,A Estrada
+mdb-2795,Ancebus,ES,Castile and León,Ahigal de los Aceiteros
+mdb-2796,Generalitat of Catalonia (Intercity bus),ES,Catalonia,
+mdb-2797,TIB Transports of the Balearic Islands - CIE Consell Insular d'Eivissa (Ibiza Island Bus),ES,Balearic Islands,Eivissa
+mdb-2798,Fuengirola city bus,ES,Andalusia,Benalmádena
+mdb-2799,Bermibusa,ES,Autonomous Community of the Basque Country,Bermeo
+mdb-28,Los Angeles County Department of Public Works (the LINK and shuttles),US,California,Los Angeles
+mdb-2800,Rafael Nadal Coaches,ES,Balearic Islands,Bunyola
+mdb-2801,Tranvías Urbanos de Zaragoza (Zaragoza Tram),ES,Aragon,Zaragoza
+mdb-2802,Consorcio Regional de Transportes de Madrid CRTM Light Rail Network (Red de Metro Ligero),ES,Community of Madrid,Alcorcón
+mdb-2803,Reus Transport,ES,Catalonia,Reus
+mdb-2804,Avanza Grupo (Ourense city bus),ES,Galicia,Amoeiro
+mdb-2805,Cots Alsina,ES,Catalonia,Biosca
+mdb-2806,Eixbus S.At,ES,Catalonia,Cervera
+mdb-2807,Albarracín Movilidad (Buses from the Albarracín mountain range to Teruel (C10)),ES,Aragon,Teruel
+mdb-2808,La Veloz SA (Buses from the Belchite countryside area to Zaragoza (C12)),ES,Aragon,Almonacid de la Cuba
+mdb-2809,Avanza Grupo (VAC-124. Huesca-Lleida with branches),ES,Aragon,Almunia de San Juan
+mdb-2810,Avanza Grupo (VAC-245. Huesca-Barcelona),ES,Aragon,Barbastro
+mdb-2811,"Interbus (VAC-231. Madrid, Piedrabuena (Ciudad Real) and Agudo (Ciudad Real))",ES,Castile-La Mancha,Agudo
+mdb-2812,Pinto City Council,ES,Community of Madrid,Pinto
+mdb-2813,AISA (Bus Madrid-Aranda de Duero-Burgo de Osma),ES,Castile and León,Aranda de Duero
+mdb-2814,Baleària Ferry,ES,Andalusia,Algeciras
+mdb-2815,Vectalia Movilidad (Urban buses in San Vicente del Raspeig),ES,Valencian Community,Sant Vicent del Raspeig / San Vicente del Raspeig
+mdb-2816,Avanza Grupo (Segovia city bus),ES,Castile and León,Segovia
+mdb-2817,DAIBUS (VAC-232. Madrid Malaga and Algeciras (Cadiz)),ES,Andalusia,Aguilar de la Frontera
+mdb-2818,Avanza Grupo (Soria city bus),ES,Castile and León,Soria
+mdb-2819,Avanza Grupo (Huesca city bus),ES,Aragon,Huesca
+mdb-282,The Victoria Clipper,CA,British Columbia,Victoria
+mdb-2820,Consorcio Regional de Transportes de Madrid CRTM Madrid City Bus (Autobús urbano de Madrid),ES,Castile and León,Casillas
+mdb-2821,Xunta de Galicia Buses,ES,Asturias,San Tirso de Abres
+mdb-2822,Vectalia Movilidad (Alicante city buses),ES,Valencian Community,Alacant / Alicante
+mdb-2823,Salamanca de Transportes S.A. (Grupo Ruiz),ES,Castile and León,Carbajosa de la Sagrada
+mdb-2824,Alavabus,ES,Autonomous Community of the Basque Country,Abadiño
+mdb-2825,ALSA buses,AD,Andorra la Vella,Andorra la Vella
+mdb-2826,Autoridad de Transporte Metropolitano del Área de Barcelona (ATM) Buses and trains in Catalonia (full version),AD,Andorra la Vella,Andorra la Vella
+mdb-2827,Consorcio Transportes Asturias,ES,Asturias,Allande
+mdb-2828,Transportes de Murcia (Grupo Ruiz),ES,Region of Murcia,Murcia
+mdb-2829,FGV - Generalitat Valenciana Trains and trams in Alicante and the Costa Blanca,ES,Valencian Community,Alacant / Alicante
+mdb-2830,FGV - Generalitat Valenciana Metro de Valencia,ES,Valencian Community,Albalat dels Sorells
+mdb-2832,Autoridad de Transporte Metropolitano del Área de Barcelona (ATM) Buses and trains in Catalonia (simplified version),AD,Andorra la Vella,Andorra la Vella
+mdb-2836,Mobiave,PT,Braga,Antas e Abade de Vermoim
+mdb-2837,TUBA - Transportes Urbanos de Barcelos,PT,Braga,Abade de Neiva
+mdb-2838,Guimabus - Transportes de Guimarães,PT,Braga,Abação e Gémeos
+mdb-2839,Waltti - Pori,FI,Satakunta,Pori
+mdb-2841,Trentino Trasporti Esercizio (TTE),IT,Trentino-Alto Adige/Südtirol,Besenello
+mdb-2846,MZK Kutno,PL,Łódź Voivodeship,Kutno County
+mdb-2848,Urban Mobility Center - Sofia Traffic,BG,Sofia,Elin Pelin
+mdb-2851,SMTUC,PT,Aveiro,Barcouço
+mdb-2852,Redding Area Bus Authority,US,California,Butte County
+mdb-2853,Redding Area Bus Authority,US,California,Anderson
+mdb-286,Black Ball Ferry Line,CA,British Columbia,Victoria
+mdb-2865,Gobierno del estado de México (Government of the State of Mexico),MX,Mexico,Toluca
+mdb-2866,Ayuntamiento Constitucional de Jilotepec Equipo de Planeación y Movilida (Constitutional Municipality of Jilotepec Planning and Mobility Team),MX,Mexico,Jilotepec
+mdb-2867,Indian Railways,IN,,
+mdb-2868,Societatea Metropolitană de Transport Timișoara,RO,Timiș,Foeni
+mdb-2871,Donan Bus,JP,Hokkaido Prefecture,Atsuma
+mdb-2875,West Cork Connect,IE,Munster,County Cork
+mdb-2880,Mountain View Transportation Management Association (MVgo),US,California,Los Altos
+mdb-2881,Watertown Citibus,US,New York,Jefferson County
+mdb-2883,Mountain View Community Shuttle,US,California,Mountain View
+mdb-2886,San Francisco Municipal Transportation Agency (SFMTA - Muni),US,California,Daly City
+mdb-2894,Clovis Transit,US,California,Clovis
+mdb-2898,Systemaufgaben Kundeninformation SKI+,CH,,
+mdb-2899,Hamburger Verkehrsverbund GmbH (HVV),DE,Hamburg,
+mdb-29,Los Angeles County Metropolitan Transportation Authority (LA Metro),US,California,Beverly Hills
+mdb-2900,Flixbus GB,BE,Brussels-Capital,Schaerbeek - Schaarbeek
+mdb-2901,PAME EXPRESS,CY,Nicosia,Nicosia
+mdb-2902,CROSS Solution,DE,Hesse,Main-Kinzig-Kreis
+mdb-2904,Czech national bus feed JDF,CZ,,
+mdb-2905,Mäntylän Alueen Liikenne,FI,Uusimaa,Espoo
+mdb-2906,Xplore Dundee,GB,Scotland,Aberdeen City
+mdb-2907,Bluestar Bus,GB,England,Hampshire
+mdb-2908,Go Devon Bus,GB,England,Cornwall
+mdb-2909,Coach Services,GB,England,Norfolk
+mdb-2910,Gradski parking d.o.o.,HR,Šibenik-Knin County,Bilice
+mdb-2911,Midland Bluebird,GB,Scotland,City of Edinburgh
+mdb-2912,Sanders Coaches,GB,England,Norfolk
+mdb-2913,Thames Valley Buses,GB,England,Bracknell Forest
+mdb-2914,Fastrack,GB,Kent,Dartford
+mdb-2918,Lasta,RS,City of Belgrade,Savski Venac Urban Municipality
+mdb-2919,IDS BK Regional Buses,AT,Lower Austria,Bezirk Bruck an der Leitha
+mdb-2920,HŽ Passenger Transport,HR,Bjelovar-Bilogora County,Grad Bjelovar
+mdb-2921,Transtejo Soflusa (TTSL),PT,Lisbon,Belém
+mdb-2922,Flixbus Türkiye,BG,Burgas,Burgas
+mdb-2923,Santa Eulalia Ferry,ES,Balearic Islands,Santa Eulària des Riu
+mdb-2925,Beograd Prigrad,RS,City of Belgrade,Barajevo Urban Municipality
+mdb-2926,Autobusos Interurbans,ES,Catalonia,
+mdb-2927,Srbijavoz,BA,Republika Srpska,Republika Srpska
+mdb-2928,Direkcija za javni prevoz Niš,RS,Nisava Administrative District,Merosina Municipality
+mdb-2929,Carris,PT,Lisbon,Águas Livres
+mdb-2931,Ужгородська міська рада,UA,Zakarpattia Oblast,Uzhhorod Raion
+mdb-2932,Стрийська міська рада,UA,Lviv Oblast,Drohobych Raion
+mdb-2933,Just Use Wheels,HK,,
+mdb-2934,Fortaleza,BR,Ceará,Região Geográfica Intermediária de Fortaleza
+mdb-2935,ARCE - Agência Reguladora do Estado do Ceará,BR,Ceará,Região Geográfica Intermediária de Fortaleza
+mdb-2937,Marin Transit,US,California,Belvedere
+mdb-2938,Mandai Wildlife Reserve,SG,Central,Central
+mdb-2939,Trafiklab,SE,,
+mdb-2940,"Družbe za upravljanje javnega potniškega prometa, d.o.o.",AT,Carinthia,Bezirk Völkermarkt
+mdb-2941,"NOMAGO, storitve mobilnosti in potovanj, d.o.o.",SI,Brežice,Brežice
+mdb-2942,Ariva,SI,Jesenice,Jesenice
+mdb-2943,TURIZEM KRANJSKA GORA,SI,Kranjska Gora,Kranjska Gora
+mdb-2944,"NOMAGO, storitve mobilnosti in potovanj, d.o.o.",SI,Nova Gorica,Nova Gorica
+mdb-2945,КП Бучатранссервіс,UA,Kyiv Oblast,Бучанський район
+mdb-2946,Odesa,UA,Odesa Oblast,Одеський район
+mdb-2947,Petaluma Transit,US,California,Petaluma
+mdb-2948,Santa Rosa CityBus,US,California,Santa Rosa
+mdb-296,Calabasas Transit System,US,California,Calabasas
+mdb-298,Carson Circuit,US,California,Carson
+mdb-299,Catalina Express,US,California,Long Beach
+mdb-3,Barrie Transit,CA,Ontario,Barrie
+mdb-30,Los Angeles County Metropolitan Transportation Authority (LA Metro),US,California,Arcadia
+mdb-300,Catalina Flyer,US,California,Avalon
+mdb-302,Corning Erwin Area Transit System (CEATS),US,New York,Corning
+mdb-304,Chautauqua Area Regional Transit System (CARTS),US,New York,Brocton
+mdb-305,C TRAN,US,New York,Big Flats
+mdb-31,Ventura County Transportation Commission,US,California,Camarillo
+mdb-314,Compton Renaissance,US,California,Carson
+mdb-32,"Gold Coast Transit, South Coast Area Transit",US,California,Ojai
+mdb-320,Delano Area Rapid Transit,US,California,Delano
+mdb-331,Miami-Dade Transit,US,Florida,Broward County
+mdb-34,Torrance Transit,US,California,Torrance
+mdb-35,Palos Verdes Peninsula Transit Authority (PVPTA),US,California,Los Angeles County
+mdb-36,Lawndale Beat,US,California,Hawthorne
+mdb-37,Big Blue Bus,US,California,Los Angeles County
+mdb-38,Culver City Bus,US,California,Culver City
+mdb-383,DowneyLINK,US,California,Los Angeles County
+mdb-389,Chicago Transit Authority (CTA),US,Illinois,Chicago
+mdb-40,Simi Valley Transit,US,California,Los Angeles
+mdb-41,Pasadena Transit,US,California,Los Angeles County
+mdb-43,San Luis Obispo Regional Transit Authority (SLORTA),US,California,Arroyo Grande
+mdb-436,Coach Company,US,New York,New York County
+mdb-44,City of San Luis Obispo Transit,US,California,San Luis Obispo
+mdb-450,Vermont Translines,US,New York,Albany County
+mdb-457,Dutchess County,US,New York,Arlington
+mdb-46,Golden Empire Transit District (GET),US,California,Kern County
+mdb-47,Kern Transit,US,California,Arvin
+mdb-48,Porterville Transit,US,California,Delano
+mdb-496,Peter Pan,US,New York,Albany County
+mdb-507,Metropolitan Transit Authority (MTA),US,New York,Kings County
+mdb-508,New Jersey Transit (NJ Transit),US,New York,New York County
+mdb-509,New Jersey Transit (NJ Transit),US,New York,New York County
+mdb-51,Mission Bay Transportation Management Association (TMA),US,California,San Francisco
+mdb-510,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-511,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-512,Metropolitan Transit Authority (MTA),US,New York,Kings County
+mdb-513,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-514,Metropolitan Transit Authority (MTA),US,New York,Kings County
+mdb-515,NYC Ferry,US,New York,Bronx County
+mdb-516,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-517,Port Authority Trans-Hudson (PATH),US,New York,New York County
+mdb-518,Staten Island Ferry,US,New York,New York County
+mdb-519,Downtown Alliance,US,New York,New York County
+mdb-52,Tideline Water Taxi,US,California,Berkeley
+mdb-520,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-521,Nassau Inter-County Express (NICE Bus),US,New York,Flower Hill
+mdb-522,JFK Airtrain,US,New York,Queens County
+mdb-524,"NY Waterway, Shore Line East, Metro-North Railroad, MNR Hudson Rail Link",US,New York,Beacon
+mdb-525,NY Waterway,US,New York,Beacon
+mdb-526,Ulster County Area Transit,US,New York,Dutchess County
+mdb-528,Metropolitan Transit Authority (MTA),US,New York,Bronx County
+mdb-53,Bay Area Rapid Transit (BART),US,California,Alameda County
+mdb-531,Access Allegany,US,New York,Allegany County
+mdb-532,Hornell Area Transit,US,New York,Alfred
+mdb-533,Rochester-Genesee Regional Transportation Authority (RGRTA),US,New York,Monroe County
+mdb-534,Centro,US,New York,Auburn
+mdb-535,Tompkins Consolidated Area Transit Inc,US,New York,East Ithaca
+mdb-536,Chenango First Transit,US,New York,Afton
+mdb-538,Capital District Transportation Authority (CDTA),US,New York,Albany County
+mdb-54,Caltrain,US,California,Belmont
+mdb-541,City of Mechanicville Public Transit,US,New York,City of Mechanicville
+mdb-544,Clinton County Public Transit (CCPT),US,New York,Clinton County
+mdb-545,Franklin County Public Transportation,US,New York,Brushton
+mdb-546,North Country Express Transit,US,New York,Brushton
+mdb-547,Lake Champlain Ferries,US,New York,Clinton County
+mdb-548,Suffolk County Transit,US,New York,Amityville
+mdb-549,Seastreak Ferry,US,New York,New York County
+mdb-55,Modesto Area Express,US,California,Alameda County
+mdb-550,Shore Line East,US,New York,New York County
+mdb-553,Connecticut Transit,US,New York,Westchester County
+mdb-56,Monterey-Salinas Transit (MST),US,California,Carmel-by-the-Sea
+mdb-561,"LISERCO, LINCOSUR, LISANCO",CL,Coquimbo,
+mdb-566,Lewis County Public Transportation,US,New York,Herkimer County
+mdb-57,Santa Clara Valley Transportation Authority (VTA),US,California,Cupertino
+mdb-570,Lynwood Trolley / Breeze,US,California,Los Angeles County
+mdb-572,Madera County Transit,US,California,Madera County
+mdb-573,Madison County Transit,US,New York,Chenango County
+mdb-578,Moorpark City Transit,US,California,Ventura County
+mdb-579,Morongo Basin Transit Authority,US,California,Riverside County
+mdb-58,San Benito County Express (SBCE),US,California,Gilroy
+mdb-583,Needles Area Transit,US,California,Needles
+mdb-584,Newburgh Beacon Shuttle (Leprechaun Lines),US,New York,Beacon
+mdb-586,Olean Area Transit System,US,New York,Allegany
+mdb-588,Herkimer-Oneida Counties Transportation Study (HOCTS),US,New York,Barneveld
+mdb-589,Otsego Express Public Transportation,US,New York,Chenango County
+mdb-59,Stanford Marguerite Shuttle (SMS),US,California,Fremont
+mdb-593,Flixbus,US,California,Los Angeles County
+mdb-595,"Alcatraz Cruises - Hornblower, Angel Island Tiburon Ferry, Blue & Gold Fleet",US,California,San Francisco
+mdb-598,J'ybus,FR,Auvergne-Rhône-Alpes,Rumilly
+mdb-599,City Coach,US,California,Vacaville
+mdb-6,Subterráneos de Buenos Aires (SUBTE),AR,Buenos Aires,
+mdb-606,Get Around Town Express,US,California,Los Angeles County
+mdb-609,Glendora Transportation Division,US,California,Los Angeles County
+mdb-61,Commute.org San Mateo County Shuttles,US,California,Atherton
+mdb-613,Greene County Transit,US,New York,Athens
+mdb-617,Guadalupe Flyer,US,California,Guadalupe
+mdb-619,Turlock Transit,US,California,Stanislaus County
+mdb-62,San Francisco Bay Area Water Emergency Transportation Authority (WETA),US,California,Alameda County
+mdb-623,Go West Shuttle,US,California,Los Angeles County
+mdb-627,Saint-Etienne Métropole,FR,Auvergne-Rhône-Alpes,Saint-Étienne
+mdb-628,Union City Transit,US,California,Hayward
+mdb-637,SouthWest POINT,US,California,Crescent City
+mdb-64,Livermore Amador Valley Transit Authority,US,California,Alameda County
+mdb-643,ATP Esercizio Srl,IT,Emilia-Romagna,Ottone
+mdb-646,Tulare County Area Transit (TCAT),US,California,Delano
+mdb-647,Trenes Argentinos,AR,Autonomous City of Buenos Aires,Autonomous City of Buenos Aires
+mdb-648,"Wiener Lokalbahnen (WLB), Wiener Linien",AT,Lower Austria,Bezirk Baden
+mdb-649,Port Phillip Ferries,AU,Victoria,City of Greater Geelong
+mdb-65,eTrans,US,California,San Joaquin County
+mdb-650,Translink Magnetic Island,AU,Queensland,Townsville City
+mdb-651,TransLink Maryborough-Hervey Bay,AU,Queensland,Fraser Coast Regional
+mdb-652,TransLink North Stradbroke Island,AU,Queensland,Redland City
+mdb-653,Bus Queensland Toowoomba (Bus Qld Toowoomba),AU,Queensland,Toowoomba Regional
+mdb-654,Haidleys Panoramic Coaches,AU,Queensland,Southern Downs Regional
+mdb-655,Youngs Bus Service,AU,Queensland,Livingstone Shire
+mdb-656,Kicéo,FR,Brittany,Vannes
+mdb-657,Public Transport Victoria (PTV),AU,Victoria,Melbourne
+mdb-659,Région Bourgogne-Franche-Comté,FR,Bourgogne – Franche-Comté,Dijon
+mdb-66,Sonoma County Airport Express,US,California,Oakland
+mdb-660,Adelaide Metro,AU,South Australia,Adelaide City Council
+mdb-665,MetroTas Hobart,AU,Tasmania,Brighton
+mdb-666,Byron Easybus,AU,New South Wales,Ballina Shire Council
+mdb-667,Buslink Gladstone,AU,Queensland,Gladstone Regional
+mdb-668,Translink South East Queensland (Translink SEQ),AU,New South Wales,Tweed Shire Council
+mdb-669,Christensens Bus and Coach,AU,Queensland,Moreton Bay Regional
+mdb-67,Golden Gate Transit,US,California,Contra Costa County
+mdb-670,Glass House Country Coaches,AU,Queensland,Sunshine Coast Regional
+mdb-671,Polleys Coaches,AU,Queensland,Gympie Regional
+mdb-672,Duffy's Buses and Stewarts & Sons Coaches,AU,Queensland,Bundaberg Region
+mdb-673,TransLink Innisfail,AU,Queensland,Cassowary Coast Regional
+mdb-674,TransLink Sunbus Cairns,AU,Queensland,Cairns Regional
+mdb-675,TransLink Bowen,AU,Queensland,Whitsunday Regional
+mdb-676,Whitsunday Transit,AU,Queensland,Whitsunday Regional
+mdb-677,Sunbus Townsville,AU,Queensland,Townsville City
+mdb-678,Mackay Transit Coaches,AU,Queensland,Mackay Regional
+mdb-679,Translink Magnetic Island Ferry,AU,Queensland,Townsville City
+mdb-68,Lake Transit Authority (LTA),US,California,Clearlake
+mdb-680,"Department of Transport, Public Transport",AU,Northern Territory,City of Darwin
+mdb-681,MetroTas Burnie,AU,Tasmania,Central Coast
+mdb-682,MetroTas Launceston,AU,Tasmania,Break O'Day
+mdb-683,Department of Transport - Public Transport,AU,Northern Territory,Town of Alice Springs
+mdb-684,De Lijn,BE,Brussels-Capital,Anderlecht
+mdb-685,De Waterbus,BE,Flanders,Antwerp
+mdb-686,Société nationale des chemins de fer belges (NMBS-SNCB),AT,Lower Austria,St. Pölten
+mdb-687,Empresa de Transportes e Transito de Belo Horizonte (BHTRANS),BR,Minas Gerais,Belo Horizonte
+mdb-689,Whitehorse Transit,CA,Yukon,Whitehorse
+mdb-69,Mendocino Transit Authority,US,California,Mendocino County
+mdb-690,BC Ferries,CA,British Columbia,Alert Bay
+mdb-696,TransLink Vancouver,CA,British Columbia,Anmore
+mdb-7,Empresa Publica de Transportes e Circulação (EPTC),BR,Rio Grande do Sul,Metropolitan Region of Porto Alegre
+mdb-70,Sonoma County Transit (SCT),US,California,Bodega Bay
+mdb-710,BC Transit (Dawson Creek Transit System),CA,British Columbia,Dawson Creek
+mdb-711,Roam Transit,CA,Alberta,Banff
+mdb-712,Calgary Transit,CA,Alberta,Calgary
+mdb-714,Edmonton Transit System,CA,Alberta,Avenue District
+mdb-715,City of Regina,CA,Saskatchewan,Regina
+mdb-716,Saskatoon Transit,CA,Saskatchewan,Saskatoon
+mdb-717,Winnipeg Transit,CA,Manitoba,Winnipeg
+mdb-718,Cornwall Transit,CA,Ontario,Cornwall
+mdb-720,Transit Windsor,CA,Ontario,Amherstburg
+mdb-721,Grand River Transit,CA,Ontario,Cambridge
+mdb-722,Niagara Region Transit,CA,Ontario,Fort Erie
+mdb-724,Burlington Transit,CA,Ontario,Burlington
+mdb-725,Oakville Transit,CA,Ontario,Burlington
+mdb-726,Durham Region Transit,CA,Ontario,Ajax
+mdb-728,York Region Transit,CA,Ontario,Aurora
+mdb-730,MiWay,CA,Ontario,Brampton
+mdb-732,Toronto Transit Commission (TTC),CA,Ontario,East York
+mdb-733,Kingston Transit,CA,Ontario,Kingston
+mdb-734,Halifax Transit,CA,Nova Scotia,Beaver Bank
+mdb-735,VIA Rail Canada,CA,Alberta,Edmonton
+mdb-736,Thunder Bay Transit,CA,Ontario,Thunder Bay
+mdb-737,Greater Sudbury Transit,CA,Ontario,Greater Sudbury
+mdb-739,Régie intermunicipale de transport des Collines (Transcollines),CA,Quebec,Bristol
+mdb-74,Capitol Corridor Joint Powers Authority (Capitol Corridor),US,California,Auburn
+mdb-740,Société de transport de l'Outaouais,CA,Ontario,(Old) Ottawa
+mdb-741,Exo Sorel-Varennes,CA,Quebec,Boucherville
+mdb-742,Exo Sud-ouest,CA,Quebec,Beauharnois
+mdb-743,Exo La Presqu'île,CA,Quebec,Dollard-Des-Ormeaux
+mdb-744,Exo Laurentides,CA,Quebec,Blainville
+mdb-745,Exo Haut-Saint-Laurent,CA,Quebec,Châteauguay
+mdb-747,Exo Roussillon,CA,Quebec,Brossard
+mdb-748,Exo,CA,Quebec,Baie-D'Urfé
+mdb-749,Société de transport de Laval,CA,Quebec,Laval
+mdb-75,El Dorado Transit,US,California,El Dorado County
+mdb-750,Exo Chambly-Richelieu-Carignan,CA,Quebec,Brossard
+mdb-751,Réseau de transport de Longueuil,CA,Quebec,Boucherville
+mdb-752,Exo Vallée du Richelieu,CA,Quebec,Beloeil
+mdb-753,Exo Ville de Sainte-Julie,CA,Quebec,Beloeil
+mdb-754,Terrebonne-Mascouche,CA,Quebec,Blainville
+mdb-755,Exo L'Assomption,CA,Quebec,Charlemagne
+mdb-757,Réseau de transport de la Capitale,CA,Quebec,L'Ancienne-Lorette
+mdb-758,Metrobus Transit,CA,Newfoundland and Labrador,Mount Pearl
+mdb-759,Milton Transit,CA,Ontario,Halton Hills
+mdb-76,Fairfield and Suisun Transit (FAST Transit),US,California,Benicia
+mdb-761,Port Alberni,CA,British Columbia,Alberni-Clayoquot Regional District
+mdb-763,Société de transport de Lévis,CA,Quebec,Lévis
+mdb-767,Prazska integrovana doprava (PID),CZ,Hlavní město Praha,Prague
+mdb-768,Long-distance rail transport in Germany,AT,Carinthia,Bezirk Klagenfurt-Land
+mdb-769,bodo Verkehrsverbund,AT,Lower Austria,Bezirk Amstetten
+mdb-77,Placer County Transit,US,California,Auburn
+mdb-770,BBS Schapfl,AT,Carinthia,Bezirk Spittal an der Drau
+mdb-771,naldo Verkehrsverbund,CH,Schaffhausen,Schaffhausen
+mdb-772,"OVA-Aalen, OVA-Bopfingen, Beck+Schubert",DE,Baden-Württemberg,Alb-Donau-Kreis
+mdb-773,DB ZugBus Regionalverkehr Alb-Bodensee,DE,Baden-Württemberg,Ulm
+mdb-774,Schweizer Reisen,DE,Baden-Württemberg,Baden-Baden
+mdb-776,SWU Verkehr GmbH (SWU),DE,Baden-Württemberg,Alb-Donau-Kreis
+mdb-777,Rhein-Neckar-Verkehr,DE,Baden-Württemberg,Heidelberg
+mdb-778,Verkehrsverbund Rhein-Sieg (VRS),DE,Hesse,Landkreis Limburg-Weilburg
+mdb-779,Münchner Verkehrs- und Tarifverbund GmbH (MVV),AT,Tyrol,Bezirk Kufstein
+mdb-78,WestCAT,US,California,Contra Costa County
+mdb-780,Erfurter Verkehrsbetriebe AG,DE,Bavaria,Coburg
+mdb-781,Leipziger Verkehrsbetriebe (LVB),DE,Brandenburg,Elbe-Elster
+mdb-782,Verkehrsverbund Berlin-Brandenburg (VBB),DE,Berlin,Berlin
+mdb-783,Stadtwerke Heilbronn (SWHN),AT,Salzburg,Salzburg
+mdb-786,Cairo Metro,EG,Cairo Governorate,Cairo Governorate
+mdb-787,Transportes interurbanos de Tenerife (TITSA),ES,Canary Islands,Adeje
+mdb-788,Metropolitano de Tenerife (Metrotenerife),ES,Canary Islands,San Cristóbal de La Laguna
+mdb-789,Région Hauts-de-France,FR,Hauts-de-France,Aisne
+mdb-79,Yuba-Sutter Transit,US,California,Live Oak
+mdb-791,Consorcio Regional de Transportes de Madrid CRTM Intercity Buses (Madrid Intercity Buses),ES,Castile and León,Casillas
+mdb-792,Consorcio Regional de Transportes de Madrid,ES,Community of Madrid,Alcorcón
+mdb-793,Empresa Municipal de Transportes de Madrid (EMT Madrid),ES,Community of Madrid,Madrid
+mdb-794,Metro de Madrid,ES,Community of Madrid,Alcobendas
+mdb-795,Empresa Municipal de Transportes de Valencia (EMT Valencia),ES,Valencian Community,Alboraia / Alboraya
+mdb-797,TUVISA (Transportes Urbanos de Vitoria),ES,Autonomous Community of the Basque Country,Arratzua-Ubarrundia
+mdb-799,Playa Vista Shuttle,US,California,Culver City
+mdb-8,São Paulo Transporte (SPTrans),BR,São Paulo,Região Geográfica Intermediária de Campinas
+mdb-80,SolTrans,US,California,Contra Costa County
+mdb-800,Oregon Department of Transportation,US,California,Crescent City
+mdb-804,Rensselaer County (Yankee Trails),US,New York,Albany County
+mdb-806,Rosemead Explorer,US,California,Los Angeles County
+mdb-808,Regional Transit Service Seneca (RTS Seneca),US,New York,Geneva
+mdb-809,Regional Transit Service,US,New York,Alexander
+mdb-81,Rio Vista Delta Breeze,US,California,Antioch
+mdb-810,San Leandro Links,US,California,San Leandro
+mdb-812,Santa Clarita Transit,US,California,Santa Clarita
+mdb-813,Santa Ynez Valley Transit,US,California,Santa Barbara County
+mdb-814,Schuyler County Transit,US,New York,Big Flats Airport
+mdb-815,Sonoma-Marin Area Rail Transit (SMART),US,California,Cotati
+mdb-82,Unitrans,US,California,Sacramento County
+mdb-823,Adirondack Trailways ADP,US,New York,Albany County
+mdb-824,Adirondack Trailways NYP,US,New York,Binghamton
+mdb-825,New York Trailways,US,New York,Bath
+mdb-826,Adirondack Trailways Pine Hill Trailways,US,New York,City of Oneonta
+mdb-83,GrapeLine,US,California,Lodi
+mdb-84,Nevada County Connects (Gold Country Stage),US,California,Alta Sierra
+mdb-841,Régie des Transports Métropolitains (RTM),FR,Provence-Alpes-Côte d'Azur,Bouches-du-Rhône
+mdb-842,Marcoulines,FR,Provence-Alpes-Côte d'Azur,Carnoux-en-Provence
+mdb-847,Società Trasporti Provinciale S.p.A.,IT,Apulia,Bari
+mdb-848,Autolinee Scoppio,IT,Apulia,Bari
+mdb-849,Comune di Gioia del Colle,IT,Apulia,Bari
+mdb-85,Fresno County Rural Transit Agency (FCRTA),US,California,Fresno County
+mdb-850,Steuben Area Rides,US,New York,Addison
+mdb-851,Steuben County Transit,US,New York,Bath
+mdb-854,Azienda Trasporti Automobilistici Pubblici delle Province di Biella e Vercelli (ATAP),IT,Lombardy,Milan
+mdb-855,Trenord,CH,Ticino,Bellinzona
+mdb-856,Compagnie des Transports Strasbourgeois (CTS),DE,Baden-Württemberg,Ortenaukreis
+mdb-857,Augsburger Verkehrs- und Tarifverbund (AVV),DE,Bavaria,Augsburg
+mdb-858,Ver­kehrs­ver­bund Groß­raum Nürn­berg (VGN),DE,Baden-Württemberg,Landkreis Schwäbisch Hall
+mdb-86,Merced County Transit (The Bus),US,California,Atwater
+mdb-861,BIOKOM,HU,Baranya,Cserkút
+mdb-862,Weekendbus,HU,Budapest,Budapest
+mdb-864,Turku,FI,Southwest Finland,Aura
+mdb-865,Helsingin seudun liikenne (HSL),FI,Kanta-Häme,Riihimäki
+mdb-866,Tampereen joukkoliikenne (JOLI),FI,Pirkanmaa,Hämeenkyrö
+mdb-867,Waltti - Jyväskylä,FI,Central Finland,Äänekoski
+mdb-868,Kuopio,FI,North Savo,Kaavi
+mdb-869,Waltti - Oulu,FI,North Ostrobothnia,Hailuoto
+mdb-870,Village of Cooperstown Trolly System,US,New York,Cooperstown
+mdb-871,Watertown Citibus,US,New York,Jefferson County
+mdb-875,Yates Transit Service,US,New York,Ontario County
+mdb-877,City of Tracy (TRACER),US,California,San Joaquin County
+mdb-881,AMA Department of Transport,GH,Central Region,Awutu Senya East Municipal District
+mdb-884,Rīgas Satiksme,LV,Rīga,
+mdb-886,San Joaquin Regional Transit District (RTD),US,California,Dublin
+mdb-887,Szegedi Közlekedési Társaság,HU,Csongrád-Csanád County,Szeged
+mdb-890,Ulysse,FR,Provence-Alpes-Côte d'Azur,Bouches-du-Rhône
+mdb-891,Alilaguna,IT,Veneto,Venice
+mdb-892,Àrea Metropolitana de Barcelona (AMB),ES,Catalonia,Badalona
+mdb-893,Azienda Napoletana Mobilità,IT,Campania,Acerra
+mdb-894,Budaörs Város Önkormányzata,HU,Pest,Budaörs
+mdb-895,ARST SpA - Trasporti Regionali Della Sardegna,IT,Sardinia,Abas/Ales
+mdb-896,Azienda Trasporti di Messina (ATM),IT,Sicily,Messina
+mdb-897,Tahoe Transportation District,US,California,South Lake Tahoe
+mdb-898,Transdev — Pays de la Loire,FR,Pays de la Loire,Loire-Atlantique
+mdb-899,Cortland County Public Transportation,US,New York,Cortland
+mdb-9,Empresa de Transportes e Transito de Belo Horizonte (BHTRANS),BR,Minas Gerais,Belo Horizonte
+mdb-90,Fresno Area Express (FAX),US,California,Fresno
+mdb-900,TBO Offenburg,AT,Upper Austria,Linz
+mdb-904,Road and Transport Authority (RTA),AE,Ajman Emirate,Ajman Emirate
+mdb-905,Huntington Area Rapid Transit (HART),US,New York,Centerport
+mdb-906,VOLZ,DE,Baden-Württemberg,Baden-Baden
+mdb-907,Sunbus Rockhampton,AU,Queensland,Rockhampton Regional
+mdb-91,City of Madera,US,California,Madera
+mdb-910,Leprechaun Lines,US,New York,Dutchess County
+mdb-911,Clarkstown MiniTrans,US,New York,Bardonia
+mdb-912,Miccolis S.p.A.,IT,Apulia,
+mdb-915,Lower Hudson Valley Transit,US,New York,Airmont
+mdb-916,City of Long Beach Transportation,US,New York,East Atlantic Beach
+mdb-918,SBG,DE,Baden-Württemberg,
+mdb-92,Amador Transit,US,California,Amador County
+mdb-920,TuTicket,DE,Baden-Württemberg,Tuttlingen
+mdb-921,Hyderabad Multi-Modal Transport System,IN,Telangana,Alair mandal
+mdb-924,Transit Orange / Newburgh Local Transit,US,New York,Balmville
+mdb-927,Sullivan County Transit,US,New York,Bloomingburg
+mdb-928,PART Putnam Area Rapid Transit,US,New York,Beacon
+mdb-929,Lappeenranta,FI,South Karelia,Imatra
+mdb-93,Calaveras Transit,US,California,Angels Camp
+mdb-930,Prefeitura de Bage,BR,Rio Grande do Sul,Região Geográfica Intermediária de Pelotas
+mdb-935,Canberra Metro Operations,AU,Australian Capital Territory,Australian Capital Territory
+mdb-936,Transport Canberra,AU,Australian Capital Territory,Australian Capital Territory
+mdb-94,"Tahoe Area Regional Transit (TART), North Lake Tahoe Express",US,California,El Dorado County
+mdb-96,Metrolink,US,California,Anaheim
+mdb-97,OmniTrans,US,California,Colton
+mdb-978,Trentino Trasporti SpA (TT),IT,Trentino-Alto Adige/Südtirol,Besenello
+mdb-979,Sevibus/DLA Długołęka,PL,Lower Silesian Voivodeship,Środa Śląska County
+mdb-98,Riverside Transit Agency,US,California,Hemet
+mdb-980,MPK Wrocław,PL,Lower Silesian Voivodeship,Środa Śląska County
+mdb-981,Zarząd Dróg i Transportu Miejskiego (ZDiTM),PL,West Pomeranian Voivodeship,Goleniów County
+mdb-982,Zarząd Transportu Miejskiego Poznań (ZTM Poznań),PL,Greater Poland Voivodeship,Poznań
+mdb-983,Otago Regional Council (ORC),NZ,Otago,Dunedin City
+mdb-986,French Brothers Ltd,GB,England,Surrey
+mdb-99,Victor Valley Transit Authority (VVTA),US,California,Adelanto
+mdb-990,Budapesti Közlekedési Központ (BKK),HU,Budapest,Budapest
+mdb-991,ATP Nuoro,IT,Sardinia,Nùgoro/Nuoro
+mdb-992,Valsts SIA Autotransporta Direkcija (ATD),LV,,
+mdb-994,Commerce Municipal Bus Lines,US,California,Bell
+mdb-996,Grasse Sillages Scolaire,FR,Provence-Alpes-Côte-d'Azur,Grasse
+mdb-998,YL_員林客運(公總) (YL-Bus),TW,Changhua,Yuanlin City
