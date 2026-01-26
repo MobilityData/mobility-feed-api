@@ -17,7 +17,7 @@ def parse_args():
 
 # Define the paths for the SQL query file and the output CSV file
 SQL_FILE = os.path.join(os.path.dirname(__file__), 'create_list.sql')
-CSV_FILE = os.path.join(os.path.dirname(__file__), 'validator-acceptance-list.csv')
+CSV_FILE = os.path.join(os.path.dirname(__file__), 'acceptance_test_feed_list.csv')
 
 def main():
     args = parse_args()
