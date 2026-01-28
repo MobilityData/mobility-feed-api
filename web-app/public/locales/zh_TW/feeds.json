@@ -1,0 +1,42 @@
+{
+   "feeds": "Feeds",
+   "dataType": "資料型別",
+   "transitProvider": "交通提供者",
+   "location": "位置",
+   "feedDescription": "Feed說明",
+   "searchFor": "搜尋",
+   "resultsFor": "{{startResult}}-{{endResult}}，共{{totalResults}} 個結果",
+   "deprecated": "已棄用",
+   "searchPlaceholder": "交通提供者、Feed名稱或位置",
+   "noResults": "很抱歉，我們沒有找到\"{{activeSearch}}\"的搜尋結果。",
+   "searchSuggestions": "搜尋建議： ",
+   "searchTips": {
+      "twoDigit": "使用兩位數代碼搜尋國家/地區，例如\"FR\"代表法國",
+      "fullName": "包含交通提供者的全名，例如\"多倫多交通委員會\"而不是\"TTC\"",
+      "checkSpelling": "仔細檢查拼字"
+   },
+   "errorAndContact": "請檢查您的互聯網連接，然後重試。如果問題仍然存在，請<1>聯繫我們</1>以獲得進一步幫助。",
+   "errorLoadingFeed": "載入提要時發生錯誤。",
+   "form": {
+      "addOrUpdateFeed": "新增或更新Feed",
+      "signUp": "註冊 Mobility Database 帳戶或登入以新增或更新 GTFS feed。",
+      "signUpAction": "註冊帳號",
+      "loginSuccess": "您已成功登錄，現在可以新增或更新提要。"
+   },
+   "seeFullList": "查看完整清單",
+   "hideFullList": "隱藏完整清單",
+   "producerDownloadUrl": "生產者下載URL",
+   "copyDownloadUrl": "複製下載URL",
+   "producerUrlCopied": "生產者URL複製到剪貼簿",
+   "authenticationType": "驗證類型",
+   "registerToDownloadFeed": "註冊下載feed",
+   "feedContactEmail": "Feed 聯絡電子郵件",
+   "copyFeedContactEmail": "複製feed聯絡電子郵件",
+   "features": "功能",
+   "unableToDownloadFeed": "無法下載此feed。如果此動態有更新的 URL，<1>請在此提交</1>",
+   "feedHasBeenReplaced": "該提要已被替換為不同的生產者 URL。{' '}<1>在此處前往新Feed</1>。",
+   "downloadLatest": "下載最新版本",
+   "seeLicense": "查看許可證",
+   "boundingBoxTitle": "來自 stops.txt 的邊界框",
+   "unableToGenerateBoundingBox": "無法產生邊界框。"
+}

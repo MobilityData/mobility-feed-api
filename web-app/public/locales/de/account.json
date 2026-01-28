@@ -1,0 +1,47 @@
+{
+    "title": "Ihr API-Konto",
+    "userDetails": "Benutzerdetails",
+    "description": "Die Mobility Database API verwendet OAuth2-Authentifizierung. Um eine erfolgreiche API-Anforderung zu initiieren, muss ein Zugriffstoken als Trägertoken im HTTP-Header enthalten sein. Zugriffstoken sind eine Stunde lang gültig. Um ein Zugriffstoken zu erhalten, benötigen Sie zunächst ein Aktualisierungstoken, das langlebig ist und nicht abläuft.",
+    "support": "Wenn Sie ein neu ausgestelltes Aktualisierungstoken benötigen oder Ihr Konto entfernen lassen möchten, senden Sie uns eine E-Mail an",
+    "registerApiAnnouncements": "Registriert für API-Ankündigungen",
+    "refreshToken": {
+       "title": "Aktualisierungstoken",
+       "description": "Verwenden Sie Ihr Aktualisierungstoken, um eine Verbindung zur API in Ihrer App herzustellen.",
+       "placeholder": "Ihr Aktualisierungstoken ist ausgeblendet",
+       "yourToken": "Ihr Aktualisierungstoken",
+       "toggleVisibility": "Aktualisierungstoken-Sichtbarkeit umschalten",
+       "copy": "Aktualisierungstoken kopieren",
+       "copyToClipboard": "Aktualisierungstoken in Zwischenablage kopieren"
+    },
+    "accessToken": {
+       "title": "So generieren Sie den Zugriffstoken in Ihrer App",
+       "description": {
+          "pt1": "Folgen Sie",
+          "cta": "unserer OpenAPI-Dokumentation",
+          "pt2": "um Ihr Konto mit dem Aktualisierungstoken zu authentifizieren."
+       },
+       "generate": "Zugriffstoken generieren",
+       "copyToken": "Zugriffstoken kopieren Token",
+       "copyTokenToClipboard": "Zugriffstoken in die Zwischenablage kopieren",
+       "copy": "Kopieren Sie den CLI-Befehl, um einen Zugriffstoken zu generieren.",
+       "yourToken": "Ihr Zugriffstoken",
+       "refreshing": "Zugriffstoken wird aktualisiert...",
+       "refresh": "Zugriffstoken aktualisieren",
+       "refreshSuccess": "Ihr Zugriffstoken wurde erfolgreich aktualisiert!",
+       "testing": {
+            "title": "Zugriffstoken zum Testen",
+            "description": {
+                "pt1": "Möchten Sie einen kurzen Test durchführen? Kopieren Sie den unten stehenden Zugriffstoken, um Endpunkte in unserer",
+                "cta": "OpenAPI-Dokumentation",
+                "pt2": ". Zugriffstoken sind eine Stunde lang gültig."
+            },
+            "api": "API-Test",
+            "copyCli": "Kopieren Sie den CLI-Befehl, um Ihren Zugriff auf die API zu testen."
+       },
+       "toggleVisibility": "Sichtbarkeit des Zugriffstokens umschalten",
+       "expired": "Token abgelaufen",
+       "willExpireIn": "Ihr Token läuft in {{timeLeftForTokenExpiration}} ab",
+       "hidden": "Ihr Zugriffstoken ist ausgeblendet",
+       "unavailable": "Ihr Token ist nicht verfügbar"
+    }
+}

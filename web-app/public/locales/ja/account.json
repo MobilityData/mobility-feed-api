@@ -1,0 +1,47 @@
+{
+    "title": "API アカウント",
+    "userDetails": "ユーザーの詳細",
+    "description": "Mobility Database APIはOAuth2認証を使用します。APIリクエストを正常に開始するには、アクセストークンをHTTPヘッダーのベアラートークンとして含める必要があります。アクセストークンの有効期間は1時間です。アクセストークンを取得するには、まず更新トークンが必要です。更新トークンは長期間有効で期限切れになることはありません。",
+    "support": "更新トークンの再発行が必要な場合、またはアカウントを削除したい場合は、次のアドレスにメールをお送りください",
+    "registerApiAnnouncements": "API アナウンスメントに登録済み",
+    "refreshToken": {
+       "title": "更新トークン",
+       "description": "更新トークンを使用して、アプリの API に接続します。",
+       "placeholder": "更新トークンは非表示です",
+       "yourToken": "更新トークン",
+       "toggleVisibility": "更新トークンの切り替え可視性",
+       "copy": "リフレッシュトークンをコピーする",
+       "copyToClipboard": "リフレッシュトークンをクリップボードにコピーする"
+    },
+    "accessToken": {
+       "title": "アプリでアクセストークンを生成する方法",
+       "description": {
+          "pt1": "フォロー",
+          "cta": "OpenAPIドキュメント",
+          "pt2": "リフレッシュトークンでアカウントを認証する。"
+       },
+       "generate": "アクセストークンを生成する",
+       "copyToken": "アクセストークンをコピーする",
+       "copyTokenToClipboard": "アクセストークンをクリップボードにコピーする",
+       "copy": "アクセストークンを生成するためのCLIコマンドをコピーする。",
+       "yourToken": "アクセストークン",
+       "refreshing": "アクセストークンを更新しています...",
+       "refresh": "アクセストークンを更新します",
+       "refreshSuccess": "アクセストークンが正常に更新されました!",
+       "testing": {
+            "title": "テスト用のアクセストークン",
+            "description": {
+                "pt1": "簡単にテストしたいですか? 以下のアクセストークンをコピーして、",
+                "cta": "OpenAPI ドキュメント",
+                "pt2": ".アクセス トークンの有効期間は1時間です。"
+            },
+            "api": "API テスト",
+            "copyCli": "CLI コマンドをコピーして、API へのアクセスをテストします。"
+       },
+       "toggleVisibility": "アクセス トークンの表示を切り替える",
+       "expired": "トークンの有効期限が切れています",
+       "willExpireIn": "トークンの有効期限は{{timeLeftForTokenExpiration}}です",
+       "hidden": "アクセス トークンが非表示になっています",
+       "unavailable": "トークンが利用できません"
+    }
+}

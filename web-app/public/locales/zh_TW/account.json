@@ -1,0 +1,47 @@
+{
+    "title": "您的API帳戶",
+    "userDetails": "使用者詳細資料",
+    "description": "Mobility Database API使用OAuth2驗證。若要啟動成功的API請求，必須將存取權杖作為不記名令牌包含在HTTP標頭中。訪問令牌的有效期限為一小時。要取得存取令牌，您首先需要一個刷新令牌，該令牌是長期存在且不會過期的。",
+    "support": "如果您需要重新頒發刷新令牌或希望刪除您的帳戶，請向我們發送電子郵件至",
+    "registerApiAnnouncements": "註冊API 公告",
+    "refreshToken": {
+        "title": "刷新令牌",
+        "description": "使用您的刷新令牌連接到應用程式中的API。",
+        "placeholder": "您的刷新令牌已隱藏",
+        "yourToken": "您的刷新令牌",
+        "toggleVisibility": "切換刷新令牌可見性",
+        "copy": "複製刷新令牌",
+        "copyToClipboard": "將刷新令牌複製到剪貼簿"
+    },
+    "accessToken": {
+        "title": "如何在您的應用程式中產生存取權杖",
+        "description": {
+            "pt1": "跟隨",
+            "cta": "我們的OpenAPI文件",
+            "pt2": "使用刷新令牌對您的帳戶進行身份驗證。"
+        },
+        "generate": "產生存取權杖",
+        "copyToken": "複製存取權杖",
+        "copyTokenToClipboard": "將存取權杖複製到剪貼簿",
+        "copy": "複製CLI命令以產生存取令牌。 ",
+        "yourToken": "您的存取令牌",
+        "refreshing": "正在刷新存取令牌...",
+        "refresh": "刷新存取權杖",
+        "refreshSuccess": "您的存取權杖已成功刷新！",
+        "testing": {
+            "title": "用於測試的存取令牌",
+            "description": {
+                "pt1": "想要一些快速測試嗎？ 複製下面的訪問令牌以測試",
+                "cta": "OpenAPI文件中的端點",
+                "pt2": "。訪問令牌的有效期限為一小時。"
+            },
+            "api": "API測試",
+            "copyCli": "複製CLI命令來測試您對API的存取。"
+        },
+        "toggleVisibility": "切換訪問令牌可見性",
+        "expired": "令牌已過期",
+        "willExpireIn": "您的令牌將在{{timeLeftForTokenExpiration}}後過期",
+        "hidden": "您的存取權杖已隱藏",
+        "unavailable": "您的令牌不可用"
+    }
+}
