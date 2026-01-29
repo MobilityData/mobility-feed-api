@@ -168,7 +168,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 continue
             feed = self.query_feed_by_stable_id(session, stable_id, None)
             raw_comments = row.get("redirect.comment", None)
-            comments = raw_comments.split("|") if raw_comments is not None else []
+            comments = str(raw_comments).split("|") if raw_comments is not None else []
             if len(redirects_ids) != len(comments) and len(comments) > 0:
                 self.logger.warning(f"Number of redirect ids and redirect comments differ for feed {stable_id}")
             for redirect_id in redirects_ids:
