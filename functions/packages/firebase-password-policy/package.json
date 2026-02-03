@@ -2,7 +2,7 @@
   "name": "firebase-password-policy",
   "version": "1.0.0",
   "engines": {
-    "node": "18"
+    "node": ">=18 <=24"
   },
   "scripts": {
     "lint": "eslint --ext .js,.ts .",

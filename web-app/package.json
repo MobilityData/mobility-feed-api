@@ -78,6 +78,9 @@
     "generate:gbfs-validator-types:output": "npx openapi-typescript ../docs/GbfsValidator.yaml -o $OUTPUT_PATH_TYPES && eslint $OUTPUT_PATH_TYPES --fix",
     "generate:gbfs-validator-types": "OUTPUT_PATH_TYPES=src/app/services/feeds/gbfs-validator-types.ts npm run generate:gbfs-validator-types:output"
   },
+  "resolutions": {
+    "tar": "^7.5.7"
+  },
   "eslintConfig": {
     "extends": [
       "react-app",
