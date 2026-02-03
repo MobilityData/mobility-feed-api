@@ -6,6 +6,9 @@
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint"
   },
+  "resolutions": {
+    "tar": "^7.5.7"
+  },
   "devDependencies": {
     "firebase-tools": "^13.6.0"
   }
