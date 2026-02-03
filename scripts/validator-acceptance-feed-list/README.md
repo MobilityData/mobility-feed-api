@@ -16,4 +16,4 @@
 
 If you have access to the [MobilityData Metabase site](https://metabase.mobilitydatabase.org/), a simpler way to get the list is to create a question using the query.
 
-Once the list is created, it should be committed to the gtfs-validator repository, in the [scripts/mobility-database-harvester](https://github.com/MobilityData/gtfs-validator/tree/master/scripts/mobility-database-harvester) directory where it can be used by the gtfs-validator acceptance tests.
+Once the list is created, it should be committed to the gtfs-validator repository, in [acceptance_test_feed_list.csv](https://github.com/MobilityData/gtfs-validator/blob/master/scripts/mobility-database-harvester/acceptance_test_feed_list.csv) where it is used by the gtfs-validator acceptance tests.
