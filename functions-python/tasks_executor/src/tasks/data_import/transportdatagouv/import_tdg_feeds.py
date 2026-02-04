@@ -20,7 +20,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 import requests
 from sqlalchemy.exc import IntegrityError
@@ -74,6 +74,15 @@ ENTITY_TYPES_MAP = {
     "vehicle_positions": "vp",
     "service_alerts": "sa",
 }
+
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+
+class InvalidTDGFeedError(Exception):
+    """Raised when a TDG dataset/resource is missing required fields for a valid feed."""
 
 
 # ---------------------------------------------------------------------------
@@ -171,8 +180,7 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
     Rules:
       - If type == 'pays', use that as the country.
       - If there is no 'pays', assume country = 'France'.
-      - region/departement → state_province
-      - commune/epci      → municipality (city_name)
+      - region/departement/commune/epci → state_province (kept as-is)
     """
     covered_areas = dataset.get("covered_area", []) or []
 
@@ -216,6 +224,63 @@ def _get_tdg_locations(db_session: Session, dataset: dict) -> List[Any]:
 # ---------------------------------------------------------------------------
 # Feed helpers
 # ---------------------------------------------------------------------------
+
+TFeed = TypeVar("TFeed", bound=Feed)
+
+
+def _validate_required_tdg_fields(
+    dataset: dict, resource: dict, producer_url: str
+) -> None:
+    """
+    Validate required TDG fields BEFORE creating/upserting DB rows.
+    This avoids persisting invalid feeds when the resource is missing key data.
+    """
+    publisher = (dataset.get("publisher") or {}).get("name")
+    if not publisher:
+        raise InvalidTDGFeedError("TDG dataset.publisher.name is missing")
+    if not producer_url:
+        raise InvalidTDGFeedError("TDG resource.url is missing")
+
+
+def _delete_and_recreate_feed_if_type_changed(
+    db_session: Session,
+    model_cls: Type[TFeed],
+    stable_id: str,
+    feed_type: str,
+    **get_or_create_kwargs: Any,
+) -> Tuple[TFeed, bool]:
+    """
+    If a Feed exists with the same stable_id but is a different data_type
+    (e.g., GTFS-RT in DB but now TDG says it's GTFS), delete the old entity and
+    recreate using the requested model class.
+
+    Returns: (feed, is_new)
+      - is_new True when created (including after deletion/recreate)
+      - is_new False when existing row already matches feed_type
+    """
+    existing: Optional[Feed] = (
+        db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
+    )
+
+    if existing is not None and existing.data_type != feed_type:
+        logger.info(
+            "TDG feed type changed for stable_id=%s: db_data_type=%s -> new_data_type=%s. Deleting and recreating.",
+            stable_id,
+            getattr(existing, "data_type", None),
+            feed_type,
+        )
+        db_session.delete(existing)
+        # flush so the new insert doesn't collide on stable_id unique constraint
+        db_session.flush()
+
+    feed, is_new = get_or_create_feed(
+        db_session,
+        model_cls,
+        stable_id,
+        feed_type,
+        **get_or_create_kwargs,
+    )
+    return feed, is_new
 
 
 def _deprecate_stale_feeds(db_session, processed_stable_ids):
@@ -281,10 +346,10 @@ def _update_common_tdg_fields(
 ) -> None:
     """
     Update common fields for both schedule GTFS and RT from TDG dataset + resource.
+    Assumes required fields were validated earlier.
     """
     feed.feed_name = dataset.get("title")
-    publisher = (dataset.get("publisher") or {}).get("name")
-    feed.provider = publisher
+    feed.provider = (dataset.get("publisher") or {}).get("name")
     feed.producer_url = producer_url
 
     feed.status = _compute_status_from_end_date(resource.get("metadata") or {})
@@ -296,6 +361,7 @@ def _update_common_tdg_fields(
     )
     if feed_license:
         feed.license = feed_license
+
     # Use locations only if not already set
     if locations and (not feed.locations or len(feed.locations) == 0):
         feed.locations = locations
@@ -384,10 +450,12 @@ def _process_tdg_dataset(
 ) -> Tuple[dict, List[Feed]]:
     """
     Process one TDG dataset:
+      - validate required fields BEFORE creating/updating any DB rows
       - create/update schedule GTFS feeds
       - create/update RT feeds linked to the schedule
       - attach locations
       - use diffing to avoid unnecessary DB writes
+      - if stable_id exists in DB but with wrong entity type, delete+recreate
     Returns:
       (deltas_dict, feeds_to_publish)
     """
@@ -408,7 +476,6 @@ def _process_tdg_dataset(
         key=lambda r: 0 if r.get("format") == GTFS_FORMAT else 1,
     )
 
-    # Map of dataset_id -> list of static gtfs feed
     static_feeds_by_dataset_id: Dict[str, List[Gtfsfeed]] = {}
 
     # Precompute locations once per dataset
@@ -431,149 +498,174 @@ def _process_tdg_dataset(
             )
             continue
 
-        # ---- STATIC GTFS ----
-        if res_format == GTFS_FORMAT:
-            stable_id = f"tdg-{res_id}"
-            processed_stable_ids.add(stable_id)
-            gtfs_feed, is_new = get_or_create_feed(
-                db_session,
-                Gtfsfeed,
-                stable_id,
-                "gtfs",
-                official_notes="Imported from Transport.data.gouv.fr as official feed.",
-            )
+        stable_id = f"tdg-{res_id}"
+        processed_stable_ids.add(stable_id)
 
-            if not is_new:
-                api_fp = _build_api_schedule_fingerprint_tdg(
-                    dataset=dataset, resource=resource, producer_url=res_url
+        # Validate required fields up-front (fixes: creating feeds before validation)
+        try:
+            _validate_required_tdg_fields(dataset, resource, res_url)
+        except InvalidTDGFeedError as e:
+            logger.warning(
+                "Invalid TDG resource skipped (dataset_id=%s resource_id=%s): %s",
+                dataset_id,
+                res_id,
+                e,
+            )
+            continue
+
+        # SAVEPOINT per resource
+        nested = db_session.begin_nested()
+        try:
+            # ---- STATIC GTFS ----
+            if res_format == GTFS_FORMAT:
+                # Requirement: if GTFS url returns CSV, skip it (listing, not feed).
+                status_code, content_type, detected_format = _probe_head_format(
+                    session_http, res_url
                 )
-                db_fp = _build_db_schedule_fingerprint_tdg(gtfs_feed)
-                if db_fp == api_fp:
+                logger.debug(
+                    "TDG probe: url=%s status=%s ctype=%s detected=%s",
+                    res_url,
+                    status_code,
+                    content_type,
+                    detected_format,
+                )
+
+                if detected_format == "csv":
                     logger.info(
-                        "No change detected; skipping TDG GTFS feed stable_id=%s",
-                        stable_id,
+                        "Skipping GTFS resource id=%s because it returns CSV (url=%s)",
+                        res_id,
+                        res_url,
                     )
-                    processed += 1
-                    if dataset_id not in static_feeds_by_dataset_id:
-                        static_feeds_by_dataset_id[dataset_id] = []
-                    static_feeds_by_dataset_id[dataset_id].append(gtfs_feed)
+                    nested.rollback()
                     continue
 
-            # Requirement: if GTFS url returns CSV, skip it (listing, not feed).
-            status_code, content_type, detected_format = _probe_head_format(
-                session_http, res_url
-            )
-            logger.debug(
-                "TDG probe: url=%s status=%s ctype=%s detected=%s",
-                res_url,
-                status_code,
-                content_type,
-                detected_format,
-            )
-
-            if detected_format == "csv":
-                logger.info(
-                    "Skipping GTFS resource id=%s because it returns CSV (url=%s)",
-                    res_id,
-                    res_url,
+                gtfs_feed, is_new = _delete_and_recreate_feed_if_type_changed(
+                    db_session,
+                    Gtfsfeed,
+                    stable_id,
+                    "gtfs",
+                    official_notes="Imported from Transport.data.gouv.fr as official feed.",
                 )
+
+                if not is_new:
+                    api_fp = _build_api_schedule_fingerprint_tdg(
+                        dataset=dataset, resource=resource, producer_url=res_url
+                    )
+                    db_fp = _build_db_schedule_fingerprint_tdg(gtfs_feed)
+                    if db_fp == api_fp:
+                        logger.info(
+                            "No change detected; skipping TDG GTFS feed stable_id=%s",
+                            stable_id,
+                        )
+                        processed += 1
+                        static_feeds_by_dataset_id.setdefault(dataset_id, []).append(
+                            gtfs_feed
+                        )
+                        nested.commit()
+                        continue
+
+                _update_common_tdg_fields(
+                    gtfs_feed, dataset, resource, res_url, locations, db_session
+                )
+                _ensure_tdg_external_id(gtfs_feed, res_id)
+
+                static_feeds_by_dataset_id.setdefault(dataset_id, []).append(gtfs_feed)
+
+                if is_new:
+                    created_gtfs += 1
+                    feeds_to_publish.append(gtfs_feed)
+                    logger.info("Created TDG GTFS feed stable_id=%s", stable_id)
+                else:
+                    updated_gtfs += 1
+                    logger.info("Updated TDG GTFS feed stable_id=%s", stable_id)
+
+                processed += 1
+                nested.commit()
                 continue
 
-            # Apply changes
-            _update_common_tdg_fields(
-                gtfs_feed, dataset, resource, res_url, locations, db_session
-            )
-            _ensure_tdg_external_id(gtfs_feed, res_id)
+            # ---- GTFS-RT ----
+            if res_format == GTFS_RT_FORMAT:
+                static_gtfs_feeds = static_feeds_by_dataset_id.get(dataset_id, [])
 
-            if dataset_id not in static_feeds_by_dataset_id:
-                static_feeds_by_dataset_id[dataset_id] = []
-            static_feeds_by_dataset_id[dataset_id].append(gtfs_feed)
-
-            if is_new:
-                created_gtfs += 1
-                feeds_to_publish.append(gtfs_feed)
-                logger.info("Created TDG GTFS feed stable_id=%s", stable_id)
-            else:
-                updated_gtfs += 1
-                logger.info("Updated TDG GTFS feed stable_id=%s", stable_id)
-
-            processed += 1
-
-        # ---- GTFS-RT ----
-        elif res_format == GTFS_RT_FORMAT:
-            # Pick the first static GTFS feed created for this dataset as reference
-            static_gtfs_feeds = (
-                static_feeds_by_dataset_id[dataset_id]
-                if dataset_id in static_feeds_by_dataset_id
-                else []
-            )
-
-            rt_stable_id = f"tdg-{res_id}"
-            processed_stable_ids.add(rt_stable_id)
-            rt_feed, is_new_rt = get_or_create_feed(
-                db_session, Gtfsrealtimefeed, rt_stable_id, "gtfs_rt"
-            )
-
-            if not is_new_rt:
-                api_rt_fp = _build_api_rt_fingerprint_tdg(
-                    dataset=dataset,
-                    resource=resource,
-                    producer_url=res_url,
-                    static_gtfs_stable_ids=[
-                        static_gtfs_feed.stable_id
-                        for static_gtfs_feed in static_gtfs_feeds
-                    ],
-                    rt_stable_id=rt_stable_id,
+                rt_feed, is_new_rt = _delete_and_recreate_feed_if_type_changed(
+                    db_session,
+                    Gtfsrealtimefeed,
+                    stable_id,
+                    "gtfs_rt",
                 )
-                db_rt_fp = _build_db_rt_fingerprint_tdg(rt_feed)
-                if db_rt_fp == api_rt_fp:
-                    logger.info(
-                        "No change detected; skipping TDG RT feed stable_id=%s",
-                        rt_stable_id,
+
+                if not is_new_rt:
+                    api_rt_fp = _build_api_rt_fingerprint_tdg(
+                        dataset=dataset,
+                        resource=resource,
+                        producer_url=res_url,
+                        static_gtfs_stable_ids=[
+                            static_gtfs_feed.stable_id
+                            for static_gtfs_feed in static_gtfs_feeds
+                        ],
+                        rt_stable_id=stable_id,
                     )
-                    processed += 1
-                    continue
+                    db_rt_fp = _build_db_rt_fingerprint_tdg(rt_feed)
+                    if db_rt_fp == api_rt_fp:
+                        logger.info(
+                            "No change detected; skipping TDG RT feed stable_id=%s",
+                            stable_id,
+                        )
+                        processed += 1
+                        nested.commit()
+                        continue
 
-            # Apply changes
-            _update_common_tdg_fields(
-                rt_feed, dataset, resource, res_url, locations, db_session
+                _update_common_tdg_fields(
+                    rt_feed, dataset, resource, res_url, locations, db_session
+                )
+                _ensure_tdg_external_id(rt_feed, res_id)
+
+                # Link RT → schedule (can be empty if schedule missing)
+                rt_feed.gtfs_feeds = static_gtfs_feeds
+
+                # Add entity types
+                entity_types = _get_entity_types_from_resource(resource)
+                rt_feed.entitytypes = [
+                    get_or_create_entity_type(db_session, et) for et in entity_types
+                ]
+
+                if is_new_rt:
+                    created_rt += 1
+                    logger.info(
+                        "Created TDG RT feed stable_id=%s linked_to=%s",
+                        stable_id,
+                        ", ".join([f.stable_id for f in static_gtfs_feeds]),
+                    )
+                else:
+                    logger.info(
+                        "Updated TDG RT feed stable_id=%s linked_to=%s",
+                        stable_id,
+                        ", ".join([f.stable_id for f in static_gtfs_feeds]),
+                    )
+
+                processed += 1
+                nested.commit()
+                continue
+
+        except IntegrityError:
+            # rollback nested transaction explicitly
+            nested.rollback()
+            logger.exception(
+                "IntegrityError while processing TDG resource (dataset_id=%s resource_id=%s). Skipping.",
+                dataset_id,
+                res_id,
             )
-            _ensure_tdg_external_id(rt_feed, res_id)
-
-            # Link RT → schedule
-            rt_feed.gtfs_feeds = static_gtfs_feeds
-
-            # Add entity types
-            entity_types = _get_entity_types_from_resource(resource)
-            rt_feed.entitytypes = [
-                get_or_create_entity_type(db_session, et) for et in entity_types
-            ]
-
-            if is_new_rt:
-                created_rt += 1
-                logger.info(
-                    "Created TDG RT feed stable_id=%s linked_to=%s",
-                    rt_stable_id,
-                    ", ".join(
-                        [
-                            static_gtfs_feed.stable_id
-                            for static_gtfs_feed in static_gtfs_feeds
-                        ]
-                    ),
-                )
-            else:
-                logger.info(
-                    "Updated TDG RT feed stable_id=%s linked_to=%s",
-                    rt_stable_id,
-                    ", ".join(
-                        [
-                            static_gtfs_feed.stable_id
-                            for static_gtfs_feed in static_gtfs_feeds
-                        ]
-                    ),
-                )
-
-            processed += 1
+            continue
+        except Exception as e:
+            # Any unexpected exception: rollback savepoint for this resource
+            nested.rollback()
+            logger.exception(
+                "Exception while processing TDG resource (dataset_id=%s resource_id=%s): %s",
+                dataset_id,
+                res_id,
+                e,
+            )
+            continue
 
     deltas = {
         "created_gtfs": created_gtfs,
@@ -597,6 +689,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
       - iterate over datasets
       - batch commit + trigger dataset downloads for new schedule feeds
       - use diffing to avoid unnecessary DB writes
+      - delete/recreate entity if stable_id flips GTFS <-> GTFS-RT
     """
     logger.info("Starting TDG import dry_run=%s", dry_run)
     session_http = requests.Session()
@@ -624,6 +717,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
     created_gtfs = updated_gtfs = created_rt = total_processed = 0
     feeds_to_publish: List[Feed] = []
     processed_stable_ids = set()
+
     for idx, dataset in enumerate(datasets, start=1):
         previous_total_processed = total_processed
         try:
@@ -658,9 +752,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
             continue
 
     if not dry_run:
-        # Deprecate TDG feeds not seen in this import
         _deprecate_stale_feeds(db_session, processed_stable_ids)
-        # Last commit for remaining feeds
         commit_changes(db_session, feeds_to_publish, total_processed)
 
     message = (

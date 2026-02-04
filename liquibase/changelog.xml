@@ -102,4 +102,6 @@
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
     <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
     <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
+    <!-- Change gtfsfile table hosted_url column type to text to accomodate longer URLs. -->
+    <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

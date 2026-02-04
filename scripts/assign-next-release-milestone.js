@@ -84,22 +84,30 @@ async function main() {
 
     console.log(`Found milestone: ${nextReleaseMilestone.title} (ID: ${nextReleaseMilestone.number})`);
 
-    // Get all closed issues
+    // Get all closed issues using search API, filtered to last 45 days
     console.log('Fetching closed issues...');
-    const issues = await octokit.rest.issues.listForRepo({
-      owner,
-      repo,
-      state: 'closed',
-      per_page: 100
-    });
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 45);
+    const cutoffISO = cutoffDate.toISOString().split('T')[0];
 
-    console.log(`Found ${issues.data.length} closed issues`);
+    const query = `repo:${owner}/${repo} is:issue is:closed reason:completed closed:>=${cutoffISO}`;
+
+    const issuesResponse = await octokit.rest.search.issuesAndPullRequests({
+      q: query,
+      per_page: 100,
+      sort: 'updated',
+      order: 'desc',
+    });
+    const issues = issuesResponse.data.items;
+
+    console.log(`Found ${issues.length} closed issues`);
 
     let processedCount = 0;
     let assignedCount = 0;
+    const assignedIssueNumbers = [];
 
     // Process each issue
-    for (const issue of issues.data) {
+    for (const issue of issues) {
       // Skip pull requests (they appear in issues API but have pull_request property)
       if (issue.pull_request) {
         continue;
@@ -121,16 +129,17 @@ async function main() {
         issue_number: issue.number
       });
 
-      const wasMergedToMain = timelineEvents.data.some(event => {
-        return event.event === 'closed' && 
-               event.commit_id && 
-               event.source && 
-               event.source.issue && 
-               event.source.issue.pull_request &&
-               event.source.issue.pull_request.merged_at;
+      // Debug log: print all timeline events for this issue
+      console.log(`Timeline events for issue #${issue.number}:`);
+      timelineEvents.data.forEach(event => {
+        console.log(`- event: ${event.event}, actor: ${event.actor?.login || 'N/A'}, commit_id: ${event.commit_id || 'N/A'}, source type: ${event.source?.issue?.pull_request ? 'PR' : 'Other'}`);
       });
 
-      if (wasMergedToMain) {
+      const wasClosedByMergedPR = timelineEvents.data.some(event =>
+        event.event === 'closed'
+      );
+
+      if (wasClosedByMergedPR) {
         console.log(`${isDryRun ? '[DRY RUN] Would assign' : 'Assigning'} milestone to issue #${issue.number}: ${issue.title}`);
 
         if (!isDryRun) {
@@ -144,15 +153,17 @@ async function main() {
 
             console.log(`✅ Successfully assigned milestone to issue #${issue.number}`);
             assignedCount++;
+            assignedIssueNumbers.push(issue.number);
           } catch (error) {
             console.error(`❌ Failed to assign milestone to issue #${issue.number}:`, error.message);
           }
         } else {
           console.log(`[DRY RUN] Skipped actual assignment for issue #${issue.number}`);
           assignedCount++;
+          assignedIssueNumbers.push(issue.number);
         }
       } else {
-        console.log(`Issue #${issue.number} was not merged to main, skipping`);
+        console.log(`Issue #${issue.number} was not detected as closed, skipping`);
       }
     }
 
@@ -160,6 +171,10 @@ async function main() {
     console.log(`- Processed ${processedCount} issues`);
     console.log(`- ${isDryRun ? 'Would assign' : 'Assigned'} milestone to ${assignedCount} issues`);
     console.log(`${isDryRun ? '[DRY RUN] Test complete!' : '✅ Milestone assignment complete!'}`);
+
+    if (assignedIssueNumbers.length > 0) {
+      console.log(`\nIssues ${isDryRun ? 'to be' : ''} assigned milestone: ${assignedIssueNumbers.join(', ')}`);
+    }
 
   } catch (error) {
     console.error('❌ Script failed:', error.message);
