@@ -20,7 +20,6 @@ jobs:
       SKIP_TESTS: false
       VALIDATOR_ENDPOINT: https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app
       OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_RETOOL_OAUTH2_CREDS/username"
-      S2S_JWT_SECRET_1PASSWORD: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Feeds_API_JWT_KEYS/user-context-prod"
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
