@@ -35,6 +35,7 @@ class TestRequestContext(unittest.TestCase):
             "client_host": "client",
             "client_user_agent": "user-agent",
             "google_public_keys": None,
+            "is_guest": False,
             "headers": Headers(scope=scope_instance),
             "host": "localhost",
             "iap_jwt_assertion": "jwt",
