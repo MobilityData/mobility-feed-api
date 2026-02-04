@@ -43,3 +43,8 @@ variable "feed_api_image_version" {
   type        = string
   description = "Docker image version"
 }
+
+variable "S2S_JWT_SECRET" {
+  type        = string
+  description = "Server to server JWT secret"
+}

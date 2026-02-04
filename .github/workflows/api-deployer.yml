@@ -64,6 +64,10 @@ on:
         description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
         required: true
         type: boolean
+      S2S_JWT_SECRET_1PASSWORD:
+        description: Server to server JWT secret 1Password path
+        required: true
+        type: string
 
 env:
   python_version: '3.11'
@@ -299,11 +303,12 @@ jobs:
           TRANSITLAND_API_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/TansitLand API Key/credential"
           TDG_API_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Transport.data.gouv.fr API Token/credential"
           OPERATIONS_OAUTH2_CLIENT_ID: ${{ inputs.OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD }}
+          S2S_JWT_SECRET: ${{ inputs.S2S_JWT_SECRET_1PASSWORD }}
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,S2S_JWT_SECRET
 
       - uses: hashicorp/setup-terraform@v3
         with:
