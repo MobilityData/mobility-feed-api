@@ -825,5 +825,29 @@
         }
       ]
     }
+  ],
+  "licenses": [
+    {
+      "id": "CC BY 4.0",
+      "is_spdx": true,
+      "name": "Creative Commons Attribution 4.0 International",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "id": "ODbL-1.0",
+      "is_spdx": true,
+      "name": "Open Data Commons Open Database License (ODbL) v1.0",
+      "url": "https://opendatacommons.org/licenses/odbl/1.0/"
+    }
+  ],
+  "feed_licenses": [
+    {
+      "feed_stable_id": "mdb-1",
+      "license_id": "CC BY 4.0"
+    },
+    {
+      "feed_stable_id": "gbfs-system_id_1",
+      "license_id": "ODbL-1.0"
+    }
   ]
 }

@@ -60,6 +60,8 @@ search_item = FeedSearchRow(
     country_translations=[],
     subdivision_name_translations=[],
     municipality_translations=[],
+    license_id=None,
+    license_is_spdx=None,
 )
 
 

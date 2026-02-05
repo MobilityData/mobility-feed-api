@@ -954,6 +954,10 @@ export interface components {
     >;
     /** @description Filter feeds by their GTFS features. [GTFS features definitions defined here](https://gtfs.org/getting-started/features/overview) */
     feature?: string[];
+    /** @description Comma separated list of license IDs to filter feeds by their license. */
+    license_ids?: string;
+    /** @description Filter feeds by whether their license is an SPDX license. */
+    license_is_spdx?: boolean;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -1312,6 +1316,8 @@ export interface operations {
         version?: components['parameters']['version_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
         feature?: components['parameters']['feature'];
+        license_ids?: components['parameters']['license_ids'];
+        license_is_spdx?: components['parameters']['license_is_spdx'];
       };
     };
     responses: {

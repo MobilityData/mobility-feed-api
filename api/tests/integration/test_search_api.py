@@ -473,6 +473,49 @@ def test_search_filter_by_versions(client: TestClient, values: dict):
 @pytest.mark.parametrize(
     "values",
     [
+        {"license_ids": "CC BY 4.0", "expected_count": 1},
+        {"license_ids": "ODbL-1.0", "expected_count": 1},
+        {"license_ids": "ODbL-1.0,CC BY 4.0", "expected_count": 2},
+        {"license_ids": "", "expected_count": 16},
+    ],
+    ids=[
+        "License ID CC BY 4.0",
+        "License ID ODbL-1.0",
+        "License IDs ODbL-1.0 and CC BY 4.0",
+        "No license IDs specified",
+    ],
+)
+def test_search_filter_by_license_ids(client: TestClient, values: dict):
+    """
+    Retrieve feeds that contain specific license IDs.
+    """
+    params = None
+    if values["license_ids"] is not None:
+        params = [
+            ("license_ids", values["license_ids"]),
+        ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for license_ids={values['license_ids']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
         {"feature": "", "expected_count": 16},
         {"feature": "Bike Allowed", "expected_count": 2},
         {"feature": "Stops Wheelchair Accessibility", "expected_count": 0},
