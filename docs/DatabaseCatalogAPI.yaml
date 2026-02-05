@@ -338,6 +338,8 @@ paths:
         - $ref: "#/components/parameters/version_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
         - $ref: "#/components/parameters/feature"
+        - $ref: "#/components/parameters/license_ids"
+        - $ref: "#/components/parameters/license_is_spdx"
       security:
         - Authentication: []
       responses:
@@ -1485,6 +1487,21 @@ components:
         type: array
         items:
           type: string
+    license_ids:
+      name: license_ids
+      in: query
+      description: Comma separated list of license IDs to filter feeds by their license.
+      required: false
+      schema:
+        type: string
+        example: CC-BY-4.0,ODbL-1.0
+    license_is_spdx:
+        name: license_is_spdx
+        in: query
+        description: Filter feeds by whether their license is an SPDX license.
+        required: false
+        schema:
+            type: boolean
     provider:
       name: provider
       in: query

@@ -20,6 +20,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsendpoint,
     Gbfsfeed,
     Rule,
+    Feed,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from typing import TYPE_CHECKING
@@ -81,6 +82,29 @@ class DatabasePopulateTestDataHelper:
                     updated_at=lic.get("updated_at"),
                 )
                 db_session.add(license_obj)
+            db_session.commit()
+
+        # Link licenses to feeds if specified
+        if "feed_licenses" in data:
+            for lf in data["feed_licenses"]:
+                license_id = lf.get("license_id")
+                feed_stable_id = lf.get("feed_stable_id")
+                if not license_id or not feed_stable_id:
+                    continue
+                license_obj = db_session.get(License, license_id)
+                if not license_obj:
+                    self.logger.error(
+                        f"No license found with id: {license_id}; skipping license_feed for feed " f"{feed_stable_id}"
+                    )
+                    continue
+                feed_obj = db_session.query(Feed).filter(Feed.stable_id == feed_stable_id).one_or_none()
+                if not feed_obj:
+                    self.logger.error(
+                        f"No feed found with stable_id: {feed_stable_id}; skipping license_feed for"
+                        f" license {license_id}"
+                    )
+                    continue
+                feed_obj.license = license_obj
             db_session.commit()
 
         # Rules (optional section to seed rule metadata used by license_rules)
