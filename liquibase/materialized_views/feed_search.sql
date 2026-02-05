@@ -269,5 +269,5 @@ CREATE INDEX feedsearch_feed_stable_id ON FeedSearch(feed_stable_id);
 CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
 CREATE INDEX feedsearch_license_id ON FeedSearch(license_id);
-CREATE INDEX feedsearch_license_is_spd ON FeedSearch(license_is_spdx);
+CREATE INDEX feedsearch_license_is_spdx ON FeedSearch(license_is_spdx);
 
