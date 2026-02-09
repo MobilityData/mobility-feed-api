@@ -32,7 +32,7 @@ class SearchApiImpl(BaseSearchApi):
 
     @staticmethod
     def add_search_query_filters(
-        query, search_query, data_type, feed_id, status, is_official, features, version
+        query, search_query, data_type, feed_id, status, is_official, features, version, license_ids, license_is_spdx
     ) -> Query:
         """
         Add filters to the search query.
@@ -68,6 +68,19 @@ class SearchApiImpl(BaseSearchApi):
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
             )
+        if license_ids:
+            license_ids_list = [lid.strip() for lid in license_ids.split(",") if len(lid.strip()) > 0]
+            if len(license_ids_list) > 0:
+                query = query.where(t_feedsearch.c.license_id.in_(license_ids_list))
+
+        if license_is_spdx is not None:
+            if license_is_spdx:
+                query = query.where(t_feedsearch.c.license_is_spdx.is_(True))
+            else:
+                query = query.where(
+                    or_(t_feedsearch.c.license_is_spdx.is_(False), t_feedsearch.c.license_is_spdx.is_(None))
+                )
+
         # Add feature filter with OR logic
         if features:
             features_list = [s.strip() for s in features[0].split(",") if s]
@@ -86,13 +99,24 @@ class SearchApiImpl(BaseSearchApi):
         features,
         version: str,
         search_query: str,
+        license_ids: str,
+        license_is_spdx: bool,
     ) -> Query:
         """
         Create a search query for the database.
         """
         query = select(func.count(t_feedsearch.c.feed_id))
         return SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features, version
+            query,
+            search_query,
+            data_type,
+            feed_id,
+            status,
+            is_official,
+            features,
+            version,
+            license_ids,
+            license_is_spdx,
         )
 
     @staticmethod
@@ -104,6 +128,8 @@ class SearchApiImpl(BaseSearchApi):
         search_query: str,
         features: List[str],
         version: str,
+        license_ids: str,
+        license_is_spdx: bool,
     ) -> Query:
         """
         Create a search query for the database.
@@ -117,7 +143,16 @@ class SearchApiImpl(BaseSearchApi):
             *feed_search_columns,
         )
         query = SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features, version
+            query,
+            search_query,
+            data_type,
+            feed_id,
+            status,
+            is_official,
+            features,
+            version,
+            license_ids,
+            license_is_spdx,
         )
         # If search query is provided, use it as secondary sort after timestamp
         if search_query and len(search_query.strip()) > 0:
@@ -140,10 +175,14 @@ class SearchApiImpl(BaseSearchApi):
         version: str,
         search_query: str,
         feature: List[str],
+        license_ids: str,
+        license_is_spdx: bool,
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, feature, version)
+        query = self.create_search_query(
+            status, feed_id, data_type, is_official, search_query, feature, version, license_ids, license_is_spdx
+        )
         feed_rows = Database().select(
             session=db_session,
             query=query,
@@ -153,7 +192,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_total_count = Database().select(
             session=db_session,
             query=self.create_count_search_query(
-                status, feed_id, data_type, is_official, feature, version, search_query
+                status, feed_id, data_type, is_official, feature, version, search_query, license_ids, license_is_spdx
             ),
         )
         if feed_rows is None or feed_total_count is None:
