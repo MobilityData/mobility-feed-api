@@ -84,14 +84,12 @@ def get_available_process_memory_bytes():
 
 
 def limit_gcp_memory():
-    # Debug: Log all environment variables to help troubleshoot MEMORY_LIMIT
-    logging.info(f"All environment variables: {os.environ}")
     # Margin comes from env in megabytes (string), default 200 MiB
     memory_margin_str_mb = os.getenv("MEMORY_MARGIN_MB", "200")
 
     available_memory_bytes = get_available_process_memory_bytes()
     if not available_memory_bytes or available_memory_bytes <= 0:
-        logging.info("Could not find the total memory of the process.")
+        logging.info("Could not find the total memory of the process. Memory limit not set.")
         return
 
     memory_margin_mb = 200

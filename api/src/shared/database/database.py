@@ -7,9 +7,11 @@ from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, event, func, select
 from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
+
 from shared.database_gen.sqlacodegen_models import (
     Base,
     Feed,
+    Gtfsdataset,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gbfsversion,
@@ -93,6 +95,9 @@ cascade_entities = {
     ],
     Validationreport: [
         Validationreport.notices,  # notice_validation_report_id_fkey
+    ],
+    Gtfsdataset: [
+        Gtfsdataset.gtfsfiles,
     ],
 }
 
