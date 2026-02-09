@@ -8,6 +8,7 @@ SELECT
     Feed.feed_name,
     Feed.note,
     Feed.feed_contact_email,
+
     -- source
     Feed.producer_url,
     Feed.authentication_info_url,
@@ -16,10 +17,18 @@ SELECT
     Feed.license_url,
     Feed.provider,
     Feed.operational_status,
+
     -- official status
     Feed.official AS official,
+
     -- created_at
     Feed.created_at AS created_at,
+
+    -- license fields
+    Feed.license_id AS license_id,
+    License.is_spdx AS license_is_spdx,
+    License.name AS license_name,
+
     -- latest_dataset
     Latest_dataset.stable_id AS latest_dataset_id,
     Latest_dataset.hosted_url AS latest_dataset_hosted_url,
@@ -29,8 +38,10 @@ SELECT
     Latest_dataset.agency_timezone AS latest_dataset_agency_timezone,
     Latest_dataset.service_date_range_start AS latest_dataset_service_date_range_start,
     Latest_dataset.service_date_range_end AS latest_dataset_service_date_range_end,
+
     -- Latest dataset features
     LatestDatasetFeatures AS latest_dataset_features,
+
     -- Latest dataset validation totals
     COALESCE(LatestDatasetValidationReportJoin.total_error, 0) as latest_total_error,
     COALESCE(LatestDatasetValidationReportJoin.total_warning, 0) as latest_total_warning,
@@ -38,19 +49,26 @@ SELECT
     COALESCE(LatestDatasetValidationReportJoin.unique_error_count, 0) as latest_unique_error_count,
     COALESCE(LatestDatasetValidationReportJoin.unique_warning_count, 0) as latest_unique_warning_count,
     COALESCE(LatestDatasetValidationReportJoin.unique_info_count, 0) as latest_unique_info_count,
+
     -- external_ids
     ExternalIdJoin.external_ids,
+
     -- redirect_ids
     RedirectingIdJoin.redirect_ids,
+
     -- feed gtfs_rt references
     FeedReferenceJoin.feed_reference_ids,
+
     -- feed gtfs_rt entities
     EntityTypeFeedJoin.entities,
+
     -- locations
     FeedLocationJoin.locations,
+
     -- osm locations grouped
     OsmLocationJoin.osm_locations,
-     -- gbfs versions
+
+    -- gbfs versions
     COALESCE(GbfsVersionsJoin.versions, '[]'::jsonb) AS versions,
 
     -- full-text searchable document
@@ -69,6 +87,9 @@ SELECT
     setweight(to_tsvector('english', coalesce(unaccent(OsmLocationNamesJoin.osm_location_names), '')), 'A')
         AS document
 FROM Feed
+
+-- license join
+LEFT JOIN License ON License.id = Feed.license_id
 
 -- Latest dataset
 LEFT JOIN gtfsfeed gtf ON gtf.id = Feed.id AND Feed.data_type = 'gtfs'
@@ -150,7 +171,6 @@ LEFT JOIN (
 ) AS FeedReferenceJoin ON FeedReferenceJoin.gtfs_rt_feed_id = Feed.id AND Feed.data_type = 'gtfs_rt'
 
 -- Redirect ids
--- Redirect ids
 LEFT JOIN (
     SELECT
         r.target_id,
@@ -159,6 +179,7 @@ LEFT JOIN (
     JOIN Feed f ON r.target_id = f.id
     GROUP BY r.target_id
 ) AS RedirectingIdJoin ON RedirectingIdJoin.target_id = Feed.id
+
 -- Feed locations
 LEFT JOIN (
     SELECT
@@ -247,4 +268,6 @@ CREATE INDEX feedsearch_document_idx ON FeedSearch USING GIN(document);
 CREATE INDEX feedsearch_feed_stable_id ON FeedSearch(feed_stable_id);
 CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
+CREATE INDEX feedsearch_license_id ON FeedSearch(license_id);
+CREATE INDEX feedsearch_license_is_spdx ON FeedSearch(license_is_spdx);
 
