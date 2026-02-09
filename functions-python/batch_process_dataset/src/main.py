@@ -32,7 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from shared.common.gcp_memory_utils import limit_gcp_memory
+# from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
@@ -48,7 +48,7 @@ from pipeline_tasks import create_pipeline_tasks
 init_logger()
 
 # Limit the available memory of the process so if an OOM exception happens it can be handled properly by our code
-limit_gcp_memory()
+# limit_gcp_memory()
 
 
 @dataclass
