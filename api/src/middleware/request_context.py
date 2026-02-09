@@ -3,7 +3,9 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from contextvars import ContextVar
+from typing import Optional
 
 import requests
 from google.auth import jwt
@@ -105,6 +107,22 @@ class RequestContext:
             logging.error("Error decoding user-context JWT: %s", e)
             return None
 
+    @staticmethod
+    def extract_user_id(raw_user_id: Optional[str]) -> Optional[str]:
+        """
+        Extracts the user ID from the raw user ID string.
+         - If there is a colon, return the substring after the last colon.
+         - If there is no colon, return the original raw_user_id.
+         - If raw_user_id is None, return None.
+        """
+        if raw_user_id is None:
+            return None
+
+        match = re.search(r":([^:]+)$", raw_user_id)
+        if match:
+            return match.group(1)
+        return raw_user_id
+
     def _extract_from_headers(self, headers: dict, scope: Scope) -> None:
         self.host = headers.get("host")
         self.protocol = headers.get("x-forwarded-proto") if headers.get("x-forwarded-proto") else scope.get("scheme")
@@ -155,6 +173,10 @@ class RequestContext:
                 self.user_id = user_context.get("uid", self.user_id)
                 self.user_email = user_context.get("email", self.user_email)
                 self.is_guest = bool(user_context.get("isGuest"))
+        # if the user_id is in the format "accounts.google.com:1234567890",
+        # extract just the numeric ID part for consistency with legacy IAP user_id format
+        if self.user_id:
+            self.user_id = RequestContext.extract_user_id(self.user_id)
 
     def __repr__(self) -> str:
         # Omitting sensitive data like email and jwt assertion

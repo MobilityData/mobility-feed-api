@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
+import pytest
 from starlette.datastructures import Headers
 
 from middleware.request_context import RequestContext, get_request_context, _request_context
@@ -55,3 +56,16 @@ class TestRequestContext(unittest.TestCase):
         request_context = RequestContext(MagicMock())
         _request_context.set(request_context)
         self.assertEqual(request_context, get_request_context())
+
+
+@pytest.mark.parametrize(
+    "raw_user_id, expected",
+    [
+        (None, None),
+        ("plainuserid", "plainuserid"),
+        ("accounts.google.com:1234567890", "1234567890"),
+        ("prefix:middle:finalpart", "finalpart"),
+    ],
+)
+def test_extract_user_id_parametrized(raw_user_id, expected):
+    assert RequestContext.extract_user_id(raw_user_id) == expected
