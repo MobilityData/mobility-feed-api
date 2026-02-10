@@ -25,10 +25,12 @@ interface SearchFiltersProps {
   isOfficialFeedSearch: boolean;
   selectedFeatures: string[];
   selectedGbfsVersions: string[];
+  selectedLicenses: string[];
   setSelectedFeedTypes: (selectedFeedTypes: Record<string, boolean>) => void;
   setIsOfficialFeedSearch: (isOfficialFeedSearch: boolean) => void;
   setSelectedFeatures: (selectedFeatures: string[]) => void;
   setSelectedGbfsVerions: (selectedVersions: string[]) => void;
+  setSelectedLicenses: (selectedLicenses: string[]) => void;
   isOfficialTagFilterEnabled: boolean;
   areFeatureFiltersEnabled: boolean;
   areGBFSFiltersEnabled: boolean;
@@ -39,10 +41,12 @@ export function SearchFilters({
   isOfficialFeedSearch,
   selectedFeatures,
   selectedGbfsVersions,
+  selectedLicenses,
   setSelectedFeedTypes,
   setIsOfficialFeedSearch,
   setSelectedFeatures,
   setSelectedGbfsVerions,
+  setSelectedLicenses,
   isOfficialTagFilterEnabled,
   areFeatureFiltersEnabled,
   areGBFSFiltersEnabled,
@@ -58,6 +62,7 @@ export function SearchFilters({
     features: areFeatureFiltersEnabled,
     tags: isOfficialTagFilterEnabled,
     gbfsVersions: true,
+    licenses: true,
   });
   const [featureCheckboxData, setFeatureCheckboxData] = useState<
     CheckboxStructure[]
@@ -272,6 +277,75 @@ export function SearchFilters({
                 }
               });
               setSelectedGbfsVerions([...selectedVersions]);
+            }}
+          ></NestedCheckboxList>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion
+        disableGutters
+        variant={'outlined'}
+        sx={{
+          border: 0,
+          '&::before': {
+            display: 'none',
+          },
+        }}
+        expanded={expandedCategories.licenses}
+        onChange={() => {
+          setExpandedCategories({
+            ...expandedCategories,
+            licenses: !expandedCategories.licenses,
+          });
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls='panel-licenses-content'
+          sx={{
+            px: 0,
+          }}
+        >
+          <SearchHeader variant='h6'>Licenses</SearchHeader>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0, m: 0, border: 0 }}>
+          <NestedCheckboxList
+            debounceTime={500}
+            checkboxData={[
+              {
+                title: 'CC-BY-4.0',
+                checked: selectedLicenses.includes('CC-BY-4.0'),
+                type: 'checkbox',
+              },
+              {
+                title: 'etalab-2.0',
+                checked: selectedLicenses.includes('etalab-2.0'),
+                type: 'checkbox',
+              },
+              {
+                title: 'CC0-1.0',
+                checked: selectedLicenses.includes('CC0-1.0'),
+                type: 'checkbox',
+              },
+              {
+                title: 'ODbL-1.0',
+                checked: selectedLicenses.includes('ODbL-1.0'),
+                type: 'checkbox',
+              },
+              {
+                title: 'OGL-UK-3.0',
+                checked: selectedLicenses.includes('OGL-UK-3.0'),
+                type: 'checkbox',
+              },
+            ]}
+            onCheckboxChange={(checkboxData) => {
+              const selectedLicenseIds: string[] = [];
+              checkboxData.forEach((checkbox) => {
+                if (checkbox.checked) {
+                  selectedLicenseIds.push(checkbox.title);
+                }
+              });
+              setSelectedLicenses([...selectedLicenseIds]);
             }}
           ></NestedCheckboxList>
         </AccordionDetails>
