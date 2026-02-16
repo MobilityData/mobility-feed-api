@@ -10,6 +10,7 @@ from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
 from shared.database_gen.sqlacodegen_models import (
     Base,
     Feed,
+    Gtfsdataset,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gbfsversion,
@@ -93,6 +94,9 @@ cascade_entities = {
     ],
     Validationreport: [
         Validationreport.notices,  # notice_validation_report_id_fkey
+    ],
+    Gtfsdataset: [
+        Gtfsdataset.gtfsfiles,
     ],
 }
 

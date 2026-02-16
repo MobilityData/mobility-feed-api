@@ -21,6 +21,7 @@ import os
 import random
 import uuid
 import zipfile
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List
@@ -31,6 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
@@ -44,6 +46,9 @@ from shared.helpers.utils import (
 from pipeline_tasks import create_pipeline_tasks
 
 init_logger()
+
+# Limit the available memory of the process so if an OOM exception happens it can be handled properly by our code
+limit_gcp_memory()
 
 
 @dataclass
@@ -141,16 +146,14 @@ class DatasetProcessor:
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
 
-    def upload_files_to_storage(
+    def upload_dataset_zip_to_storage(
         self,
         source_file_path,
         dataset_stable_id,
-        extracted_files_path,
         public=True,
-        skip_dataset_upload=False,
     ):
         """
-        Uploads the dataset file and extracted files to GCP storage
+        Uploads the dataset zip file to GCP storage as latest.zip and versioned zip.
         """
         bucket = storage.Client().get_bucket(self.bucket_name)
         target_paths = [
@@ -158,48 +161,101 @@ class DatasetProcessor:
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
         ]
         blob = None
-        if not skip_dataset_upload:
-            for target_path in target_paths:
-                blob = bucket.blob(target_path)
-                blob.upload_from_filename(source_file_path)
-                if public:
-                    blob.make_public()
-                self.logger.info(f"Uploaded {blob.public_url}")
+        for target_path in target_paths:
+            blob = bucket.blob(target_path)
+            blob.upload_from_filename(source_file_path)
+            if public:
+                blob.make_public()
+            self.logger.info(f"Uploaded {blob.public_url}")
+        return blob
 
-        base_path, _ = os.path.splitext(source_file_path)
-        extracted_files: List[Gtfsfile] = []
-        if not extracted_files_path or not os.path.exists(extracted_files_path):
-            self.logger.warning(
-                "Extracted files path %s does not exist.", extracted_files_path
-            )
-            return blob, extracted_files
-        self.logger.info("Processing extracted files from %s", extracted_files_path)
-        for file_name in os.listdir(extracted_files_path):
-            file_path = os.path.join(extracted_files_path, file_name)
-            if os.path.isfile(file_path):
-                file_blob = bucket.blob(
-                    f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{file_name}"
-                )
-                file_blob.upload_from_filename(file_path)
-                if public:
-                    file_blob.make_public()
-                self.logger.info(
-                    "Uploaded extracted file %s to %s", file_name, file_blob.public_url
-                )
-                extracted_files.append(
-                    Gtfsfile(
-                        id=str(uuid.uuid4()),
-                        file_name=file_name,
-                        file_size_bytes=os.path.getsize(file_path),
-                        hosted_url=file_blob.public_url if public else None,
-                        hash=get_hash_from_file(file_path),
-                    )
-                )
-        return blob, extracted_files
-
-    def upload_dataset(self, feed_id, public=True) -> DatasetFile or None:
+    def extract_and_upload_files_from_zip(
+        self,
+        zip_file_path: str,
+        dataset_stable_id: str,
+        public: bool = True,
+    ) -> List[Gtfsfile]:
         """
-        Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
+        Extract files one at a time from a ZIP archive and upload each to GCS.
+        This minimizes local disk usage by extracting and uploading one file at a time,
+        then deleting the temporary extracted file before moving to the next.
+
+        :param zip_file_path: Path to the ZIP file
+        :param dataset_stable_id: The dataset stable ID for the GCS path
+        :param public: Whether to make the uploaded files public
+        :return: List of Gtfsfile objects representing the extracted files
+        """
+        if not zipfile.is_zipfile(zip_file_path):
+            self.logger.error("The file %s is not a valid ZIP file.", zip_file_path)
+            raise ValueError("File is not a valid ZIP file.")
+
+        bucket = storage.Client().get_bucket(self.bucket_name)
+        extracted_files: List[Gtfsfile] = []
+        working_dir = os.getenv("WORKING_DIR", "/tmp/in-memory")
+
+        with zipfile.ZipFile(zip_file_path, "r") as zf:
+            for member in zf.infolist():
+                # Skip directories
+                if member.is_dir():
+                    continue
+
+                # Extract a single file to a temporary path.
+                # Use a unique filename with feed_stable_id and dataset_stable_id prefix to avoid collisions
+                # when multiple datasets are processed concurrently. Replace '/' with '_' to flatten any
+                # subdirectory structure from the ZIP into a single working directory.
+                temp_extracted_path = os.path.join(
+                    working_dir,
+                    f"{self.feed_stable_id}-{dataset_stable_id}-{member.filename.replace('/', '_')}",
+                )
+
+                self.logger.info(
+                    "Extracting %s to %s", member.filename, temp_extracted_path
+                )
+                with zf.open(member, "r") as src, open(
+                    temp_extracted_path, "wb"
+                ) as dst:
+                    shutil.copyfileobj(src, dst)
+
+                # Upload this single file to GCS under extracted/
+                if os.path.isfile(temp_extracted_path):
+                    target_path = f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{member.filename}"
+                    file_blob = bucket.blob(target_path)
+                    file_blob.upload_from_filename(temp_extracted_path)
+                    if public:
+                        file_blob.make_public()
+                    self.logger.info(
+                        "Uploaded extracted file %s to %s",
+                        member.filename,
+                        file_blob.public_url,
+                    )
+
+                    extracted_files.append(
+                        Gtfsfile(
+                            id=str(uuid.uuid4()),
+                            file_name=member.filename,
+                            file_size_bytes=os.path.getsize(temp_extracted_path),
+                            hosted_url=file_blob.public_url if public else None,
+                            hash=get_hash_from_file(temp_extracted_path),
+                        )
+                    )
+
+                # Remove the local temporary extracted file to free disk space
+                try:
+                    if os.path.exists(temp_extracted_path):
+                        os.remove(temp_extracted_path)
+                except Exception as cleanup_err:
+                    self.logger.warning(
+                        "Failed to remove temporary file %s: %s",
+                        temp_extracted_path,
+                        cleanup_err,
+                    )
+
+        return extracted_files
+
+    def transfer_dataset(self, feed_id, public=True) -> DatasetFile or None:
+        """
+        Transfer a dataset from the provider url to the local disk then upload to the GCP bucket as
+        <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
         if the dataset hash is different from the latest dataset stored
         :return: the file hash and the hosted url as a tuple or None if no upload is required
@@ -224,10 +280,6 @@ class DatasetProcessor:
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version."
                 )
-                extracted_files_path = self.unzip_files(temp_file_path)
-                self.logger.info(
-                    f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
-                )
 
                 dataset_stable_id = self.create_dataset_stable_id(
                     self.feed_stable_id, self.date
@@ -235,13 +287,24 @@ class DatasetProcessor:
                 dataset_full_path = (
                     f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
                 )
+
+                # Upload the zip file to GCS
+                self.logger.info(
+                    f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
+                )
                 self.logger.info(
                     f"Creating file {dataset_full_path} in bucket {self.bucket_name}"
                 )
-                _, extracted_files = self.upload_files_to_storage(
+                self.upload_dataset_zip_to_storage(
                     temp_file_path,
                     dataset_stable_id,
-                    extracted_files_path,
+                    public=public,
+                )
+
+                # Extract and upload files one at a time to minimize disk usage
+                extracted_files = self.extract_and_upload_files_from_zip(
+                    temp_file_path,
+                    dataset_stable_id,
                     public=public,
                 )
 
@@ -261,6 +324,9 @@ class DatasetProcessor:
                 f"[{self.feed_stable_id}] Datasets hash has not changed (hash {self.latest_hash} "
                 f"-> {file_sha256_hash}). Not uploading it."
             )
+        except Exception as e:
+            self.logger.error(f"Error transferring dataset: {e}")
+            raise e
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
@@ -268,27 +334,29 @@ class DatasetProcessor:
 
     @with_db_session
     def process_from_bucket(self, db_session, public=True) -> Optional[DatasetFile]:
+        """Process an existing dataset from the GCP bucket and update related DB entities.
+
+        To reduce local disk usage, we no longer unzip all files at once. Instead, we:
+        - Download the dataset ZIP to a temporary local file.
+        - Iterate over each member of the ZIP.
+        - Extract a single file to a temporary path under WORKING_DIR.
+        - Upload that file immediately to GCS and record it as a Gtfsfile.
+        - Delete the local temporary extracted file before moving to the next one.
         """
-        Process an existing dataset from the GCP bucket updates the related database entities
-        :return: The DatasetFile object created
-        """
-        temp_file_path = None
+        temp_zip_path = None
         try:
-            temp_file_path = self.generate_temp_filename()
+            temp_zip_path = self.generate_temp_filename()
             blob_file_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
-            self.logger.info(f"Processing dataset from bucket: {blob_file_path}")
+            self.logger.info("Processing dataset from bucket: %s", blob_file_path)
             download_from_gcs(
-                os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_file_path
+                os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_zip_path
             )
 
-            extracted_files_path = self.unzip_files(temp_file_path)
-
-            _, extracted_files = self.upload_files_to_storage(
-                temp_file_path,
+            # Extract and upload files one at a time to minimize disk usage
+            extracted_files = self.extract_and_upload_files_from_zip(
+                temp_zip_path,
                 self.dataset_stable_id,
-                extracted_files_path,
                 public=public,
-                skip_dataset_upload=True,  # Skip the upload of the dataset file
             )
 
             dataset_file = DatasetFile(
@@ -297,11 +365,12 @@ class DatasetProcessor:
                 hosted_url=f"{self.public_hosted_datasets_url}/{blob_file_path}",
                 extracted_files=extracted_files,
                 zipped_size=(
-                    os.path.getsize(temp_file_path)
-                    if os.path.exists(temp_file_path)
+                    os.path.getsize(temp_zip_path)
+                    if os.path.exists(temp_zip_path)
                     else None
                 ),
             )
+
             dataset, latest = self.create_dataset_entities(
                 dataset_file, skip_dataset_creation=True, db_session=db_session
             )
@@ -319,26 +388,14 @@ class DatasetProcessor:
                 raise ValueError("Dataset update failed, dataset is None.")
             return dataset_file
         finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
-
-    def unzip_files(self, temp_file_path):
-        extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
-        self.logger.info(f"Unzipping files to {extracted_files_path}")
-        # Create the directory for extracted files if it does not exist
-        os.makedirs(extracted_files_path, exist_ok=True)
-        with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
-            zip_ref.extractall(path=extracted_files_path)
-        # List all files in the extracted directory
-        extracted_files = os.listdir(extracted_files_path)
-        self.logger.info(f"Extracted files: {extracted_files}")
-        return extracted_files_path
+            if temp_zip_path and os.path.exists(temp_zip_path):
+                os.remove(temp_zip_path)
 
     def generate_temp_filename(self):
         """
         Generates a temporary filename
         """
-        working_dir = os.getenv("WORKING_DIR", "/in-memory")
+        working_dir = os.getenv("WORKING_DIR", "/tmp/in-memory")
         temporary_file_path = (
             f"{working_dir}/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
         )
@@ -431,7 +488,7 @@ class DatasetProcessor:
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the DatasetFile object created
         """
-        dataset_file = self.upload_dataset(feed_id)
+        dataset_file = self.transfer_dataset(feed_id)
 
         if dataset_file is None:
             self.logger.info(f"[{self.feed_stable_id}] No database update required.")
@@ -487,6 +544,7 @@ def process_dataset(cloud_event: CloudEvent):
     """
     logging.info("Function Started")
     stable_id = "UNKNOWN"
+    execution_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 
     try:
@@ -506,19 +564,17 @@ def process_dataset(cloud_event: CloudEvent):
         return
 
     try:
-        maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
+        try:
+            maximum_executions = int(os.getenv("MAXIMUM_EXECUTIONS", "1"))
+        except (ValueError, TypeError):
+            maximum_executions = 1
         public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
         trace_service = None
         dataset_file: DatasetFile = None
         error_message = None
-        #  Extract data from message
-        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-        json_payload = json.loads(data)
-        stable_id = json_payload["feed_stable_id"]
         logger = get_logger("process_dataset", stable_id)
         logger.info(f"JSON Payload: {json.dumps(json_payload)}")
 
-        execution_id = json_payload["execution_id"]
         trace_service = DatasetTraceService()
         trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
         logger.info(f"Dataset trace: {trace}")
@@ -557,7 +613,9 @@ def process_dataset(cloud_event: CloudEvent):
         # This makes sure the logger is initialized
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
         logger.error(e)
-        error_message = f"Error execution: [{execution_id}] error: [{e}]"
+        error_message = (
+            f"Error execution: [{execution_id}] error: [{type(e).__name__}]: {e}"
+        )
         logger.error(error_message)
         logger.error(f"Function completed with error:{error_message}")
     finally:
@@ -587,3 +645,41 @@ def process_dataset(cloud_event: CloudEvent):
         "successfully completed" if not error_message else "Failed",
     )
     return "Completed." if error_message is None else error_message
+
+
+def simulate(request) -> dict:  # pragma: no cover
+    """HTTP endpoint to simulate a process_dataset call for testing."""
+    # Hardcoded test values
+    payload = {
+        "execution_id": "task-executor-uuid-af993d49-0d95-42cb-96a4-9cffc5301e87",
+        "producer_url": "https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/all/",
+        "feed_stable_id": "mdb-2014",
+        "feed_id": "34434a73-0ba7-4070-b01f-dfadb6e30d42",
+        "dataset_stable_id": "mdb-2014-202408202259",
+        "dataset_hash": "abc",
+        "authentication_type": "0",
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+    }
+
+    # Create CloudEvent
+    encoded_data = base64.b64encode(json.dumps(payload).encode()).decode()
+    attributes = {
+        "type": "google.cloud.pubsub.topic.v1.messagePublished",
+        "source": "//pubsub.googleapis.com/test",
+        "specversion": "1.0",
+    }
+    data = {"message": {"data": encoded_data}}
+    cloud_event = CloudEvent(attributes, data)
+
+    # Call process_dataset
+    process_dataset(cloud_event)
+    return {"status": "completed"}
+
+
+def main():  # pragma: no cover
+    simulate(None)
+
+
+if __name__ == "__main__":
+    main()
