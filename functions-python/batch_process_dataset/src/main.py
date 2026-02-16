@@ -32,7 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-# from shared.common.gcp_memory_utils import limit_gcp_memory
+from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
@@ -48,7 +48,7 @@ from pipeline_tasks import create_pipeline_tasks
 init_logger()
 
 # Limit the available memory of the process so if an OOM exception happens it can be handled properly by our code
-# limit_gcp_memory()
+limit_gcp_memory()
 
 
 @dataclass
@@ -655,12 +655,13 @@ def simulate(request) -> dict:
     """HTTP endpoint to simulate a process_dataset call for testing."""
     # Hardcoded test values
     payload = {
-        "execution_id": "manual-test-001",
-        "producer_url": "",
-        "feed_stable_id": "mta-test",
-        "feed_id": "test-feed-id-123",
-        "dataset_hash": "",
-        "authentication_type": 0,
+        "execution_id": "task-executor-uuid-af993d49-0d95-42cb-96a4-9cffc5301e87",
+        "producer_url": "https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/all/",
+        "feed_stable_id": "mdb-2014",
+        "feed_id": "34434a73-0ba7-4070-b01f-dfadb6e30d42",
+        "dataset_stable_id": "mdb-2014-202408202259",
+        "dataset_hash": "abc",
+        "authentication_type": "0",
         "authentication_info_url": "",
         "api_key_parameter_name": "",
     }
