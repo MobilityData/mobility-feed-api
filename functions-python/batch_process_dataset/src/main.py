@@ -620,6 +620,7 @@ def process_dataset(cloud_event: CloudEvent):
         logger.error(e)
         error_message = f"Error execution: [{execution_id}] error: [{e}]"
         logger.error(error_message)
+        logger.error(f"Exception type: {type(e).name}, args: {e.args}")
         logger.error(f"Function completed with error:{error_message}")
     finally:
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
