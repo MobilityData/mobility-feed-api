@@ -7,7 +7,6 @@ from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, event, func, select
 from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
-
 from shared.database_gen.sqlacodegen_models import (
     Base,
     Feed,

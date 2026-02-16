@@ -156,7 +156,6 @@ class DatasetProcessor:
         Uploads the dataset zip file to GCP storage as latest.zip and versioned zip.
         """
         bucket = storage.Client().get_bucket(self.bucket_name)
-
         target_paths = [
             f"{self.feed_stable_id}/latest.zip",
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
@@ -545,6 +544,7 @@ def process_dataset(cloud_event: CloudEvent):
     """
     logging.info("Function Started")
     stable_id = "UNKNOWN"
+    execution_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 
     try:
@@ -572,14 +572,9 @@ def process_dataset(cloud_event: CloudEvent):
         trace_service = None
         dataset_file: DatasetFile = None
         error_message = None
-        # #  Extract data from message
-        # data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-        # json_payload = json.loads(data)
-        # stable_id = json_payload["feed_stable_id"]
         logger = get_logger("process_dataset", stable_id)
         logger.info(f"JSON Payload: {json.dumps(json_payload)}")
 
-        # execution_id = json_payload["execution_id"]
         trace_service = DatasetTraceService()
         trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
         logger.info(f"Dataset trace: {trace}")
@@ -618,10 +613,10 @@ def process_dataset(cloud_event: CloudEvent):
         # This makes sure the logger is initialized
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
         logger.error(e)
-        error_message = f"Error execution: [{execution_id}] error: [{e}]"
+        error_message = (
+            f"Error execution: [{execution_id}] error: [{type(e).__name__}]: {e}"
+        )
         logger.error(error_message)
-        # Correct logging of exception type and arguments
-        logger.error(f"Exception type: {type(e).__name__}, args: {e.args}")
         logger.error(f"Function completed with error:{error_message}")
     finally:
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
@@ -652,8 +647,7 @@ def process_dataset(cloud_event: CloudEvent):
     return "Completed." if error_message is None else error_message
 
 
-# @functions_framework.http
-def simulate(request) -> dict:
+def simulate(request) -> dict:  # pragma: no cover
     """HTTP endpoint to simulate a process_dataset call for testing."""
     # Hardcoded test values
     payload = {
