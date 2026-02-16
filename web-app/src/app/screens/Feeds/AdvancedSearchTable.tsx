@@ -31,6 +31,43 @@ export interface AdvancedSearchTableProps {
   selectedGbfsVersions: string[] | undefined;
 }
 
+interface DetailsContainerProps {
+  children: React.ReactNode;
+  feedSearchItem: SearchFeedItem;
+}
+
+const DetailsContainer = ({
+  children,
+  feedSearchItem,
+}: DetailsContainerProps): React.ReactElement => {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'end',
+        flexWrap: { xs: 'wrap', lg: 'nowrap' },
+      }}
+    >
+      <Box sx={{ width: 'calc(100% - 100px' }}>{children}</Box>
+      <Tooltip title={'Feed License'} placement={'top-end'}>
+        <Typography
+          variant='caption'
+          sx={{
+            opacity: 0.7,
+            ml: { xs: 0, lg: 2 },
+            minWidth: { xs: '100%', lg: '100px' },
+            textAlign: 'right',
+            pt: { xs: 1, lg: 0 },
+          }}
+        >
+          {feedSearchItem.source_info?.license_id}
+        </Typography>
+      </Tooltip>
+    </Box>
+  );
+};
+
 const renderGTFSDetails = (
   gtfsFeed: SearchFeedItem,
   selectedFeatures: string[],
@@ -39,7 +76,7 @@ const renderGTFSDetails = (
   const feedFeatures =
     gtfsFeed?.latest_dataset?.validation_report?.features ?? [];
   return (
-    <>
+    <DetailsContainer feedSearchItem={gtfsFeed}>
       {gtfsFeed?.feed_name != null && (
         <Typography
           variant='body1'
@@ -75,7 +112,7 @@ const renderGTFSDetails = (
           },
         )}
       </Box>
-    </>
+    </DetailsContainer>
   );
 };
 
@@ -83,10 +120,12 @@ const renderGTFSRTDetails = (
   gtfsRtFeed: SearchFeedItem,
 ): React.ReactElement => {
   return (
-    <GtfsRtEntities
-      entities={gtfsRtFeed?.entity_types}
-      includeName={true}
-    ></GtfsRtEntities>
+    <DetailsContainer feedSearchItem={gtfsRtFeed}>
+      <GtfsRtEntities
+        entities={gtfsRtFeed?.entity_types}
+        includeName={true}
+      ></GtfsRtEntities>
+    </DetailsContainer>
   );
 };
 
@@ -96,7 +135,7 @@ const renderGBFSDetails = (
 ): JSX.Element => {
   const theme = useTheme();
   return (
-    <Box>
+    <DetailsContainer feedSearchItem={gbfsFeedSearchElement}>
       {gbfsFeedSearchElement.versions?.map((version: string, index: number) => (
         <Chip
           label={'v' + version}
@@ -112,7 +151,7 @@ const renderGBFSDetails = (
           }}
         />
       ))}
-    </Box>
+    </DetailsContainer>
   );
 };
 

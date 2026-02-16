@@ -95,6 +95,15 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         name = "PROJECT_ID"
         value = data.google_project.project.project_id
       }
+      env {
+        name = "S2S_JWT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_S2S_JWT_SECRET"
+            version = "latest"
+          }
+        }
+      }
       resources {
         limits = {
           cpu    = "1"
