@@ -13,7 +13,7 @@ export default function About(): React.ReactElement {
       <MainPageHeader>About</MainPageHeader>
       <ColoredContainer maxWidth={false} sx={{ mt: 3 }}>
         <Typography sx={{ fontWeight: 700 }}>
-          The Mobility Database is an open catalog including over 4000 GTFS,
+          The Mobility Database is an open catalog including over 6000 GTFS,
           GTFS Realtime, and GBFS feeds in over 75 countries. It integrates with
           the Canonical GTFS Schedule and GBFS Validators to share data quality
           reports for each feed.
