@@ -116,7 +116,7 @@ function Component(): React.ReactElement {
             component='span'
             sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
           >
-            4000
+            6000
           </Box>
           transportation data feeds from over
           <Box
@@ -244,7 +244,7 @@ function Component(): React.ReactElement {
             mt: 5,
           }}
         >
-          The Mobility Database is an open data catalog including over 4000
+          The Mobility Database is an open data catalog including over 6000
           GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. Whether
           you’re a transportation operator, a researcher studying public transit
           and shared mobility trends, or a maps app needing reliable data to use
