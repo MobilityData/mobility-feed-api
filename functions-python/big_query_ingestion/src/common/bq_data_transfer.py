@@ -105,52 +105,6 @@ class BigQueryDataTransfer:
             cleanup_failure(self.bigquery_client, staging_table_ref)
             raise
 
-    # def load_data_to_bigquery(self):
-    #     """Loads data from Cloud Storage to BigQuery."""
-    #     dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
-    #     table_ref = dataset_ref.table(table_id)
-    #     source_uris = []
-    #     # Get the list of blobs in the bucket
-    #     blobs = list(
-    #         self.storage_client.list_blobs(bucket_name, prefix=self.nd_json_path_prefix)
-    #     )
-    #     for blob in blobs:
-    #         uri = f"gs://{bucket_name}/{blob.name}"
-    #         source_uris.append(uri)
-    #     logging.info("Found %s files to load to BigQuery.", len(source_uris))
-    #
-    #     if len(source_uris) > 0:
-    #         # Load the data to BigQuery
-    #         job_config = LoadJobConfig()
-    #         job_config.source_format = SourceFormat.NEWLINE_DELIMITED_JSON
-    #         job_config.write_disposition = bigquery.WriteDisposition.WRITE_TRUNCATE
-    #
-    #         load_job = self.bigquery_client.load_table_from_uri(
-    #             source_uris, table_ref, job_config=job_config
-    #         )
-    #         try:
-    #             load_job.result()  # Wait for the job to complete
-    #             logging.info(
-    #                 "Loaded %s files into %s.%s.%s.",
-    #                 len(source_uris),
-    #                 table_ref.project,
-    #                 table_ref.dataset_id,
-    #                 table_ref.table_id,
-    #             )
-    #             # If successful, delete the blobs
-    #             for blob in blobs:
-    #                 blob.delete()
-    #                 logging.debug("Deleted blob: %s", blob.name)
-    #             logging.info("Deleted blobs")
-    #         except Exception as e:
-    #             logging.error("An error occurred while loading data to BigQuery: %s", e)
-    #             for error in load_job.errors:
-    #                 logging.error("Error: %s", error["message"])
-    #                 if "location" in error:
-    #                     logging.error("Location: %s", error["location"])
-    #                 if "reason" in error:
-    #                     logging.error("Reason: %s", error["reason"])
-
     def send_data_to_bigquery(self):
         """Full process to send data to BigQuery."""
         try:
