@@ -62,37 +62,71 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         self.mock_bq_client().get_table.assert_called_once()
         self.mock_bq_client().create_table.assert_not_called()
 
-    @patch("common.bq_data_transfer.bigquery.DatasetReference")
-    def test_load_data_to_bigquery(self, _):
+    @patch("common.bq_data_transfer.cleanup_success")
+    @patch("common.bq_data_transfer.publish_staging_to_target")
+    @patch("common.bq_data_transfer.load_uris_into_staging")
+    @patch("common.bq_data_transfer.ensure_staging_table_like_target")
+    @patch("common.bq_data_transfer.make_staging_table_ref")
+    @patch("common.bq_data_transfer.collect_blobs_and_uris")
+    # @patch("common.bq_data_transfer.bigquery.DatasetReference")
+    def test_load_data_to_bigquery(
+        self,
+        mock_cleanup,
+        mock_publish,
+        mock_load_uris,
+        mock_ensure_staging,
+        mock_make_staging,
+        mock_collect_blobs,
+        mock_dataset_ref,
+    ):
         mock_blob = MagicMock()
         mock_blob.name = "file1.ndjson"
-        self.mock_storage_client().list_blobs.return_value = [mock_blob]
-
-        mock_load_job = MagicMock()
-        self.mock_bq_client().load_table_from_uri.return_value = mock_load_job
+        mock_collect_blobs.return_value = ([mock_blob], ["gs://bucket/file1.ndjson"])
+        mock_make_staging.return_value = MagicMock()
 
         self.transfer.load_data_to_bigquery()
 
-        self.mock_storage_client().list_blobs.assert_called_once()
-        self.mock_bq_client().load_table_from_uri.assert_called_once()
-        mock_load_job.result.assert_called_once()
+        mock_collect_blobs.assert_called_once()
+        mock_make_staging.assert_called_once()
+        mock_ensure_staging.assert_called_once()
+        mock_load_uris.assert_called_once()
+        mock_publish.assert_called_once()
+        mock_cleanup.assert_called_once()
 
     @patch("common.bq_data_transfer.bigquery.DatasetReference")
-    def test_load_data_to_bigquery_error(self, _):
+    @patch("common.bq_data_transfer.collect_blobs_and_uris")
+    @patch("common.bq_data_transfer.make_staging_table_ref")
+    @patch("common.bq_data_transfer.ensure_staging_table_like_target")
+    @patch(
+        "common.bq_data_transfer.load_uris_into_staging",
+        side_effect=Exception("Load job failed"),
+    )
+    @patch("common.bq_data_transfer.cleanup_failure")
+    def test_load_data_to_bigquery_error(
+        self,
+        mock_cleanup,
+        mock_load_uris,
+        mock_ensure_staging,
+        mock_make_staging,
+        mock_collect_blobs,
+        mock_dataset_ref,
+    ):
         mock_blob = MagicMock()
         mock_blob.name = "file1.ndjson"
-        self.mock_storage_client().list_blobs.return_value = [mock_blob]
-
-        mock_load_job = MagicMock()
-        mock_load_job.result.side_effect = Exception("Load job failed")
-        self.mock_bq_client().load_table_from_uri.return_value = mock_load_job
+        mock_collect_blobs.return_value = ([mock_blob], ["gs://bucket/file1.ndjson"])
+        mock_make_staging.return_value = MagicMock()
 
         with self.assertLogs(level="ERROR") as log:
             self.transfer.load_data_to_bigquery()
 
-        self.assertIn(
-            "An error occurred while loading data to BigQuery: Load job failed",
-            log.output[0],
+        mock_collect_blobs.assert_called_once()
+        mock_make_staging.assert_called_once()
+        mock_ensure_staging.assert_called_once()
+        mock_load_uris.assert_called_once()
+        mock_cleanup.assert_called_once()
+        assert any(
+            "An error occurred while loading data to BigQuery" in record
+            for record in log.output
         )
 
     @patch("common.bq_data_transfer.BigQueryDataTransfer.create_bigquery_dataset")
