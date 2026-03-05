@@ -5,7 +5,8 @@ from typing import List, Tuple
 from google.cloud import bigquery
 from google.cloud.bigquery import LoadJobConfig, CopyJobConfig, SourceFormat
 
-MAX_URIS_PER_JOB = 1000
+# 500 below the documented max of 10k URIs per load job to allow for any overhead and avoid hitting limits.
+MAX_URIS_PER_JOB = 9500
 
 
 def chunked(seq: List[str], size: int):

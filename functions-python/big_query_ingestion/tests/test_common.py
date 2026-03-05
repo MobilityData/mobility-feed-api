@@ -68,16 +68,16 @@ class TestBigQueryDataTransfer(unittest.TestCase):
     @patch("common.bq_data_transfer.ensure_staging_table_like_target")
     @patch("common.bq_data_transfer.make_staging_table_ref")
     @patch("common.bq_data_transfer.collect_blobs_and_uris")
-    # @patch("common.bq_data_transfer.bigquery.DatasetReference")
+    @patch("common.bq_data_transfer.bigquery.DatasetReference")
     def test_load_data_to_bigquery(
         self,
-        mock_cleanup,
-        mock_publish,
-        mock_load_uris,
-        mock_ensure_staging,
-        mock_make_staging,
-        mock_collect_blobs,
         mock_dataset_ref,
+        mock_collect_blobs,
+        mock_make_staging,
+        mock_ensure_staging,
+        mock_load_uris,
+        mock_publish,
+        mock_cleanup,
     ):
         mock_blob = MagicMock()
         mock_blob.name = "file1.ndjson"
@@ -116,7 +116,7 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         mock_collect_blobs.return_value = ([mock_blob], ["gs://bucket/file1.ndjson"])
         mock_make_staging.return_value = MagicMock()
 
-        with self.assertLogs(level="ERROR") as log:
+        with self.assertLogs(level="ERROR") as log, self.assertRaises(Exception) as ctx:
             self.transfer.load_data_to_bigquery()
 
         mock_collect_blobs.assert_called_once()
@@ -124,6 +124,7 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         mock_ensure_staging.assert_called_once()
         mock_load_uris.assert_called_once()
         mock_cleanup.assert_called_once()
+        assert "Load job failed" in str(ctx.exception)
         assert any(
             "An error occurred while loading data to BigQuery" in record
             for record in log.output
