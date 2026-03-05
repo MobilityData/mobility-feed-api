@@ -359,7 +359,7 @@ def reverse_geolocation_process(
             stops_df=stops_df,
             db_session=db_session,
         )
-        # Commit the bounding box update to the database before proceeding with reverse geolocation processing
+        # Commit the bounding box update to the database before the reverse geolocation extraction.
         # This ensures that the bounding box is updated even if the reverse geolocation processing fails.
         db_session.commit()
 
