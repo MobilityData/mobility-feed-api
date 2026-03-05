@@ -75,21 +75,19 @@ def load_uris_into_staging(
 ) -> None:
     """Load NDJSON files into staging in batches (10k URIs max/job)."""
     try:
-        base_cfg = LoadJobConfig()
-        base_cfg.source_format = SourceFormat.NEWLINE_DELIMITED_JSON
-
         for batch_idx, uri_batch in enumerate(
             chunked(source_uris, MAX_URIS_PER_JOB), start=1
         ):
-            job_cfg = LoadJobConfig(**base_cfg.to_api_repr())
-            job_cfg.write_disposition = (
-                bigquery.WriteDisposition.WRITE_TRUNCATE
-                if batch_idx == 1
-                else bigquery.WriteDisposition.WRITE_APPEND
-            )
-
             logging.info(
                 "Loading batch %s into staging (%s files)...", batch_idx, len(uri_batch)
+            )
+            job_cfg = LoadJobConfig(
+                source_format=SourceFormat.NEWLINE_DELIMITED_JSON,
+                write_disposition=(
+                    bigquery.WriteDisposition.WRITE_TRUNCATE
+                    if batch_idx == 1
+                    else bigquery.WriteDisposition.WRITE_APPEND
+                ),
             )
             job = bigquery_client.load_table_from_uri(
                 uri_batch, staging_table_ref, job_config=job_cfg
