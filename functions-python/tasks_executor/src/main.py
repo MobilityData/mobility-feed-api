@@ -55,6 +55,10 @@ from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
 )
 
+from tasks.licenses.populate_license_tags import (
+    populate_license_tags_handler,
+)
+
 init_logger()
 LIST_COMMAND: Final[str] = "list"
 tasks = {
@@ -96,6 +100,10 @@ tasks = {
     "jbda_import": {
         "description": "Imports JBDA data into the system.",
         "handler": import_jbda_handler,
+    },
+    "populate_license_tags": {
+        "description": "Populates license tags in the database from a predefined JSON source.",
+        "handler": populate_license_tags_handler,
     },
     "populate_license_rules": {
         "description": "Populates license rules in the database from a predefined JSON source.",
@@ -193,9 +201,9 @@ def tasks_executor(request: flask.Request) -> flask.Response:
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"
-            response.headers[
-                "Content-Disposition"
-            ] = "attachment; filename=task_result.csv"
+            response.headers["Content-Disposition"] = (
+                "attachment; filename=task_result.csv"
+            )
             return response
 
         # Default JSON response
