@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from shared.database_gen.sqlacodegen_models import Rule
+from shared.database_gen.sqlacodegen_models import Licensetag, Rule
 from tasks.licenses.populate_licenses import (
     LICENSES_API_URL,
     populate_licenses_task,
@@ -44,6 +44,7 @@ MOCK_LICENSE_MIT = {
     "permissions": ["commercial-use", "distribution"],
     "conditions": ["include-copyright"],
     "limitations": [],
+    "tags": ["spdx:osi-approved", "license:open-source"],
 }
 
 MOCK_LICENSE_BSD = {
@@ -57,6 +58,7 @@ MOCK_LICENSE_BSD = {
     "permissions": ["commercial-use"],
     "conditions": [],
     "limitations": ["liability", "warranty"],
+    "tags": [],
 }
 
 MOCK_LICENSE_NO_SPDX = {"licenseId": "NO-SPDX-ID", "name": "No SPDX License"}
@@ -83,15 +85,26 @@ class TestPopulateLicenses(unittest.TestCase):
 
         mock_get.side_effect = get_side_effect
 
+    @staticmethod
+    def _make_filter_mock(lookup):
+        """Return a mock filter that resolves IDs/names from the given lookup dict."""
+
+        def filter_side_effect(cond):
+            keys = cond.right.value
+            mock_filter = MagicMock()
+            mock_filter.all.return_value = [lookup[k] for k in keys if k in lookup]
+            return mock_filter
+
+        return filter_side_effect
+
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_populate_licenses_success(self, mock_get):
-        """Test successful population of licenses."""
+        """Test successful population of licenses including tag assignment."""
         # Arrange
         self._mock_requests_get(mock_get)
         mock_db_session = MagicMock()
         mock_db_session.get.return_value = None  # Simulate no existing licenses
 
-        # Mock the rules query to return only the rules that are requested.
         all_mock_rules = {
             "commercial-use": Rule(name="commercial-use"),
             "distribution": Rule(name="distribution"),
@@ -99,26 +112,29 @@ class TestPopulateLicenses(unittest.TestCase):
             "liability": Rule(name="liability"),
             "warranty": Rule(name="warranty"),
         }
+        all_mock_tags = {
+            "spdx:osi-approved": Licensetag(id="spdx:osi-approved"),
+            "license:open-source": Licensetag(id="license:open-source"),
+        }
 
-        def filter_side_effect(filter_condition):
-            # This simulates the `Rule.name.in_(...)` filter by inspecting the
-            # requested names from the filter condition's right-hand side.
-            requested_names = filter_condition.right.value
-            mock_query_result = [
-                all_mock_rules[name]
-                for name in requested_names
-                if name in all_mock_rules
-            ]
-            mock_filter = MagicMock()
-            mock_filter.all.return_value = mock_query_result
-            return mock_filter
+        rule_filter = self._make_filter_mock(all_mock_rules)
+        tag_filter = self._make_filter_mock(all_mock_tags)
 
-        mock_db_session.query.return_value.filter.side_effect = filter_side_effect
+        def query_side_effect(model_class):
+            """Return a different mock chain depending on the queried model."""
+            mock_query = MagicMock()
+            if model_class is Rule:
+                mock_query.filter.side_effect = rule_filter
+            elif model_class is Licensetag:
+                mock_query.filter.side_effect = tag_filter
+            return mock_query
+
+        mock_db_session.query.side_effect = query_side_effect
 
         # Act
         populate_licenses_task(dry_run=False, db_session=mock_db_session)
 
-        # Assert: For two SPDX licenses, since they are new (get returns None), we add them, not merge
+        # Assert: two SPDX licenses added (no merge for new records)
         self.assertEqual(mock_db_session.add.call_count, 2)
         mock_db_session.merge.assert_not_called()
         mock_db_session.rollback.assert_not_called()
@@ -132,6 +148,8 @@ class TestPopulateLicenses(unittest.TestCase):
         self.assertEqual(getattr(mit_license, "name", None), "MIT License")
         self.assertTrue(getattr(mit_license, "is_spdx", False))
         self.assertEqual(len(getattr(mit_license, "rules", [])), 3)
+        # MIT license has 2 tags in mock data
+        self.assertEqual(len(getattr(mit_license, "licensetags", [])), 2)
 
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_populate_licenses_dry_run(self, mock_get):
