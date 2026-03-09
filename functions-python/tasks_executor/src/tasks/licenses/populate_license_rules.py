@@ -84,16 +84,3 @@ def populate_license_rules(dry_run, db_session):
         logging.error("An error occurred while populating license rules: %s", e)
         db_session.rollback()
         raise
-
-
-def get_parameters(payload):
-    """
-    Get parameters from the payload and environment variables.
-
-    Args:
-        payload (dict): dictionary containing the payload data.
-    Returns:
-        tuple: (dry_run, after_date)
-    """
-    dry_run = payload.get("dry_run", False)
-    return dry_run

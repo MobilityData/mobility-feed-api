@@ -114,15 +114,3 @@ def populate_license_tags(dry_run, db_session):
         logging.error("An error occurred while populating license tags: %s", e)
         db_session.rollback()
         raise
-
-
-def get_parameters(payload):
-    """
-    Get parameters from the payload.
-
-    Args:
-        payload (dict): dictionary containing the payload data.
-    Returns:
-        bool: dry_run
-    """
-    return payload.get("dry_run", False)
