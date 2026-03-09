@@ -4,7 +4,7 @@ import requests
 from sqlalchemy.exc import SQLAlchemyError
 
 from tasks.licenses.populate_license_rules import (
-    populate_license_rules_task,
+    populate_license_rules,
     RULES_JSON_URL,
 )
 from shared.database_gen.sqlacodegen_models import Rule
@@ -43,7 +43,7 @@ class TestPopulateLicenseRules(unittest.TestCase):
         mock_db_session = MagicMock()
 
         # Act
-        populate_license_rules_task(dry_run=False, db_session=mock_db_session)
+        populate_license_rules(dry_run=False, db_session=mock_db_session)
 
         # Assert
         mock_requests_get.assert_called_once_with(RULES_JSON_URL, timeout=10)
@@ -78,7 +78,7 @@ class TestPopulateLicenseRules(unittest.TestCase):
         mock_db_session = MagicMock()
 
         # Act
-        populate_license_rules_task(dry_run=True, db_session=mock_db_session)
+        populate_license_rules(dry_run=True, db_session=mock_db_session)
 
         # Assert
         mock_requests_get.assert_called_once_with(RULES_JSON_URL, timeout=10)
@@ -96,7 +96,7 @@ class TestPopulateLicenseRules(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(requests.exceptions.RequestException):
-            populate_license_rules_task(dry_run=False, db_session=mock_db_session)
+            populate_license_rules(dry_run=False, db_session=mock_db_session)
 
         mock_db_session.merge.assert_not_called()
         mock_db_session.rollback.assert_not_called()
@@ -115,7 +115,7 @@ class TestPopulateLicenseRules(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(SQLAlchemyError):
-            populate_license_rules_task(dry_run=False, db_session=mock_db_session)
+            populate_license_rules(dry_run=False, db_session=mock_db_session)
 
         self.assertTrue(mock_db_session.merge.called)
         mock_db_session.rollback.assert_called_once()

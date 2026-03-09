@@ -4,7 +4,7 @@ import requests
 from sqlalchemy.exc import SQLAlchemyError
 
 from tasks.licenses.populate_license_tags import (
-    populate_license_tags_task,
+    populate_license_tags,
     TAGS_JSON_URL,
 )
 from shared.database_gen.sqlacodegen_models import LicenseTag, LicenseTagGroup
@@ -52,7 +52,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
         mock_db_session = MagicMock()
 
         # Act
-        populate_license_tags_task(dry_run=False, db_session=mock_db_session)
+        populate_license_tags(dry_run=False, db_session=mock_db_session)
 
         # Assert: 2 groups ("spdx", "license") + 3 tags = 5 total merges
         mock_requests_get.assert_called_once_with(TAGS_JSON_URL, timeout=10)
@@ -112,7 +112,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
         mock_db_session = MagicMock()
 
         # Act
-        populate_license_tags_task(dry_run=True, db_session=mock_db_session)
+        populate_license_tags(dry_run=True, db_session=mock_db_session)
 
         # Assert
         mock_requests_get.assert_called_once_with(TAGS_JSON_URL, timeout=10)
@@ -130,7 +130,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(requests.exceptions.RequestException):
-            populate_license_tags_task(dry_run=False, db_session=mock_db_session)
+            populate_license_tags(dry_run=False, db_session=mock_db_session)
 
         mock_db_session.merge.assert_not_called()
         mock_db_session.rollback.assert_not_called()
@@ -149,7 +149,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(SQLAlchemyError):
-            populate_license_tags_task(dry_run=False, db_session=mock_db_session)
+            populate_license_tags(dry_run=False, db_session=mock_db_session)
 
         self.assertTrue(mock_db_session.merge.called)
         mock_db_session.rollback.assert_called_once()
@@ -173,7 +173,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
         mock_db_session = MagicMock()
 
         # Act
-        populate_license_tags_task(dry_run=False, db_session=mock_db_session)
+        populate_license_tags(dry_run=False, db_session=mock_db_session)
 
         # Assert: only a group is created; no tags
         mock_db_session.merge.assert_called_once()

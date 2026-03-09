@@ -21,22 +21,12 @@ import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import LicenseTag, LicenseTagGroup
 
+
 TAGS_JSON_URL = "https://raw.githubusercontent.com/MobilityData/licenses-catalog/main/data/tags.json"
 
 
-def populate_license_tags_handler(payload):
-    """
-    Handler for populating license tags.
-
-    Args:
-        payload (dict): Incoming payload data.
-    """
-    dry_run = get_parameters(payload)
-    return populate_license_tags_task(dry_run)
-
-
 @with_db_session
-def populate_license_tags_task(dry_run, db_session):
+def populate_license_tags(dry_run, db_session):
     """
     Populates license tags in the database from a canonical JSON source.
 
@@ -44,7 +34,7 @@ def populate_license_tags_task(dry_run, db_session):
         dry_run (bool): If True, simulates the operation without making changes.
         db_session: Database session for executing queries.
     """
-    logging.info("Starting populate_license_tags_task with dry_run=%s", dry_run)
+    logging.info("Starting populate_license_tags with dry_run=%s", dry_run)
 
     try:
         logging.info("Downloading tags from %s", TAGS_JSON_URL)

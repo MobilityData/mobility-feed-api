@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License, LicenseTag, Rule
+from .populate_license_rules import populate_license_rules
+from .populate_license_tags import populate_license_tags
 
 LICENSES_API_URL = (
     "https://api.github.com/repos/MobilityData/licenses-catalog/contents/data/licenses"
@@ -36,12 +38,16 @@ LICENSES_API_URL = (
 
 def populate_licenses_handler(payload):
     """
-    Handler for populating licenses.
+    Handler function for the populate licenses task.
+    This function imports the license rules and tags population tasks to ensure that the necessary data is available
+    before populating the licenses.
 
     Args:
         payload (dict): Incoming payload data.
     """
     dry_run = get_parameters(payload)
+    populate_license_rules(dry_run)
+    populate_license_tags(dry_run)
     return populate_licenses_task(dry_run)
 
 
