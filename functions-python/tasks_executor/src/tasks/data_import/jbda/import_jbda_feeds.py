@@ -150,7 +150,7 @@ def _update_common_feed_fields(
         else None
     )
     feed.status = "active"
-    feed.operational_status = "wip"
+    feed.operational_status = "published"
     feed.note = list_item.get("feed_memo")
 
     # Ensure a JBDA external id exists; only append if missing.
