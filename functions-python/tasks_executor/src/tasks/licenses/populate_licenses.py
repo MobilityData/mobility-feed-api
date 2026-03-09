@@ -17,7 +17,7 @@
 #       manages the creation of records in the 'license_rules' join table to establish
 #       the many-to-many relationship.
 #    f. Extracts the associated tag IDs from the 'tags' list at the top level of the JSON.
-#    g. Queries the 'license_tag' table to find the corresponding Licensetag objects.
+#    g. Queries the 'license_tag' table to find the corresponding LicenseTag objects.
 #    h. Associates the found tags with the license via the 'license_license_tags' join table.
 # 4. Supports a 'dry_run' mode, which simulates the process and logs intended
 #    actions without committing any changes to the database.
@@ -27,10 +27,10 @@ from datetime import datetime, timezone
 
 import requests
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import License, Licensetag, Rule
+from shared.database_gen.sqlacodegen_models import License, LicenseTag, Rule
 
 LICENSES_API_URL = (
-    "https://api.github.com/repos/MobilityData/licenses-aas/contents/data/licenses"
+    "https://api.github.com/repos/MobilityData/licenses-catalog/contents/data/licenses"
 )
 
 
@@ -138,16 +138,16 @@ def populate_licenses_task(dry_run, db_session):
                         )
 
                 # Clear existing tags and assign updated ones
-                license_object.licensetags = []
+                license_object.tags = []
 
                 tag_ids = license_data.get("tags", [])
                 if tag_ids:
                     tags = (
-                        db_session.query(Licensetag)
-                        .filter(Licensetag.id.in_(tag_ids))
+                        db_session.query(LicenseTag)
+                        .filter(LicenseTag.id.in_(tag_ids))
                         .all()
                     )
-                    license_object.licensetags.extend(tags)
+                    license_object.tags.extend(tags)
                     if len(tags) != len(tag_ids):
                         logging.warning(
                             "License '%s': Found %d of %d tags in the database.",

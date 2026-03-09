@@ -7,7 +7,7 @@ from tasks.licenses.populate_license_tags import (
     populate_license_tags_task,
     TAGS_JSON_URL,
 )
-from shared.database_gen.sqlacodegen_models import Licensetag
+from shared.database_gen.sqlacodegen_models import LicenseTag, LicenseTagGroup
 
 
 class TestPopulateLicenseTags(unittest.TestCase):
@@ -54,33 +54,49 @@ class TestPopulateLicenseTags(unittest.TestCase):
         # Act
         populate_license_tags_task(dry_run=False, db_session=mock_db_session)
 
-        # Assert: 2 tags in "spdx" + 1 tag in "license" = 3 total (skipping _group entries)
+        # Assert: 2 groups ("spdx", "license") + 3 tags = 5 total merges
         mock_requests_get.assert_called_once_with(TAGS_JSON_URL, timeout=10)
-        self.assertEqual(mock_db_session.merge.call_count, 3)
+        self.assertEqual(mock_db_session.merge.call_count, 5)
 
         call_args_list = mock_db_session.merge.call_args_list
 
-        # Verify first tag
-        tag1 = call_args_list[0].args[0]
-        self.assertIsInstance(tag1, Licensetag)
+        # First two merges should be groups (order: "spdx", then "license")
+        group1 = call_args_list[0].args[0]
+        self.assertIsInstance(group1, LicenseTagGroup)
+        self.assertEqual(group1.id, "spdx")
+        self.assertEqual(group1.short_name, "SPDX status")
+        self.assertEqual(group1.description, "Metadata from the SPDX list.")
+
+        group2 = call_args_list[1].args[0]
+        self.assertIsInstance(group2, LicenseTagGroup)
+        self.assertEqual(group2.id, "license")
+        self.assertEqual(group2.short_name, "License type")
+        self.assertEqual(
+            group2.description, "High-level license family classification."
+        )
+
+        # Remaining three merges are tags; verify IDs, groups, tags and URLs
+        tag1 = call_args_list[2].args[0]
+        self.assertIsInstance(tag1, LicenseTag)
         self.assertEqual(tag1.id, "spdx:osi-approved")
         self.assertEqual(tag1.group, "spdx")
         self.assertEqual(tag1.tag, "osi-approved")
         self.assertEqual(tag1.description, "Approved by the Open Source Initiative.")
+        self.assertEqual(tag1.url, "https://opensource.org/licenses")
 
-        # Verify second tag
-        tag2 = call_args_list[1].args[0]
-        self.assertIsInstance(tag2, Licensetag)
+        tag2 = call_args_list[3].args[0]
+        self.assertIsInstance(tag2, LicenseTag)
         self.assertEqual(tag2.id, "spdx:fsf-free")
         self.assertEqual(tag2.group, "spdx")
         self.assertEqual(tag2.tag, "fsf-free")
+        self.assertEqual(tag2.url, "https://www.gnu.org/licenses/license-list.html")
 
-        # Verify third tag
-        tag3 = call_args_list[2].args[0]
-        self.assertIsInstance(tag3, Licensetag)
+        tag3 = call_args_list[4].args[0]
+        self.assertIsInstance(tag3, LicenseTag)
         self.assertEqual(tag3.id, "license:open-source")
         self.assertEqual(tag3.group, "license")
         self.assertEqual(tag3.tag, "open-source")
+        self.assertEqual(tag3.url, "https://opensource.org/licenses")
 
         mock_db_session.rollback.assert_not_called()
 
@@ -140,7 +156,7 @@ class TestPopulateLicenseTags(unittest.TestCase):
 
     @patch("tasks.licenses.populate_license_tags.requests.get")
     def test_group_metadata_skipped(self, mock_requests_get):
-        """Test that _group metadata entries are not inserted as tags."""
+        """Test that _group metadata entries become groups but not tags."""
         # Arrange – only one group with only the _group metadata key
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -159,8 +175,11 @@ class TestPopulateLicenseTags(unittest.TestCase):
         # Act
         populate_license_tags_task(dry_run=False, db_session=mock_db_session)
 
-        # Assert: _group entry must be skipped, so no merges
-        mock_db_session.merge.assert_not_called()
+        # Assert: only a group is created; no tags
+        mock_db_session.merge.assert_called_once()
+        group_obj = mock_db_session.merge.call_args.args[0]
+        self.assertIsInstance(group_obj, LicenseTagGroup)
+        self.assertEqual(group_obj.id, "spdx")
 
 
 if __name__ == "__main__":

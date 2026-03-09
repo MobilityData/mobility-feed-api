@@ -19,11 +19,9 @@ import logging
 
 import requests
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Licensetag
+from shared.database_gen.sqlacodegen_models import LicenseTag, LicenseTagGroup
 
-TAGS_JSON_URL = (
-    "https://raw.githubusercontent.com/MobilityData/licenses-aas/main/data/tags.json"
-)
+TAGS_JSON_URL = "https://raw.githubusercontent.com/MobilityData/licenses-catalog/main/data/tags.json"
 
 
 def populate_license_tags_handler(payload):
@@ -55,7 +53,16 @@ def populate_license_tags_task(dry_run, db_session):
         tags_json = response.json()
 
         tags_data = []
+        groups_data = {}
+
         for group_name, group_entries in tags_json.items():
+            group_meta = group_entries.get("_group", {}) or {}
+            groups_data[group_name] = {
+                "id": group_name,
+                "short_name": group_meta.get("short"),
+                "description": group_meta.get("description") or group_name,
+            }
+
             for tag_name, tag_entry in group_entries.items():
                 if tag_name == "_group":
                     # Skip the group-level metadata entry
@@ -67,25 +74,47 @@ def populate_license_tags_task(dry_run, db_session):
                         "group": group_name,
                         "tag": tag_name,
                         "description": tag_entry.get("description"),
+                        "url": tag_entry.get("url"),
                     }
                 )
 
-        logging.info("Loaded %d tags from %d groups.", len(tags_data), len(tags_json))
+        logging.info(
+            "Loaded %d groups and %d tags from tags.json.",
+            len(groups_data),
+            len(tags_data),
+        )
 
         if dry_run:
-            logging.info("Dry run: would insert/update %d tags.", len(tags_data))
+            logging.info(
+                "Dry run: would insert/update %d groups and %d tags.",
+                len(groups_data),
+                len(tags_data),
+            )
         else:
+            # Upsert groups first so FK from license_tag.group is satisfied
+            for group in groups_data.values():
+                group_object = LicenseTagGroup(
+                    id=group["id"],
+                    short_name=group["short_name"],
+                    description=group["description"],
+                )
+                db_session.merge(group_object)
+
+            # Then upsert tags that reference those groups
             for tag_data in tags_data:
-                tag_object = Licensetag(
+                tag_object = LicenseTag(
                     id=tag_data["id"],
                     group=tag_data["group"],
                     tag=tag_data["tag"],
                     description=tag_data["description"],
+                    url=tag_data["url"],
                 )
                 db_session.merge(tag_object)
 
             logging.info(
-                "Successfully upserted %d tags into the database.", len(tags_data)
+                "Successfully upserted %d groups and %d tags into the database.",
+                len(groups_data),
+                len(tags_data),
             )
 
     except requests.exceptions.RequestException as e:

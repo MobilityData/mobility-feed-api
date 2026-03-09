@@ -201,9 +201,9 @@ def tasks_executor(request: flask.Request) -> flask.Response:
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"
-            response.headers["Content-Disposition"] = (
-                "attachment; filename=task_result.csv"
-            )
+            response.headers[
+                "Content-Disposition"
+            ] = "attachment; filename=task_result.csv"
             return response
 
         # Default JSON response

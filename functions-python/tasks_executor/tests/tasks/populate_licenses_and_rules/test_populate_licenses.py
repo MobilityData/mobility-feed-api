@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from shared.database_gen.sqlacodegen_models import Licensetag, Rule
+from shared.database_gen.sqlacodegen_models import LicenseTag, Rule
 from tasks.licenses.populate_licenses import (
     LICENSES_API_URL,
     populate_licenses_task,
@@ -113,8 +113,8 @@ class TestPopulateLicenses(unittest.TestCase):
             "warranty": Rule(name="warranty"),
         }
         all_mock_tags = {
-            "spdx:osi-approved": Licensetag(id="spdx:osi-approved"),
-            "license:open-source": Licensetag(id="license:open-source"),
+            "spdx:osi-approved": LicenseTag(id="spdx:osi-approved"),
+            "license:open-source": LicenseTag(id="license:open-source"),
         }
 
         rule_filter = self._make_filter_mock(all_mock_rules)
@@ -125,7 +125,7 @@ class TestPopulateLicenses(unittest.TestCase):
             mock_query = MagicMock()
             if model_class is Rule:
                 mock_query.filter.side_effect = rule_filter
-            elif model_class is Licensetag:
+            elif model_class is LicenseTag:
                 mock_query.filter.side_effect = tag_filter
             return mock_query
 
@@ -149,7 +149,7 @@ class TestPopulateLicenses(unittest.TestCase):
         self.assertTrue(getattr(mit_license, "is_spdx", False))
         self.assertEqual(len(getattr(mit_license, "rules", [])), 3)
         # MIT license has 2 tags in mock data
-        self.assertEqual(len(getattr(mit_license, "licensetags", [])), 2)
+        self.assertEqual(len(getattr(mit_license, "tags", [])), 2)
 
     @patch("tasks.licenses.populate_licenses.requests.get")
     def test_populate_licenses_dry_run(self, mock_get):
