@@ -84,7 +84,8 @@ def populate_licenses_task(dry_run, db_session):
         logging.info("Loaded %d licenses.", len(licenses_data))
 
         if dry_run:
-            logging.info("Dry run: would process %d licenses.", len(licenses_data))
+            result = f"Dry run: would process {len(licenses_data)} licenses."
+            logging.info(result)
         else:
             for license_data in licenses_data:
                 spdx_data = license_data.get("spdx")
@@ -173,7 +174,7 @@ def populate_licenses_task(dry_run, db_session):
                     db_session.merge(license_object)
             result = "Successfully upserted licenses into the database."
             logging.info(result)
-            return result
+        return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download licenses JSON file: %s", e)
