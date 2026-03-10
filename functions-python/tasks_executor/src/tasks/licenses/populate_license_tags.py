@@ -102,6 +102,7 @@ def populate_license_tags(dry_run, db_session):
                 f"Successfully upserted {len(groups_data)} groups and {len(tags_data)} tags into the database.",
             )
             logging.info(result)
+            return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download tags JSON file: %s", e)

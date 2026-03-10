@@ -62,7 +62,7 @@ def populate_license_rules(dry_run, db_session):
         )
         result = ""
         if dry_run:
-            result = "Dry run: would insert/update %d rules.", len(rules_data)
+            result = f"Dry run: would insert/update {len(rules_data)} rules."
             logging.info(result)
         else:
             for rule_data in rules_data:
@@ -74,9 +74,7 @@ def populate_license_rules(dry_run, db_session):
                 )
                 db_session.merge(rule_object)
 
-            result = "Successfully upserted %d rules into the database.", len(
-                rules_data
-            )
+            result = f"Successfully upserted {len(rules_data)} rules into the database."
             logging.info(result)
         return result
 
