@@ -98,9 +98,7 @@ def populate_license_tags(dry_run, db_session):
                     url=tag_data["url"],
                 )
                 db_session.merge(tag_object)
-            result = (
-                f"Successfully upserted {len(groups_data)} groups and {len(tags_data)} tags into the database.",
-            )
+            result = f"Successfully upserted {len(groups_data)} groups and {len(tags_data)} tags into the database."
             logging.info(result)
             return result
 
