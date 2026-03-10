@@ -26,20 +26,8 @@ RULES_JSON_URL = (
 )
 
 
-def populate_license_rules_handler(payload):
-    """
-    Handler for populating license rules.
-
-    Args:
-        payload (dict): Incoming payload data.
-
-    """
-    (dry_run) = get_parameters(payload)
-    return populate_license_rules_task(dry_run)
-
-
 @with_db_session
-def populate_license_rules_task(dry_run, db_session):
+def populate_license_rules(dry_run, db_session):
     """
     Populates license rules in the database. This function is triggered by a Cloud Task.
 
@@ -47,7 +35,7 @@ def populate_license_rules_task(dry_run, db_session):
         dry_run (bool): If True, the function will simulate the operation without making changes.
         db_session: Database session for executing queries.
     """
-    logging.info("Starting populate_license_rules_task with dry_run=%s", dry_run)
+    logging.info("Starting populate_license_rules with dry_run=%s", dry_run)
 
     try:
         logging.info("Downloading rules from %s", RULES_JSON_URL)
@@ -72,9 +60,10 @@ def populate_license_rules_task(dry_run, db_session):
         logging.info(
             "Loaded %d rules from %d categories.", len(rules_data), len(rules_json)
         )
-
+        result = ""
         if dry_run:
-            logging.info("Dry run: would insert/update %d rules.", len(rules_data))
+            result = f"Dry run: would insert/update {len(rules_data)} rules."
+            logging.info(result)
         else:
             for rule_data in rules_data:
                 rule_object = Rule(
@@ -85,9 +74,9 @@ def populate_license_rules_task(dry_run, db_session):
                 )
                 db_session.merge(rule_object)
 
-            logging.info(
-                "Successfully upserted %d rules into the database.", len(rules_data)
-            )
+            result = f"Successfully upserted {len(rules_data)} rules into the database."
+            logging.info(result)
+        return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download rules JSON file: %s", e)
@@ -96,16 +85,3 @@ def populate_license_rules_task(dry_run, db_session):
         logging.error("An error occurred while populating license rules: %s", e)
         db_session.rollback()
         raise
-
-
-def get_parameters(payload):
-    """
-    Get parameters from the payload and environment variables.
-
-    Args:
-        payload (dict): dictionary containing the payload data.
-    Returns:
-        tuple: (dry_run, after_date)
-    """
-    dry_run = payload.get("dry_run", False)
-    return dry_run

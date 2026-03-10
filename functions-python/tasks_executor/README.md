@@ -68,17 +68,6 @@ To update the geolocation files precision:
 }
 ```
 
-To populate license rules:
-
-```json
-{
-  "task": "populate_license_rules",
-  "payload": {
-    "dry_run": true
-  }
-}
-```
-
 To populate licenses:
 
 ```json

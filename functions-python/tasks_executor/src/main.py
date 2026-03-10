@@ -47,13 +47,11 @@ from tasks.geojson.update_geojson_files_precision import (
 )
 from tasks.data_import.jbda.import_jbda_feeds import import_jbda_handler
 
-from tasks.licenses.populate_license_rules import (
-    populate_license_rules_handler,
-)
 
 from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
 )
+
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -97,12 +95,9 @@ tasks = {
         "description": "Imports JBDA data into the system.",
         "handler": import_jbda_handler,
     },
-    "populate_license_rules": {
-        "description": "Populates license rules in the database from a predefined JSON source.",
-        "handler": populate_license_rules_handler,
-    },
     "populate_licenses": {
-        "description": "Populates licenses and license-rules in the database from a predefined JSON source.",
+        "description": "Populates licenses, license-rules and license-tags "
+        "in the database from a predefined JSON source.",
         "handler": populate_licenses_handler,
     },
     "match_licenses": {

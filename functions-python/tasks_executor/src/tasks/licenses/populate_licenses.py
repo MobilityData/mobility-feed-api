@@ -1,5 +1,6 @@
-# This script defines a task to populate the 'licenses' table and the 'license_rules'
-# association table in the database. It is designed to be triggered as a background task.
+# This script defines a task to populate the 'licenses' table, the 'license_rules'
+# association table, and the 'license_license_tags' association table in the database.
+# It is designed to be triggered as a background task.
 #
 # The script performs the following steps:
 # 1. Fetches a list of license definition files from the MobilityData/licenses-aas GitHub repository
@@ -15,6 +16,9 @@
 #    e. Associates the found rules with the license. The SQLAlchemy ORM automatically
 #       manages the creation of records in the 'license_rules' join table to establish
 #       the many-to-many relationship.
+#    f. Extracts the associated tag IDs from the 'tags' list at the top level of the JSON.
+#    g. Queries the 'license_tag' table to find the corresponding LicenseTag objects.
+#    h. Associates the found tags with the license via the 'license_license_tags' join table.
 # 4. Supports a 'dry_run' mode, which simulates the process and logs intended
 #    actions without committing any changes to the database.
 # 5. Includes error handling for network issues and database transactions.
@@ -23,22 +27,33 @@ from datetime import datetime, timezone
 
 import requests
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import License, Rule
+from shared.database_gen.sqlacodegen_models import License, LicenseTag, Rule
+from .populate_license_rules import populate_license_rules
+from .populate_license_tags import populate_license_tags
 
 LICENSES_API_URL = (
-    "https://api.github.com/repos/MobilityData/licenses-aas/contents/data/licenses"
+    "https://api.github.com/repos/MobilityData/licenses-catalog/contents/data/licenses"
 )
 
 
 def populate_licenses_handler(payload):
     """
-    Handler for populating licenses.
+    Handler function for the populate licenses task.
+    This function imports the license rules and tags population tasks to ensure that the necessary data is available
+    before populating the licenses.
 
     Args:
         payload (dict): Incoming payload data.
     """
     dry_run = get_parameters(payload)
-    return populate_licenses_task(dry_run)
+    rules_result = populate_license_rules(dry_run)
+    tags_result = populate_license_tags(dry_run)
+    license_result = populate_licenses_task(dry_run)
+    return {
+        "rules": rules_result,
+        "tags": tags_result,
+        "licenses": license_result,
+    }
 
 
 @with_db_session
@@ -69,7 +84,8 @@ def populate_licenses_task(dry_run, db_session):
         logging.info("Loaded %d licenses.", len(licenses_data))
 
         if dry_run:
-            logging.info("Dry run: would process %d licenses.", len(licenses_data))
+            result = f"Dry run: would process {len(licenses_data)} licenses."
+            logging.info(result)
         else:
             for license_data in licenses_data:
                 spdx_data = license_data.get("spdx")
@@ -132,14 +148,33 @@ def populate_licenses_task(dry_run, db_session):
                             len(rules),
                             len(all_rule_names),
                         )
+
+                # Clear existing tags and assign updated ones
+                license_object.tags = []
+
+                tag_ids = license_data.get("tags", [])
+                if tag_ids:
+                    tags = (
+                        db_session.query(LicenseTag)
+                        .filter(LicenseTag.id.in_(tag_ids))
+                        .all()
+                    )
+                    license_object.tags.extend(tags)
+                    if len(tags) != len(tag_ids):
+                        logging.warning(
+                            "License '%s': Found %d of %d tags in the database.",
+                            license_id,
+                            len(tags),
+                            len(tag_ids),
+                        )
+
                 # Merge the license object into the session. This handles updating existing licenses (upsert),
-                # including their rule associations.
+                # including their rule and tag associations.
                 if not is_new:
                     db_session.merge(license_object)
-
-            logging.info(
-                "Successfully upserted licenses into the database.",
-            )
+            result = "Successfully upserted licenses into the database."
+            logging.info(result)
+        return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download licenses JSON file: %s", e)

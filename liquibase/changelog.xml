@@ -104,4 +104,6 @@
     <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
     <!-- Change gtfsfile table hosted_url column type to text to accomodate longer URLs. -->
     <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
+    <!-- Add license_tag table and license_license_tags join table for tag classification of licenses. -->
+    <include file="changes/feat_1565.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
