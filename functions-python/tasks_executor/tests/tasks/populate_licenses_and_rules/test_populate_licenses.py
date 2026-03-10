@@ -6,6 +6,7 @@ import requests
 from shared.database_gen.sqlacodegen_models import LicenseTag, Rule
 from tasks.licenses.populate_licenses import (
     LICENSES_API_URL,
+    populate_licenses_handler,
     populate_licenses_task,
 )
 
@@ -180,6 +181,123 @@ class TestPopulateLicenses(unittest.TestCase):
         mock_db_session.merge.assert_not_called()
         # Rollback is not called because the exception happens before the db try/except block
         mock_db_session.rollback.assert_not_called()
+
+
+class TestPopulateLicensesHandler(unittest.TestCase):
+    """Tests for the populate_licenses_handler orchestration function."""
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_calls_all_subtasks_and_returns_combined_result(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """Handler should call all three sub-tasks and return a dict with their results."""
+        mock_rules.return_value = "rules_result"
+        mock_tags.return_value = "tags_result"
+        mock_licenses.return_value = "licenses_result"
+
+        result = populate_licenses_handler({"dry_run": False})
+
+        mock_rules.assert_called_once_with(False)
+        mock_tags.assert_called_once_with(False)
+        mock_licenses.assert_called_once_with(False)
+        self.assertEqual(
+            result,
+            {
+                "rules": "rules_result",
+                "tags": "tags_result",
+                "licenses": "licenses_result",
+            },
+        )
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_dry_run_passes_flag_to_subtasks(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """Handler should propagate dry_run=True to every sub-task."""
+        mock_rules.return_value = "Dry run: would insert/update 0 rules."
+        mock_tags.return_value = "Dry run: would insert/update 0 groups and 0 tags."
+        mock_licenses.return_value = None
+
+        result = populate_licenses_handler({"dry_run": True})
+
+        mock_rules.assert_called_once_with(True)
+        mock_tags.assert_called_once_with(True)
+        mock_licenses.assert_called_once_with(True)
+        self.assertEqual(result["rules"], "Dry run: would insert/update 0 rules.")
+        self.assertEqual(
+            result["tags"], "Dry run: would insert/update 0 groups and 0 tags."
+        )
+        self.assertIsNone(result["licenses"])
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_defaults_dry_run_to_false_when_missing(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """Handler should default dry_run to False when the key is absent from the payload."""
+        mock_rules.return_value = None
+        mock_tags.return_value = None
+        mock_licenses.return_value = None
+
+        populate_licenses_handler({})
+
+        mock_rules.assert_called_once_with(False)
+        mock_tags.assert_called_once_with(False)
+        mock_licenses.assert_called_once_with(False)
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_propagates_exception_from_rules(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """If populate_license_rules raises, the handler should propagate the exception
+        and the downstream sub-tasks should not be called."""
+        mock_rules.side_effect = requests.exceptions.RequestException("Network error")
+
+        with self.assertRaises(requests.exceptions.RequestException):
+            populate_licenses_handler({"dry_run": False})
+
+        mock_tags.assert_not_called()
+        mock_licenses.assert_not_called()
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_propagates_exception_from_tags(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """If populate_license_tags raises, the handler should propagate the exception
+        and populate_licenses_task should not be called."""
+        mock_rules.return_value = "rules_result"
+        mock_tags.side_effect = requests.exceptions.RequestException("Network error")
+
+        with self.assertRaises(requests.exceptions.RequestException):
+            populate_licenses_handler({"dry_run": False})
+
+        mock_licenses.assert_not_called()
+
+    @patch("tasks.licenses.populate_licenses.populate_licenses_task")
+    @patch("tasks.licenses.populate_licenses.populate_license_tags")
+    @patch("tasks.licenses.populate_licenses.populate_license_rules")
+    def test_handler_result_keys_are_always_present(
+        self, mock_rules, mock_tags, mock_licenses
+    ):
+        """The returned dict must always contain the three expected keys."""
+        mock_rules.return_value = None
+        mock_tags.return_value = None
+        mock_licenses.return_value = None
+
+        result = populate_licenses_handler({"dry_run": False})
+
+        self.assertIn("rules", result)
+        self.assertIn("tags", result)
+        self.assertIn("licenses", result)
 
 
 if __name__ == "__main__":

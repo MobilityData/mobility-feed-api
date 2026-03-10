@@ -46,9 +46,14 @@ def populate_licenses_handler(payload):
         payload (dict): Incoming payload data.
     """
     dry_run = get_parameters(payload)
-    populate_license_rules(dry_run)
-    populate_license_tags(dry_run)
-    return populate_licenses_task(dry_run)
+    rules_result = populate_license_rules(dry_run)
+    tags_result = populate_license_tags(dry_run)
+    license_result = populate_licenses_task(dry_run)
+    return {
+        "rules": rules_result,
+        "tags": tags_result,
+        "licenses": license_result,
+    }
 
 
 @with_db_session
@@ -166,10 +171,9 @@ def populate_licenses_task(dry_run, db_session):
                 # including their rule and tag associations.
                 if not is_new:
                     db_session.merge(license_object)
-
-            logging.info(
-                "Successfully upserted licenses into the database.",
-            )
+            result = "Successfully upserted licenses into the database."
+            logging.info(result)
+            return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download licenses JSON file: %s", e)

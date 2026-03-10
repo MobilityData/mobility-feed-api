@@ -60,9 +60,10 @@ def populate_license_rules(dry_run, db_session):
         logging.info(
             "Loaded %d rules from %d categories.", len(rules_data), len(rules_json)
         )
-
+        result = ""
         if dry_run:
-            logging.info("Dry run: would insert/update %d rules.", len(rules_data))
+            result = "Dry run: would insert/update %d rules.", len(rules_data)
+            logging.info(result)
         else:
             for rule_data in rules_data:
                 rule_object = Rule(
@@ -73,9 +74,11 @@ def populate_license_rules(dry_run, db_session):
                 )
                 db_session.merge(rule_object)
 
-            logging.info(
-                "Successfully upserted %d rules into the database.", len(rules_data)
+            result = "Successfully upserted %d rules into the database.", len(
+                rules_data
             )
+            logging.info(result)
+        return result
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download rules JSON file: %s", e)

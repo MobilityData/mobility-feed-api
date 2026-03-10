@@ -74,12 +74,10 @@ def populate_license_tags(dry_run, db_session):
             len(tags_data),
         )
 
+        result = ""
         if dry_run:
-            logging.info(
-                "Dry run: would insert/update %d groups and %d tags.",
-                len(groups_data),
-                len(tags_data),
-            )
+            result = f"Dry run: would insert/update {len(groups_data)} groups and {len(tags_data)} tags."
+            logging.info(result)
         else:
             # Upsert groups first so FK from license_tag.group is satisfied
             for group in groups_data.values():
@@ -100,12 +98,10 @@ def populate_license_tags(dry_run, db_session):
                     url=tag_data["url"],
                 )
                 db_session.merge(tag_object)
-
-            logging.info(
-                "Successfully upserted %d groups and %d tags into the database.",
-                len(groups_data),
-                len(tags_data),
+            result = (
+                f"Successfully upserted {len(groups_data)} groups and {len(tags_data)} tags into the database.",
             )
+            logging.info(result)
 
     except requests.exceptions.RequestException as e:
         logging.error("Failed to download tags JSON file: %s", e)
