@@ -25,9 +25,7 @@ class BaseFeedImpl(BasicFeed):
         license_tags = None
         if getattr(feed, "license", None) is not None:
             license_is_spdx = feed.license.is_spdx
-            tags = getattr(feed.license, "tags", [])
-            if tags:
-                license_tags = sorted([tag.id for tag in tags])
+            license_tags = sorted([tag.id for tag in getattr(feed.license, "tags", [])]) or None
 
         return cls(
             id=feed.stable_id,
