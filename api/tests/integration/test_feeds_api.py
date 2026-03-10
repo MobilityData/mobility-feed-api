@@ -947,18 +947,23 @@ def test_gbfs_feed_id_get(client: TestClient, values):
 
 
 @pytest.mark.parametrize(
-    "feed_id, expected_license_id, expected_is_spdx, expected_license_notes",
+    "feed_id, expected_license_id, expected_is_spdx, expected_license_notes, expected_license_tags",
     [
-        ("mdb-70", "license-1", True, "Notes for license-1"),
-        ("mdb-80", "license-2", False, None),
+        ("mdb-70", "license-1", True, "Notes for license-1", ["family:ODC", "license:open-data-commons"]),
+        ("mdb-80", "license-2", False, None, None),
     ],
 )
 def test_feeds_have_expected_license_info(
-    client: TestClient, feed_id: str, expected_license_id: str, expected_is_spdx: bool, expected_license_notes: str
+    client: TestClient,
+    feed_id: str,
+    expected_license_id: str,
+    expected_is_spdx: bool,
+    expected_license_notes: str,
+    expected_license_tags: list,
 ):
     """
     Verify that specified feeds have the expected license id,
-    license_is_spdx and license_notes from the test fixture.
+    license_is_spdx, license_notes, and license_tags from the test fixture.
     """
     response = client.request(
         "GET",
@@ -974,3 +979,8 @@ def test_feeds_have_expected_license_info(
     assert body["source_info"]["license_is_spdx"] is expected_is_spdx
     # Check license_notes (may be None)
     assert body["source_info"].get("license_notes") == expected_license_notes
+    # Check license_tags (may be None if no tags)
+    if expected_license_tags is None:
+        assert body["source_info"].get("license_tags") is None
+    else:
+        assert sorted(body["source_info"].get("license_tags", [])) == sorted(expected_license_tags)

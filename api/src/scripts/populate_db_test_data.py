@@ -13,6 +13,8 @@ from shared.database_gen.sqlacodegen_models import (
     Notice,
     Feature,
     License,
+    LicenseTag,
+    LicenseTagGroup,
     t_feedsearch,
     Location,
     Officialstatushistory,
@@ -222,6 +224,63 @@ class DatabasePopulateTestDataHelper:
                 # Attach if not already associated
                 if rule_obj not in license_obj.rules:
                     license_obj.rules.append(rule_obj)
+            db_session.commit()
+
+        # License tag groups (optional section to seed group metadata used by license_tags)
+        if "license_tag_groups" in data:
+            for group in data["license_tag_groups"]:
+                group_id = group.get("id")
+                if not group_id:
+                    continue
+                existing_group = db_session.get(LicenseTagGroup, group_id)
+                if existing_group:
+                    continue
+                db_session.add(
+                    LicenseTagGroup(
+                        id=group_id,
+                        short_name=group.get("short_name"),
+                        description=group.get("description") or group_id,
+                    )
+                )
+            db_session.commit()
+
+        # License tags (optional section to seed tag metadata)
+        if "license_tags" in data:
+            for tag in data["license_tags"]:
+                tag_id = tag.get("id")
+                if not tag_id:
+                    continue
+                existing_tag = db_session.get(LicenseTag, tag_id)
+                if existing_tag:
+                    continue
+                db_session.add(
+                    LicenseTag(
+                        id=tag_id,
+                        group=tag.get("group"),
+                        tag=tag.get("tag"),
+                        url=tag.get("url"),
+                        description=tag.get("description"),
+                    )
+                )
+            db_session.commit()
+
+        # License tag associations: attach tags to licenses via the many-to-many relationship
+        if "license_license_tags" in data:
+            for lt in data["license_license_tags"]:
+                license_id = lt.get("license_id")
+                tag_id = lt.get("tag_id")
+                if not license_id or not tag_id:
+                    continue
+                license_obj = db_session.get(License, license_id)
+                if not license_obj:
+                    self.logger.error(f"No license found with id: {license_id}; skipping license_license_tag {tag_id}")
+                    continue
+                tag_obj = db_session.get(LicenseTag, tag_id)
+                if not tag_obj:
+                    self.logger.error(f"No license tag found with id: {tag_id}; skipping")
+                    continue
+                if tag_obj not in license_obj.tags:
+                    license_obj.tags.append(tag_obj)
             db_session.commit()
 
         # GBFS version
