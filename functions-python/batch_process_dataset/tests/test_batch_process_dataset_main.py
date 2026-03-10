@@ -2,13 +2,11 @@ import base64
 import datetime
 import json
 import os
-import tempfile
+import shutil
 import unittest
 from hashlib import sha256
 from typing import Final
-from unittest.mock import patch, MagicMock, Mock, mock_open
-
-import faker
+from unittest.mock import patch, MagicMock, Mock
 
 from main import (
     DatasetProcessor,
@@ -45,11 +43,31 @@ def create_cloud_event(mock_data):
 
 
 class TestDatasetProcessor(unittest.TestCase):
-    @patch("main.DatasetProcessor.upload_files_to_storage")
+    @classmethod
+    def setUpClass(cls):
+        """Set up test environment with a dedicated working directory"""
+        # Use a test-specific working directory
+        cls.test_working_dir = os.path.join(
+            os.path.dirname(__file__), "test_working_dir"
+        )
+        os.makedirs(cls.test_working_dir, exist_ok=True)
+        # Set the environment variable for all tests
+        os.environ["WORKING_DIR"] = cls.test_working_dir
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up the test working directory after all tests"""
+        if os.path.exists(cls.test_working_dir):
+            shutil.rmtree(cls.test_working_dir, ignore_errors=True)
+
+    @patch("main.DatasetProcessor.extract_and_upload_files_from_zip")
+    @patch("main.DatasetProcessor.upload_dataset_zip_to_storage")
     @patch("main.DatasetProcessor.download_content")
-    @patch("main.DatasetProcessor.unzip_files")
     def test_upload_dataset_diff_hash(
-        self, mock_unzip_files, mock_download_url_content, upload_files_to_storage
+        self,
+        mock_download_url_content,
+        mock_upload_dataset_zip,
+        mock_extract_and_upload,
     ):
         """
         Test upload_dataset method of DatasetProcessor class with different hash from the latest one
@@ -57,9 +75,12 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         mock_blob.path = public_url
-        upload_files_to_storage.return_value = mock_blob, []
+
+        # Mock the new methods used in transfer_dataset
+        mock_upload_dataset_zip.return_value = mock_blob
+        mock_extracted_files = []  # Empty list of extracted files
+        mock_extract_and_upload.return_value = mock_extracted_files
         mock_download_url_content.return_value = file_hash, True
-        mock_unzip_files.return_value = [mock_blob, mock_blob]
 
         processor = DatasetProcessor(
             public_url,
@@ -73,7 +94,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
         with patch.object(processor, "date", "mocked_timestamp"):
-            result = processor.upload_dataset("feed_id")
+            result = processor.transfer_dataset("feed_id")
 
         self.assertIsNotNone(result)
         mock_download_url_content.assert_called_once()
@@ -84,19 +105,15 @@ class TestDatasetProcessor(unittest.TestCase):
             f"/feed_stable_id-mocked_timestamp.zip",
         )
         self.assertEqual(result.file_sha256_hash, file_hash)
-        self.assertEqual(upload_files_to_storage.call_count, 1)
+        # Verify the new methods were called
+        self.assertEqual(mock_upload_dataset_zip.call_count, 1)
+        self.assertEqual(mock_extract_and_upload.call_count, 1)
 
-    @patch("main.DatasetProcessor.upload_files_to_storage")
     @patch("main.DatasetProcessor.download_content")
-    def test_upload_dataset_same_hash(
-        self, mock_download_url_content, upload_files_to_storage
-    ):
+    def test_upload_dataset_same_hash(self, mock_download_url_content):
         """
         Test upload_dataset method of DatasetProcessor class with the hash from the latest one
         """
-        mock_blob = MagicMock()
-        mock_blob.public_url = public_url
-        upload_files_to_storage.return_value = mock_blob
         mock_download_url_content.return_value = file_hash, True
 
         processor = DatasetProcessor(
@@ -111,24 +128,16 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        result = processor.upload_dataset("feed_id")
+        result = processor.transfer_dataset("feed_id")
 
         self.assertIsNone(result)
-        upload_files_to_storage.blob.assert_not_called()
-        mock_blob.make_public.assert_not_called()
         mock_download_url_content.assert_called_once()
 
-    @patch("main.DatasetProcessor.upload_files_to_storage")
     @patch("main.DatasetProcessor.download_content")
-    def test_upload_dataset_not_zip(
-        self, mock_download_url_content, upload_files_to_storage
-    ):
+    def test_upload_dataset_not_zip(self, mock_download_url_content):
         """
         Test upload_dataset method of DatasetProcessor class with a non zip file
         """
-        mock_blob = MagicMock()
-        mock_blob.public_url = public_url
-        upload_files_to_storage.return_value = mock_blob
         mock_download_url_content.return_value = file_hash, False
 
         processor = DatasetProcessor(
@@ -143,24 +152,16 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        result = processor.upload_dataset("feed_id")
+        result = processor.transfer_dataset("feed_id")
 
         self.assertIsNone(result)
-        upload_files_to_storage.blob.assert_not_called()
-        mock_blob.make_public.assert_not_called()
         mock_download_url_content.assert_called_once()
 
-    @patch("main.DatasetProcessor.upload_files_to_storage")
     @patch("main.DatasetProcessor.download_content")
-    def test_upload_dataset_download_exception(
-        self, mock_download_url_content, upload_files_to_storage
-    ):
+    def test_upload_dataset_download_exception(self, mock_download_url_content):
         """
-        Test upload_dataset method of DatasetProcessor class with the hash from the latest one
+        Test upload_dataset method of DatasetProcessor class when download fails
         """
-        mock_blob = MagicMock()
-        mock_blob.public_url = public_url
-        upload_files_to_storage.return_value = mock_blob
         mock_download_url_content.side_effect = Exception("Download failed")
 
         processor = DatasetProcessor(
@@ -176,47 +177,261 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
         with self.assertRaises(Exception):
-            processor.upload_dataset("feed_id")
+            processor.transfer_dataset("feed_id")
 
-    def test_upload_files_to_storage(self):
-        bucket_name = "test-bucket"
-        source_file_path = "path/to/source/file"
-        extracted_file_path = "path/to/source/file"
+    @patch("main.get_hash_from_file", return_value="test_file_hash_123")
+    @patch("main.os.path.getsize", return_value=1024)
+    @patch("main.os.remove")
+    @patch("main.storage.Client")
+    @patch("main.zipfile.is_zipfile", return_value=True)
+    def test_extract_and_upload_files_from_zip_success(
+        self,
+        _mock_is_zipfile,
+        mock_storage_client,
+        mock_remove,
+        _mock_getsize,
+        _mock_get_hash,
+    ):
+        """
+        Test extract_and_upload_files_from_zip with a valid ZIP file containing multiple files
+        """
+        import tempfile
+        import zipfile
 
-        mock_blob = Mock()
-        mock_blob.public_url = public_url
-        mock_bucket = Mock()
-        mock_bucket.blob.return_value = mock_blob
-        mock_client = Mock()
-        mock_client.get_bucket.return_value = mock_bucket
+        # Create a real temporary ZIP file with test content
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
+            zip_path = tmp_zip.name
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("stops.txt", "stop_id,stop_name\n1,Stop A\n")
+                zf.writestr("routes.txt", "route_id,route_name\n1,Route 1\n")
+                # Add a directory to test that it's skipped
+                zf.writestr("subfolder/", "")
 
-        # Mock open function
-        mock_file = mock_open()
+        try:
+            # Setup mocks
+            mock_blob = Mock()
+            mock_blob.public_url = (
+                "https://storage.googleapis.com/bucket/feed/dataset/extracted/stops.txt"
+            )
+            mock_bucket = Mock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_client = Mock()
+            mock_client.get_bucket.return_value = mock_bucket
+            mock_storage_client.return_value = mock_client
 
-        with patch("google.cloud.storage.Client", return_value=mock_client), patch(
-            "builtins.open", mock_file
-        ):
+            # Create processor
             processor = DatasetProcessor(
-                public_url,
-                "feed_id",
-                "feed_stable_id",
-                "execution_id",
-                "latest_hash",
-                bucket_name,
-                0,
-                None,
-                test_hosted_public_url,
+                producer_url="https://example.com/feed.zip",
+                feed_id="test_feed_id",
+                feed_stable_id="test_feed",
+                execution_id="exec_123",
+                latest_hash="hash123",
+                bucket_name="test-bucket",
+                authentication_type=0,
+                api_key_parameter_name=None,
+                public_hosted_datasets_url="https://public.example.com",
             )
-            dataset_id = faker.Faker().uuid4()
-            result, _ = processor.upload_files_to_storage(
-                source_file_path, dataset_id, extracted_file_path
+
+            # Call the method
+            result = processor.extract_and_upload_files_from_zip(
+                zip_file_path=zip_path,
+                dataset_stable_id="dataset_123",
+                public=True,
             )
-            self.assertEqual(result.public_url, public_url)
-            mock_client.get_bucket.assert_called_with(bucket_name)
-            mock_bucket.blob.assert_called_with(
-                f"feed_stable_id/{dataset_id}/{dataset_id}.zip"
+
+            # Assertions
+            self.assertEqual(len(result), 2)  # 2 files, directory should be skipped
+            self.assertEqual(result[0].file_name, "stops.txt")
+            self.assertEqual(result[1].file_name, "routes.txt")
+            self.assertEqual(result[0].file_size_bytes, 1024)
+            self.assertEqual(result[0].hash, "test_file_hash_123")
+            self.assertEqual(result[0].hosted_url, mock_blob.public_url)
+
+            # Verify bucket.blob was called for each file
+            self.assertEqual(mock_bucket.blob.call_count, 2)
+            mock_bucket.blob.assert_any_call(
+                "test_feed/dataset_123/extracted/stops.txt"
             )
-            mock_blob.upload_from_filename.assert_called()
+            mock_bucket.blob.assert_any_call(
+                "test_feed/dataset_123/extracted/routes.txt"
+            )
+
+            # Verify upload was called for each file
+            self.assertEqual(mock_blob.upload_from_filename.call_count, 2)
+
+            # Verify make_public was called (public=True)
+            self.assertEqual(mock_blob.make_public.call_count, 2)
+
+            # Verify cleanup (os.remove) was called for each extracted file
+            self.assertEqual(mock_remove.call_count, 2)
+
+        finally:
+            # Cleanup the temporary ZIP file
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+
+    @patch("main.storage.Client")
+    @patch("main.zipfile.is_zipfile", return_value=True)
+    def test_extract_and_upload_files_from_zip_not_public(
+        self, mock_is_zipfile, mock_storage_client
+    ):
+        """
+        Test extract_and_upload_files_from_zip with public=False
+        """
+        import tempfile
+        import zipfile
+
+        # Create a real temporary ZIP file
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
+            zip_path = tmp_zip.name
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("agency.txt", "agency_id,agency_name\n1,Agency\n")
+
+        try:
+            # Setup mocks
+            mock_blob = Mock()
+            mock_blob.public_url = "https://storage.googleapis.com/bucket/feed/dataset/extracted/agency.txt"
+            mock_bucket = Mock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_client = Mock()
+            mock_client.get_bucket.return_value = mock_bucket
+            mock_storage_client.return_value = mock_client
+
+            processor = DatasetProcessor(
+                producer_url="https://example.com/feed.zip",
+                feed_id="test_feed_id",
+                feed_stable_id="test_feed",
+                execution_id="exec_123",
+                latest_hash="hash123",
+                bucket_name="test-bucket",
+                authentication_type=0,
+                api_key_parameter_name=None,
+                public_hosted_datasets_url="https://public.example.com",
+            )
+
+            # Call with public=False
+            result = processor.extract_and_upload_files_from_zip(
+                zip_file_path=zip_path,
+                dataset_stable_id="dataset_456",
+                public=False,
+            )
+
+            # Assertions
+            self.assertEqual(len(result), 1)
+            self.assertIsNone(result[0].hosted_url)  # Should be None when public=False
+
+            # Verify make_public was NOT called
+            mock_blob.make_public.assert_not_called()
+
+        finally:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+
+    @patch("main.zipfile.is_zipfile", return_value=False)
+    def test_extract_and_upload_files_from_zip_invalid_zip(self, mock_is_zipfile):
+        """
+        Test extract_and_upload_files_from_zip with an invalid ZIP file
+        """
+        import tempfile
+
+        # Create a temporary non-ZIP file
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp_file:
+            tmp_file.write(b"This is not a ZIP file")
+            file_path = tmp_file.name
+
+        try:
+            processor = DatasetProcessor(
+                producer_url="https://example.com/feed.zip",
+                feed_id="test_feed_id",
+                feed_stable_id="test_feed",
+                execution_id="exec_123",
+                latest_hash="hash123",
+                bucket_name="test-bucket",
+                authentication_type=0,
+                api_key_parameter_name=None,
+                public_hosted_datasets_url="https://public.example.com",
+            )
+
+            # Should raise ValueError for invalid ZIP
+            with self.assertRaises(ValueError) as context:
+                processor.extract_and_upload_files_from_zip(
+                    zip_file_path=file_path,
+                    dataset_stable_id="dataset_789",
+                    public=True,
+                )
+
+            self.assertIn("not a valid ZIP file", str(context.exception))
+
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+    @patch("main.get_hash_from_file", return_value="hash_abc")
+    @patch("main.storage.Client")
+    @patch("main.zipfile.is_zipfile", return_value=True)
+    def test_extract_and_upload_files_from_zip_cleanup_failure(
+        self, mock_is_zipfile, mock_storage_client, mock_get_hash
+    ):
+        """
+        Test that cleanup failures are caught and logged but don't stop processing
+        """
+        import tempfile
+        import zipfile
+
+        # Create a real temporary ZIP file
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
+            zip_path = tmp_zip.name
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("test.txt", "test content\n")
+
+        try:
+            # Setup mocks
+            mock_blob = Mock()
+            mock_blob.public_url = "https://storage.googleapis.com/bucket/file.txt"
+            mock_bucket = Mock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_client = Mock()
+            mock_client.get_bucket.return_value = mock_bucket
+            mock_storage_client.return_value = mock_client
+
+            processor = DatasetProcessor(
+                producer_url="https://example.com/feed.zip",
+                feed_id="test_feed_id",
+                feed_stable_id="test_feed",
+                execution_id="exec_123",
+                latest_hash="hash123",
+                bucket_name="test-bucket",
+                authentication_type=0,
+                api_key_parameter_name=None,
+                public_hosted_datasets_url="https://public.example.com",
+            )
+
+            # Mock os.remove to fail only for extracted files (not the ZIP itself)
+            original_remove = os.remove
+
+            def mock_remove_side_effect(path):
+                # Only raise exception for extracted files, not the ZIP file
+                if "in-memory" in path and path != zip_path:
+                    raise Exception("Cleanup failed")
+                else:
+                    # Allow cleanup of the ZIP file to succeed
+                    original_remove(path)
+
+            with patch("main.os.remove", side_effect=mock_remove_side_effect):
+                # Should not raise exception even though cleanup fails
+                result = processor.extract_and_upload_files_from_zip(
+                    zip_file_path=zip_path,
+                    dataset_stable_id="dataset_cleanup",
+                    public=True,
+                )
+
+                # Should still return the file
+                self.assertEqual(len(result), 1)
+                self.assertEqual(result[0].file_name, "test.txt")
+
+        finally:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
 
     @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
@@ -247,7 +462,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        processor.upload_dataset = MagicMock(
+        processor.transfer_dataset = MagicMock(
             return_value=DatasetFile(
                 stable_id="test_stable_id",
                 file_sha256_hash=new_hash,
@@ -260,7 +475,7 @@ class TestDatasetProcessor(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertEqual(result.file_sha256_hash, new_hash)
-        processor.upload_dataset.assert_called_once()
+        processor.transfer_dataset.assert_called_once()
 
     @patch.dict(
         os.environ,
@@ -355,7 +570,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        processor.upload_dataset = MagicMock(return_value=None)
+        processor.transfer_dataset = MagicMock(return_value=None)
         processor.create_dataset_entities = MagicMock()
         result = processor.process_from_producer_url(feed_id)
 
@@ -453,26 +668,18 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "test-bucket"})
     @patch("main.create_pipeline_tasks")
     @patch("main.DatasetProcessor.create_dataset_entities")
-    @patch("main.DatasetProcessor.upload_files_to_storage")
-    @patch("main.DatasetProcessor.unzip_files")
+    @patch("main.DatasetProcessor.extract_and_upload_files_from_zip")
     @patch("main.download_from_gcs")
     def test_process_from_bucket_latest_happy_path(
         self,
         mock_download_from_gcs,
-        mock_unzip_files,
-        mock_upload_files_to_storage,
+        mock_extract_and_upload,
         mock_create_dataset_entities,
         _,
     ):
         # Arrange
-        mock_blob = MagicMock()
-        mock_upload_files_to_storage.return_value = (
-            mock_blob,
-            [],
-        )  # (blob, extracted_files)
-        mock_unzip_files.return_value = (
-            "/tmp/extracted"  # not used deeply because upload is mocked
-        )
+        mock_extracted_files = []  # Empty list of extracted files
+        mock_extract_and_upload.return_value = mock_extracted_files
 
         processor = DatasetProcessor(
             producer_url="https://ignored-in-bucket-mode.example.com/feed.zip",
@@ -491,8 +698,9 @@ class TestDatasetProcessor(unittest.TestCase):
         # Act
         result = processor.process_from_bucket(public=True)
 
-        # Assert: function returns None in current implementation
-        self.assertIsNone(result.zipped_size)
+        # Assert: function returns a DatasetFile
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, DatasetFile)
 
         # Assert: downloads from the bucket latest.zip for this feed
         mock_download_from_gcs.assert_called_once()
@@ -506,12 +714,12 @@ class TestDatasetProcessor(unittest.TestCase):
         )  # temp file path (random), so just ensure it exists
         self.assertNotEqual(args[2], "")  # sanity
 
-        # Assert: upload of extracted files happened with skip_dataset_upload=True
-        mock_upload_files_to_storage.assert_called_once()
-        u_args, u_kwargs = mock_upload_files_to_storage.call_args
-        # args: (source_file_path, dataset_stable_id, extracted_files_path, ...)
-        self.assertEqual(u_args[1], "dataset-stable-id-123")
-        self.assertEqual(u_kwargs.get("skip_dataset_upload"), True)
+        # Assert: extract_and_upload_files_from_zip was called with the dataset stable ID
+        mock_extract_and_upload.assert_called_once()
+        extract_args, extract_kwargs = mock_extract_and_upload.call_args
+        # First arg should be the temp zip path, second arg should be dataset_stable_id
+        self.assertEqual(extract_args[1], "dataset-stable-id-123")
+        self.assertEqual(extract_kwargs.get("public"), True)
 
         # Assert: DB update called with skip_dataset_creation=True and a DatasetFile-like object
         mock_create_dataset_entities.assert_called_once()
@@ -524,101 +732,160 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertEqual(c_args[0].stable_id, "dataset-stable-id-123")
         self.assertTrue(hasattr(c_args[0], "file_sha256_hash"))
         self.assertEqual(c_args[0].file_sha256_hash, "latest_hash_value")
+        self.assertEqual(c_args[0].file_sha256_hash, "latest_hash_value")
 
-    @patch("main.get_hash_from_file", return_value="fakehash123")
-    @patch("google.cloud.storage.Client")
-    def test_upload_files_to_storage_branches(self, mock_client_cls, mock_get_hash):
-        # Arrange global mocks
-        mock_blob_latest = Mock()
-        mock_blob_versioned = Mock()
-        mock_blob_extracted = Mock()
+    @with_db_session(db_url=default_db_url)
+    def test_create_dataset_entities_update_existing(self, db_session):
+        """
+        Test create_dataset_entities when updating an existing dataset (skip_dataset_creation=True)
+        This specifically tests lines 457-468 of main.py
+        """
+        from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 
-        # configure bucket.blob() to return different blobs in sequence
-        mock_bucket = Mock()
-        # First call scenario (dataset uploads happen): two blobs for latest.zip + versioned.zip
-        # Second call scenario (skip dataset upload): blobs created only for extracted file(s)
-        blob_side_effects = [mock_blob_latest, mock_blob_versioned, mock_blob_extracted]
-        mock_bucket.blob.side_effect = blob_side_effects
+        # Use an existing feed from the database to avoid foreign key issues
+        feeds = db_session.query(Gtfsfeed).all()
+        if not feeds:
+            self.skipTest("No feeds available in test database")
 
-        mock_client = Mock()
-        mock_client.get_bucket.return_value = mock_bucket
-        mock_client_cls.return_value = mock_client
+        test_feed = feeds[0]
 
-        # Create processor
-        from main import DatasetProcessor
+        # Create an existing dataset for this feed
+        existing_dataset = Gtfsdataset(
+            id="existing_dataset_update_test",
+            feed_id=test_feed.id,
+            stable_id="dataset_existing_update",
+            hash="old_hash",
+            hosted_url="https://storage.example.com/old.zip",
+            gtfsfiles=[],
+            zipped_size_bytes=1000,
+            unzipped_size_bytes=2000,
+        )
+
+        test_feed.latest_dataset = existing_dataset
+        db_session.add(existing_dataset)
+        db_session.commit()
 
         processor = DatasetProcessor(
             producer_url="https://example.com/feed.zip",
-            feed_id="feed_id",
-            feed_stable_id="feed_stable_id",
-            execution_id="execution_id",
-            latest_hash="hash",
-            bucket_name="bucket-name",
+            feed_id=test_feed.id,
+            feed_stable_id=test_feed.stable_id,
+            execution_id="exec_456",
+            latest_hash="new_hash",
+            bucket_name="test-bucket",
             authentication_type=0,
             api_key_parameter_name=None,
-            public_hosted_datasets_url="https://public-hosted",
+            public_hosted_datasets_url="https://public.example.com",
         )
 
-        # --- SCENARIO A: extracted path DOES NOT exist; dataset uploaded (skip_dataset_upload=False)
-        src_path = "/tmp/fake-src.zip"  # not read, only passed to upload_from_filename
-        dataset_id_A = "datasetA"
-        non_existing_path = "/tmp/this/path/does/not/exist"
+        # Create dataset file with new extracted files
+        from main import Gtfsfile
 
-        result_blob_A, extracted_A = processor.upload_files_to_storage(
-            source_file_path=src_path,
-            dataset_stable_id=dataset_id_A,
-            extracted_files_path=non_existing_path,
-            public=True,
-            skip_dataset_upload=False,
+        dataset_file = DatasetFile(
+            stable_id="dataset_existing_update",
+            file_sha256_hash="new_hash",
+            hosted_url="https://storage.example.com/feed/dataset.zip",
+            extracted_files=[
+                Gtfsfile(
+                    id="file3",
+                    file_name="agency.txt",
+                    file_size_bytes=512,
+                    hosted_url="https://storage.example.com/feed/agency.txt",
+                    hash="agency_hash",
+                ),
+            ],
+            zipped_size=3000,
         )
 
-        # Asserts Scenario A
-        self.assertIs(result_blob_A, mock_blob_versioned)  # last dataset upload blob
-        self.assertEqual(extracted_A, [])  # no extracted files
-        # two dataset uploads: latest.zip + versioned zip
-        self.assertEqual(mock_bucket.blob.call_count, 2)
-        mock_blob_latest.upload_from_filename.assert_called_once_with(src_path)
-        mock_blob_versioned.upload_from_filename.assert_called_once_with(src_path)
-
-        # --- SCENARIO B: extracted path EXISTS; includes a file and a directory
-        with tempfile.TemporaryDirectory() as tmpdir:
-            extracted_dir = os.path.join(tmpdir, "extracted")
-            os.makedirs(extracted_dir, exist_ok=True)
-            # create one file
-            file_path = os.path.join(extracted_dir, "stops.txt")
-            with open(file_path, "wb") as f:
-                f.write(b"stop_id,stop_name\n1,A\n")
-            # create a subdirectory to ensure we skip non-files
-            os.makedirs(os.path.join(extracted_dir, "subdir"), exist_ok=True)
-
-            dataset_id_B = "datasetB"
-            # Reset call counters for clarity
-            mock_bucket.blob.reset_mock()
-
-            result_blob_B, extracted_B = processor.upload_files_to_storage(
-                source_file_path=src_path,
-                dataset_stable_id=dataset_id_B,
-                extracted_files_path=extracted_dir,
-                public=False,  # ensure no make_public called
-                skip_dataset_upload=True,  # skip dataset zips
+        # Mock create_refresh_materialized_view_task inside the test
+        with patch("main.create_refresh_materialized_view_task") as mock_refresh_task:
+            # Call with skip_dataset_creation=True to test the selected code branch
+            result_dataset, is_latest = processor.create_dataset_entities(
+                dataset_file=dataset_file,
+                db_session=db_session,
+                skip_dataset_creation=True,
             )
 
-            # Asserts Scenario B
-            self.assertIsNone(result_blob_B)  # because skip_dataset_upload=True
-            # Only one extracted file should be uploaded
-            self.assertEqual(len(extracted_B), 1)
-            self.assertEqual(extracted_B[0].file_name, "stops.txt")
-            self.assertEqual(extracted_B[0].file_size_bytes, os.path.getsize(file_path))
-            self.assertEqual(extracted_B[0].hash, "fakehash123")
-            self.assertIsNone(extracted_B[0].hosted_url)  # public=False → no hosted_url
+            # Assertions - should return the existing dataset updated
+            self.assertIsNotNone(result_dataset)
+            self.assertEqual(result_dataset.id, "existing_dataset_update_test")
 
-            # bucket.blob called once for the extracted file
-            mock_bucket.blob.assert_called_once_with(
-                f"feed_stable_id/{dataset_id_B}/extracted/stops.txt"
+            # Verify line 462-463: latest_dataset.gtfsfiles updated
+            self.assertEqual(len(result_dataset.gtfsfiles), 1)
+            self.assertEqual(result_dataset.gtfsfiles[0].file_name, "agency.txt")
+
+            # Verify line 464: latest_dataset.zipped_size_bytes updated
+            self.assertEqual(result_dataset.zipped_size_bytes, 3000)
+
+            # Verify line 465-467: latest_dataset.unzipped_size_bytes updated
+            self.assertEqual(result_dataset.unzipped_size_bytes, 512)
+
+            mock_refresh_task.assert_called_once()
+
+    @with_db_session(db_url=default_db_url)
+    def test_create_dataset_entities_update_existing_no_files(self, db_session):
+        """
+        Test create_dataset_entities with skip_dataset_creation=True and no extracted files
+        This tests the else branch on line 462: dataset_file.extracted_files else []
+        """
+        from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+
+        # Use an existing feed from the database
+        feeds = db_session.query(Gtfsfeed).all()
+        if not feeds:
+            self.skipTest("No feeds available in test database")
+
+        test_feed = feeds[0]
+
+        # Create an existing dataset for this feed
+        existing_dataset = Gtfsdataset(
+            id="existing_dataset_no_files_test",
+            feed_id=test_feed.id,
+            stable_id="dataset_no_files_test",
+            hash="old_hash",
+            hosted_url="https://storage.example.com/old.zip",
+            gtfsfiles=[],
+            zipped_size_bytes=1000,
+            unzipped_size_bytes=2000,
+        )
+
+        test_feed.latest_dataset = existing_dataset
+        db_session.add(existing_dataset)
+        db_session.commit()
+
+        processor = DatasetProcessor(
+            producer_url="https://example.com/feed.zip",
+            feed_id=test_feed.id,
+            feed_stable_id=test_feed.stable_id,
+            execution_id="exec_789",
+            latest_hash="new_hash",
+            bucket_name="test-bucket",
+            authentication_type=0,
+            api_key_parameter_name=None,
+            public_hosted_datasets_url="https://public.example.com",
+        )
+
+        # Create dataset file with NO extracted files (None)
+        dataset_file = DatasetFile(
+            stable_id="dataset_no_files_test",
+            file_sha256_hash="new_hash",
+            hosted_url="https://storage.example.com/feed/dataset.zip",
+            extracted_files=None,  # Test the else branch
+            zipped_size=5000,
+        )
+
+        # Mock create_refresh_materialized_view_task inside the test
+        with patch("main.create_refresh_materialized_view_task") as mock_refresh_task:
+            # Call with skip_dataset_creation=True
+            result_dataset, is_latest = processor.create_dataset_entities(
+                dataset_file=dataset_file,
+                db_session=db_session,
+                skip_dataset_creation=True,
             )
-            mock_blob_extracted.upload_from_filename.assert_called_once_with(file_path)
-            # No make_public in this branch
-            self.assertFalse(getattr(mock_blob_extracted, "make_public").called)
 
-        # Sanity: hash function used for extracted file
-        mock_get_hash.assert_called_with(file_path)
+            # Assertions
+            self.assertIsNotNone(result_dataset)
+            self.assertEqual(len(result_dataset.gtfsfiles), 0)  # Should be empty list
+            self.assertEqual(result_dataset.zipped_size_bytes, 5000)
+            self.assertIsNone(result_dataset.unzipped_size_bytes)  # None when no files
+
+            mock_refresh_task.assert_called_once()
