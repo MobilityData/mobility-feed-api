@@ -3,7 +3,6 @@
  * Do not make direct changes to the file.
  */
 
-
 export interface paths {
   '/v1/feeds': {
     /** @description Get some (or all) feeds from the Mobility Database. The items are sorted by provider in alphabetical ascending order. */
@@ -155,7 +154,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
       /**
@@ -180,9 +179,9 @@ export interface components {
        */
       feed_contact_email?: string;
       source_info?: components['schemas']['SourceInfo'];
-      redirects?: components['schemas']['Redirect'][];
+      redirects?: Array<components['schemas']['Redirect']>;
     };
-    Feed: components['schemas']['BasicFeed'] & ({
+    Feed: components['schemas']['BasicFeed'] & {
       /**
        * @description Describes status of the Feed. Should be one of
        *   * `active` Feed should be used in public trip planners.
@@ -205,7 +204,7 @@ export interface components {
        * Format: date-time
        * @description The date and time the official status was last updated, in ISO 8601 date-time format.
        *
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       official_updated_at?: string;
       /**
@@ -217,8 +216,8 @@ export interface components {
       /** @description A note to clarify complex use cases for consumers. */
       note?: string;
       /** @description A list of related links for the feed. */
-      related_links?: components['schemas']['FeedRelatedLink'][];
-    });
+      related_links?: Array<components['schemas']['FeedRelatedLink']>;
+    };
     FeedRelatedLink: {
       /**
        * @description A short code to identify the type of link.
@@ -241,11 +240,11 @@ export interface components {
        * Format: date-time
        * @description The date and time the related link was created, in ISO 8601 date-time format.
        *
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
     };
-    GtfsFeed: components['schemas']['Feed'] & ({
+    GtfsFeed: components['schemas']['Feed'] & {
       /**
        * @example gtfs
        * @enum {string}
@@ -260,8 +259,8 @@ export interface components {
        * @example mdb-1210-202402121801
        */
       visualization_dataset_id?: string;
-    });
-    GbfsFeed: components['schemas']['BasicFeed'] & ({
+    };
+    GbfsFeed: components['schemas']['BasicFeed'] & {
       /**
        * @example gbfs
        * @enum {string}
@@ -282,15 +281,15 @@ export interface components {
        */
       provider_url?: string;
       /** @description A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints. */
-      versions?: components['schemas']['GbfsVersion'][];
+      versions?: Array<components['schemas']['GbfsVersion']>;
       bounding_box?: components['schemas']['BoundingBox'];
       /**
        * Format: date-time
        * @description The date and time the bounding box was generated, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       bounding_box_generated_at?: string;
-    });
+    };
     GbfsVersion: {
       /**
        * @description The version of the GBFS specification that the feed is using.  This is a string that follows the semantic versioning format.
@@ -302,14 +301,14 @@ export interface components {
        * Format: date-time
        * @description The date when the GBFS version was saved to the database.
        *
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
       /**
        * Format: date-time
        * @description The date when the GBFS version was last updated in the database.
        *
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       last_updated_at?: string;
       /**
@@ -321,7 +320,7 @@ export interface components {
        */
       source?: 'autodiscovery' | 'gbfs_versions';
       /** @description A list of endpoints that are available in the version. */
-      endpoints?: components['schemas']['GbfsEndpoint'][];
+      endpoints?: Array<components['schemas']['GbfsEndpoint']>;
       latest_validation_report?: components['schemas']['GbfsValidationReport'];
     };
     /** @description A validation report of the GBFS feed. */
@@ -330,7 +329,7 @@ export interface components {
        * Format: date-time
        * @description The date and time the GBFS feed was validated, in ISO 8601 date-time format.
        *
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       validated_at?: string;
       /** @example 10 */
@@ -376,18 +375,18 @@ export interface components {
        */
       is_feature?: boolean;
     };
-    GbfsFeeds: components['schemas']['GbfsFeed'][];
-    GtfsRTFeed: components['schemas']['Feed'] & ({
+    GbfsFeeds: Array<components['schemas']['GbfsFeed']>;
+    GtfsRTFeed: components['schemas']['Feed'] & {
       /**
        * @example gtfs_rt
        * @enum {string}
        */
       data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
-      entity_types?: ('vp' | 'tu' | 'sa')[];
+      entity_types?: Array<'vp' | 'tu' | 'sa'>;
       /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
       feed_references?: string[];
       locations?: components['schemas']['Locations'];
-    });
+    };
     SearchFeedItemResult: {
       /**
        * @description Unique identifier used as a key for the feeds table.
@@ -414,7 +413,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
       /**
@@ -453,18 +452,18 @@ export interface components {
        */
       feed_contact_email?: string;
       source_info?: components['schemas']['SourceInfo'];
-      redirects?: components['schemas']['Redirect'][];
+      redirects?: Array<components['schemas']['Redirect']>;
       locations?: components['schemas']['Locations'];
       latest_dataset?: components['schemas']['LatestDataset'];
-      entity_types?: ('vp' | 'tu' | 'sa')[];
+      entity_types?: Array<'vp' | 'tu' | 'sa'>;
       /** @description The supported versions of the GBFS feed. */
       versions?: string[];
       /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
       feed_references?: string[];
     };
-    Feeds: components['schemas']['Feed'][];
-    GtfsFeeds: components['schemas']['GtfsFeed'][];
-    GtfsRTFeeds: components['schemas']['GtfsRTFeed'][];
+    Feeds: Array<components['schemas']['Feed']>;
+    GtfsFeeds: Array<components['schemas']['GtfsFeed']>;
+    GtfsRTFeeds: Array<components['schemas']['GtfsRTFeed']>;
     LatestDataset: {
       /**
        * @description Identifier of the latest dataset for this feed.
@@ -482,7 +481,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       downloaded_at?: string;
       /**
@@ -493,7 +492,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
-       * @example '2023-07-10T06:00:00.000Z'
+       * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
@@ -521,9 +520,9 @@ export interface components {
         /**
          * @description List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
          * @example [
-         *   'Shapes',
-         *   'Headsigns',
-         *   'Wheelchair Accessibility'
+         *   "Shapes",
+         *   "Headsigns",
+         *   "Wheelchair Accessibility"
          * ]
          */
         features?: string[];
@@ -551,7 +550,7 @@ export interface components {
      *   <li><b>Transit.land</b>: Imported from https://www.transit.land/documentation/rest-api/feeds. Pattern is tld-<feed_id>.</li>
      * </ul>
      */
-    ExternalIds: components['schemas']['ExternalId'][];
+    ExternalIds: Array<components['schemas']['ExternalId']>;
     ExternalId: {
       /**
        * @description The ID that can be used to find the feed data in an external or legacy database.
@@ -628,13 +627,13 @@ export interface components {
       /**
        * @description List of taxonomy tags associated with the feed's license.
        * @example [
-       *   'family:ODC',
-       *   'license:open-data-commons'
+       *   "family:ODC",
+       *   "license:open-data-commons"
        * ]
        */
       license_tags?: string[];
     };
-    Locations: components['schemas']['Location'][];
+    Locations: Array<components['schemas']['Location']>;
     Location: {
       /**
        * @description ISO 3166-1 alpha-2 code designating the country where the system is located.  For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
@@ -682,7 +681,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       downloaded_at?: string;
       /**
@@ -695,7 +694,7 @@ export interface components {
       /**
        * Format: date-time
        * @description The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
-       * @example '2023-07-10T06:00:00.000Z'
+       * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
@@ -743,7 +742,7 @@ export interface components {
        */
       maximum_longitude?: number;
     };
-    GtfsDatasets: components['schemas']['GtfsDataset'][];
+    GtfsDatasets: Array<components['schemas']['GtfsDataset']>;
     Metadata: {
       /** @example 1.0.0 */
       version?: string;
@@ -755,15 +754,15 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the report was generated, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       validated_at?: string;
       /**
        * @description List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
        * @example [
-       *   'Shapes',
-       *   'Headsigns',
-       *   'Wheelchair Accessibility'
+       *   "Shapes",
+       *   "Headsigns",
+       *   "Wheelchair Accessibility"
        * ]
        */
       features?: string[];
@@ -848,42 +847,42 @@ export interface components {
       /**
        * Format: date-time
        * @description The date and time the license was added to the database, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
       /**
        * Format: date-time
        * @description The last date and time the license was updated in the database, in ISO 8601 date-time format.
-       * @example '2023-07-10T22:06:00.000Z'
+       * @example "2023-07-10T22:06:00.000Z"
        */
       updated_at?: string;
       /**
        * @description List of taxonomy tags associated with the license.
        * @example [
-       *   'family:ODC',
-       *   'license:open-data-commons'
+       *   "family:ODC",
+       *   "license:open-data-commons"
        * ]
        */
       license_tags?: string[];
     };
     LicenseWithRules: components['schemas']['LicenseBase'] & {
-      license_rules?: components['schemas']['LicenseRule'][];
+      license_rules?: Array<components['schemas']['LicenseRule']>;
     };
-    Licenses: components['schemas']['LicenseBase'][];
+    Licenses: Array<components['schemas']['LicenseBase']>;
     /**
      * @description Matching a license
      * @example {
-     *   'license_id': 'CC-BY-4.0',
-     *   'license_url': 'https://creativecommons.org/licenses/by/4.0/deed.nl',
-     *   'normalized_url': 'creativecommons.org/licenses/by/4.0',
-     *   'match_type': 'heuristic',
-     *   'confidence': 0.99,
-     *   'spdx_id': 'CC-BY-4.0',
-     *   'matched_name': 'Creative Commons Attribution 4.0 International',
-     *   'matched_catalog_url': 'https://creativecommons.org/licenses/by/4.0/legalcode',
-     *   'matched_source': 'cc-resolver',
-     *   'notes': 'Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.',
-     *   'regional_id': 'CC-BY-4.0-nl'
+     *   "license_id": "CC-BY-4.0",
+     *   "license_url": "https://creativecommons.org/licenses/by/4.0/deed.nl",
+     *   "normalized_url": "creativecommons.org/licenses/by/4.0",
+     *   "match_type": "heuristic",
+     *   "confidence": 0.99,
+     *   "spdx_id": "CC-BY-4.0",
+     *   "matched_name": "Creative Commons Attribution 4.0 International",
+     *   "matched_catalog_url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+     *   "matched_source": "cc-resolver",
+     *   "notes": "Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.",
+     *   "regional_id": "CC-BY-4.0-nl"
      * }
      */
     MatchingLicense: {
@@ -959,14 +958,16 @@ export interface components {
       regional_id?: string;
     };
     /** @description List of MatchingLicense */
-    MatchingLicenses: components['schemas']['MatchingLicense'][];
+    MatchingLicenses: Array<components['schemas']['MatchingLicense']>;
   };
   responses: never;
   parameters: {
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
     status?: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
-    statuses?: ('active' | 'deprecated' | 'inactive' | 'development' | 'future')[];
+    statuses?: Array<
+      'active' | 'deprecated' | 'inactive' | 'development' | 'future'
+    >;
     /** @description Filter feeds by their GTFS features. [GTFS features definitions defined here](https://gtfs.org/getting-started/features/overview) */
     feature?: string[];
     /** @description Comma separated list of license IDs to filter feeds by their license. */
@@ -1005,7 +1006,10 @@ export interface components {
      *
      * @example completely_enclosed
      */
-    bounding_filter_method?: 'completely_enclosed' | 'partially_enclosed' | 'disjoint';
+    bounding_filter_method?:
+      | 'completely_enclosed'
+      | 'partially_enclosed'
+      | 'disjoint';
     /** @description If true, only return the latest dataset. */
     latest_query_param?: boolean;
     /** @description If true, only return official feeds. */
@@ -1071,7 +1075,6 @@ export interface external {
 }
 
 export interface operations {
-
   /** @description Get some (or all) feeds from the Mobility Database. The items are sorted by provider in alphabetical ascending order. */
   getFeeds: {
     parameters: {
@@ -1340,7 +1343,7 @@ export interface operations {
           'application/json': {
             /** @description The total number of matching entities found regardless the limit and offset parameters. */
             total?: number;
-            results?: components['schemas']['SearchFeedItemResult'][];
+            results?: Array<components['schemas']['SearchFeedItemResult']>;
           };
         };
       };
