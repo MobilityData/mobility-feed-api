@@ -273,7 +273,10 @@ class DatabasePopulateTestDataHelper:
                     continue
                 license_obj = db_session.get(License, license_id)
                 if not license_obj:
-                    self.logger.error(f"No license found with id: {license_id}; skipping license_license_tag association for tag {tag_id}")
+                    self.logger.error(
+                        f"No license found with id: {license_id};"
+                        f" skipping license_license_tag association for tag {tag_id}"
+                    )
                     continue
                 tag_obj = db_session.get(LicenseTag, tag_id)
                 if not tag_obj:
