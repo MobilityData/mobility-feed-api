@@ -71,6 +71,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 if feed_search_row.latest_dataset_id
                 else None
             ),
+            license_tags=feed_search_row.license_tags if feed_search_row.license_tags else [],
         )
 
     @classmethod
@@ -98,6 +99,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             ),
             redirects=feed_search_row.redirect_ids,
             locations=cls.resolve_locations(feed_search_row.locations),
+            license_tags=feed_search_row.license_tags if feed_search_row.license_tags else [],
         )
 
     @classmethod
@@ -129,6 +131,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             locations=cls.resolve_locations(feed_search_row.locations),
             entity_types=feed_search_row.entities,
             feed_references=feed_search_row.feed_reference_ids,
+            license_tags=feed_search_row.license_tags if feed_search_row.license_tags else [],
         )
 
     @classmethod

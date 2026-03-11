@@ -62,6 +62,7 @@ search_item = FeedSearchRow(
     municipality_translations=[],
     license_id=None,
     license_is_spdx=None,
+    license_tags=None,
 )
 
 
@@ -108,6 +109,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
                     features=item.latest_dataset_features,
                 ),
             ),
+            license_tags=[],
         )
         assert result == expected
 
@@ -137,6 +139,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             entity_types=item.entities,
             feed_references=item.feed_reference_ids,
             created_at=item.created_at,
+            license_tags=[],
         )
         assert result == expected
 
@@ -218,3 +221,27 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
         assert result.locations == [
             Location(country_code="XY", country="", subdivision_name="subdivision_name", municipality="municipality")
         ]
+
+    def test_from_orm_license_tags(self):
+        """Test that license_tags are correctly populated from the feed_search_row."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs"
+        item.license_tags = ["family:ODC", "license:open-data-commons"]
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.license_tags == ["family:ODC", "license:open-data-commons"]
+
+    def test_from_orm_license_tags_none(self):
+        """Test that license_tags defaults to empty list when None."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs"
+        item.license_tags = None
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.license_tags == []
+
+    def test_from_orm_gtfs_rt_license_tags(self):
+        """Test that license_tags are correctly populated for GTFS-RT feeds."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs_rt"
+        item.license_tags = ["family:ODC"]
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.license_tags == ["family:ODC"]

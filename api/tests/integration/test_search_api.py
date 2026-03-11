@@ -564,3 +564,74 @@ def test_search_filter_by_feature(client: TestClient, values: dict):
             assert requested_features.intersection(features), (
                 f"Feed {result.id} with features {features} does not match " f"requested features {requested_features}"
             )
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"license_tag_ids": "family:ODC", "expected_count": 1},
+        {"license_tag_ids": "license:open-data-commons", "expected_count": 1},
+        {"license_tag_ids": "family:ODC,license:open-data-commons", "expected_count": 1},
+        {"license_tag_ids": "nonexistent:tag", "expected_count": 0},
+        {"license_tag_ids": "", "expected_count": 16},
+    ],
+    ids=[
+        "Filter by family:ODC tag",
+        "Filter by license:open-data-commons tag",
+        "Filter by multiple tags (OR semantics)",
+        "No feed matches nonexistent tag",
+        "No filter returns all feeds",
+    ],
+)
+def test_search_filter_by_license_tag_ids(client: TestClient, values: dict):
+    """
+    Retrieve feeds that have licenses associated with specific license tag IDs.
+    """
+    params = None
+    if values["license_tag_ids"]:
+        params = [
+            ("license_tag_ids", values["license_tag_ids"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for license_tag_ids={values['license_tag_ids']}"
+
+
+def test_search_result_contains_license_tags(client: TestClient):
+    """
+    Verify that the search results include license_tags for feeds with license tags.
+    """
+    params = [
+        ("feed_id", "mdb-70"),
+    ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    assert response.status_code == 200
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    assert response_body.total == 1
+    result = response_body.results[0]
+    assert result.license_tags is not None
+    assert "family:ODC" in result.license_tags
+    assert "license:open-data-commons" in result.license_tags

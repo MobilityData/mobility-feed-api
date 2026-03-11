@@ -338,6 +338,7 @@ paths:
         - $ref: "#/components/parameters/feature"
         - $ref: "#/components/parameters/license_ids"
         - $ref: "#/components/parameters/license_is_spdx"
+        - $ref: "#/components/parameters/license_tag_ids"
       security:
         - Authentication: []
       responses:
@@ -882,6 +883,14 @@ components:
           items:
             type: string
             example: "mdb-20"
+        license_tags:
+          description: List of taxonomy tag IDs associated with the feed's license.
+          type: array
+          items:
+            type: string
+          example:
+            - "family:ODC"
+            - "license:open-data-commons"
 
     Feeds:
       type: array
@@ -1516,6 +1525,14 @@ components:
       required: false
       schema:
         type: boolean
+    license_tag_ids:
+      name: license_tag_ids
+      in: query
+      description: Comma separated list of license tag IDs to filter feeds by their license tags.
+      required: false
+      schema:
+        type: string
+        example: family:ODC,license:open-data-commons
     provider:
       name: provider
       in: query
