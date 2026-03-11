@@ -87,6 +87,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,
                 license_url=item.license_url,
+                license_tags=[],
             ),
             redirects=item.redirect_ids,
             locations=item.locations,
@@ -109,7 +110,6 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
                     features=item.latest_dataset_features,
                 ),
             ),
-            license_tags=[],
         )
         assert result == expected
 
@@ -133,13 +133,13 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,
                 license_url=item.license_url,
+                license_tags=[],
             ),
             redirects=item.redirect_ids,
             locations=item.locations,
             entity_types=item.entities,
             feed_references=item.feed_reference_ids,
             created_at=item.created_at,
-            license_tags=[],
         )
         assert result == expected
 
@@ -228,7 +228,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
         item.data_type = "gtfs"
         item.license_tags = ["family:ODC", "license:open-data-commons"]
         result = SearchFeedItemResultImpl.from_orm(item)
-        assert result.license_tags == ["family:ODC", "license:open-data-commons"]
+        assert result.source_info.license_tags == ["family:ODC", "license:open-data-commons"]
 
     def test_from_orm_license_tags_none(self):
         """Test that license_tags defaults to empty list when None."""
@@ -236,7 +236,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
         item.data_type = "gtfs"
         item.license_tags = None
         result = SearchFeedItemResultImpl.from_orm(item)
-        assert result.license_tags == []
+        assert result.source_info.license_tags == []
 
     def test_from_orm_gtfs_rt_license_tags(self):
         """Test that license_tags are correctly populated for GTFS-RT feeds."""
@@ -244,4 +244,4 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
         item.data_type = "gtfs_rt"
         item.license_tags = ["family:ODC"]
         result = SearchFeedItemResultImpl.from_orm(item)
-        assert result.license_tags == ["family:ODC"]
+        assert result.source_info.license_tags == ["family:ODC"]

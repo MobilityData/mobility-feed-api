@@ -883,14 +883,6 @@ components:
           items:
             type: string
             example: "mdb-20"
-        license_tags:
-          description: List of taxonomy tag IDs associated with the feed's license.
-          type: array
-          items:
-            type: string
-          example:
-            - "family:ODC"
-            - "license:open-data-commons"
 
     Feeds:
       type: array

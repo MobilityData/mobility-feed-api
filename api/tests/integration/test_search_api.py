@@ -632,6 +632,6 @@ def test_search_result_contains_license_tags(client: TestClient):
     response_body = SearchFeeds200Response.parse_obj(response.json())
     assert response_body.total == 1
     result = response_body.results[0]
-    assert result.license_tags is not None
-    assert "family:ODC" in result.license_tags
-    assert "license:open-data-commons" in result.license_tags
+    assert result.source_info.license_tags is not None
+    assert "family:ODC" in result.source_info.license_tags[0]
+    assert "license:open-data-commons" in result.source_info.license_tags[1]
