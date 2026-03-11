@@ -338,7 +338,7 @@ paths:
         - $ref: "#/components/parameters/feature"
         - $ref: "#/components/parameters/license_ids"
         - $ref: "#/components/parameters/license_is_spdx"
-        - $ref: "#/components/parameters/license_tag_ids"
+        - $ref: "#/components/parameters/license_tags"
       security:
         - Authentication: []
       responses:
@@ -1525,10 +1525,10 @@ components:
       required: false
       schema:
         type: boolean
-    license_tag_ids:
-      name: license_tag_ids
+    license_tags:
+      name: license_tags
       in: query
-      description: Comma separated list of license tag IDs to filter feeds by their license tags.
+      description: Comma separated list of tags to filter feeds by their license tags.
       required: false
       schema:
         type: string

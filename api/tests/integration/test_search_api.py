@@ -569,11 +569,11 @@ def test_search_filter_by_feature(client: TestClient, values: dict):
 @pytest.mark.parametrize(
     "values",
     [
-        {"license_tag_ids": "family:ODC", "expected_count": 1},
-        {"license_tag_ids": "license:open-data-commons", "expected_count": 1},
-        {"license_tag_ids": "family:ODC,license:open-data-commons", "expected_count": 1},
-        {"license_tag_ids": "nonexistent:tag", "expected_count": 0},
-        {"license_tag_ids": "", "expected_count": 16},
+        {"license_tags": "family:ODC", "expected_count": 1},
+        {"license_tags": "license:open-data-commons", "expected_count": 1},
+        {"license_tags": "family:ODC,license:open-data-commons", "expected_count": 1},
+        {"license_tags": "nonexistent:tag", "expected_count": 0},
+        {"license_tags": "", "expected_count": 16},
     ],
     ids=[
         "Filter by family:ODC tag",
@@ -583,14 +583,14 @@ def test_search_filter_by_feature(client: TestClient, values: dict):
         "No filter returns all feeds",
     ],
 )
-def test_search_filter_by_license_tag_ids(client: TestClient, values: dict):
+def test_search_filter_by_license_tags(client: TestClient, values: dict):
     """
     Retrieve feeds that have licenses associated with specific license tag IDs.
     """
     params = None
-    if values["license_tag_ids"]:
+    if values["license_tags"]:
         params = [
-            ("license_tag_ids", values["license_tag_ids"]),
+            ("license_tags", values["license_tags"]),
         ]
 
     headers = {
@@ -609,7 +609,7 @@ def test_search_filter_by_license_tag_ids(client: TestClient, values: dict):
     expected_count = values["expected_count"]
     assert (
         response_body.total == expected_count
-    ), f"There should be {expected_count} feeds for license_tag_ids={values['license_tag_ids']}"
+    ), f"There should be {expected_count} feeds for license_tags={values['license_tags']}"
 
 
 def test_search_result_contains_license_tags(client: TestClient):
