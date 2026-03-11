@@ -202,7 +202,7 @@ class SearchApiImpl(BaseSearchApi):
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
         query = self.create_search_query(
             status, feed_id, data_type, is_official, search_query, feature, version, license_ids, license_is_spdx,
-            license_tag_ids
+            license_tag_ids,
         )
         feed_rows = Database().select(
             session=db_session,
@@ -214,7 +214,7 @@ class SearchApiImpl(BaseSearchApi):
             session=db_session,
             query=self.create_count_search_query(
                 status, feed_id, data_type, is_official, feature, version, search_query, license_ids, license_is_spdx,
-                license_tag_ids
+                license_tag_ids,
             ),
         )
         if feed_rows is None or feed_total_count is None:
