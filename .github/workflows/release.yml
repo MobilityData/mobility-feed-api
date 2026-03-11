@@ -37,6 +37,29 @@ jobs:
     needs: batch-deployment
     uses: ./.github/workflows/web-prod.yml
     secrets: inherit
+  publish-openapi-schemas:
+    name: Publish OpenAPI Schemas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle OpenAPI schemas
+        run: |
+          npx --yes @redocly/cli bundle docs/DatabaseCatalogAPI.yaml -o /tmp/DatabaseCatalogAPI.yaml
+          npx --yes @redocly/cli bundle docs/DatabaseCatalogTokenAPI.yaml -o /tmp/DatabaseCatalogTokenAPI.yaml
+      - name: Upload OpenAPI schemas as release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            /tmp/DatabaseCatalogAPI.yaml \
+            /tmp/DatabaseCatalogTokenAPI.yaml
   notify-slack-on-failure:
     needs: [web-deployment, integration-tests]
     if: failure()
