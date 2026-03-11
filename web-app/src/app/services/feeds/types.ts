@@ -460,6 +460,14 @@ export interface components {
       versions?: string[];
       /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
       feed_references?: string[];
+      /**
+       * @description List of taxonomy tag IDs associated with the feed's license.
+       * @example [
+       *   "family:ODC",
+       *   "license:open-data-commons"
+       * ]
+       */
+      license_tags?: string[];
     };
     Feeds: Array<components['schemas']['Feed']>;
     GtfsFeeds: Array<components['schemas']['GtfsFeed']>;
@@ -974,6 +982,8 @@ export interface components {
     license_ids?: string;
     /** @description Filter feeds by whether their license is an SPDX license. */
     license_is_spdx?: boolean;
+    /** @description Comma separated list of tags to filter feeds by their license tags. */
+    license_tags?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -1334,6 +1344,7 @@ export interface operations {
         feature?: components['parameters']['feature'];
         license_ids?: components['parameters']['license_ids'];
         license_is_spdx?: components['parameters']['license_is_spdx'];
+        license_tags?: components['parameters']['license_tags'];
       };
     };
     responses: {
