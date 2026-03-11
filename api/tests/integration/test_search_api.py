@@ -571,41 +571,39 @@ def test_search_filter_by_feature(client: TestClient, values: dict):
     [
         {"license_tags": "family:ODC", "expected_count": 1},
         {"license_tags": "license:open-data-commons", "expected_count": 1},
+        # AND semantics: feed must contain ALL requested tags
         {"license_tags": "family:ODC,license:open-data-commons", "expected_count": 1},
         {"license_tags": "nonexistent:tag", "expected_count": 0},
+        {"license_tags": "license:open-data-commons,nonexistent:tag", "expected_count": 0},
         {"license_tags": "", "expected_count": 16},
     ],
     ids=[
-        "Filter by family:ODC tag",
-        "Filter by license:open-data-commons tag",
-        "Filter by multiple tags (OR semantics)",
+        "Filter by single tag family:ODC",
+        "Filter by single tag license:open-data-commons",
+        "Filter by multiple tags (AND semantics)",
         "No feed matches nonexistent tag",
+        "Mixed existing and nonexistent tag (AND semantics)",
         "No filter returns all feeds",
     ],
 )
 def test_search_filter_by_license_tags(client: TestClient, values: dict):
+    """Retrieve feeds that have licenses associated with specific license tag IDs.
+
+    The ``license_tags`` parameter accepts a comma-separated list of tag IDs.
+    The filter uses AND semantics: the feed's ``license_tags`` array must
+    contain **all** of the requested tags for the feed to be returned.
     """
-    Retrieve feeds that have licenses associated with specific license tag IDs.
-    """
+
     params = None
     if values["license_tags"]:
-        params = [
-            ("license_tags", values["license_tags"]),
-        ]
+        params = [("license_tags", values["license_tags"])]
 
-    headers = {
-        "Authentication": "special-key",
-    }
-    response = client.request(
-        "GET",
-        "/v1/search",
-        headers=headers,
-        params=params,
-    )
-    # Assert the status code of the HTTP response
+    headers = {"Authentication": "special-key"}
+    response = client.request("GET", "/v1/search", headers=headers, params=params)
+
     assert response.status_code == 200
-    # Parse the response body into a Python object
-    response_body = SearchFeeds200Response.parse_obj(response.json())
+
+    response_body = SearchFeeds200Response.model_validate(response.json())
     expected_count = values["expected_count"]
     assert (
         response_body.total == expected_count

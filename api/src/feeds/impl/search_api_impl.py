@@ -94,7 +94,13 @@ class SearchApiImpl(BaseSearchApi):
         if license_tags:
             tag_ids_list = [tid.strip() for tid in license_tags.split(",") if len(tid.strip()) > 0]
             if len(tag_ids_list) > 0:
-                query = query.where(t_feedsearch.c.license_tags.op("&&")(array(tag_ids_list)))
+                # license_tags is a text[] column – use the @> (contains) operator
+                # so that ALL requested tags must be present (AND semantics).
+                query = query.where(
+                    t_feedsearch.c.license_tags.op("@>")(
+                        func.cast(array(tag_ids_list), t_feedsearch.c.license_tags.type)
+                    )
+                )
 
         # Add feature filter with OR logic
         if features:
