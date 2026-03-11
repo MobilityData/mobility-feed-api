@@ -145,7 +145,6 @@ paths:
       description: Get GBFS feeds from the Mobility Database.
       tags:
         - "feeds"
-        - "beta"
       operationId: getGbfsFeeds
       parameters:
         - $ref: "#/components/parameters/limit_query_param_gbfs_feeds_endpoint"
@@ -175,7 +174,6 @@ paths:
       description: Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly.
       tags:
         - "feeds"
-        - "beta"
       operationId: getGtfsFeed
 
       security:
@@ -1088,6 +1086,14 @@ components:
           description: Notes concerning the relation between the feed and the license.
           type: string
           example: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
+        license_tags:
+          description: List of taxonomy tags associated with the feed's license.
+          type: array
+          items:
+            type: string
+          example:
+            - "family:ODC"
+            - "license:open-data-commons"
 
     Locations:
       type: array
@@ -1345,6 +1351,14 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
+        license_tags:
+          description: List of taxonomy tags associated with the license.
+          type: array
+          items:
+            type: string
+          example:
+            - "family:ODC"
+            - "license:open-data-commons"
 
     LicenseWithRules:
       allOf:

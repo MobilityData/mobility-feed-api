@@ -28,4 +28,5 @@ class LicenseBaseImpl(LicenseBase):
             description=license_orm.description,
             created_at=license_orm.created_at,
             updated_at=license_orm.updated_at,
+            license_tags=sorted([tag.id for tag in getattr(license_orm, "tags", [])]) or None,
         )

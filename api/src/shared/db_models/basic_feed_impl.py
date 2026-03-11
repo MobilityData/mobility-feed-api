@@ -22,8 +22,10 @@ class BaseFeedImpl(BasicFeed):
             return None
         # Determine license_is_spdx from the related License ORM if available
         license_is_spdx = None
+        license_tags = None
         if getattr(feed, "license", None) is not None:
             license_is_spdx = feed.license.is_spdx
+            license_tags = sorted([tag.id for tag in getattr(feed.license, "tags", [])]) or None
 
         return cls(
             id=feed.stable_id,
@@ -43,6 +45,7 @@ class BaseFeedImpl(BasicFeed):
                 license_id=feed.license_id,
                 license_is_spdx=license_is_spdx,
                 license_notes=feed.license_notes,
+                license_tags=license_tags,
             ),
             redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )

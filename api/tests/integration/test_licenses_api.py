@@ -6,7 +6,7 @@ from tests.test_utils.token import authHeaders
 
 
 @pytest.mark.parametrize(
-    "license_id, expected_is_spdx, expected_name, expected_url, expected_description, expected_rules",
+    "license_id, expected_is_spdx, expected_name, expected_url, expected_description, expected_rules, expected_tags",
     [
         (
             "license-1",
@@ -28,6 +28,7 @@ from tests.test_utils.token import authHeaders
                     "type": "condition",
                 },
             ],
+            ["family:ODC", "license:open-data-commons"],
         ),
         (
             "license-2",
@@ -49,6 +50,7 @@ from tests.test_utils.token import authHeaders
                     "type": "limitation",
                 },
             ],
+            None,
         ),
     ],
 )
@@ -60,6 +62,7 @@ def test_get_license_by_id(
     expected_url: str,
     expected_description: str,
     expected_rules: list,
+    expected_tags: list,
 ):
     """GET /v1/licenses/{id} returns the expected license fields for known test licenses."""
     response = client.request("GET", f"/v1/licenses/{license_id}", headers=authHeaders)
@@ -74,6 +77,11 @@ def test_get_license_by_id(
     actual_rules = {rule["name"]: rule for rule in body.get("license_rules", [])}
     expected_rule_map = {rule["name"]: rule for rule in expected_rules}
     assert actual_rules == expected_rule_map
+    # Verify license_tags
+    if expected_tags is None:
+        assert body.get("license_tags") is None
+    else:
+        assert sorted(body.get("license_tags", [])) == sorted(expected_tags)
 
 
 def test_get_licenses_list_contains_test_licenses(client: TestClient):

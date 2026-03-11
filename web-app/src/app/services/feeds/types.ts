@@ -624,6 +624,14 @@ export interface components {
        * @example Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
        */
       license_notes?: string;
+      /**
+       * @description List of taxonomy tags associated with the feed's license.
+       * @example [
+       *   "family:ODC",
+       *   "license:open-data-commons"
+       * ]
+       */
+      license_tags?: string[];
     };
     Locations: Array<components['schemas']['Location']>;
     Location: {
@@ -848,6 +856,14 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       updated_at?: string;
+      /**
+       * @description List of taxonomy tags associated with the license.
+       * @example [
+       *   "family:ODC",
+       *   "license:open-data-commons"
+       * ]
+       */
+      license_tags?: string[];
     };
     LicenseWithRules: components['schemas']['LicenseBase'] & {
       license_rules?: Array<components['schemas']['LicenseRule']>;
