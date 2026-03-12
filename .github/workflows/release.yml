@@ -39,6 +39,7 @@ jobs:
     secrets: inherit
   publish-openapi-schemas:
     name: Publish OpenAPI Schemas
+    needs: api-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -59,7 +60,8 @@ jobs:
         run: |
           gh release upload ${{ github.event.release.tag_name }} \
             /tmp/DatabaseCatalogAPI.yaml \
-            /tmp/DatabaseCatalogTokenAPI.yaml
+            /tmp/DatabaseCatalogTokenAPI.yaml \
+            --clobber
   notify-slack-on-failure:
     needs: [web-deployment, integration-tests]
     if: failure()
