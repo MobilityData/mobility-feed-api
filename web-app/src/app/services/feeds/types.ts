@@ -974,6 +974,8 @@ export interface components {
     license_ids?: string;
     /** @description Filter feeds by whether their license is an SPDX license. */
     license_is_spdx?: boolean;
+    /** @description Comma separated list of tags to filter feeds by their license tags. */
+    license_tags?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -1334,6 +1336,7 @@ export interface operations {
         feature?: components['parameters']['feature'];
         license_ids?: components['parameters']['license_ids'];
         license_is_spdx?: components['parameters']['license_is_spdx'];
+        license_tags?: components['parameters']['license_tags'];
       };
     };
     responses: {

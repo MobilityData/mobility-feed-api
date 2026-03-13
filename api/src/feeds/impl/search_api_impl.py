@@ -32,7 +32,17 @@ class SearchApiImpl(BaseSearchApi):
 
     @staticmethod
     def add_search_query_filters(
-        query, search_query, data_type, feed_id, status, is_official, features, version, license_ids, license_is_spdx
+        query,
+        search_query,
+        data_type,
+        feed_id,
+        status,
+        is_official,
+        features,
+        version,
+        license_ids,
+        license_is_spdx,
+        license_tags,
     ) -> Query:
         """
         Add filters to the search query.
@@ -81,6 +91,17 @@ class SearchApiImpl(BaseSearchApi):
                     or_(t_feedsearch.c.license_is_spdx.is_(False), t_feedsearch.c.license_is_spdx.is_(None))
                 )
 
+        if license_tags:
+            tag_ids_list = [tid.strip() for tid in license_tags.split(",") if len(tid.strip()) > 0]
+            if len(tag_ids_list) > 0:
+                # license_tags is a text[] column – use the @> (contains) operator
+                # so that ALL requested tags must be present (AND semantics).
+                query = query.where(
+                    t_feedsearch.c.license_tags.op("@>")(
+                        func.cast(array(tag_ids_list), t_feedsearch.c.license_tags.type)
+                    )
+                )
+
         # Add feature filter with OR logic
         if features:
             features_list = [s.strip() for s in features[0].split(",") if s]
@@ -101,6 +122,7 @@ class SearchApiImpl(BaseSearchApi):
         search_query: str,
         license_ids: str,
         license_is_spdx: bool,
+        license_tags: str,
     ) -> Query:
         """
         Create a search query for the database.
@@ -117,6 +139,7 @@ class SearchApiImpl(BaseSearchApi):
             version,
             license_ids,
             license_is_spdx,
+            license_tags,
         )
 
     @staticmethod
@@ -130,6 +153,7 @@ class SearchApiImpl(BaseSearchApi):
         version: str,
         license_ids: str,
         license_is_spdx: bool,
+        license_tags: str,
     ) -> Query:
         """
         Create a search query for the database.
@@ -153,6 +177,7 @@ class SearchApiImpl(BaseSearchApi):
             version,
             license_ids,
             license_is_spdx,
+            license_tags,
         )
         # If search query is provided, use it as secondary sort after timestamp
         if search_query and len(search_query.strip()) > 0:
@@ -177,11 +202,21 @@ class SearchApiImpl(BaseSearchApi):
         feature: List[str],
         license_ids: str,
         license_is_spdx: bool,
+        license_tags: str,
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
         query = self.create_search_query(
-            status, feed_id, data_type, is_official, search_query, feature, version, license_ids, license_is_spdx
+            status,
+            feed_id,
+            data_type,
+            is_official,
+            search_query,
+            feature,
+            version,
+            license_ids,
+            license_is_spdx,
+            license_tags,
         )
         feed_rows = Database().select(
             session=db_session,
@@ -192,7 +227,16 @@ class SearchApiImpl(BaseSearchApi):
         feed_total_count = Database().select(
             session=db_session,
             query=self.create_count_search_query(
-                status, feed_id, data_type, is_official, feature, version, search_query, license_ids, license_is_spdx
+                status,
+                feed_id,
+                data_type,
+                is_official,
+                feature,
+                version,
+                search_query,
+                license_ids,
+                license_is_spdx,
+                license_tags,
             ),
         )
         if feed_rows is None or feed_total_count is None:

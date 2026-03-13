@@ -28,6 +28,7 @@ SELECT
     Feed.license_id AS license_id,
     License.is_spdx AS license_is_spdx,
     License.name AS license_name,
+    LicenseTagsJoin.license_tags AS license_tags,
 
     -- latest_dataset
     Latest_dataset.stable_id AS latest_dataset_id,
@@ -90,6 +91,15 @@ FROM Feed
 
 -- license join
 LEFT JOIN License ON License.id = Feed.license_id
+
+-- license tags join
+LEFT JOIN (
+    SELECT
+        llt.license_id,
+        array_agg(llt.tag_id ORDER BY llt.tag_id) AS license_tags
+    FROM license_license_tags llt
+    GROUP BY llt.license_id
+) AS LicenseTagsJoin ON LicenseTagsJoin.license_id = Feed.license_id
 
 -- Latest dataset
 LEFT JOIN gtfsfeed gtf ON gtf.id = Feed.id AND Feed.data_type = 'gtfs'
@@ -270,4 +280,5 @@ CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
 CREATE INDEX feedsearch_license_id ON FeedSearch(license_id);
 CREATE INDEX feedsearch_license_is_spdx ON FeedSearch(license_is_spdx);
+CREATE INDEX feedsearch_license_tags ON FeedSearch USING GIN(license_tags);
 
