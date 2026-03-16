@@ -1022,6 +1022,14 @@ components:
           description: Notes concerning the relation between the feed and the license.
           type: string
           example: Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
+        license_tags:
+          description: List of taxonomy tags associated with the feed's license.
+          type: array
+          items:
+            type: string
+          example:
+            - "family:ODC"
+            - "license:open-data-commons"
     Locations:
       type: array
       items:
@@ -1268,6 +1276,14 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
+        license_tags:
+          description: List of taxonomy tags associated with the license.
+          type: array
+          items:
+            type: string
+          example:
+            - "family:ODC"
+            - "license:open-data-commons"
     LicenseWithRules:
       allOf:
         - $ref: "#/components/schemas/LicenseBase"
@@ -1478,6 +1494,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1599,6 +1616,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1677,6 +1695,7 @@ components:
 
 
 
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -1694,6 +1713,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
 
 

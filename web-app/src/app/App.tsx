@@ -35,7 +35,7 @@ function App(): React.ReactElement {
         <meta
           name='description'
           content={
-            "Access GTFS, GTFS Realtime, GBFS transit data with over 4,000 feeds from 70+ countries on the web's leading transit data platform."
+            "Access GTFS, GTFS Realtime, GBFS transit data with over 4,000 feeds from 99+ countries on the web's leading transit data platform."
           }
         />
       </Helmet>

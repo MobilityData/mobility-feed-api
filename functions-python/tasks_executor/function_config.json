@@ -26,7 +26,7 @@
   ],
   "ingress_settings": "ALLOW_ALL",
   "max_instance_request_concurrency": 1,
-  "max_instance_count": 1,
+  "max_instance_count": 200,
   "min_instance_count": 0,
   "available_cpu": 2
 }

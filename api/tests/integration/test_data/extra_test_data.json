@@ -80,6 +80,45 @@
     }
   ],
 
+  "license_tag_groups": [
+    {
+      "id": "family",
+      "short_name": "Family",
+      "description": "License family taxonomy"
+    },
+    {
+      "id": "license",
+      "short_name": "License",
+      "description": "License type taxonomy"
+    }
+  ],
+
+  "license_tags": [
+    {
+      "id": "family:ODC",
+      "group": "family",
+      "tag": "ODC",
+      "description": "Open Data Commons family"
+    },
+    {
+      "id": "license:open-data-commons",
+      "group": "license",
+      "tag": "open-data-commons",
+      "description": "Open Data Commons license"
+    }
+  ],
+
+  "license_license_tags": [
+    {
+      "license_id": "license-1",
+      "tag_id": "family:ODC"
+    },
+    {
+      "license_id": "license-1",
+      "tag_id": "license:open-data-commons"
+    }
+  ],
+
   "feeds": [
     {
       "id": "mdb-60",

@@ -95,13 +95,15 @@
     <include file="changes/fix_operation_status_constraint.sql" relativeToChangelogFile="true"/>
     <!--  Adding alt_name to the geopolygon table  -->
     <include file="changes/feat_1479.sql" relativeToChangelogFile="true"/>
-    <!-- Centralized materialized view definitions.
-         Views are rebuilt from source SQL files using runOnChange. -->
-    <!-- Keep this at the end to ensure all table and schema changes
-         are applied before materialized views are rebuilt. -->
-    <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
     <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
     <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
     <!-- Change gtfsfile table hosted_url column type to text to accomodate longer URLs. -->
     <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
+    <!-- Add license_tag table and license_license_tags join table for tag classification of licenses. -->
+    <include file="changes/feat_1565.sql" relativeToChangelogFile="true"/>
+    <!-- Centralized materialized view definitions.
+         Views are rebuilt from source SQL files using runOnChange. -->
+    <!-- Keep this at the very end to ensure all table and schema changes
+         are applied before materialized views are (re)created. -->
+    <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

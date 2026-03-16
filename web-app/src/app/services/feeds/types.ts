@@ -624,6 +624,14 @@ export interface components {
        * @example Detected locale/jurisdiction port 'nl'. SPDX does not list ported CC licenses; using canonical ID.
        */
       license_notes?: string;
+      /**
+       * @description List of taxonomy tags associated with the feed's license.
+       * @example [
+       *   "family:ODC",
+       *   "license:open-data-commons"
+       * ]
+       */
+      license_tags?: string[];
     };
     Locations: Array<components['schemas']['Location']>;
     Location: {
@@ -848,6 +856,14 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       updated_at?: string;
+      /**
+       * @description List of taxonomy tags associated with the license.
+       * @example [
+       *   "family:ODC",
+       *   "license:open-data-commons"
+       * ]
+       */
+      license_tags?: string[];
     };
     LicenseWithRules: components['schemas']['LicenseBase'] & {
       license_rules?: Array<components['schemas']['LicenseRule']>;
@@ -958,6 +974,8 @@ export interface components {
     license_ids?: string;
     /** @description Filter feeds by whether their license is an SPDX license. */
     license_is_spdx?: boolean;
+    /** @description Comma separated list of tags to filter feeds by their license tags. */
+    license_tags?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -1318,6 +1336,7 @@ export interface operations {
         feature?: components['parameters']['feature'];
         license_ids?: components['parameters']['license_ids'];
         license_is_spdx?: components['parameters']['license_is_spdx'];
+        license_tags?: components['parameters']['license_tags'];
       };
     };
     responses: {
