@@ -192,6 +192,11 @@ class TestDatasetProcessor(unittest.TestCase):
         _mock_getsize,
         _mock_get_hash,
     ):
+        # Patch the module-level working_dir so temp files are created in our test directory
+        import main as main_module
+
+        original_working_dir = main_module.working_dir
+        main_module.working_dir = self.test_working_dir
         """
         Test extract_and_upload_files_from_zip with a valid ZIP file containing multiple files
         """
@@ -266,6 +271,7 @@ class TestDatasetProcessor(unittest.TestCase):
             self.assertEqual(mock_remove.call_count, 2)
 
         finally:
+            main_module.working_dir = original_working_dir
             # Cleanup the temporary ZIP file
             if os.path.exists(zip_path):
                 os.remove(zip_path)
@@ -280,6 +286,10 @@ class TestDatasetProcessor(unittest.TestCase):
         """
         import tempfile
         import zipfile
+        import main as main_module
+
+        original_working_dir = main_module.working_dir
+        main_module.working_dir = self.test_working_dir
 
         # Create a real temporary ZIP file
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
@@ -324,6 +334,7 @@ class TestDatasetProcessor(unittest.TestCase):
             mock_blob.make_public.assert_not_called()
 
         finally:
+            main_module.working_dir = original_working_dir
             if os.path.exists(zip_path):
                 os.remove(zip_path)
 
@@ -377,6 +388,10 @@ class TestDatasetProcessor(unittest.TestCase):
         """
         import tempfile
         import zipfile
+        import main as main_module
+
+        original_working_dir = main_module.working_dir
+        main_module.working_dir = self.test_working_dir
 
         # Create a real temporary ZIP file
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
@@ -411,7 +426,7 @@ class TestDatasetProcessor(unittest.TestCase):
 
             def mock_remove_side_effect(path):
                 # Only raise exception for extracted files, not the ZIP file
-                if "in-memory" in path and path != zip_path:
+                if self.test_working_dir in path and path != zip_path:
                     raise Exception("Cleanup failed")
                 else:
                     # Allow cleanup of the ZIP file to succeed
@@ -430,6 +445,7 @@ class TestDatasetProcessor(unittest.TestCase):
                 self.assertEqual(result[0].file_name, "test.txt")
 
         finally:
+            main_module.working_dir = original_working_dir
             if os.path.exists(zip_path):
                 os.remove(zip_path)
 
