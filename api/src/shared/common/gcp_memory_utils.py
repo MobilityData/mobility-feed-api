@@ -7,7 +7,7 @@ import sys
 MB_MULTIPLIER = 1024**2
 
 
-def find_tmpfs_mounts(mount_point):
+def is_filesystem_tmpfs(mount_point):
     """
     Check if the given mount_point is a tmpfs filesystem in /proc/mounts.
 
@@ -15,13 +15,15 @@ def find_tmpfs_mounts(mount_point):
         mount_point: The mount point path to check (e.g., "/tmp/in-memory")
 
     Returns:
-        True if mount_point is found as a tmpfs filesystem, False otherwise.
+        True if mount_point is found as a tmpfs filesystem,
+        False if mount_point is found but is not tmpfs,
+        None if undetermined (e.g., not on Linux, /proc/mounts unreadable, or mount_point not found).
     """
 
     # Check if we're on Linux (only Linux has /proc/mounts for tmpfs detection)
     if not os.path.exists("/proc/mounts"):
         logging.debug(f"Not on Linux (platform: {sys.platform}). tmpfs detection not available.")
-        return []
+        return None
 
     try:
         with open("/proc/mounts", "r") as f:
@@ -35,7 +37,7 @@ def find_tmpfs_mounts(mount_point):
                         return False
     except Exception as e:
         logging.error(f"Error reading /proc/mounts: {e}")
-        return False
+        return None
     logging.warning(f"{mount_point} not found in /proc/mounts")
     return False
 
@@ -55,7 +57,8 @@ def get_memory_limit_cgroup_bytes():
     except Exception as e:
         logging.error("cgroup v1 memory limit not available: %s", e)
 
-    # cgroup v2 fallback ("max" means unlimited)
+    # cgroup v2 fallback: memory.max contains either a byte limit or the
+    # string "max" when no limit is set. Skip "max" since we need a concrete value.
     try:
         with open("/sys/fs/cgroup/memory.max", "r") as f:
             value = f.read().strip()
@@ -67,7 +70,7 @@ def get_memory_limit_cgroup_bytes():
     return None
 
 
-def get_total_tmpfs_size_bytes(mount_point):
+def get_tmpfs_size_bytes(mount_point):
     """
     Returns the size (in bytes) of the tmpfs at the given mount_point,
     or None if not found or not a tmpfs.
@@ -75,7 +78,7 @@ def get_total_tmpfs_size_bytes(mount_point):
     Args:
         mount_point: The mount point path to check (e.g., "/tmp/in-memory")
     """
-    if not find_tmpfs_mounts(mount_point):
+    if is_filesystem_tmpfs(mount_point) is not True:
         return None
     try:
         total, _, _ = shutil.disk_usage(mount_point)
@@ -98,10 +101,13 @@ def get_available_process_memory_bytes(mount_point):
         Available process memory in bytes, or None if not determinable.
     """
     mem_limit = get_memory_limit_cgroup_bytes()
-    tmpfs_size = get_total_tmpfs_size_bytes(mount_point)
-    if mem_limit is None or tmpfs_size is None:
-        logging.warning("Could not determine available process memory (limit or tmpfs size missing/unlimited).")
+    if mem_limit is None:
+        logging.warning("Could not determine cgroup memory limit.")
         return None
+    tmpfs_size = get_tmpfs_size_bytes(mount_point)
+    if tmpfs_size is None:
+        logging.warning("Could not determine tmpfs size for %s. Using full cgroup limit.", mount_point)
+        tmpfs_size = 0
     available_bytes = mem_limit - tmpfs_size
     logging.info(
         "Process memory limit: %.2f MiB, total tmpfs size: %.2f MiB, available: %.2f MiB",
@@ -134,9 +140,6 @@ def limit_gcp_memory(mount_point):
     Environment Variables:
         MEMORY_MARGIN_MB: Safety margin in megabytes (default: 200)
     """
-    # Get the memory margin from environment variable (default: 200 MiB)
-    memory_margin_str_mb = os.getenv("MEMORY_MARGIN_MB", "200")
-
     # Calculate available memory: cgroup limit - tmpfs size
     available_memory_bytes = get_available_process_memory_bytes(mount_point)
     if not available_memory_bytes or available_memory_bytes <= 0:
@@ -145,6 +148,9 @@ def limit_gcp_memory(mount_point):
 
     # Parse and validate the memory margin
     memory_margin_mb = 200
+    # Get the memory margin from environment variable (default: 200 MiB)
+    memory_margin_str_mb = os.getenv("MEMORY_MARGIN_MB", "200")
+
     if memory_margin_str_mb:
         try:
             memory_margin_mb = int(memory_margin_str_mb)
