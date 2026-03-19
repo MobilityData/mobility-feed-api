@@ -47,8 +47,10 @@ from pipeline_tasks import create_pipeline_tasks
 
 init_logger()
 
+working_dir = os.getenv("WORKING_DIR", "/tmp/in-memory")
+
 # Limit the available memory of the process so if an OOM exception happens it can be handled properly by our code
-limit_gcp_memory()
+limit_gcp_memory(working_dir)
 
 
 @dataclass
@@ -160,14 +162,82 @@ class DatasetProcessor:
             f"{self.feed_stable_id}/latest.zip",
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
         ]
-        blob = None
+
         for target_path in target_paths:
             blob = bucket.blob(target_path)
             blob.upload_from_filename(source_file_path)
             if public:
                 blob.make_public()
             self.logger.info(f"Uploaded {blob.public_url}")
-        return blob
+
+    def _extract_and_upload_single_file(
+        self,
+        zf: zipfile.ZipFile,
+        member: zipfile.ZipInfo,
+        bucket,
+        dataset_stable_id: str,
+        public: bool,
+    ) -> Optional[Gtfsfile]:
+        """
+        Extract a single file from a ZIP archive, upload it to GCS, and clean up.
+
+        :param zf: Open ZipFile object
+        :param member: ZipInfo for the file to extract
+        :param bucket: GCS bucket object
+        :param dataset_stable_id: The dataset stable ID for the GCS path
+        :param public: Whether to make the uploaded file public
+        :return: A Gtfsfile object for the extracted file, or None if the member is a directory
+        """
+
+        # Build a unique temp path to avoid collisions across concurrent runs.
+        # Replace '/' with '_' to flatten any subdirectory structure from the ZIP.
+        temp_extracted_path = os.path.join(
+            working_dir,
+            f"{self.feed_stable_id}-{dataset_stable_id}-{member.filename.replace('/', '_')}",
+        )
+
+        try:
+            self.logger.info(
+                "Extracting %s to %s", member.filename, temp_extracted_path
+            )
+            with zf.open(member, "r") as src, open(temp_extracted_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+            if not os.path.isfile(temp_extracted_path):
+                return None
+
+            # Upload to GCS under extracted/
+            target_path = (
+                f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{member.filename}"
+            )
+            file_blob = bucket.blob(target_path)
+            file_blob.upload_from_filename(temp_extracted_path)
+            if public:
+                file_blob.make_public()
+            self.logger.info(
+                "Uploaded extracted file %s to %s",
+                member.filename,
+                file_blob.public_url,
+            )
+
+            return Gtfsfile(
+                id=str(uuid.uuid4()),
+                file_name=member.filename,
+                file_size_bytes=os.path.getsize(temp_extracted_path),
+                hosted_url=file_blob.public_url if public else None,
+                hash=get_hash_from_file(temp_extracted_path),
+            )
+        finally:
+            # Remove the local temporary extracted file to free disk space
+            try:
+                if os.path.exists(temp_extracted_path):
+                    os.remove(temp_extracted_path)
+            except Exception as cleanup_err:
+                self.logger.warning(
+                    "Failed to remove temporary file %s: %s",
+                    temp_extracted_path,
+                    cleanup_err,
+                )
 
     def extract_and_upload_files_from_zip(
         self,
@@ -191,64 +261,16 @@ class DatasetProcessor:
 
         bucket = storage.Client().get_bucket(self.bucket_name)
         extracted_files: List[Gtfsfile] = []
-        working_dir = os.getenv("WORKING_DIR", "/tmp/in-memory")
 
         with zipfile.ZipFile(zip_file_path, "r") as zf:
             for member in zf.infolist():
-                # Skip directories
                 if member.is_dir():
                     continue
-
-                # Extract a single file to a temporary path.
-                # Use a unique filename with feed_stable_id and dataset_stable_id prefix to avoid collisions
-                # when multiple datasets are processed concurrently. Replace '/' with '_' to flatten any
-                # subdirectory structure from the ZIP into a single working directory.
-                temp_extracted_path = os.path.join(
-                    working_dir,
-                    f"{self.feed_stable_id}-{dataset_stable_id}-{member.filename.replace('/', '_')}",
+                gtfs_file = self._extract_and_upload_single_file(
+                    zf, member, bucket, dataset_stable_id, public
                 )
-
-                self.logger.info(
-                    "Extracting %s to %s", member.filename, temp_extracted_path
-                )
-                with zf.open(member, "r") as src, open(
-                    temp_extracted_path, "wb"
-                ) as dst:
-                    shutil.copyfileobj(src, dst)
-
-                # Upload this single file to GCS under extracted/
-                if os.path.isfile(temp_extracted_path):
-                    target_path = f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{member.filename}"
-                    file_blob = bucket.blob(target_path)
-                    file_blob.upload_from_filename(temp_extracted_path)
-                    if public:
-                        file_blob.make_public()
-                    self.logger.info(
-                        "Uploaded extracted file %s to %s",
-                        member.filename,
-                        file_blob.public_url,
-                    )
-
-                    extracted_files.append(
-                        Gtfsfile(
-                            id=str(uuid.uuid4()),
-                            file_name=member.filename,
-                            file_size_bytes=os.path.getsize(temp_extracted_path),
-                            hosted_url=file_blob.public_url if public else None,
-                            hash=get_hash_from_file(temp_extracted_path),
-                        )
-                    )
-
-                # Remove the local temporary extracted file to free disk space
-                try:
-                    if os.path.exists(temp_extracted_path):
-                        os.remove(temp_extracted_path)
-                except Exception as cleanup_err:
-                    self.logger.warning(
-                        "Failed to remove temporary file %s: %s",
-                        temp_extracted_path,
-                        cleanup_err,
-                    )
+                if gtfs_file is not None:
+                    extracted_files.append(gtfs_file)
 
         return extracted_files
 
@@ -645,41 +667,3 @@ def process_dataset(cloud_event: CloudEvent):
         "successfully completed" if not error_message else "Failed",
     )
     return "Completed." if error_message is None else error_message
-
-
-def simulate(request) -> dict:  # pragma: no cover
-    """HTTP endpoint to simulate a process_dataset call for testing."""
-    # Hardcoded test values
-    payload = {
-        "execution_id": "task-executor-uuid-af993d49-0d95-42cb-96a4-9cffc5301e87",
-        "producer_url": "https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/all/",
-        "feed_stable_id": "mdb-2014",
-        "feed_id": "34434a73-0ba7-4070-b01f-dfadb6e30d42",
-        "dataset_stable_id": "mdb-2014-202408202259",
-        "dataset_hash": "abc",
-        "authentication_type": "0",
-        "authentication_info_url": "",
-        "api_key_parameter_name": "",
-    }
-
-    # Create CloudEvent
-    encoded_data = base64.b64encode(json.dumps(payload).encode()).decode()
-    attributes = {
-        "type": "google.cloud.pubsub.topic.v1.messagePublished",
-        "source": "//pubsub.googleapis.com/test",
-        "specversion": "1.0",
-    }
-    data = {"message": {"data": encoded_data}}
-    cloud_event = CloudEvent(attributes, data)
-
-    # Call process_dataset
-    process_dataset(cloud_event)
-    return {"status": "completed"}
-
-
-def main():  # pragma: no cover
-    simulate(None)
-
-
-if __name__ == "__main__":
-    main()
