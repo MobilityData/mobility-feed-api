@@ -161,11 +161,15 @@ class TestMainFunctions(unittest.TestCase):
     def test_fetch_all_gbfs_feeds_with_limit(self):
         mock_session = MagicMock()
         mock_feed = MagicMock()
-        mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = [mock_feed]
+        mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = [
+            mock_feed
+        ]
 
         result = fetch_all_gbfs_feeds(db_session=mock_session)
         self.assertEqual(result, [mock_feed])
-        mock_session.query.return_value.filter.return_value.limit.assert_called_once_with(1)
+        mock_session.query.return_value.filter.return_value.limit.assert_called_once_with(
+            1
+        )
 
     def test_fetch_all_gbfs_feeds_exception(self):
         mock_session = MagicMock()
