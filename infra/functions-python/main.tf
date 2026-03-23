@@ -483,9 +483,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID = var.project_id
+      PROJECT_ID        = var.project_id
       PUBSUB_TOPIC_NAME = google_pubsub_topic.validate_gbfs_feed.name
       PYTHONNODEBUGRANGES = 0
+      FEEDS_LIMIT       = lower(var.environment) == "dev" ? "10" : null
     }
     available_memory = "1Gi"
     timeout_seconds = local.function_gbfs_validation_report_config.timeout
@@ -509,10 +510,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
 }
 
-# Schedule the batch function to run
+# Schedule the batch function to run daily (version extraction and validation only)
 resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
   name = "gbfs-validator-batch-scheduler-${var.environment}"
-  description = "Schedule the gbfs-validator-batch function"
+  description = "Schedule the gbfs-validator-batch function for daily version extraction and validation"
   time_zone = "Etc/UTC"
   schedule = var.gbfs_scheduler_schedule
   region = var.gcp_region
@@ -527,7 +528,30 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
     headers = {
       "Content-Type" = "application/json"
     }
-    body = base64encode("{}")
+    body = base64encode("{\"extract_geolocation\": false}")
+  }
+  attempt_deadline = "320s"
+}
+
+# Schedule the batch function to run weekly for geolocation extraction
+resource "google_cloud_scheduler_job" "gbfs_geolocation_batch_scheduler" {
+  name = "gbfs-geolocation-batch-scheduler-${var.environment}"
+  description = "Schedule the gbfs-validator-batch function for weekly geolocation extraction"
+  time_zone = "Etc/UTC"
+  schedule = var.gbfs_geolocation_scheduler_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.gbfs_validator_batch.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"extract_geolocation\": true}")
   }
   attempt_deadline = "320s"
 }

@@ -65,6 +65,49 @@ class TestMainFunctions(unittest.TestCase):
     @patch.dict(
         os.environ,
         {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "BUCKET_NAME": "mock-bucket",
+            "MAXIMUM_EXECUTIONS": "1",
+            "PUBSUB_TOPIC_NAME": "mock-topic",
+            "PROJECT_ID": "mock-project",
+            "VALIDATOR_URL": "https://mock-validator-url.com",
+        },
+    )
+    @patch("main.DatasetTraceService")
+    @patch("main.GBFSDataProcessor.process_gbfs_data")
+    def test_gbfs_validator_pubsub_extract_geolocation_false(
+        self,
+        mock_process_gbfs_data,
+        mock_dataset_trace_service,
+    ):
+        """Test that extract_geolocation=False is forwarded to process_gbfs_data."""
+        mock_trace_service = MagicMock()
+        mock_dataset_trace_service.return_value = mock_trace_service
+
+        data = {
+            "execution_id": str(uuid.uuid4()),
+            "stable_id": "mock-stable-id",
+            "url": "http://mock-url.com",
+            "feed_id": str(uuid.uuid4()),
+            "extract_geolocation": False,
+        }
+        base64_data = base64.b64encode(json.dumps(data).encode("utf-8"))
+        cloud_event = CloudEvent(
+            attributes={
+                "type": "com.example.someevent",
+                "source": "https://example.com/event-source",
+            },
+            data={"message": {"data": base64_data}},
+        )
+        result = gbfs_validator_pubsub(cloud_event)
+        self.assertEqual(result, "GBFS data processed and stored successfully.")
+        mock_process_gbfs_data.assert_called_once_with(
+            "http://mock-url.com", extract_geolocation=False
+        )
+
+    @patch.dict(
+        os.environ,
+        {
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
@@ -113,6 +156,16 @@ class TestMainFunctions(unittest.TestCase):
 
         result = fetch_all_gbfs_feeds(db_session=mock_session)
         self.assertEqual(result, [mock_feed])
+
+    @patch.dict(os.environ, {"FEEDS_LIMIT": "1"})
+    def test_fetch_all_gbfs_feeds_with_limit(self):
+        mock_session = MagicMock()
+        mock_feed = MagicMock()
+        mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = [mock_feed]
+
+        result = fetch_all_gbfs_feeds(db_session=mock_session)
+        self.assertEqual(result, [mock_feed])
+        mock_session.query.return_value.filter.return_value.limit.assert_called_once_with(1)
 
     def test_fetch_all_gbfs_feeds_exception(self):
         mock_session = MagicMock()
@@ -178,6 +231,41 @@ class TestMainFunctions(unittest.TestCase):
         # Call the function
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
+
+    @patch.dict(
+        os.environ,
+        {
+            "PUBSUB_TOPIC_NAME": "mock-topic",
+        },
+    )
+    @patch("main.pubsub_v1.PublisherClient")
+    @patch("main.fetch_all_gbfs_feeds")
+    def test_gbfs_validator_batch_extract_geolocation_false(
+        self, mock_fetch_all_gbfs_feeds, mock_publisher_client
+    ):
+        """Test that extract_geolocation=False is passed through to Pub/Sub messages."""
+        mock_session = MagicMock()
+        mock_publisher = MagicMock()
+        mock_publisher_client.return_value = mock_publisher
+
+        mock_feed = MagicMock()
+        mock_feed.stable_id = "mock-stable-id"
+        mock_feed.id = "mock-feed-id"
+        mock_feed.auto_discovery_url = "http://mock-url.com"
+        mock_fetch_all_gbfs_feeds.return_value = [mock_feed]
+
+        request = MagicMock()
+        request.method = "POST"
+        request.is_json = True
+        request.get_json.return_value = {"extract_geolocation": False}
+
+        result = gbfs_validator_batch(request, db_session=mock_session)
+        self.assertEqual(result[1], 200)
+
+        published_data = json.loads(
+            mock_publisher.publish.call_args[0][1].decode("utf-8")
+        )
+        self.assertFalse(published_data["extract_geolocation"])
 
     @patch.dict(
         os.environ,

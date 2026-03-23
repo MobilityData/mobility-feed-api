@@ -32,9 +32,12 @@ init_logger()
 
 def fetch_all_gbfs_feeds(db_session: Session) -> List[Gbfsfeed]:
     try:
-        gbfs_feeds = (
-            db_session.query(Gbfsfeed).filter(Gbfsfeed.status != "deprecated").all()
-        )
+        query = db_session.query(Gbfsfeed).filter(Gbfsfeed.status != "deprecated")
+        limit = os.getenv("FEEDS_LIMIT")
+        if limit is not None:
+            logging.info("Limiting batch to %s feeds (FEEDS_LIMIT is set).", limit)
+            query = query.limit(int(limit))
+        gbfs_feeds = query.all()
         db_session.expunge_all()
         return gbfs_feeds
     except Exception as e:
@@ -60,6 +63,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     except KeyError as e:
         logging.error("Missing required field: %s", e)
         return f"Invalid Pub/Sub message data. Missing {e}."
+    extract_geolocation = message_json.get("extract_geolocation", True)
 
     # get logger with stable_id
     logger = get_logger(__name__, stable_id)
@@ -86,7 +90,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     # Process GBFS data
     try:
         processor = GBFSDataProcessor(stable_id, feed_id)
-        processor.process_gbfs_data(url)
+        processor.process_gbfs_data(url, extract_geolocation=extract_geolocation)
     except Exception as e:
         error_message = f"Error processing GBFS data: {e}"
         logger.error(error_message)
@@ -117,10 +121,14 @@ def gbfs_validator_batch(request, db_session: Session):
 
     try:
         feed_stable_ids = None
+        extract_geolocation = True
         if request and request.method == "POST" and request.is_json:
             request_json = request.get_json()
             feed_stable_ids = (
                 request_json.get("feed_stable_ids") if request_json else None
+            )
+            extract_geolocation = (
+                request_json.get("extract_geolocation", True) if request_json else True
             )
         else:
             logging.info("Request body not provided or not a valid JSON.")
@@ -146,6 +154,7 @@ def gbfs_validator_batch(request, db_session: Session):
             "stable_id": gbfs_feed.stable_id,
             "feed_id": gbfs_feed.id,
             "url": gbfs_feed.auto_discovery_url,
+            "extract_geolocation": extract_geolocation,
         }
         feeds_data.append(feed_data)
         logging.info("Feed %s added to the batch.", gbfs_feed.stable_id)
