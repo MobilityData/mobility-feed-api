@@ -61,9 +61,16 @@ variable "gbfs_bucket_name" {
 
 variable "gbfs_scheduler_schedule" {
     type        = string
-    description = "Schedule for the GBFS scheduler job"
-    default     = "0 0 * * *" # At 00:00 every day
+    description = "Schedule for the GBFS validator daily job (version extraction and validation, Mon–Sat only)"
+    default     = "0 0 * * 1-6" # At 00:00 Mon–Sat (Sunday is handled by the weekly geolocation job)
 }
+
+variable "gbfs_geolocation_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the GBFS geolocation extraction weekly job"
+    default     = "0 0 * * 0" # At 00:00 every Sunday
+}
+
 
 variable "jbda_scheduler_schedule" {
     type        = string

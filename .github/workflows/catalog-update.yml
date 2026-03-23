@@ -8,6 +8,16 @@ on:
         required: false
         default: true
         type: boolean
+      ENVIRONMENT:
+        description: Target environment (leave as 'all' to run all environments)
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - qa
+          - prod
+          - dev
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
@@ -18,6 +28,7 @@ env:
 jobs:
   resolve-api-meta-qa:
     name: QA Resolve API commit/version
+    if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'qa'
     runs-on: ubuntu-latest
     outputs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
@@ -57,6 +68,7 @@ jobs:
 
   resolve-api-meta-prod:
     name: PROD Resolve API commit/version
+    if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'prod'
     runs-on: ubuntu-latest
     outputs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
@@ -96,6 +108,7 @@ jobs:
 
   resolve-api-meta-dev:
     name: DEV Resolve API commit/version
+    if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'dev'
     runs-on: ubuntu-latest
     outputs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
