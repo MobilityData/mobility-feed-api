@@ -233,7 +233,9 @@ class TestGbfsDataProcessor(unittest.TestCase):
                     },
                 ],
             }
-            self.processor.process_gbfs_data(autodiscovery_url)
+            self.processor.process_gbfs_data(
+                autodiscovery_url, extract_geolocation=True
+            )
             gbfs_feed = (
                 session.query(Gbfsfeed)
                 .filter_by(stable_id=self.stable_id)
@@ -250,3 +252,64 @@ class TestGbfsDataProcessor(unittest.TestCase):
                 )
             self.assertIn("2.2", versions)
             self.assertIn("2.1", versions)
+
+    @with_db_session(db_url=default_db_url)
+    @patch("gbfs_data_processor.create_http_task")
+    @patch("gbfs_data_processor.tasks_v2")
+    @patch(
+        "gbfs_data_processor.GBFSEndpoint.get_request_metadata",
+        side_effect=mock_get_request_metadata,
+    )
+    @patch("google.cloud.storage.Client")
+    @patch("gbfs_data_processor.fetch_gbfs_data", side_effect=mock_fetch_gbfs_data)
+    @patch("requests.post")
+    @patch("requests.get")
+    @patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "GOOGLE_APPLICATION_CREDENTIALS": "test",
+        },
+    )
+    def test_process_gbfs_data_skip_geolocation(
+        self,
+        _,
+        mock_post,
+        __,
+        mock_cloud_storage_client,
+        ___,
+        mock_tasks,
+        mock_create_http_task,
+        db_session,
+    ):
+        """Test that trigger_location_extraction is not called when extract_geolocation=False."""
+        autodiscovery_url = "http://example.com/gbfs.json"
+        gbfs_feed = Gbfsfeed(
+            id=self.feed_id,
+            operator=self.faker.company(),
+            operator_url=self.faker.url(),
+            stable_id=self.stable_id,
+            auto_discovery_url=autodiscovery_url,
+            status="active",
+            operational_status="published",
+        )
+        session = db_session
+        session.add(gbfs_feed)
+        session.commit()
+        (
+            mock_cloud_storage_client.return_value.bucket.return_value.blob.return_value
+        ).public_url = self.faker.url()
+        with patch("logging.info"), patch("logging.error"), patch("logging.warning"):
+            mock_post.return_value.json.return_value = {
+                "summary": {
+                    "validatorVersion": "1.0.13",
+                    "version": {"detected": "2.2", "validated": "2.2"},
+                    "hasErrors": False,
+                    "errorsCount": 0,
+                },
+                "filesSummary": [],
+            }
+            self.processor.process_gbfs_data(
+                autodiscovery_url, extract_geolocation=False
+            )
+        mock_create_http_task.assert_not_called()

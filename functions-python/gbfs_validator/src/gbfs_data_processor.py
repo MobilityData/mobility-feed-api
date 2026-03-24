@@ -53,7 +53,9 @@ class GBFSDataProcessor:
         self.validation_reports: Dict[str, Dict[str, Any]] = {}
         self.logger = get_logger(GBFSDataProcessor.__name__, stable_id)
 
-    def process_gbfs_data(self, autodiscovery_url: str) -> None:
+    def process_gbfs_data(
+        self, autodiscovery_url: str, extract_geolocation: bool = True
+    ) -> None:
         """Process the GBFS data from the autodiscovery URL."""
         # Record the request to the autodiscovery URL
         self.record_autodiscovery_request(autodiscovery_url)
@@ -70,7 +72,8 @@ class GBFSDataProcessor:
         # Update database entities
         self.update_database_entities()
 
-        self.trigger_location_extraction()
+        if extract_geolocation:
+            self.trigger_location_extraction()
 
     @with_db_session()
     def record_autodiscovery_request(
