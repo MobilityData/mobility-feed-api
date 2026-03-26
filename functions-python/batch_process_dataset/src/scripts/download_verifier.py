@@ -60,7 +60,7 @@ def verify_upload_dataset(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    dataset_file = processor.upload_dataset("feed_id_2126", False)
+    dataset_file = processor.transfer_dataset("feed_id_2126", False)
     logging.info(f"Dataset File: {dataset_file}")
 
 
