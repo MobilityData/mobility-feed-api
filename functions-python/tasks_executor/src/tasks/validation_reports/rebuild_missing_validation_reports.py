@@ -139,11 +139,17 @@ def rebuild_missing_validation_reports(
         force_update=force_update,
         filter_after_in_days=filter_after_in_days,
         filter_statuses=filter_statuses,
-        filter_op_statuses=filter_op_statuses if filter_op_statuses is not None else ["published"],
+        filter_op_statuses=filter_op_statuses
+        if filter_op_statuses is not None
+        else ["published"],
     )
-    logging.info("Found %s candidate datasets", len(datasets))
+    total_candidates = len(datasets)
+    logging.info("Found %s candidate datasets", total_candidates)
 
-    valid_datasets = _filter_datasets_with_existing_blob(datasets)
+    # Apply limit before the GCS blob check to avoid checking thousands of
+    # objects when only a handful will actually be triggered.
+    candidates_to_check = datasets[:limit] if limit is not None else datasets
+    valid_datasets = _filter_datasets_with_existing_blob(candidates_to_check)
     logging.info(
         "%s datasets have a GCS blob and will be triggered", len(valid_datasets)
     )
@@ -155,8 +161,6 @@ def rebuild_missing_validation_reports(
     )
 
     datasets_to_trigger = valid_datasets
-    if limit is not None:
-        datasets_to_trigger = valid_datasets[:limit]
 
     if not dry_run:
         tracker.start_run(
@@ -167,7 +171,7 @@ def rebuild_missing_validation_reports(
                 "prod_env": prod_env,
                 "force_update": force_update,
                 "limit": limit,
-                "total_candidates": len(valid_datasets),
+                "total_candidates": total_candidates,
             },
         )
 
@@ -198,7 +202,7 @@ def rebuild_missing_validation_reports(
     )
     result = {
         "message": message,
-        "total_candidates": len(valid_datasets),
+        "total_candidates": total_candidates,
         "total_in_call": len(datasets_to_trigger),
         "total_triggered": 0 if dry_run else total_triggered,
         "total_skipped": 0 if dry_run else total_skipped,

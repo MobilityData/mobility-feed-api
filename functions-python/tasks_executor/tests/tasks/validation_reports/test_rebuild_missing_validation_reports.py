@@ -164,7 +164,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
         datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
-        filter_blob_mock.return_value = datasets
+        filter_blob_mock.side_effect = lambda x: x  # pass through whatever is received
         session = self._make_session_mock(datasets=datasets)
 
         result = rebuild_missing_validation_reports(
