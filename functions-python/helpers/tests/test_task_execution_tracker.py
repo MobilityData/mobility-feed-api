@@ -17,7 +17,7 @@
 import unittest
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from task_execution.task_execution_tracker import (
     TaskExecutionTracker,
