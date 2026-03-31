@@ -26,6 +26,7 @@ that were already triggered (tracked in `task_execution_log`).
     "bypass_db_update": false,
     "filter_after_in_days": 30,
     "filter_statuses": ["active"],
+    "filter_op_statuses": ["published"],
     "force_update": false,
     "limit": 10
 }
