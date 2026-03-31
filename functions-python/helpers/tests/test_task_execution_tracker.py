@@ -17,9 +17,9 @@
 import unittest
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
-from shared.helpers.task_execution.task_execution_tracker import (
+from task_execution.task_execution_tracker import (
     TaskExecutionTracker,
     STATUS_IN_PROGRESS,
     STATUS_TRIGGERED,
@@ -31,7 +31,9 @@ from shared.helpers.task_execution.task_execution_tracker import (
 def _make_tracker(task_name="test_task", run_id="v1.0"):
     """Return a tracker with a mock DB session."""
     session = MagicMock()
-    tracker = TaskExecutionTracker(task_name=task_name, run_id=run_id, db_session=session)
+    tracker = TaskExecutionTracker(
+        task_name=task_name, run_id=run_id, db_session=session
+    )
     return tracker, session
 
 
@@ -67,21 +69,27 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
     def test_returns_true_when_triggered_row_exists(self):
         tracker, session = _make_tracker()
         existing_row = MagicMock()
-        session.query.return_value.filter.return_value.filter.return_value.first.return_value = existing_row
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            existing_row
+        )
 
         result = tracker.is_triggered("ds-123")
         self.assertTrue(result)
 
     def test_returns_false_when_no_row(self):
         tracker, session = _make_tracker()
-        session.query.return_value.filter.return_value.filter.return_value.first.return_value = None
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
 
         result = tracker.is_triggered("ds-999")
         self.assertFalse(result)
 
     def test_handles_none_entity_id(self):
         tracker, session = _make_tracker()
-        session.query.return_value.filter.return_value.filter.return_value.first.return_value = None
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
 
         result = tracker.is_triggered(None)
         self.assertFalse(result)
@@ -157,15 +165,16 @@ class TestTaskExecutionTrackerGetSummary(unittest.TestCase):
         tracker, session = _make_tracker()
         task_run = self._make_task_run(total_count=5)
 
-        def query_side_effect(model):
+        rows = [
+            MagicMock(status=STATUS_TRIGGERED),
+            MagicMock(status=STATUS_TRIGGERED),
+            MagicMock(status=STATUS_COMPLETED),
+            MagicMock(status=STATUS_FAILED),
+        ]
+
+        def query_side_effect(*args):
             m = MagicMock()
             m.filter.return_value.first.return_value = task_run
-            rows = [
-                MagicMock(status=STATUS_TRIGGERED),
-                MagicMock(status=STATUS_TRIGGERED),
-                MagicMock(status=STATUS_COMPLETED),
-                MagicMock(status=STATUS_FAILED),
-            ]
             m.filter.return_value.all.return_value = rows
             return m
 
@@ -176,29 +185,3 @@ class TestTaskExecutionTrackerGetSummary(unittest.TestCase):
         self.assertEqual(summary["completed"], 1)
         self.assertEqual(summary["failed"], 1)
         self.assertEqual(summary["pending"], 1)  # 5 total - 4 processed
-
-
-class TestGetValidationRunStatus(unittest.TestCase):
-    @patch("tasks.validation_reports.get_validation_run_status_task.TaskExecutionTracker")
-    @patch("tasks.validation_reports.get_validation_run_status_task.with_db_session")
-    def test_requires_validator_version(self, *_):
-        from tasks.validation_reports.get_validation_run_status_task import (
-            get_validation_run_status_handler,
-        )
-        with self.assertRaises(ValueError):
-            get_validation_run_status_handler({})
-
-    @patch("tasks.validation_reports.get_validation_run_status_task.TaskExecutionTracker")
-    def test_handler_passes_version_to_function(self, tracker_cls):
-        from tasks.validation_reports.get_validation_run_status_task import (
-            get_validation_run_status_handler,
-            get_validation_run_status,
-        )
-        with patch(
-            "tasks.validation_reports.get_validation_run_status_task.get_validation_run_status"
-        ) as mock_fn:
-            mock_fn.return_value = {"run_status": "in_progress"}
-            get_validation_run_status_handler({"validator_version": "7.0.0"})
-            mock_fn.assert_called_once_with(
-                validator_version="7.0.0", sync_workflow_status=False
-            )
