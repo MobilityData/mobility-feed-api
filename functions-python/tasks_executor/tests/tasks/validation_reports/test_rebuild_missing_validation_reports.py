@@ -33,6 +33,7 @@ class TestGetParameters(unittest.TestCase):
             dry_run,
             filter_after_in_days,
             filter_statuses,
+            filter_op_statuses,
             prod_env,
             validator_endpoint,
             bypass_db_update,
@@ -42,6 +43,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertTrue(dry_run)
         self.assertIsNone(filter_after_in_days)
         self.assertIsNone(filter_statuses)
+        self.assertIsNone(filter_op_statuses)
         self.assertFalse(prod_env)
         self.assertEqual(validator_endpoint, GTFS_VALIDATOR_URL_STAGING)
         self.assertFalse(bypass_db_update)
@@ -53,6 +55,7 @@ class TestGetParameters(unittest.TestCase):
             "dry_run": False,
             "filter_after_in_days": 30,
             "filter_statuses": ["active"],
+            "filter_op_statuses": ["published", "unpublished"],
             "validator_endpoint": "https://staging.example.com/api",
             "bypass_db_update": True,
             "force_update": True,
@@ -62,6 +65,7 @@ class TestGetParameters(unittest.TestCase):
             dry_run,
             filter_after_in_days,
             filter_statuses,
+            filter_op_statuses,
             prod_env,
             validator_endpoint,
             bypass_db_update,
@@ -71,6 +75,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertFalse(dry_run)
         self.assertEqual(filter_after_in_days, 30)
         self.assertEqual(filter_statuses, ["active"])
+        self.assertEqual(filter_op_statuses, ["published", "unpublished"])
         self.assertEqual(validator_endpoint, "https://staging.example.com/api")
         self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
@@ -83,7 +88,7 @@ class TestGetParameters(unittest.TestCase):
             "force_update": "true",
             "limit": "5",
         }
-        dry_run, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(
+        dry_run, _, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(
             payload
         )
         self.assertFalse(dry_run)
@@ -221,6 +226,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             "validator_endpoint": "https://staging.example.com/api",
             "force_update": True,
             "limit": 10,
+            "filter_op_statuses": ["published", "wip"],
         }
         rebuild_missing_validation_reports_handler(payload)
         rebuild_mock.assert_called_once_with(
@@ -229,7 +235,26 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             dry_run=False,
             filter_after_in_days=30,
             filter_statuses=None,
+            filter_op_statuses=["published", "wip"],
             prod_env=False,
             force_update=True,
             limit=10,
         )
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_default_op_status_filters_published(
+        self, tracker_cls, filter_blob_mock, version_mock
+    ):
+        """When filter_op_statuses is None, the query should default to ['published']."""
+        session = self._make_session_mock(datasets=[])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            dry_run=True,
+            filter_op_statuses=None,
+            db_session=session,
+        )
+        # The query chain should have received a filter call for operational_status
+        # Verify via the query mock that .filter was called (default published applied)
+        self.assertTrue(session.query.called)

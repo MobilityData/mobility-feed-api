@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Feed,
     Gtfsfeed,
     Gtfsdataset,
     Validationreport,
@@ -59,6 +60,9 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         "filter_after_in_days": int, # [optional] Restrict to datasets downloaded within the last N days.
                                      #   If omitted, all datasets are considered regardless of age.
         "filter_statuses": list[str],# [optional] Filter feeds by status
+        "filter_op_statuses": list[str],# [optional] Filter feeds by operational status.
+                                     #   Default: ["published"]
+                                     #   Accepted values: "published", "unpublished", "wip"
         "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
         "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs).
             Default: False
@@ -70,6 +74,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         dry_run,
         filter_after_in_days,
         filter_statuses,
+        filter_op_statuses,
         prod_env,
         validator_endpoint,
         bypass_db_update,
@@ -83,6 +88,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         dry_run=dry_run,
         filter_after_in_days=filter_after_in_days,
         filter_statuses=filter_statuses,
+        filter_op_statuses=filter_op_statuses,
         prod_env=prod_env,
         force_update=force_update,
         limit=limit,
@@ -96,6 +102,7 @@ def rebuild_missing_validation_reports(
     dry_run: bool = True,
     filter_after_in_days: Optional[int] = None,
     filter_statuses: List[str] | None = None,
+    filter_op_statuses: List[str] | None = None,
     prod_env: bool = False,
     force_update: bool = False,
     limit: Optional[int] = None,
@@ -112,6 +119,8 @@ def rebuild_missing_validation_reports(
         filter_after_in_days: Restrict to datasets downloaded within the last N days.
             If None (default), all datasets are considered regardless of age.
         filter_statuses: Filter feeds by status. Default: None (all)
+        filter_op_statuses: Filter feeds by operational status.
+            Default: ["published"]. Accepted: "published", "unpublished", "wip".
         prod_env: True if targeting the production environment. Default: False
         force_update: Re-trigger even if a report already exists. Default: False
         limit: Max datasets to trigger per call (for end-to-end testing). Default: unlimited
@@ -130,6 +139,7 @@ def rebuild_missing_validation_reports(
         force_update=force_update,
         filter_after_in_days=filter_after_in_days,
         filter_statuses=filter_statuses,
+        filter_op_statuses=filter_op_statuses if filter_op_statuses is not None else ["published"],
     )
     logging.info("Found %s candidate datasets", len(datasets))
 
@@ -223,6 +233,7 @@ def _get_datasets_for_validation(
     force_update: bool,
     filter_after_in_days: Optional[int],
     filter_statuses: Optional[List[str]],
+    filter_op_statuses: Optional[List[str]],
 ) -> List[tuple]:
     """
     Query datasets that need a (re)validation.
@@ -234,6 +245,7 @@ def _get_datasets_for_validation(
 
     filter_after_in_days restricts to datasets downloaded within the last N days.
     When None, all datasets are included regardless of age.
+    filter_op_statuses filters by Feed.operational_status (e.g. ["published"]).
     """
     query = (
         db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
@@ -255,6 +267,8 @@ def _get_datasets_for_validation(
         query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
     if filter_statuses:
         query = query.filter(Gtfsfeed.status.in_(filter_statuses))
+    if filter_op_statuses:
+        query = query.filter(Feed.operational_status.in_(filter_op_statuses))
 
     return query.all()
 
@@ -311,6 +325,8 @@ def get_parameters(payload):
 
     filter_statuses = payload.get("filter_statuses", None)
 
+    filter_op_statuses = payload.get("filter_op_statuses", None)
+
     validator_endpoint = payload.get("validator_endpoint", default_endpoint)
 
     bypass_db_update = payload.get("bypass_db_update", False)
@@ -335,6 +351,7 @@ def get_parameters(payload):
         dry_run,
         filter_after_in_days,
         filter_statuses,
+        filter_op_statuses,
         prod_env,
         validator_endpoint,
         bypass_db_update,

@@ -38,6 +38,7 @@ that were already triggered (tracked in `task_execution_log`).
 | `bypass_db_update` | bool | `false` | When `true`, results are NOT written to DB/API (use for pre-release runs) |
 | `filter_after_in_days` | int | `null` | Restrict to datasets downloaded within the last N days. Omit to include all datasets |
 | `filter_statuses` | list[str] | `null` | Filter feeds by status (e.g. `["active", "inactive"]`). Omit for all statuses |
+| `filter_op_statuses` | list[str] | `["published"]` | Filter feeds by operational status. Accepted values: `"published"`, `"unpublished"`, `"wip"` |
 | `force_update` | bool | `false` | Re-trigger even when a current report already exists |
 | `limit` | int | `null` | Cap the number of workflows triggered per call — useful for end-to-end testing |
 
