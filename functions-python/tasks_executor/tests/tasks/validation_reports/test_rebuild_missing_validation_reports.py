@@ -77,8 +77,15 @@ class TestGetParameters(unittest.TestCase):
         self.assertEqual(limit, 10)
 
     def test_string_coercion(self):
-        payload = {"dry_run": "false", "bypass_db_update": "true", "force_update": "true", "limit": "5"}
-        dry_run, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(payload)
+        payload = {
+            "dry_run": "false",
+            "bypass_db_update": "true",
+            "force_update": "true",
+            "limit": "5",
+        }
+        dry_run, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(
+            payload
+        )
         self.assertFalse(dry_run)
         self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)

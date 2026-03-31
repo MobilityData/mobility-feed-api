@@ -59,7 +59,8 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         "filter_after_in_days": int, # [optional] Filter datasets older than N days. Default: 7
         "filter_statuses": list[str],# [optional] Filter feeds by status
         "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
-        "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs). Default: False
+        "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs).
+            Default: False
         "force_update": bool,        # [optional] Re-trigger even if a report already exists. Default: False
         "limit": int,                # [optional] Max datasets to trigger per call (for testing). Default: unlimited
     }
