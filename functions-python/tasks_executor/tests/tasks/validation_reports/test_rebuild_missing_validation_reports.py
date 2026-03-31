@@ -35,6 +35,7 @@ class TestGetParameters(unittest.TestCase):
             filter_statuses,
             prod_env,
             validator_endpoint,
+            bypass_db_update,
             force_update,
             limit,
         ) = get_parameters({})
@@ -43,6 +44,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertIsNone(filter_statuses)
         self.assertFalse(prod_env)
         self.assertEqual(validator_endpoint, GTFS_VALIDATOR_URL_STAGING)
+        self.assertFalse(bypass_db_update)
         self.assertFalse(force_update)
         self.assertIsNone(limit)
 
@@ -52,6 +54,7 @@ class TestGetParameters(unittest.TestCase):
             "filter_after_in_days": 30,
             "filter_statuses": ["active"],
             "validator_endpoint": "https://staging.example.com/api",
+            "bypass_db_update": True,
             "force_update": True,
             "limit": 10,
         }
@@ -61,6 +64,7 @@ class TestGetParameters(unittest.TestCase):
             filter_statuses,
             prod_env,
             validator_endpoint,
+            bypass_db_update,
             force_update,
             limit,
         ) = get_parameters(payload)
@@ -68,13 +72,15 @@ class TestGetParameters(unittest.TestCase):
         self.assertEqual(filter_after_in_days, 30)
         self.assertEqual(filter_statuses, ["active"])
         self.assertEqual(validator_endpoint, "https://staging.example.com/api")
+        self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
         self.assertEqual(limit, 10)
 
     def test_string_coercion(self):
-        payload = {"dry_run": "false", "force_update": "true", "limit": "5"}
-        dry_run, _, _, _, _, force_update, limit = get_parameters(payload)
+        payload = {"dry_run": "false", "bypass_db_update": "true", "force_update": "true", "limit": "5"}
+        dry_run, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(payload)
         self.assertFalse(dry_run)
+        self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
         self.assertEqual(limit, 5)
 
@@ -168,7 +174,26 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
     )
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_bypass_db_update_set_for_non_default_endpoint(
+    def test_bypass_db_update_passed_explicitly(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
+    ):
+        session = self._make_session_mock(datasets=[("f", "ds-1")])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            bypass_db_update=True,
+            dry_run=False,
+            db_session=session,
+        )
+        _, call_kwargs = exec_mock.call_args
+        self.assertTrue(call_kwargs["bypass_db_update"])
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(
+        f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[("f", "ds-1")]
+    )
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_bypass_db_update_defaults_to_false(
         self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
         session = self._make_session_mock(datasets=[("f", "ds-1")])
@@ -178,7 +203,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             db_session=session,
         )
         _, call_kwargs = exec_mock.call_args
-        self.assertTrue(call_kwargs["bypass_db_update"])
+        self.assertFalse(call_kwargs["bypass_db_update"])
 
     @patch(f"{_MODULE}.rebuild_missing_validation_reports")
     def test_handler_passes_all_params(self, rebuild_mock):
@@ -193,6 +218,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         rebuild_missing_validation_reports_handler(payload)
         rebuild_mock.assert_called_once_with(
             validator_endpoint="https://staging.example.com/api",
+            bypass_db_update=False,
             dry_run=False,
             filter_after_in_days=30,
             filter_statuses=None,

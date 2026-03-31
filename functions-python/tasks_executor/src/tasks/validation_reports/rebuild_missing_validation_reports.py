@@ -58,9 +58,8 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         "dry_run": bool,             # [optional] If True, count only — do not trigger workflows. Default: True
         "filter_after_in_days": int, # [optional] Filter datasets older than N days. Default: 7
         "filter_statuses": list[str],# [optional] Filter feeds by status
-        "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging).
-                                     #   When provided: fetches validator_version, sets bypass_db_update=True,
-                                     #   and also re-validates datasets with a stale validator version.
+        "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
+        "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs). Default: False
         "force_update": bool,        # [optional] Re-trigger even if a report already exists. Default: False
         "limit": int,                # [optional] Max datasets to trigger per call (for testing). Default: unlimited
     }
@@ -71,12 +70,14 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         filter_statuses,
         prod_env,
         validator_endpoint,
+        bypass_db_update,
         force_update,
         limit,
     ) = get_parameters(payload)
 
     return rebuild_missing_validation_reports(
         validator_endpoint=validator_endpoint,
+        bypass_db_update=bypass_db_update,
         dry_run=dry_run,
         filter_after_in_days=filter_after_in_days,
         filter_statuses=filter_statuses,
@@ -89,6 +90,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
 @with_db_session
 def rebuild_missing_validation_reports(
     validator_endpoint: str,
+    bypass_db_update: bool = False,
     dry_run: bool = True,
     filter_after_in_days: int = 7,
     filter_statuses: List[str] | None = None,
@@ -100,13 +102,10 @@ def rebuild_missing_validation_reports(
     """
     Rebuilds missing (or stale) validation reports for GTFS datasets.
 
-    When validator_endpoint is a non-default URL (e.g. staging), bypass_db_update is
-    set to True automatically so pre-release reports are not surfaced in the API.
-    The TaskExecutionTracker ensures repeated calls skip already-triggered datasets,
-    making the function safe to call multiple times after a timeout.
-
     Args:
-        validator_endpoint: Validator endpoint URL
+        validator_endpoint: Validator service URL (default: env-derived)
+        bypass_db_update: If True, validation results are NOT written to the DB/API.
+            Use for pre-release runs where results should not be surfaced yet.
         dry_run: If True, count only — do not trigger workflows. Default: True
         filter_after_in_days: Filter datasets older than N days. Default: 7
         filter_statuses: Filter feeds by status. Default: None (all)
@@ -115,9 +114,6 @@ def rebuild_missing_validation_reports(
         limit: Max datasets to trigger per call (for end-to-end testing). Default: unlimited
         db_session: DB session (injected by @with_db_session)
     """
-    default_endpoint = get_gtfs_validator_url(prod_env)
-    bypass_db_update = validator_endpoint != default_endpoint
-
     validator_version = _get_validator_version(validator_endpoint)
     logging.info(
         "Validator version: %s (bypass_db_update=%s)",
@@ -309,6 +305,13 @@ def get_parameters(payload):
 
     validator_endpoint = payload.get("validator_endpoint", default_endpoint)
 
+    bypass_db_update = payload.get("bypass_db_update", False)
+    bypass_db_update = (
+        bypass_db_update
+        if isinstance(bypass_db_update, bool)
+        else str(bypass_db_update).lower() == "true"
+    )
+
     force_update = payload.get("force_update", False)
     force_update = (
         force_update
@@ -326,6 +329,7 @@ def get_parameters(payload):
         filter_statuses,
         prod_env,
         validator_endpoint,
+        bypass_db_update,
         force_update,
         limit,
     )
