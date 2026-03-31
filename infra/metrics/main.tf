@@ -45,6 +45,10 @@ locals {
   unique_secret_keys = toset(local.all_secret_keys_list)
 }
 
+data "google_storage_bucket" "datasets_bucket" {
+  name = "${var.datasets_bucket_name}-${var.environment}"
+}
+
 # Service account for the metrics
 resource "google_service_account" "metrics_service_account" {
     account_id   = "metrics-service-account"
@@ -592,6 +596,12 @@ resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_a
 
 resource "google_storage_bucket_iam_member" "snapshots_bucket_functions_service_account" {
   bucket = data.google_storage_bucket.gbfs_snapshots_bucket.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.metrics_service_account.email}"
+}
+
+resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
+  bucket = data.google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.metrics_service_account.email}"
 }
