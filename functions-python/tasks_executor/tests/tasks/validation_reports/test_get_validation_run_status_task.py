@@ -184,6 +184,7 @@ class TestSyncWorkflowStatuses(unittest.TestCase):
         from tasks.validation_reports.get_validation_run_status_task import (
             _sync_workflow_statuses,
         )
+
         session = self._make_session_with_entries([])
         tracker = MagicMock()
 
@@ -234,4 +235,6 @@ class TestSyncWorkflowStatuses(unittest.TestCase):
         tracker = MagicMock()
         _sync_workflow_statuses("7.0.0", session, tracker)
 
-        tracker.mark_failed.assert_called_once_with("ds-2", error_message="Validator crashed")
+        tracker.mark_failed.assert_called_once_with(
+            "ds-2", error_message="Validator crashed"
+        )

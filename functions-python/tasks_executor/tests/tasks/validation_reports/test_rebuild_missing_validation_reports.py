@@ -15,7 +15,7 @@
 #
 
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 from shared.helpers.gtfs_validator_common import GTFS_VALIDATOR_URL_STAGING
 from tasks.validation_reports.rebuild_missing_validation_reports import (
@@ -29,7 +29,15 @@ _MODULE = "tasks.validation_reports.rebuild_missing_validation_reports"
 
 class TestGetParameters(unittest.TestCase):
     def test_defaults(self):
-        dry_run, filter_after_in_days, filter_statuses, prod_env, validator_endpoint, force_update, limit = get_parameters({})
+        (
+            dry_run,
+            filter_after_in_days,
+            filter_statuses,
+            prod_env,
+            validator_endpoint,
+            force_update,
+            limit,
+        ) = get_parameters({})
         self.assertTrue(dry_run)
         self.assertEqual(filter_after_in_days, 7)
         self.assertIsNone(filter_statuses)
@@ -47,7 +55,15 @@ class TestGetParameters(unittest.TestCase):
             "force_update": True,
             "limit": 10,
         }
-        dry_run, filter_after_in_days, filter_statuses, prod_env, validator_endpoint, force_update, limit = get_parameters(payload)
+        (
+            dry_run,
+            filter_after_in_days,
+            filter_statuses,
+            prod_env,
+            validator_endpoint,
+            force_update,
+            limit,
+        ) = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertEqual(filter_after_in_days, 30)
         self.assertEqual(filter_statuses, ["active"])
@@ -84,7 +100,9 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
     def test_dry_run_returns_count_without_triggering(
         self, tracker_cls, filter_blob_mock, version_mock
     ):
-        session = self._make_session_mock(datasets=[("feed-1", "ds-1"), ("feed-2", "ds-2")])
+        session = self._make_session_mock(
+            datasets=[("feed-1", "ds-1"), ("feed-2", "ds-2")]
+        )
         filter_blob_mock.return_value = [("feed-1", "ds-1"), ("feed-2", "ds-2")]
 
         result = rebuild_missing_validation_reports(
@@ -145,7 +163,9 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self.assertEqual(result["total_in_call"], 5)
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[("f", "ds-1")])
+    @patch(
+        f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[("f", "ds-1")]
+    )
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_bypass_db_update_set_for_non_default_endpoint(
@@ -180,4 +200,3 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             force_update=True,
             limit=10,
         )
-
