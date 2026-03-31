@@ -183,7 +183,7 @@ class TaskExecutionTracker:
                 constraint="task_execution_log_task_name_entity_id_run_id_key",
                 set_={
                     "execution_ref": execution_ref,
-                    "metadata_": metadata,
+                    "metadata": metadata,
                     "status": STATUS_TRIGGERED,
                 },
             )
