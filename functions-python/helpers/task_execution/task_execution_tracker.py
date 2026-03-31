@@ -239,10 +239,11 @@ class TaskExecutionTracker:
                 "run_status": str,
                 "total_count": int | None,
                 "created_at": datetime | None,
+                "params": dict | None,
                 "triggered": int,
                 "completed": int,
                 "failed": int,
-                "pending": int,
+                "pending": int,   # > 0 means dispatch loop didn't complete; call rebuild again
             }
         """
         task_run = (
@@ -260,6 +261,7 @@ class TaskExecutionTracker:
                 "run_status": None,
                 "total_count": None,
                 "created_at": None,
+                "params": None,
                 "triggered": 0,
                 "completed": 0,
                 "failed": 0,
@@ -298,6 +300,7 @@ class TaskExecutionTracker:
             "run_status": task_run.status,
             "total_count": task_run.total_count,
             "created_at": task_run.created_at,
+            "params": task_run.params,
             "triggered": counts[STATUS_TRIGGERED],
             "completed": counts[STATUS_COMPLETED],
             "failed": counts[STATUS_FAILED],

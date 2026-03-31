@@ -98,6 +98,15 @@ def get_validation_run_status(
 
     summary = tracker.get_summary()
 
+    # dispatch_complete: True only when all intended triggers have been dispatched.
+    # If False, rebuild_missing_validation_reports timed out mid-loop and should be called again.
+    summary["dispatch_complete"] = summary["pending"] == 0
+
+    # total_candidates comes from params (stored separately from total_count which is
+    # the per-call limit). May be None for older runs that predate this field.
+    run_params = summary.get("params") or {}
+    summary["total_candidates"] = run_params.get("total_candidates")
+
     failed_entries = (
         db_session.query(TaskExecutionLog)
         .filter(

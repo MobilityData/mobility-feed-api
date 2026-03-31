@@ -144,21 +144,22 @@ def rebuild_missing_validation_reports(
         db_session=db_session,
     )
 
+    datasets_to_trigger = valid_datasets
+    if limit is not None:
+        datasets_to_trigger = valid_datasets[:limit]
+
     if not dry_run:
         tracker.start_run(
-            total_count=len(valid_datasets),
+            total_count=len(datasets_to_trigger),
             params={
                 "validator_endpoint": validator_endpoint,
                 "bypass_db_update": bypass_db_update,
                 "prod_env": prod_env,
                 "force_update": force_update,
                 "limit": limit,
+                "total_candidates": len(valid_datasets),
             },
         )
-
-    datasets_to_trigger = valid_datasets
-    if limit is not None:
-        datasets_to_trigger = valid_datasets[:limit]
 
     total_triggered = 0
     total_skipped = 0
