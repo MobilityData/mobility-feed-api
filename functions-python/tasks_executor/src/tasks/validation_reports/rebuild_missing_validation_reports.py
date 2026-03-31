@@ -146,10 +146,9 @@ def rebuild_missing_validation_reports(
     total_candidates = len(datasets)
     logging.info("Found %s candidate datasets", total_candidates)
 
-    # Apply limit before the GCS blob check to avoid checking thousands of
-    # objects when only a handful will actually be triggered.
-    candidates_to_check = datasets[:limit] if limit is not None else datasets
-    valid_datasets = _filter_datasets_with_existing_blob(candidates_to_check)
+    # Apply limit inside the GCS blob check so we stop as soon as we have
+    # enough valid datasets, without discarding candidates that would pass.
+    valid_datasets = _filter_datasets_with_existing_blob(datasets, limit=limit)
     logging.info(
         "%s datasets have a GCS blob and will be triggered", len(valid_datasets)
     )
@@ -279,15 +278,21 @@ def _get_datasets_for_validation(
 
 def _filter_datasets_with_existing_blob(
     datasets: List[tuple],
+    limit: Optional[int] = None,
 ) -> List[tuple]:
     """
     Filter out datasets whose zip file does not exist in GCS.
     This avoids triggering workflows for feeds that have no data to validate.
+
+    When limit is provided, stops as soon as limit valid datasets are found,
+    avoiding unnecessary GCS calls for the remaining candidates.
     """
     storage_client = storage.Client()
     bucket = storage_client.bucket(datasets_bucket_name)
     valid = []
     for feed_id, dataset_id in datasets:
+        if limit is not None and len(valid) >= limit:
+            break
         try:
             blob = bucket.blob(f"{feed_id}/{dataset_id}/{dataset_id}.zip")
             if blob.exists():

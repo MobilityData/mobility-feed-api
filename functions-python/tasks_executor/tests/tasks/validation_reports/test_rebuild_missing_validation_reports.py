@@ -164,7 +164,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
         datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
-        filter_blob_mock.side_effect = lambda x: x  # pass through whatever is received
+        filter_blob_mock.return_value = [(f"feed-{i}", f"ds-{i}") for i in range(5)]
         session = self._make_session_mock(datasets=datasets)
 
         result = rebuild_missing_validation_reports(
@@ -174,7 +174,8 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             db_session=session,
         )
 
-        _, call_kwargs = exec_mock.call_args
+        # blob filter must be called with full candidate list AND the limit
+        filter_blob_mock.assert_called_once_with(datasets, limit=5)
         triggered_datasets = exec_mock.call_args[0][0]
         self.assertEqual(len(triggered_datasets), 5)
         self.assertEqual(result["total_candidates"], 20)
@@ -258,3 +259,50 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         # The query chain should have received a filter call for operational_status
         # Verify via the query mock that .filter was called (default published applied)
         self.assertTrue(session.query.called)
+
+
+class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
+    @patch(f"{_MODULE}.storage")
+    def test_stops_at_limit(self, storage_mock):
+        """Should stop checking GCS as soon as limit valid datasets are found."""
+        from tasks.validation_reports.rebuild_missing_validation_reports import (
+            _filter_datasets_with_existing_blob,
+        )
+
+        bucket_mock = MagicMock()
+        storage_mock.Client.return_value.bucket.return_value = bucket_mock
+
+        # All blobs exist
+        blob_mock = MagicMock()
+        blob_mock.exists.return_value = True
+        bucket_mock.blob.return_value = blob_mock
+
+        datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
+        result = _filter_datasets_with_existing_blob(datasets, limit=3)
+
+        self.assertEqual(len(result), 3)
+        # Only 3 GCS calls should have been made
+        self.assertEqual(blob_mock.exists.call_count, 3)
+
+    @patch(f"{_MODULE}.storage")
+    def test_skips_missing_blobs_and_continues(self, storage_mock):
+        """Should skip datasets with no blob and keep going until limit is reached."""
+        from tasks.validation_reports.rebuild_missing_validation_reports import (
+            _filter_datasets_with_existing_blob,
+        )
+
+        bucket_mock = MagicMock()
+        storage_mock.Client.return_value.bucket.return_value = bucket_mock
+
+        # First 2 blobs missing, next 3 exist
+        exists_sequence = [False, False, True, True, True, True, True]
+        blob_mock = MagicMock()
+        blob_mock.exists.side_effect = exists_sequence
+        bucket_mock.blob.return_value = blob_mock
+
+        datasets = [(f"feed-{i}", f"ds-{i}") for i in range(7)]
+        result = _filter_datasets_with_existing_blob(datasets, limit=3)
+
+        self.assertEqual(len(result), 3)
+        # Must have checked 5 items: 2 missing + 3 valid
+        self.assertEqual(blob_mock.exists.call_count, 5)
