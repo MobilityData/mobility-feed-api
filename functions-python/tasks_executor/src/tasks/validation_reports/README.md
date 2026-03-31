@@ -184,7 +184,9 @@ after the pre-release run completes, trigger the `ingest-data-to-big-query` Clou
 Function manually via the GCP console or `gcloud`:
 
 ```bash
-gcloud functions call ingest-data-to-big-query --region=northamerica-northeast1
+curl -X POST "https://ingest-data-to-big-query-gtfs-563580583640.northamerica-northeast1.run.app" \
+  -H "Authorization: bearer $(gcloud auth print-identity-token)" \
+  -H "Content-Type: application/json"
 ```
 
 ---
