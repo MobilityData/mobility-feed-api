@@ -40,7 +40,7 @@ class TestGetParameters(unittest.TestCase):
             limit,
         ) = get_parameters({})
         self.assertTrue(dry_run)
-        self.assertEqual(filter_after_in_days, 7)
+        self.assertIsNone(filter_after_in_days)
         self.assertIsNone(filter_statuses)
         self.assertFalse(prod_env)
         self.assertEqual(validator_endpoint, GTFS_VALIDATOR_URL_STAGING)

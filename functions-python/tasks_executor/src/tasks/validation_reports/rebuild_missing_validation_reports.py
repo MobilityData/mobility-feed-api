@@ -56,7 +56,8 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
     Payload structure:
     {
         "dry_run": bool,             # [optional] If True, count only — do not trigger workflows. Default: True
-        "filter_after_in_days": int, # [optional] Filter datasets older than N days. Default: 7
+        "filter_after_in_days": int, # [optional] Restrict to datasets downloaded within the last N days.
+                                     #   If omitted, all datasets are considered regardless of age.
         "filter_statuses": list[str],# [optional] Filter feeds by status
         "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
         "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs).
@@ -93,7 +94,7 @@ def rebuild_missing_validation_reports(
     validator_endpoint: str,
     bypass_db_update: bool = False,
     dry_run: bool = True,
-    filter_after_in_days: int = 7,
+    filter_after_in_days: Optional[int] = None,
     filter_statuses: List[str] | None = None,
     prod_env: bool = False,
     force_update: bool = False,
@@ -108,7 +109,8 @@ def rebuild_missing_validation_reports(
         bypass_db_update: If True, validation results are NOT written to the DB/API.
             Use for pre-release runs where results should not be surfaced yet.
         dry_run: If True, count only — do not trigger workflows. Default: True
-        filter_after_in_days: Filter datasets older than N days. Default: 7
+        filter_after_in_days: Restrict to datasets downloaded within the last N days.
+            If None (default), all datasets are considered regardless of age.
         filter_statuses: Filter feeds by status. Default: None (all)
         prod_env: True if targeting the production environment. Default: False
         force_update: Re-trigger even if a report already exists. Default: False
@@ -218,7 +220,7 @@ def _get_datasets_for_validation(
     db_session: Session,
     validator_version: str,
     force_update: bool,
-    filter_after_in_days: int,
+    filter_after_in_days: Optional[int],
     filter_statuses: Optional[List[str]],
 ) -> List[tuple]:
     """
@@ -228,9 +230,10 @@ def _get_datasets_for_validation(
       - Have no validation report at all, OR
       - Have a report from a different (older) validator version, OR
       - force_update is True
-    """
-    filter_after = datetime.today() - timedelta(days=filter_after_in_days)
 
+    filter_after_in_days restricts to datasets downloaded within the last N days.
+    When None, all datasets are included regardless of age.
+    """
     query = (
         db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
         .select_from(Gtfsfeed)
@@ -243,10 +246,12 @@ def _get_datasets_for_validation(
                 force_update,
             )
         )
-        .filter(Gtfsdataset.downloaded_at >= filter_after)
         .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
         .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id)
     )
+    if filter_after_in_days is not None:
+        filter_after = datetime.today() - timedelta(days=filter_after_in_days)
+        query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
     if filter_statuses:
         query = query.filter(Gtfsfeed.status.in_(filter_statuses))
 
@@ -295,12 +300,13 @@ def get_parameters(payload):
     dry_run = payload.get("dry_run", True)
     dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"
 
-    filter_after_in_days = payload.get("filter_after_in_days", 7)
-    filter_after_in_days = (
-        filter_after_in_days
-        if isinstance(filter_after_in_days, int)
-        else int(filter_after_in_days)
-    )
+    filter_after_in_days = payload.get("filter_after_in_days", None)
+    if filter_after_in_days is not None:
+        filter_after_in_days = (
+            filter_after_in_days
+            if isinstance(filter_after_in_days, int)
+            else int(filter_after_in_days)
+        )
 
     filter_statuses = payload.get("filter_statuses", None)
 
