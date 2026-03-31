@@ -88,9 +88,3 @@ variable "gbfs_data_preprocessor_schedule" {
     description = "Schedule for GBFS data preprocessor"
     default     = "0 0 2 * *"  # Midnight on the 2nd of every month
 }
-
-variable "datasets_bucket_name" {
-  type        = string
-  description = "Name of the bucket where the datasets are stored"
-  default = "mobilitydata-datasets"
-}
