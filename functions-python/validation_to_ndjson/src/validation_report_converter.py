@@ -89,7 +89,7 @@ class ValidationReportConverter:
 
         # Convert the JSON data to a single NDJSON record (one line)
         storage_client = storage.Client(project=project_id)
-        bucket = storage_client.get_bucket(bucket_name)
+        bucket = storage_client.bucket(bucket_name)
         ndjson_content = json.dumps(json_data, separators=(",", ":"))
         ndjson_blob = bucket.blob(ndjson_blob_name)
         ndjson_blob.upload_from_string(ndjson_content + "\n")
