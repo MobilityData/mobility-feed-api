@@ -43,6 +43,9 @@ from tasks.validation_reports.rebuild_missing_validation_reports import (
 from tasks.sync_task_run_status import (
     sync_task_run_status_handler,
 )
+from tasks.get_task_run_status import (
+    get_task_run_status_handler,
+)
 from tasks.visualization_files.rebuild_missing_visualization_files import (
     rebuild_missing_visualization_files_handler,
 )
@@ -74,6 +77,15 @@ tasks = {
     "rebuild_missing_validation_reports": {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
         "handler": rebuild_missing_validation_reports_handler,
+    },
+    "get_task_run_status": {
+        "description": (
+            "Read-only snapshot of a task_run tracked by TaskExecutionTracker. "
+            "Returns current DB state (triggered/completed/failed/pending counts) "
+            "without triggering any GCP Workflows polling or status transitions. "
+            "Required: task_name, run_id."
+        ),
+        "handler": get_task_run_status_handler,
     },
     "sync_task_run_status": {
         "description": (
