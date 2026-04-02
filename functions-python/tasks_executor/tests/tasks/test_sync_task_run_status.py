@@ -87,7 +87,9 @@ class TestSyncTaskRunStatus(unittest.TestCase):
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_raises_task_in_progress_when_triggered_remain(self, tracker_cls, sync_mock):
+    def test_raises_task_in_progress_when_triggered_remain(
+        self, tracker_cls, sync_mock
+    ):
         from tasks.sync_task_run_status import sync_task_run_status
 
         tracker = self._make_tracker_mock(
@@ -114,7 +116,9 @@ class TestSyncTaskRunStatus(unittest.TestCase):
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_raises_task_in_progress_when_dispatch_incomplete(self, tracker_cls, sync_mock):
+    def test_raises_task_in_progress_when_dispatch_incomplete(
+        self, tracker_cls, sync_mock
+    ):
         from tasks.sync_task_run_status import sync_task_run_status
 
         tracker = self._make_tracker_mock(

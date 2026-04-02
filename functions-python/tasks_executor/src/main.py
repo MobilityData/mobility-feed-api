@@ -211,6 +211,8 @@ def tasks_executor(request: flask.Request) -> flask.Response:
         return flask.make_response(flask.jsonify(result), 200)
     except TaskInProgressError as error:
         # Signal Cloud Tasks to retry — the run is not yet complete
-        return flask.make_response(flask.jsonify({"status": "in_progress", "detail": str(error)}), 503)
+        return flask.make_response(
+            flask.jsonify({"status": "in_progress", "detail": str(error)}), 503
+        )
     except Exception as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 500)

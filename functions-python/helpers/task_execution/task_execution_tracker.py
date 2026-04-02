@@ -348,13 +348,11 @@ class TaskExecutionTracker:
         try:
             from google.cloud import tasks_v2
             from google.protobuf import timestamp_pb2
+            from shared.helpers.utils import create_http_task_with_name
 
-            try:
-                from shared.helpers.utils import create_http_task_with_name
-            except ImportError:
-                from helpers.utils import create_http_task_with_name
-
-            safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", f"{self.task_name}-{self.run_id}")
+            safe_name = re.sub(
+                r"[^a-zA-Z0-9_-]", "-", f"{self.task_name}-{self.run_id}"
+            )
             task_name = f"sync-{safe_name}"[:500]
 
             url = (
@@ -373,7 +371,6 @@ class TaskExecutionTracker:
 
             schedule_time = None
             if delay_seconds > 0:
-                from datetime import timedelta
                 run_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
                 schedule_time = timestamp_pb2.Timestamp()
                 schedule_time.FromDatetime(run_at.replace(tzinfo=None))
