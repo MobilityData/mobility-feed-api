@@ -38,9 +38,7 @@ class TestGetTaskRunStatusHandler(unittest.TestCase):
         from tasks.get_task_run_status import get_task_run_status_handler
 
         mock_fn.return_value = {"run_status": "completed"}
-        get_task_run_status_handler(
-            {"task_name": "gtfs_validation", "run_id": "7.0.0"}
-        )
+        get_task_run_status_handler({"task_name": "gtfs_validation", "run_id": "7.0.0"})
         mock_fn.assert_called_once_with(task_name="gtfs_validation", run_id="7.0.0")
 
 
