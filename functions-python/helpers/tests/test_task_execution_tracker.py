@@ -48,11 +48,11 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
         result = tracker.start_run(total_count=100, params={"env": "staging"})
 
         self.assertEqual(result, run_uuid)
-        self.assertEqual(tracker._task_run_id, run_uuid)
+        self.assertEqual(tracker.task_run_id, run_uuid)
         session.execute.assert_called_once()
         session.flush.assert_called_once()
 
-    def test_start_run_caches_task_run_id(self):
+    def test_start_run_cachestask_run_id(self):
         tracker, session = _make_tracker()
         run_uuid = uuid.uuid4()
         execute_result = MagicMock()
@@ -62,7 +62,7 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
         tracker.start_run(total_count=10)
         tracker.start_run(total_count=20)  # second call
 
-        self.assertEqual(tracker._task_run_id, run_uuid)
+        self.assertEqual(tracker.task_run_id, run_uuid)
 
 
 class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
@@ -98,7 +98,7 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
 class TestTaskExecutionTrackerMarkTriggered(unittest.TestCase):
     def test_mark_triggered_inserts_execution_log(self):
         tracker, session = _make_tracker()
-        tracker._task_run_id = uuid.uuid4()
+        tracker.task_run_id = uuid.uuid4()
 
         tracker.mark_triggered("ds-1", execution_ref="projects/x/executions/abc")
 
@@ -107,7 +107,7 @@ class TestTaskExecutionTrackerMarkTriggered(unittest.TestCase):
 
     def test_mark_triggered_with_metadata(self):
         tracker, session = _make_tracker()
-        tracker._task_run_id = uuid.uuid4()
+        tracker.task_run_id = uuid.uuid4()
 
         tracker.mark_triggered("ds-1", metadata={"feed_id": "f-1"})
 

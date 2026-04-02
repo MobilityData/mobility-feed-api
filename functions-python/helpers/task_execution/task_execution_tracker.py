@@ -83,7 +83,7 @@ class TaskExecutionTracker:
         self.task_name = task_name
         self.run_id = run_id
         self.db_session = db_session
-        self._task_run_id: Optional[uuid.UUID] = None
+        self.task_run_id: Optional[uuid.UUID] = None
 
     # ------------------------------------------------------------------
     # Run-level operations
@@ -119,15 +119,15 @@ class TaskExecutionTracker:
         )
         result = self.db_session.execute(stmt)
         self.db_session.flush()
-        self._task_run_id = result.scalar_one()
+        self.task_run_id = result.scalar_one()
         logging.info(
             "TaskExecutionTracker: run %s/%s started (id=%s, total=%s)",
             self.task_name,
             self.run_id,
-            self._task_run_id,
+            self.task_run_id,
             total_count,
         )
-        return self._task_run_id
+        return self.task_run_id
 
     def finish_run(self, status: str = STATUS_COMPLETED) -> None:
         """Mark the task_run as completed or failed."""
@@ -177,7 +177,7 @@ class TaskExecutionTracker:
         Idempotent: if a row already exists for this (task_name, entity_id, run_id),
         it updates execution_ref and metadata.
         """
-        task_run_id = self._resolve_task_run_id()
+        task_run_id = self._resolvetask_run_id()
         stmt = (
             insert(TaskExecutionLog)
             .values(
@@ -408,10 +408,10 @@ class TaskExecutionTracker:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve_task_run_id(self) -> Optional[uuid.UUID]:
+    def _resolvetask_run_id(self) -> Optional[uuid.UUID]:
         """Return cached task_run_id or fetch it from DB."""
-        if self._task_run_id:
-            return self._task_run_id
+        if self.task_run_id:
+            return self.task_run_id
         task_run = (
             self.db_session.query(TaskRun)
             .filter(
@@ -421,8 +421,8 @@ class TaskExecutionTracker:
             .first()
         )
         if task_run:
-            self._task_run_id = task_run.id
-        return self._task_run_id
+            self.task_run_id = task_run.id
+        return self.task_run_id
 
     def _update_entity_status(self, entity_id: Optional[str], status: str) -> None:
         query = self.db_session.query(TaskExecutionLog).filter(
