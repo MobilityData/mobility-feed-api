@@ -17,6 +17,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
+
 _MODULE = "tasks.sync_task_run_status"
 
 
@@ -37,19 +39,11 @@ class TestSyncTaskRunStatusHandler(unittest.TestCase):
     def test_passes_params(self, mock_fn):
         from tasks.sync_task_run_status import sync_task_run_status_handler
 
-        mock_fn.return_value = {"run_status": "in_progress"}
+        mock_fn.return_value = {"run_status": "completed"}
         sync_task_run_status_handler(
-            {
-                "task_name": "gtfs_validation",
-                "run_id": "7.0.0",
-                "sync_delay_seconds": 300,
-            }
+            {"task_name": "gtfs_validation", "run_id": "7.0.0"}
         )
-        mock_fn.assert_called_once_with(
-            task_name="gtfs_validation",
-            run_id="7.0.0",
-            sync_delay_seconds=300,
-        )
+        mock_fn.assert_called_once_with(task_name="gtfs_validation", run_id="7.0.0")
 
 
 class TestSyncTaskRunStatus(unittest.TestCase):
@@ -93,7 +87,7 @@ class TestSyncTaskRunStatus(unittest.TestCase):
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_reschedules_when_still_in_progress(self, tracker_cls, sync_mock):
+    def test_raises_task_in_progress_when_triggered_remain(self, tracker_cls, sync_mock):
         from tasks.sync_task_run_status import sync_task_run_status
 
         tracker = self._make_tracker_mock(
@@ -110,24 +104,24 @@ class TestSyncTaskRunStatus(unittest.TestCase):
         tracker_cls.return_value = tracker
         session = self._make_session_mock()
 
-        result = sync_task_run_status(
-            task_name="gtfs_validation", run_id="7.0.0", db_session=session
-        )
+        with self.assertRaises(TaskInProgressError):
+            sync_task_run_status(
+                task_name="gtfs_validation", run_id="7.0.0", db_session=session
+            )
 
-        tracker.schedule_status_sync.assert_called_once_with(delay_seconds=600)
         tracker.finish_run.assert_not_called()
-        self.assertFalse(result["ready_for_bigquery"])
+        tracker.schedule_status_sync.assert_not_called()
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_reschedules_when_dispatch_incomplete(self, tracker_cls, sync_mock):
+    def test_raises_task_in_progress_when_dispatch_incomplete(self, tracker_cls, sync_mock):
         from tasks.sync_task_run_status import sync_task_run_status
 
         tracker = self._make_tracker_mock(
             {
                 "run_status": "in_progress",
                 "total_count": 100,
-                "pending": 30,  # dispatch not yet complete
+                "pending": 30,
                 "triggered": 0,
                 "completed": 70,
                 "failed": 0,
@@ -137,17 +131,14 @@ class TestSyncTaskRunStatus(unittest.TestCase):
         tracker_cls.return_value = tracker
         session = self._make_session_mock()
 
-        result = sync_task_run_status(
-            task_name="gtfs_validation", run_id="7.0.0", db_session=session
-        )
-
-        tracker.schedule_status_sync.assert_called_once()
-        self.assertFalse(result["dispatch_complete"])
-        self.assertFalse(result["ready_for_bigquery"])
+        with self.assertRaises(TaskInProgressError):
+            sync_task_run_status(
+                task_name="gtfs_validation", run_id="7.0.0", db_session=session
+            )
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_not_ready_when_failures_exist(self, tracker_cls, sync_mock):
+    def test_raises_task_in_progress_when_failures_exist(self, tracker_cls, sync_mock):
         from tasks.sync_task_run_status import sync_task_run_status
 
         tracker = self._make_tracker_mock(
@@ -163,19 +154,15 @@ class TestSyncTaskRunStatus(unittest.TestCase):
         )
         tracker_cls.return_value = tracker
         session = self._make_session_mock()
-        # failed_entity_ids query
         session.query.return_value.filter.return_value.all.return_value = [
             MagicMock(entity_id="ds-1"),
             MagicMock(entity_id="ds-2"),
         ]
 
-        result = sync_task_run_status(
-            task_name="gtfs_validation", run_id="7.0.0", db_session=session
-        )
-
-        self.assertFalse(result["ready_for_bigquery"])
-        self.assertEqual(result["failed_entity_ids"], ["ds-1", "ds-2"])
-        tracker.finish_run.assert_not_called()
+        with self.assertRaises(TaskInProgressError):
+            sync_task_run_status(
+                task_name="gtfs_validation", run_id="7.0.0", db_session=session
+            )
 
 
 if __name__ == "__main__":

@@ -17,21 +17,24 @@
 """
 Task: sync_task_run_status
 
-Generic self-scheduling monitor for any task_run tracked by TaskExecutionTracker.
+Generic Cloud-Tasks-driven monitor for any task_run tracked by TaskExecutionTracker.
 
-For each task_execution_log entry still in 'triggered' state that has an
-execution_ref (a GCP Workflows execution name), this task polls the GCP Workflows
-Executions API and updates the status to completed or failed.
+One Cloud Task is enqueued by TaskExecutionTracker.schedule_status_sync() when a run
+starts. The queue's retry_config drives the polling cadence (constant 10-minute
+intervals). This task handler:
 
-When all entries are settled (no pending, no triggered), the parent task_run is
-marked completed.  If work is still in progress the task re-schedules itself as
-a Cloud Task (default delay: 10 minutes) and returns.
+  - Polls the GCP Workflows Executions API for entries still in 'triggered' state
+  - Updates task_execution_log statuses (triggered → completed / failed)
+  - Returns HTTP 200 (via normal return) when the run is fully settled
+  - Raises TaskInProgressError → HTTP 503 when still in progress, signalling Cloud
+    Tasks to retry after the configured backoff
+
+No self-scheduling logic — the Cloud Tasks queue manages the retry loop.
 
 Payload:
     {
-        "task_name": str,             # required — e.g. "gtfs_validation"
-        "run_id": str,                # required — e.g. "7.1.1-SNAPSHOT"
-        "sync_delay_seconds": int,    # [optional] Re-schedule delay. Default: 600
+        "task_name": str,   # required — e.g. "gtfs_validation"
+        "run_id": str,      # required — e.g. "7.1.1-SNAPSHOT"
     }
 """
 
@@ -44,6 +47,7 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import TaskExecutionLog
 from shared.helpers.task_execution.task_execution_tracker import (
     TaskExecutionTracker,
+    TaskInProgressError,
     STATUS_TRIGGERED,
     STATUS_FAILED,
     STATUS_COMPLETED,
@@ -56,40 +60,33 @@ def sync_task_run_status_handler(payload: dict) -> dict:
 
     Payload structure:
     {
-        "task_name": str,            # required
-        "run_id": str,               # required
-        "sync_delay_seconds": int,   # [optional] Default: 600
+        "task_name": str,   # required
+        "run_id": str,      # required
     }
+
+    Returns the run summary on completion (HTTP 200).
+    Raises TaskInProgressError (→ HTTP 503) when still in progress so Cloud Tasks
+    retries according to the queue's retry_config.
     """
     task_name = payload.get("task_name")
     run_id = payload.get("run_id")
     if not task_name or not run_id:
         raise ValueError("task_name and run_id are required")
 
-    sync_delay_seconds = int(payload.get("sync_delay_seconds", 600))
-
-    return sync_task_run_status(
-        task_name=task_name,
-        run_id=run_id,
-        sync_delay_seconds=sync_delay_seconds,
-    )
+    return sync_task_run_status(task_name=task_name, run_id=run_id)
 
 
 @with_db_session
 def sync_task_run_status(
     task_name: str,
     run_id: str,
-    sync_delay_seconds: int = 600,
     db_session: Session | None = None,
 ) -> dict:
     """
-    Sync execution statuses and, if complete, mark the task_run as finished.
+    Sync execution statuses and mark the task_run completed when all done.
 
-    For triggered entries that have an execution_ref, polls the GCP Workflows
-    API to check whether the workflow succeeded or failed.
-
-    If not yet complete, re-schedules itself via a Cloud Task after
-    sync_delay_seconds seconds.
+    Raises TaskInProgressError if the run is not yet complete so the Cloud Tasks
+    queue retries this task after the configured backoff (default: 10 minutes).
     """
     tracker = TaskExecutionTracker(
         task_name=task_name,
@@ -128,24 +125,27 @@ def sync_task_run_status(
         tracker.finish_run(STATUS_COMPLETED)
         db_session.commit()
         logging.info(
-            "sync_task_run_status: run %s/%s is complete — marked task_run completed",
+            "sync_task_run_status: run %s/%s complete — task_run marked completed",
             task_name,
             run_id,
         )
-    else:
-        tracker.schedule_status_sync(delay_seconds=sync_delay_seconds)
-        logging.info(
-            "sync_task_run_status: run %s/%s still in progress — re-scheduled in %ss "
-            "(pending=%s, triggered=%s, failed=%s)",
-            task_name,
-            run_id,
-            sync_delay_seconds,
-            summary["pending"],
-            summary["triggered"],
-            summary["failed"],
-        )
+        return summary
 
-    return summary
+    # Not done yet — raise so Cloud Tasks retries after the queue backoff
+    logging.info(
+        "sync_task_run_status: run %s/%s still in progress "
+        "(pending=%s, triggered=%s, failed=%s) — returning 503 for retry",
+        task_name,
+        run_id,
+        summary["pending"],
+        summary["triggered"],
+        summary["failed"],
+    )
+    raise TaskInProgressError(
+        f"Run {task_name}/{run_id} still in progress: "
+        f"pending={summary['pending']}, triggered={summary['triggered']}, "
+        f"failed={summary['failed']}"
+    )
 
 
 def _sync_workflow_statuses(
@@ -155,8 +155,8 @@ def _sync_workflow_statuses(
     tracker: TaskExecutionTracker,
 ) -> None:
     """
-    Poll GCP Workflows Executions API for all entries still in 'triggered' state
-    that have an execution_ref, and update task_execution_log accordingly.
+    Poll GCP Workflows Executions API for all 'triggered' entries with an
+    execution_ref and update task_execution_log accordingly.
     """
     triggered_entries = (
         db_session.query(TaskExecutionLog)

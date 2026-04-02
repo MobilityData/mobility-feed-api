@@ -59,6 +59,14 @@ STATUS_FAILED = "failed"
 STATUS_TRIGGERED = "triggered"
 
 
+class TaskInProgressError(Exception):
+    """
+    Raised by task handlers to signal that the task run is not yet complete.
+    tasks_executor maps this to HTTP 503, which causes Cloud Tasks to retry
+    according to the queue's retry_config (typically every 10 minutes).
+    """
+
+
 class TaskExecutionTracker:
     """
     Tracks execution state for a named task run across restarts and partial executions.
@@ -310,17 +318,20 @@ class TaskExecutionTracker:
             "pending": pending,
         }
 
-    def schedule_status_sync(self, delay_seconds: int = 600) -> None:
+    def schedule_status_sync(self, delay_seconds: int = 0) -> None:
         """
-        Enqueue a Cloud Task that will call sync_task_run_status for this run
-        after delay_seconds (default: 10 minutes).
+        Enqueue a single Cloud Task that will call sync_task_run_status for this run.
 
-        The task is named with a 10-minute epoch bucket so multiple calls within
-        the same window are idempotent (Cloud Tasks deduplicates by name).
+        The task name is derived solely from task_name + run_id so the call is fully
+        idempotent — if a task with this name already exists in the queue Cloud Tasks
+        returns ALREADY_EXISTS and this method silently skips enqueueing.
+
+        Retries are driven entirely by the queue's retry_config (constant 10-min
+        intervals). The task handler returns 503 while the run is in progress and
+        200 only when complete, so Cloud Tasks knows when to stop retrying.
 
         Requires env vars: PROJECT_ID, GCP_REGION, ENVIRONMENT, TASK_RUN_SYNC_QUEUE,
-        SERVICE_ACCOUNT_EMAIL.  If any are missing the call is a no-op (with a warning)
-        so tests and local runs are not affected.
+        SERVICE_ACCOUNT_EMAIL.  No-op with a warning when any are missing.
         """
         project = os.getenv("PROJECT_ID")
         queue = os.getenv("TASK_RUN_SYNC_QUEUE")
@@ -343,11 +354,8 @@ class TaskExecutionTracker:
             except ImportError:
                 from helpers.utils import create_http_task_with_name
 
-            run_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
-            # 10-min bucket for deduplication — at most one sync task per window
-            bucket = int(run_at.timestamp() // 600)
             safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", f"{self.task_name}-{self.run_id}")
-            task_name = f"sync-{safe_name}-{bucket}"[:500]
+            task_name = f"sync-{safe_name}"[:500]
 
             url = (
                 f"https://{gcp_region}-{project}.cloudfunctions.net/"
@@ -363,8 +371,12 @@ class TaskExecutionTracker:
                 }
             ).encode()
 
-            proto_time = timestamp_pb2.Timestamp()
-            proto_time.FromDatetime(run_at.replace(tzinfo=None))
+            schedule_time = None
+            if delay_seconds > 0:
+                from datetime import timedelta
+                run_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+                schedule_time = timestamp_pb2.Timestamp()
+                schedule_time.FromDatetime(run_at.replace(tzinfo=None))
 
             create_http_task_with_name(
                 client=tasks_v2.CloudTasksClient(),
@@ -374,16 +386,26 @@ class TaskExecutionTracker:
                 gcp_region=gcp_region,
                 queue_name=queue,
                 task_name=task_name,
-                task_time=proto_time,
+                task_time=schedule_time,
                 http_method=tasks_v2.HttpMethod.POST,
             )
             logging.info(
-                "TaskExecutionTracker: scheduled sync task '%s' in %ss",
+                "TaskExecutionTracker: enqueued sync task '%s' for %s/%s",
                 task_name,
-                delay_seconds,
+                self.task_name,
+                self.run_id,
             )
         except Exception as e:
-            logging.warning("TaskExecutionTracker: could not schedule sync task: %s", e)
+            if "already exists" in str(e).lower() or "ALREADY_EXISTS" in str(e):
+                logging.info(
+                    "TaskExecutionTracker: sync task already queued for %s/%s — skipping",
+                    self.task_name,
+                    self.run_id,
+                )
+            else:
+                logging.warning(
+                    "TaskExecutionTracker: could not enqueue sync task: %s", e
+                )
 
     # ------------------------------------------------------------------
     # Internal helpers

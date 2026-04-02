@@ -21,6 +21,7 @@ import flask
 import functions_framework
 
 from shared.helpers.logger import init_logger
+from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
 from tasks.data_import.transitfeeds.sync_transitfeeds import sync_transitfeeds_handler
 from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
 from tasks.data_import.transportdatagouv.update_tdg_redirects import (
@@ -208,5 +209,8 @@ def tasks_executor(request: flask.Request) -> flask.Response:
 
         # Default JSON response
         return flask.make_response(flask.jsonify(result), 200)
+    except TaskInProgressError as error:
+        # Signal Cloud Tasks to retry — the run is not yet complete
+        return flask.make_response(flask.jsonify({"status": "in_progress", "detail": str(error)}), 503)
     except Exception as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 500)

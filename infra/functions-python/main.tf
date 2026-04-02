@@ -1391,7 +1391,8 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
   }
 }
 
-# Queue for self-scheduling task run status sync (fires every ~10 minutes until complete)
+# Queue for Cloud-Tasks-driven task run status sync
+# Retries every 10 minutes (constant interval) until the handler returns 200.
 resource "google_cloud_tasks_queue" "task_run_sync_queue" {
   project  = var.project_id
   location = var.gcp_region
@@ -1403,10 +1404,10 @@ resource "google_cloud_tasks_queue" "task_run_sync_queue" {
   }
 
   retry_config {
-    max_attempts  = 3
-    min_backoff   = "60s"
-    max_backoff   = "300s"
-    max_doublings = 2
+    max_attempts  = 100
+    min_backoff   = "600s"
+    max_backoff   = "600s"
+    max_doublings = 0
   }
 }
 
