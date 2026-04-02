@@ -5,7 +5,7 @@ This module contains two tasks for managing GTFS validation reports at scale:
 | Task ID | Purpose |
 |---|---|
 | `rebuild_missing_validation_reports` | Triggers GCP Workflows to (re)validate datasets |
-| `get_validation_run_status` | Monitors progress of a validation run |
+| `sync_task_run_status` | Generic self-scheduling monitor for any task_run |
 
 ---
 
@@ -45,25 +45,37 @@ that were already triggered (tracked in `task_execution_log`).
 
 ---
 
-## `get_validation_run_status`
+## `sync_task_run_status`
 
-Returns a progress summary for a validation run identified by `validator_version`.
+Generic self-scheduling monitor for any `task_run` tracked by `TaskExecutionTracker`.
+Automatically scheduled by `rebuild_missing_validation_reports` on every non-dry run.
+
+### Behaviour
+
+1. Polls GCP Workflows Executions API for all `triggered` entries with an `execution_ref`
+2. Updates statuses (`triggered → completed / failed`)
+3. If all done → marks `task_run.status = 'completed'`
+4. If still in progress → re-schedules itself as a Cloud Task after `sync_delay_seconds`
 
 ### Payload
 
 ```json
 {
-    "validator_version": "7.0.0",
-    "sync_workflow_status": false
+    "task_name": "gtfs_validation",
+    "run_id": "7.0.0",
+    "sync_delay_seconds": 600
 }
 ```
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `validator_version` | string | **required** | Version string returned by the validator's `/version` endpoint |
-| `sync_workflow_status` | bool | `false` | Poll GCP Workflows API to update completion status. Required for `bypass_db_update=true` runs where `process_validation_report` is never called |
+| `task_name` | string | **required** | Task name identifier (e.g. `"gtfs_validation"`) |
+| `run_id` | string | **required** | Run identifier — the validator version string |
+| `sync_delay_seconds` | int | `600` | Seconds between polling cycles |
 
 ### Response
+
+Same as `get_validation_run_status` (which this task replaces):
 
 ```json
 {
@@ -72,11 +84,11 @@ Returns a progress summary for a validation run identified by `validator_version
     "run_status": "in_progress",
     "total_count": 5000,
     "total_candidates": 5000,
-    "dispatch_complete": false,
+    "dispatch_complete": true,
     "triggered": 200,
-    "completed": 0,
+    "completed": 4800,
     "failed": 0,
-    "pending": 4800,
+    "pending": 0,
     "failed_entity_ids": [],
     "ready_for_bigquery": false
 }
@@ -89,7 +101,7 @@ Returns a progress summary for a validation run identified by `validator_version
 | `dispatch_complete` | `false` → `rebuild_missing_validation_reports` timed out; call it again |
 | `pending` | Datasets not yet triggered (`> 0` means dispatch loop is incomplete) |
 | `triggered` | Dispatched but report not yet processed |
-| `ready_for_bigquery` | `true` when all workflows finished with no failures |
+| `ready_for_bigquery` | `true` when all workflows finished with no failures and task_run is marked completed |
 
 ---
 
@@ -144,12 +156,28 @@ Check `total_candidates` in the response to understand the scale.
 }
 ```
 
+### Step 3 — Monitor the test batch
+
+`sync_task_run_status` is scheduled automatically by `rebuild_missing_validation_reports`.
+You can also call it on demand to get the current status:
+
+```json
+{
+    "task": "sync_task_run_status",
+    "payload": {
+        "task_name": "gtfs_validation",
+        "run_id": "7.0.0"
+    }
+}
+```
+
 Verify `dispatch_complete: true` and `triggered` count decreases as workflows finish.
 
 ### Step 4 — Full run
 
 Remove the `limit`. If the function times out, call it again — already-triggered
-datasets are automatically skipped:
+datasets are automatically skipped. The self-scheduling `sync_task_run_status` continues
+polling in the background every 10 minutes:
 
 ```json
 {
@@ -162,28 +190,29 @@ datasets are automatically skipped:
 }
 ```
 
-### Step 5 — Monitor until complete
+### Step 5 — Wait for completion
 
-Repeat until `dispatch_complete: true`:
+`sync_task_run_status` runs automatically every 10 minutes. The run is fully complete
+when `ready_for_bigquery: true` (`dispatch_complete=true`, `pending=0`, `triggered=0`,
+`failed=0`) and `task_run.status` is set to `completed`.
+
+To check on demand:
 
 ```json
 {
-    "task": "get_validation_run_status",
+    "task": "sync_task_run_status",
     "payload": {
-        "validator_version": "7.0.0",
-        "sync_workflow_status": true
+        "task_name": "gtfs_validation",
+        "run_id": "7.0.0"
     }
 }
 ```
-
-The run is fully complete when `ready_for_bigquery: true`
-(`dispatch_complete=true`, `pending=0`, `triggered=0`, `failed=0`).
 
 ### Step 6 — BigQuery ingestion
 
 BigQuery ingestion runs on a fixed schedule (2nd of each month). To ingest immediately
 after the pre-release run completes, trigger the `ingest-data-to-big-query` Cloud
-Function manually via the GCP console or `gcloud`:
+Function manually:
 
 ```bash
 curl -X POST "https://ingest-data-to-big-query-gtfs-563580583640.northamerica-northeast1.run.app" \
@@ -202,3 +231,4 @@ curl -X POST "https://ingest-data-to-big-query-gtfs-563580583640.northamerica-no
 | `GTFS_VALIDATOR_URL` | env-derived | Override the validator URL (takes priority over `ENV`) |
 | `BATCH_SIZE` | `5` | Number of workflows triggered per batch before sleeping |
 | `SLEEP_TIME` | `5` | Seconds to sleep between batches |
+| `TASK_RUN_SYNC_QUEUE` | Terraform-injected | Cloud Tasks queue used by `sync_task_run_status` self-scheduling |

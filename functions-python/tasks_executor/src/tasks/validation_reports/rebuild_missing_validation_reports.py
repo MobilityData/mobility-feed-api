@@ -173,6 +173,7 @@ def rebuild_missing_validation_reports(
                 "total_candidates": total_candidates,
             },
         )
+        tracker.schedule_status_sync()
 
     total_triggered = 0
     total_skipped = 0

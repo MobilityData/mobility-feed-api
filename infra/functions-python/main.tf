@@ -1132,6 +1132,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
       GBFS_SNAPSHOTS_BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
+      TASK_RUN_SYNC_QUEUE   = google_cloud_tasks_queue.task_run_sync_queue.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       GCP_REGION = var.gcp_region
       TDG_API_TOKEN = var.tdg_api_token
@@ -1386,6 +1387,25 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
     max_attempts  = 5
     min_backoff   = "120s"
     max_backoff   = "480s"
+    max_doublings = 2
+  }
+}
+
+# Queue for self-scheduling task run status sync (fires every ~10 minutes until complete)
+resource "google_cloud_tasks_queue" "task_run_sync_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "task-run-sync-queue-${var.environment}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = 3
+    min_backoff   = "60s"
+    max_backoff   = "300s"
     max_doublings = 2
   }
 }

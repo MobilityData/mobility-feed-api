@@ -40,9 +40,12 @@ Usage:
     # {"total_count": 5000, "triggered": 150, "completed": 140, "failed": 2, "pending": 4858, ...}
 """
 
+import json
 import logging
+import os
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from sqlalchemy.dialects.postgresql import insert
@@ -306,6 +309,81 @@ class TaskExecutionTracker:
             "failed": counts[STATUS_FAILED],
             "pending": pending,
         }
+
+    def schedule_status_sync(self, delay_seconds: int = 600) -> None:
+        """
+        Enqueue a Cloud Task that will call sync_task_run_status for this run
+        after delay_seconds (default: 10 minutes).
+
+        The task is named with a 10-minute epoch bucket so multiple calls within
+        the same window are idempotent (Cloud Tasks deduplicates by name).
+
+        Requires env vars: PROJECT_ID, GCP_REGION, ENVIRONMENT, TASK_RUN_SYNC_QUEUE,
+        SERVICE_ACCOUNT_EMAIL.  If any are missing the call is a no-op (with a warning)
+        so tests and local runs are not affected.
+        """
+        project = os.getenv("PROJECT_ID")
+        queue = os.getenv("TASK_RUN_SYNC_QUEUE")
+        gcp_region = os.getenv("GCP_REGION")
+        environment = os.getenv("ENVIRONMENT")
+
+        if not all([project, queue, gcp_region, environment]):
+            logging.warning(
+                "schedule_status_sync: missing env vars (PROJECT_ID/GCP_REGION/"
+                "ENVIRONMENT/TASK_RUN_SYNC_QUEUE) — skipping Cloud Task enqueue"
+            )
+            return
+
+        try:
+            from google.cloud import tasks_v2
+            from google.protobuf import timestamp_pb2
+
+            try:
+                from shared.helpers.utils import create_http_task_with_name
+            except ImportError:
+                from helpers.utils import create_http_task_with_name
+
+            run_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+            # 10-min bucket for deduplication — at most one sync task per window
+            bucket = int(run_at.timestamp() // 600)
+            safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", f"{self.task_name}-{self.run_id}")
+            task_name = f"sync-{safe_name}-{bucket}"[:500]
+
+            url = (
+                f"https://{gcp_region}-{project}.cloudfunctions.net/"
+                f"tasks_executor-{environment}"
+            )
+            body = json.dumps(
+                {
+                    "task": "sync_task_run_status",
+                    "payload": {
+                        "task_name": self.task_name,
+                        "run_id": self.run_id,
+                    },
+                }
+            ).encode()
+
+            proto_time = timestamp_pb2.Timestamp()
+            proto_time.FromDatetime(run_at.replace(tzinfo=None))
+
+            create_http_task_with_name(
+                client=tasks_v2.CloudTasksClient(),
+                body=body,
+                url=url,
+                project_id=project,
+                gcp_region=gcp_region,
+                queue_name=queue,
+                task_name=task_name,
+                task_time=proto_time,
+                http_method=tasks_v2.HttpMethod.POST,
+            )
+            logging.info(
+                "TaskExecutionTracker: scheduled sync task '%s' in %ss",
+                task_name,
+                delay_seconds,
+            )
+        except Exception as e:
+            logging.warning("TaskExecutionTracker: could not schedule sync task: %s", e)
 
     # ------------------------------------------------------------------
     # Internal helpers

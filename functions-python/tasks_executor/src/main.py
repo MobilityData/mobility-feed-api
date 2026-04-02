@@ -39,8 +39,8 @@ from tasks.refresh_feedsearch_view.refresh_materialized_view import (
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
 )
-from tasks.validation_reports.get_validation_run_status_task import (
-    get_validation_run_status_handler,
+from tasks.sync_task_run_status import (
+    sync_task_run_status_handler,
 )
 from tasks.visualization_files.rebuild_missing_visualization_files import (
     rebuild_missing_visualization_files_handler,
@@ -74,13 +74,15 @@ tasks = {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
         "handler": rebuild_missing_validation_reports_handler,
     },
-    "get_validation_run_status": {
+    "sync_task_run_status": {
         "description": (
-            "Returns a progress summary for a GTFS validation run. "
-            "Pass validator_version and optionally sync_workflow_status=true to poll "
-            "GCP Workflows API for pre-release (bypass_db_update) runs."
+            "Generic self-scheduling monitor for any task_run. "
+            "Polls GCP Workflows for triggered entries, updates statuses, "
+            "marks the task_run completed when all done, and re-schedules "
+            "itself every 10 minutes until complete. "
+            "Required: task_name, run_id."
         ),
-        "handler": get_validation_run_status_handler,
+        "handler": sync_task_run_status_handler,
     },
     "rebuild_missing_bounding_boxes": {
         "description": "Rebuilds missing bounding boxes for GTFS datasets that contain valid stops.txt files.",

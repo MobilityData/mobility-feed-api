@@ -15,16 +15,24 @@
 #
 
 """
-Task: get_validation_run_status
+Task: sync_task_run_status
 
-Returns a progress summary for a GTFS validation run identified by validator_version.
+Generic self-scheduling monitor for any task_run tracked by TaskExecutionTracker.
 
-For runs with bypass_db_update=False (post-release), completion is tracked via the
-task_execution_log table updated by process_validation_report.
+For each task_execution_log entry still in 'triggered' state that has an
+execution_ref (a GCP Workflows execution name), this task polls the GCP Workflows
+Executions API and updates the status to completed or failed.
 
-For runs with bypass_db_update=True (pre-release / staging), process_validation_report
-is never called by the workflow, so completion is determined by polling the GCP
-Workflows Executions API using the execution_ref stored in task_execution_log.
+When all entries are settled (no pending, no triggered), the parent task_run is
+marked completed.  If work is still in progress the task re-schedules itself as
+a Cloud Task (default delay: 10 minutes) and returns.
+
+Payload:
+    {
+        "task_name": str,             # required — e.g. "gtfs_validation"
+        "run_id": str,                # required — e.g. "7.1.1-SNAPSHOT"
+        "sync_delay_seconds": int,    # [optional] Re-schedule delay. Default: 600
+    }
 """
 
 import logging
@@ -38,111 +46,123 @@ from shared.helpers.task_execution.task_execution_tracker import (
     TaskExecutionTracker,
     STATUS_TRIGGERED,
     STATUS_FAILED,
+    STATUS_COMPLETED,
 )
 
-GTFS_VALIDATION_TASK_NAME = "gtfs_validation"
 
-
-def get_validation_run_status_handler(payload) -> dict:
+def sync_task_run_status_handler(payload: dict) -> dict:
     """
-    Returns progress summary for a GTFS validation run.
+    Entry point for the sync_task_run_status task.
 
     Payload structure:
     {
-        "validator_version": str,      # required — e.g. "7.0.0"
-        "sync_workflow_status": bool,  # [optional] Poll GCP Workflows API to update
-                                       # completion status for bypass_db_update=True runs.
-                                       # Default: False (fast, read-only from DB)
+        "task_name": str,            # required
+        "run_id": str,               # required
+        "sync_delay_seconds": int,   # [optional] Default: 600
     }
     """
-    validator_version = payload.get("validator_version")
-    if not validator_version:
-        raise ValueError("validator_version is required")
+    task_name = payload.get("task_name")
+    run_id = payload.get("run_id")
+    if not task_name or not run_id:
+        raise ValueError("task_name and run_id are required")
 
-    sync_workflow_status = payload.get("sync_workflow_status", False)
-    sync_workflow_status = (
-        sync_workflow_status
-        if isinstance(sync_workflow_status, bool)
-        else str(sync_workflow_status).lower() == "true"
-    )
+    sync_delay_seconds = int(payload.get("sync_delay_seconds", 600))
 
-    return get_validation_run_status(
-        validator_version=validator_version,
-        sync_workflow_status=sync_workflow_status,
+    return sync_task_run_status(
+        task_name=task_name,
+        run_id=run_id,
+        sync_delay_seconds=sync_delay_seconds,
     )
 
 
 @with_db_session
-def get_validation_run_status(
-    validator_version: str,
-    sync_workflow_status: bool = False,
+def sync_task_run_status(
+    task_name: str,
+    run_id: str,
+    sync_delay_seconds: int = 600,
     db_session: Session | None = None,
 ) -> dict:
     """
-    Returns a progress summary for the given validator_version run.
+    Sync execution statuses and, if complete, mark the task_run as finished.
 
-    When sync_workflow_status=True, queries the GCP Workflows Executions API
-    for all entries in 'triggered' state and updates task_execution_log accordingly.
-    This is needed for bypass_db_update=True (pre-release) runs where
-    process_validation_report is never called.
+    For triggered entries that have an execution_ref, polls the GCP Workflows
+    API to check whether the workflow succeeded or failed.
+
+    If not yet complete, re-schedules itself via a Cloud Task after
+    sync_delay_seconds seconds.
     """
     tracker = TaskExecutionTracker(
-        task_name=GTFS_VALIDATION_TASK_NAME,
-        run_id=validator_version,
+        task_name=task_name,
+        run_id=run_id,
         db_session=db_session,
     )
 
-    if sync_workflow_status:
-        _sync_workflow_statuses(validator_version, db_session, tracker)
-        db_session.commit()
+    _sync_workflow_statuses(task_name, run_id, db_session, tracker)
+    db_session.commit()
 
     summary = tracker.get_summary()
-
-    # dispatch_complete: True only when all intended triggers have been dispatched.
-    # If False, rebuild_missing_validation_reports timed out mid-loop and should be called again.
     summary["dispatch_complete"] = summary["pending"] == 0
 
-    # total_candidates comes from params (stored separately from total_count which is
-    # the per-call limit). May be None for older runs that predate this field.
     run_params = summary.get("params") or {}
     summary["total_candidates"] = run_params.get("total_candidates")
 
     failed_entries = (
         db_session.query(TaskExecutionLog)
         .filter(
-            TaskExecutionLog.task_name == GTFS_VALIDATION_TASK_NAME,
-            TaskExecutionLog.run_id == validator_version,
+            TaskExecutionLog.task_name == task_name,
+            TaskExecutionLog.run_id == run_id,
             TaskExecutionLog.status == STATUS_FAILED,
         )
         .all()
     )
     summary["failed_entity_ids"] = [e.entity_id for e in failed_entries]
-    summary["ready_for_bigquery"] = (
-        summary["run_status"] is not None
-        and summary["pending"] == 0
+
+    all_settled = (
+        summary["dispatch_complete"]
         and summary["triggered"] == 0
         and summary["failed"] == 0
     )
+    summary["ready_for_bigquery"] = all_settled
+
+    if all_settled:
+        tracker.finish_run(STATUS_COMPLETED)
+        db_session.commit()
+        logging.info(
+            "sync_task_run_status: run %s/%s is complete — marked task_run completed",
+            task_name,
+            run_id,
+        )
+    else:
+        tracker.schedule_status_sync(delay_seconds=sync_delay_seconds)
+        logging.info(
+            "sync_task_run_status: run %s/%s still in progress — re-scheduled in %ss "
+            "(pending=%s, triggered=%s, failed=%s)",
+            task_name,
+            run_id,
+            sync_delay_seconds,
+            summary["pending"],
+            summary["triggered"],
+            summary["failed"],
+        )
 
     return summary
 
 
 def _sync_workflow_statuses(
-    validator_version: str,
+    task_name: str,
+    run_id: str,
     db_session: Session,
     tracker: TaskExecutionTracker,
 ) -> None:
     """
     Poll GCP Workflows Executions API for all entries still in 'triggered' state
-    and update task_execution_log with their current status (completed/failed).
-
-    Used for bypass_db_update=True runs where process_validation_report is not called.
+    that have an execution_ref, and update task_execution_log accordingly.
     """
     triggered_entries = (
         db_session.query(TaskExecutionLog)
         .filter(
-            TaskExecutionLog.task_name == GTFS_VALIDATION_TASK_NAME,
-            TaskExecutionLog.run_id == validator_version,
+            TaskExecutionLog.task_name == task_name,
+            TaskExecutionLog.run_id == run_id,
             TaskExecutionLog.status == STATUS_TRIGGERED,
             TaskExecutionLog.execution_ref.isnot(None),
         )
@@ -150,11 +170,16 @@ def _sync_workflow_statuses(
     )
 
     if not triggered_entries:
-        logging.info("No triggered entries to sync for version %s", validator_version)
+        logging.info(
+            "sync_task_run_status: no triggered entries with execution_ref for %s/%s",
+            task_name,
+            run_id,
+        )
         return
 
     logging.info(
-        "Syncing %s triggered workflow executions from GCP API", len(triggered_entries)
+        "sync_task_run_status: syncing %s triggered executions via GCP Workflows API",
+        len(triggered_entries),
     )
     client = executions_v1.ExecutionsClient()
 
