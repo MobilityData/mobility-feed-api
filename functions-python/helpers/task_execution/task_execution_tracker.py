@@ -366,7 +366,7 @@ class TaskExecutionTracker:
         try:
             from google.cloud import tasks_v2
             from google.protobuf import timestamp_pb2
-            from shared.helpers.utils import create_http_task_with_name
+            from shared.common.gcp_utils import create_http_task_with_name
 
             safe_name = re.sub(
                 r"[^a-zA-Z0-9_-]", "-", f"{self.task_name}-{self.run_id}"
