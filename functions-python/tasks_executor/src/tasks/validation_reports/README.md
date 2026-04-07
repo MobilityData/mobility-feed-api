@@ -9,6 +9,55 @@ This module contains two tasks for managing GTFS validation reports at scale:
 
 ---
 
+## Architecture
+
+```mermaid
+sequenceDiagram
+    participant Caller as Caller
+    participant Rebuild as rebuild_missing_validation_reports
+    participant DB as PostgreSQL
+    participant GCS as GCS (dataset zips)
+    participant CQ as Cloud Tasks Queue
+    participant Sync as sync_task_run_status
+    participant WF as GCP Workflow + GTFS Validator
+    participant PVR as process_validation_report
+
+    Caller->>Rebuild: POST payload
+
+    Rebuild->>DB: Query datasets needing validation
+    Rebuild->>GCS: Filter to datasets with existing zip blob
+
+    alt dry_run = true
+        Rebuild-->>Caller: counts only, no side effects
+    else dry_run = false
+        Rebuild->>DB: Upsert task_run, record triggered datasets
+        Rebuild->>CQ: Enqueue sync task (fires in 10 min, idempotent)
+        Rebuild->>WF: Trigger one Workflow per dataset
+        Rebuild-->>Caller: triggered / skipped counts
+    end
+
+    loop every 10 min until complete
+        CQ->>Sync: Poll run status
+        Sync->>WF: Check execution states
+        Sync->>DB: Update task_execution_log
+        alt all settled
+            Sync->>DB: Mark task_run completed
+            Sync-->>CQ: HTTP 200 — done
+        else still running
+            Sync-->>CQ: HTTP 503 — retry
+        end
+    end
+
+    WF->>PVR: Report URL + dataset metadata
+    alt bypass_db_update = false
+        PVR->>DB: Write validation report + mark completed
+    else bypass_db_update = true (pre-release)
+        PVR->>DB: Mark completed only (report not surfaced)
+    end
+```
+
+---
+
 ## `rebuild_missing_validation_reports`
 
 Finds GTFS datasets that are missing a validation report **or** have a report from an
