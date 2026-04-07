@@ -14,6 +14,7 @@ from scripts.gbfs_utils.comparison import generate_system_csv_from_db, compare_d
 from scripts.gbfs_utils.fetching import fetch_data, get_data_content
 from scripts.gbfs_utils.license import get_license_url
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
+from shared.common.license_utils import assign_license_by_url
 from shared.database.database import generate_unique_id, configure_polymorphic_mappers
 from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Externalid
 
@@ -126,6 +127,8 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                     gbfs_feed.locations = [location]
 
                 session.flush()
+                if is_new_feed and gbfs_feed.license_url:
+                    assign_license_by_url(gbfs_feed, session)
                 if is_new_feed:
                     self.added_feeds.append(
                         {

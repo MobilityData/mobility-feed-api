@@ -56,6 +56,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
+from shared.common.license_utils import assign_license_by_url
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
@@ -397,6 +398,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 status_code=500,
                 detail=f"Failed to create GTFS feed with URL: {new_feed.producer_url}",
             )
+        if created_feed.license_url:
+            assign_license_by_url(created_feed, db_session)
+            db_session.commit()
         try:
             trigger_dataset_download(
                 created_feed,
@@ -438,6 +442,9 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.add(new_feed)
         db_session.commit()
         created_feed = db_session.get(Gtfsrealtimefeed, new_feed.id)
+        if created_feed and created_feed.license_url:
+            assign_license_by_url(created_feed, db_session)
+            db_session.commit()
         logging.info("Created new GTFS-RT feed with ID: %s", new_feed.stable_id)
         refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
         logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)
