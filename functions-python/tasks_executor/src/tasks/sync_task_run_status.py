@@ -124,6 +124,7 @@ def sync_task_run_status(
     if all_settled:
         tracker.finish_run(STATUS_COMPLETED)
         db_session.commit()
+        summary["run_status"] = STATUS_COMPLETED
         logging.info(
             "sync_task_run_status: run %s/%s complete — task_run marked completed",
             task_name,

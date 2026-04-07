@@ -20,8 +20,11 @@ Examples:
   "task": "rebuild_missing_validation_reports",
   "payload": {
     "dry_run": true,
-    "validator_endpoint": "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app",
     "bypass_db_update": true,
+    "filter_after_in_days": null,
+    "force_update": false,
+    "validator_endpoint": "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app",
+    "limit": 1,    
     "filter_statuses": ["active", "inactive", "future"]
   }
 }
@@ -31,8 +34,8 @@ Examples:
 {
   "task": "get_validation_run_status",
   "payload": {
-    "validator_version": "7.0.0",
-    "sync_workflow_status": true
+    "task_name": "gtfs_validation",
+    "run_id": "7.1.1-SNAPSHOT"
   }
 }
 ```

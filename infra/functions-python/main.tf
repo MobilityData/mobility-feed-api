@@ -39,9 +39,6 @@ locals {
   function_process_validation_report_zip = "${path.module}/../../functions-python/process_validation_report/.dist/process_validation_report.zip"
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 
-  function_update_validation_report_config = jsondecode(file("${path.module}/../../functions-python/update_validation_report/function_config.json"))
-  function_update_validation_report_zip = "${path.module}/../../functions-python/update_validation_report/.dist/update_validation_report.zip"
-
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
   function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
 
@@ -75,7 +72,6 @@ locals {
     local.function_tokens_config.secret_environment_variables,
     local.function_process_validation_report_config.secret_environment_variables,
     local.function_gbfs_validation_report_config.secret_environment_variables,
-    local.function_update_validation_report_config.secret_environment_variables,
     local.function_backfill_dataset_service_date_range_config.secret_environment_variables,
     local.function_update_feed_status_config.secret_environment_variables,
     local.function_export_csv_config.secret_environment_variables,
@@ -160,14 +156,7 @@ resource "google_storage_bucket_object" "process_validation_report_zip" {
   source = local.function_process_validation_report_zip
 }
 
-# 4. Update validation report
-resource "google_storage_bucket_object" "update_validation_report_zip" {
-  bucket = google_storage_bucket.functions_bucket.name
-  name   = "update-validation-report-${substr(filebase64sha256(local.function_update_validation_report_zip), 0, 10)}.zip"
-  source = local.function_update_validation_report_zip
-}
-
-# 5. GBFS validation report
+# 4. GBFS validation report (was previously #5)
 resource "google_storage_bucket_object" "gbfs_validation_report_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "gbfs-validator-${substr(filebase64sha256(local.function_gbfs_validation_report_zip), 0, 10)}.zip"
@@ -410,55 +399,7 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
   }
 }
 
-# 4. functions/update_validation_report cloud function
-resource "google_cloudfunctions2_function" "update_validation_report" {
-  location = var.gcp_region
-  name     = local.function_update_validation_report_config.name
-  description = local.function_update_validation_report_config.description
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
-  project = var.project_id
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = local.function_update_validation_report_config.entry_point
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.update_validation_report_zip.name
-      }
-    }
-  }
-  service_config {
-    available_memory = local.function_update_validation_report_config.memory
-    available_cpu    = local.function_update_validation_report_config.available_cpu
-    timeout_seconds  = local.function_update_validation_report_config.timeout
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-
-    environment_variables = {
-      ENV = var.environment
-      MAX_RETRY = 10
-      BATCH_SIZE = 5
-      WEB_VALIDATOR_URL = var.validator_endpoint
-      # prevents multiline logs from being truncated on GCP console
-      PYTHONNODEBUGRANGES = 0
-    }
-    dynamic "secret_environment_variables" {
-      for_each = local.function_update_validation_report_config.secret_environment_variables
-      content {
-        key        = secret_environment_variables.value["key"]
-        project_id = var.project_id
-        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
-        version    = "latest"
-      }
-    }
-    service_account_email            = google_service_account.functions_service_account.email
-    max_instance_request_concurrency = local.function_update_validation_report_config.max_instance_request_concurrency
-    max_instance_count               = local.function_update_validation_report_config.max_instance_count
-    min_instance_count               = local.function_update_validation_report_config.min_instance_count
-  }
-}
-
-# 5. functions/gbfs_validator cloud function
+# 4. functions/gbfs_validator cloud function
 # 5.1 Create Pub/Sub topic
 resource "google_pubsub_topic" "validate_gbfs_feed" {
   name = "validate-gbfs-feed"
@@ -1350,26 +1291,6 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
-
-# Task queue to invoke update_validation_report function
-resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
-  project  = var.project_id
-  location = var.gcp_region
-  name     = "update-validation-report-task-queue"
-
-  rate_limits {
-    max_concurrent_dispatches = 1
-    max_dispatches_per_second = 1
-  }
-
-  retry_config {
-    # This will make the cloud task retry for ~1 hour
-    max_attempts  = 31
-    min_backoff   = "120s"
-    max_backoff   = "120s"
-    max_doublings = 2
-  }
-}
 
 # Task queue to invoke refresh_materialized_view function
 resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
