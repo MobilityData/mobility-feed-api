@@ -122,6 +122,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             datasets=[("feed-1", "ds-1"), ("feed-2", "ds-2")]
         )
         filter_blob_mock.return_value = [("feed-1", "ds-1"), ("feed-2", "ds-2")]
+        tracker_cls.return_value.count_already_tracked.return_value = 1
 
         result = rebuild_missing_validation_reports(
             validator_endpoint="https://staging.example.com/api",
@@ -131,9 +132,13 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
 
         self.assertEqual(result["total_candidates"], 2)
         self.assertEqual(result["total_triggered"], 0)
+        self.assertEqual(result["total_already_tracked"], 1)
         self.assertIn("dry_run", result["params"])
         self.assertTrue(result["params"]["dry_run"])
         tracker_cls.return_value.start_run.assert_not_called()
+        tracker_cls.return_value.count_already_tracked.assert_called_once_with(
+            ["ds-1", "ds-2"]
+        )
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
     @patch(f"{_MODULE}._filter_datasets_with_existing_blob")

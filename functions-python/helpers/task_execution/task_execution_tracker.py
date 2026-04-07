@@ -149,6 +149,24 @@ class TaskExecutionTracker:
     # Entity-level operations
     # ------------------------------------------------------------------
 
+    def count_already_tracked(self, entity_ids: list[str]) -> int:
+        """
+        Return how many of the given entity_ids are already tracked for this run
+        (status triggered or completed). Useful in dry-run to preview skips.
+        """
+        if not entity_ids:
+            return 0
+        return (
+            self.db_session.query(TaskExecutionLog)
+            .filter(
+                TaskExecutionLog.task_name == self.task_name,
+                TaskExecutionLog.run_id == self.run_id,
+                TaskExecutionLog.status.in_([STATUS_TRIGGERED, STATUS_COMPLETED]),
+                TaskExecutionLog.entity_id.in_(entity_ids),
+            )
+            .count()
+        )
+
     def is_triggered(self, entity_id: Optional[str]) -> bool:
         """
         Return True if an execution log entry already exists for this entity

@@ -177,11 +177,15 @@ def rebuild_missing_validation_reports(
 
     total_triggered = 0
     total_skipped = 0
+    total_already_tracked = 0
 
     if dry_run:
+        entity_ids = [d[1] for d in datasets_to_trigger]
+        total_already_tracked = tracker.count_already_tracked(entity_ids)
         logging.info(
-            "Dry run: skipping workflow execution for %s datasets",
+            "Dry run: %s datasets would be triggered (%s already tracked, would be skipped)",
             len(datasets_to_trigger),
+            total_already_tracked,
         )
     else:
         triggered_ids = execute_workflows(
@@ -196,7 +200,8 @@ def rebuild_missing_validation_reports(
         db_session.commit()
 
     message = (
-        f"Dry run: {len(datasets_to_trigger)} datasets would be triggered."
+        f"Dry run: {len(datasets_to_trigger)} datasets would be triggered "
+        f"({total_already_tracked} already tracked, would be skipped)."
         if dry_run
         else f"Triggered {total_triggered} workflows ({total_skipped} skipped — already tracked)."
     )
@@ -206,6 +211,7 @@ def rebuild_missing_validation_reports(
         "total_in_call": len(datasets_to_trigger),
         "total_triggered": 0 if dry_run else total_triggered,
         "total_skipped": 0 if dry_run else total_skipped,
+        "total_already_tracked": total_already_tracked,
         "params": {
             "dry_run": dry_run,
             "validator_version": validator_version,
