@@ -28,7 +28,7 @@ GtfsDiffOutput
     ├── columns_deleted[]
     ├── row_changes
     │   ├── primary_key[]
-    │   ├── columns[]
+    │   ├── columns[]      # union of base + new
     │   ├── added[]        # capped
     │   ├── deleted[]      # capped
     │   └── modified[]     # capped
@@ -70,20 +70,16 @@ GtfsDiffOutput
           "type": "object",
           "description": "Provenance of the 'before' dataset.",
           "properties": {
-            "feed_id": { "type": "string" },
             "url": { "type": "string", "format": "uri" },
             "downloaded_at": { "type": "string", "format": "date-time" },
-            "hash": { "type": "string", "description": "SHA-256 of the ZIP." }
           }
         },
         "new_feed": {
           "type": "object",
           "description": "Provenance of the 'after' dataset.",
           "properties": {
-            "feed_id": { "type": "string" },
             "url": { "type": "string", "format": "uri" },
             "downloaded_at": { "type": "string", "format": "date-time" },
-            "hash": { "type": "string", "description": "SHA-256 of the ZIP." }
           }
         }
       }
