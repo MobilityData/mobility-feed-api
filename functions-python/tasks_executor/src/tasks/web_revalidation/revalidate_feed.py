@@ -58,7 +58,7 @@ def revalidate_feed_handler(payload: dict | None = None) -> dict:
     try:
         response = requests.post(
             revalidate_url,
-            json={"feedId": feed_stable_id},
+            json={"feedIds": [feed_stable_id], "type": "specific-feeds"},
             headers={
                 "x-revalidate-secret": revalidate_secret,
                 "Content-Type": "application/json",

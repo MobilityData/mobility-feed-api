@@ -70,7 +70,7 @@ class TestRevalidateFeedHandler(unittest.TestCase):
         self.assertEqual(result["feed_stable_id"], "mdb-123")
         mock_post.assert_called_once_with(
             "https://example.com/api/revalidate",
-            json={"feedId": "mdb-123"},
+            json={"feedIds": ["mdb-123"], "type": "specific-feeds"},
             headers={
                 "x-revalidate-secret": "test-secret",
                 "Content-Type": "application/json",
