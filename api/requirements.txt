@@ -50,3 +50,4 @@ shapely
 google-cloud-pubsub
 pycountry
 pytz
+google-cloud-tasks

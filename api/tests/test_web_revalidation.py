@@ -13,11 +13,25 @@
 #  limitations under the License.
 #
 
+import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 class TestCreateWebRevalidationTask(unittest.TestCase):
+    def setUp(self):
+        # google-cloud-tasks is not installed in the test environment.
+        # Provide a MagicMock so `from google.cloud import tasks_v2` succeeds
+        # for tests that proceed past the early-return guards.
+        self._mock_tasks_v2 = MagicMock()
+        self._sys_modules_patcher = patch.dict(
+            sys.modules, {"google.cloud.tasks_v2": self._mock_tasks_v2}
+        )
+        self._sys_modules_patcher.start()
+
+    def tearDown(self):
+        self._sys_modules_patcher.stop()
+
     def test_empty_feed_ids(self):
         """Should return early without creating any tasks."""
         from shared.common.gcp_utils import create_web_revalidation_task
