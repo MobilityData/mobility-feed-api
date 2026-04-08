@@ -24,9 +24,7 @@ class TestCreateWebRevalidationTask(unittest.TestCase):
         # Provide a MagicMock so `from google.cloud import tasks_v2` succeeds
         # for tests that proceed past the early-return guards.
         self._mock_tasks_v2 = MagicMock()
-        self._sys_modules_patcher = patch.dict(
-            sys.modules, {"google.cloud.tasks_v2": self._mock_tasks_v2}
-        )
+        self._sys_modules_patcher = patch.dict(sys.modules, {"google.cloud.tasks_v2": self._mock_tasks_v2})
         self._sys_modules_patcher.start()
 
     def tearDown(self):
