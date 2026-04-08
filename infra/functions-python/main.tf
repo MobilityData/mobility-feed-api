@@ -256,6 +256,8 @@ resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
+
+  depends_on = [google_secret_manager_secret.web_app_revalidate_secret]
 }
 
 # Cloud function definitions

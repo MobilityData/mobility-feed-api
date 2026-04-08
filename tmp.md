@@ -2,9 +2,15 @@
 
 ## Design goals
 
-2. **Single file output**: one JSON document contains summary + capped details
+1. **Single file output**: one JSON document contains summary + capped details
 3. **Capped for performance**: max 50 row changes per file, full counts always preserved in summary
-4. **Spec-aligned**: compatible with the existing [GTFS Diff specification](https://github.com/MobilityData/gtfs_diff/blob/main/specification.md)
+4. **Explicit scope**: files outside the supported scope are reported in `metadata.unsupported_files` rather than silently ignored
+5. **Spec-aligned**: compatible with the existing [GTFS Diff specification](https://github.com/MobilityData/gtfs_diff/blob/main/specification.md)
+
+## Supported scope (v2.0)
+
+This version of the schema only supports files defined in the official [GTFS Schedule reference](https://gtfs.org/documentation/schedule/reference/).
+Any unsupported file in the GTFS archive (including non-`.txt` files like `readme.pdf`, `locations.geojson`, etc.) is **not diffed**. Instead, it's reported in `metadata.unsupported_files`.
 
 ## Key design decision: per-file cap
 
@@ -18,300 +24,83 @@ A GTFS diff can contain tens of thousands of row changes. Loading all of them in
 
 ```
 GtfsDiffOutput
-├── metadata              # versioning, provenance, row cap config
-├── summary               # true aggregate counts (drives file tree sidebar)
-│   └── files[]           # per-file: name + true counts by action
-└── file_diffs[]          # one entry per changed file
+├── metadata
+│   ├── schema_version
+│   ├── generated_at
+│   ├── row_changes_cap_per_file
+│   ├── base_feed               # url, downloaded_at
+│   ├── new_feed                # url, downloaded_at
+│   └── unsupported_files[]     # files skipped by the diff engine
+├── summary                     # true aggregate counts (drives file tree sidebar)
+│   └── files[]                 # per-file: name + true counts by action
+└── file_diffs[]                # one entry per changed supported file
     ├── file_name
-    ├── file_action        # null | "added" | "deleted"
+    ├── file_action             # null | "added" | "deleted"
     ├── columns_added[]
     ├── columns_deleted[]
     ├── row_changes
     │   ├── primary_key[]
-    │   ├── columns[]      # union of base + new
-    │   ├── added[]        # capped
-    │   ├── deleted[]      # capped
-    │   └── modified[]     # capped
-    └── truncated          # cap metadata (omitted counts)
-```
-
-## Full JSON schema
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GtfsDiffOutput",
-  "description": "Structured diff between two GTFS datasets, designed for UI consumption. Row changes are capped per file for efficient loading.",
-  "type": "object",
-  "required": ["metadata", "summary", "file_diffs"],
-  "properties": {
-
-    "metadata": {
-      "type": "object",
-      "required": ["schema_version", "generated_at", "row_changes_cap_per_file"],
-      "properties": {
-        "schema_version": {
-          "type": "string",
-          "description": "Semantic version of this schema (major.minor.patch).",
-          "example": "1.0.0"
-        },
-        "generated_at": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp when this diff was generated."
-        },
-        "row_changes_cap_per_file": {
-          "type": "integer",
-          "description": "Maximum number of row changes included per file (added + deleted + modified combined). Defaults to 50. Full counts are always available in summary.",
-          "default": 50,
-          "minimum": 1
-        },
-        "base_feed": {
-          "type": "object",
-          "description": "Provenance of the 'before' dataset.",
-          "properties": {
-            "url": { "type": "string", "format": "uri" },
-            "downloaded_at": { "type": "string", "format": "date-time" },
-          }
-        },
-        "new_feed": {
-          "type": "object",
-          "description": "Provenance of the 'after' dataset.",
-          "properties": {
-            "url": { "type": "string", "format": "uri" },
-            "downloaded_at": { "type": "string", "format": "date-time" },
-          }
-        }
-      }
-    },
-
-    "summary": {
-      "type": "object",
-      "description": "True aggregate stats (not affected by the per-file cap). Powers the file tree sidebar.",
-      "required": ["total_changes", "files"],
-      "properties": {
-        "total_changes": {
-          "type": "integer",
-          "description": "True total of atomic changes across all files (file + column + row level)."
-        },
-        "files_added": { "type": "integer" },
-        "files_deleted": { "type": "integer" },
-        "files_modified": { "type": "integer" },
-        "files": {
-          "type": "array",
-          "description": "Per-file summary with TRUE counts, sorted by file name. These counts are authoritative.",
-          "items": {
-            "type": "object",
-            "required": ["file_name", "status"],
-            "properties": {
-              "file_name": { "type": "string" },
-              "status": {
-                "type": "string",
-                "enum": ["added", "deleted", "modified"]
-              },
-              "columns_added": { "type": "integer", "default": 0 },
-              "columns_deleted": { "type": "integer", "default": 0 },
-              "rows_added": { "type": "integer", "default": 0 },
-              "rows_deleted": { "type": "integer", "default": 0 },
-              "rows_modified": { "type": "integer", "default": 0 }
-            }
-          }
-        }
-      }
-    },
-
-    "file_diffs": {
-      "type": "array",
-      "description": "Detailed changes grouped by GTFS file. Row changes are capped per file.",
-      "items": { "$ref": "#/$defs/FileDiff" }
-    }
-  },
-
-  "$defs": {
-
-    "FileDiff": {
-      "type": "object",
-      "required": ["file_name"],
-      "properties": {
-        "file_name": { "type": "string" },
-        "file_action": {
-          "type": ["string", "null"],
-          "enum": ["added", "deleted", null],
-          "description": "Non-null only when the entire file was added or deleted."
-        },
-        "columns_added": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Never capped."
-        },
-        "columns_deleted": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Never capped."
-        },
-        "row_changes": { "$ref": "#/$defs/RowChanges" },
-        "truncated": { "$ref": "#/$defs/TruncationInfo" }
-      }
-    },
-
-    "RowChanges": {
-      "type": "object",
-      "description": "Row-level changes within a file. The combined size of added + deleted + modified will not exceed metadata.row_changes_cap_per_file.",
-      "properties": {
-        "primary_key": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Column name(s) used to identify rows. Derived from the GTFS spec."
-        },
-        "columns": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Ordered list of all columns in this file (union of base + new)."
-        },
-        "added": {
-          "type": "array",
-          "description": "Added rows (capped). First-encountered order.",
-          "items": { "$ref": "#/$defs/AddedRow" }
-        },
-        "deleted": {
-          "type": "array",
-          "description": "Deleted rows (capped). First-encountered order.",
-          "items": { "$ref": "#/$defs/DeletedRow" }
-        },
-        "modified": {
-          "type": "array",
-          "description": "Modified rows (capped). First-encountered order.",
-          "items": { "$ref": "#/$defs/ModifiedRow" }
-        }
-      }
-    },
-
-    "TruncationInfo": {
-      "type": "object",
-      "description": "Present only when row changes exceeded the cap.",
-      "required": ["is_truncated", "omitted_count"],
-      "properties": {
-        "is_truncated": { "type": "boolean" },
-        "omitted_count": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of row changes omitted from this file_diff due to the cap."
-        }
-      }
-    },
-
-    "AddedRow": {
-      "type": "object",
-      "required": ["identifier", "values"],
-      "properties": {
-        "identifier": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "values": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        }
-      }
-    },
-
-    "DeletedRow": {
-      "type": "object",
-      "required": ["identifier", "values"],
-      "properties": {
-        "identifier": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "values": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        }
-      }
-    },
-
-    "ModifiedRow": {
-      "type": "object",
-      "required": ["identifier", "field_changes"],
-      "properties": {
-        "identifier": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "field_changes": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/FieldChange" }
-        }
-      }
-    },
-
-    "FieldChange": {
-      "type": "object",
-      "required": ["field", "old_value", "new_value"],
-      "properties": {
-        "field": { "type": "string" },
-        "old_value": { "type": ["string", "null"] },
-        "new_value": { "type": ["string", "null"] }
-      }
-    }
-  }
-}
+    │   ├── columns[]           # union of base + new
+    │   ├── added[]             # capped
+    │   ├── deleted[]           # capped
+    │   └── modified[]          # capped
+    └── truncated               # cap metadata (omitted counts)
 ```
 
 ## Capping behavior
 
 The cap applies to the **combined** count of `added + deleted + modified` per file, in first-encountered order. A file with 30 added, 15 deleted, and 200 modified rows (245 total) hits the cap at 50 and reports `omitted_count: 195`.
 
-```python
-CAP = metadata["row_changes_cap_per_file"]
-included = 0
-omitted_count = 0
-for change in iterate_row_changes(file):
-    if included >= CAP:
-        omitted_count += 1
-        continue
-    include_in_output(change)
-    included += 1
 
-if omitted_count > 0:
-    file_diff["truncated"] = {
-        "is_truncated": True,
-        "omitted_count": omitted_count,
-    }
-```
+File-level changes (`file_action`) and column-level changes (`columns_added`, `columns_deleted`) are **not capped**.
 
-File-level changes (`file_action`) and column-level changes (`columns_added`, `columns_deleted`) are **never capped** — they're always small and always fully reported.
+## Unsupported files behavior
+
+When the diff engine encounters a file that is not in the supported scope:
+
+1. It is **not** added to `file_diffs[]`
+2. It is **not** counted in `summary.total_changes` or `summary.files_*`
+3. It is listed in `metadata.unsupported_files[]` with:
+   - `file_name`: the file as it appears in the archive
+   - `present_in`: `base`, `new`, or `both`
+
+This keeps the diff itself clean and focused on what was actually compared, while still surfacing skipped files so the UI can show a "files not diffed" section.
 
 ## Example output
 
 ```json
 {
   "metadata": {
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "generated_at": "2026-04-08T14:30:00Z",
     "row_changes_cap_per_file": 50,
     "base_feed": {
-      "feed_id": "mdb-1934",
       "url": "https://example.com/gtfs-2026-03.zip",
-      "downloaded_at": "2026-03-15T10:00:00Z",
-      "hash": "sha256:abc123..."
+      "downloaded_at": "2026-03-15T10:00:00Z"
     },
     "new_feed": {
-      "feed_id": "mdb-1934",
       "url": "https://example.com/gtfs-2026-04.zip",
-      "downloaded_at": "2026-04-01T10:00:00Z",
-      "hash": "sha256:def456..."
-    }
+      "downloaded_at": "2026-04-01T10:00:00Z"
+    },
+    "unsupported_files": [
+      {
+        "file_name": "readme.pdf",
+        "present_in": "base"
+      },
+      {
+        "file_name": "custom_notes.txt",
+        "present_in": "both"
+      }
+    ]
   },
 
   "summary": {
-    "total_changes": 1247,
+    "total_changes": 1213,
     "files_added": 1,
-    "files_deleted": 1,
+    "files_deleted": 0,
     "files_modified": 2,
     "files": [
       { "file_name": "shapes.txt", "status": "added", "rows_added": 30 },
-      { "file_name": "readme.pdf", "status": "deleted" },
       {
         "file_name": "stop_times.txt",
         "status": "modified",
@@ -334,12 +123,6 @@ File-level changes (`file_action`) and column-level changes (`columns_added`, `c
     {
       "file_name": "shapes.txt",
       "file_action": "added",
-      "columns_added": [],
-      "columns_deleted": []
-    },
-    {
-      "file_name": "readme.pdf",
-      "file_action": "deleted",
       "columns_added": [],
       "columns_deleted": []
     },
@@ -428,21 +211,26 @@ File-level changes (`file_action`) and column-level changes (`columns_added`, `c
 Notice:
 - `stop_times.txt` has 1213 row changes total (summary) but only 2 shown in `file_diffs` with `omitted_count: 1163`
 - `stops.txt` has 8 row changes total, all fit under the cap, so no `truncated` field
-- `shapes.txt` and `readme.pdf` are file-level actions, no `row_changes` needed
+- `shapes.txt` is a file-level action, no `row_changes` needed
+- `readme.pdf`, `fare_products.txt`, and `custom_notes.txt` are reported in `unsupported_files` and do not appear in `file_diffs` or `summary`
 
 ## How this maps to a GitHub-style diff UI
 
 ### File tree sidebar (uses `summary`)
 ```
-GTFS Diff: 1247 changes across 4 files
+GTFS Diff: 1213 changes across 3 files
 
 + shapes.txt           (+30 rows)
-- readme.pdf           (deleted)
 ~ stop_times.txt       (+120  -45  ~1048 rows)    [showing 50 of 1213]
 ~ stops.txt            (+2  -1  ~5 rows, -1 col)
+
+Not diffed (3)
+  readme.pdf
+  fare_products.txt
+  custom_notes.txt
 ```
 
-The sidebar uses `summary.files[]` counts (true totals). The "showing 50 of 1213" badge comes from comparing summary counts against `truncated.omitted_count`.
+The "Not diffed" section is rendered from `metadata.unsupported_files`.
 
 ### Expanded file view (uses `file_diffs[].row_changes`)
 
@@ -456,3 +244,10 @@ When the user expands `stop_times.txt`, the UI renders the 50 included rows and 
 - Schema definition lives in `docs/schemas/`
 - `CHANGELOG.md` tracks all schema changes
 - Breaking changes bump major, additive changes bump minor, docs bump patch
+
+### v2.0 scope
+
+- Only GTFS Schedule `.txt` files from the official reference are diffed
+- GTFS extensions (GTFS-Fares v2, GTFS-Flex, GTFS-Pathways extensions, etc.) are reported as unsupported
+- Non-`.txt` files in the archive (e.g. `readme.pdf`) are reported as unsupported
+- Support for additional files and extensions can be added in future minor versions (v2.1+) without breaking this schema
