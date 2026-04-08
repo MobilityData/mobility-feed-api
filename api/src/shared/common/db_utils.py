@@ -81,11 +81,15 @@ def get_gtfs_feeds_query(
 
     if include_options_for_joinedload:
         feed_query = feed_query.options(
-            joinedload(Gtfsfeed.latest_dataset)
-            .joinedload(Gtfsdataset.validation_reports)
-            .joinedload(Validationreport.features),
-            joinedload(Gtfsfeed.visualization_dataset),
-            *get_joinedload_options(),
+            # Use selectinload for all collection relationships to avoid a cartesian-product row
+            # explosion when multiple one-to-many associations are loaded simultaneously.
+            # joinedload on collections multiplies rows (N feeds × M locations × F features …);
+            # selectinload issues a separate IN-query per relationship, keeping rows at N per query.
+            selectinload(Gtfsfeed.latest_dataset)
+            .selectinload(Gtfsdataset.validation_reports)
+            .selectinload(Validationreport.features),
+            joinedload(Gtfsfeed.visualization_dataset),  # scalar (many-to-one) — joinedload is safe
+            *get_selectinload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
 
     feed_query = feed_query.limit(limit).offset(offset)
@@ -274,9 +278,9 @@ def get_gtfs_rt_feeds_query(
         feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     feed_query = feed_query.options(
-        joinedload(Gtfsrealtimefeed.entitytypes),
-        joinedload(Gtfsrealtimefeed.gtfs_feeds),
-        *get_joinedload_options(),
+        selectinload(Gtfsrealtimefeed.entitytypes),
+        selectinload(Gtfsrealtimefeed.gtfs_feeds),
+        *get_selectinload_options(),
     )
     feed_query = add_official_filter(feed_query, is_official)
 
