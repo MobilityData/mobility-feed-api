@@ -37,6 +37,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
     Externalid,
 )
+from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
     get_or_create_entity_type,
@@ -517,6 +518,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     # Aggregates
     created_gtfs = updated_gtfs = created_rt = linked_refs = total_processed = 0
     feeds_to_publish: List[Feed] = []
+    changed_feed_stable_ids: List[str] = []
 
     for idx, item in enumerate(feeds_list, start=1):
         try:
@@ -538,14 +540,28 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
             if feed_to_publish and not dry_run:
                 feeds_to_publish.append(feed_to_publish)
 
+            # Track changed feeds for web app cache revalidation
+            if not dry_run and (deltas["created_gtfs"] or deltas["updated_gtfs"]):
+                org_id = item.get("organization_id")
+                feed_id = item.get("feed_id")
+                if org_id and feed_id:
+                    changed_feed_stable_ids.append(f"jbda-{org_id}-{feed_id}")
+
             if not dry_run and (total_processed % commit_batch_size == 0):
                 logger.info("Committing batch at total_processed=%d", total_processed)
                 try:
-                    commit_changes(db_session, feeds_to_publish, total_processed)
+                    commit_changes(
+                        db_session,
+                        feeds_to_publish,
+                        total_processed,
+                        changed_feed_stable_ids,
+                    )
                     feeds_to_publish = []  # reset after commit
+                    changed_feed_stable_ids = []  # reset after commit
                 except IntegrityError:
                     db_session.rollback()
                     feeds_to_publish = []  # reset even on failure
+                    changed_feed_stable_ids = []  # reset even on failure
                     logger.exception(
                         "DB IntegrityError during batch commit at processed=%d",
                         total_processed,
@@ -556,7 +572,9 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
             continue
 
     if not dry_run:
-        commit_changes(db_session, feeds_to_publish, total_processed)
+        commit_changes(
+            db_session, feeds_to_publish, total_processed, changed_feed_stable_ids
+        )
 
     message = (
         "Dry run: no DB writes performed."
@@ -577,10 +595,14 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
 
 
 def commit_changes(
-    db_session: Session, feeds_to_publish: list[Feed], total_processed: int
+    db_session: Session,
+    feeds_to_publish: list[Feed],
+    total_processed: int,
+    changed_feed_stable_ids: list[str] | None = None,
 ):
     """
-    Commit DB changes and trigger dataset downloads for new feeds.
+    Commit DB changes, trigger dataset downloads for new feeds,
+    and trigger web app cache revalidation for changed feeds.
     """
     try:
         logger.info("Commit after processing items (count=%d)", total_processed)
@@ -588,6 +610,11 @@ def commit_changes(
         execution_id = str(uuid.uuid4())
         for feed in feeds_to_publish:
             trigger_dataset_download(feed, execution_id)
+        if changed_feed_stable_ids:
+            try:
+                create_web_revalidation_task(changed_feed_stable_ids)
+            except Exception as e:
+                logger.warning("Failed to enqueue revalidation tasks: %s", e)
     except IntegrityError:
         db_session.rollback()
         logger.exception("Commit failed with IntegrityError; rolled back")

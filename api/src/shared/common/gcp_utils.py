@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import List
 
 REFRESH_VIEW_TASK_EXECUTOR_BODY = json.dumps(
     {"task": "refresh_materialized_view", "payload": {"dry_run": False}}
@@ -67,6 +68,99 @@ def create_refresh_materialized_view_task():
     except Exception as error:
         logging.error("Error enqueuing task: %s", error)
         return {"error": "Error enqueuing task: %s" % error}, 500
+
+
+def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
+    """
+    Enqueue a Cloud Task to revalidate the web app cache for specific feed pages.
+    Uses time-bucketed task names for deduplication: multiple calls for the same
+    feed within the same 30-minute window are collapsed into one task.
+
+    Args:
+        feed_stable_ids: List of feed stable IDs whose pages should be revalidated.
+    """
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+    from datetime import datetime, timedelta
+
+    if not feed_stable_ids:
+        return
+
+    try:
+        now = datetime.now()
+
+        # BOUNCE WINDOW: next :00 or :30 (same pattern as materialized view refresh)
+        minute = now.minute
+        if minute < 30:
+            bucket_time = now.replace(minute=30, second=0, microsecond=0)
+        else:
+            bucket_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(
+                hours=1
+            )
+
+        proto_time = timestamp_pb2.Timestamp()
+        proto_time.FromDatetime(bucket_time)
+
+        project = os.getenv("PROJECT_ID")
+        queue = os.getenv("WEB_REVALIDATION_QUEUE")
+        gcp_region = os.getenv("GCP_REGION")
+        environment_name = os.getenv("ENVIRONMENT")
+        url = (
+            f"https://{gcp_region}-{project}.cloudfunctions.net/"
+            f"tasks_executor-{environment_name}"
+        )
+
+        if not queue:
+            logging.warning(
+                "WEB_REVALIDATION_QUEUE not set; skipping revalidation for %s",
+                feed_stable_ids,
+            )
+            return
+
+        client = tasks_v2.CloudTasksClient()
+        timestamp_str = bucket_time.strftime("%Y-%m-%d-%H-%M")
+
+        for feed_stable_id in feed_stable_ids:
+            task_name = f"revalidate-{feed_stable_id}-{timestamp_str}"
+            body = json.dumps(
+                {
+                    "task": "revalidate_feed",
+                    "payload": {"feed_stable_id": feed_stable_id},
+                }
+            ).encode()
+
+            try:
+                create_http_task_with_name(
+                    client=client,
+                    body=body,
+                    url=url,
+                    project_id=project,
+                    gcp_region=gcp_region,
+                    queue_name=queue,
+                    task_name=task_name,
+                    task_time=proto_time,
+                    http_method=tasks_v2.HttpMethod.POST,
+                )
+                logging.info(
+                    "Scheduled web revalidation task for feed %s (%s)",
+                    feed_stable_id,
+                    task_name,
+                )
+            except Exception as e:
+                if "ALREADY_EXISTS" in str(e):
+                    logging.info(
+                        "Revalidation task already exists for %s, skipping.",
+                        task_name,
+                    )
+                else:
+                    logging.error(
+                        "Error creating revalidation task for %s: %s",
+                        feed_stable_id,
+                        e,
+                    )
+
+    except Exception as error:
+        logging.error("Error enqueuing revalidation tasks: %s", error)
 
 
 def create_http_task_with_name(

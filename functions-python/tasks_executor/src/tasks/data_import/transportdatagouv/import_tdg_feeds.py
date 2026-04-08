@@ -35,6 +35,7 @@ from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Location,
 )
+from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
     get_or_create_feed,
@@ -667,13 +668,16 @@ def _process_tdg_dataset(
             )
             continue
 
+    # Collect stable IDs of changed feeds for web app cache revalidation
+    changed_stable_ids = list(processed_stable_ids) if (created_gtfs or updated_gtfs or created_rt) else []
+
     deltas = {
         "created_gtfs": created_gtfs,
         "updated_gtfs": updated_gtfs,
         "created_rt": created_rt,
         "processed": processed,
     }
-    return deltas, feeds_to_publish
+    return deltas, feeds_to_publish, changed_stable_ids
 
 
 # ---------------------------------------------------------------------------
@@ -716,12 +720,13 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
 
     created_gtfs = updated_gtfs = created_rt = total_processed = 0
     feeds_to_publish: List[Feed] = []
+    changed_feed_stable_ids: List[str] = []
     processed_stable_ids = set()
 
     for idx, dataset in enumerate(datasets, start=1):
         previous_total_processed = total_processed
         try:
-            deltas, new_feeds = _process_tdg_dataset(
+            deltas, new_feeds, changed_ids = _process_tdg_dataset(
                 db_session,
                 session_http,
                 dataset,
@@ -735,6 +740,7 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
 
             if not dry_run:
                 feeds_to_publish.extend(new_feeds)
+                changed_feed_stable_ids.extend(changed_ids)
 
             if (
                 not dry_run
@@ -744,8 +750,14 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
                 > previous_total_processed // commit_batch_size
             ):
                 logger.info("Committing batch at total_processed=%d", total_processed)
-                commit_changes(db_session, feeds_to_publish, total_processed)
+                commit_changes(
+                    db_session,
+                    feeds_to_publish,
+                    total_processed,
+                    changed_feed_stable_ids,
+                )
                 feeds_to_publish = []
+                changed_feed_stable_ids = []
 
         except Exception as e:
             logger.exception("Exception processing TDG dataset at index=%d: %s", idx, e)
@@ -753,7 +765,9 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
 
     if not dry_run:
         _deprecate_stale_feeds(db_session, processed_stable_ids)
-        commit_changes(db_session, feeds_to_publish, total_processed)
+        commit_changes(
+            db_session, feeds_to_publish, total_processed, changed_feed_stable_ids
+        )
 
     message = (
         "Dry run: no DB writes performed."
@@ -773,11 +787,14 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
 
 
 def commit_changes(
-    db_session: Session, feeds_to_publish: List[Feed], total_processed: int
+    db_session: Session,
+    feeds_to_publish: List[Feed],
+    total_processed: int,
+    changed_feed_stable_ids: List[str] | None = None,
 ):
     """
-    Commit DB changes and trigger dataset downloads for new feeds.
-    Reused pattern from JBDA.
+    Commit DB changes, trigger dataset downloads for new feeds,
+    and trigger web app cache revalidation for changed feeds.
     """
     try:
         logger.info("Commit after processing items (count=%d)", total_processed)
@@ -787,6 +804,11 @@ def commit_changes(
             return
         for feed in feeds_to_publish:
             trigger_dataset_download(feed, execution_id)
+        if changed_feed_stable_ids:
+            try:
+                create_web_revalidation_task(changed_feed_stable_ids)
+            except Exception as e:
+                logger.warning("Failed to enqueue revalidation tasks: %s", e)
     except IntegrityError:
         db_session.rollback()
         logger.exception("Commit failed with IntegrityError; rolled back")
