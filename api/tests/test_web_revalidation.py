@@ -14,7 +14,7 @@
 #
 
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch
 
 
 class TestCreateWebRevalidationTask(unittest.TestCase):
@@ -101,9 +101,7 @@ class TestCreateWebRevalidationTask(unittest.TestCase):
     )
     def test_already_exists_is_handled_gracefully(self, mock_create_task):
         """ALREADY_EXISTS errors should be caught and logged, not raised."""
-        mock_create_task.side_effect = Exception(
-            "409 ALREADY_EXISTS: task already exists"
-        )
+        mock_create_task.side_effect = Exception("409 ALREADY_EXISTS: task already exists")
         from shared.common.gcp_utils import create_web_revalidation_task
 
         # Should not raise

@@ -412,9 +412,11 @@ def reverse_geolocation_process(
             revalidation_ids = [stable_id]
             # Also revalidate associated GTFS-RT feeds
             if data_type == "gtfs":
-                gtfs_feed = db_session.query(Gtfsfeed).filter(
-                    Feed.stable_id == stable_id
-                ).one_or_none()
+                gtfs_feed = (
+                    db_session.query(Gtfsfeed)
+                    .filter(Feed.stable_id == stable_id)
+                    .one_or_none()
+                )
                 if gtfs_feed:
                     revalidation_ids.extend(
                         rt.stable_id for rt in gtfs_feed.gtfs_rt_feeds

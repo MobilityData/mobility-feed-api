@@ -94,9 +94,7 @@ def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
         if minute < 30:
             bucket_time = now.replace(minute=30, second=0, microsecond=0)
         else:
-            bucket_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(
-                hours=1
-            )
+            bucket_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
         proto_time = timestamp_pb2.Timestamp()
         proto_time.FromDatetime(bucket_time)
@@ -105,10 +103,7 @@ def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
         queue = os.getenv("WEB_REVALIDATION_QUEUE")
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
-        url = (
-            f"https://{gcp_region}-{project}.cloudfunctions.net/"
-            f"tasks_executor-{environment_name}"
-        )
+        url = f"https://{gcp_region}-{project}.cloudfunctions.net/" f"tasks_executor-{environment_name}"
 
         if not queue:
             logging.warning(

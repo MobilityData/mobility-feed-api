@@ -669,7 +669,11 @@ def _process_tdg_dataset(
             continue
 
     # Collect stable IDs of changed feeds for web app cache revalidation
-    changed_stable_ids = list(processed_stable_ids) if (created_gtfs or updated_gtfs or created_rt) else []
+    changed_stable_ids = (
+        list(processed_stable_ids)
+        if (created_gtfs or updated_gtfs or created_rt)
+        else []
+    )
 
     deltas = {
         "created_gtfs": created_gtfs,
