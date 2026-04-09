@@ -60,8 +60,11 @@ describe('Feeds Utils', () => {
     [true, 'http://whistler.mapstrat.com/current/gtfrealtime_TripUpdates.bin'],
     [true, 'http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb'],
     [true, 'http://api.tampa.onebusaway.org:8088/trip-updates'],
-    [true, 'https://example.com/feeds/gtfs.zip'],
-    [false, '//example.com/feeds/'],
+    [
+      true,
+      'https://transitfeeds.com/p/via-metropolitan-transit/62/latest/download',
+    ],
+    [false, '//transitfeeds.com/p/'],
     [
       true,
       'https://ckan.pbh.gov.br/dataset/77764a7e-63fc-4111-ace3-fb7d3037953a/resource/f0fa78dc-74c3-49fa-8971-c310a76a07fa/download/gtfsfiles.zip',
