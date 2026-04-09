@@ -2,7 +2,7 @@
 -- One record per orchestration run (process level).
 -- Mirrors the BatchExecution concept from DatasetTraceService (Datastore),
 -- allowing future migration of batch_process_dataset, batch_datasets, gbfs_validator.
-CREATE TABLE IF NOT EXISTS TaskRun (
+CREATE TABLE IF NOT EXISTS task_run (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_name    VARCHAR NOT NULL,
     run_id       VARCHAR NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS TaskRun (
 -- One record per entity/workflow execution within a run.
 -- entity_id is nullable for tasks that do not operate on a specific entity.
 -- Mirrors the DatasetTrace concept from DatasetTraceService (Datastore).
-CREATE TABLE IF NOT EXISTS TaskExecutionLog (
+CREATE TABLE IF NOT EXISTS task_execution_log (
     id               SERIAL PRIMARY KEY,
     task_run_id      UUID REFERENCES task_run(id),
     task_name        VARCHAR NOT NULL,
