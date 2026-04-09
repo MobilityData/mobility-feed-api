@@ -25,7 +25,10 @@ from location_group_utils import (
     get_or_create_location,
 )
 from parse_request import parse_request_parameters
-from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.common.gcp_utils import (
+    create_refresh_materialized_view_task,
+    create_web_revalidation_task,
+)
 from shared.database.database import with_db_session, get_db_timestamp
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -403,6 +406,29 @@ def reverse_geolocation_process(
         # Commit the changes to the database
         db_session.commit()
         create_refresh_materialized_view_task()
+
+        # Trigger web app cache revalidation for the updated feed
+        try:
+            revalidation_ids = [stable_id]
+            # Also revalidate associated GTFS-RT feeds
+            if data_type == "gtfs":
+                gtfs_feed = (
+                    db_session.query(Gtfsfeed)
+                    .filter(Feed.stable_id == stable_id)
+                    .one_or_none()
+                )
+                if gtfs_feed:
+                    revalidation_ids.extend(
+                        rt.stable_id for rt in gtfs_feed.gtfs_rt_feeds
+                    )
+            create_web_revalidation_task(revalidation_ids)
+        except Exception as revalidation_error:
+            logger.warning(
+                "Failed to enqueue web revalidation task for %s: %s",
+                stable_id,
+                revalidation_error,
+            )
+
         logger.info(
             "COMPLETED. Processed %s stops for stable ID %s with strategy. "
             "Retrieved %s locations.",

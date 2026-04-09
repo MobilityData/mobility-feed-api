@@ -110,6 +110,8 @@ module "functions-python" {
   operations_oauth2_client_id = var.operations_oauth2_client_id
   validator_endpoint = var.validator_endpoint
   tdg_api_token = var.tdg_api_token
+  web_app_revalidate_url = var.web_app_revalidate_url
+  web_app_revalidate_secret = var.web_app_revalidate_secret
 }
 
 module "workflows" {

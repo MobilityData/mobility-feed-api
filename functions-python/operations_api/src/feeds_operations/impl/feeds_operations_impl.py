@@ -56,6 +56,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
+from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
@@ -313,6 +314,14 @@ class OperationsApiImpl(BaseOperationsApi):
                     update_request_feed.id,
                     diff.values(),
                 )
+                try:
+                    create_web_revalidation_task([update_request_feed.id])
+                except Exception as e:
+                    logging.warning(
+                        "Failed to enqueue web revalidation task for feed %s: %s",
+                        update_request_feed.id,
+                        e,
+                    )
                 return Response(status_code=200)
             else:
                 logging.info(

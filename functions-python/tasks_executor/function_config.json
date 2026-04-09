@@ -22,6 +22,9 @@
     {
       "key": "FEEDS_CREDENTIALS",
       "secret": "FEEDS_CREDENTIALS"
+    },
+    {
+      "key": "WEB_APP_REVALIDATE_SECRET"
     }
   ],
   "ingress_settings": "ALLOW_ALL",
