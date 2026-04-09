@@ -83,6 +83,19 @@ variable "tdg_api_token" {
     description = "TDG API key"
 }
 
+variable "web_app_revalidate_url" {
+    type        = string
+    description = "URL of the web app's revalidation endpoint for cache invalidation"
+    default     = ""
+}
+
+variable "web_app_revalidate_secret" {
+    type        = string
+    description = "Secret token used to authenticate requests to the web app's revalidation endpoint"
+    sensitive   = true
+    default     = ""
+}
+
 variable "transitland_scraping_schedule" {
     type        = string
     description = "Schedule Transitland scraping job"

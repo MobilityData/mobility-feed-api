@@ -20,6 +20,7 @@ geoalchemy2==0.14.7
 # Google specific packages for this function
 flask
 google-cloud-storage
+google-cloud-tasks
 
 # Configuration
 python-dotenv==1.0.0

@@ -22,3 +22,6 @@ transitland_api_key = {{TRANSITLAND_API_KEY}}
 operations_oauth2_client_id = {{OPERATIONS_OAUTH2_CLIENT_ID}}
 
 tdg_api_token = {{TDG_API_TOKEN}}
+
+web_app_revalidate_url = {{WEB_APP_REVALIDATE_URL}}
+web_app_revalidate_secret = {{WEB_APP_REVALIDATE_SECRET}}

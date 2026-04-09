@@ -33,7 +33,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from shared.common.gcp_memory_utils import limit_gcp_memory
-from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.common.gcp_utils import (
+    create_refresh_materialized_view_task,
+    create_web_revalidation_task,
+)
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
@@ -631,6 +634,16 @@ def process_dataset(cloud_event: CloudEvent):
             dataset_file = processor.process_from_bucket()
         else:
             dataset_file = processor.process_from_producer_url(json_payload["feed_id"])
+        # Trigger web app cache revalidation for the updated feed
+        if dataset_file is not None:
+            try:
+                create_web_revalidation_task([stable_id])
+            except Exception as revalidation_error:
+                logger.warning(
+                    "Failed to enqueue web revalidation task for %s: %s",
+                    stable_id,
+                    revalidation_error,
+                )
     except Exception as e:
         # This makes sure the logger is initialized
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")

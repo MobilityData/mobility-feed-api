@@ -1,5 +1,6 @@
 import pytest
 from starlette.responses import Response
+from unittest.mock import patch
 
 from conftest import feed_mdb_41
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
@@ -47,7 +48,10 @@ def db_session():
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_feed_field_change(update_request_gtfs_rt_feed, db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
+async def test_update_gtfs_feed_field_change(
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.feed_name = "New feed name"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -63,7 +67,10 @@ async def test_update_gtfs_feed_field_change(update_request_gtfs_rt_feed, db_ses
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_feed_static_change(update_request_gtfs_rt_feed, db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
+async def test_update_gtfs_feed_static_change(
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.feed_references = ["mdb-400"]
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -83,7 +90,10 @@ async def test_update_gtfs_feed_static_change(update_request_gtfs_rt_feed, db_se
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_rt_feed_set_wip(update_request_gtfs_rt_feed, db_session):
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
+async def test_update_gtfs_rt_feed_set_wip(
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.operational_status_action = "wip"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -99,8 +109,9 @@ async def test_update_gtfs_rt_feed_set_wip(update_request_gtfs_rt_feed, db_sessi
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
 async def test_update_gtfs_rt_feed_set_published(
-    update_request_gtfs_rt_feed, db_session
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
 ):
     update_request_gtfs_rt_feed.operational_status_action = "published"
     api = OperationsApiImpl()
@@ -117,8 +128,9 @@ async def test_update_gtfs_rt_feed_set_published(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
 async def test_update_gtfs_rt_feed_set_unpublished(
-    update_request_gtfs_rt_feed, db_session
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
 ):
     update_request_gtfs_rt_feed.operational_status_action = "unpublished"
     api = OperationsApiImpl()
@@ -134,8 +146,9 @@ async def test_update_gtfs_rt_feed_set_unpublished(
 
 
 @pytest.mark.asyncio
+@patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
 async def test_update_gtfs_rt_feed_official_field(
-    update_request_gtfs_rt_feed, db_session
+    mock_revalidation, update_request_gtfs_rt_feed, db_session
 ):
     """Test updating the official field of a GTFS-RT feed."""
     update_request_gtfs_rt_feed.official = True
