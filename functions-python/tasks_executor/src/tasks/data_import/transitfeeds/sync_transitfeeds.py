@@ -24,7 +24,6 @@ from typing import Optional, Type, Callable, Dict
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from shared.common.gcp_utils import create_web_revalidation_task
 from shared.common.locations_utils import create_or_get_location
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
@@ -224,11 +223,6 @@ def _process_feeds(
                 total_processed,
             )
             db_session.commit()
-            if changed_feed_stable_ids:
-                try:
-                    create_web_revalidation_task(changed_feed_stable_ids)
-                except Exception as e:
-                    logger.warning("Failed to enqueue revalidation tasks: %s", e)
         else:
             logger.info(
                 "[%s] Dry-run enabled; no DB commit performed", feed_kind.upper()
