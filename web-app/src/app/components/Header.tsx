@@ -26,7 +26,7 @@ import {
   gbfsMetricsNavItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
