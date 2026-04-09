@@ -308,6 +308,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -348,6 +349,25 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
     max_attempts  = 5
     min_backoff   = "120s"
     max_backoff   = "480s"
+    max_doublings = 2
+  }
+}
+
+# Task queue for web app cache revalidation
+resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "web-revalidation-task-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = 3
+    min_backoff   = "30s"
+    max_backoff   = "120s"
     max_doublings = 2
   }
 }

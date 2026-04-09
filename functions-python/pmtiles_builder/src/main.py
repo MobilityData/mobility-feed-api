@@ -40,6 +40,7 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
+from shared.common.gcp_utils import create_web_revalidation_task
 from ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
@@ -112,6 +113,15 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 result["warning"] = message
             else:
                 result["message"] = "Successfully built pmtiles."
+                # Trigger web app cache revalidation for the feed
+                try:
+                    create_web_revalidation_task([feed_stable_id])
+                except Exception as revalidation_error:
+                    logging.warning(
+                        "Failed to enqueue web revalidation task for %s: %s",
+                        feed_stable_id,
+                        revalidation_error,
+                    )
 
             return result
 
