@@ -24,7 +24,7 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.helpers.tests.test_shared.test_utils.database_utils import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files,
     rebuild_missing_dataset_files_handler,

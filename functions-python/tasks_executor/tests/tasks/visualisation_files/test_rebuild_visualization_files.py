@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
-from shared.helpers.tests.test_shared.test_utils.database_utils import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 
 from tasks.visualization_files.rebuild_missing_visualization_files import (
     rebuild_missing_visualization_files_handler,
