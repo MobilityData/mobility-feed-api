@@ -148,7 +148,7 @@ def rebuild_missing_validation_reports(
 
     # Apply limit inside the GCS blob check so we stop as soon as we have
     # enough valid datasets, without discarding candidates that would pass.
-    valid_datasets = _filter_datasets_with_existing_blob(datasets, limit=limit)
+    valid_datasets = _filter_out_datasets_without_blob(datasets, limit=limit)
     logging.info(
         "%s datasets have a GCS blob and will be triggered", len(valid_datasets)
     )
@@ -283,7 +283,7 @@ def _get_datasets_for_validation(
     return query.all()
 
 
-def _filter_datasets_with_existing_blob(
+def _filter_out_datasets_without_blob(
     datasets: List[tuple],
     limit: Optional[int] = None,
 ) -> List[tuple]:

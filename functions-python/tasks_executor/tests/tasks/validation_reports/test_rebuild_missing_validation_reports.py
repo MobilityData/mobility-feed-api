@@ -113,7 +113,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         return session
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[])
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_dry_run_returns_count_without_triggering(
         self, tracker_cls, filter_blob_mock, version_mock
@@ -141,7 +141,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         )
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(f"{_MODULE}._filter_datasets_with_existing_blob")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob")
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1", "ds-2"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_triggers_workflows_when_not_dry_run(
@@ -162,7 +162,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self.assertFalse(result["params"]["dry_run"])
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(f"{_MODULE}._filter_datasets_with_existing_blob")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob")
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_limit_slices_datasets(
@@ -187,9 +187,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self.assertEqual(result["total_in_call"], 5)
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(
-        f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[("f", "ds-1")]
-    )
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_bypass_db_update_passed_explicitly(
@@ -206,9 +204,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         self.assertTrue(call_kwargs["bypass_db_update"])
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(
-        f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[("f", "ds-1")]
-    )
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_bypass_db_update_defaults_to_false(
@@ -248,7 +244,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
         )
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
-    @patch(f"{_MODULE}._filter_datasets_with_existing_blob", return_value=[])
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
     @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_default_op_status_filters_published(
         self, tracker_cls, filter_blob_mock, version_mock
@@ -271,7 +267,7 @@ class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
     def test_stops_at_limit(self, storage_mock):
         """Should stop checking GCS as soon as limit valid datasets are found."""
         from tasks.validation_reports.rebuild_missing_validation_reports import (
-            _filter_datasets_with_existing_blob,
+            _filter_out_datasets_without_blob,
         )
 
         bucket_mock = MagicMock()
@@ -283,7 +279,7 @@ class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
         bucket_mock.blob.return_value = blob_mock
 
         datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
-        result = _filter_datasets_with_existing_blob(datasets, limit=3)
+        result = _filter_out_datasets_without_blob(datasets, limit=3)
 
         self.assertEqual(len(result), 3)
         # Only 3 GCS calls should have been made
@@ -293,7 +289,7 @@ class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
     def test_skips_missing_blobs_and_continues(self, storage_mock):
         """Should skip datasets with no blob and keep going until limit is reached."""
         from tasks.validation_reports.rebuild_missing_validation_reports import (
-            _filter_datasets_with_existing_blob,
+            _filter_out_datasets_without_blob,
         )
 
         bucket_mock = MagicMock()
@@ -306,7 +302,7 @@ class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
         bucket_mock.blob.return_value = blob_mock
 
         datasets = [(f"feed-{i}", f"ds-{i}") for i in range(7)]
-        result = _filter_datasets_with_existing_blob(datasets, limit=3)
+        result = _filter_out_datasets_without_blob(datasets, limit=3)
 
         self.assertEqual(len(result), 3)
         # Must have checked 5 items: 2 missing + 3 valid
