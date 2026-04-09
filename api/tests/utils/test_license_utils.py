@@ -10,6 +10,7 @@ from shared.common.license_utils import (
     resolve_fuzzy_match,
     resolve_license,
     find_exact_match_license_url,
+    assign_license_by_url,
     MatchingLicense,
 )
 from shared.database_gen.sqlacodegen_models import License
@@ -246,5 +247,154 @@ class TestLicenseUtils(unittest.TestCase):
         self.assertEqual(ml.confidence, 1.0)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestAssignLicenseByUrl(unittest.TestCase):
+    """Unit tests for assign_license_by_url."""
+
+    def _make_match(self, license_id="MIT", match_type="exact", confidence=1.0):
+        return MatchingLicense(
+            license_id=license_id,
+            license_url="http://example.com/license",
+            normalized_url="example.com/license",
+            match_type=match_type,
+            confidence=confidence,
+            matched_name="MIT License",
+            matched_catalog_url="http://example.com/license",
+            matched_source="db.license",
+        )
+
+    def _make_feed(self, license_url="http://example.com/license", license_id=None):
+        feed = MagicMock()
+        feed.stable_id = "test-feed-1"
+        feed.id = "feed-id-1"
+        feed.license_url = license_url
+        feed.license_id = license_id
+        feed.license_notes = None
+        feed.feed_license_changes = []
+        return feed
+
+    # --- No license_url ---
+
+    def test_no_license_url_returns_none(self):
+        feed = self._make_feed(license_url=None)
+        result = assign_license_by_url(feed, MagicMock())
+        self.assertIsNone(result)
+        self.assertIsNone(feed.license_id)
+
+    def test_empty_license_url_returns_none(self):
+        feed = self._make_feed(license_url="")
+        result = assign_license_by_url(feed, MagicMock())
+        self.assertIsNone(result)
+
+    # --- No match ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_no_match_returns_none(self, mock_resolve):
+        mock_resolve.return_value = []
+        feed = self._make_feed()
+        result = assign_license_by_url(feed, MagicMock())
+        self.assertIsNone(result)
+        self.assertIsNone(feed.license_id)
+        self.assertEqual(feed.feed_license_changes, [])
+
+    # --- Multiple matches ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_multiple_matches_skips_assignment(self, mock_resolve):
+        mock_resolve.return_value = [
+            self._make_match("MIT", "fuzzy", 0.96),
+            self._make_match("Apache-2.0", "fuzzy", 0.94),
+        ]
+        feed = self._make_feed()
+        result = assign_license_by_url(feed, MagicMock())
+        self.assertIsNone(result)
+        self.assertIsNone(feed.license_id)
+        self.assertEqual(feed.feed_license_changes, [])
+
+    # --- Single exact match — auto-verified ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_exact_match_assigns_and_marks_verified(self, mock_resolve):
+        match = self._make_match("MIT", "exact", 1.0)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed()
+
+        result = assign_license_by_url(feed, MagicMock())
+
+        self.assertEqual(result, match)
+        self.assertEqual(feed.license_id, "MIT")
+        self.assertEqual(len(feed.feed_license_changes), 1)
+        self.assertTrue(feed.feed_license_changes[0].verified)
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_heuristic_high_confidence_assigns_and_marks_verified(self, mock_resolve):
+        match = self._make_match("CC-BY-4.0", "heuristic", 0.99)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed()
+
+        result = assign_license_by_url(feed, MagicMock())
+
+        self.assertEqual(result, match)
+        self.assertEqual(feed.license_id, "CC-BY-4.0")
+        self.assertTrue(feed.feed_license_changes[0].verified)
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_threshold_boundary_095_marks_verified(self, mock_resolve):
+        match = self._make_match("ODbL-1.0", "heuristic", 0.95)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed()
+
+        assign_license_by_url(feed, MagicMock())
+
+        self.assertTrue(feed.feed_license_changes[0].verified)
+
+    # --- Fuzzy / low-confidence match — unverified ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_fuzzy_match_assigns_but_unverified(self, mock_resolve):
+        match = self._make_match("MIT", "fuzzy", 0.94)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed()
+
+        result = assign_license_by_url(feed, MagicMock())
+
+        self.assertEqual(result, match)
+        self.assertEqual(feed.license_id, "MIT")
+        self.assertFalse(feed.feed_license_changes[0].verified)
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_below_threshold_unverified(self, mock_resolve):
+        match = self._make_match("MIT", "heuristic", 0.80)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed()
+
+        assign_license_by_url(feed, MagicMock())
+
+        self.assertFalse(feed.feed_license_changes[0].verified)
+
+    # --- Duplicate assignment guard ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_same_license_id_no_new_audit_row(self, mock_resolve):
+        match = self._make_match("MIT", "exact", 1.0)
+        mock_resolve.return_value = [match]
+        feed = self._make_feed(license_id="MIT")  # already assigned
+
+        result = assign_license_by_url(feed, MagicMock())
+
+        self.assertEqual(result, match)
+        self.assertEqual(feed.license_id, "MIT")
+        self.assertEqual(feed.feed_license_changes, [])  # no new audit row
+
+    # --- only_if_single=False allows multiple matches ---
+
+    @patch("shared.common.license_utils.resolve_license")
+    def test_only_if_single_false_assigns_best_match(self, mock_resolve):
+        best = self._make_match("MIT", "fuzzy", 0.97)
+        second = self._make_match("Apache-2.0", "fuzzy", 0.94)
+        mock_resolve.return_value = [best, second]
+        feed = self._make_feed()
+
+        result = assign_license_by_url(feed, MagicMock(), only_if_single=False)
+
+        self.assertEqual(result, best)
+        self.assertEqual(feed.license_id, "MIT")
