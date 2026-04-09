@@ -7,6 +7,7 @@ import pytz
 
 from scripts.load_dataset_on_create import publish_all
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
+from shared.common.license_utils import assign_license_by_url
 from shared.database.database import generate_unique_id
 from shared.database_gen.sqlacodegen_models import (
     Entitytype,
@@ -212,6 +213,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             stable_id = self.get_stable_id(row)
             is_official_from_csv = self.get_safe_boolean_value(row, "is_official", None)
             feed = self.query_feed_by_stable_id(session, stable_id, data_type)
+            is_new_feed = feed is None
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
                 # Always set the deprecated status if found in the csv
@@ -264,6 +266,8 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
 
             session.add(feed)
             session.flush()
+            if is_new_feed and feed.license_url:
+                assign_license_by_url(feed, session)
         # This need to be done after all feeds are added to the session to avoid FK violation
         self.process_feed_references(session)
         self.process_redirects(session)

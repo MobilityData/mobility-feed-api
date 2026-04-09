@@ -101,6 +101,8 @@
     <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
     <!-- Add license_tag table and license_license_tags join table for tag classification of licenses. -->
     <include file="changes/feat_1565.sql" relativeToChangelogFile="true"/>
+    <!-- Add verified column to feed_license_change to track human review of auto-assigned licenses. -->
+    <include file="changes/feat_1568.sql" relativeToChangelogFile="true"/>
     <!-- Centralized materialized view definitions.
          Views are rebuilt from source SQL files using runOnChange. -->
     <!-- Generic task run and execution log tables for orchestration tracking. -->

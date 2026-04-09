@@ -36,6 +36,12 @@ def assign_feed_license(feed: Feed, license_match: MatchingLicense):
             feed.stable_id,
             license_match.license_id,
         )
+        from shared.common.license_utils import _AUTO_VERIFY_THRESHOLD
+
+        is_verified = (
+            license_match.match_type == "exact"
+            or license_match.confidence >= _AUTO_VERIFY_THRESHOLD
+        )
         feed.license_id = license_match.license_id
         feed.license_notes = license_match.notes
         feed_license_change: FeedLicenseChange = FeedLicenseChange(
@@ -50,6 +56,7 @@ def assign_feed_license(feed: Feed, license_match: MatchingLicense):
             matched_source=license_match.matched_source,
             notes=license_match.notes,
             regional_id=license_match.regional_id,
+            verified=is_verified,
         )
         feed.feed_license_changes.append(feed_license_change)
     else:
