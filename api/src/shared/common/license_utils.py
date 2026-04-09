@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from typing import List, Tuple, Optional
 
 from shared.common.db_utils import normalize_url, normalize_url_str
-from shared.database_gen.sqlacodegen_models import License
+from shared.database_gen.sqlacodegen_models import License, FeedLicenseChange
 
 
 @dataclass
@@ -442,3 +442,95 @@ def resolve_license(
 
     # 6) No match
     return []
+
+
+# Confidence threshold above which an auto-assigned license is considered verified
+# without requiring human review. Covers exact, CC resolver, SPDX, and pattern heuristic matches.
+_AUTO_VERIFY_THRESHOLD = 0.95
+
+
+def assign_license_by_url(
+    feed,
+    db_session: Session,
+    *,
+    only_if_single: bool = True,
+) -> Optional[MatchingLicense]:
+    """Resolve feed.license_url and auto-assign a license if exactly one match is found.
+
+    Behavior:
+    - 0 matches: logs info, returns None (no change).
+    - >1 matches: logs a warning and returns None when only_if_single=True;
+      the feed retains its current license_id for manual review.
+    - 1 match: assigns feed.license_id / feed.license_notes and appends a
+      FeedLicenseChange audit row. verified is set based on confidence:
+        - True  if match_type == 'exact' or confidence >= _AUTO_VERIFY_THRESHOLD
+          (covers exact DB matches, CC resolver, SPDX, pattern heuristics)
+        - False if match_type == 'fuzzy' (needs human confirmation)
+
+    Args:
+        feed: Any Feed ORM instance (Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed).
+        db_session: Active SQLAlchemy session; required for DB-backed resolution.
+        only_if_single: When True (default), skip assignment if multiple candidates
+            are returned, requiring a human to choose.
+
+    Returns:
+        The assigned MatchingLicense, or None if no assignment was made.
+    """
+    if not feed.license_url:
+        return None
+
+    matches = resolve_license(feed.license_url, db_session=db_session)
+
+    if not matches:
+        logging.info(
+            "No license match found for feed %s (url: %s)",
+            feed.stable_id,
+            feed.license_url,
+        )
+        return None
+
+    if only_if_single and len(matches) > 1:
+        logging.warning(
+            "Skipping auto-assignment for feed %s: %d license candidates found — manual review required",
+            feed.stable_id,
+            len(matches),
+        )
+        return None
+
+    best = matches[0]
+
+    if best.license_id == feed.license_id:
+        logging.info("Feed %s license unchanged: %s", feed.stable_id, best.license_id)
+        return best
+
+    is_verified = best.match_type == "exact" or best.confidence >= _AUTO_VERIFY_THRESHOLD
+
+    logging.info(
+        "Assigning license %s to feed %s (match_type=%s, confidence=%.2f, verified=%s)",
+        best.license_id,
+        feed.stable_id,
+        best.match_type,
+        best.confidence,
+        is_verified,
+    )
+
+    feed.license_id = best.license_id
+    feed.license_notes = best.notes
+    feed.feed_license_changes.append(
+        FeedLicenseChange(
+            feed_id=feed.id,
+            changed_at=None,  # set by DB default
+            feed_license_url=feed.license_url,
+            matched_license_id=best.license_id,
+            confidence=best.confidence,
+            match_type=best.match_type,
+            matched_name=best.matched_name,
+            matched_catalog_url=best.matched_catalog_url,
+            matched_source=best.matched_source,
+            notes=best.notes,
+            regional_id=best.regional_id,
+            verified=is_verified,
+        )
+    )
+
+    return best
