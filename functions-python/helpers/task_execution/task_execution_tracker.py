@@ -188,14 +188,13 @@ class TaskExecutionTracker:
         entity_id: Optional[str],
         execution_ref: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
-        bypass_db_update: bool = False,
     ) -> None:
         """
         Insert a task_execution_log row with status=triggered.
         Idempotent: if a row already exists for this (task_name, entity_id, run_id),
         it updates execution_ref and metadata.
         """
-        task_run_id = self._resolvetask_run_id()
+        task_run_id = self._resolve_task_run_id()
         stmt = (
             insert(TaskExecutionLog)
             .values(
@@ -205,7 +204,6 @@ class TaskExecutionTracker:
                 run_id=self.run_id,
                 status=STATUS_TRIGGERED,
                 execution_ref=execution_ref,
-                bypass_db_update=bypass_db_update,
                 metadata_=metadata,
             )
             .on_conflict_do_update(
@@ -426,7 +424,7 @@ class TaskExecutionTracker:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolvetask_run_id(self) -> Optional[uuid.UUID]:
+    def _resolve_task_run_id(self) -> Optional[uuid.UUID]:
         """Return cached task_run_id or fetch it from DB."""
         if self.task_run_id:
             return self.task_run_id

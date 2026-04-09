@@ -98,7 +98,6 @@ def execute_workflows(
                     entity_id=dataset_id,
                     execution_ref=execution.name,
                     metadata={"feed_id": feed_id},
-                    bypass_db_update=bypass_db_update,
                 )
         except Exception as e:
             logging.error(

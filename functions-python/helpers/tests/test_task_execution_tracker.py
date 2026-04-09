@@ -52,7 +52,7 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
         session.execute.assert_called_once()
         session.flush.assert_called_once()
 
-    def test_start_run_cachestask_run_id(self):
+    def test_start_run_caches_task_run_id(self):
         tracker, session = _make_tracker()
         run_uuid = uuid.uuid4()
         execute_result = MagicMock()
