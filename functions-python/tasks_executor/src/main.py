@@ -58,6 +58,7 @@ from tasks.data_import.jbda.import_jbda_feeds import import_jbda_handler
 from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
 )
+from tasks.web_revalidation.revalidate_feed import revalidate_feed_handler
 
 
 init_logger()
@@ -130,10 +131,6 @@ tasks = {
         "description": "Match licenses with feeds.",
         "handler": match_license_handler,
     },
-    "sync_transitfeeds_data": {
-        "description": "Syncs data from TransitFeeds to the database.",
-        "handler": sync_transitfeeds_handler,
-    },
     "tdg_import": {
         "description": "Imports TDG data into the system.",
         "handler": import_tdg_handler,
@@ -141,6 +138,10 @@ tasks = {
     "mdb_to_tdg_redirect": {
         "description": "Redirect duplicate MDB feeds to TDG imported feeds.",
         "handler": update_tdg_redirects_handler,
+    },
+    "revalidate_feed": {
+        "description": "Revalidate the web app cache for a specific feed detail page.",
+        "handler": revalidate_feed_handler,
     },
 }
 

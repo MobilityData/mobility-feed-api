@@ -222,6 +222,20 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   source = local.function_pmtiles_builder_zip
 }
 
+# Web app revalidation secret
+resource "google_secret_manager_secret" "web_app_revalidate_secret" {
+  project   = var.project_id
+  secret_id = "${upper(var.environment)}_WEB_APP_REVALIDATE_SECRET"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "web_app_revalidate_secret_version" {
+  secret      = google_secret_manager_secret.web_app_revalidate_secret.id
+  secret_data = var.web_app_revalidate_secret
+}
+
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = local.unique_secret_dict_map
@@ -231,6 +245,8 @@ resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
+
+  depends_on = [google_secret_manager_secret.web_app_revalidate_secret]
 }
 
 # Cloud function definitions
@@ -332,6 +348,7 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
       FILES_ENDPOINT    = local.public_hosted_datasets_url
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
@@ -908,6 +925,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = 1700
@@ -1077,6 +1095,8 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       GCP_REGION = var.gcp_region
       TDG_API_TOKEN = var.tdg_api_token
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      WEB_APP_REVALIDATE_URL = var.web_app_revalidate_url
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1135,6 +1155,7 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     available_memory                 = local.function_pmtiles_builder_config.memory
     timeout_seconds                  = local.function_pmtiles_builder_config.timeout
@@ -1329,6 +1350,25 @@ resource "google_cloud_tasks_queue" "task_run_sync_queue" {
     min_backoff   = "600s"
     max_backoff   = "600s"
     max_doublings = 0
+  }
+}
+
+# Task queue for web app cache revalidation
+resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "web-revalidation-task-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = 3
+    min_backoff   = "30s"
+    max_backoff   = "120s"
+    max_doublings = 2
   }
 }
 
