@@ -22,7 +22,6 @@ import functions_framework
 
 from shared.helpers.logger import init_logger
 from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
-from tasks.data_import.transitfeeds.sync_transitfeeds import sync_transitfeeds_handler
 from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
 from tasks.data_import.transportdatagouv.update_tdg_redirects import (
     update_tdg_redirects_handler,
