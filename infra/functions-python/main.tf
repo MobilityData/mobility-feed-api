@@ -1338,7 +1338,7 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
 resource "google_cloud_tasks_queue" "task_run_sync_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "task-run-sync-queue-${var.environment}"
+  name     = "task-run-sync-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
     max_concurrent_dispatches = 5
