@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS task_run (
 -- Mirrors the DatasetTrace concept from DatasetTraceService (Datastore).
 CREATE TABLE IF NOT EXISTS task_execution_log (
     id               SERIAL PRIMARY KEY,
-    task_run_id      UUID REFERENCES task_run(id),
+    task_run_id      UUID REFERENCES task_run(id) ON DELETE CASCADE,
     task_name        VARCHAR NOT NULL,
     entity_id        VARCHAR,
     run_id           VARCHAR NOT NULL,
