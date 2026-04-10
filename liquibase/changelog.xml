@@ -105,6 +105,8 @@
     <include file="changes/feat_1568.sql" relativeToChangelogFile="true"/>
     <!-- Centralized materialized view definitions.
          Views are rebuilt from source SQL files using runOnChange. -->
+    <!-- Generic task run and execution log tables for orchestration tracking. -->
+    <include file="changes/feat_task_execution_log.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

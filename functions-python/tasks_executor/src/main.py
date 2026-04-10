@@ -21,6 +21,7 @@ import flask
 import functions_framework
 
 from shared.helpers.logger import init_logger
+from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
 from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
 from tasks.data_import.transportdatagouv.update_tdg_redirects import (
     update_tdg_redirects_handler,
@@ -37,6 +38,12 @@ from tasks.refresh_feedsearch_view.refresh_materialized_view import (
 )
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
+)
+from tasks.sync_task_run_status import (
+    sync_task_run_status_handler,
+)
+from tasks.get_task_run_status import (
+    get_task_run_status_handler,
 )
 from tasks.visualization_files.rebuild_missing_visualization_files import (
     rebuild_missing_visualization_files_handler,
@@ -70,6 +77,25 @@ tasks = {
     "rebuild_missing_validation_reports": {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
         "handler": rebuild_missing_validation_reports_handler,
+    },
+    "get_task_run_status": {
+        "description": (
+            "Read-only snapshot of a task_run tracked by TaskExecutionTracker. "
+            "Returns current DB state (triggered/completed/failed/pending counts) "
+            "without triggering any GCP Workflows polling or status transitions. "
+            "Required: task_name, run_id."
+        ),
+        "handler": get_task_run_status_handler,
+    },
+    "sync_task_run_status": {
+        "description": (
+            "Generic self-scheduling monitor for any task_run. "
+            "Polls GCP Workflows for triggered entries, updates statuses, "
+            "marks the task_run completed when all done, and re-schedules "
+            "itself every 10 minutes until complete. "
+            "Required: task_name, run_id."
+        ),
+        "handler": sync_task_run_status_handler,
     },
     "rebuild_missing_bounding_boxes": {
         "description": "Rebuilds missing bounding boxes for GTFS datasets that contain valid stops.txt files.",
@@ -195,5 +221,10 @@ def tasks_executor(request: flask.Request) -> flask.Response:
 
         # Default JSON response
         return flask.make_response(flask.jsonify(result), 200)
+    except TaskInProgressError as error:
+        # Signal Cloud Tasks to retry — the run is not yet complete
+        return flask.make_response(
+            flask.jsonify({"status": "in_progress", "detail": str(error)}), 503
+        )
     except Exception as error:
         return flask.make_response(flask.jsonify({"error": str(error)}), 500)

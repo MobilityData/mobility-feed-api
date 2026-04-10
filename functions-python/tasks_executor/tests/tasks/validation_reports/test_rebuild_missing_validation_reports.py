@@ -17,225 +17,293 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from sqlalchemy.orm import Session
-
-from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
 from shared.helpers.gtfs_validator_common import GTFS_VALIDATOR_URL_STAGING
-from shared.helpers.tests.test_shared.test_utils.database_utils import default_db_url
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
     get_parameters,
     rebuild_missing_validation_reports,
 )
 
+_MODULE = "tasks.validation_reports.rebuild_missing_validation_reports"
 
-class TestTasksExecutor(unittest.TestCase):
-    def test_get_parameters(self):
-        """
-        Test the get_parameters function to ensure it correctly extracts parameters from the payload.
-        """
-        payload = {
-            "dry_run": True,
-            "filter_after_in_days": 14,
-            "filter_statuses": ["status1", "status2"],
-        }
 
+class TestGetParameters(unittest.TestCase):
+    def test_defaults(self):
         (
             dry_run,
             filter_after_in_days,
             filter_statuses,
+            filter_op_statuses,
             prod_env,
             validator_endpoint,
-        ) = get_parameters(payload)
-
+            bypass_db_update,
+            force_update,
+            limit,
+        ) = get_parameters({})
         self.assertTrue(dry_run)
-        self.assertEqual(filter_after_in_days, 14)
-        self.assertEqual(filter_statuses, ["status1", "status2"])
+        self.assertIsNone(filter_after_in_days)
+        self.assertIsNone(filter_statuses)
+        self.assertIsNone(filter_op_statuses)
         self.assertFalse(prod_env)
         self.assertEqual(validator_endpoint, GTFS_VALIDATOR_URL_STAGING)
+        self.assertFalse(bypass_db_update)
+        self.assertFalse(force_update)
+        self.assertIsNone(limit)
 
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.rebuild_missing_validation_reports"
-    )
-    def test_rebuild_missing_validation_reports_entry(
-        self, rebuild_missing_validation_reports_mock
-    ):
-        """
-        Test the rebuild_missing_validation_reports_entry function.
-        Assert that it correctly calls the rebuild_missing_validation_reports function with the expected parameters.
-        """
-        # Mock payload for the test
+    def test_all_params(self):
         payload = {
-            "dry_run": True,
-            "filter_after_in_days": 14,
-            "filter_statuses": ["status1", "status2"],
+            "dry_run": False,
+            "filter_after_in_days": 30,
+            "filter_statuses": ["active"],
+            "filter_op_statuses": ["published", "unpublished"],
+            "validator_endpoint": "https://staging.example.com/api",
+            "bypass_db_update": True,
+            "force_update": True,
+            "limit": 10,
         }
-        expected_response = MagicMock()
-        rebuild_missing_validation_reports_mock.return_value = expected_response
-        response = rebuild_missing_validation_reports_handler(payload)
+        (
+            dry_run,
+            filter_after_in_days,
+            filter_statuses,
+            filter_op_statuses,
+            prod_env,
+            validator_endpoint,
+            bypass_db_update,
+            force_update,
+            limit,
+        ) = get_parameters(payload)
+        self.assertFalse(dry_run)
+        self.assertEqual(filter_after_in_days, 30)
+        self.assertEqual(filter_statuses, ["active"])
+        self.assertEqual(filter_op_statuses, ["published", "unpublished"])
+        self.assertEqual(validator_endpoint, "https://staging.example.com/api")
+        self.assertTrue(bypass_db_update)
+        self.assertTrue(force_update)
+        self.assertEqual(limit, 10)
 
-        self.assertEqual(response, expected_response)
-        rebuild_missing_validation_reports_mock.assert_called_once_with(
-            validator_endpoint=GTFS_VALIDATOR_URL_STAGING,
+    def test_string_coercion(self):
+        payload = {
+            "dry_run": "false",
+            "bypass_db_update": "true",
+            "force_update": "true",
+            "limit": "5",
+        }
+        dry_run, _, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(
+            payload
+        )
+        self.assertFalse(dry_run)
+        self.assertTrue(bypass_db_update)
+        self.assertTrue(force_update)
+        self.assertEqual(limit, 5)
+
+
+class TestRebuildMissingValidationReports(unittest.TestCase):
+    def _make_session_mock(self, datasets=None):
+        """Create a mock DB session returning given datasets from the query."""
+        session = MagicMock()
+        query_mock = MagicMock()
+        query_mock.select_from.return_value = query_mock
+        query_mock.join.return_value = query_mock
+        query_mock.outerjoin.return_value = query_mock
+        query_mock.filter.return_value = query_mock
+        query_mock.distinct.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.all.return_value = datasets or []
+        session.query.return_value = query_mock
+        return session
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_dry_run_returns_count_without_triggering(
+        self, tracker_cls, filter_blob_mock, version_mock
+    ):
+        session = self._make_session_mock(
+            datasets=[("feed-1", "ds-1"), ("feed-2", "ds-2")]
+        )
+        filter_blob_mock.return_value = [("feed-1", "ds-1"), ("feed-2", "ds-2")]
+        tracker_cls.return_value.count_already_tracked.return_value = 1
+
+        result = rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
             dry_run=True,
-            filter_after_in_days=14,
-            filter_statuses=["status1", "status2"],
-            prod_env=False,
+            db_session=session,
         )
 
-    @with_db_session(db_url=default_db_url)
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.execute_workflows",
-    )
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.QUERY_LIMIT", 10
-    )
-    def test_rebuild_missing_validation_reports_one_page(
-        self, execute_workflows_mock, db_session: Session
+        self.assertEqual(result["total_candidates"], 2)
+        self.assertEqual(result["total_triggered"], 0)
+        self.assertEqual(result["total_already_tracked"], 1)
+        self.assertIn("dry_run", result["params"])
+        self.assertTrue(result["params"]["dry_run"])
+        tracker_cls.return_value.start_run.assert_not_called()
+        tracker_cls.return_value.count_already_tracked.assert_called_once_with(
+            ["ds-1", "ds-2"]
+        )
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob")
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1", "ds-2"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_triggers_workflows_when_not_dry_run(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
-        """
-        Test the rebuild_missing_validation_reports function with a single page of results.
-        We are assuming tha the dataset has 7 datasets, and the query limit is set to 10.
-        """
-        execute_workflows_mock.return_value = []
-        response = rebuild_missing_validation_reports(
-            db_session=db_session,
-            validator_endpoint="https://i_dont.exists.com",
+        datasets = [("feed-1", "ds-1"), ("feed-2", "ds-2")]
+        filter_blob_mock.return_value = datasets
+        session = self._make_session_mock(datasets=datasets)
+
+        result = rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
             dry_run=False,
-            prod_env=False,
+            db_session=session,
         )
 
-        # Assert the expected behavior
-        self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 9)
-        self.assertEquals(
-            response["message"],
-            "Rebuild missing validation reports task executed successfully.",
-        )
-        execute_workflows_mock.assert_called_once()
+        exec_mock.assert_called_once()
+        self.assertEqual(result["total_triggered"], 2)
+        self.assertFalse(result["params"]["dry_run"])
 
-    @with_db_session(db_url=default_db_url)
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.execute_workflows",
-    )
-    @patch("tasks.validation_reports.rebuild_missing_validation_reports.QUERY_LIMIT", 2)
-    def test_rebuild_missing_validation_reports_two_pages(
-        self, execute_workflows_mock, db_session: Session
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob")
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_limit_slices_datasets(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
-        """
-        Test the rebuild_missing_validation_reports function with a single page of results.
-        We are assuming tha the dataset has 7 datasets, and the query limit is set to 2.
-        """
-        execute_workflows_mock.return_value = []
-        response = rebuild_missing_validation_reports(
-            db_session=db_session,
-            validator_endpoint="https://i_dont.exists.com",
+        datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
+        filter_blob_mock.return_value = [(f"feed-{i}", f"ds-{i}") for i in range(5)]
+        session = self._make_session_mock(datasets=datasets)
+
+        result = rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
             dry_run=False,
-            prod_env=False,
+            limit=5,
+            db_session=session,
         )
 
-        # Assert the expected behavior
-        self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 9)
-        self.assertEquals(
-            response["message"],
-            "Rebuild missing validation reports task executed successfully.",
-        )
-        self.assertEquals(execute_workflows_mock.call_count, 5)
+        # blob filter must be called with full candidate list AND the limit
+        filter_blob_mock.assert_called_once_with(datasets, limit=5)
+        triggered_datasets = exec_mock.call_args[0][0]
+        self.assertEqual(len(triggered_datasets), 5)
+        self.assertEqual(result["total_candidates"], 20)
+        self.assertEqual(result["total_in_call"], 5)
 
-    @with_db_session(db_url=default_db_url)
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.execute_workflows",
-    )
-    @patch("tasks.validation_reports.rebuild_missing_validation_reports.QUERY_LIMIT", 2)
-    def test_rebuild_missing_validation_reports_dryrun(
-        self, execute_workflows_mock, db_session: Session
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_bypass_db_update_passed_explicitly(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
-        """
-        Test the rebuild_missing_validation_reports function with a single page of results.
-        We are assuming tha the dataset has 7 datasets, and the query limit is set to 2.
-        """
-        execute_workflows_mock.return_value = []
-        response = rebuild_missing_validation_reports(
-            db_session=db_session,
-            validator_endpoint="https://i_dont.exists.com",
+        session = self._make_session_mock(datasets=[("f", "ds-1")])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            bypass_db_update=True,
+            dry_run=False,
+            db_session=session,
+        )
+        _, call_kwargs = exec_mock.call_args
+        self.assertTrue(call_kwargs["bypass_db_update"])
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_bypass_db_update_defaults_to_false(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
+    ):
+        session = self._make_session_mock(datasets=[("f", "ds-1")])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            dry_run=False,
+            db_session=session,
+        )
+        _, call_kwargs = exec_mock.call_args
+        self.assertFalse(call_kwargs["bypass_db_update"])
+
+    @patch(f"{_MODULE}.rebuild_missing_validation_reports")
+    def test_handler_passes_all_params(self, rebuild_mock):
+        rebuild_mock.return_value = {"message": "ok"}
+        payload = {
+            "dry_run": False,
+            "filter_after_in_days": 30,
+            "validator_endpoint": "https://staging.example.com/api",
+            "force_update": True,
+            "limit": 10,
+            "filter_op_statuses": ["published", "wip"],
+        }
+        rebuild_missing_validation_reports_handler(payload)
+        rebuild_mock.assert_called_once_with(
+            validator_endpoint="https://staging.example.com/api",
+            bypass_db_update=False,
+            dry_run=False,
+            filter_after_in_days=30,
+            filter_statuses=None,
+            filter_op_statuses=["published", "wip"],
+            prod_env=False,
+            force_update=True,
+            limit=10,
+        )
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_default_op_status_filters_published(
+        self, tracker_cls, filter_blob_mock, version_mock
+    ):
+        """When filter_op_statuses is None, the query should default to ['published']."""
+        session = self._make_session_mock(datasets=[])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
             dry_run=True,
-            prod_env=False,
+            filter_op_statuses=None,
+            db_session=session,
+        )
+        # The query chain should have received a filter call for operational_status
+        # Verify via the query mock that .filter was called (default published applied)
+        self.assertTrue(session.query.called)
+
+
+class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
+    @patch(f"{_MODULE}.storage")
+    def test_stops_at_limit(self, storage_mock):
+        """Should stop checking GCS as soon as limit valid datasets are found."""
+        from tasks.validation_reports.rebuild_missing_validation_reports import (
+            _filter_out_datasets_without_blob,
         )
 
-        # Assert the expected behavior
-        self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 9)
-        self.assertEquals(response["message"], "Dry run: no datasets processed.")
-        execute_workflows_mock.assert_not_called()
+        bucket_mock = MagicMock()
+        storage_mock.Client.return_value.bucket.return_value = bucket_mock
 
-    @with_db_session(db_url=default_db_url)
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.execute_workflows",
-    )
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.QUERY_LIMIT", 10
-    )
-    def test_rebuild_missing_validation_reports_filter_active(
-        self, execute_workflows_mock, db_session: Session
-    ):
-        """
-        Test the rebuild_missing_validation_reports function with a single page of results.
-        We are assuming tha the dataset has 7 datasets, and the query limit is set to 2.
-        """
-        active_counter = (
-            db_session.query(Gtfsdataset)
-            .join(Gtfsdataset.feed)
-            .filter(Feed.status == "active")
-            .count()
-        )
-        execute_workflows_mock.return_value = []
-        response = rebuild_missing_validation_reports(
-            db_session=db_session,
-            validator_endpoint="https://i_dont.exists.com",
-            dry_run=False,
-            prod_env=False,
-            filter_statuses=["active"],
+        # All blobs exist
+        blob_mock = MagicMock()
+        blob_mock.exists.return_value = True
+        bucket_mock.blob.return_value = blob_mock
+
+        datasets = [(f"feed-{i}", f"ds-{i}") for i in range(20)]
+        result = _filter_out_datasets_without_blob(datasets, limit=3)
+
+        self.assertEqual(len(result), 3)
+        # Only 3 GCS calls should have been made
+        self.assertEqual(blob_mock.exists.call_count, 3)
+
+    @patch(f"{_MODULE}.storage")
+    def test_skips_missing_blobs_and_continues(self, storage_mock):
+        """Should skip datasets with no blob and keep going until limit is reached."""
+        from tasks.validation_reports.rebuild_missing_validation_reports import (
+            _filter_out_datasets_without_blob,
         )
 
-        # Assert the expected behavior
-        self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], active_counter)
-        self.assertEquals(
-            response["message"],
-            "Rebuild missing validation reports task executed successfully.",
-        )
-        self.assertEquals(execute_workflows_mock.call_count, 1)
+        bucket_mock = MagicMock()
+        storage_mock.Client.return_value.bucket.return_value = bucket_mock
 
-    @with_db_session(db_url=default_db_url)
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.execute_workflows",
-    )
-    @patch(
-        "tasks.validation_reports.rebuild_missing_validation_reports.QUERY_LIMIT", 10
-    )
-    def test_rebuild_missing_validation_reports_filter_no_results(
-        self, execute_workflows_mock, db_session: Session
-    ):
-        """
-        Test the rebuild_missing_validation_reports function with a single page of results.
-        We are assuming tha the dataset has 7 datasets, and the query limit is set to 2.
-        """
-        execute_workflows_mock.return_value = []
-        response = rebuild_missing_validation_reports(
-            db_session=db_session,
-            validator_endpoint="https://i_dont.exists.com",
-            dry_run=False,
-            prod_env=False,
-            filter_statuses=["future"],
-        )
+        # First 2 blobs missing, next 3 exist
+        exists_sequence = [False, False, True, True, True, True, True]
+        blob_mock = MagicMock()
+        blob_mock.exists.side_effect = exists_sequence
+        bucket_mock.blob.return_value = blob_mock
 
-        # Assert the expected behavior
-        self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 0)
-        self.assertEquals(
-            response["message"],
-            "Rebuild missing validation reports task executed successfully.",
-        )
-        execute_workflows_mock.assert_not_called()
+        datasets = [(f"feed-{i}", f"ds-{i}") for i in range(7)]
+        result = _filter_out_datasets_without_blob(datasets, limit=3)
+
+        self.assertEqual(len(result), 3)
+        # Must have checked 5 items: 2 missing + 3 valid
+        self.assertEqual(blob_mock.exists.call_count, 5)

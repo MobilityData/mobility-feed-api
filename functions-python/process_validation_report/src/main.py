@@ -35,6 +35,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.logger import init_logger
 from shared.helpers.transform import get_nested_value
 from shared.helpers.feed_status import update_feed_statuses_query
+from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 from shared.common.gcp_utils import create_web_revalidation_task
 
 init_logger()
@@ -288,6 +289,20 @@ def create_validation_report_entities(
 
         update_feed_statuses_query(db_session, [feed_stable_id])
 
+        # Update execution tracker regardless of bypass_db_update, so monitoring
+        # works for both pre-release and post-release validation runs.
+        try:
+            tracker = TaskExecutionTracker(
+                task_name="gtfs_validation",
+                run_id=version,
+                db_session=db_session,
+            )
+            tracker.mark_completed(dataset_stable_id)
+            db_session.commit()
+        except Exception as tracker_error:
+            logging.warning(
+                "Could not update task execution tracker: %s", tracker_error
+            )
         # Trigger web app cache revalidation for the feed
         try:
             create_web_revalidation_task([feed_stable_id])

@@ -47,13 +47,18 @@ def execute_workflows(
     validator_endpoint=None,
     bypass_db_update=False,
     reports_bucket_name=None,
+    tracker=None,
 ):
     """
-    Execute the workflow for the latest datasets that need their validation report to be updated
+    Execute the workflow for the latest datasets that need their validation report to be updated.
+
     :param latest_datasets: List of tuples containing the feed stable id and dataset stable id
     :param validator_endpoint: The URL of the validator
     :param bypass_db_update: Whether to bypass the database update
     :param reports_bucket_name: The name of the bucket where the reports are stored
+    :param tracker: Optional TaskExecutionTracker for idempotent execution tracking.
+                    When provided, datasets already in triggered/completed state are skipped
+                    and newly triggered datasets are recorded.
     :return: List of dataset stable ids for which the workflow was executed
     """
     project_id = f"mobility-feeds-{env}"
@@ -64,6 +69,9 @@ def execute_workflows(
     count = 0
     logging.info(f"Executing workflow for {len(latest_datasets)} datasets")
     for feed_id, dataset_id in latest_datasets:
+        if tracker and tracker.is_triggered(dataset_id):
+            logging.info(f"Skipping already triggered dataset {feed_id}/{dataset_id}")
+            continue
         try:
             input_data = {
                 "data": {
@@ -83,12 +91,20 @@ def execute_workflows(
             if reports_bucket_name:
                 input_data["data"]["reports_bucket_name"] = reports_bucket_name
             logging.info(f"Executing workflow for {feed_id}/{dataset_id}")
-            execute_workflow(project_id, input_data=input_data)
+            execution = execute_workflow(project_id, input_data=input_data)
             execution_triggered_datasets.append(dataset_id)
+            if tracker:
+                tracker.mark_triggered(
+                    entity_id=dataset_id,
+                    execution_ref=execution.name,
+                    metadata={"feed_id": feed_id},
+                )
         except Exception as e:
             logging.error(
                 f"Error while executing workflow for {feed_id}/{dataset_id}: {e}"
             )
+            if tracker:
+                tracker.mark_failed(entity_id=dataset_id, error_message=str(e))
         count += 1
         logging.info(f"Triggered workflow execution for {count} datasets")
         if count % batch_size == 0:

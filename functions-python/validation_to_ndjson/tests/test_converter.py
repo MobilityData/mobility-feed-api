@@ -89,7 +89,7 @@ class TestValidationReportConverter(unittest.TestCase):
             "notices": [{"sampleNotices": '[{"id":1},{"id":2}]'}],
         }
         mock_bucket = MagicMock()
-        mock_storage_client().get_bucket.return_value = mock_bucket
+        mock_storage_client().bucket.return_value = mock_bucket
 
         self.gtfs_converter.process()
 
@@ -120,7 +120,7 @@ class TestValidationReportConverter(unittest.TestCase):
             "notices": [{"sampleNotices": '[{"id":1},{"id":2}]'}],
         }
         mock_bucket = MagicMock()
-        mock_storage_client().get_bucket.return_value = mock_bucket
+        mock_storage_client().bucket.return_value = mock_bucket
 
         self.gbfs_converter.process()
 
