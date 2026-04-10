@@ -64,6 +64,22 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
 
         self.assertEqual(tracker.task_run_id, run_uuid)
 
+    def test_start_run_resets_status_to_in_progress_on_rerun(self):
+        """Re-running the same task_name/run_id must reset status and completed_at on conflict."""
+        tracker, session = _make_tracker()
+        run_uuid = uuid.uuid4()
+        execute_result = MagicMock()
+        execute_result.scalar_one.return_value = run_uuid
+        session.execute.return_value = execute_result
+
+        tracker.start_run(total_count=5)
+
+        stmt_compiled = str(session.execute.call_args[0][0])
+        # The ON CONFLICT DO UPDATE clause must include status and completed_at
+        self.assertIn("DO UPDATE SET", stmt_compiled)
+        self.assertIn("status", stmt_compiled)
+        self.assertIn("completed_at", stmt_compiled)
+
 
 class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
     def test_returns_true_when_triggered_row_exists(self):

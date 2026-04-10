@@ -113,6 +113,8 @@ class TaskExecutionTracker:
                 set_={
                     "total_count": total_count,
                     "params": params,
+                    "status": STATUS_IN_PROGRESS,
+                    "completed_at": None,
                 },
             )
             .returning(TaskRun.id)
