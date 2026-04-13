@@ -41,7 +41,7 @@ from shared.helpers.validation_report.validation_report_update import execute_wo
 QUERY_LIMIT: Final[int] = 100
 TASK_NAME: Final[str] = "gtfs_validation"
 
-env = os.getenv("ENV", "dev").lower()
+env = os.getenv("ENVIRONMENT", "dev").lower()
 datasets_bucket_name = f"mobilitydata-datasets-{env}"
 
 
@@ -325,7 +325,7 @@ def get_parameters(payload):
         Tuple of (dry_run, filter_after_in_days, filter_statuses, prod_env,
                   validator_endpoint, force_update, limit)
     """
-    prod_env = os.getenv("ENV", "").lower() == "prod"
+    prod_env = os.getenv("ENVIRONMENT", "").lower() == "prod"
     default_endpoint = get_gtfs_validator_url(prod_env)
 
     dry_run = payload.get("dry_run", True)
