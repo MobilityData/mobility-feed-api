@@ -58,6 +58,15 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
+      - name: Cache lint virtualenvs
+        uses: actions/cache@v4
+        with:
+          path: |
+            api/venv
+            functions-python/venv
+            integration-tests/venv
+          key: lint-venvs-${{ runner.os }}-${{ hashFiles('api/requirements_dev.txt', 'functions-python/requirements_dev.txt', 'integration-tests/requirements_dev.txt') }}
+
       - name: Docker Compose DB
         run: |
           docker compose --env-file ./config/.env.local up -d postgres postgres-test
