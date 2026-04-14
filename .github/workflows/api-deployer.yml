@@ -207,7 +207,7 @@ jobs:
           echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
           echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
           echo "POSTGRES_HOST=localhost" >> config/.env.local
-          echo "ENV=dev" >> config/.env.local
+          echo "ENVIRONMENT=dev" >> config/.env.local
 
       # db models were generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4

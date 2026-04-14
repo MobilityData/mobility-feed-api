@@ -25,7 +25,7 @@ import json
 from google.cloud import storage
 import requests
 
-env = os.getenv("ENV", "dev").lower()
+env = os.getenv("ENVIRONMENT", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
 
 init_logger()
