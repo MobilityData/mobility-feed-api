@@ -21,10 +21,13 @@ env:
   liquibase_version: '4.33.0'
 
 jobs:
-  build-test:
+  setup:
     runs-on: ubuntu-latest
     permissions: write-all
-    name: Build & Test
+    name: Build & Setup
+    outputs:
+      should-run-tests: ${{ steps.set-should-run-tests.outputs.result }}
+      test-matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,7 +81,7 @@ jobs:
           sudo mv liquibase-dist /usr/local/liquibase
           sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
           liquibase --version
-      
+
       - name: Run Liquibase on Python functions test DB
         working-directory: ${{ github.workspace }}/liquibase
         run: |
@@ -102,25 +105,18 @@ jobs:
         run: |
           scripts/api-operations-gen.sh
 
-      - name: Unit tests - API
-        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
-        shell: bash
+      - name: Set test matrix
+        id: set-matrix
         run: |
-          scripts/api-tests.sh --folder api --html_report
-
-      - name: Unit tests - Python Functions
-        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
-        shell: bash
-        run: |
-          scripts/api-tests.sh --folder functions-python --html_report
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
-        with:
-          name: coverage_report
-          path: scripts/coverage_reports/
-          overwrite: true
+          # Discover functions that are runnable: have a tests/ dir and a requirements.txt.
+          # This automatically excludes test_utils (no tests/) and stubs like dataset_service (no requirements.txt).
+          functions=$(find functions-python -maxdepth 1 -mindepth 1 -type d | while read dir; do
+            if [ -d "$dir/tests" ] && [ -f "$dir/requirements.txt" ]; then
+              basename "$dir"
+            fi
+          done | sort | jq -Rnc '[inputs | {folder: ("functions-python/" + .), group: .}]')
+          api='[{"folder":"api","group":"api"}]'
+          echo "matrix=$(printf '%s\n%s' "$api" "$functions" | jq -sc 'add | {include: .}')" >> "$GITHUB_OUTPUT"
 
       - name: Upload DB models
         uses: actions/upload-artifact@v4
@@ -141,4 +137,82 @@ jobs:
         with:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
+          overwrite: true
+
+  test:
+    needs: setup
+    if: ${{ needs.setup.outputs.should-run-tests == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    name: Test (${{ matrix.group }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.test-matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Download DB models
+        uses: actions/download-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/shared/database_gen/
+
+      - name: Download API generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
+
+      - name: Download Operations API generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: feeds_operations_gen
+          path: functions-python/operations_api/src/feeds_gen/
+
+      - name: Docker Compose DB
+        run: |
+          docker compose --env-file ./config/.env.local up -d postgres-test --wait
+        working-directory: ${{ github.workspace }}
+
+      - name: Set up JDK ${{ env.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.java_version }}
+          distribution: 'temurin'
+
+      - name: Install Liquibase
+        env:
+          LIQUIBASE_VERSION: ${{ env.liquibase_version }}
+        run: |
+          curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          rm -rf liquibase-dist
+          mkdir liquibase-dist
+          tar -xzf liquibase.tar.gz -C liquibase-dist
+          sudo rm -rf /usr/local/liquibase
+          sudo mv liquibase-dist /usr/local/liquibase
+          sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+
+      - name: Run Liquibase on test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+      - name: Run tests
+        shell: bash
+        run: scripts/api-tests.sh --folder ${{ matrix.folder }} --html_report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_report_${{ matrix.group }}
+          path: scripts/coverage_reports/
           overwrite: true
