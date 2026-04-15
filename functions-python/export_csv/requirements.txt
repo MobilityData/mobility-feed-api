@@ -1,6 +1,6 @@
 # Common packages
 psycopg2-binary==2.9.6
-aiohttp~=3.10.5
+aiohttp~=3.13.5
 asyncio~=3.4.3
 urllib3~=2.5.0
 requests~=2.32.3
