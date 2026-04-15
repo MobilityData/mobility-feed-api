@@ -804,7 +804,7 @@ def commit_changes(
         logger.info("Commit after processing items (count=%d)", total_processed)
         db_session.commit()
         execution_id = str(uuid.uuid4())
-        if os.getenv("ENV", "").lower() == "local":
+        if os.getenv("ENVIRONMENT", "").lower() == "local":
             return
         for feed in feeds_to_publish:
             trigger_dataset_download(feed, execution_id)

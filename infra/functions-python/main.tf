@@ -340,8 +340,6 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      # FIXME, duplicate variable
-      ENV = var.environment
       ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
@@ -395,7 +393,7 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      ENV = var.environment
+      ENVIRONMENT = var.environment
       PYTHONNODEBUGRANGES = 0
     }
 
@@ -596,7 +594,7 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     environment_variables = {
-      ENV = var.environment
+      ENVIRONMENT = var.environment
       BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
@@ -688,7 +686,7 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
 
     environment_variables = {
       # prevents multiline logs from being truncated on GCP console
-      ENV = var.environment
+      ENVIRONMENT = var.environment
       PYTHONNODEBUGRANGES = 0
     }
     dynamic "secret_environment_variables" {
@@ -1151,7 +1149,7 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
   service_config {
     environment_variables = {
       PROJECT_ID  = var.project_id
-      ENV = var.environment
+      ENVIRONMENT = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"

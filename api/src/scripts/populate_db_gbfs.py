@@ -152,14 +152,14 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             f"Triggering downstream tasks for {len(self.added_feeds)} newly added feed(s): "
             f"{', '.join(f['stable_id'] for f in self.added_feeds)}"
         )
-        if os.getenv("ENV", "local") == "local":
+        if os.getenv("ENVIRONMENT", "local") == "local":
             self.logger.info("Skipping downstream tasks in local environment.")
             return
         if not self.added_feeds:
             self.logger.info("No feeds to trigger downstream tasks for.")
             return
 
-        env = os.getenv("ENV", "dev")
+        env = os.getenv("ENVIRONMENT", "dev")
         project_id = f"mobility-feeds-{env}"
         publisher = pubsub_v1.PublisherClient()
         topic_path = publisher.topic_path(project_id, GBFS_PUBSUB_TOPIC_NAME)
