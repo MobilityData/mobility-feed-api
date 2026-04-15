@@ -1,5 +1,5 @@
 Faker
-pytest~=7.4.3
+pytest~=9.0.3
 urllib3-mock
 requests-mock
 gcp-storage-emulator

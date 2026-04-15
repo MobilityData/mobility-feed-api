@@ -1,4 +1,4 @@
-aiohttp~=3.10.5
+aiohttp~=3.13.5
 asgiref~=3.8.1
 asyncio~=3.4.3
 attrs~=23.1.0
@@ -11,7 +11,7 @@ pluggy~=1.5.0
 promise==2.3
 pydantic>=2
 python-dotenv==0.17.1
-python-multipart==0.0.7
+python-multipart==0.0.26
 PyYAML>=5.4.1,<6.1.0
 requests==2.32.3
 Rx==1.6.1
