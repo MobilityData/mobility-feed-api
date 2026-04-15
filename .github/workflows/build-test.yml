@@ -82,7 +82,7 @@ jobs:
         id: cache-liquibase
         uses: actions/cache@v4
         with:
-          path: /usr/local/liquibase
+          path: ~/.liquibase
           key: liquibase-${{ env.liquibase_version }}
 
       - name: Install Liquibase
@@ -94,12 +94,11 @@ jobs:
           rm -rf liquibase-dist
           mkdir liquibase-dist
           tar -xzf liquibase.tar.gz -C liquibase-dist
-          sudo rm -rf /usr/local/liquibase
-          sudo mv liquibase-dist /usr/local/liquibase
+          mv liquibase-dist ~/.liquibase
 
       - name: Link Liquibase
         run: |
-          sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+          sudo ln -sf ~/.liquibase/liquibase /usr/local/bin/liquibase
           liquibase --version
 
       - name: Run Liquibase on Python functions test DB
@@ -209,7 +208,7 @@ jobs:
         id: cache-liquibase
         uses: actions/cache@v4
         with:
-          path: /usr/local/liquibase
+          path: ~/.liquibase
           key: liquibase-${{ env.liquibase_version }}
 
       - name: Install Liquibase
@@ -221,11 +220,10 @@ jobs:
           rm -rf liquibase-dist
           mkdir liquibase-dist
           tar -xzf liquibase.tar.gz -C liquibase-dist
-          sudo rm -rf /usr/local/liquibase
-          sudo mv liquibase-dist /usr/local/liquibase
+          mv liquibase-dist ~/.liquibase
 
       - name: Link Liquibase
-        run: sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+        run: sudo ln -sf ~/.liquibase/liquibase /usr/local/bin/liquibase
 
       - name: Run Liquibase on test DB
         working-directory: ${{ github.workspace }}/liquibase
