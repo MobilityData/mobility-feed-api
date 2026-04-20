@@ -1,0 +1,22 @@
+{
+  "customLicense": {
+    "licenseId": "Licence-Mobilites",
+    "licenseText": "",
+    "licenseTextHtml": "",
+    "name": "Licence Mobilités",
+    "urls": [
+      {
+        "url": "https://wiki.lafabriquedesmobilites.fr/wiki/Licence_Mobilit%C3%A9s",
+        "description": "License content"
+      }
+    ],
+    "seeAlso": [
+      
+    ]
+  },
+  "categorized": false,
+  "permissions": [],
+  "conditions": [],
+  "limitations": [],
+  "tags": []
+}
