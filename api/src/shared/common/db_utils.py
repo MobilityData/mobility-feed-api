@@ -10,7 +10,6 @@ from sqlalchemy.orm import joinedload, Session, contains_eager, load_only, selec
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 from sqlalchemy import func
-from sqlalchemy.sql import and_
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
@@ -24,7 +23,6 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Gbfsfeed,
     Gbfsversion,
-    Gbfsvalidationreport,
 )
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
@@ -466,6 +464,15 @@ def get_gbfs_feeds_query(
     system_id: Optional[str] = None,
     version: Optional[str] = None,
 ) -> Query:
+    """Build a query for GBFS feeds.
+
+    Uses a subquery for filtering (location, version, etc.) so the main query
+    stays lean, then uses ``selectinload`` for all collections to avoid the
+    cartesian row explosion that ``joinedload`` / ``contains_eager`` would
+    cause when feeds have many versions, endpoints, locations, etc.
+    """
+
+    # --- 1. Build a filter-only subquery to find matching feed IDs ----------
     gbfs_feed_filter = GbfsFeedFilter(
         stable_id=stable_id,
         provider__ilike=provider,
@@ -484,37 +491,31 @@ def get_gbfs_feeds_query(
         if version
         else None,
     )
-    # Subquery: latest report per version
-    latest_report_subq = (
-        db_session.query(
-            Gbfsvalidationreport.gbfs_version_id.label("gbfs_version_id"),
-            func.max(Gbfsvalidationreport.validated_at).label("latest_validated_at"),
-        )
-        .group_by(Gbfsvalidationreport.gbfs_version_id)
-        .subquery()
+
+    # Start from a lightweight select of IDs, joining only what the filters
+    # need (location for geo filters, gbfsversion for version filter).
+    id_query = select(Gbfsfeed.id)
+    if country_code or subdivision_name or municipality:
+        id_query = id_query.join(Location, Gbfsfeed.locations)
+    if version:
+        id_query = id_query.join(Gbfsfeed.gbfsversions)
+
+    feed_id_subquery = gbfs_feed_filter.filter(id_query).subquery()
+
+    # --- 2. Main query: fetch full ORM objects for matched IDs --------------
+    query = db_session.query(Gbfsfeed).filter(Gbfsfeed.id.in_(select(feed_id_subquery)))
+
+    # --- 3. Eager-load related collections via selectinload -----------------
+    # selectinload issues a separate ``SELECT … WHERE id IN (…)`` per
+    # relationship, keeping the primary result set at one row per feed.
+    query = query.options(
+        selectinload(Gbfsfeed.gbfsversions).selectinload(Gbfsversion.gbfsvalidationreports),
+        selectinload(Gbfsfeed.gbfsversions).selectinload(Gbfsversion.gbfsendpoints),
+        selectinload(Feed.locations),
+        selectinload(Feed.externalids),
+        selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
     )
 
-    # Join validation reports filtered by latest `validated_at`
-    query = gbfs_feed_filter.filter(
-        db_session.query(Gbfsfeed)
-        .outerjoin(Location, Gbfsfeed.locations)
-        .outerjoin(Gbfsfeed.gbfsversions)
-        .outerjoin(latest_report_subq, Gbfsversion.id == latest_report_subq.c.gbfs_version_id)
-        .outerjoin(
-            Gbfsvalidationreport,
-            and_(
-                Gbfsversion.id == Gbfsvalidationreport.gbfs_version_id,
-                Gbfsvalidationreport.validated_at == latest_report_subq.c.latest_validated_at,
-            ),
-        )
-        .options(
-            contains_eager(Gbfsfeed.gbfsversions).contains_eager(Gbfsversion.gbfsvalidationreports),
-            contains_eager(Gbfsfeed.gbfsversions).joinedload(Gbfsversion.gbfsendpoints),
-            joinedload(Feed.locations),
-            joinedload(Feed.externalids),
-            joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
-        )
-    )
     return query
 
 
