@@ -9,36 +9,21 @@ from test_shared.test_utils.database_utils import default_db_url
 from tasks.dataset_files.backfill_dataset_hash_md5 import (
     backfill_dataset_hash_md5,
     backfill_dataset_hash_md5_handler,
-    _get_blob_path_from_hosted_url,
+    _build_blob_path,
     _read_md5_from_gcs,
 )
 
 
-class TestGetBlobPathFromHostedUrl(unittest.TestCase):
-    def test_standard_gcs_url(self):
-        url = "https://storage.googleapis.com/my-bucket/feed/dataset/dataset.zip"
-        result = _get_blob_path_from_hosted_url(url, "my-bucket")
-        self.assertEqual(result, "feed/dataset/dataset.zip")
+class TestBuildBlobPath(unittest.TestCase):
+    def test_constructs_expected_path(self):
+        result = _build_blob_path("mdb-779", "mdb-779-202507082048")
+        self.assertEqual(
+            result, "mdb-779/mdb-779-202507082048/mdb-779-202507082048.zip"
+        )
 
-    def test_storage_api_url_url_decoded(self):
-        url = "https://storage.googleapis.com/storage/v1/b/my-bucket/o/feed%2Fdataset.zip?alt=media"
-        result = _get_blob_path_from_hosted_url(url, "my-bucket")
-        self.assertEqual(result, "feed/dataset.zip")
-
-    @patch.dict(os.environ, {"PUBLIC_HOSTED_DATASETS_URL": "https://cdn.example.com"})
-    def test_custom_cdn_url(self):
-        url = "https://cdn.example.com/feed/dataset/dataset.zip"
-        result = _get_blob_path_from_hosted_url(url, "my-bucket")
-        self.assertEqual(result, "feed/dataset/dataset.zip")
-
-    def test_url_different_bucket(self):
-        url = "https://storage.googleapis.com/other-bucket/feed/dataset.zip"
-        result = _get_blob_path_from_hosted_url(url, "my-bucket")
-        self.assertIsNone(result)
-
-    def test_invalid_url(self):
-        result = _get_blob_path_from_hosted_url("not-a-url", "my-bucket")
-        self.assertIsNone(result)
+    def test_generic_feed_and_dataset(self):
+        result = _build_blob_path("feed-1", "feed-1-20240101")
+        self.assertEqual(result, "feed-1/feed-1-20240101/feed-1-20240101.zip")
 
 
 class TestReadMd5FromGcs(unittest.TestCase):
@@ -149,11 +134,10 @@ class TestBackfillDatasetHashMd5DryRun(unittest.TestCase):
 
 
 class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
-    def _make_fake_dataset(self, stable_id, hosted_url):
-        fake_feed = SimpleNamespace(stable_id="feed-stable")
+    def _make_fake_dataset(self, dataset_stable_id, feed_stable_id="mdb-1"):
+        fake_feed = SimpleNamespace(stable_id=feed_stable_id)
         return SimpleNamespace(
-            stable_id=stable_id,
-            hosted_url=hosted_url,
+            stable_id=dataset_stable_id,
             hash_md5=None,
             feed=fake_feed,
         )
@@ -188,15 +172,10 @@ class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
     def test_updates_md5_and_commits_in_batches(
         self, mock_storage_client, mock_read_md5, mock_build_query
     ):
-        bucket_name = "test-bucket"
         raw_md5 = "098f6bcd4621d373cade4e832627b4f6"
 
         datasets = [
-            self._make_fake_dataset(
-                f"ds-{i}",
-                f"https://storage.googleapis.com/{bucket_name}/feed/ds-{i}/ds-{i}.zip",
-            )
-            for i in range(3)
+            self._make_fake_dataset(f"mdb-1-2024010{i}", "mdb-1") for i in range(3)
         ]
 
         mock_query = MagicMock()
@@ -225,24 +204,25 @@ class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
         # Final commit called for remaining datasets (3 < BATCH_COMMIT_SIZE=50)
         db_session.commit.assert_called_once()
 
+        # Verify blob paths are constructed from stable IDs
+        for i, ds in enumerate(datasets):
+            expected_blob = f"mdb-1/mdb-1-2024010{i}/mdb-1-2024010{i}.zip"
+            mock_read_md5.assert_any_call(mock_bucket, expected_blob)
+
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "test-bucket"}, clear=False)
     @patch("tasks.dataset_files.backfill_dataset_hash_md5._build_query")
     @patch("tasks.dataset_files.backfill_dataset_hash_md5._read_md5_from_gcs")
     @patch("tasks.dataset_files.backfill_dataset_hash_md5.storage.Client")
-    def test_skips_datasets_with_unparseable_url(
+    def test_skips_datasets_when_gcs_blob_missing(
         self, mock_storage_client, mock_read_md5, mock_build_query
     ):
-        # URL from a different bucket, no PUBLIC_HOSTED_DATASETS_URL set → can't derive blob path
-        datasets = [
-            self._make_fake_dataset(
-                "ds-bad", "https://storage.googleapis.com/wrong-bucket/feed/ds.zip"
-            ),
-        ]
+        datasets = [self._make_fake_dataset("mdb-1-20240101", "mdb-1")]
         mock_query = MagicMock()
         mock_query.count.return_value = 1
         mock_query.limit.return_value.all.return_value = datasets
         mock_build_query.return_value = mock_query
 
+        mock_read_md5.return_value = None  # blob not found in GCS
         mock_storage_client.return_value.bucket.return_value = MagicMock()
         db_session = MagicMock()
 
@@ -256,7 +236,6 @@ class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
 
         self.assertEqual(result["total_updated"], 0)
         self.assertEqual(result["total_skipped"], 1)
-        mock_read_md5.assert_not_called()
         db_session.commit.assert_not_called()
 
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "test-bucket"})
@@ -269,14 +248,10 @@ class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
         """Verify that commits happen every BATCH_COMMIT_SIZE=50 datasets."""
         from tasks.dataset_files.backfill_dataset_hash_md5 import BATCH_COMMIT_SIZE
 
-        bucket_name = "test-bucket"
         num_datasets = BATCH_COMMIT_SIZE + 10  # 60 total → 1 mid-batch commit + 1 final
 
         datasets = [
-            self._make_fake_dataset(
-                f"ds-{i}",
-                f"https://storage.googleapis.com/{bucket_name}/feed/ds-{i}/ds-{i}.zip",
-            )
+            self._make_fake_dataset(f"mdb-1-2024010{i}", "mdb-1")
             for i in range(num_datasets)
         ]
 
@@ -309,13 +284,8 @@ class TestBackfillDatasetHashMd5Processing(unittest.TestCase):
         self, mock_storage_client, mock_read_md5, mock_build_query
     ):
         """When limit=None, query.all() is called directly without .limit()."""
-        bucket_name = "test-bucket"
         datasets = [
-            self._make_fake_dataset(
-                f"ds-{i}",
-                f"https://storage.googleapis.com/{bucket_name}/feed/ds-{i}/ds-{i}.zip",
-            )
-            for i in range(5)
+            self._make_fake_dataset(f"mdb-1-2024010{i}", "mdb-1") for i in range(5)
         ]
 
         mock_query = MagicMock()
