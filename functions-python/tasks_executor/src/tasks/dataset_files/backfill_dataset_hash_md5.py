@@ -10,6 +10,7 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 
 BATCH_COMMIT_SIZE = 50
+DEFAULT_LIMIT = 10
 
 
 def backfill_dataset_hash_md5_handler(payload) -> dict:
@@ -32,12 +33,17 @@ def backfill_dataset_hash_md5_handler(payload) -> dict:
     only_missing_hashes = payload.get("only_missing_hashes", True)
 
     limit = None
-    raw_limit = payload.get("limit", 10)
+    raw_limit = payload.get("limit", DEFAULT_LIMIT)
     if raw_limit is not None:
         try:
             limit = int(raw_limit)
         except (TypeError, ValueError):
-            logging.warning("Invalid limit value %r, using no limit.", raw_limit)
+            logging.warning(
+                "Invalid limit value %r, using default value %s.",
+                raw_limit,
+                DEFAULT_LIMIT,
+            )
+            limit = DEFAULT_LIMIT
 
     return backfill_dataset_hash_md5(
         dry_run=dry_run,

@@ -11,6 +11,7 @@ from tasks.dataset_files.backfill_dataset_hash_md5 import (
     backfill_dataset_hash_md5_handler,
     _build_blob_path,
     _read_md5_from_gcs,
+    DEFAULT_LIMIT,
 )
 
 
@@ -111,11 +112,11 @@ class TestBackfillDatasetHashMd5Handler(unittest.TestCase):
         self.assertIsNone(kwargs["limit"])
 
     @patch("tasks.dataset_files.backfill_dataset_hash_md5.backfill_dataset_hash_md5")
-    def test_handler_invalid_limit_means_no_limit(self, mock_backfill):
+    def test_handler_invalid_limit_means_default_limit(self, mock_backfill):
         mock_backfill.return_value = {}
         backfill_dataset_hash_md5_handler({"limit": "not-a-number"})
         _, kwargs = mock_backfill.call_args
-        self.assertIsNone(kwargs["limit"])
+        self.assertIs(kwargs["limit"], DEFAULT_LIMIT)
 
 
 class TestBackfillDatasetHashMd5DryRun(unittest.TestCase):
