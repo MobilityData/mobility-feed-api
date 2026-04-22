@@ -485,10 +485,15 @@ export interface components {
        */
       downloaded_at?: string;
       /**
-       * @description A hash of the dataset.
+       * @description SHA-256 hash of the dataset.
        * @example ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
        */
       hash?: string;
+      /**
+       * @description MD5 hash of the dataset.
+       * @example 098f6bcd4621d373cade4e832627b4f6
+       */
+      hash_md5?: string;
       /**
        * Format: date-time
        * @description The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
@@ -685,10 +690,15 @@ export interface components {
        */
       downloaded_at?: string;
       /**
-       * @description A hash of the dataset.
+       * @description SHA-256 hash of the dataset.
        * @example 6497e85e34390b8b377130881f2f10ec29c18a80dd6005d504a2038cdd00aa71
        */
       hash?: string;
+      /**
+       * @description MD5 hash of the dataset.
+       * @example 098f6bcd4621d373cade4e832627b4f6
+       */
+      hash_md5?: string;
       bounding_box?: components['schemas']['BoundingBox'];
       validation_report?: components['schemas']['ValidationReport'];
       /**

@@ -48,6 +48,7 @@ class LatestDatasetImpl(LatestDataset):
             service_date_range_end=dataset.service_date_range_end,
             agency_timezone=dataset.agency_timezone,
             hash=dataset.hash,
+            hash_md5=dataset.hash_md5,
             validation_report=validation_report,
             unzipped_folder_size_mb=round(dataset.unzipped_size_bytes / 1024**2, 2)
             if dataset.unzipped_size_bytes

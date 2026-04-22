@@ -29,6 +29,9 @@ from tasks.data_import.transportdatagouv.update_tdg_redirects import (
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
+from tasks.dataset_files.backfill_dataset_hash_md5 import (
+    backfill_dataset_hash_md5_handler,
+)
 from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
@@ -108,6 +111,14 @@ tasks = {
     "rebuild_missing_dataset_files": {
         "description": "Rebuilds missing dataset files for GTFS datasets.",
         "handler": rebuild_missing_dataset_files_handler,
+    },
+    "backfill_dataset_hash_md5": {
+        "description": (
+            "Backfills the MD5 hash for existing GTFS datasets by reading it from GCS blob metadata. "
+            "Parameters: dry_run (default true), only_latest (default true), "
+            "only_missing_hashes (default true), limit (default 10)."
+        ),
+        "handler": backfill_dataset_hash_md5_handler,
     },
     "update_geojson_files": {
         "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
