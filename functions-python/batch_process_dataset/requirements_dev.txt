@@ -2,5 +2,5 @@ Faker
 pytest~=7.4.3
 urllib3-mock
 requests-mock
-python-dotenv~=1.0.0
+python-dotenv~=1.2.2
 gcp-storage-emulator

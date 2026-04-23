@@ -23,7 +23,7 @@ google-cloud-storage
 google-cloud-tasks
 
 # Configuration
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 tippecanoe
 psutil
