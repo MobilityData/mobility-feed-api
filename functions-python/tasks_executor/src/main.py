@@ -23,8 +23,12 @@ import functions_framework
 from shared.helpers.logger import init_logger
 from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
 from tasks.data_import.transportdatagouv.import_tdg_feeds import import_tdg_handler
+from tasks.data_import.cal_itp.import_cal_itp_feeds import import_cal_itp_handler
 from tasks.data_import.transportdatagouv.update_tdg_redirects import (
     update_tdg_redirects_handler,
+)
+from tasks.data_import.cal_itp.update_cal_itp_redirects import (
+    update_cal_itp_redirects_handler,
 )
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
@@ -134,9 +138,17 @@ tasks = {
         "description": "Imports TDG data into the system.",
         "handler": import_tdg_handler,
     },
+    "cal_itp_import": {
+        "description": "Imports Cal-ITP data into the system.",
+        "handler": import_cal_itp_handler,
+    },
     "mdb_to_tdg_redirect": {
         "description": "Redirect duplicate MDB feeds to TDG imported feeds.",
         "handler": update_tdg_redirects_handler,
+    },
+    "mdb_to_cal_itp_redirect": {
+        "description": "Redirect duplicate MDB feeds to Cal-ITP imported feeds.",
+        "handler": update_cal_itp_redirects_handler,
     },
     "revalidate_feed": {
         "description": "Revalidate the web app cache for a specific feed detail page.",
