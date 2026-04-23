@@ -7,7 +7,7 @@ from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
 
-env = os.getenv("ENV", "dev").lower()
+env = os.getenv("ENVIRONMENT", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
 
 

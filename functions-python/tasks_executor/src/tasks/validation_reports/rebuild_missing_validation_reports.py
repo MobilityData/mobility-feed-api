@@ -68,6 +68,9 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
             Default: False
         "force_update": bool,        # [optional] Re-trigger even if a report already exists. Default: False
         "limit": int,                # [optional] Max datasets to trigger per call (for testing). Default: unlimited
+        "reports_bucket_name": str,  # [optional] Override the GCS bucket for validator results.
+                                     #   Defaults to the env-derived bucket (prod or staging).
+                                     #   Use when running in prod but pointing to the staging validator.
     }
     """
     (
@@ -80,6 +83,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         bypass_db_update,
         force_update,
         limit,
+        reports_bucket_name,
     ) = get_parameters(payload)
 
     return rebuild_missing_validation_reports(
@@ -92,6 +96,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         prod_env=prod_env,
         force_update=force_update,
         limit=limit,
+        reports_bucket_name=reports_bucket_name,
     )
 
 
@@ -106,6 +111,7 @@ def rebuild_missing_validation_reports(
     prod_env: bool = False,
     force_update: bool = False,
     limit: Optional[int] = None,
+    reports_bucket_name: Optional[str] = None,
     db_session: Session | None = None,
 ) -> dict:
     """
@@ -124,6 +130,8 @@ def rebuild_missing_validation_reports(
         prod_env: True if targeting the production environment. Default: False
         force_update: Re-trigger even if a report already exists. Default: False
         limit: Max datasets to trigger per call (for end-to-end testing). Default: unlimited
+        reports_bucket_name: Override the GCS bucket for validator results.
+            Defaults to the env-derived bucket (prod or staging).
         db_session: DB session (injected by @with_db_session)
     """
     validator_version = _get_validator_version(validator_endpoint)
@@ -192,7 +200,8 @@ def rebuild_missing_validation_reports(
             datasets_to_trigger,
             validator_endpoint=validator_endpoint,
             bypass_db_update=bypass_db_update,
-            reports_bucket_name=get_gtfs_validator_results_bucket(prod_env),
+            reports_bucket_name=reports_bucket_name
+            or get_gtfs_validator_results_bucket(prod_env),
             tracker=tracker,
         )
         total_triggered = len(triggered_ids)
@@ -222,6 +231,8 @@ def rebuild_missing_validation_reports(
             "prod_env": prod_env,
             "force_update": force_update,
             "limit": limit,
+            "reports_bucket_name": reports_bucket_name
+            or get_gtfs_validator_results_bucket(prod_env),
         },
     }
     logging.info(result)
@@ -322,8 +333,9 @@ def get_parameters(payload):
     Args:
         payload (dict): Task payload dict.
     Returns:
-        Tuple of (dry_run, filter_after_in_days, filter_statuses, prod_env,
-                  validator_endpoint, force_update, limit)
+        Tuple of (dry_run, filter_after_in_days, filter_statuses, filter_op_statuses,
+                  prod_env, validator_endpoint, bypass_db_update, force_update, limit,
+                  reports_bucket_name)
     """
     prod_env = os.getenv("ENVIRONMENT", "").lower() == "prod"
     default_endpoint = get_gtfs_validator_url(prod_env)
@@ -363,6 +375,8 @@ def get_parameters(payload):
     if limit is not None:
         limit = int(limit)
 
+    reports_bucket_name = payload.get("reports_bucket_name", None)
+
     return (
         dry_run,
         filter_after_in_days,
@@ -373,4 +387,5 @@ def get_parameters(payload):
         bypass_db_update,
         force_update,
         limit,
+        reports_bucket_name,
     )

@@ -65,6 +65,7 @@ class DatasetFile:
     stable_id: str
     extracted_files: List[Gtfsfile] = None
     file_sha256_hash: Optional[str] = None
+    file_md5_hash: Optional[str] = None
     hosted_url: Optional[str] = None
     zipped_size: Optional[int] = None
 
@@ -156,9 +157,10 @@ class DatasetProcessor:
         source_file_path,
         dataset_stable_id,
         public=True,
-    ):
+    ) -> Optional[str]:
         """
         Uploads the dataset zip file to GCP storage as latest.zip and versioned zip.
+        Returns the MD5 hash (hex) of the uploaded file as provided by GCS.
         """
         bucket = storage.Client().get_bucket(self.bucket_name)
         target_paths = [
@@ -166,12 +168,16 @@ class DatasetProcessor:
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
         ]
 
+        md5_hash_hex = None
         for target_path in target_paths:
             blob = bucket.blob(target_path)
             blob.upload_from_filename(source_file_path)
             if public:
                 blob.make_public()
             self.logger.info(f"Uploaded {blob.public_url}")
+            if blob.md5_hash:
+                md5_hash_hex = base64.b64decode(blob.md5_hash).hex()
+        return md5_hash_hex
 
     def _extract_and_upload_single_file(
         self,
@@ -320,7 +326,7 @@ class DatasetProcessor:
                 self.logger.info(
                     f"Creating file {dataset_full_path} in bucket {self.bucket_name}"
                 )
-                self.upload_dataset_zip_to_storage(
+                file_md5_hash = self.upload_dataset_zip_to_storage(
                     temp_file_path,
                     dataset_stable_id,
                     public=public,
@@ -336,6 +342,7 @@ class DatasetProcessor:
                 return DatasetFile(
                     stable_id=dataset_stable_id,
                     file_sha256_hash=file_sha256_hash,
+                    file_md5_hash=file_md5_hash,
                     hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
                     extracted_files=extracted_files,
                     zipped_size=(
@@ -459,6 +466,7 @@ class DatasetProcessor:
                     bounding_box=None,
                     note=None,
                     hash=dataset_file.file_sha256_hash,
+                    hash_md5=dataset_file.file_md5_hash,
                     downloaded_at=func.now(),
                     hosted_url=dataset_file.hosted_url,
                     gtfsfiles=(
