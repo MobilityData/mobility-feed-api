@@ -578,11 +578,11 @@ def propagate_license_by_url(
     dry_run: bool = True,
     override: bool = False,
 ) -> PropagateLicenseResult:
-    """Propagate a license ID to all GTFS/GTFS-RT feeds sharing the same normalized license URL.
+    """Propagate a license ID to all feeds sharing the same normalized license URL.
 
-    Finds all non-deprecated feeds of type 'gtfs' or 'gtfs_rt' whose license_url
-    normalizes to the same value as ``license_url``, then optionally updates their
-    ``license_id`` and creates ``FeedLicenseChange`` audit records.
+    Finds all feeds whose license_url normalizes to the same value as ``license_url``,
+    then optionally updates their ``license_id`` and creates ``FeedLicenseChange`` audit
+    records.
 
     Args:
         license_id: The license ID to propagate. Must exist in the ``license`` table.
@@ -604,11 +604,9 @@ def propagate_license_by_url(
 
     normalized_url = normalize_url_str(license_url)
 
-    # Find all non-deprecated GTFS/GTFS-RT feeds with the same normalized license URL.
+    # Find all feeds with the same normalized license URL.
     # Use the same SQL normalization pattern as get_feed_query_by_normalized_url.
     candidate_query = db_session.query(Feed).filter(
-        Feed.data_type.in_(["gtfs", "gtfs_rt"]),
-        Feed.status != "deprecated",
         Feed.license_url.isnot(None),
         normalized_url == func.lower(func.trim(normalize_url(Feed.license_url))),
     )
