@@ -333,6 +333,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MatchingLicenses"
+  /v1/operations/licenses:propagate_match:
+    post:
+      description: >
+        Propagate a license ID to all feeds sharing the same normalized license URL. Use dry_run=true (the default) to preview which feeds would be updated without persisting any changes.
+
+      tags:
+        - "licenses"
+      operationId: propagateMatchLicense
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Payload containing the license ID to propagate and the license URL used for matching.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropagateLicenseRequest"
+      responses:
+        "200":
+          description: The result of the propagation, including the list of affected feeds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropagateLicenseResponse"
+        "422":
+          description: Validation error (e.g. missing required fields).
+        "500":
+          description: Internal server error.
   /v1/operations/licenses/{id}:
     parameters:
       - $ref: "#/components/parameters/license_id_path_param"
@@ -1381,6 +1409,88 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/MatchingLicense"
+    PropagateLicenseAffectedFeed:
+      x-operation: true
+      type: object
+      description: A feed affected by a license propagation operation.
+      properties:
+        feed_id:
+          description: The stable ID of the affected feed.
+          type: string
+          example: mdb-42
+        previous_license_id:
+          description: The license ID the feed had before propagation (null if none).
+          type: string
+          nullable: true
+          example: null
+        data_type:
+          description: The data type of the feed.
+          type: string
+          enum: [gtfs, gtfs_rt]
+          example: gtfs
+    PropagateLicenseRequest:
+      x-operation: true
+      type: object
+      description: Request payload for the propagate_match license endpoint.
+      required:
+        - license_id
+        - license_url
+      properties:
+        license_id:
+          description: The license ID to propagate to matching feeds.
+          type: string
+          example: CC-BY-4.0
+        license_url:
+          description: The license URL whose normalized form is used to find matching feeds.
+          type: string
+          format: url
+          example: https://creativecommons.org/licenses/by/4.0/deed.nl
+        dry_run:
+          description: >
+            When true (default), compute and return the affected feeds without persisting any changes. Set to false to apply the changes.
+
+          type: boolean
+          default: true
+        override:
+          description: >
+            When false (default), only feeds whose license_id is currently unset (null) are updated. When true, feeds that already have a license_id are also updated.
+
+          type: boolean
+          default: false
+    PropagateLicenseResponse:
+      x-operation: true
+      type: object
+      description: Result of a license propagation operation.
+      properties:
+        license_id:
+          description: The license ID that was propagated.
+          type: string
+          example: CC-BY-4.0
+        license_url:
+          description: The original license URL provided for matching.
+          type: string
+          example: https://creativecommons.org/licenses/by/4.0/deed.nl
+        normalized_license_url:
+          description: The normalized form of the license URL used for matching.
+          type: string
+          example: creativecommons.org/licenses/by/4.0/deed.nl
+        dry_run:
+          description: Whether this was a dry run (no changes persisted).
+          type: boolean
+        override:
+          description: Whether feeds with an existing license_id were also updated.
+          type: boolean
+        total_feeds_with_same_url:
+          description: Total number of feeds sharing the same normalized license URL (regardless of filter).
+          type: integer
+        affected_feeds_count:
+          description: Number of feeds that were (or would be) updated.
+          type: integer
+        affected_feeds:
+          description: List of feeds that were (or would be) updated.
+          type: array
+          items:
+            $ref: "#/components/schemas/PropagateLicenseAffectedFeed"
     OperationCreateRequestGtfsFeed:
       x-operation: true
       type: object
@@ -1433,6 +1543,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FeedRelatedLink'
+        propagate_license:
+          type: boolean
+          default: false
+          description: >
+            When true, after the feed is created, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
+
       required:
         - source_info
         - operational_status
@@ -1495,6 +1611,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1513,6 +1630,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FeedRelatedLink'
+        propagate_license:
+          type: boolean
+          default: false
+          description: >
+            When true, after the feed is created, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
+
       required:
         - source_info
         - operational_status
@@ -1617,6 +1740,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1636,6 +1760,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        propagate_license:
+          type: boolean
+          default: false
+          description: >
+            When true, after the feed is updated, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
+
       required:
         - id
         - status
@@ -1685,6 +1815,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        propagate_license:
+          type: boolean
+          default: false
+          description: >
+            When true, after the feed is updated, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
+
       required:
         - id
         - status
@@ -1692,6 +1828,7 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
 
 
 
@@ -1713,6 +1850,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
 
 

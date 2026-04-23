@@ -56,7 +56,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
 )
-from shared.common.license_utils import assign_license_by_url
+from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
@@ -304,6 +304,21 @@ class OperationsApiImpl(BaseOperationsApi):
                 await OperationsApiImpl._populate_feed_values(
                     feed_from_db, impl_class, db_session, update_request_feed
                 )
+                if getattr(update_request_feed, "propagate_license", False):
+                    license_id = (
+                        update_request_feed.source_info.license_id
+                        if update_request_feed.source_info
+                        else None
+                    )
+                    license_url = (
+                        update_request_feed.source_info.license_url
+                        if update_request_feed.source_info
+                        else None
+                    )
+                    if license_id and license_url:
+                        OperationsApiImpl._propagate_license(
+                            license_id, license_url, db_session
+                        )
                 db_session.flush()
                 refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
                 logging.info(
@@ -408,7 +423,17 @@ class OperationsApiImpl(BaseOperationsApi):
                 detail=f"Failed to create GTFS feed with URL: {new_feed.producer_url}",
             )
         if created_feed.license_url:
-            assign_license_by_url(created_feed, db_session)
+            # If the request explicitly sets a license_id and requests propagation,
+            # skip auto-matching to preserve the operator-chosen license.
+            if (
+                created_feed.license_id
+                and operation_create_request_gtfs_feed.propagate_license
+            ):
+                OperationsApiImpl._propagate_license(
+                    created_feed.license_id, created_feed.license_url, db_session
+                )
+            else:
+                assign_license_by_url(created_feed, db_session)
             db_session.commit()
         try:
             trigger_dataset_download(
@@ -452,10 +477,48 @@ class OperationsApiImpl(BaseOperationsApi):
         db_session.commit()
         created_feed = db_session.get(Gtfsrealtimefeed, new_feed.id)
         if created_feed and created_feed.license_url:
-            assign_license_by_url(created_feed, db_session)
+            if (
+                created_feed.license_id
+                and operation_create_request_gtfs_rt_feed.propagate_license
+            ):
+                OperationsApiImpl._propagate_license(
+                    created_feed.license_id, created_feed.license_url, db_session
+                )
+            else:
+                assign_license_by_url(created_feed, db_session)
             db_session.commit()
         logging.info("Created new GTFS-RT feed with ID: %s", new_feed.stable_id)
         refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
         logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)
         payload = OperationGtfsRtFeedImpl.from_orm(created_feed).model_dump()
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
+
+    @staticmethod
+    def _propagate_license(
+        license_id: str, license_url: str, db_session: Session
+    ) -> None:
+        """Propagate a license ID to all feeds sharing the same normalized license URL.
+
+        Called after a feed is created or updated when propagate_license=True.
+        Updates only feeds whose license_id is currently NULL (override=False).
+        Does not commit; the caller is responsible for committing the transaction.
+        """
+        try:
+            result = propagate_license_by_url(
+                license_id=license_id,
+                license_url=license_url,
+                db_session=db_session,
+                dry_run=False,
+                override=False,
+            )
+            logging.info(
+                "License propagation complete: license_id=%s affected=%d total_with_url=%d",
+                license_id,
+                result.affected_feeds_count,
+                result.total_feeds_with_same_url,
+            )
+        except ValueError as e:
+            logging.warning("License propagation skipped: %s", e)
+        except Exception as e:
+            logging.error("License propagation failed: %s", e)
+            raise

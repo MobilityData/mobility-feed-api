@@ -27,7 +27,12 @@ from feeds_gen.models.get_matching_licenses_request import GetMatchingLicensesRe
 from feeds_gen.models.license_base import LicenseBase
 from feeds_gen.models.license_with_rules import LicenseWithRules
 from feeds_gen.models.matching_license import MatchingLicense
-from shared.common.license_utils import resolve_license
+from feeds_gen.models.propagate_license_request import PropagateLicenseRequest
+from feeds_gen.models.propagate_license_response import PropagateLicenseResponse
+from feeds_gen.models.propagate_license_affected_feed import (
+    PropagateLicenseAffectedFeed,
+)
+from shared.common.license_utils import resolve_license, propagate_license_by_url
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import License as OrmLicense
 from shared.db_models.license_base_impl import LicenseBaseImpl
@@ -174,3 +179,52 @@ class LicensesApiImpl(BaseLicensesApi):
     ) -> List[MatchingLicense]:
         """Get the list of matching licenses based on the provided license URL"""
         return self.handle_get_matching_licenses(get_matching_licenses_request)
+
+    @with_db_session
+    def handle_propagate_match_license(
+        self,
+        propagate_license_request: PropagateLicenseRequest,
+        db_session: Session = None,
+    ) -> PropagateLicenseResponse:
+        """Propagate a license ID to all matching feeds."""
+        try:
+            result = propagate_license_by_url(
+                license_id=propagate_license_request.license_id,
+                license_url=propagate_license_request.license_url,
+                db_session=db_session,
+                dry_run=propagate_license_request.dry_run,
+                override=propagate_license_request.override,
+            )
+            if not propagate_license_request.dry_run:
+                db_session.commit()
+
+            return PropagateLicenseResponse(
+                license_id=result.license_id,
+                license_url=result.license_url,
+                normalized_license_url=result.normalized_license_url,
+                dry_run=result.dry_run,
+                override=result.override,
+                total_feeds_with_same_url=result.total_feeds_with_same_url,
+                affected_feeds_count=result.affected_feeds_count,
+                affected_feeds=[
+                    PropagateLicenseAffectedFeed(
+                        feed_id=f.feed_id,
+                        previous_license_id=f.previous_license_id,
+                        data_type=f.data_type,
+                    )
+                    for f in result.affected_feeds
+                ],
+            )
+        except ValueError as e:
+            logging.warning("Invalid propagate_match_license request: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logging.error("Error in propagate_match_license: %s", e)
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    async def propagate_match_license(
+        self,
+        propagate_license_request: PropagateLicenseRequest,
+    ) -> PropagateLicenseResponse:
+        """Propagate a license ID to all feeds sharing the same normalized license URL."""
+        return self.handle_propagate_match_license(propagate_license_request)

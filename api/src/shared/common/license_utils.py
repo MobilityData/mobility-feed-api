@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from typing import List, Tuple, Optional
 
 from shared.common.db_utils import normalize_url, normalize_url_str
-from shared.database_gen.sqlacodegen_models import License, FeedLicenseChange
+from shared.database_gen.sqlacodegen_models import License, FeedLicenseChange, Feed
 
 
 @dataclass
@@ -534,3 +534,132 @@ def assign_license_by_url(
     )
 
     return best
+
+
+@dataclass
+class PropagateLicenseAffectedFeedResult:
+    """Describes a single feed affected by a license propagation."""
+
+    feed_id: str
+    previous_license_id: Optional[str]
+    data_type: Optional[str]
+
+
+@dataclass
+class PropagateLicenseResult:
+    """Result of a license propagation operation.
+
+    Attributes:
+        license_id: The license ID that was propagated.
+        license_url: The original license URL provided for matching.
+        normalized_license_url: Normalized form of the license URL used for matching.
+        dry_run: Whether this was a dry-run (no changes persisted).
+        override: Whether feeds with an existing license_id were also updated.
+        total_feeds_with_same_url: Total feeds sharing the same normalized license URL.
+        affected_feeds_count: Number of feeds that were (or would be) updated.
+        affected_feeds: List of affected feed descriptors.
+    """
+
+    license_id: str
+    license_url: str
+    normalized_license_url: str
+    dry_run: bool
+    override: bool
+    total_feeds_with_same_url: int
+    affected_feeds_count: int
+    affected_feeds: List[PropagateLicenseAffectedFeedResult]
+
+
+def propagate_license_by_url(
+    license_id: str,
+    license_url: str,
+    db_session: Session,
+    *,
+    dry_run: bool = True,
+    override: bool = False,
+) -> PropagateLicenseResult:
+    """Propagate a license ID to all GTFS/GTFS-RT feeds sharing the same normalized license URL.
+
+    Finds all non-deprecated feeds of type 'gtfs' or 'gtfs_rt' whose license_url
+    normalizes to the same value as ``license_url``, then optionally updates their
+    ``license_id`` and creates ``FeedLicenseChange`` audit records.
+
+    Args:
+        license_id: The license ID to propagate. Must exist in the ``license`` table.
+        license_url: The reference URL whose normalized form is used for matching.
+        db_session: Active SQLAlchemy session.
+        dry_run: When True (default), compute results without persisting changes.
+        override: When False (default), only update feeds where ``license_id IS NULL``.
+                  When True, also update feeds that already have a different ``license_id``.
+
+    Returns:
+        A ``PropagateLicenseResult`` describing the outcome.
+
+    Raises:
+        ValueError: If ``license_id`` does not exist in the database.
+    """
+    existing_license = db_session.get(License, license_id)
+    if existing_license is None:
+        raise ValueError(f"License '{license_id}' not found in the database.")
+
+    normalized_url = normalize_url_str(license_url)
+
+    # Find all non-deprecated GTFS/GTFS-RT feeds with the same normalized license URL.
+    # Use the same SQL normalization pattern as get_feed_query_by_normalized_url.
+    candidate_query = db_session.query(Feed).filter(
+        Feed.data_type.in_(["gtfs", "gtfs_rt"]),
+        Feed.status != "deprecated",
+        Feed.license_url.isnot(None),
+        normalized_url == func.lower(func.trim(normalize_url(Feed.license_url))),
+    )
+    all_candidates = candidate_query.all()
+    total_feeds_with_same_url = len(all_candidates)
+
+    if override:
+        feeds_to_update = [f for f in all_candidates if f.license_id != license_id]
+    else:
+        feeds_to_update = [f for f in all_candidates if f.license_id is None]
+
+    affected: List[PropagateLicenseAffectedFeedResult] = []
+    for feed in feeds_to_update:
+        affected.append(
+            PropagateLicenseAffectedFeedResult(
+                feed_id=feed.stable_id,
+                previous_license_id=feed.license_id,
+                data_type=feed.data_type,
+            )
+        )
+        if not dry_run:
+            feed.license_id = license_id
+            db_session.add(
+                FeedLicenseChange(
+                    feed_id=feed.id,
+                    feed_license_url=feed.license_url,
+                    matched_license_id=license_id,
+                    confidence=1.0,
+                    match_type="propagated",
+                    matched_source="propagate_match",
+                    verified=True,
+                )
+            )
+
+    logging.info(
+        "propagate_license_by_url: license_id=%s url=%s dry_run=%s override=%s " "total_with_url=%d affected=%d",
+        license_id,
+        license_url,
+        dry_run,
+        override,
+        total_feeds_with_same_url,
+        len(affected),
+    )
+
+    return PropagateLicenseResult(
+        license_id=license_id,
+        license_url=license_url,
+        normalized_license_url=normalized_url,
+        dry_run=dry_run,
+        override=override,
+        total_feeds_with_same_url=total_feeds_with_same_url,
+        affected_feeds_count=len(affected),
+        affected_feeds=affected,
+    )
