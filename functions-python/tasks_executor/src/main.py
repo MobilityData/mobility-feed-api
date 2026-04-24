@@ -27,9 +27,6 @@ from tasks.data_import.cal_itp.import_cal_itp_feeds import import_cal_itp_handle
 from tasks.data_import.transportdatagouv.update_tdg_redirects import (
     update_tdg_redirects_handler,
 )
-from tasks.data_import.cal_itp.update_cal_itp_redirects import (
-    update_cal_itp_redirects_handler,
-)
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
@@ -145,10 +142,6 @@ tasks = {
     "mdb_to_tdg_redirect": {
         "description": "Redirect duplicate MDB feeds to TDG imported feeds.",
         "handler": update_tdg_redirects_handler,
-    },
-    "mdb_to_cal_itp_redirect": {
-        "description": "Redirect duplicate MDB feeds to Cal-ITP imported feeds.",
-        "handler": update_cal_itp_redirects_handler,
     },
     "revalidate_feed": {
         "description": "Revalidate the web app cache for a specific feed detail page.",
