@@ -32,11 +32,6 @@ jobs:
       ENVIRONMENT: 'prod'
     secrets:
       REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
-  web-deployment:
-    name: Web Deployment
-    needs: batch-deployment
-    uses: ./.github/workflows/web-prod.yml
-    secrets: inherit
   publish-openapi-schemas:
     name: Publish OpenAPI Schemas
     needs: api-deployment
@@ -63,7 +58,7 @@ jobs:
             /tmp/DatabaseCatalogTokenAPI.yaml \
             --clobber
   notify-slack-on-failure:
-    needs: [web-deployment, integration-tests]
+    needs: [integration-tests]
     if: failure()
     runs-on: ubuntu-latest
     steps:

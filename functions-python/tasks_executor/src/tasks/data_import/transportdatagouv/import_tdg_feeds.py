@@ -668,7 +668,7 @@ def _process_tdg_dataset(
             )
             continue
 
-    # Collect stable IDs of changed feeds for web app cache revalidation
+    # Collect stable IDs of changed feeds for website cache revalidation
     changed_stable_ids = (
         list(processed_stable_ids)
         if (created_gtfs or updated_gtfs or created_rt)
@@ -798,7 +798,7 @@ def commit_changes(
 ):
     """
     Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger web app cache revalidation for changed feeds.
+    and trigger website cache revalidation for changed feeds.
     """
     try:
         logger.info("Commit after processing items (count=%d)", total_processed)

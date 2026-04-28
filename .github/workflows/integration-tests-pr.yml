@@ -11,9 +11,7 @@ on:
       - main
     paths-ignore:
       - '**.md'
-      - "web-app/**"
       - "functions/**"
-      - ".github/workflows/web-*.yml"
 
 env:
   python_version: '3.11'

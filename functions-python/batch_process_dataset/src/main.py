@@ -642,7 +642,7 @@ def process_dataset(cloud_event: CloudEvent):
             dataset_file = processor.process_from_bucket()
         else:
             dataset_file = processor.process_from_producer_url(json_payload["feed_id"])
-        # Trigger web app cache revalidation for the updated feed
+        # Trigger website cache revalidation for the updated feed
         if dataset_file is not None:
             try:
                 create_web_revalidation_task([stable_id])
