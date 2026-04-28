@@ -343,7 +343,7 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
       ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       FILES_ENDPOINT    = local.public_hosted_datasets_url
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
@@ -554,6 +554,29 @@ resource "google_cloud_scheduler_job" "tdg_import_schedule" {
       "Content-Type" = "application/json"
     }
     body = base64encode("{\"task\": \"tdg_import\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+# Schedule the Cal-ITP import function to run monthly
+resource "google_cloud_scheduler_job" "cal_itp_import_schedule" {
+  name = "cal-itp-import-scheduler-${var.environment}"
+  description = "Schedule the cal-itp import function"
+  time_zone = "Etc/UTC"
+  schedule  = "0 0 3 * *"
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"cal_itp_import\", \"payload\": {\"dry_run\": false}}")
   }
   attempt_deadline = "320s"
 }
@@ -783,7 +806,7 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
       GCP_REGION = var.gcp_region
       ENVIRONMENT = var.environment
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
