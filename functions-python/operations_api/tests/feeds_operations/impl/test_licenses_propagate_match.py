@@ -248,12 +248,11 @@ async def test_propagate_match_license_db_unknown_license_raises_400(db_session)
 @pytest.mark.asyncio
 async def test_propagate_match_license_dry_run_no_db_changes(db_session):
     """dry_run=True should not mutate any feed rows in the database."""
-    # Ensure at least one feed has the test license URL and null license_id
     feed = (
         db_session.query(Feed)
         .filter(
             Feed.license_url == "license_url",
-            Feed.data_type.in_(["gtfs", "gtfs_rt"]),
+            Feed.operational_status != "unpublished",
         )
         .first()
     )
@@ -279,14 +278,13 @@ async def test_propagate_match_license_dry_run_no_db_changes(db_session):
 @pytest.mark.asyncio
 async def test_propagate_match_license_applies_changes_when_not_dry_run(db_session):
     """dry_run=False updates feeds with null license_id and creates audit rows."""
-    # Find a feed with license_url='license_url' and null license_id
+    # Use the same filter as propagate_license_by_url: operational_status != unpublished
     feed = (
         db_session.query(Feed)
         .filter(
             Feed.license_url == "license_url",
             Feed.license_id.is_(None),
-            Feed.data_type.in_(["gtfs", "gtfs_rt"]),
-            Feed.status != "deprecated",
+            Feed.operational_status != "unpublished",
         )
         .first()
     )
@@ -352,8 +350,7 @@ async def test_propagate_match_license_override_false_skips_feeds_with_license(
         .filter(
             Feed.license_url == "license_url",
             Feed.license_id.isnot(None),
-            Feed.data_type.in_(["gtfs", "gtfs_rt"]),
-            Feed.status != "deprecated",
+            Feed.operational_status != "unpublished",
         )
         .first()
     )
