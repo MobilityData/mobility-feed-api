@@ -580,9 +580,9 @@ def propagate_license_by_url(
 ) -> PropagateLicenseResult:
     """Propagate a license ID to all feeds sharing the same normalized license URL.
 
-    Finds all feeds whose license_url normalizes to the same value as ``license_url``,
-    then optionally updates their ``license_id`` and creates ``FeedLicenseChange`` audit
-    records.
+    Finds all published (non-unpublished) feeds whose license_url normalizes to the
+    same value as ``license_url``, then optionally updates their ``license_id`` and
+    creates ``FeedLicenseChange`` audit records.
 
     Args:
         license_id: The license ID to propagate. Must exist in the ``license`` table.
@@ -608,6 +608,7 @@ def propagate_license_by_url(
     # Use the same SQL normalization pattern as get_feed_query_by_normalized_url.
     candidate_query = db_session.query(Feed).filter(
         Feed.license_url.isnot(None),
+        Feed.operational_status != "unpublished",
         normalized_url == func.lower(func.trim(normalize_url(Feed.license_url))),
     )
     all_candidates = candidate_query.all()
