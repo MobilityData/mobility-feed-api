@@ -1434,7 +1434,7 @@ components:
         data_type:
           description: The data type of the feed.
           type: string
-          enum: [gtfs, gtfs_rt]
+          enum: [gtfs, gtfs_rt, gbfs]
           example: gtfs
     PropagateLicenseRequest:
       x-operation: true
