@@ -26,9 +26,9 @@ import logging
 logging.basicConfig()
 logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 
-default_db_url: Final[
-    str
-] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+default_db_url: Final[str] = (
+    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+)
 
 excluded_tables: Final[list[str]] = [
     "databasechangelog",

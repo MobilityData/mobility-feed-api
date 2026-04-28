@@ -21,7 +21,6 @@ import requests
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import LicenseTag, LicenseTagGroup
 
-
 TAGS_JSON_URL = "https://raw.githubusercontent.com/MobilityData/licenses-catalog/main/data/tags.json"
 
 

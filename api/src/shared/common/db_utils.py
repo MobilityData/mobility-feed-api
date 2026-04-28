@@ -471,18 +471,22 @@ def get_gbfs_feeds_query(
         provider__ilike=provider,
         producer_url__ilike=producer_url,
         system_id=system_id,
-        location=LocationFilter(
-            country_code=country_code,
-            subdivision_name__ilike=subdivision_name,
-            municipality__ilike=municipality,
-        )
-        if country_code or subdivision_name or municipality
-        else None,
-        version=GbfsVersionFilter(
-            version=version,
-        )
-        if version
-        else None,
+        location=(
+            LocationFilter(
+                country_code=country_code,
+                subdivision_name__ilike=subdivision_name,
+                municipality__ilike=municipality,
+            )
+            if country_code or subdivision_name or municipality
+            else None
+        ),
+        version=(
+            GbfsVersionFilter(
+                version=version,
+            )
+            if version
+            else None
+        ),
     )
     # Subquery: latest report per version
     latest_report_subq = (

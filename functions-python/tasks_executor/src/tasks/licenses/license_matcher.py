@@ -24,7 +24,7 @@ def match_license_handler(payload):
         payload (dict): Incoming payload data.
 
     """
-    (dry_run, only_unmatched, feed_stable_id) = get_parameters(payload)
+    dry_run, only_unmatched, feed_stable_id = get_parameters(payload)
     return match_licenses_task(dry_run, only_unmatched, feed_stable_id)
 
 
