@@ -1351,7 +1351,7 @@ resource "google_cloud_tasks_queue" "task_run_sync_queue" {
   }
 }
 
-# Task queue for web app cache revalidation
+# Task queue for website cache revalidation
 resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
   project  = var.project_id
   location = var.gcp_region

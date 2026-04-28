@@ -407,7 +407,7 @@ def reverse_geolocation_process(
         db_session.commit()
         create_refresh_materialized_view_task()
 
-        # Trigger web app cache revalidation for the updated feed
+        # Trigger website cache revalidation for the updated feed
         try:
             revalidation_ids = [stable_id]
             # Also revalidate associated GTFS-RT feeds

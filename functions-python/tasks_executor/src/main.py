@@ -150,7 +150,7 @@ tasks = {
         "handler": update_tdg_redirects_handler,
     },
     "revalidate_feed": {
-        "description": "Revalidate the web app cache for a specific feed detail page.",
+        "description": "Revalidate the website cache for a specific feed detail page.",
         "handler": revalidate_feed_handler,
     },
 }
