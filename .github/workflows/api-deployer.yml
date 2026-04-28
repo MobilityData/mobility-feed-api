@@ -61,11 +61,11 @@ on:
         required: true
         type: string
       WEB_APP_REVALIDATE_URL:
-        description: URL of the web app revalidation endpoint
+        description: URL of the website revalidation endpoint
         required: false
         type: string
       WEB_APP_REVALIDATE_SECRET_1PASSWORD:
-        description: 1Password reference for the web app revalidation secret token
+        description: 1Password reference for the website revalidation secret token
         required: false
         type: string
       SKIP_TESTS:
@@ -309,7 +309,7 @@ jobs:
           TDG_API_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Transport.data.gouv.fr API Token/credential"
           OPERATIONS_OAUTH2_CLIENT_ID: ${{ inputs.OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD }}
 
-      - name: Load web app revalidation secret from 1Password
+      - name: Load website revalidation secret from 1Password
         if: ${{ inputs.WEB_APP_REVALIDATE_SECRET_1PASSWORD != '' }}
         uses: 1password/load-secrets-action@v2
         with:

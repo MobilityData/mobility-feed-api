@@ -72,7 +72,7 @@ def create_refresh_materialized_view_task():
 
 def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
     """
-    Enqueue a Cloud Task to revalidate the web app cache for specific feed pages.
+    Enqueue a Cloud Task to revalidate the website cache for specific feed pages.
     Uses time-bucketed task names for deduplication: multiple calls for the same
     feed within the same 30-minute window are collapsed into one task.
 

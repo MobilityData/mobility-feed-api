@@ -540,7 +540,7 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
             if feed_to_publish and not dry_run:
                 feeds_to_publish.append(feed_to_publish)
 
-            # Track changed feeds for web app cache revalidation
+            # Track changed feeds for website cache revalidation
             if not dry_run and (deltas["created_gtfs"] or deltas["updated_gtfs"]):
                 org_id = item.get("organization_id")
                 feed_id = item.get("feed_id")
@@ -602,7 +602,7 @@ def commit_changes(
 ):
     """
     Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger web app cache revalidation for changed feeds.
+    and trigger website cache revalidation for changed feeds.
     """
     try:
         logger.info("Commit after processing items (count=%d)", total_processed)
