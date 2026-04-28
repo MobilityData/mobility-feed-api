@@ -1,4 +1,5 @@
 """Unit tests for locations helper module."""
+
 import unittest
 from unittest.mock import MagicMock
 

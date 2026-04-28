@@ -469,8 +469,8 @@ if __name__ == "__main__":
         default=csv_default_file_path,
         help="Path to the output csv file.",
     )
-    os.environ[
-        "FEEDS_DATABASE_URL"
-    ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+    os.environ["FEEDS_DATABASE_URL"] = (
+        "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+    )
     args = parser.parse_args()
     export_csv(args.outpath)

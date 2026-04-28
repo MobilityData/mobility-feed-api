@@ -204,8 +204,8 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
                 f.write("hello")
 
             # Patch get_path to point to our temp file for the given filename
-            self.builder.get_path = (
-                lambda fn: path if fn == fname else os.path.join(td, fn)
+            self.builder.get_path = lambda fn: (
+                path if fn == fname else os.path.join(td, fn)
             )
 
             mock_client = mock_storage.return_value

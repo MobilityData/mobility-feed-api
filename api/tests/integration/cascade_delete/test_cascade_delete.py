@@ -389,7 +389,7 @@ def test_delete_gtfsrealtimefeed_cascadeto_entitytypes(test_database):
 
 
 def test_delete_httpaccesslog_cascadeto_gbfsendpointhttpaccesslog(test_database):
-    with (test_database.start_db_session() as session):
+    with test_database.start_db_session() as session:
         feed = Gbfsfeed(id="f1")
         version = Gbfsversion(id="v1", feed_id="f1", version="1.0", url="https://example.com/version")
         endpoint = Gbfsendpoint(id="e1", name="e1", gbfs_version_id="v1", url="https://example.com")
@@ -408,7 +408,7 @@ def test_delete_httpaccesslog_cascadeto_gbfsendpointhttpaccesslog(test_database)
 
 
 def test_delete_httpaccesslog_cascadeto_gbfsfeedhttpaccesslog(test_database):
-    with (test_database.start_db_session() as session):
+    with test_database.start_db_session() as session:
         feed = Gbfsfeed(id="f1")
         version = Gbfsversion(id="v1", feed_id="f1", version="1.0", url="https://example.com/version")
         endpoint = Gbfsendpoint(id="e1", name="e1", gbfs_version_id="v1", url="https://example.com")
@@ -430,7 +430,7 @@ def test_delete_httpaccesslog_cascadeto_gbfsfeedhttpaccesslog(test_database):
 
 
 def test_delete_location_cascadeto_locationfeed(test_database):
-    with (test_database.start_db_session() as session):
+    with test_database.start_db_session() as session:
         feed = Gtfsfeed(id="f1")
         location = Location(id="l1")
 
@@ -444,7 +444,7 @@ def test_delete_location_cascadeto_locationfeed(test_database):
 
 
 def test_delete_location_cascadeto_location_gtfsdataset(test_database):
-    with (test_database.start_db_session() as session):
+    with test_database.start_db_session() as session:
 
         location = Location(id="l1")
         dataset = Gtfsdataset(id="d1")

@@ -56,12 +56,10 @@ def get_service_date_range_with_timezone_utc(
                 feed_service_window_start, "%Y-%m-%d"
             )
         except ValueError:
-            logging.error(
-                f"""
+            logging.error(f"""
                 Key 'summary.feedInfo.feedStartDate' not found or bad value in
                 JSON. value: {feed_service_window_start}
-                """
-            )
+                """)
             return None
 
         try:
@@ -69,12 +67,10 @@ def get_service_date_range_with_timezone_utc(
                 feed_service_window_end, "%Y-%m-%d"
             )
         except ValueError:
-            logging.error(
-                f"""
+            logging.error(f"""
                 Key 'summary.feedInfo.feedEndDate' not found or bad value in
                 JSON. value: {feed_service_window_end}
-                """
-            )
+                """)
             return None
 
         # this check is due to an issue in the validation report
