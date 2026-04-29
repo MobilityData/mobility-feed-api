@@ -173,11 +173,12 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
       PUBSUB_TOPIC_NAME = google_pubsub_topic.pubsub_topic.name
-      PROJECT_ID        = var.project_id
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
-      ENVIRONMENT         = var.environment
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_datasets_config.secret_environment_variables
@@ -296,14 +297,14 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
       DATASETS_BUCKET_NAME = google_storage_bucket.datasets_bucket.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"
-      ENVIRONMENT         = var.environment
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name

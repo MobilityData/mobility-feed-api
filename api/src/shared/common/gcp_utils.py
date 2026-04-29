@@ -201,4 +201,3 @@ def create_http_task_with_name(
             logging.info("Task already exists for %s, skipping.", task_name)
         else:
             logging.error("Error creating task: %s", e)
-            logging.error("response: %s", response)
