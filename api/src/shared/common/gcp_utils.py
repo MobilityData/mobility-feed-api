@@ -194,7 +194,7 @@ def create_http_task_with_name(
         dispatch_deadline=duration_pb2.Duration(seconds=timeout_s),
     )
     try:
-        response = client.create_task(parent=parent, task=task)
+        client.create_task(parent=parent, task=task)
         logging.info("Task created with task_name: %s", task_name)
     except Exception as e:
         if "Requested entity already exists" in str(e):
