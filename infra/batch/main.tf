@@ -176,6 +176,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
       ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PUBSUB_TOPIC_NAME = google_pubsub_topic.pubsub_topic.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
@@ -300,12 +301,12 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       DATASETS_BUCKET_NAME = google_storage_bucket.datasets_bucket.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
