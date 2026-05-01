@@ -12,7 +12,6 @@ from validation_report_converter import (
     bucket_name,
 )
 
-
 init_logger()
 
 

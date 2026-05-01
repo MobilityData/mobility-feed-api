@@ -186,18 +186,24 @@ if __name__ == "__main__":
     data = {
         "stable_id": feed_stable_id,
         "dataset_id": feed_dict["dataset_id"] if "dataset_id" in feed_dict else None,
-        "station_information_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
-        f"/{feed_stable_id}/station_information.json"
-        if "station_information_url" in feed_dict
-        else None,
-        "vehicle_status_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
-        f"/{feed_stable_id}/vehicle_status.json"
-        if "vehicle_status_url" in feed_dict
-        else None,
-        "free_bike_status_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
-        f"/{feed_stable_id}/free_bike_status.json"
-        if "free_bike_status_url" in feed_dict
-        else None,
+        "station_information_url": (
+            f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+            f"/{feed_stable_id}/station_information.json"
+            if "station_information_url" in feed_dict
+            else None
+        ),
+        "vehicle_status_url": (
+            f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+            f"/{feed_stable_id}/vehicle_status.json"
+            if "vehicle_status_url" in feed_dict
+            else None
+        ),
+        "free_bike_status_url": (
+            f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+            f"/{feed_stable_id}/free_bike_status.json"
+            if "free_bike_status_url" in feed_dict
+            else None
+        ),
         "stops_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
         f"/{feed_stable_id}/stops.txt",
         "strategy": str(strategy.value),

@@ -25,4 +25,4 @@ def generate_public_private_key_pair():
     return pb_key, pr_key
 
 
-(public_key, private_key) = generate_public_private_key_pair()
+public_key, private_key = generate_public_private_key_pair()
