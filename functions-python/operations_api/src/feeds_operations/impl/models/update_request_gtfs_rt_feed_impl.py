@@ -138,6 +138,22 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             )
             else update_request.source_info.license_url
         )
+        entity.license_id = (
+            None
+            if (
+                update_request.source_info is None
+                or not update_request.source_info.license_id
+            )
+            else update_request.source_info.license_id
+        )
+        entity.license_notes = (
+            None
+            if (
+                update_request.source_info is None
+                or not update_request.source_info.license_notes
+            )
+            else update_request.source_info.license_notes
+        )
 
         redirecting_ids = (
             []

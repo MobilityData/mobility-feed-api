@@ -24,6 +24,8 @@ import json
 import uuid
 from unittest.mock import patch
 
+from shared.common.license_utils import PropagateLicenseResult
+
 
 @pytest.fixture
 def update_request_gtfs_feed():
@@ -230,6 +232,76 @@ async def test_create_gtfs_rt_feed_success(_, db_session):
             created = (
                 db_session.query(Gtfsrealtimefeed)
                 .filter(Gtfsrealtimefeed.stable_id == stable_id)
+                .one_or_none()
+            )
+            if created is not None:
+                db_session.delete(created)
+                db_session.commit()
+
+
+@pytest.mark.asyncio
+@patch("feeds_operations.impl.feeds_operations_impl.trigger_dataset_download")
+@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
+async def test_create_gtfs_feed_with_propagate_license(_, _trigger, db_session):
+    """propagate_license=True on create wires propagation without extra commits."""
+    api = OperationsApiImpl()
+    unique_url = f"https://new-feed-propagate.example.com/{uuid.uuid4()}"
+    license_url = "https://licenses.example.com/test-propagate"
+
+    propagate_called = []
+
+    def fake_propagate(license_id, license_url, db_session, **kwargs):
+        propagate_called.append((license_id, license_url))
+        return PropagateLicenseResult(
+            license_id=license_id,
+            license_url=license_url,
+            normalized_license_url=license_url,
+            dry_run=False,
+            override=False,
+            total_feeds_with_same_url=0,
+            affected_feeds_count=0,
+            affected_feeds=[],
+        )
+
+    with patch(
+        "feeds_operations.impl.feeds_operations_impl.propagate_license_by_url",
+        side_effect=fake_propagate,
+    ):
+        request = OperationCreateRequestGtfsFeed(
+            status=FeedStatus.ACTIVE,
+            provider="Propagate Provider",
+            feed_name="Propagate Feed",
+            note="",
+            feed_contact_email="p@example.com",
+            source_info=OperationCreateRequestGtfsFeedSourceInfo(
+                producer_url=unique_url,
+                authentication_type=0,
+                license_url=license_url,
+                license_id="MIT",
+            ),
+            operational_status="wip",
+            official=True,
+            redirects=[],
+            external_ids=[],
+            locations=[],
+            related_links=[],
+            propagate_license=True,
+        )
+
+        response = await api.create_gtfs_feed(request)
+
+    payload = json.loads(response.body)
+    try:
+        assert response.status_code == 201
+        assert propagate_called, "propagate_license_by_url should have been called"
+        assert propagate_called[0][0] == "MIT"
+        assert propagate_called[0][1] == license_url
+    finally:
+        stable_id = payload.get("stable_id") if isinstance(payload, dict) else None
+        if stable_id:
+            created = (
+                db_session.query(Gtfsfeed)
+                .filter(Gtfsfeed.stable_id == stable_id)
                 .one_or_none()
             )
             if created is not None:
