@@ -394,6 +394,9 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
 
     environment_variables = {
       ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PYTHONNODEBUGRANGES = 0
     }
 
@@ -439,7 +442,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID        = var.project_id
+      ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PUBSUB_TOPIC_NAME = google_pubsub_topic.validate_gbfs_feed.name
       PYTHONNODEBUGRANGES = 0
       FEEDS_LIMIT       = lower(var.environment) == "dev" ? "10" : null
@@ -595,9 +601,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     environment_variables = {
       ENVIRONMENT = var.environment
-      BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
@@ -632,10 +639,14 @@ resource "google_cloudfunctions2_function" "operations_api" {
   }
   service_config {
     environment_variables = {
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PYTHONNODEBUGRANGES = 0
       GOOGLE_CLIENT_ID = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
+      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     available_memory = local.function_operations_api_config.memory
     timeout_seconds = local.function_operations_api_config.timeout
@@ -687,6 +698,9 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
     environment_variables = {
       # prevents multiline logs from being truncated on GCP console
       ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PYTHONNODEBUGRANGES = 0
     }
     dynamic "secret_environment_variables" {
@@ -725,9 +739,11 @@ resource "google_cloudfunctions2_function" "export_csv" {
   }
   service_config {
     environment_variables = {
-      DATASETS_BUCKET_NAME = data.google_storage_bucket.datasets_bucket.name
-      PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      DATASETS_BUCKET_NAME = data.google_storage_bucket.datasets_bucket.name
     }
     available_memory                 = local.function_export_csv_config.memory
     timeout_seconds                  = local.function_export_csv_config.timeout
@@ -779,11 +795,11 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
-      ENVIRONMENT = var.environment
-      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name      
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
@@ -868,6 +884,10 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   }
   service_config {
     environment_variables = {
+      ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION = "True"
     }
@@ -916,11 +936,11 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
-      ENVIRONMENT = var.environment
-      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
@@ -1012,11 +1032,12 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_config.timeout
@@ -1081,8 +1102,10 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       BOUNDING_BOXES_PUBSUB_TOPIC_NAME = google_pubsub_topic.rebuild_missing_bounding_boxes.name
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
@@ -1090,8 +1113,6 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       GBFS_SNAPSHOTS_BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       TASK_RUN_SYNC_QUEUE   = google_cloud_tasks_queue.task_run_sync_queue.name
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      GCP_REGION = var.gcp_region
       TDG_API_TOKEN = var.tdg_api_token
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
       WEB_APP_REVALIDATE_URL = var.web_app_revalidate_url
@@ -1148,8 +1169,10 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"

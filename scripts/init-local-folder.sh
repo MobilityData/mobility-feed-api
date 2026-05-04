@@ -73,4 +73,3 @@ echo "==> Setting up all Python functions..."
 "$SCRIPT_PATH/function-python-setup.sh" --all
 
 echo "==> Local folder initialization complete."
-
