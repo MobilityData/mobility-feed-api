@@ -25,20 +25,22 @@ jobs:
         run: |
           echo "ENVIRONMENT=${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ vars.MOBILITY_FEEDS_REGION }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
+          echo "TASKS_EXECUTOR_URL=https://${{ vars.MOBILITY_FEEDS_REGION }}-${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}.cloudfunctions.net/tasks_executor-${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}" >> $GITHUB_ENV
 
       # Schedule a task to update the validation report in 24 hours from now to allow runners of the web validator
       # to be properly updated with the new version of the GTFS Validator
       - name: Create task to run cloud function
         run: |
           gcloud tasks create-http-task \
-            --queue=update-validation-report-task-queue \
-            --url=https://${{ vars.MOBILITY_FEEDS_REGION }}-${PROJECT_ID}.cloudfunctions.net/update-validation-report \
+            --queue=validator-update-trigger-queue \
+            --url=${TASKS_EXECUTOR_URL} \
             --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT} \
-            --location=${{ vars.MOBILITY_FEEDS_REGION }} \
+            --location=${REGION} \
             --header=Content-Type:application/json \
-            --body-content='{}'
+            --body-content='{"task": "rebuild_missing_validation_reports", "payload": {"dry_run": false, "force_update": true}}'
   notify-slack-on-failure:
     needs: [ validator-update ]
     if: failure() && (github.event_name != 'workflow_dispatch')
