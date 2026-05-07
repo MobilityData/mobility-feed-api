@@ -357,6 +357,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PropagateLicenseResponse"
+        "400":
+          description: Bad request (e.g. unknown license_id).
         "422":
           description: Validation error (e.g. missing required fields).
         "500":
