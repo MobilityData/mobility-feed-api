@@ -1333,6 +1333,10 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
+output "tasks_executor_url" {
+  value = google_cloudfunctions2_function.tasks_executor.url
+}
+
 
 # Task queue to invoke refresh_materialized_view function
 resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
@@ -1390,6 +1394,27 @@ resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
     min_backoff   = "30s"
     max_backoff   = "120s"
     max_doublings = 2
+  }
+}
+
+# Task queue for the validator-update GitHub Action to schedule tasks_executor calls 24h ahead.
+# Static name (new, never previously used) avoids GCP queue-name-reuse restrictions.
+resource "google_cloud_tasks_queue" "validator_update_trigger_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "validator-update-trigger-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 50
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # Retry for ~4 hour: 31 attempts × 120s fixed backoff
+    max_attempts  = 124
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 0
   }
 }
 
