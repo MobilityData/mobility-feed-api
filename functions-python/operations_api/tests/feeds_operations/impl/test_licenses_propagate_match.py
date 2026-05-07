@@ -18,7 +18,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from test_shared.test_utils.database_utils import default_db_url
 
-
 LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 LICENSE_ID = "MIT"
 
