@@ -58,9 +58,11 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             feed_contact_email=obj.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=obj.producer_url,
-                authentication_type=None
-                if obj.authentication_type is None
-                else int(obj.authentication_type),
+                authentication_type=(
+                    None
+                    if obj.authentication_type is None
+                    else int(obj.authentication_type)
+                ),
                 authentication_info_url=obj.authentication_info_url,
                 api_key_parameter_name=obj.api_key_parameter_name,
                 license_url=obj.license_url,

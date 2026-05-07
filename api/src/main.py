@@ -33,7 +33,6 @@ from starlette.middleware.cors import CORSMiddleware
 from middleware.request_context_middleware import RequestContextMiddleware
 from utils.logger import global_logging_setup
 
-
 app = FastAPI(
     title="Mobility Data Catalog API",
     description="API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility "

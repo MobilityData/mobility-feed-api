@@ -8,8 +8,9 @@ from shared.database_gen.sqlacodegen_models import Feed
 
 
 def get_feed_dict(
-    operation_request: OperationCreateRequestGtfsRtFeed
-    | OperationCreateRequestGtfsFeed,
+    operation_request: (
+        OperationCreateRequestGtfsRtFeed | OperationCreateRequestGtfsFeed
+    ),
 ):
     """Get a dict representation of the feed from the operation request model."""
     feed_dict = operation_request.model_dump()

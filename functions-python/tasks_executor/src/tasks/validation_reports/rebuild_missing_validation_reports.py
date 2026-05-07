@@ -147,9 +147,9 @@ def rebuild_missing_validation_reports(
         force_update=force_update,
         filter_after_in_days=filter_after_in_days,
         filter_statuses=filter_statuses,
-        filter_op_statuses=filter_op_statuses
-        if filter_op_statuses is not None
-        else ["published"],
+        filter_op_statuses=(
+            filter_op_statuses if filter_op_statuses is not None else ["published"]
+        ),
     )
     total_candidates = len(datasets)
     logging.info("Found %s candidate datasets", total_candidates)

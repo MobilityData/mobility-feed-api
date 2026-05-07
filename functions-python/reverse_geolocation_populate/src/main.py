@@ -12,7 +12,6 @@ from shared.database.database import with_db_session
 from shared.helpers.logger import init_logger
 from enum import Enum
 
-
 # Initialize logging
 init_logger()
 client = None  # Global BigQuery client

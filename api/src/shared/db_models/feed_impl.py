@@ -58,9 +58,9 @@ class FeedImpl(BaseFeedImpl, Feed):
             provider=feed_dict.get("provider"),
             feed_contact_email=feed_dict.get("feed_contact_email"),
             producer_url=feed_dict.get("producer_url"),
-            authentication_type=None
-            if feed_dict.get("authentication_type") is None
-            else str(feed_dict.get("authentication_type")),
+            authentication_type=(
+                None if feed_dict.get("authentication_type") is None else str(feed_dict.get("authentication_type"))
+            ),
             authentication_info_url=feed_dict.get("authentication_info_url"),
             api_key_parameter_name=feed_dict.get("api_key_parameter_name"),
             license_url=feed_dict.get("license_url"),
@@ -71,23 +71,31 @@ class FeedImpl(BaseFeedImpl, Feed):
             official_updated_at=feed_dict.get("official_updated_at"),
             feed_name=feed_dict.get("feed_name"),
             note=feed_dict.get("note"),
-            externalids=sorted(
-                [ExternalIdImpl.to_orm_from_dict(item) for item in feed_dict.get("externalids")],
-                key=lambda x: x.associated_id,
-            )
-            if feed_dict.get("externalids")
-            else [],
-            redirectingids=sorted(
-                [RedirectImpl.to_orm_from_dict(item) for item in feed_dict.get("redirectingids")],
-                key=lambda x: x.target_id,
-            )
-            if feed_dict.get("redirectingids")
-            else [],
-            feedrelatedlinks=[FeedRelatedLinkImpl.to_orm_from_dict(item) for item in feed_dict.get("feedrelatedlinks")]
-            if feed_dict.get("feedrelatedlinks")
-            else [],
-            locations=[LocationImpl.to_orm_from_dict(item) for item in feed_dict.get("locations")]
-            if feed_dict.get("locations")
-            else [],
+            externalids=(
+                sorted(
+                    [ExternalIdImpl.to_orm_from_dict(item) for item in feed_dict.get("externalids")],
+                    key=lambda x: x.associated_id,
+                )
+                if feed_dict.get("externalids")
+                else []
+            ),
+            redirectingids=(
+                sorted(
+                    [RedirectImpl.to_orm_from_dict(item) for item in feed_dict.get("redirectingids")],
+                    key=lambda x: x.target_id,
+                )
+                if feed_dict.get("redirectingids")
+                else []
+            ),
+            feedrelatedlinks=(
+                [FeedRelatedLinkImpl.to_orm_from_dict(item) for item in feed_dict.get("feedrelatedlinks")]
+                if feed_dict.get("feedrelatedlinks")
+                else []
+            ),
+            locations=(
+                [LocationImpl.to_orm_from_dict(item) for item in feed_dict.get("locations")]
+                if feed_dict.get("locations")
+                else []
+            ),
         )
         return result

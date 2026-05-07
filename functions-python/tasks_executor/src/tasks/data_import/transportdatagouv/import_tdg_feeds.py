@@ -429,12 +429,12 @@ def _build_db_rt_fingerprint_tdg(feed: Gtfsrealtimefeed) -> dict:
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
         "license_url": getattr(feed, "license_url", None),
-        "static_refs": sorted({gf.stable_id for gf in feed.gtfs_feeds})
-        if feed.gtfs_feeds
-        else [],
-        "entity_types": sorted({et.name for et in feed.entitytypes})
-        if feed.entitytypes
-        else [],
+        "static_refs": (
+            sorted({gf.stable_id for gf in feed.gtfs_feeds}) if feed.gtfs_feeds else []
+        ),
+        "entity_types": (
+            sorted({et.name for et in feed.entitytypes}) if feed.entitytypes else []
+        ),
     }
 
 

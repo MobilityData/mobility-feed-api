@@ -17,7 +17,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
-
 faker = Faker()
 logger = logging.getLogger(__name__)
 

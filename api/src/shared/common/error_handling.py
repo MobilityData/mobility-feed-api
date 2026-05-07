@@ -1,8 +1,8 @@
 from typing import Final
 
-invalid_date_message: Final[
-    str
-] = "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
+invalid_date_message: Final[str] = (
+    "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
+)
 invalid_bounding_coordinates: Final[str] = "Invalid bounding coordinates {} {}"
 invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
 feed_not_found: Final[str] = "Feed '{}' not found"
