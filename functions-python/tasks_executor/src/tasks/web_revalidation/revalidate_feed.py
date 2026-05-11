@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def revalidate_feed_handler(payload: dict | None = None) -> dict:
     """
-    Call the web app's revalidation endpoint to invalidate the cached
+    Call the website revalidation endpoint to invalidate the cached
     feed detail page for a specific feed.
 
     Payload:

@@ -429,12 +429,12 @@ def _build_db_rt_fingerprint_tdg(feed: Gtfsrealtimefeed) -> dict:
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
         "license_url": getattr(feed, "license_url", None),
-        "static_refs": sorted({gf.stable_id for gf in feed.gtfs_feeds})
-        if feed.gtfs_feeds
-        else [],
-        "entity_types": sorted({et.name for et in feed.entitytypes})
-        if feed.entitytypes
-        else [],
+        "static_refs": (
+            sorted({gf.stable_id for gf in feed.gtfs_feeds}) if feed.gtfs_feeds else []
+        ),
+        "entity_types": (
+            sorted({et.name for et in feed.entitytypes}) if feed.entitytypes else []
+        ),
     }
 
 
@@ -668,7 +668,7 @@ def _process_tdg_dataset(
             )
             continue
 
-    # Collect stable IDs of changed feeds for web app cache revalidation
+    # Collect stable IDs of changed feeds for website cache revalidation
     changed_stable_ids = (
         list(processed_stable_ids)
         if (created_gtfs or updated_gtfs or created_rt)
@@ -798,13 +798,13 @@ def commit_changes(
 ):
     """
     Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger web app cache revalidation for changed feeds.
+    and trigger website cache revalidation for changed feeds.
     """
     try:
         logger.info("Commit after processing items (count=%d)", total_processed)
         db_session.commit()
         execution_id = str(uuid.uuid4())
-        if os.getenv("ENV", "").lower() == "local":
+        if os.getenv("ENVIRONMENT", "").lower() == "local":
             return
         for feed in feeds_to_publish:
             trigger_dataset_download(feed, execution_id)

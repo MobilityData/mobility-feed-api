@@ -281,8 +281,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         from reverse_geolocation_processor import create_geojson_aggregate
 
         # Mock the specific environment variable
-        mock_getenv.side_effect = (
-            lambda var_name: "test_bucket"
+        mock_getenv.side_effect = lambda var_name: (
+            "test_bucket"
             if var_name in ["DATASETS_BUCKET_NAME_GTFS", "DATASETS_BUCKET_NAME_GBFS"]
             else None
         )

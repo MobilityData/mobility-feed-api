@@ -3,13 +3,12 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import func
 
 from shared.database.database import with_db_session
-from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 from test_shared.test_utils.database_utils import default_db_url
 from main import (
     update_feed_status,
     update_feed_statuses_query,
 )
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset, Gtfsfeed
 from datetime import date, timedelta
 from typing import Iterator, NamedTuple
 

@@ -72,7 +72,7 @@ def create_refresh_materialized_view_task():
 
 def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
     """
-    Enqueue a Cloud Task to revalidate the web app cache for specific feed pages.
+    Enqueue a Cloud Task to revalidate the website cache for specific feed pages.
     Uses time-bucketed task names for deduplication: multiple calls for the same
     feed within the same 30-minute window are collapsed into one task.
 
@@ -194,11 +194,10 @@ def create_http_task_with_name(
         dispatch_deadline=duration_pb2.Duration(seconds=timeout_s),
     )
     try:
-        response = client.create_task(parent=parent, task=task)
+        client.create_task(parent=parent, task=task)
         logging.info("Task created with task_name: %s", task_name)
     except Exception as e:
         if "Requested entity already exists" in str(e):
             logging.info("Task already exists for %s, skipping.", task_name)
         else:
             logging.error("Error creating task: %s", e)
-            logging.error("response: %s", response)

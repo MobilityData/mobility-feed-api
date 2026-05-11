@@ -12,7 +12,7 @@ def refresh_materialized_view_handler(payload):
     Returns:
         dict: Response message and status code.
     """
-    (dry_run) = get_parameters(payload)
+    dry_run = get_parameters(payload)
 
     return refresh_materialized_view_task(dry_run)
 

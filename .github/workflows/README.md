@@ -40,26 +40,6 @@ This folder contains GitHub Actions workflows. Below is a concise, hierarchical 
   - Description: Assigns GitHub issues/PRs to the next release milestone.
   - Trigger: On PR merge or manual run.
 
-## Web
-- [web-app-deployer.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-app-deployer.yml)
-  - Description: build and deploy the web application.
-  - Called by:
-    - [web-dev.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-dev.yml)
-      - Description: Deploys web app to DEV.
-      - Trigger: Manual run.
-    - [web-qa.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-qa.yml)
-      - Description: Deploys web app to QA.
-      - Trigger: Manual or call from release-qa.yml.
-    - [web-prod.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-prod.yml)
-      - Description: Deploys web app to Production.
-      - Trigger: Manual or call from release.yml.
-    - [web-pr.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-pr.yml)
-      - Description: Builds/previews web app for pull requests.
-      - Trigger: When a commit is added to a pull request for files that affects the web app.
-    - [web-prototype.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/web-prototype.yml)
-      - Description: Builds/deploys prototype web app.
-      - Trigger: Manual run.
-
 ## API
 - [api-deployer.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/api-deployer.yml)
   - Description: Build and deploy the API service.

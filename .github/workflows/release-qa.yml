@@ -34,13 +34,8 @@ jobs:
       ENVIRONMENT: 'qa'
     secrets:
       REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
-  web-deployment:
-    name: Web Deployment
-    needs: batch-deployment
-    uses: ./.github/workflows/web-qa.yml
-    secrets: inherit
   notify-slack-on-failure:
-    needs: [ web-deployment, integration-tests ]
+    needs: [ integration-tests ]
     if: failure() && (github.event_name != 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:

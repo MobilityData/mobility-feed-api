@@ -72,12 +72,8 @@ class TestDatasetProcessor(unittest.TestCase):
         """
         Test upload_dataset method of DatasetProcessor class with different hash from the latest one
         """
-        mock_blob = MagicMock()
-        mock_blob.public_url = public_url
-        mock_blob.path = public_url
-
-        # Mock the new methods used in transfer_dataset
-        mock_upload_dataset_zip.return_value = mock_blob
+        mock_md5_hex = "098f6bcd4621d373cade4e832627b4f6"
+        mock_upload_dataset_zip.return_value = mock_md5_hex
         mock_extracted_files = []  # Empty list of extracted files
         mock_extract_and_upload.return_value = mock_extracted_files
         mock_download_url_content.return_value = file_hash, True
@@ -105,6 +101,7 @@ class TestDatasetProcessor(unittest.TestCase):
             f"/feed_stable_id-mocked_timestamp.zip",
         )
         self.assertEqual(result.file_sha256_hash, file_hash)
+        self.assertEqual(result.file_md5_hash, mock_md5_hex)
         # Verify the new methods were called
         self.assertEqual(mock_upload_dataset_zip.call_count, 1)
         self.assertEqual(mock_extract_and_upload.call_count, 1)
@@ -905,3 +902,77 @@ class TestDatasetProcessor(unittest.TestCase):
             self.assertIsNone(result_dataset.unzipped_size_bytes)  # None when no files
 
             mock_refresh_task.assert_called_once()
+
+
+class TestUploadDatasetZipToStorage(unittest.TestCase):
+    @patch("main.storage.Client")
+    def test_md5_hash_read_from_gcs_blob_after_upload(self, mock_storage_client):
+        """
+        upload_dataset_zip_to_storage should return the hex MD5 hash read from the GCS
+        blob's md5_hash attribute (base64-encoded) after upload.
+        """
+        import base64
+        import tempfile
+
+        raw_md5 = b"\x09\x8f\x6b\xcd\x46\x21\xd3\x73\xca\xde\x4e\x83\x26\x27\xb4\xf6"
+        b64_md5 = base64.b64encode(raw_md5).decode()
+        expected_hex = raw_md5.hex()
+
+        mock_blob = MagicMock()
+        mock_blob.md5_hash = b64_md5
+        mock_blob.public_url = "https://storage.googleapis.com/bucket/path.zip"
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_storage_client.return_value.get_bucket.return_value = mock_bucket
+
+        processor = DatasetProcessor(
+            producer_url="https://example.com/feed.zip",
+            feed_id="feed_id",
+            feed_stable_id="feed_stable",
+            execution_id="exec_id",
+            latest_hash="hash",
+            bucket_name="test-bucket",
+            authentication_type=0,
+            api_key_parameter_name=None,
+            public_hosted_datasets_url="https://public.example.com",
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+            result = processor.upload_dataset_zip_to_storage(
+                tmp.name, "dataset_stable_id"
+            )
+
+        self.assertEqual(result, expected_hex)
+
+    @patch("main.storage.Client")
+    def test_md5_hash_none_when_blob_has_no_md5(self, mock_storage_client):
+        """
+        upload_dataset_zip_to_storage should return None if the GCS blob provides no md5_hash.
+        """
+        import tempfile
+
+        mock_blob = MagicMock()
+        mock_blob.md5_hash = None
+        mock_blob.public_url = "https://storage.googleapis.com/bucket/path.zip"
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_storage_client.return_value.get_bucket.return_value = mock_bucket
+
+        processor = DatasetProcessor(
+            producer_url="https://example.com/feed.zip",
+            feed_id="feed_id",
+            feed_stable_id="feed_stable",
+            execution_id="exec_id",
+            latest_hash="hash",
+            bucket_name="test-bucket",
+            authentication_type=0,
+            api_key_parameter_name=None,
+            public_hosted_datasets_url="https://public.example.com",
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+            result = processor.upload_dataset_zip_to_storage(
+                tmp.name, "dataset_stable_id"
+            )
+
+        self.assertIsNone(result)

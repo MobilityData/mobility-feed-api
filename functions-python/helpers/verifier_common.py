@@ -15,7 +15,6 @@ from shared.helpers.runtime_metrics import track_metrics
 from google.cloud import storage
 from sqlalchemy.orm import Session
 
-
 EMULATOR_STORAGE_BUCKET_NAME = "verifier"
 EMULATOR_HOST = "localhost"
 EMULATOR_STORAGE_PORT = 9023
@@ -89,9 +88,9 @@ def setup_local_storage_emulator():
     """
     from gcp_storage_emulator.server import create_server
 
-    os.environ[
-        "STORAGE_EMULATOR_HOST"
-    ] = f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}"
+    os.environ["STORAGE_EMULATOR_HOST"] = (
+        f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}"
+    )
     os.environ["DATASETS_BUCKET_NAME_GBFS"] = EMULATOR_STORAGE_BUCKET_NAME
     os.environ["DATASETS_BUCKET_NAME_GTFS"] = EMULATOR_STORAGE_BUCKET_NAME
     os.environ["DATASTORE_EMULATOR_HOST"] = "localhost:8081"

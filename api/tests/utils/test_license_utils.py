@@ -1,4 +1,5 @@
 """Unit tests for license_utils module."""
+
 import unittest
 from unittest.mock import MagicMock, patch
 

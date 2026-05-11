@@ -283,9 +283,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             f"{','.join([feed.stable_id for feed in self.added_gtfs_feeds] if self.added_gtfs_feeds else [])}"
         )
 
-        env = os.getenv("ENV")
-        self.logger.info(f"ENV = {env}")
-        if os.getenv("ENV", "local") != "local":
+        env = os.getenv("ENVIRONMENT")
+        self.logger.info(f"ENVIRONMENT = {env}")
+        if os.getenv("ENVIRONMENT", "local") != "local":
             # Publishes the new feeds to the Pub/Sub topic to download the datasets
             publish_all(self.added_gtfs_feeds)
 

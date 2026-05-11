@@ -30,6 +30,9 @@ from tasks.data_import.transportdatagouv.update_tdg_redirects import (
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
 )
+from tasks.dataset_files.backfill_dataset_hash_md5 import (
+    backfill_dataset_hash_md5_handler,
+)
 from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
@@ -59,7 +62,6 @@ from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
 )
 from tasks.web_revalidation.revalidate_feed import revalidate_feed_handler
-
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -110,6 +112,14 @@ tasks = {
         "description": "Rebuilds missing dataset files for GTFS datasets.",
         "handler": rebuild_missing_dataset_files_handler,
     },
+    "backfill_dataset_hash_md5": {
+        "description": (
+            "Backfills the MD5 hash for existing GTFS datasets by reading it from GCS blob metadata. "
+            "Parameters: dry_run (default true), only_latest (default true), "
+            "only_missing_hashes (default true), limit (default 10)."
+        ),
+        "handler": backfill_dataset_hash_md5_handler,
+    },
     "update_geojson_files": {
         "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
         "handler": update_geojson_files_precision_handler,
@@ -144,7 +154,7 @@ tasks = {
         "handler": update_tdg_redirects_handler,
     },
     "revalidate_feed": {
-        "description": "Revalidate the web app cache for a specific feed detail page.",
+        "description": "Revalidate the website cache for a specific feed detail page.",
         "handler": revalidate_feed_handler,
     },
 }
@@ -219,9 +229,9 @@ def tasks_executor(request: flask.Request) -> flask.Response:
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"
-            response.headers[
-                "Content-Disposition"
-            ] = "attachment; filename=task_result.csv"
+            response.headers["Content-Disposition"] = (
+                "attachment; filename=task_result.csv"
+            )
             return response
 
         # Default JSON response

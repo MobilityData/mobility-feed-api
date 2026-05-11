@@ -77,7 +77,8 @@ that were already triggered (tracked in `task_execution_log`).
     "filter_statuses": ["active"],
     "filter_op_statuses": ["published"],
     "force_update": false,
-    "limit": 10
+    "limit": 10,
+    "reports_bucket_name": "stg-gtfs-validator-results"
 }
 ```
 
@@ -91,6 +92,7 @@ that were already triggered (tracked in `task_execution_log`).
 | `filter_op_statuses` | list[str] | `["published"]` | Filter feeds by operational status. Accepted values: `"published"`, `"unpublished"`, `"wip"` |
 | `force_update` | bool | `false` | Re-trigger even when a current report already exists |
 | `limit` | int | `null` | Cap the number of workflows triggered per call — useful for end-to-end testing |
+| `reports_bucket_name` | string | env-derived | Override the GCS bucket where validator results are stored. Use when running in prod but pointing to the staging validator (e.g. `"stg-gtfs-validator-results"`) |
 
 ---
 

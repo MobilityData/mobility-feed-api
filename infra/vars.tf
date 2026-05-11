@@ -80,13 +80,13 @@ variable "tdg_api_token" {
 
 variable "web_app_revalidate_url" {
     type        = string
-    description = "URL of the web app's revalidation endpoint for cache invalidation"
+  description = "URL of the website revalidation endpoint for cache invalidation"
     default     = ""
 }
 
 variable "web_app_revalidate_secret" {
     type        = string
-    description = "Secret token used to authenticate requests to the web app's revalidation endpoint"
+  description = "Secret token used to authenticate requests to the website revalidation endpoint"
     sensitive   = true
     default     = ""
 }

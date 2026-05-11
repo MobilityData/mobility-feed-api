@@ -303,7 +303,7 @@ def create_validation_report_entities(
             logging.warning(
                 "Could not update task execution tracker: %s", tracker_error
             )
-        # Trigger web app cache revalidation for the feed
+        # Trigger website cache revalidation for the feed
         try:
             create_web_revalidation_task([feed_stable_id])
         except Exception as revalidation_error:

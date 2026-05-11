@@ -1,7 +1,6 @@
 import json
 from google.cloud import bigquery
 
-
 json_schema_map = {
     "gtfs": "gtfs_schema.json",
     "gbfs": "gbfs_schema.json",

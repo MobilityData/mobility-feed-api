@@ -113,7 +113,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 result["warning"] = message
             else:
                 result["message"] = "Successfully built pmtiles."
-                # Trigger web app cache revalidation for the feed
+                # Trigger website cache revalidation for the feed
                 try:
                     create_web_revalidation_task([feed_stable_id])
                 except Exception as revalidation_error:

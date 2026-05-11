@@ -39,6 +39,7 @@ class TestGetParameters(unittest.TestCase):
             bypass_db_update,
             force_update,
             limit,
+            reports_bucket_name,
         ) = get_parameters({})
         self.assertTrue(dry_run)
         self.assertIsNone(filter_after_in_days)
@@ -49,6 +50,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertFalse(bypass_db_update)
         self.assertFalse(force_update)
         self.assertIsNone(limit)
+        self.assertIsNone(reports_bucket_name)
 
     def test_all_params(self):
         payload = {
@@ -60,6 +62,7 @@ class TestGetParameters(unittest.TestCase):
             "bypass_db_update": True,
             "force_update": True,
             "limit": 10,
+            "reports_bucket_name": "my-custom-bucket",
         }
         (
             dry_run,
@@ -71,6 +74,7 @@ class TestGetParameters(unittest.TestCase):
             bypass_db_update,
             force_update,
             limit,
+            reports_bucket_name,
         ) = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertEqual(filter_after_in_days, 30)
@@ -80,6 +84,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
         self.assertEqual(limit, 10)
+        self.assertEqual(reports_bucket_name, "my-custom-bucket")
 
     def test_string_coercion(self):
         payload = {
@@ -88,9 +93,18 @@ class TestGetParameters(unittest.TestCase):
             "force_update": "true",
             "limit": "5",
         }
-        dry_run, _, _, _, _, _, bypass_db_update, force_update, limit = get_parameters(
-            payload
-        )
+        (
+            dry_run,
+            _,
+            _,
+            _,
+            _,
+            _,
+            bypass_db_update,
+            force_update,
+            limit,
+            _,
+        ) = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
@@ -190,6 +204,45 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
     @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
     @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
     @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_reports_bucket_name_override_is_used(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
+    ):
+        """When reports_bucket_name is provided, it overrides the env-derived bucket."""
+        session = self._make_session_mock(datasets=[("f", "ds-1")])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            dry_run=False,
+            reports_bucket_name="stg-gtfs-validator-results",
+            prod_env=True,
+            db_session=session,
+        )
+        _, call_kwargs = exec_mock.call_args
+        self.assertEqual(
+            call_kwargs["reports_bucket_name"], "stg-gtfs-validator-results"
+        )
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_reports_bucket_name_defaults_to_env_derived(
+        self, tracker_cls, exec_mock, filter_blob_mock, version_mock
+    ):
+        """When reports_bucket_name is not set, the env-derived prod bucket is used."""
+        session = self._make_session_mock(datasets=[("f", "ds-1")])
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://staging.example.com/api",
+            dry_run=False,
+            prod_env=True,
+            db_session=session,
+        )
+        _, call_kwargs = exec_mock.call_args
+        self.assertEqual(call_kwargs["reports_bucket_name"], "gtfs-validator-results")
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[("f", "ds-1")])
+    @patch(f"{_MODULE}.execute_workflows", return_value=["ds-1"])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_bypass_db_update_passed_explicitly(
         self, tracker_cls, exec_mock, filter_blob_mock, version_mock
     ):
@@ -229,6 +282,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             "force_update": True,
             "limit": 10,
             "filter_op_statuses": ["published", "wip"],
+            "reports_bucket_name": "my-custom-bucket",
         }
         rebuild_missing_validation_reports_handler(payload)
         rebuild_mock.assert_called_once_with(
@@ -241,6 +295,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             prod_env=False,
             force_update=True,
             limit=10,
+            reports_bucket_name="my-custom-bucket",
         )
 
     @patch(f"{_MODULE}._get_validator_version", return_value="7.0.0")

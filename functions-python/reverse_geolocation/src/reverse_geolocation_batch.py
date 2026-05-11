@@ -19,7 +19,6 @@ from shared.helpers.logger import init_logger
 from shared.helpers.utils import create_http_task
 from sqlalchemy.orm import selectinload
 
-
 init_logger()
 
 

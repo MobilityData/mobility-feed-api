@@ -47,15 +47,16 @@ class GtfsDatasetImpl(GtfsDataset):
             note=gtfs_dataset.note,
             downloaded_at=gtfs_dataset.downloaded_at,
             hash=gtfs_dataset.hash,
+            hash_md5=gtfs_dataset.hash_md5,
             bounding_box=BoundingBoxImpl.from_orm(gtfs_dataset.bounding_box),
             validation_report=cls.from_orm_latest_validation_report(gtfs_dataset.validation_reports),
             service_date_range_start=gtfs_dataset.service_date_range_start,
             service_date_range_end=gtfs_dataset.service_date_range_end,
             agency_timezone=gtfs_dataset.agency_timezone,
-            unzipped_folder_size_mb=round(gtfs_dataset.unzipped_size_bytes / 1024**2, 2)
-            if gtfs_dataset.unzipped_size_bytes
-            else None,
-            zipped_folder_size_mb=round(gtfs_dataset.zipped_size_bytes / 1024**2, 2)
-            if gtfs_dataset.zipped_size_bytes
-            else None,
+            unzipped_folder_size_mb=(
+                round(gtfs_dataset.unzipped_size_bytes / 1024**2, 2) if gtfs_dataset.unzipped_size_bytes else None
+            ),
+            zipped_folder_size_mb=(
+                round(gtfs_dataset.zipped_size_bytes / 1024**2, 2) if gtfs_dataset.zipped_size_bytes else None
+            ),
         )

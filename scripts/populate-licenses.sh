@@ -92,8 +92,8 @@ if [[ "$DRY_RUN" == "true" ]]; then PY_DRY=True; else PY_DRY=False; fi
 
 echo "INFO: Running populate_license_rules (dry_run=${DRY_RUN})"
 "$PYTHON_BIN" - <<PYCODE
-from tasks.licenses.populate_license_rules import populate_license_rules_task
-populate_license_rules_task(dry_run=${PY_DRY})
+from tasks.licenses.populate_license_rules import populate_license_rules
+populate_license_rules(dry_run=${PY_DRY})
 PYCODE
 
 echo "INFO: Running populate_licenses (dry_run=${DRY_RUN})"

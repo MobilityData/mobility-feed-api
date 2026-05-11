@@ -62,7 +62,7 @@ class RequestContext:
             return None
 
     def decode_user_context_jwt(self, token: str):
-        """Decode and verify the custom user-context JWT sent by the web app.
+        """Decode and verify the custom user-context JWT sent by the website.
 
         This token is signed with HS256 using a shared secret (S2S_JWT_SECRET).
         If verification fails for any reason, None is returned and the request
@@ -163,8 +163,8 @@ class RequestContext:
                 self.user_id = self.iap_jwt_assertion.get("user_id")
                 self.user_email = self.iap_jwt_assertion.get("email")
 
-        # Optional user-context header set by the web app for server-to-server calls.
-        # Name is aligned with the frontend's USER_CONTEXT_HEADER.
+        # Optional user-context header set by the website for server-to-server calls.
+        # Name is aligned with the client USER_CONTEXT_HEADER.
         user_context_header = headers.get("x-mdb-user-context") or headers.get("md-user-context")
         if user_context_header:
             user_context = self.decode_user_context_jwt(user_context_header)

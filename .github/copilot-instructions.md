@@ -8,7 +8,6 @@ This is a **mobility data API service** built with FastAPI, serving open mobilit
 
 - **`api/`**: Main FastAPI application with spec-first development using OpenAPI Generator
 - **`functions-python/`**: Google Cloud Functions for data processing (batch jobs, validation, analytics)
-- **`web-app/`**: Frontend application
 - **PostgreSQL + PostGIS**: Database with geospatial support for mobility data
 
 ### Key Generated vs Implementation Split

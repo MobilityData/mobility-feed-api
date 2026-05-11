@@ -207,7 +207,7 @@ class TestImportTDG(unittest.TestCase):
             mock_trigger,
         ), patch.dict(
             os.environ,
-            {"COMMIT_BATCH_SIZE": "1", "ENV": "test"},
+            {"COMMIT_BATCH_SIZE": "1", "ENVIRONMENT": "test"},
             clear=False,
         ):
             result = import_tdg_handler({"dry_run": False})
