@@ -179,7 +179,12 @@ def _fetch_cal_itp_datasets(session_http: requests.Session) -> List[dict]:
     endpoint = f"{CAL_ITP_SQL_QUERY_URL}{encoded_sql}"
     res = session_http.get(endpoint, timeout=REQUEST_TIMEOUT_S, headers={})
     res.raise_for_status()
-    records = res.json()['result']['records']
+    try:
+        data = res.json()
+        records = data.get("result", {}).get("records", [])
+    except (ValueError, KeyError) as e:
+        logger.exception("Failed to parse Cal-ITP API response: %s", e)
+        return []
     if isinstance(records, list):
         return records
     return records or []
@@ -344,29 +349,40 @@ def _validate_required_cal_itp_fields(
 
     Returns service_id, res_format, res_id, res_name, res_url, feed_type
     """
-    service_id = resource.get("service_source_record_id")
+
+    def _get_required_field(field_name: str, context: str) -> str:
+        value = resource.get(field_name)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            raise InvalidCalItpFeedError(
+                f"Cal-ITP resource is missing required field '{field_name}' for {context}"
+            )
+        return value
+
+    service_id = _get_required_field("service_source_record_id", "service")
     res_format = resource.get("format")
     if res_format == GTFS_SCHEDULE:
-        feed_type = 'schedule'
-        try:
-            res_id = resource.get("schedule_source_record_id")
-            res_name = resource.get("schedule_gtfs_dataset_name")
-            res_url = resource.get("schedule_dataset_url")
-        except Exception as e:
-            raise InvalidCalItpFeedError(e)
+        feed_type = "schedule"
+        res_id = _get_required_field("schedule_source_record_id", "schedule feed")
+        res_name = _get_required_field("schedule_gtfs_dataset_name", "schedule feed")
+        res_url = _get_required_field("schedule_dataset_url", "schedule feed")
     elif res_format == GTFS_REALTIME:
         feed_type = next(
             (t for t in ENTITY_TYPES_MAP if resource.get(f"{t}_gtfs_dataset_name")),
             None,
         )
         if feed_type is None:
-            raise InvalidCalItpFeedError("Cal-ITP RT resource has no recognised type in ENTITY_TYPES_MAP")
-        try:
-            res_id = resource.get(f"{feed_type}_source_record_id")
-            res_name = resource.get(f"{feed_type}_gtfs_dataset_name")
-            res_url = resource.get(f"{feed_type}_dataset_url")
-        except Exception as e:
-            raise InvalidCalItpFeedError(e)
+            raise InvalidCalItpFeedError(
+                "Cal-ITP RT resource has no recognised type in ENTITY_TYPES_MAP"
+            )
+        res_id = _get_required_field(
+            f"{feed_type}_source_record_id", f"realtime {feed_type} feed"
+        )
+        res_name = _get_required_field(
+            f"{feed_type}_gtfs_dataset_name", f"realtime {feed_type} feed"
+        )
+        res_url = _get_required_field(
+            f"{feed_type}_dataset_url", f"realtime {feed_type} feed"
+        )
     else:
         raise InvalidCalItpFeedError(f"Cal-ITP resource has unknown format: {res_format!r}")
 
@@ -622,7 +638,7 @@ def _process_cal_itp_dataset(
             _raw_resources.append({
                 **_common_fields,
                 "format": GTFS_REALTIME,
-                "entity_type":f"{_rt_type}",
+                "entity_type": [f"{_rt_type}"],
                 f"{_rt_type}_source_record_id": dataset.get(f"{_rt_type}_source_record_id"),
                 f"{_rt_type}_gtfs_dataset_name": dataset.get(f"{_rt_type}_gtfs_dataset_name"),
                 f"{_rt_type}_dataset_url": dataset.get(f"{_rt_type}_dataset_url"),
@@ -995,6 +1011,7 @@ def commit_changes(
     except IntegrityError:
         db_session.rollback()
         logger.exception("Commit failed with IntegrityError; rolled back")
+        raise
 
 
 def import_cal_itp_handler(payload: Optional[dict] = None) -> dict:
