@@ -41,6 +41,8 @@ display_usage() {
   echo "  -repo_name <REPOSITORY_NAME>  The GCP Artifactory repository name."
   echo "  -service <SERVICE>            The cloud run service name."
   echo "  -version <VERSION>            The container's image version to push."
+  echo "  -dockerfile <DOCKERFILE>      Path to the Dockerfile (default: api/Dockerfile)."
+  echo "  -context <CONTEXT>            Docker build context directory (default: api/)."
   exit 1
 }
 
@@ -48,6 +50,8 @@ PROJECT_ID=""
 SERVICE=""
 REGION=""
 VERSION=""
+DOCKERFILE=""
+CONTEXT=""
 
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -78,6 +82,16 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    -dockerfile)
+      DOCKERFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -context)
+      CONTEXT="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -h|--help)
       display_usage
       ;;
@@ -96,7 +110,14 @@ fi
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
+# Default build context is api/, default Dockerfile is inside the context
+BUILD_CONTEXT="${CONTEXT:-$SCRIPT_PATH/../api}"
+DOCKERFILE_ARG=""
+if [[ -n "${DOCKERFILE}" ]]; then
+  DOCKERFILE_ARG="-f ${DOCKERFILE}"
+fi
+
 DOCKER_TAG=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE}:${VERSION}
 
 # Build your Docker image
-docker buildx build --push  --platform linux/amd64 --no-cache -t $DOCKER_TAG $SCRIPT_PATH/../api
+docker buildx build --push --platform linux/amd64 --no-cache $DOCKERFILE_ARG -t $DOCKER_TAG $BUILD_CONTEXT
