@@ -12,7 +12,6 @@ Searches the Mobility Database using PostgreSQL full-text search against the `Fe
 |---|---|---|---|
 | `search_query` | string | — | Free-text search (e.g. `"Montreal"`, `"STM"`, `"Japan"`) |
 | `data_type` | string | `gtfs` | `gtfs`, `gtfs_rt`, or `gbfs` |
-| `status` | string | none | `active`, `inactive`, or `deprecated` |
 | `is_official` | boolean | none | Filter to official feeds only |
 | `limit` | integer | `30` | Max results |
 
@@ -38,8 +37,9 @@ Loads a feed's extracted GTFS files into an in-memory DuckDB database and execut
 |---|---|---|---|
 | `feed_id` | string | — | Mobility Database feed ID (e.g. `mdb-1210`) |
 | `query` | string | — | `SCHEMA` to list tables/columns, or any SQL `SELECT` statement |
+| `files` | list[string] | — | GTFS files to load (e.g. `["stops", "routes"]`). **Required for SELECT queries.** Omit for SCHEMA queries to discover all available tables. |
 
-> Use `SCHEMA` first to discover available tables, then write SQL to answer your question. Only `SELECT` queries are allowed.
+> Use `SCHEMA` first to discover available tables, then write SQL to answer your question. Only `SELECT` queries are allowed. If some GTFS files are unavailable (e.g. not extracted), they are reported in `failed_files` rather than silently skipped.
 
 ## Running locally
 
@@ -86,6 +86,21 @@ DATASETS_BUCKET_URL=https://storage.googleapis.com/mobilitydata-datasets-prod
 cd mcp
 python -m pytest tests/ -v
 ```
+
+### Testing with the MCP Inspector
+
+Start the server locally, then in a separate terminal launch the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) to interactively test tools:
+
+```bash
+# 1. Start the server (SSE mode, default)
+cd mcp/src
+PYTHONPATH=. python main.py
+
+# 2. In another terminal, launch the inspector
+DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector
+```
+
+Open the URL printed by the inspector, enter `http://localhost:8080/sse` as the server URL, and you can list and call tools directly and test them like any API. This is a great way to iterate on tool outputs and debug without needing to connect a full MCP client.
 
 ## Running with Docker
 
@@ -135,73 +150,7 @@ Restart Claude Desktop. You should see the `search_feeds`, `get_validation_resul
 > *"What validation errors does mdb-1210 have?"*
 > *"Show me the errors in the STM feed"*
 
-## Questions that feel like magic
-
-### Single-tool deep dives
-
-Once Claude can query raw GTFS tables directly, you can ask things that would be painful to answer by hand:
-
-> *"Which route in the STM network serves the most unique stops?"*
-> *"Are there any trips that depart after midnight? List them with their headsigns."*
-> *"What percentage of stops in the Tokyo feed have wheelchair boarding info?"*
-> *"Which agency in the feed operates the most distinct routes?"*
-> *"Find all stops within 500m of each other that belong to different routes — potential transfer point opportunities."*
-> *"How many trips run on weekdays vs weekends for each route?"*
-> *"What's the average dwell time between consecutive stops on the busiest route?"*
-> *"Show me routes that have no shapes defined — they'll render as straight lines on a map."*
-> *"Which stops appear in stop_times but are missing from stops.txt?"*
-> *"What's the earliest first departure and latest last departure across all routes?"*
-
-These are the kinds of questions that become conversational once an AI can inspect `trips.txt`, `stop_times.txt`, `routes.txt`, `calendar.txt`, `shapes.txt`, and the rest through SQL.
-
-### Cross-tool investigations
-
-The real power emerges when the tools chain together. Claude will figure out the sequence — you just ask the question.
-
-> *"Find all active GTFS feeds in California, then tell me which ones have validation errors and what those errors are."*
-> → `search_feeds` (California) → `get_validation_results` for each → summary report
-
-> *"I'm traveling in Tokyo next month — which feed covers the Tokyo Metro, does it have any errors that could affect trip planning, and what routes serve Shinjuku station?"*
-> → `search_feeds` (Tokyo Metro) → `get_validation_results` → `query_gtfs` (stops near Shinjuku)
-
-> *"Compare the data quality of the top 5 transit agencies in Canada — who has the cleanest feed?"*
-> → `search_feeds` (Canada, limit=5) → `get_validation_results` for each → ranked comparison by error count
-
-> *"The STM feed has a `stop_times_with_only_arrival_time` warning — can you show me which trips are affected and what the schedule looks like for those stops?"*
-> → `get_validation_results` (mdb-956, warnings) → `query_gtfs` (SELECT from stop_times WHERE arrival_time IS NOT NULL AND departure_time IS NULL)
-
-> *"Are there any official feeds in Europe with zero validation errors? If so, what GTFS features do they support?"*
-> → `search_feeds` (Europe, is_official=true) → `get_validation_results` for each → filter zero errors → list features
-
-> *"Find the feed for the Paris Métro, check if it has wheelchair accessibility data, and count what fraction of stops actually have it filled in."*
-> → `search_feeds` (Paris Métro) → `get_validation_results` (check features list) → `query_gtfs` (SELECT COUNT(*) by wheelchair_boarding value)
-
-> *"Which city in Japan has the most comprehensive GTFS feed — most routes, most stops, fewest errors?"*
-> → `search_feeds` (Japan) → `get_validation_results` for each → `query_gtfs` SCHEMA on top candidates → compare route/stop counts
-
-## Architecture
-
-```
-Claude Desktop (or any MCP client)
-        │  MCP Protocol (stdio locally, SSE when deployed)
-        ▼
-  MCP Server (Python)
-        ├──► SQLAlchemy → PostgreSQL (feed metadata, search, validation reports)
-        └──► DuckDB (in-memory) ← GTFS CSVs fetched from GCS public URLs
-```
-
-The server connects **directly to the database** — it does not call the public Feed API. It reuses the shared database models and query logic from `api/src/shared/` (linked via symlinks in `src/shared/`).
 
 ## Deployment
 
-Terraform infrastructure is in `infra/mcp/`. The module creates a Cloud Run service (`mcp-server-{env}`) and is wired into the root `infra/main.tf`. Deploy by building and pushing the Docker image to Artifact Registry, then running terraform:
-
-```bash
-# Build and push (from repo root)
-docker build -f mcp/Dockerfile -t {region}-docker.pkg.dev/{project}/{repo}/mcp-server:{version} .
-docker push {region}-docker.pkg.dev/{project}/{repo}/mcp-server:{version}
-
-# Apply terraform
-cd infra
-terraform apply -var="mcp_image_version={version}"
-```
+Terraform infrastructure is in `infra/mcp/`. The module creates a Cloud Run service (`mcp-server-{env}`) and is wired into the root `infra/main.tf`. Deploy by building and pushing the Docker image to Artifact Registry, then running terraform deployment.

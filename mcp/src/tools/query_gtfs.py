@@ -49,11 +49,17 @@ def _file_name_for_table(table_name: str) -> str:
 STANDARD_TABLE_NAMES = frozenset(_table_name_for_file(f) for f in STANDARD_GTFS_FILES)
 
 
-def _load_duckdb(feed_id: str, dataset_id: str, datasets_bucket_url: str, files: list[str]) -> duckdb.DuckDBPyConnection:
-    """Load GTFS files directly from GCS into an in-memory DuckDB via httpfs."""
+def _load_duckdb(
+    feed_id: str, dataset_id: str, datasets_bucket_url: str, files: list[str]
+) -> tuple[duckdb.DuckDBPyConnection, list[str]]:
+    """Load GTFS files directly from GCS into an in-memory DuckDB via httpfs.
+
+    Returns (connection, list_of_failed_filenames).
+    """
     con = duckdb.connect()
     con.load_extension("httpfs")
 
+    failed_files: list[str] = []
     base_url = f"{datasets_bucket_url}/{feed_id}/{dataset_id}/extracted"
     for filename in files:
         table_name = _table_name_for_file(filename)
@@ -65,8 +71,9 @@ def _load_duckdb(feed_id: str, dataset_id: str, datasets_bucket_url: str, files:
             )
         except Exception as exc:
             logger.warning("Failed to load %s: %s", filename, exc)
+            failed_files.append(filename)
 
-    return con
+    return con, failed_files
 
 
 def _resolve_dataset(feed_id: str) -> tuple[str | None, str | None]:
@@ -115,12 +122,18 @@ def _validate_files(
     Returns (filenames, error).  When *error* is not None the caller should
     return it directly — *filenames* will be empty.
     """
-    user_provided = bool(files)
-    if not files and query and query.strip().upper() != "SCHEMA":
-        files = _extract_tables_from_query(query)
+    is_schema = (query or "").strip().upper() == "SCHEMA"
 
     if not files:
-        return list(STANDARD_GTFS_FILES), None
+        if is_schema:
+            return list(STANDARD_GTFS_FILES), None
+        valid_list = ", ".join(sorted(STANDARD_TABLE_NAMES))
+        return [], json.dumps({
+            "error": "The 'files' parameter is required for SELECT queries. "
+                     "Specify which GTFS files to load (e.g. [\"stops\", \"routes\"]). "
+                     "Use query=\"SCHEMA\" first to discover available tables. "
+                     f"Valid files are: {valid_list}",
+        })
 
     normalized = []
     invalid = []
@@ -134,17 +147,20 @@ def _validate_files(
             continue
         normalized.append(_file_name_for_table(table_name))
 
-    if invalid and user_provided:
+    if invalid:
         valid_list = ", ".join(sorted(STANDARD_TABLE_NAMES))
         return [], json.dumps({
             "error": f"Invalid GTFS file(s): {', '.join(invalid)}. "
                      f"Valid files are: {valid_list}",
         })
 
-    return (normalized if normalized else list(STANDARD_GTFS_FILES)), None
+    if not normalized:
+        return list(STANDARD_GTFS_FILES), None
+
+    return normalized, None
 
 
-def query_gtfs_tool(feed_id: str, query: str, files: Optional[list[str]] = None) -> str:
+def query_gtfs_tool(feed_id: str, query: str, files: list[str] = None) -> str:
     """
     Load a GTFS feed into an in-memory DuckDB database and execute SQL queries.
 
@@ -156,10 +172,10 @@ def query_gtfs_tool(feed_id: str, query: str, files: Optional[list[str]] = None)
     Args:
         feed_id: Mobility Database feed ID (e.g. "mdb-1210")
         query: Either "SCHEMA" to list tables/columns, or a SQL SELECT statement
-        files: Optional list of GTFS files to load (e.g. ["stops", "routes", "trips"]).
+        files: List of GTFS files to load (e.g. ["stops", "routes", "trips"]).
                Accepts table names or filenames (e.g. "stops" or "stops.txt").
-               If omitted, all standard GTFS files are loaded.
-               Tip: only load the tables you need for much faster responses.
+               Required for SELECT queries — only load the tables you need for faster responses.
+               For SCHEMA queries, omit to discover all available tables.
 
     Returns:
         JSON string with schema info or query results
@@ -181,7 +197,7 @@ def query_gtfs_tool(feed_id: str, query: str, files: Optional[list[str]] = None)
     started_at = time.perf_counter()
 
     try:
-        con = cache.get_or_load(
+        con, failed_files = cache.get_or_load(
             feed_id,
             f"{dataset_id}:{cache_key_suffix}",
             lambda: _load_duckdb(feed_id, dataset_id, datasets_bucket_url, target_files),
@@ -197,21 +213,33 @@ def query_gtfs_tool(feed_id: str, query: str, files: Optional[list[str]] = None)
             default=str,
         )
 
+    if failed_files and len(failed_files) == len(target_files):
+        return json.dumps(
+            {
+                "feed_id": feed_id,
+                "dataset_id": dataset_id,
+                "error": "No GTFS files could be loaded for this feed. "
+                "The dataset may not have extracted files available.",
+                "failed_files": failed_files,
+            },
+            default=str,
+        )
+
     if (query or "").strip().upper() == "SCHEMA":
         cursor = con.cursor()
         try:
             tables, available_files = _get_schema(cursor)
         finally:
             cursor.close()
-        return json.dumps(
-            {
-                "feed_id": feed_id,
-                "dataset_id": dataset_id,
-                "tables": tables,
-                "available_files": available_files,
-            },
-            default=str,
-        )
+        result = {
+            "feed_id": feed_id,
+            "dataset_id": dataset_id,
+            "tables": tables,
+            "available_files": available_files,
+        }
+        if failed_files:
+            result["failed_files"] = failed_files
+        return json.dumps(result, default=str)
 
     normalized_query = (query or "").strip().rstrip(";")
     if not normalized_query.upper().startswith("SELECT"):

@@ -92,7 +92,7 @@ class TestQueryGtfsTool:
             del os.environ["DATASETS_BUCKET_URL"]
         try:
             if con is not None:
-                with patch.object(module, "_load_duckdb", return_value=con):
+                with patch.object(module, "_load_duckdb", return_value=(con, [])):
                     return module.query_gtfs_tool(feed_id=feed_id, query=query, files=files)
             return module.query_gtfs_tool(feed_id=feed_id, query=query, files=files)
         finally:
@@ -144,6 +144,7 @@ class TestQueryGtfsTool:
                 module,
                 query="SELECT stop_id, stop_name FROM stops ORDER BY stop_id",
                 con=con,
+                files=["stops"],
             )
         )
         assert result["columns"] == ["stop_id", "stop_name"]
@@ -176,10 +177,10 @@ class TestQueryGtfsTool:
         con.execute("INSERT INTO stops VALUES ('1')")
 
         with patch.dict("os.environ", {"DATASETS_BUCKET_URL": "https://example.com"}), patch.object(
-            module, "_load_duckdb", return_value=con
+            module, "_load_duckdb", return_value=(con, [])
         ) as mock_loader:
-            first = json.loads(module.query_gtfs_tool(feed_id="mdb-1210", query="SELECT * FROM stops"))
-            second = json.loads(module.query_gtfs_tool(feed_id="mdb-1210", query="SELECT * FROM stops"))
+            first = json.loads(module.query_gtfs_tool(feed_id="mdb-1210", query="SELECT * FROM stops", files=["stops"]))
+            second = json.loads(module.query_gtfs_tool(feed_id="mdb-1210", query="SELECT * FROM stops", files=["stops"]))
 
         assert first["rows"] == [["1"]]
         assert second["rows"] == [["1"]]
@@ -210,22 +211,26 @@ class TestQueryGtfsTool:
         result = json.loads(self._call_tool(module, query="SCHEMA", con=con, files=["agency.txt"]))
         assert "agency" in result["tables"]
 
-    def test_query_infers_tables_when_files_not_provided(self):
+    def test_select_without_files_returns_error(self):
+        module = self._import_tool()
+        self.mock_filtered_query.first.return_value = self._make_feed(dataset=self._make_dataset())
+        result = json.loads(
+            self._call_tool(
+                module,
+                query="SELECT * FROM routes",
+                con=None,
+                files=None,
+            )
+        )
+        assert "error" in result
+        assert "'files' parameter is required" in result["error"]
+
+    def test_schema_without_files_loads_all(self):
         module = self._import_tool()
         self.mock_filtered_query.first.return_value = self._make_feed(dataset=self._make_dataset())
         con = _make_con({"routes": [{"route_id": "10", "route_short_name": "10"}]})
-        with patch.object(module, "_load_duckdb", return_value=con) as spy:
-            result = json.loads(
-                self._call_tool(
-                    module,
-                    query="SELECT * FROM routes",
-                    con=None,
-                    files=None,
-                )
-            )
-            loaded_files = spy.call_args[0][3]
-            assert loaded_files == ["routes.txt"]
-        assert result["columns"] == ["route_id", "route_short_name"]
+        result = json.loads(self._call_tool(module, query="SCHEMA", con=con, files=None))
+        assert "tables" in result
 
     def test_files_parameter_invalid_names_return_error(self):
         module = self._import_tool()

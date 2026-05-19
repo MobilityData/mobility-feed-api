@@ -9,10 +9,11 @@ DEFAULT_TTL_SECONDS = int(os.getenv("FEED_CACHE_TTL_SECONDS", "600"))
 
 
 class _CacheEntry:
-    __slots__ = ("connection", "loaded_at", "lock")
+    __slots__ = ("connection", "failed_files", "loaded_at", "lock")
 
     def __init__(self):
         self.connection: Optional[duckdb.DuckDBPyConnection] = None
+        self.failed_files: list[str] = []
         self.loaded_at: float = 0.0
         self.lock = threading.Lock()
 
@@ -43,12 +44,12 @@ class GtfsCache:
         self,
         feed_id: str,
         dataset_id: str,
-        loader_fn: Callable[[], duckdb.DuckDBPyConnection],
-    ) -> duckdb.DuckDBPyConnection:
+        loader_fn: Callable[[], tuple[duckdb.DuckDBPyConnection, list[str]]],
+    ) -> tuple[duckdb.DuckDBPyConnection, list[str]]:
         key = (feed_id, dataset_id)
         entry = self._cache.get(key)
         if entry and self._is_fresh(entry):
-            return entry.connection
+            return entry.connection, entry.failed_files
 
         if entry is None:
             with self._cache_lock:
@@ -60,9 +61,9 @@ class GtfsCache:
         old_connection: Optional[duckdb.DuckDBPyConnection] = None
         with entry.lock:
             if self._is_fresh(entry):
-                return entry.connection
+                return entry.connection, entry.failed_files
             old_connection = entry.connection
-            entry.connection = loader_fn()
+            entry.connection, entry.failed_files = loader_fn()
             entry.loaded_at = time.monotonic()
             connection = entry.connection
 
@@ -72,7 +73,7 @@ class GtfsCache:
             except Exception:
                 pass
 
-        return connection
+        return connection, entry.failed_files
 
 
 _gtfs_cache: Optional[GtfsCache] = None

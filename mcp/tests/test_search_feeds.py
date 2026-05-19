@@ -181,7 +181,6 @@ class TestSearchFeedsTool:
             feed_stable_id="mdb-956",
             provider="STM",
             data_type="gtfs",
-            status="active",
             official=True,
             rank=0.95,
         )
@@ -192,7 +191,6 @@ class TestSearchFeedsTool:
         assert feed["feed_id"] == "mdb-956"
         assert feed["provider"] == "STM"
         assert feed["data_type"] == "gtfs"
-        assert feed["status"] == "active"
         assert feed["is_official"] is True
         assert abs(feed["search_rank"] - 0.95) < 0.01
 

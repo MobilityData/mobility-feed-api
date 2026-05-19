@@ -16,7 +16,6 @@ def get_parsed_search_tsquery(search_query: str):
 def search_feeds_tool(
     search_query: str,
     data_type: Optional[str] = "gtfs",
-    status: Optional[str] = None,
     is_official: Optional[bool] = None,
     limit: Optional[int] = 30,
 ) -> str:
@@ -29,7 +28,6 @@ def search_feeds_tool(
     Args:
         search_query: Free-text search (e.g., "Montreal", "Japan", "STM")
         data_type: One of: gtfs, gtfs_rt, gbfs. Default: gtfs
-        status: Feed status filter: active, deprecated, inactive. Default: no filter
         is_official: Filter for official feeds only
         limit: Max results to return. Default: 30
 
@@ -49,10 +47,6 @@ def search_feeds_tool(
         if data_type:
             data_types = [dt.strip().lower() for dt in data_type.split(",")]
             query = query.where(t_feedsearch.c.data_type.in_(data_types))
-
-        if status:
-            statuses = [s.strip().lower() for s in status.split(",")]
-            query = query.where(t_feedsearch.c.status.in_(statuses))
 
         if is_official is not None:
             if is_official:
@@ -75,8 +69,6 @@ def search_feeds_tool(
         count_query = count_query.filter(t_feedsearch.c.operational_status == "published")
         if data_type:
             count_query = count_query.where(t_feedsearch.c.data_type.in_(data_types))
-        if status:
-            count_query = count_query.where(t_feedsearch.c.status.in_(statuses))
         if is_official is not None:
             if is_official:
                 count_query = count_query.where(t_feedsearch.c.official.is_(True))
