@@ -52,7 +52,6 @@ STANDARD_TABLE_NAMES = frozenset(_table_name_for_file(f) for f in STANDARD_GTFS_
 def _load_duckdb(feed_id: str, dataset_id: str, datasets_bucket_url: str, files: list[str]) -> duckdb.DuckDBPyConnection:
     """Load GTFS files directly from GCS into an in-memory DuckDB via httpfs."""
     con = duckdb.connect()
-    con.install_extension("httpfs")
     con.load_extension("httpfs")
 
     base_url = f"{datasets_bucket_url}/{feed_id}/{dataset_id}/extracted"
