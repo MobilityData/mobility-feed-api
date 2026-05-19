@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS gtfs_feed_availability_check (
     request_url  TEXT NOT NULL,
     request_type availability_check_request_type NOT NULL,
     status_code  INTEGER,
-    latency_ms   DOUBLE PRECISION,
+    latency_ms   INTEGER,
 
     error_message TEXT,
     error_type   VARCHAR(255),
