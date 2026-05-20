@@ -56,6 +56,7 @@ def get_parameters(payload: dict):
     timeout_seconds = payload.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
     batch_size = payload.get("batch_size", DEFAULT_BATCH_SIZE)
     feed_ids = payload.get("feed_ids", None)
+    verbose = payload.get("verbose", False)
     return (
         dry_run,
         skip_db_update,
@@ -64,6 +65,7 @@ def get_parameters(payload: dict):
         timeout_seconds,
         batch_size,
         feed_ids,
+        verbose,
     )
 
 
@@ -80,6 +82,8 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         timeout_seconds (int): Per-request HTTP timeout in seconds. Default: 20.
         batch_size (int): Number of results committed to DB at a time. Default: 50.
         feed_ids (list[str] | None): If provided, only check these specific feed IDs. Default: None.
+        verbose (bool): If True, include a 'failures' list in the response with stable_id and
+                        reason for each failed check. Default: False.
     """
     (
         dry_run,
@@ -89,6 +93,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         timeout_seconds,
         batch_size,
         feed_ids,
+        verbose,
     ) = get_parameters(payload)
     return check_gtfs_feed_availability(
         dry_run=dry_run,
@@ -98,6 +103,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         timeout_seconds=timeout_seconds,
         batch_size=batch_size,
         feed_ids=feed_ids,
+        verbose=verbose,
     )
 
 
@@ -168,6 +174,7 @@ def check_gtfs_feed_availability(
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     batch_size: int = DEFAULT_BATCH_SIZE,
     feed_ids: Optional[list[str]] = None,
+    verbose: bool = False,
 ) -> dict:
     """
     Check availability of active/published GTFS feeds via HTTP HEAD and store results.
@@ -185,9 +192,12 @@ def check_gtfs_feed_availability(
         timeout_seconds: Timeout (seconds) per HTTP request.
         batch_size: Number of completed results committed to DB at a time.
         feed_ids: If provided, only check these specific feed IDs.
+        verbose: If True, include a 'failures' list in the response with stable_id
+                 and reason for each failed check.
 
     Returns:
         dict: Summary with counts of total, successful, and failed checks.
+              When verbose=True, also includes a 'failures' list.
     """
     query = get_feeds_query(db_session, feed_ids=feed_ids)
     if limit is not None:
@@ -208,6 +218,7 @@ def check_gtfs_feed_availability(
 
     feeds = query.all()
     total = len(feeds)
+    stable_id_map = {feed.id: feed.stable_id for feed in feeds}
     start_time = time.monotonic()
     logging.info(
         "Checking availability for %d GTFS feed(s) "
@@ -283,5 +294,17 @@ def check_gtfs_feed_availability(
         "skip_db_update": skip_db_update,
         "elapsed_seconds": elapsed,
     }
+    if verbose:
+        result["failures"] = [
+            {
+                "stable_id": stable_id_map.get(r.feed_id, r.feed_id),
+                "error_type": r.error_type,
+                "reason": (
+                    r.error_message if r.error_message else f"HTTP {r.status_code}"
+                ),
+            }
+            for r in results
+            if not r.success
+        ]
     logging.info("Task completed: %s", result)
     return result

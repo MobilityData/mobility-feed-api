@@ -58,6 +58,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             timeout_seconds=20,
             batch_size=50,
             feed_ids=None,
+            verbose=False,
         )
         self.assertEqual(result["total_feeds"], 0)
 
@@ -74,6 +75,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             "timeout_seconds": 30,
             "batch_size": 25,
             "feed_ids": ["f1", "f2"],
+            "verbose": True,
         }
         check_gtfs_feed_availability_handler(payload)
         mock_fn.assert_called_once_with(
@@ -84,6 +86,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             timeout_seconds=30,
             batch_size=25,
             feed_ids=["f1", "f2"],
+            verbose=True,
         )
 
 
@@ -460,6 +463,65 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
 
         # filter should have been called twice: base conditions + feed_ids
         self.assertEqual(db_session.query().filter.call_count, 2)
+
+    def test_verbose_false_omits_failures_key(self):
+        feeds = [_make_feed("f1", "http://a.com")]
+        db_session = self._make_mock_session(feeds)
+
+        result = check_gtfs_feed_availability(
+            db_session=db_session, dry_run=False, skip_db_update=True, verbose=False
+        )
+
+        self.assertNotIn("failures", result)
+
+    def test_verbose_true_includes_failures_with_stable_id_and_reason(self):
+        feeds = [
+            _make_feed("f1", "http://ok.com", stable_id="mdb-1"),
+            _make_feed("f2", "http://fail.com", stable_id="mdb-2"),
+        ]
+        db_session = self._make_mock_session(feeds)
+
+        def head_side_effect(feed_id, stable_id, url, *args, **kwargs):
+            check = MagicMock()
+            check.success = "fail" not in url
+            check.feed_id = feed_id
+            check.status_code = None if "fail" in url else 200
+            check.error_type = "ConnectionError" if "fail" in url else None
+            check.error_message = "Max retries exceeded" if "fail" in url else None
+            return check
+
+        self.mock_perform_head.side_effect = head_side_effect
+
+        result = check_gtfs_feed_availability(
+            db_session=db_session, dry_run=False, skip_db_update=True, verbose=True
+        )
+
+        self.assertIn("failures", result)
+        self.assertEqual(len(result["failures"]), 1)
+        failure = result["failures"][0]
+        self.assertEqual(failure["stable_id"], "mdb-2")
+        self.assertEqual(failure["error_type"], "ConnectionError")
+        self.assertEqual(failure["reason"], "Max retries exceeded")
+
+    def test_verbose_true_uses_http_status_as_reason_when_no_error_message(self):
+        feeds = [_make_feed("f1", "http://a.com", stable_id="mdb-1")]
+        db_session = self._make_mock_session(feeds)
+
+        failed_check = MagicMock()
+        failed_check.success = False
+        failed_check.feed_id = "f1"
+        failed_check.status_code = 404
+        failed_check.error_type = None
+        failed_check.error_message = None
+        self.mock_perform_head.return_value = failed_check
+
+        result = check_gtfs_feed_availability(
+            db_session=db_session, dry_run=False, skip_db_update=True, verbose=True
+        )
+
+        self.assertEqual(len(result["failures"]), 1)
+        self.assertEqual(result["failures"][0]["reason"], "HTTP 404")
+        self.assertEqual(result["failures"][0]["stable_id"], "mdb-1")
 
 
 if __name__ == "__main__":

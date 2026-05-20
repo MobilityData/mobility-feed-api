@@ -126,7 +126,8 @@ To check the availability of active/published GTFS feeds via HTTP HEAD requests:
     "concurrency": 10,
     "timeout_seconds": 20,
     "batch_size": 50,
-    "feed_ids": null
+    "feed_ids": null,
+    "verbose": false
   }
 }
 ```
@@ -140,8 +141,27 @@ To check the availability of active/published GTFS feeds via HTTP HEAD requests:
 | `timeout_seconds` | int | `20` | Per-request HTTP timeout in seconds |
 | `batch_size` | int | `50` | Number of completed results committed to DB at a time |
 | `feed_ids` | list[str] \| null | `null` | If provided, only check these specific feed IDs |
+| `verbose` | bool | `false` | If `true`, the response includes a `failures` list with `stable_id`, `error_type`, and `reason` for each failed check |
 
-The response includes an `elapsed_seconds` field indicating how long the task took to complete.
+The response includes an `elapsed_seconds` field indicating how long the task took to complete. When `verbose=true`, a `failures` list is included:
+
+```json
+{
+  "message": "Checked 3 feed(s): 2 succeeded, 1 failed.",
+  "total_feeds": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "skip_db_update": false,
+  "elapsed_seconds": 4.21,
+  "failures": [
+    {
+      "stable_id": "mdb-123",
+      "error_type": "ConnectionError",
+      "reason": "Max retries exceeded"
+    }
+  ]
+}
+```
 
 ## Response Content Type
 
