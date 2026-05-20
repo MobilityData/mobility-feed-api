@@ -584,7 +584,8 @@ resource "google_cloud_scheduler_job" "gtfs_feed_availability_check_schedule" {
     }
     body = base64encode("{\"task\": \"check_gtfs_feed_availability\", \"payload\": {\"dry_run\": false}}")
   }
-  attempt_deadline = "320s"
+  # 30min*60 = 1800
+  attempt_deadline = "1800s"
 }
 
 
