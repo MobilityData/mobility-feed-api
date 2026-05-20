@@ -22,7 +22,7 @@ import urllib3.exceptions
 from utils import (
     create_feed_ssl_context,
     build_feed_request_params,
-    perform_head_request,
+    perform_request,
 )
 
 DEFAULT_USER_AGENT = (
@@ -125,7 +125,7 @@ class TestBuildFeedRequestParams(unittest.TestCase):
         self.assertNotIn("api_key", headers)
 
 
-class TestPerformHeadRequest(unittest.TestCase):
+class TestPerformRequest(unittest.TestCase):
     def _mock_pool(self, status=200, side_effect=None):
         mock_resp = MagicMock()
         mock_resp.status = status
@@ -148,7 +148,7 @@ class TestPerformHeadRequest(unittest.TestCase):
         url="http://example.com/feed.zip",
         **kwargs
     ):
-        return perform_head_request(
+        return perform_request(
             feed_id,
             stable_id,
             url,
@@ -156,7 +156,6 @@ class TestPerformHeadRequest(unittest.TestCase):
             kwargs.get("api_key_parameter_name", None),
             kwargs.get("credentials", None),
             kwargs.get("timeout_seconds", 10),
-            kwargs.get("request_type", "http_head"),
             kwargs.get("fallback_to_get", False),
         )
 
@@ -193,15 +192,6 @@ class TestPerformHeadRequest(unittest.TestCase):
         with pool_patch:
             result = self._call(url="http://example.com/feed.zip")
         self.assertEqual(result.request_url, "http://example.com/feed.zip")
-
-    @patch("utils.build_feed_request_params")
-    @patch("utils.create_feed_ssl_context")
-    def test_custom_request_type_stored_in_result(self, mock_ssl, mock_params):
-        mock_params.return_value = ({}, "http://example.com/feed.zip")
-        pool_patch, _ = self._mock_pool(status=200)
-        with pool_patch:
-            result = self._call(request_type="http_head_custom")
-        self.assertEqual(result.request_type, "http_head_custom")
 
     @patch("utils.build_feed_request_params")
     @patch("utils.create_feed_ssl_context")

@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 
 import urllib3.exceptions
 
-from shared.helpers.utils import perform_head_request
+from shared.helpers.utils import perform_request
 from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability,
     check_gtfs_feed_availability_handler,
@@ -128,7 +128,7 @@ class TestGetFeedsQuery(unittest.TestCase):
         self.assertEqual(query_mock.filter.call_count, 1)
 
 
-class TestPerformHeadRequest(unittest.TestCase):
+class TestPerformRequest(unittest.TestCase):
     def _call(
         self,
         feed_id,
@@ -139,7 +139,7 @@ class TestPerformHeadRequest(unittest.TestCase):
         api_key_param=None,
         credentials=None,
     ):
-        return perform_head_request(
+        return perform_request(
             feed_id,
             stable_id or feed_id,
             url,
@@ -306,7 +306,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self._mock_check.error_message = None
 
         head_patcher = patch(
-            "tasks.feed_availability.check_gtfs_feed_availability.perform_head_request",
+            "tasks.feed_availability.check_gtfs_feed_availability.perform_request",
             return_value=self._mock_check,
         )
         self.mock_perform_head = head_patcher.start()
@@ -554,7 +554,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(result["failures"][0]["reason"], "HTTP 404")
         self.assertEqual(result["failures"][0]["stable_id"], "mdb-1")
 
-    def test_fallback_to_get_passed_to_perform_head_request(self):
+    def test_fallback_to_get_passed_to_perform_request(self):
         feeds = [_make_feed("f1", "http://a.com", stable_id="mdb-1")]
         db_session = self._make_mock_session(feeds)
 
@@ -565,8 +565,6 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
             fallback_to_get=False,
         )
 
-        _, kwargs = self.mock_perform_head.call_args
-        # fallback_to_get is passed as positional arg — check the call args list
         call_args = self.mock_perform_head.call_args[0]
         self.assertIn(False, call_args)  # fallback_to_get=False should be in the args
 

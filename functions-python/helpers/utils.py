@@ -223,7 +223,49 @@ def _is_zip_from_content_type(content_type: Optional[str]) -> Optional[bool]:
     return False
 
 
-def perform_head_request(
+def _execute_http_request(
+    method: str,
+    url: str,
+    headers: Optional[dict],
+    timeout_seconds: int,
+    read_bytes: int = 0,
+) -> tuple:
+    """Execute a single HTTP request and return a result tuple.
+
+    Returns:
+        (status_code, latency_ms, resp_headers, first_bytes, error_type, error_message)
+        On network/timeout errors, status_code/latency_ms/resp_headers are None and
+        first_bytes is b''.
+    """
+    preload = read_bytes == 0
+    try:
+        ctx = create_feed_ssl_context()
+        with urllib3.PoolManager(ssl_context=ctx) as http:
+            start = time.monotonic()
+            r = http.request(
+                method,
+                url,
+                headers=headers,
+                redirect=True,
+                preload_content=preload,
+                timeout=urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds),
+            )
+            latency_ms = int((time.monotonic() - start) * 1000)
+            status_code = r.status
+            resp_headers = r.headers
+            first_bytes = r.read(read_bytes) if not preload else b""
+            if not preload:
+                r.release_conn()
+        return status_code, latency_ms, resp_headers, first_bytes, None, None
+    except urllib3.exceptions.MaxRetryError as exc:
+        return None, None, None, b"", "ConnectionError", str(exc)
+    except urllib3.exceptions.TimeoutError as exc:
+        return None, None, None, b"", "Timeout", str(exc)
+    except urllib3.exceptions.HTTPError as exc:
+        return None, None, None, b"", type(exc).__name__, str(exc)
+
+
+def perform_request(
     feed_id: str,
     stable_id: str,
     producer_url: str,
@@ -231,75 +273,47 @@ def perform_head_request(
     api_key_parameter_name: Optional[str],
     credentials: Optional[str],
     timeout_seconds: int,
-    request_type: str = "http_head",
     fallback_to_get: bool = False,
 ):
-    """Execute an HTTP HEAD request for a single feed and return an unsaved model instance.
+    """Execute an HTTP HEAD (with optional GET fallback) for a feed availability check.
 
-    Handles authentication, user-agent, and legacy SSL — identical to the GET path
-    in download_and_get_hash, just using HEAD instead.
+    Tries HEAD first. When fallback_to_get=True and HEAD fails (non-2xx or any
+    exception), retries with a lightweight GET that reads only 4 bytes to detect
+    the ZIP magic signature (PK\\x03\\x04). The stored request_type reflects which
+    method produced the final result.
 
-    When fallback_to_get=True and HEAD fails (any non-2xx or exception), a lightweight
-    GET request is made instead: only the first 4 bytes of the body are read to check
-    for the ZIP magic signature (PK\\x03\\x04), then the connection is released.
-    The stored request_type reflects which method produced the final result.
-
-    Note: request_url in the result is always the original producer_url (never the
+    Note: request_url is always the original producer_url (never the
     credential-bearing resolved URL) to avoid persisting secrets.
     """
     from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
 
     checked_at = datetime.now(timezone.utc)
-    status_code = None
-    latency_ms = None
-    error_message = None
-    error_type = None
-    success = False
-    content_type = None
-    is_zip = None
-    actual_request_type = request_type  # may be overridden to "http_get" on fallback
-    headers = None
-    resolved_url = producer_url
+    headers, resolved_url = build_feed_request_params(
+        producer_url,
+        feed_id=feed_id,
+        authentication_type=authentication_type,
+        api_key_parameter_name=api_key_parameter_name,
+        credentials=credentials,
+    )
 
-    try:
-        headers, resolved_url = build_feed_request_params(
+    status_code, latency_ms, resp_headers, _, error_type, error_message = (
+        _execute_http_request("HEAD", resolved_url, headers, timeout_seconds)
+    )
+    request_type = "http_head"
+    success = status_code is not None and status_code < 400
+    content_type = _parse_content_type(
+        resp_headers.get("Content-Type") if resp_headers else None
+    )
+    is_zip = _is_zip_from_content_type(content_type)
+
+    if error_type:
+        logging.warning(
+            "HEAD %s for feed %s (%s): %s",
+            error_type,
+            stable_id,
             producer_url,
-            feed_id=feed_id,
-            authentication_type=authentication_type,
-            api_key_parameter_name=api_key_parameter_name,
-            credentials=credentials,
+            error_message,
         )
-        ctx = create_feed_ssl_context()
-        start = time.monotonic()
-        with urllib3.PoolManager(ssl_context=ctx) as http:
-            r = http.request(
-                "HEAD",
-                resolved_url,
-                headers=headers,
-                redirect=True,
-                timeout=urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds),
-            )
-        latency_ms = int((time.monotonic() - start) * 1000)
-        status_code = r.status
-        success = status_code < 400
-        content_type = _parse_content_type(r.headers.get("Content-Type"))
-        is_zip = _is_zip_from_content_type(content_type)
-    except urllib3.exceptions.MaxRetryError as exc:
-        error_type = "ConnectionError"
-        error_message = str(exc)
-        logging.warning(
-            "Connection error for feed %s (%s): %s", stable_id, producer_url, exc
-        )
-    except urllib3.exceptions.TimeoutError as exc:
-        error_type = "Timeout"
-        error_message = str(exc)
-        logging.warning(
-            "Timeout checking feed %s (%s): %s", stable_id, producer_url, exc
-        )
-    except urllib3.exceptions.HTTPError as exc:
-        error_type = type(exc).__name__
-        error_message = str(exc)
-        logging.warning("HTTP error for feed %s (%s): %s", stable_id, producer_url, exc)
 
     if not success and fallback_to_get:
         logging.info(
@@ -309,72 +323,40 @@ def perform_head_request(
             status_code,
             error_type,
         )
-        actual_request_type = "http_get"
-        status_code = None
-        latency_ms = None
-        error_message = None
-        error_type = None
-        content_type = None
-        is_zip = None
-        success = False
-        try:
-            ctx = create_feed_ssl_context()
-            start = time.monotonic()
-            with urllib3.PoolManager(ssl_context=ctx) as http:
-                r = http.request(
-                    "GET",
-                    resolved_url,
-                    headers=headers,
-                    redirect=True,
-                    preload_content=False,
-                    timeout=urllib3.Timeout(
-                        connect=timeout_seconds, read=timeout_seconds
-                    ),
-                )
-                latency_ms = int((time.monotonic() - start) * 1000)
-                status_code = r.status
-                success = status_code < 400
-                content_type = _parse_content_type(r.headers.get("Content-Type"))
-                first_bytes = r.read(4)
-                r.release_conn()
-            is_zip = (
-                first_bytes == _ZIP_MAGIC
-                if first_bytes
-                else _is_zip_from_content_type(content_type)
-            )
-        except urllib3.exceptions.MaxRetryError as exc:
-            error_type = "ConnectionError"
-            error_message = str(exc)
+        (
+            status_code,
+            latency_ms,
+            resp_headers,
+            first_bytes,
+            error_type,
+            error_message,
+        ) = _execute_http_request(
+            "GET", resolved_url, headers, timeout_seconds, read_bytes=4
+        )
+        request_type = "http_get"
+        success = status_code is not None and status_code < 400
+        content_type = _parse_content_type(
+            resp_headers.get("Content-Type") if resp_headers else None
+        )
+        is_zip = (
+            first_bytes == _ZIP_MAGIC
+            if first_bytes
+            else _is_zip_from_content_type(content_type)
+        )
+        if error_type:
             logging.warning(
-                "GET fallback connection error for feed %s (%s): %s",
+                "GET fallback %s for feed %s (%s): %s",
+                error_type,
                 stable_id,
                 producer_url,
-                exc,
-            )
-        except urllib3.exceptions.TimeoutError as exc:
-            error_type = "Timeout"
-            error_message = str(exc)
-            logging.warning(
-                "GET fallback timeout for feed %s (%s): %s",
-                stable_id,
-                producer_url,
-                exc,
-            )
-        except urllib3.exceptions.HTTPError as exc:
-            error_type = type(exc).__name__
-            error_message = str(exc)
-            logging.warning(
-                "GET fallback HTTP error for feed %s (%s): %s",
-                stable_id,
-                producer_url,
-                exc,
+                error_message,
             )
 
     return GtfsFeedAvailabilityCheck(
         feed_id=feed_id,
         checked_at=checked_at,
         request_url=producer_url,
-        request_type=actual_request_type,
+        request_type=request_type,
         status_code=status_code,
         latency_ms=latency_ms,
         error_message=error_message,

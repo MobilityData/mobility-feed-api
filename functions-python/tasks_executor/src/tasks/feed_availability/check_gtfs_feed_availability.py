@@ -28,13 +28,12 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
 )
-from shared.helpers.utils import perform_head_request
+from shared.helpers.utils import perform_request
 
 DEFAULT_CONCURRENCY: int = 10
 DEFAULT_TIMEOUT_SECONDS: int = 20
 DEFAULT_BATCH_SIZE: int = 50
 DEFAULT_FALLBACK_TO_GET: bool = True
-REQUEST_TYPE: str = "http_head"
 
 
 def get_feed_credentials(stable_id: str) -> Optional[str]:
@@ -247,7 +246,7 @@ def check_gtfs_feed_availability(
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         future_to_feed = {
             executor.submit(
-                perform_head_request,
+                perform_request,
                 feed.id,
                 feed.stable_id,
                 feed.producer_url,
@@ -255,7 +254,6 @@ def check_gtfs_feed_availability(
                 feed.api_key_parameter_name,
                 get_feed_credentials(feed.stable_id),
                 timeout_seconds,
-                REQUEST_TYPE,
                 fallback_to_get,
             ): feed
             for feed in feeds
@@ -275,7 +273,7 @@ def check_gtfs_feed_availability(
                     feed_id=feed.id,
                     checked_at=datetime.now(timezone.utc),
                     request_url=feed.producer_url,
-                    request_type=REQUEST_TYPE,
+                    request_type="http_head",
                     status_code=None,
                     latency_ms=None,
                     error_message=str(exc),
