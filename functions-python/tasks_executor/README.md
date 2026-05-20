@@ -127,7 +127,8 @@ To check the availability of active/published GTFS feeds via HTTP HEAD requests:
     "timeout_seconds": 20,
     "batch_size": 50,
     "feed_ids": null,
-    "verbose": false
+    "verbose": false,
+    "fallback_to_get": true
   }
 }
 ```
@@ -141,7 +142,8 @@ To check the availability of active/published GTFS feeds via HTTP HEAD requests:
 | `timeout_seconds` | int | `20` | Per-request HTTP timeout in seconds |
 | `batch_size` | int | `50` | Number of completed results committed to DB at a time |
 | `feed_ids` | list[str] \| null | `null` | If provided, only check these specific feed IDs |
-| `verbose` | bool | `false` | If `true`, the response includes a `failures` list with `stable_id`, `error_type`, and `reason` for each failed check |
+| `verbose` | bool | `false` | If `true`, the response includes a `failures` list with `stable_id`, `error_type`, `reason`, `content_type`, and `is_zip` for each failed check |
+| `fallback_to_get` | bool | `true` | If `true`, feeds that fail HEAD are retried with a lightweight GET request (reads only 4 bytes to verify ZIP magic bytes). The stored `request_type` reflects the method that produced the final result (`http_head` or `http_get`) |
 
 The response includes an `elapsed_seconds` field indicating how long the task took to complete. When `verbose=true`, a `failures` list is included:
 
@@ -157,7 +159,9 @@ The response includes an `elapsed_seconds` field indicating how long the task to
     {
       "stable_id": "mdb-123",
       "error_type": "ConnectionError",
-      "reason": "Max retries exceeded"
+      "reason": "Max retries exceeded",
+      "content_type": null,
+      "is_zip": null
     }
   ]
 }

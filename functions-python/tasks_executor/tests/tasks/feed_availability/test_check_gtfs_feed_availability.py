@@ -59,6 +59,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             batch_size=50,
             feed_ids=None,
             verbose=False,
+            fallback_to_get=True,
         )
         self.assertEqual(result["total_feeds"], 0)
 
@@ -76,6 +77,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             "batch_size": 25,
             "feed_ids": ["f1", "f2"],
             "verbose": True,
+            "fallback_to_get": False,
         }
         check_gtfs_feed_availability_handler(payload)
         mock_fn.assert_called_once_with(
@@ -87,6 +89,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             batch_size=25,
             feed_ids=["f1", "f2"],
             verbose=True,
+            fallback_to_get=False,
         )
 
 
@@ -488,6 +491,8 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
             check.status_code = None if "fail" in url else 200
             check.error_type = "ConnectionError" if "fail" in url else None
             check.error_message = "Max retries exceeded" if "fail" in url else None
+            check.content_type = None
+            check.is_zip = None
             return check
 
         self.mock_perform_head.side_effect = head_side_effect
@@ -502,6 +507,30 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(failure["stable_id"], "mdb-2")
         self.assertEqual(failure["error_type"], "ConnectionError")
         self.assertEqual(failure["reason"], "Max retries exceeded")
+        self.assertIn("content_type", failure)
+        self.assertIn("is_zip", failure)
+
+    def test_verbose_true_includes_content_type_and_is_zip(self):
+        feeds = [_make_feed("f1", "http://fail.com", stable_id="mdb-1")]
+        db_session = self._make_mock_session(feeds)
+
+        failed_check = MagicMock()
+        failed_check.success = False
+        failed_check.feed_id = "f1"
+        failed_check.status_code = 405
+        failed_check.error_type = None
+        failed_check.error_message = None
+        failed_check.content_type = "application/zip"
+        failed_check.is_zip = True
+        self.mock_perform_head.return_value = failed_check
+
+        result = check_gtfs_feed_availability(
+            db_session=db_session, dry_run=False, skip_db_update=True, verbose=True
+        )
+
+        failure = result["failures"][0]
+        self.assertEqual(failure["content_type"], "application/zip")
+        self.assertTrue(failure["is_zip"])
 
     def test_verbose_true_uses_http_status_as_reason_when_no_error_message(self):
         feeds = [_make_feed("f1", "http://a.com", stable_id="mdb-1")]
@@ -513,6 +542,8 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         failed_check.status_code = 404
         failed_check.error_type = None
         failed_check.error_message = None
+        failed_check.content_type = None
+        failed_check.is_zip = None
         self.mock_perform_head.return_value = failed_check
 
         result = check_gtfs_feed_availability(
@@ -522,6 +553,22 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(len(result["failures"]), 1)
         self.assertEqual(result["failures"][0]["reason"], "HTTP 404")
         self.assertEqual(result["failures"][0]["stable_id"], "mdb-1")
+
+    def test_fallback_to_get_passed_to_perform_head_request(self):
+        feeds = [_make_feed("f1", "http://a.com", stable_id="mdb-1")]
+        db_session = self._make_mock_session(feeds)
+
+        check_gtfs_feed_availability(
+            db_session=db_session,
+            dry_run=False,
+            skip_db_update=True,
+            fallback_to_get=False,
+        )
+
+        _, kwargs = self.mock_perform_head.call_args
+        # fallback_to_get is passed as positional arg — check the call args list
+        call_args = self.mock_perform_head.call_args[0]
+        self.assertIn(False, call_args)  # fallback_to_get=False should be in the args
 
 
 if __name__ == "__main__":

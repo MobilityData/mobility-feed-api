@@ -157,6 +157,7 @@ class TestPerformHeadRequest(unittest.TestCase):
             kwargs.get("credentials", None),
             kwargs.get("timeout_seconds", 10),
             kwargs.get("request_type", "http_head"),
+            kwargs.get("fallback_to_get", False),
         )
 
     @patch("utils.build_feed_request_params")
@@ -253,6 +254,230 @@ class TestPerformHeadRequest(unittest.TestCase):
             result = self._call(feed_id="mdb-42")
         self.assertEqual(result.feed_id, "mdb-42")
         self.assertIsNotNone(result.checked_at)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_content_type_extracted_from_head_response(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.headers = {"Content-Type": "application/zip; charset=utf-8"}
+        pool_patch, mock_pool = self._mock_pool(status=200)
+        mock_pool.request.return_value = mock_resp
+        with pool_patch:
+            result = self._call()
+        self.assertEqual(result.content_type, "application/zip")
+        self.assertTrue(result.is_zip)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_non_zip_content_type_sets_is_zip_false(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://example.com/feed")
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.headers = {"Content-Type": "text/html"}
+        pool_patch, mock_pool = self._mock_pool(status=200)
+        mock_pool.request.return_value = mock_resp
+        with pool_patch:
+            result = self._call()
+        self.assertEqual(result.content_type, "text/html")
+        self.assertFalse(result.is_zip)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_octet_stream_content_type_sets_is_zip_none(self, mock_ssl, mock_params):
+        """application/octet-stream is ambiguous — is_zip stays None until magic bytes check."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.headers = {"Content-Type": "application/octet-stream"}
+        pool_patch, mock_pool = self._mock_pool(status=200)
+        mock_pool.request.return_value = mock_resp
+        with pool_patch:
+            result = self._call()
+        self.assertEqual(result.content_type, "application/octet-stream")
+        self.assertIsNone(result.is_zip)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_fallback_to_get_on_head_failure_sets_http_get_type(
+        self, mock_ssl, mock_params
+    ):
+        """When HEAD fails and fallback_to_get=True, GET is used and request_type=http_get."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+
+        # HEAD returns 405, GET returns 200 with ZIP magic bytes
+        head_resp = MagicMock()
+        head_resp.status = 405
+        head_resp.headers = {}
+
+        get_resp = MagicMock()
+        get_resp.status = 200
+        get_resp.headers = {"Content-Type": "application/zip"}
+        get_resp.read.return_value = b"\x50\x4b\x03\x04"
+
+        call_count = {"n": 0}
+
+        def request_side_effect(method, *args, **kwargs):
+            call_count["n"] += 1
+            if method == "HEAD":
+                return head_resp
+            return get_resp
+
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.request.side_effect = request_side_effect
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+
+        with patch("utils.urllib3.PoolManager", return_value=mock_pool_instance):
+            result = self._call(fallback_to_get=True)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.request_type, "http_get")
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.is_zip)
+        self.assertEqual(call_count["n"], 2)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_fallback_to_get_false_does_not_retry(self, mock_ssl, mock_params):
+        """When fallback_to_get=False, HEAD failure is final — no GET attempt."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+
+        head_resp = MagicMock()
+        head_resp.status = 405
+        head_resp.headers = {}
+
+        call_count = {"n": 0}
+
+        def request_side_effect(method, *args, **kwargs):
+            call_count["n"] += 1
+            return head_resp
+
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.request.side_effect = request_side_effect
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+
+        with patch("utils.urllib3.PoolManager", return_value=mock_pool_instance):
+            result = self._call(fallback_to_get=False)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.request_type, "http_head")
+        self.assertEqual(call_count["n"], 1)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_fallback_get_uses_magic_bytes_for_is_zip(self, mock_ssl, mock_params):
+        """is_zip is True when GET response starts with ZIP magic bytes PK\\x03\\x04."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+
+        head_resp = MagicMock()
+        head_resp.status = 405
+        head_resp.headers = {}
+
+        get_resp = MagicMock()
+        get_resp.status = 200
+        get_resp.headers = {"Content-Type": "application/octet-stream"}
+        get_resp.read.return_value = b"\x50\x4b\x03\x04"  # ZIP magic
+
+        def request_side_effect(method, *args, **kwargs):
+            return head_resp if method == "HEAD" else get_resp
+
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.request.side_effect = request_side_effect
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+
+        with patch("utils.urllib3.PoolManager", return_value=mock_pool_instance):
+            result = self._call(fallback_to_get=True)
+
+        self.assertTrue(result.is_zip)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_fallback_get_non_zip_magic_bytes_sets_is_zip_false(
+        self, mock_ssl, mock_params
+    ):
+        """is_zip is False when GET response does not start with ZIP magic bytes."""
+        mock_params.return_value = ({}, "http://example.com/feed")
+
+        head_resp = MagicMock()
+        head_resp.status = 405
+        head_resp.headers = {}
+
+        get_resp = MagicMock()
+        get_resp.status = 200
+        get_resp.headers = {"Content-Type": "text/html"}
+        get_resp.read.return_value = b"<htm"
+
+        def request_side_effect(method, *args, **kwargs):
+            return head_resp if method == "HEAD" else get_resp
+
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.request.side_effect = request_side_effect
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+
+        with patch("utils.urllib3.PoolManager", return_value=mock_pool_instance):
+            result = self._call(fallback_to_get=True)
+
+        self.assertFalse(result.is_zip)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_head_success_does_not_trigger_fallback(self, mock_ssl, mock_params):
+        """When HEAD succeeds, no GET fallback should happen."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.headers = {"Content-Type": "application/zip"}
+
+        call_count = {"n": 0}
+
+        def request_side_effect(method, *args, **kwargs):
+            call_count["n"] += 1
+            return mock_resp
+
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.request.side_effect = request_side_effect
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+
+        with patch("utils.urllib3.PoolManager", return_value=mock_pool_instance):
+            result = self._call(fallback_to_get=True)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.request_type, "http_head")
+        self.assertEqual(call_count["n"], 1)
+
+
+class TestIsZipFromContentType(unittest.TestCase):
+    def test_application_zip_returns_true(self):
+        from utils import _is_zip_from_content_type
+
+        self.assertTrue(_is_zip_from_content_type("application/zip"))
+
+    def test_gtfs_zip_returns_true(self):
+        from utils import _is_zip_from_content_type
+
+        self.assertTrue(_is_zip_from_content_type("application/gtfs+zip"))
+
+    def test_text_html_returns_false(self):
+        from utils import _is_zip_from_content_type
+
+        self.assertFalse(_is_zip_from_content_type("text/html"))
+
+    def test_octet_stream_returns_none(self):
+        from utils import _is_zip_from_content_type
+
+        self.assertIsNone(_is_zip_from_content_type("application/octet-stream"))
+
+    def test_none_returns_none(self):
+        from utils import _is_zip_from_content_type
+
+        self.assertIsNone(_is_zip_from_content_type(None))
 
 
 if __name__ == "__main__":

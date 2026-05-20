@@ -190,6 +190,39 @@ def build_feed_request_params(
     return headers, url
 
 
+_ZIP_CONTENT_TYPES = frozenset(
+    {
+        "application/zip",
+        "application/x-zip",
+        "application/x-zip-compressed",
+        "application/gtfs+zip",
+    }
+)
+_ZIP_MAGIC = b"\x50\x4b\x03\x04"  # PK\x03\x04 — ZIP local file header signature
+
+
+def _parse_content_type(raw: Optional[str]) -> Optional[str]:
+    """Return the normalised MIME type from a raw Content-Type header, or None."""
+    if not raw:
+        return None
+    return raw.split(";")[0].strip().lower()
+
+
+def _is_zip_from_content_type(content_type: Optional[str]) -> Optional[bool]:
+    """Infer is_zip from a normalised Content-Type string.
+
+    Returns True/False for known types, None for ambiguous ones
+    (e.g. application/octet-stream) where magic-byte verification is needed.
+    """
+    if content_type is None:
+        return None
+    if content_type in _ZIP_CONTENT_TYPES:
+        return True
+    if content_type == "application/octet-stream":
+        return None  # ambiguous — caller should verify via magic bytes
+    return False
+
+
 def perform_head_request(
     feed_id: str,
     stable_id: str,
@@ -199,11 +232,17 @@ def perform_head_request(
     credentials: Optional[str],
     timeout_seconds: int,
     request_type: str = "http_head",
+    fallback_to_get: bool = False,
 ):
     """Execute an HTTP HEAD request for a single feed and return an unsaved model instance.
 
     Handles authentication, user-agent, and legacy SSL — identical to the GET path
     in download_and_get_hash, just using HEAD instead.
+
+    When fallback_to_get=True and HEAD fails (any non-2xx or exception), a lightweight
+    GET request is made instead: only the first 4 bytes of the body are read to check
+    for the ZIP magic signature (PK\\x03\\x04), then the connection is released.
+    The stored request_type reflects which method produced the final result.
 
     Note: request_url in the result is always the original producer_url (never the
     credential-bearing resolved URL) to avoid persisting secrets.
@@ -216,6 +255,11 @@ def perform_head_request(
     error_message = None
     error_type = None
     success = False
+    content_type = None
+    is_zip = None
+    actual_request_type = request_type  # may be overridden to "http_get" on fallback
+    headers = None
+    resolved_url = producer_url
 
     try:
         headers, resolved_url = build_feed_request_params(
@@ -238,6 +282,8 @@ def perform_head_request(
         latency_ms = int((time.monotonic() - start) * 1000)
         status_code = r.status
         success = status_code < 400
+        content_type = _parse_content_type(r.headers.get("Content-Type"))
+        is_zip = _is_zip_from_content_type(content_type)
     except urllib3.exceptions.MaxRetryError as exc:
         error_type = "ConnectionError"
         error_message = str(exc)
@@ -255,16 +301,87 @@ def perform_head_request(
         error_message = str(exc)
         logging.warning("HTTP error for feed %s (%s): %s", stable_id, producer_url, exc)
 
+    if not success and fallback_to_get:
+        logging.info(
+            "HEAD failed for feed %s (%s) [status=%s error=%s], trying GET fallback",
+            stable_id,
+            producer_url,
+            status_code,
+            error_type,
+        )
+        actual_request_type = "http_get"
+        status_code = None
+        latency_ms = None
+        error_message = None
+        error_type = None
+        content_type = None
+        is_zip = None
+        success = False
+        try:
+            ctx = create_feed_ssl_context()
+            start = time.monotonic()
+            with urllib3.PoolManager(ssl_context=ctx) as http:
+                r = http.request(
+                    "GET",
+                    resolved_url,
+                    headers=headers,
+                    redirect=True,
+                    preload_content=False,
+                    timeout=urllib3.Timeout(
+                        connect=timeout_seconds, read=timeout_seconds
+                    ),
+                )
+                latency_ms = int((time.monotonic() - start) * 1000)
+                status_code = r.status
+                success = status_code < 400
+                content_type = _parse_content_type(r.headers.get("Content-Type"))
+                first_bytes = r.read(4)
+                r.release_conn()
+            is_zip = (
+                first_bytes == _ZIP_MAGIC
+                if first_bytes
+                else _is_zip_from_content_type(content_type)
+            )
+        except urllib3.exceptions.MaxRetryError as exc:
+            error_type = "ConnectionError"
+            error_message = str(exc)
+            logging.warning(
+                "GET fallback connection error for feed %s (%s): %s",
+                stable_id,
+                producer_url,
+                exc,
+            )
+        except urllib3.exceptions.TimeoutError as exc:
+            error_type = "Timeout"
+            error_message = str(exc)
+            logging.warning(
+                "GET fallback timeout for feed %s (%s): %s",
+                stable_id,
+                producer_url,
+                exc,
+            )
+        except urllib3.exceptions.HTTPError as exc:
+            error_type = type(exc).__name__
+            error_message = str(exc)
+            logging.warning(
+                "GET fallback HTTP error for feed %s (%s): %s",
+                stable_id,
+                producer_url,
+                exc,
+            )
+
     return GtfsFeedAvailabilityCheck(
         feed_id=feed_id,
         checked_at=checked_at,
         request_url=producer_url,
-        request_type=request_type,
+        request_type=actual_request_type,
         status_code=status_code,
         latency_ms=latency_ms,
         error_message=error_message,
         error_type=error_type,
         success=success,
+        content_type=content_type,
+        is_zip=is_zip,
     )
 
 

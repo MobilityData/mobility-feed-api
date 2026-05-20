@@ -33,6 +33,7 @@ from shared.helpers.utils import perform_head_request
 DEFAULT_CONCURRENCY: int = 10
 DEFAULT_TIMEOUT_SECONDS: int = 20
 DEFAULT_BATCH_SIZE: int = 50
+DEFAULT_FALLBACK_TO_GET: bool = True
 REQUEST_TYPE: str = "http_head"
 
 
@@ -57,6 +58,7 @@ def get_parameters(payload: dict):
     batch_size = payload.get("batch_size", DEFAULT_BATCH_SIZE)
     feed_ids = payload.get("feed_ids", None)
     verbose = payload.get("verbose", False)
+    fallback_to_get = payload.get("fallback_to_get", DEFAULT_FALLBACK_TO_GET)
     return (
         dry_run,
         skip_db_update,
@@ -66,6 +68,7 @@ def get_parameters(payload: dict):
         batch_size,
         feed_ids,
         verbose,
+        fallback_to_get,
     )
 
 
@@ -84,6 +87,8 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         feed_ids (list[str] | None): If provided, only check these specific feed IDs. Default: None.
         verbose (bool): If True, include a 'failures' list in the response with stable_id and
                         reason for each failed check. Default: False.
+        fallback_to_get (bool): If True, retry failed HEAD requests with a lightweight GET
+                                (reads only 4 bytes to verify ZIP magic bytes). Default: True.
     """
     (
         dry_run,
@@ -94,6 +99,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         batch_size,
         feed_ids,
         verbose,
+        fallback_to_get,
     ) = get_parameters(payload)
     return check_gtfs_feed_availability(
         dry_run=dry_run,
@@ -104,6 +110,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         batch_size=batch_size,
         feed_ids=feed_ids,
         verbose=verbose,
+        fallback_to_get=fallback_to_get,
     )
 
 
@@ -175,6 +182,7 @@ def check_gtfs_feed_availability(
     batch_size: int = DEFAULT_BATCH_SIZE,
     feed_ids: Optional[list[str]] = None,
     verbose: bool = False,
+    fallback_to_get: bool = DEFAULT_FALLBACK_TO_GET,
 ) -> dict:
     """
     Check availability of active/published GTFS feeds via HTTP HEAD and store results.
@@ -192,8 +200,10 @@ def check_gtfs_feed_availability(
         timeout_seconds: Timeout (seconds) per HTTP request.
         batch_size: Number of completed results committed to DB at a time.
         feed_ids: If provided, only check these specific feed IDs.
-        verbose: If True, include a 'failures' list in the response with stable_id
-                 and reason for each failed check.
+        verbose: If True, include a 'failures' list in the response with stable_id,
+                 reason, content_type, and is_zip for each failed check.
+        fallback_to_get: If True, retry failed HEAD requests with a lightweight GET
+                         (reads only 4 bytes to verify ZIP magic bytes).
 
     Returns:
         dict: Summary with counts of total, successful, and failed checks.
@@ -246,6 +256,7 @@ def check_gtfs_feed_availability(
                 get_feed_credentials(feed.stable_id),
                 timeout_seconds,
                 REQUEST_TYPE,
+                fallback_to_get,
             ): feed
             for feed in feeds
         }
@@ -302,6 +313,8 @@ def check_gtfs_feed_availability(
                 "reason": (
                     r.error_message if r.error_message else f"HTTP {r.status_code}"
                 ),
+                "content_type": r.content_type,
+                "is_zip": r.is_zip,
             }
             for r in results
             if not r.success
