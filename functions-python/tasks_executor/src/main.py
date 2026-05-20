@@ -61,6 +61,9 @@ from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
 )
 from tasks.web_revalidation.revalidate_feed import revalidate_feed_handler
+from tasks.feed_availability.check_gtfs_feed_availability import (
+    check_gtfs_feed_availability_handler,
+)
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -151,6 +154,15 @@ tasks = {
     "revalidate_feed": {
         "description": "Revalidate the website cache for a specific feed detail page.",
         "handler": revalidate_feed_handler,
+    },
+    "check_gtfs_feed_availability": {
+        "description": (
+            "Check availability of active/published GTFS feeds via HTTP HEAD requests "
+            "and store results in gtfs_feed_availability_check. "
+            "Parameters: dry_run (default true), skip_db_update (default false), "
+            "limit (optional), concurrency (default 10), timeout_seconds (default 10)."
+        ),
+        "handler": check_gtfs_feed_availability_handler,
     },
 }
 
