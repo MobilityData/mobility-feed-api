@@ -188,6 +188,18 @@ def _commit_batch(
             succeeded,
             failed,
         )
+        for check in batch:
+            logging.info(
+                "skip_db_update check — feed_id=%s url=%s success=%s "
+                "status_code=%s latency_ms=%s error_type=%s error_message=%s",
+                check.feed_id,
+                check.request_url,
+                check.success,
+                check.status_code,
+                check.latency_ms,
+                check.error_type,
+                check.error_message,
+            )
 
 
 @with_db_session
