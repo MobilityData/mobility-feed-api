@@ -17,7 +17,9 @@ import hashlib
 import logging
 import os
 import ssl
-from datetime import date, datetime
+import time
+import urllib3.exceptions
+from datetime import date, datetime, timezone
 from logging import Logger
 from typing import Optional
 
@@ -121,6 +123,148 @@ def get_hash_from_file(file_path, hash_algorithm="sha256", chunk_size=8192):
     return hash_object.hexdigest()
 
 
+def create_feed_ssl_context(trusted_certs: bool = False):
+    """
+    Create a urllib3 SSL context suitable for GTFS feed HTTP requests.
+
+    Enables legacy server connect (ssl.OP_LEGACY_SERVER_CONNECT) to handle
+    servers with DH key issues. When trusted_certs=True, hostname verification
+    and certificate validation are disabled (use only for known problematic feeds).
+    """
+    ctx = create_urllib3_context()
+    ctx.load_default_certs()
+    # This is the only way to make urllib3 work with legacy servers
+    # More information: https://github.com/urllib3/urllib3/issues/2653#issuecomment-1165418616
+    ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
+    if trusted_certs:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def build_feed_request_params(
+    url: str,
+    feed_id: Optional[str] = None,
+    authentication_type=0,
+    api_key_parameter_name: Optional[str] = None,
+    credentials: Optional[str] = None,
+) -> tuple:
+    """
+    Build HTTP request headers and resolve the final URL for a feed request.
+
+    Handles:
+    - Per-feed User-Agent overrides via config DB (feed_download/http_headers)
+    - Default mobile browser User-Agent + Referer fallback
+    - Auth type 1: API key appended as a URL query parameter
+    - Auth type 2: API key injected as a request header
+
+    Returns:
+        (headers, resolved_url) ready to pass to any HTTP method.
+    """
+    from shared.common.config_reader import get_config_value
+
+    headers = get_config_value(
+        namespace="feed_download", key="http_headers", feed_id=feed_id
+    )
+    if headers is None:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/126.0.0.0 Mobile Safari/537.36",
+            "Referer": url,
+        }
+
+    auth_type = int(authentication_type) if authentication_type is not None else 0
+
+    # authentication_type == 1 -> the credentials are passed in the url
+    # Careful, some URLs may already contain a query string
+    # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
+    if auth_type == 1 and api_key_parameter_name and credentials:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}{api_key_parameter_name}={credentials}"
+
+    # authentication_type == 2 -> the credentials are passed in the header
+    if auth_type == 2 and api_key_parameter_name and credentials:
+        headers[api_key_parameter_name] = credentials
+
+    return headers, url
+
+
+def perform_head_request(
+    feed_id: str,
+    producer_url: str,
+    authentication_type: str,
+    api_key_parameter_name: Optional[str],
+    credentials: Optional[str],
+    timeout_seconds: int,
+    request_type: str = "http_head",
+):
+    """Execute an HTTP HEAD request for a single feed and return an unsaved model instance.
+
+    Handles authentication, user-agent, and legacy SSL — identical to the GET path
+    in download_and_get_hash, just using HEAD instead.
+
+    Note: request_url in the result is always the original producer_url (never the
+    credential-bearing resolved URL) to avoid persisting secrets.
+    """
+    from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
+
+    checked_at = datetime.now(timezone.utc)
+    status_code = None
+    latency_ms = None
+    error_message = None
+    error_type = None
+    success = False
+
+    try:
+        headers, resolved_url = build_feed_request_params(
+            producer_url,
+            feed_id=feed_id,
+            authentication_type=authentication_type,
+            api_key_parameter_name=api_key_parameter_name,
+            credentials=credentials,
+        )
+        ctx = create_feed_ssl_context()
+        start = time.monotonic()
+        with urllib3.PoolManager(ssl_context=ctx) as http:
+            r = http.request(
+                "HEAD",
+                resolved_url,
+                headers=headers,
+                redirect=True,
+                timeout=urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds),
+            )
+        latency_ms = int((time.monotonic() - start) * 1000)
+        status_code = r.status
+        success = status_code < 400
+    except urllib3.exceptions.MaxRetryError as exc:
+        error_type = "ConnectionError"
+        error_message = str(exc)
+        logging.warning(
+            "Connection error for feed %s (%s): %s", feed_id, producer_url, exc
+        )
+    except urllib3.exceptions.TimeoutError as exc:
+        error_type = "Timeout"
+        error_message = str(exc)
+        logging.warning("Timeout checking feed %s (%s): %s", feed_id, producer_url, exc)
+    except urllib3.exceptions.HTTPError as exc:
+        error_type = type(exc).__name__
+        error_message = str(exc)
+        logging.warning("HTTP error for feed %s (%s): %s", feed_id, producer_url, exc)
+
+    return GtfsFeedAvailabilityCheck(
+        feed_id=feed_id,
+        checked_at=checked_at,
+        request_url=producer_url,
+        request_type=request_type,
+        status_code=status_code,
+        latency_ms=latency_ms,
+        error_message=error_message,
+        error_type=error_type,
+        success=success,
+    )
+
+
 def download_and_get_hash(
     url,
     file_path,
@@ -133,8 +277,6 @@ def download_and_get_hash(
     logger=None,
     trusted_certs=False,  # If True, disables SSL verification
 ):
-    from shared.common.config_reader import get_config_value
-
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
@@ -142,37 +284,15 @@ def download_and_get_hash(
     try:
         hash_object = hashlib.new(hash_algorithm)
 
-        # This the only way to make urllib3 work with legacy servers
-        # More information: https://github.com/urllib3/urllib3/issues/2653#issuecomment-1165418616
-        ctx = create_urllib3_context()
-        ctx.load_default_certs()
-        ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
+        ctx = create_feed_ssl_context(trusted_certs=trusted_certs)
 
-        headers = get_config_value(
-            namespace="feed_download", key="http_headers", feed_id=feed_id
+        headers, url = build_feed_request_params(
+            url,
+            feed_id=feed_id,
+            authentication_type=authentication_type,
+            api_key_parameter_name=api_key_parameter_name,
+            credentials=credentials,
         )
-        if headers is None:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/126.0.0.0 Mobile Safari/537.36",
-                "Referer": url,
-            }
-
-        # authentication_type == 1 -> the credentials are passed in the url
-        # Careful, some URLs may already contain a query string
-        # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
-        if authentication_type == 1 and api_key_parameter_name and credentials:
-            separator = "&" if "?" in url else "?"
-            url += f"{separator}{api_key_parameter_name}={credentials}"
-
-        # authentication_type == 2 -> the credentials are passed in the header
-        if authentication_type == 2 and api_key_parameter_name and credentials:
-            headers[api_key_parameter_name] = credentials
-
-        if trusted_certs:
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
             with http.request(

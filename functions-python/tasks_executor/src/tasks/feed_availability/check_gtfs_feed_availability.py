@@ -14,12 +14,12 @@
 #  limitations under the License.
 #
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Optional
 
-import requests
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
@@ -28,11 +28,24 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
 )
+from shared.helpers.utils import perform_head_request
 
 DEFAULT_CONCURRENCY: int = 10
 DEFAULT_TIMEOUT_SECONDS: int = 20
 DEFAULT_BATCH_SIZE: int = 50
 REQUEST_TYPE: str = "http_head"
+
+
+def get_feed_credentials(stable_id: str) -> Optional[str]:
+    """Return the API credential for a feed from the FEEDS_CREDENTIALS env var, or None."""
+    try:
+        import json
+
+        feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
+        return feeds_credentials.get(stable_id, None)
+    except Exception as exc:
+        logging.warning("Could not parse FEEDS_CREDENTIALS: %s", exc)
+        return None
 
 
 def get_parameters(payload: dict):
@@ -102,59 +115,6 @@ def get_feeds_query(db_session: Session, feed_ids: Optional[list[str]] = None):
     if feed_ids is not None:
         query = query.filter(Feed.id.in_(feed_ids))
     return query
-
-
-def _perform_head_request(
-    feed_id: str,
-    producer_url: str,
-    timeout_seconds: int,
-) -> GtfsFeedAvailabilityCheck:
-    """Execute an HTTP HEAD request for a single feed and return an unsaved model instance."""
-    checked_at = datetime.now(UTC)
-    status_code = None
-    latency_ms = None
-    error_message = None
-    error_type = None
-    success = False
-
-    try:
-        start = time.monotonic()
-        response = requests.head(
-            producer_url,
-            timeout=timeout_seconds,
-            allow_redirects=True,
-        )
-        latency_ms = int((time.monotonic() - start) * 1000)
-        status_code = response.status_code
-        success = status_code < 400
-    except requests.exceptions.Timeout as exc:
-        error_type = "Timeout"
-        error_message = str(exc)
-        logging.warning("Timeout checking feed %s (%s): %s", feed_id, producer_url, exc)
-    except requests.exceptions.ConnectionError as exc:
-        error_type = "ConnectionError"
-        error_message = str(exc)
-        logging.warning(
-            "Connection error for feed %s (%s): %s", feed_id, producer_url, exc
-        )
-    except requests.exceptions.RequestException as exc:
-        error_type = type(exc).__name__
-        error_message = str(exc)
-        logging.warning(
-            "Request error for feed %s (%s): %s", feed_id, producer_url, exc
-        )
-
-    return GtfsFeedAvailabilityCheck(
-        feed_id=feed_id,
-        checked_at=checked_at,
-        request_url=producer_url,
-        request_type=REQUEST_TYPE,
-        status_code=status_code,
-        latency_ms=latency_ms,
-        error_message=error_message,
-        error_type=error_type,
-        success=success,
-    )
 
 
 def _commit_batch(
@@ -234,15 +194,21 @@ def check_gtfs_feed_availability(
         query = query.limit(limit)
 
     if dry_run:
+        start_time = time.monotonic()
         total = query.count()
+        elapsed = round(time.monotonic() - start_time, 2)
         logging.info("Dry run: %d active/published GTFS feeds found.", total)
-        return {
+        result = {
             "message": f"Dry run: {total} active/published GTFS feeds found.",
             "total_feeds": total,
+            "elapsed_seconds": elapsed,
         }
+        logging.info("Task completed: %s", result)
+        return result
 
     feeds = query.all()
     total = len(feeds)
+    start_time = time.monotonic()
     logging.info(
         "Checking availability for %d GTFS feed(s) "
         "(concurrency=%d, timeout=%ds, batch_size=%d, skip_db_update=%s).",
@@ -260,7 +226,14 @@ def check_gtfs_feed_availability(
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         future_to_feed = {
             executor.submit(
-                _perform_head_request, feed.id, feed.producer_url, timeout_seconds
+                perform_head_request,
+                feed.id,
+                feed.producer_url,
+                feed.authentication_type or "0",
+                feed.api_key_parameter_name,
+                get_feed_credentials(feed.stable_id),
+                timeout_seconds,
+                REQUEST_TYPE,
             ): feed
             for feed in feeds
         }
@@ -277,7 +250,7 @@ def check_gtfs_feed_availability(
                 )
                 check = GtfsFeedAvailabilityCheck(
                     feed_id=feed.id,
-                    checked_at=datetime.now(UTC),
+                    checked_at=datetime.now(timezone.utc),
                     request_url=feed.producer_url,
                     request_type=REQUEST_TYPE,
                     status_code=None,
@@ -299,11 +272,15 @@ def check_gtfs_feed_availability(
 
     total_succeeded = sum(1 for r in results if r.success)
     total_failed = total - total_succeeded
+    elapsed = round(time.monotonic() - start_time, 2)
 
-    return {
+    result = {
         "message": f"Checked {total} feed(s): {total_succeeded} succeeded, {total_failed} failed.",
         "total_feeds": total,
         "succeeded": total_succeeded,
         "failed": total_failed,
         "skip_db_update": skip_db_update,
+        "elapsed_seconds": elapsed,
     }
+    logging.info("Task completed: %s", result)
+    return result

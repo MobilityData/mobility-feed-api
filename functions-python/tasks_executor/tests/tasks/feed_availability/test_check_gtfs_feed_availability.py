@@ -16,20 +16,30 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-import requests
+import urllib3.exceptions
 
+from shared.helpers.utils import perform_head_request
 from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability,
     check_gtfs_feed_availability_handler,
     get_feeds_query,
-    _perform_head_request,
+    get_feed_credentials,
 )
 
 
-def _make_feed(feed_id: str, producer_url: str):
+def _make_feed(
+    feed_id: str,
+    producer_url: str,
+    stable_id: str = None,
+    authentication_type: str = "0",
+    api_key_parameter_name: str = None,
+):
     feed = MagicMock()
     feed.id = feed_id
+    feed.stable_id = stable_id or feed_id
     feed.producer_url = producer_url
+    feed.authentication_type = authentication_type
+    feed.api_key_parameter_name = api_key_parameter_name
     return feed
 
 
@@ -113,13 +123,50 @@ class TestGetFeedsQuery(unittest.TestCase):
 
 
 class TestPerformHeadRequest(unittest.TestCase):
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_success_response(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
+    def _call(
+        self,
+        feed_id,
+        url,
+        timeout=10,
+        auth_type="0",
+        api_key_param=None,
+        credentials=None,
+    ):
+        return perform_head_request(
+            feed_id,
+            url,
+            auth_type,
+            api_key_param,
+            credentials,
+            timeout,
+        )
 
-        result = _perform_head_request("feed_1", "http://example.com/feed.zip", 10)
+    def _mock_pool(self, status=200, side_effect=None):
+        """Return a patcher for urllib3.PoolManager that yields a mock response."""
+        mock_resp = MagicMock()
+        mock_resp.status = status
+        mock_pool_instance = MagicMock()
+        if side_effect:
+            mock_pool_instance.request.side_effect = side_effect
+        else:
+            mock_pool_instance.request.return_value = mock_resp
+        mock_pool_instance.__enter__ = lambda s: mock_pool_instance
+        mock_pool_instance.__exit__ = MagicMock(return_value=False)
+        return (
+            patch(
+                "shared.helpers.utils.urllib3.PoolManager",
+                return_value=mock_pool_instance,
+            ),
+            mock_pool_instance,
+        )
+
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_success_response(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+        pool_patch, mock_pool = self._mock_pool(status=200)
+        with pool_patch:
+            result = self._call("feed_1", "http://example.com/feed.zip")
 
         self.assertTrue(result.success)
         self.assertEqual(result.status_code, 200)
@@ -129,41 +176,134 @@ class TestPerformHeadRequest(unittest.TestCase):
         self.assertEqual(result.feed_id, "feed_1")
         self.assertEqual(result.request_url, "http://example.com/feed.zip")
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_4xx_status_marks_failure(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_head.return_value = mock_response
-
-        result = _perform_head_request("feed_2", "http://example.com/missing.zip", 10)
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_4xx_status_marks_failure(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://example.com/missing.zip")
+        pool_patch, _ = self._mock_pool(status=404)
+        with pool_patch:
+            result = self._call("feed_2", "http://example.com/missing.zip")
 
         self.assertFalse(result.success)
         self.assertEqual(result.status_code, 404)
         self.assertIsNone(result.error_message)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_timeout_records_error(self, mock_head):
-        mock_head.side_effect = requests.exceptions.Timeout("timed out")
-
-        result = _perform_head_request("feed_3", "http://slow.example.com/feed.zip", 5)
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_timeout_records_error(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://slow.example.com/feed.zip")
+        pool_patch, _ = self._mock_pool(
+            side_effect=urllib3.exceptions.TimeoutError("timed out")
+        )
+        with pool_patch:
+            result = self._call("feed_3", "http://slow.example.com/feed.zip", timeout=5)
 
         self.assertFalse(result.success)
         self.assertIsNone(result.status_code)
         self.assertEqual(result.error_type, "Timeout")
         self.assertIn("timed out", result.error_message)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_connection_error_records_error(self, mock_head):
-        mock_head.side_effect = requests.exceptions.ConnectionError("refused")
-
-        result = _perform_head_request("feed_4", "http://unreachable.example.com/", 10)
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_connection_error_records_error(self, mock_ssl, mock_params):
+        mock_params.return_value = ({}, "http://unreachable.example.com/")
+        pool_patch, _ = self._mock_pool(
+            side_effect=urllib3.exceptions.MaxRetryError(
+                pool=None, url="http://unreachable.example.com/", reason="refused"
+            )
+        )
+        with pool_patch:
+            result = self._call("feed_4", "http://unreachable.example.com/")
 
         self.assertFalse(result.success)
         self.assertEqual(result.error_type, "ConnectionError")
         self.assertIsNotNone(result.error_message)
 
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_auth_type1_url_passed_to_build_params(self, mock_ssl, mock_params):
+        """build_feed_request_params receives auth type 1 args correctly."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip?api_key=secret")
+        pool_patch, _ = self._mock_pool(status=200)
+        with pool_patch:
+            self._call(
+                "feed_5",
+                "http://example.com/feed.zip",
+                auth_type="1",
+                api_key_param="api_key",
+                credentials="secret",
+            )
+
+        mock_params.assert_called_once_with(
+            "http://example.com/feed.zip",
+            feed_id="feed_5",
+            authentication_type="1",
+            api_key_parameter_name="api_key",
+            credentials="secret",
+        )
+
+    @patch("shared.helpers.utils.build_feed_request_params")
+    @patch("shared.helpers.utils.create_feed_ssl_context")
+    def test_auth_type2_header_passed_to_build_params(self, mock_ssl, mock_params):
+        """build_feed_request_params receives auth type 2 args correctly."""
+        mock_params.return_value = (
+            {"X-API-Key": "token"},
+            "http://example.com/feed.zip",
+        )
+        pool_patch, mock_pool = self._mock_pool(status=200)
+        with pool_patch:
+            self._call(
+                "feed_6",
+                "http://example.com/feed.zip",
+                auth_type="2",
+                api_key_param="X-API-Key",
+                credentials="token",
+            )
+
+        mock_params.assert_called_once_with(
+            "http://example.com/feed.zip",
+            feed_id="feed_6",
+            authentication_type="2",
+            api_key_parameter_name="X-API-Key",
+            credentials="token",
+        )
+        _, call_kwargs = mock_pool.request.call_args
+        self.assertEqual(call_kwargs["headers"], {"X-API-Key": "token"})
+
+
+class TestGetFeedCredentials(unittest.TestCase):
+    @patch.dict("os.environ", {"FEEDS_CREDENTIALS": '{"mdb-123": "secret_key"}'})
+    def test_returns_credential_for_known_stable_id(self):
+        self.assertEqual(get_feed_credentials("mdb-123"), "secret_key")
+
+    @patch.dict("os.environ", {"FEEDS_CREDENTIALS": '{"mdb-123": "secret_key"}'})
+    def test_returns_none_for_unknown_stable_id(self):
+        self.assertIsNone(get_feed_credentials("mdb-999"))
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_returns_none_when_env_not_set(self):
+        self.assertIsNone(get_feed_credentials("mdb-123"))
+
+    @patch.dict("os.environ", {"FEEDS_CREDENTIALS": "not-valid-json"})
+    def test_returns_none_on_invalid_json(self):
+        self.assertIsNone(get_feed_credentials("mdb-123"))
+
 
 class TestCheckGtfsFeedAvailability(unittest.TestCase):
+    def setUp(self):
+        self._mock_check = MagicMock()
+        self._mock_check.success = True
+        self._mock_check.status_code = 200
+        self._mock_check.error_type = None
+        self._mock_check.error_message = None
+
+        head_patcher = patch(
+            "tasks.feed_availability.check_gtfs_feed_availability.perform_head_request",
+            return_value=self._mock_check,
+        )
+        self.mock_perform_head = head_patcher.start()
+        self.addCleanup(head_patcher.stop)
+
     def _make_mock_session(self, feeds):
         db_session = MagicMock()
         query_mock = MagicMock()
@@ -178,22 +318,15 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         feeds = [_make_feed("f1", "http://a.com"), _make_feed("f2", "http://b.com")]
         db_session = self._make_mock_session(feeds)
 
-        with patch(
-            "tasks.feed_availability.check_gtfs_feed_availability._perform_head_request"
-        ) as mock_head:
-            result = check_gtfs_feed_availability(db_session=db_session, dry_run=True)
+        result = check_gtfs_feed_availability(db_session=db_session, dry_run=True)
 
-        mock_head.assert_not_called()
+        self.mock_perform_head.assert_not_called()
         db_session.add_all.assert_not_called()
         self.assertIn("Dry run", result["message"])
         self.assertEqual(result["total_feeds"], 2)
+        self.assertIn("elapsed_seconds", result)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_checks_all_feeds_and_stores_results(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
-
+    def test_checks_all_feeds_and_stores_results(self):
         feeds = [_make_feed("f1", "http://a.com"), _make_feed("f2", "http://b.com")]
         db_session = self._make_mock_session(feeds)
 
@@ -206,13 +339,9 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(result["total_feeds"], 2)
         self.assertEqual(result["succeeded"], 2)
         self.assertEqual(result["failed"], 0)
+        self.assertIn("elapsed_seconds", result)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_skip_db_update_does_not_write(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
-
+    def test_skip_db_update_does_not_write(self):
         feeds = [_make_feed("f1", "http://a.com")]
         db_session = self._make_mock_session(feeds)
 
@@ -224,13 +353,9 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         db_session.commit.assert_not_called()
         self.assertTrue(result["skip_db_update"])
         self.assertEqual(result["total_feeds"], 1)
+        self.assertIn("elapsed_seconds", result)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_limit_caps_processed_feeds(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
-
+    def test_limit_caps_processed_feeds(self):
         all_feeds = [_make_feed(f"f{i}", f"http://feed{i}.com") for i in range(10)]
         limited_feeds = all_feeds[:3]
 
@@ -258,35 +383,33 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         query_mock.limit.return_value = limited_query_mock
         db_session.query.return_value = query_mock
 
-        with patch(
-            "tasks.feed_availability.check_gtfs_feed_availability._perform_head_request"
-        ) as mock_head:
-            result = check_gtfs_feed_availability(
-                db_session=db_session, dry_run=True, limit=3
-            )
+        result = check_gtfs_feed_availability(
+            db_session=db_session, dry_run=True, limit=3
+        )
 
-        mock_head.assert_not_called()
+        self.mock_perform_head.assert_not_called()
         db_session.add_all.assert_not_called()
         query_mock.limit.assert_called_once_with(3)
         self.assertIn("Dry run", result["message"])
         self.assertEqual(result["total_feeds"], 3)
+        self.assertIn("elapsed_seconds", result)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_failed_feeds_counted_correctly(self, mock_head):
-        def side_effect(url, **kwargs):
-            if "fail" in url:
-                raise requests.exceptions.ConnectionError("refused")
-            r = MagicMock()
-            r.status_code = 200
-            return r
-
-        mock_head.side_effect = side_effect
-
+    def test_failed_feeds_counted_correctly(self):
         feeds = [
             _make_feed("f1", "http://ok.com"),
             _make_feed("f2", "http://fail.com"),
         ]
         db_session = self._make_mock_session(feeds)
+
+        def head_side_effect(feed_id, url, *args, **kwargs):
+            check = MagicMock()
+            check.success = "fail" not in url
+            check.status_code = None if "fail" in url else 200
+            check.error_type = "ConnectionError" if "fail" in url else None
+            check.error_message = "refused" if "fail" in url else None
+            return check
+
+        self.mock_perform_head.side_effect = head_side_effect
 
         result = check_gtfs_feed_availability(
             db_session=db_session, dry_run=False, skip_db_update=True
@@ -296,12 +419,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(result["succeeded"], 1)
         self.assertEqual(result["failed"], 1)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_commits_once_per_batch(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
-
+    def test_commits_once_per_batch(self):
         feeds = [_make_feed(f"f{i}", f"http://feed{i}.com") for i in range(6)]
         db_session = self._make_mock_session(feeds)
 
@@ -313,9 +431,8 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(db_session.commit.call_count, 3)
         self.assertEqual(db_session.add_all.call_count, 3)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_future_exception_captured_as_failed_check(self, mock_head):
-        mock_head.side_effect = RuntimeError("unexpected failure")
+    def test_future_exception_captured_as_failed_check(self):
+        self.mock_perform_head.side_effect = RuntimeError("unexpected failure")
 
         feeds = [_make_feed("f1", "http://a.com")]
         db_session = self._make_mock_session(feeds)
@@ -328,12 +445,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(result["failed"], 1)
         self.assertEqual(result["succeeded"], 0)
 
-    @patch("tasks.feed_availability.check_gtfs_feed_availability.requests.head")
-    def test_feed_ids_filters_query(self, mock_head):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_head.return_value = mock_response
-
+    def test_feed_ids_filters_query(self):
         feeds = [_make_feed("f1", "http://a.com"), _make_feed("f2", "http://b.com")]
         db_session = self._make_mock_session(feeds)
 

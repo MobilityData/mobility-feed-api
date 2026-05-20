@@ -141,6 +141,8 @@ To check the availability of active/published GTFS feeds via HTTP HEAD requests:
 | `batch_size` | int | `50` | Number of completed results committed to DB at a time |
 | `feed_ids` | list[str] \| null | `null` | If provided, only check these specific feed IDs |
 
+The response includes an `elapsed_seconds` field indicating how long the task took to complete.
+
 ## Response Content Type
 
 When the request includes the header `Accept: text/csv`, the server returns the response as a CSV file generated from the handler’s output.
