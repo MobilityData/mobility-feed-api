@@ -228,6 +228,7 @@ def check_gtfs_feed_availability(
             executor.submit(
                 perform_head_request,
                 feed.id,
+                feed.stable_id,
                 feed.producer_url,
                 feed.authentication_type or "0",
                 feed.api_key_parameter_name,
@@ -244,7 +245,7 @@ def check_gtfs_feed_availability(
             except Exception as exc:
                 logging.error(
                     "Unexpected error checking feed %s (%s): %s",
-                    feed.id,
+                    feed.stable_id,
                     feed.producer_url,
                     exc,
                 )

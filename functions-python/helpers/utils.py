@@ -192,6 +192,7 @@ def build_feed_request_params(
 
 def perform_head_request(
     feed_id: str,
+    stable_id: str,
     producer_url: str,
     authentication_type: str,
     api_key_parameter_name: Optional[str],
@@ -241,16 +242,18 @@ def perform_head_request(
         error_type = "ConnectionError"
         error_message = str(exc)
         logging.warning(
-            "Connection error for feed %s (%s): %s", feed_id, producer_url, exc
+            "Connection error for feed %s (%s): %s", stable_id, producer_url, exc
         )
     except urllib3.exceptions.TimeoutError as exc:
         error_type = "Timeout"
         error_message = str(exc)
-        logging.warning("Timeout checking feed %s (%s): %s", feed_id, producer_url, exc)
+        logging.warning(
+            "Timeout checking feed %s (%s): %s", stable_id, producer_url, exc
+        )
     except urllib3.exceptions.HTTPError as exc:
         error_type = type(exc).__name__
         error_message = str(exc)
-        logging.warning("HTTP error for feed %s (%s): %s", feed_id, producer_url, exc)
+        logging.warning("HTTP error for feed %s (%s): %s", stable_id, producer_url, exc)
 
     return GtfsFeedAvailabilityCheck(
         feed_id=feed_id,

@@ -128,12 +128,14 @@ class TestPerformHeadRequest(unittest.TestCase):
         feed_id,
         url,
         timeout=10,
+        stable_id=None,
         auth_type="0",
         api_key_param=None,
         credentials=None,
     ):
         return perform_head_request(
             feed_id,
+            stable_id or feed_id,
             url,
             auth_type,
             api_key_param,
@@ -401,7 +403,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         ]
         db_session = self._make_mock_session(feeds)
 
-        def head_side_effect(feed_id, url, *args, **kwargs):
+        def head_side_effect(feed_id, stable_id, url, *args, **kwargs):
             check = MagicMock()
             check.success = "fail" not in url
             check.status_code = None if "fail" in url else 200
