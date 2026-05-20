@@ -82,20 +82,18 @@ class TestGetFeedsQuery(unittest.TestCase):
         db_session = MagicMock()
         query_mock = MagicMock()
         db_session.query.return_value = query_mock
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
 
         get_feeds_query(db_session)
 
         db_session.query.assert_called_once()
-        query_mock.join.assert_called_once()
+        query_mock.join.assert_not_called()
         query_mock.filter.assert_called_once()
 
     def test_feed_ids_adds_extra_filter(self):
         db_session = MagicMock()
         query_mock = MagicMock()
         db_session.query.return_value = query_mock
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
 
         get_feeds_query(db_session, feed_ids=["f1", "f2"])
@@ -107,7 +105,6 @@ class TestGetFeedsQuery(unittest.TestCase):
         db_session = MagicMock()
         query_mock = MagicMock()
         db_session.query.return_value = query_mock
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
 
         get_feeds_query(db_session, feed_ids=None)
@@ -174,7 +171,6 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         query_mock.all.return_value = feeds
         query_mock.limit.return_value = query_mock
         db_session.query.return_value = query_mock
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
         return db_session
 
@@ -242,7 +238,6 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         query_mock = MagicMock()
         limited_query_mock = MagicMock()
         limited_query_mock.all.return_value = limited_feeds
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
         query_mock.limit.return_value = limited_query_mock
         db_session.query.return_value = query_mock
@@ -259,7 +254,6 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         query_mock = MagicMock()
         limited_query_mock = MagicMock()
         limited_query_mock.count.return_value = 3
-        query_mock.join.return_value = query_mock
         query_mock.filter.return_value = query_mock
         query_mock.limit.return_value = limited_query_mock
         db_session.query.return_value = query_mock
@@ -351,7 +345,7 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         )
 
         # filter should have been called twice: base conditions + feed_ids
-        self.assertEqual(db_session.query().join().filter.call_count, 2)
+        self.assertEqual(db_session.query().filter.call_count, 2)
 
 
 if __name__ == "__main__":

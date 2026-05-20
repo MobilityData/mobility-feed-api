@@ -114,6 +114,33 @@ To backfill MD5 hashes for existing GTFS datasets (reads the MD5 from the GCS ob
 | `only_missing_hashes` | bool | `true` | Skip datasets that already have `hash_md5` set |
 | `limit` | int \| null | `10` | Maximum number of datasets to process; omit or pass `null` for no limit |
 
+To check the availability of active/published GTFS feeds via HTTP HEAD requests:
+
+```json
+{
+  "task": "check_gtfs_feed_availability",
+  "payload": {
+    "dry_run": true,
+    "skip_db_update": false,
+    "limit": null,
+    "concurrency": 10,
+    "timeout_seconds": 20,
+    "batch_size": 50,
+    "feed_ids": null
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Count matching feeds only — no HTTP calls or DB writes |
+| `skip_db_update` | bool | `false` | Run HTTP checks but skip writing results to the DB. Each check is logged individually for monitoring and debugging |
+| `limit` | int \| null | `null` | Maximum number of feeds to process; omit or pass `null` for no limit |
+| `concurrency` | int | `10` | Number of parallel HTTP workers |
+| `timeout_seconds` | int | `20` | Per-request HTTP timeout in seconds |
+| `batch_size` | int | `50` | Number of completed results committed to DB at a time |
+| `feed_ids` | list[str] \| null | `null` | If provided, only check these specific feed IDs |
+
 ## Response Content Type
 
 When the request includes the header `Accept: text/csv`, the server returns the response as a CSV file generated from the handler’s output.

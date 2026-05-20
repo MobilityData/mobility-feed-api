@@ -93,15 +93,11 @@ def get_feeds_query(db_session: Session, feed_ids: Optional[list[str]] = None):
 
     If feed_ids is provided, restrict results to those specific feed IDs.
     """
-    query = (
-        db_session.query(Gtfsfeed)
-        .join(Feed, Feed.id == Gtfsfeed.id)
-        .filter(
-            Feed.data_type == "gtfs",
-            Feed.status == "active",
-            Feed.operational_status == "published",
-            Feed.producer_url.isnot(None),
-        )
+    query = db_session.query(Gtfsfeed).filter(
+        Feed.data_type == "gtfs",
+        Feed.status == "active",
+        Feed.operational_status == "published",
+        Feed.producer_url.isnot(None),
     )
     if feed_ids is not None:
         query = query.filter(Feed.id.in_(feed_ids))
