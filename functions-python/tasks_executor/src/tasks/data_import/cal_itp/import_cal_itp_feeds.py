@@ -18,10 +18,8 @@ from __future__ import annotations
 
 import logging
 import os
-import json
 import uuid
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
@@ -43,18 +41,9 @@ from shared.helpers.pub_sub import trigger_dataset_download
 from tasks.data_import.data_import_utils import (
     get_or_create_feed,
     get_or_create_entity_type,
-    get_license,
 )
 
 logger = logging.getLogger(__name__)
-
-_LOG_FILE_PATH = Path("/tmp/cal_itp_import_log")
-_LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-_file_handler = logging.FileHandler(_LOG_FILE_PATH, encoding="utf-8")
-_file_handler.setFormatter(
-    logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-)
-logger.addHandler(_file_handler)
 
 CAL_ITP_BASE = "https://data.ca.gov/api/3/action"
 CAL_ITP_SQL_QUERY_URL = f"{CAL_ITP_BASE}/datastore_search_sql?sql="
@@ -62,24 +51,6 @@ REQUEST_TIMEOUT_S = 60
 
 GTFS_SCHEDULE = "gtfs"
 GTFS_REALTIME = "gtfs_rt"
-
-LICENSE_URL_MAP = {
-    "odc-odbl": {
-        "url": "https://opendatacommons.org/licenses/odbl/1.0/",
-        "id": "ODbL-1.0",
-    },
-    "mobility-licence": {
-        "url": "https://wiki.lafabriquedesmobilites.fr/wiki/Licence_Mobilit%C3%A9s",
-    },
-    "fr-lo": {
-        "url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
-        "id": "etalab-2.0",
-    },
-    "lov2": {
-        "url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
-        "id": "etalab-2.0",
-    },
-}
 
 CKAN_DATASET_IDS = {
     "gtfs_datasets": "e4ca5bd4-e9ce-40aa-a58a-3a6d78b042bd",
@@ -108,15 +79,6 @@ class InvalidCalItpFeedError(Exception):
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_license_url(license_id: Optional[str]) -> Optional[str]:
-    """
-    Map Cal-ITP license ID to URL if known.
-    """
-    if not license_id:
-        return None
-    return LICENSE_URL_MAP.get(license_id.strip().lower(), {}).get("url")
 
 
 def _probe_head_format(
@@ -260,10 +222,11 @@ def _filter_cal_itp_records(records: List[dict]) -> List[dict]:
                     break
 
             if selected_type is not None:
-                kept = [
+                matched = [
                     r for r in group
                     if str(r.get("regional_feed_type", "") or "") == selected_type
                 ]
+                kept = matched[:1]
                 logger.debug(
                     "Bay Area 511 filter: service_id=%s kept %d/%d records "
                     "(regional_feed_type=%s)",
@@ -468,21 +431,6 @@ def _ensure_cal_itp_external_id(feed: Feed, resource_id: str) -> None:
         logger.debug("Appended missing Cal-ITP Externalid for %s", feed.stable_id)
 
 
-def _compute_status_from_end_date(metadata: dict) -> str:
-    """
-    Use metadata.end_date to mark schedule as active/inactive.
-    Falls back to 'active' if missing or invalid.
-    """
-    end_date_raw = metadata.get("end_date")
-    if not end_date_raw:
-        return "active"
-    try:
-        end_date = datetime.strptime(end_date_raw, "%Y-%m-%d").date()
-    except Exception:
-        return "active"
-    return "active" if datetime.now().date() <= end_date else "inactive"
-
-
 def _update_common_cal_itp_fields(
     feed: Feed,
     resource: dict,
@@ -498,18 +446,7 @@ def _update_common_cal_itp_fields(
     feed.feed_name = res_name
     feed.provider = resource.get("organization_name")
     feed.producer_url = producer_url
-
-    # to compute with validator?
-    # feed.status = _compute_status_from_end_date(resource.get("metadata") or {})
     feed.operational_status = "published"
-
-    # to follow up with Cal-ITP on license handling
-    # feed.license_url = _get_license_url(resource.get("licence"))
-    # feed_license = get_license(
-    #     db_session, LICENSE_URL_MAP.get(resource.get("licence"), {}).get("id")
-    # )
-    # if feed_license:
-    #     feed.license = feed_license
 
     # Use locations only if not already set
     if locations and (not feed.locations or len(feed.locations) == 0):
@@ -539,7 +476,6 @@ def _build_api_schedule_fingerprint_cal_itp(
         "feed_name": feed_name,
         "provider": resource.get("organization_name"),
         "producer_url": producer_url,
-        # "license_url": _get_license_url(resource.get("licence")),
     }
 
 
@@ -549,7 +485,6 @@ def _build_db_schedule_fingerprint_cal_itp(feed: Gtfsfeed) -> dict:
         "feed_name": getattr(feed, "feed_name", None),
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
-        # "license_url": getattr(feed, "license_url", None),
     }
 
 
@@ -565,7 +500,6 @@ def _build_api_rt_fingerprint_cal_itp(
         "feed_name": feed_name,
         "provider": resource.get("organization_name"),
         "producer_url": producer_url,
-        # "license_url": _get_license_url(dataset.get("licence")),
         "static_refs": sorted(static_gtfs_stable_ids),
         "entity_types": sorted(_get_entity_types_from_resource(resource=resource)),
     }
@@ -577,7 +511,6 @@ def _build_db_rt_fingerprint_cal_itp(feed: Gtfsrealtimefeed) -> dict:
         "feed_name": getattr(feed, "feed_name", None),
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
-        # "license_url": getattr(feed, "license_url", None),
         "static_refs": sorted({gf.stable_id for gf in feed.gtfs_feeds})
         if feed.gtfs_feeds
         else [],
@@ -705,15 +638,6 @@ def _process_cal_itp_dataset(
                     detected_format,
                 )
 
-                # if detected_format != "zip":
-                #     logger.info(
-                #         "Skipping GTFS resource id=%s because it does not return zip (url=%s)",
-                #         res_id,
-                #         res_url,
-                #     )
-                #     nested.rollback()
-                #     continue
-
                 gtfs_feed, new_feed = _delete_and_recreate_feed_if_type_changed(
                     db_session,
                     Gtfsfeed,
@@ -741,6 +665,13 @@ def _process_cal_itp_dataset(
                         )
                         nested.commit()
                         continue
+                    else:
+                        logger.info(
+                            "Change detected for Cal-ITP GTFS feed stable_id=%s; updating. DB fingerprint: %s, API fingerprint: %s",
+                            stable_id,
+                            db_fp,
+                            api_fp,
+                        )
 
                 _update_common_cal_itp_fields(
                     feed=gtfs_feed,
@@ -797,6 +728,13 @@ def _process_cal_itp_dataset(
                         processed += 1
                         nested.commit()
                         continue
+                    else:
+                        logger.info(
+                            "Change detected for Cal-ITP RT feed stable_id=%s; updating. DB fingerprint: %s, API fingerprint: %s",
+                            stable_id,
+                            db_rt_fp,
+                            api_rt_fp,
+                        )
 
                 _update_common_cal_itp_fields(
                     feed=rt_feed,
