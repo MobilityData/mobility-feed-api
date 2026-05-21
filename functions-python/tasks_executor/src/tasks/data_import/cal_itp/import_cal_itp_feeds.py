@@ -44,6 +44,7 @@ from tasks.data_import.data_import_utils import (
 )
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 CAL_ITP_BASE = "https://data.ca.gov/api/3/action"
 CAL_ITP_SQL_QUERY_URL = f"{CAL_ITP_BASE}/datastore_search_sql?sql="
@@ -141,6 +142,14 @@ def _fetch_cal_itp_datasets(session_http: requests.Session) -> List[dict]:
     endpoint = f"{CAL_ITP_SQL_QUERY_URL}{encoded_sql}"
     res = session_http.get(endpoint, timeout=REQUEST_TIMEOUT_S, headers={})
     res.raise_for_status()
+    elapsed_ms = res.elapsed.total_seconds() * 1000
+    response_bytes = len(res.content)
+    logger.debug(
+        "Cal-ITP CKAN response: status=%s elapsed_ms=%.1f response_bytes=%d",
+        res.status_code,
+        elapsed_ms,
+        response_bytes,
+    )
     try:
         data = res.json()
         records = data.get("result", {}).get("records", [])
