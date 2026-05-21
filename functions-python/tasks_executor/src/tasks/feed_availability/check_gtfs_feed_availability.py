@@ -30,8 +30,8 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.helpers.utils import perform_request
 
-DEFAULT_CONCURRENCY: int = 10
-DEFAULT_TIMEOUT_SECONDS: int = 20
+DEFAULT_CONCURRENCY: int = 15
+DEFAULT_TIMEOUT_SECONDS: int = 10
 DEFAULT_BATCH_SIZE: int = 50
 DEFAULT_FALLBACK_TO_GET: bool = True
 
