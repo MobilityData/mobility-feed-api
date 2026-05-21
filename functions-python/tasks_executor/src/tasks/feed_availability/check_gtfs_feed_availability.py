@@ -55,7 +55,7 @@ def get_parameters(payload: dict):
     concurrency = payload.get("concurrency", DEFAULT_CONCURRENCY)
     timeout_seconds = payload.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
     batch_size = payload.get("batch_size", DEFAULT_BATCH_SIZE)
-    feed_ids = payload.get("feed_ids", None)
+    stable_feed_ids = payload.get("stable_feed_ids", None)
     verbose = payload.get("verbose", False)
     fallback_to_get = payload.get("fallback_to_get", DEFAULT_FALLBACK_TO_GET)
     return (
@@ -65,7 +65,7 @@ def get_parameters(payload: dict):
         concurrency,
         timeout_seconds,
         batch_size,
-        feed_ids,
+        stable_feed_ids,
         verbose,
         fallback_to_get,
     )
@@ -83,7 +83,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         concurrency (int): Number of concurrent HTTP workers. Default: 10.
         timeout_seconds (int): Per-request HTTP timeout in seconds. Default: 20.
         batch_size (int): Number of results committed to DB at a time. Default: 50.
-        feed_ids (list[str] | None): If provided, only check these specific feed IDs. Default: None.
+        stable_feed_ids (list[str] | None): If provided, only check feeds with these stable IDs. Default: None.
         verbose (bool): If True, include a 'failures' list in the response with stable_id and
                         reason for each failed check. Default: False.
         fallback_to_get (bool): If True, retry failed HEAD requests with a lightweight GET
@@ -96,7 +96,7 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         concurrency,
         timeout_seconds,
         batch_size,
-        feed_ids,
+        stable_feed_ids,
         verbose,
         fallback_to_get,
     ) = get_parameters(payload)
@@ -107,16 +107,16 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
         concurrency=concurrency,
         timeout_seconds=timeout_seconds,
         batch_size=batch_size,
-        feed_ids=feed_ids,
+        stable_feed_ids=stable_feed_ids,
         verbose=verbose,
         fallback_to_get=fallback_to_get,
     )
 
 
-def get_feeds_query(db_session: Session, feed_ids: Optional[list[str]] = None):
+def get_feeds_query(db_session: Session, stable_feed_ids: Optional[list[str]] = None):
     """Return a query for non-deprecated, published GTFS feeds that have a producer_url.
 
-    If feed_ids is provided, restrict results to those specific feed IDs.
+    If stable_feed_ids is provided, restrict results to those specific stable IDs.
     """
     query = db_session.query(Gtfsfeed).filter(
         Feed.data_type == "gtfs",
@@ -124,8 +124,8 @@ def get_feeds_query(db_session: Session, feed_ids: Optional[list[str]] = None):
         Feed.operational_status == "published",
         Feed.producer_url.isnot(None),
     )
-    if feed_ids is not None:
-        query = query.filter(Feed.id.in_(feed_ids))
+    if stable_feed_ids is not None:
+        query = query.filter(Feed.stable_id.in_(stable_feed_ids))
     return query
 
 
@@ -179,12 +179,12 @@ def check_gtfs_feed_availability(
     concurrency: int = DEFAULT_CONCURRENCY,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     batch_size: int = DEFAULT_BATCH_SIZE,
-    feed_ids: Optional[list[str]] = None,
+    stable_feed_ids: Optional[list[str]] = None,
     verbose: bool = False,
     fallback_to_get: bool = DEFAULT_FALLBACK_TO_GET,
 ) -> dict:
     """
-    Check availability of active/published GTFS feeds via HTTP HEAD and store results.
+    Check availability of non-deprecated/published GTFS feeds via HTTP HEAD and store results.
 
     All feeds are checked concurrently. Results are committed to the DB every
     `batch_size` completions so a failure partway through does not discard
@@ -198,7 +198,7 @@ def check_gtfs_feed_availability(
         concurrency: Number of parallel HTTP workers.
         timeout_seconds: Timeout (seconds) per HTTP request.
         batch_size: Number of completed results committed to DB at a time.
-        feed_ids: If provided, only check these specific feed IDs.
+        stable_feed_ids: If provided, only check feeds with these stable IDs.
         verbose: If True, include a 'failures' list in the response with stable_id,
                  reason, content_type, and is_zip for each failed check.
         fallback_to_get: If True, retry failed HEAD requests with a lightweight GET
@@ -208,7 +208,7 @@ def check_gtfs_feed_availability(
         dict: Summary with counts of total, successful, and failed checks.
               When verbose=True, also includes a 'failures' list.
     """
-    query = get_feeds_query(db_session, feed_ids=feed_ids)
+    query = get_feeds_query(db_session, stable_feed_ids=stable_feed_ids)
     if limit is not None:
         query = query.limit(limit)
 
@@ -227,6 +227,13 @@ def check_gtfs_feed_availability(
 
     feeds = query.all()
     total = len(feeds)
+
+    if stable_feed_ids is not None:
+        found = {feed.stable_id for feed in feeds}
+        missing = sorted(set(stable_feed_ids) - found)
+        if missing:
+            raise ValueError(f"stable_feed_ids not found: {missing}")
+
     stable_id_map = {feed.id: feed.stable_id for feed in feeds}
     start_time = time.monotonic()
     logging.info(

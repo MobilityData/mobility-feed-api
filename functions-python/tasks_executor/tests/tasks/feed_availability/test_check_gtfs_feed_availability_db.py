@@ -18,7 +18,10 @@ import unittest
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from tasks.feed_availability.check_gtfs_feed_availability import get_feeds_query
+from tasks.feed_availability.check_gtfs_feed_availability import (
+    get_feeds_query,
+    check_gtfs_feed_availability,
+)
 from test_shared.test_utils.database_utils import default_db_url
 
 EXPECTED_AVAILABILITY_IDS = {
@@ -56,33 +59,45 @@ class TestGetFeedsQueryDB(unittest.TestCase):
         self.assertNotIn("feed_availability_no_url", result_ids)
 
     @with_db_session(db_url=default_db_url)
-    def test_feed_ids_filter_returns_only_requested_feeds(self, db_session: Session):
-        """Providing feed_ids restricts results to exactly those feeds."""
-        results = get_feeds_query(db_session, feed_ids=["feed_availability_1"]).all()
+    def test_stable_feed_ids_filter_returns_only_requested_feeds(
+        self, db_session: Session
+    ):
+        """Providing stable_feed_ids restricts results to exactly those feeds."""
+        results = get_feeds_query(
+            db_session, stable_feed_ids=["stable_feed_availability_1"]
+        ).all()
         result_ids = {f.id for f in results}
         self.assertEqual(result_ids, {"feed_availability_1"})
 
     @with_db_session(db_url=default_db_url)
-    def test_feed_ids_filter_with_multiple_ids(self, db_session: Session):
-        """Multiple feed_ids are all returned when they match the base filters."""
+    def test_stable_feed_ids_filter_with_multiple_ids(self, db_session: Session):
+        """Multiple stable_feed_ids are all returned when they match the base filters."""
         results = get_feeds_query(
-            db_session, feed_ids=["feed_availability_1", "feed_availability_2"]
+            db_session,
+            stable_feed_ids=[
+                "stable_feed_availability_1",
+                "stable_feed_availability_2",
+            ],
         ).all()
         result_ids = {f.id for f in results}
         self.assertEqual(result_ids, {"feed_availability_1", "feed_availability_2"})
 
     @with_db_session(db_url=default_db_url)
-    def test_feed_ids_filter_excludes_non_matching_ids(self, db_session: Session):
-        """feed_ids that don't satisfy base filters (deprecated) are excluded."""
+    def test_stable_feed_ids_filter_excludes_non_matching_ids(
+        self, db_session: Session
+    ):
+        """stable_feed_ids that don't satisfy base filters (deprecated) are excluded."""
         results = get_feeds_query(
-            db_session, feed_ids=["feed_availability_deprecated"]
+            db_session, stable_feed_ids=["stable_feed_availability_deprecated"]
         ).all()
         self.assertEqual(len(results), 0)
 
     @with_db_session(db_url=default_db_url)
-    def test_feed_ids_with_unknown_id_returns_empty(self, db_session: Session):
-        """An unknown feed_id returns an empty result set."""
-        results = get_feeds_query(db_session, feed_ids=["nonexistent_feed"]).all()
+    def test_stable_feed_ids_with_unknown_id_returns_empty(self, db_session: Session):
+        """An unknown stable_feed_id returns an empty result set."""
+        results = get_feeds_query(
+            db_session, stable_feed_ids=["nonexistent_feed"]
+        ).all()
         self.assertEqual(len(results), 0)
 
     @with_db_session(db_url=default_db_url)
@@ -100,6 +115,34 @@ class TestGetFeedsQueryDB(unittest.TestCase):
                 feed.producer_url,
                 f"Feed {feed.id} has a null producer_url but should have been filtered out",
             )
+
+
+class TestCheckGtfsFeedAvailabilityValidationDB(unittest.TestCase):
+    @with_db_session(db_url=default_db_url)
+    def test_raises_on_missing_stable_feed_ids(self, db_session: Session):
+        """ValueError is raised when a requested stable_id is not in the DB."""
+        with self.assertRaises(ValueError) as ctx:
+            check_gtfs_feed_availability(
+                db_session=db_session,
+                dry_run=False,
+                skip_db_update=True,
+                stable_feed_ids=["stable_feed_availability_1", "mdb-does-not-exist"],
+            )
+        self.assertIn("mdb-does-not-exist", str(ctx.exception))
+
+    @with_db_session(db_url=default_db_url)
+    def test_no_error_when_all_stable_feed_ids_found(self, db_session: Session):
+        """No error raised when all stable_feed_ids are present in the DB."""
+        result = check_gtfs_feed_availability(
+            db_session=db_session,
+            dry_run=False,
+            skip_db_update=True,
+            stable_feed_ids=[
+                "stable_feed_availability_1",
+                "stable_feed_availability_2",
+            ],
+        )
+        self.assertEqual(result["total_feeds"], 2)
 
 
 if __name__ == "__main__":

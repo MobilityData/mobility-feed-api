@@ -250,7 +250,7 @@ def _execute_http_request(
     preload = read_bytes == 0
     try:
         ctx = create_feed_ssl_context()
-        retries = urllib3.Retry(redirect=10)
+        retries = urllib3.Retry(redirect=10, connect=1, read=0, status=0)
         with urllib3.PoolManager(ssl_context=ctx) as http:
             start = time.monotonic()
             r = http.request(

@@ -57,7 +57,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             concurrency=15,
             timeout_seconds=20,
             batch_size=50,
-            feed_ids=None,
+            stable_feed_ids=None,
             verbose=False,
             fallback_to_get=True,
         )
@@ -75,7 +75,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             "concurrency": 20,
             "timeout_seconds": 30,
             "batch_size": 25,
-            "feed_ids": ["f1", "f2"],
+            "stable_feed_ids": ["f1", "f2"],
             "verbose": True,
             "fallback_to_get": False,
         }
@@ -87,7 +87,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             concurrency=20,
             timeout_seconds=30,
             batch_size=25,
-            feed_ids=["f1", "f2"],
+            stable_feed_ids=["f1", "f2"],
             verbose=True,
             fallback_to_get=False,
         )
@@ -106,24 +106,24 @@ class TestGetFeedsQuery(unittest.TestCase):
         query_mock.join.assert_not_called()
         query_mock.filter.assert_called_once()
 
-    def test_feed_ids_adds_extra_filter(self):
+    def test_stable_feed_ids_adds_extra_filter(self):
         db_session = MagicMock()
         query_mock = MagicMock()
         db_session.query.return_value = query_mock
         query_mock.filter.return_value = query_mock
 
-        get_feeds_query(db_session, feed_ids=["f1", "f2"])
+        get_feeds_query(db_session, stable_feed_ids=["f1", "f2"])
 
-        # filter called twice: once for base conditions, once for feed_ids
+        # filter called twice: once for base conditions, once for stable_feed_ids
         self.assertEqual(query_mock.filter.call_count, 2)
 
-    def test_no_feed_ids_does_not_add_extra_filter(self):
+    def test_no_stable_feed_ids_does_not_add_extra_filter(self):
         db_session = MagicMock()
         query_mock = MagicMock()
         db_session.query.return_value = query_mock
         query_mock.filter.return_value = query_mock
 
-        get_feeds_query(db_session, feed_ids=None)
+        get_feeds_query(db_session, stable_feed_ids=None)
 
         self.assertEqual(query_mock.filter.call_count, 1)
 
@@ -453,19 +453,36 @@ class TestCheckGtfsFeedAvailability(unittest.TestCase):
         self.assertEqual(result["failed"], 1)
         self.assertEqual(result["succeeded"], 0)
 
-    def test_feed_ids_filters_query(self):
-        feeds = [_make_feed("f1", "http://a.com"), _make_feed("f2", "http://b.com")]
+    def test_stable_feed_ids_filters_query(self):
+        feeds = [
+            _make_feed("f1", "http://a.com", stable_id="mdb-1"),
+            _make_feed("f2", "http://b.com", stable_id="mdb-2"),
+        ]
         db_session = self._make_mock_session(feeds)
 
         check_gtfs_feed_availability(
             db_session=db_session,
             dry_run=False,
             skip_db_update=True,
-            feed_ids=["f1", "f2"],
+            stable_feed_ids=["mdb-1", "mdb-2"],
         )
 
-        # filter should have been called twice: base conditions + feed_ids
+        # filter should have been called twice: base conditions + stable_feed_ids
         self.assertEqual(db_session.query().filter.call_count, 2)
+
+    def test_stable_feed_ids_raises_on_missing_ids(self):
+        feeds = [_make_feed("f1", "http://a.com", stable_id="mdb-1")]
+        db_session = self._make_mock_session(feeds)
+
+        with self.assertRaises(ValueError) as ctx:
+            check_gtfs_feed_availability(
+                db_session=db_session,
+                dry_run=False,
+                skip_db_update=True,
+                stable_feed_ids=["mdb-1", "mdb-999", "mdb-888"],
+            )
+        self.assertIn("mdb-999", str(ctx.exception))
+        self.assertIn("mdb-888", str(ctx.exception))
 
     def test_verbose_false_omits_failures_key(self):
         feeds = [_make_feed("f1", "http://a.com")]
