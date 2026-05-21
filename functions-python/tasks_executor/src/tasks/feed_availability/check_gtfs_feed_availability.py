@@ -114,13 +114,13 @@ def check_gtfs_feed_availability_handler(payload: dict) -> dict:
 
 
 def get_feeds_query(db_session: Session, feed_ids: Optional[list[str]] = None):
-    """Return a query for active, published GTFS feeds that have a producer_url.
+    """Return a query for non-deprecated, published GTFS feeds that have a producer_url.
 
     If feed_ids is provided, restrict results to those specific feed IDs.
     """
     query = db_session.query(Gtfsfeed).filter(
         Feed.data_type == "gtfs",
-        Feed.status == "active",
+        Feed.status != "deprecated",
         Feed.operational_status == "published",
         Feed.producer_url.isnot(None),
     )

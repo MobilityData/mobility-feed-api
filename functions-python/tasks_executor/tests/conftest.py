@@ -137,6 +137,16 @@ def populate_database(db_session: Session | None = None):
             producer_url="http://producer3.example.com/feed.zip",
             created_at=now,
         ),
+        # Should NOT be returned — deprecated
+        Gtfsfeed(
+            id="feed_availability_deprecated",
+            stable_id="stable_feed_availability_deprecated",
+            data_type="gtfs",
+            status="deprecated",
+            operational_status="published",
+            producer_url="http://producer5.example.com/feed.zip",
+            created_at=now,
+        ),
         # Should NOT be returned — no producer_url
         Gtfsfeed(
             id="feed_availability_no_url",

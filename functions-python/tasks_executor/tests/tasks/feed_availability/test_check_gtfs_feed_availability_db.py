@@ -21,30 +21,37 @@ from shared.database.database import with_db_session
 from tasks.feed_availability.check_gtfs_feed_availability import get_feeds_query
 from test_shared.test_utils.database_utils import default_db_url
 
-EXPECTED_AVAILABILITY_IDS = {"feed_availability_1", "feed_availability_2"}
+EXPECTED_AVAILABILITY_IDS = {
+    "feed_availability_1",
+    "feed_availability_2",
+    "feed_availability_inactive",
+}
 
 
 class TestGetFeedsQueryDB(unittest.TestCase):
     """Integration tests for get_feeds_query against the real test database.
 
     Seed data (from conftest.py) includes:
-      - feed_availability_1: active, published, gtfs, has producer_url  → MATCH
-      - feed_availability_2: active, published, gtfs, has producer_url  → MATCH
-      - feed_availability_inactive: inactive, published, gtfs, has producer_url → NO MATCH
-      - feed_availability_no_url: active, published, gtfs, no producer_url     → NO MATCH
+      - feed_availability_1:        active,     published, gtfs, has producer_url → MATCH
+      - feed_availability_2:        active,     published, gtfs, has producer_url → MATCH
+      - feed_availability_inactive: inactive,   published, gtfs, has producer_url → MATCH
+      - feed_availability_deprecated: deprecated, published, gtfs, has producer_url → NO MATCH
+      - feed_availability_no_url:   active,     published, gtfs, no producer_url  → NO MATCH
     """
 
     @with_db_session(db_url=default_db_url)
-    def test_returns_only_active_published_feeds_with_url(self, db_session: Session):
-        """Only active+published GTFS feeds that have a producer_url are returned."""
+    def test_returns_non_deprecated_published_feeds_with_url(self, db_session: Session):
+        """Non-deprecated published GTFS feeds with a producer_url are returned."""
         results = get_feeds_query(db_session).all()
         result_ids = {f.id for f in results}
         self.assertTrue(
             EXPECTED_AVAILABILITY_IDS.issubset(result_ids),
             f"Expected {EXPECTED_AVAILABILITY_IDS} to be in results, got {result_ids}",
         )
-        # Inactive feed must NOT appear
-        self.assertNotIn("feed_availability_inactive", result_ids)
+        # Inactive feed MUST appear (not deprecated)
+        self.assertIn("feed_availability_inactive", result_ids)
+        # Deprecated feed must NOT appear
+        self.assertNotIn("feed_availability_deprecated", result_ids)
         # Feed without producer_url must NOT appear
         self.assertNotIn("feed_availability_no_url", result_ids)
 
@@ -62,13 +69,13 @@ class TestGetFeedsQueryDB(unittest.TestCase):
             db_session, feed_ids=["feed_availability_1", "feed_availability_2"]
         ).all()
         result_ids = {f.id for f in results}
-        self.assertEqual(result_ids, EXPECTED_AVAILABILITY_IDS)
+        self.assertEqual(result_ids, {"feed_availability_1", "feed_availability_2"})
 
     @with_db_session(db_url=default_db_url)
     def test_feed_ids_filter_excludes_non_matching_ids(self, db_session: Session):
-        """feed_ids that don't satisfy base filters (inactive) are excluded."""
+        """feed_ids that don't satisfy base filters (deprecated) are excluded."""
         results = get_feeds_query(
-            db_session, feed_ids=["feed_availability_inactive"]
+            db_session, feed_ids=["feed_availability_deprecated"]
         ).all()
         self.assertEqual(len(results), 0)
 

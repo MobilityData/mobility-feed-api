@@ -114,7 +114,7 @@ To backfill MD5 hashes for existing GTFS datasets (reads the MD5 from the GCS ob
 | `only_missing_hashes` | bool | `true` | Skip datasets that already have `hash_md5` set |
 | `limit` | int \| null | `10` | Maximum number of datasets to process; omit or pass `null` for no limit |
 
-To check the availability of active/published GTFS feeds via HTTP HEAD requests:
+To check the availability of non-deprecated published GTFS feeds via HTTP HEAD requests (with GET fallback):
 
 ```json
 {
