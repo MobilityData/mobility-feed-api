@@ -159,8 +159,6 @@ tasks = {
         "description": (
             "Check availability of active/published GTFS feeds via HTTP HEAD requests "
             "and store results in gtfs_feed_availability_check. "
-            "Parameters: dry_run (default true), skip_db_update (default false), "
-            "limit (optional), concurrency (default 10), timeout_seconds (default 10)."
         ),
         "handler": check_gtfs_feed_availability_handler,
     },
