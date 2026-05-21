@@ -223,6 +223,15 @@ def _is_zip_from_content_type(content_type: Optional[str]) -> Optional[bool]:
     return False
 
 
+def _log_redirects(stable_id: str, producer_url: str, redirect_urls: list) -> None:
+    """Log redirect URLs that differ from the original producer_url."""
+    unique = [u for u in dict.fromkeys(redirect_urls) if u != producer_url]
+    if unique:
+        logging.info(
+            "Feed %s (%s) redirected through: %s", stable_id, producer_url, unique
+        )
+
+
 def _execute_http_request(
     method: str,
     url: str,
@@ -233,20 +242,22 @@ def _execute_http_request(
     """Execute a single HTTP request and return a result tuple.
 
     Returns:
-        (status_code, latency_ms, resp_headers, first_bytes, error_type, error_message)
-        On network/timeout errors, status_code/latency_ms/resp_headers are None and
-        first_bytes is b''.
+        (status_code, latency_ms, resp_headers, first_bytes, error_type, error_message, redirect_urls)
+        redirect_urls is a list of URLs the request was redirected through.
+        On network/timeout errors, status_code/latency_ms/resp_headers are None,
+        first_bytes is b'', and redirect_urls is [].
     """
     preload = read_bytes == 0
     try:
         ctx = create_feed_ssl_context()
+        retries = urllib3.Retry(redirect=10)
         with urllib3.PoolManager(ssl_context=ctx) as http:
             start = time.monotonic()
             r = http.request(
                 method,
                 url,
                 headers=headers,
-                redirect=True,
+                retries=retries,
                 preload_content=preload,
                 timeout=urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds),
             )
@@ -256,13 +267,26 @@ def _execute_http_request(
             first_bytes = r.read(read_bytes) if not preload else b""
             if not preload:
                 r.release_conn()
-        return status_code, latency_ms, resp_headers, first_bytes, None, None
+            redirect_urls = [
+                h.redirect_location
+                for h in (r.retries.history or [])
+                if h.redirect_location
+            ]
+        return (
+            status_code,
+            latency_ms,
+            resp_headers,
+            first_bytes,
+            None,
+            None,
+            redirect_urls,
+        )
     except urllib3.exceptions.MaxRetryError as exc:
-        return None, None, None, b"", "ConnectionError", str(exc)
+        return None, None, None, b"", "ConnectionError", str(exc), []
     except urllib3.exceptions.TimeoutError as exc:
-        return None, None, None, b"", "Timeout", str(exc)
+        return None, None, None, b"", "Timeout", str(exc), []
     except urllib3.exceptions.HTTPError as exc:
-        return None, None, None, b"", type(exc).__name__, str(exc)
+        return None, None, None, b"", type(exc).__name__, str(exc), []
 
 
 def perform_request(
@@ -296,9 +320,15 @@ def perform_request(
         credentials=credentials,
     )
 
-    status_code, latency_ms, resp_headers, _, error_type, error_message = (
-        _execute_http_request("HEAD", resolved_url, headers, timeout_seconds)
-    )
+    (
+        status_code,
+        latency_ms,
+        resp_headers,
+        _,
+        error_type,
+        error_message,
+        redirect_urls,
+    ) = _execute_http_request("HEAD", resolved_url, headers, timeout_seconds)
     request_type = "http_head"
     success = status_code is not None and status_code < 400
     content_type = _parse_content_type(
@@ -314,6 +344,7 @@ def perform_request(
             producer_url,
             error_message,
         )
+    _log_redirects(stable_id, producer_url, redirect_urls)
 
     if not success and fallback_to_get:
         logging.info(
@@ -330,6 +361,7 @@ def perform_request(
             first_bytes,
             error_type,
             error_message,
+            redirect_urls,
         ) = _execute_http_request(
             "GET", resolved_url, headers, timeout_seconds, read_bytes=4
         )
@@ -351,6 +383,7 @@ def perform_request(
                 producer_url,
                 error_message,
             )
+        _log_redirects(stable_id, producer_url, redirect_urls)
 
     return GtfsFeedAvailabilityCheck(
         feed_id=feed_id,
