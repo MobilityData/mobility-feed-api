@@ -55,7 +55,7 @@ class TestCheckGtfsFeedAvailabilityHandler(unittest.TestCase):
             skip_db_update=False,
             limit=None,
             concurrency=15,
-            timeout_seconds=10,
+            timeout_seconds=20,
             batch_size=50,
             feed_ids=None,
             verbose=False,
