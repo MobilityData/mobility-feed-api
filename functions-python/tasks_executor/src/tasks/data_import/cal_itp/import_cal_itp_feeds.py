@@ -600,7 +600,13 @@ def _process_cal_itp_dataset(
         res_id = (
             str(resource.get("schedule_source_record_id") or "")
             if resource.get("format") == GTFS_SCHEDULE
-            else str(resource.get(f"{next((t for t in ENTITY_TYPES_MAP if resource.get(f'{t}_gtfs_dataset_name')), None)}_source_record_id") or "")
+            else str(
+                resource.get(
+                    f"{next((t for t in ENTITY_TYPES_MAP if resource.get(f'{t}_gtfs_dataset_name')), None)}"
+                    f"_source_record_id"
+                )
+                or ""
+            )
         )
 
         # Validate required fields up-front (fixes: creating feeds before validation)
@@ -617,7 +623,8 @@ def _process_cal_itp_dataset(
             # cal_itp-{service_source_record_id}-{feed_type}
             # where feed_type = [s, sa, tu, vp] (schedule, service_alerts, trip_updates, vehicle_positions)
             # and because service_source_record_id is stable
-            feed_type_code = ENTITY_TYPES_MAP.get(feed_type, "s") # default with s for schedule feeds which are not an EntityType
+            # default with s for schedule feeds which are not an EntityType
+            feed_type_code = ENTITY_TYPES_MAP.get(feed_type, "s")
             stable_id = f"cal_itp-{service_id}-{feed_type_code}"
             processed_stable_ids.add(stable_id)
 
@@ -676,7 +683,8 @@ def _process_cal_itp_dataset(
                         continue
                     else:
                         logger.info(
-                            "Change detected for Cal-ITP GTFS feed stable_id=%s; updating. DB fingerprint: %s, API fingerprint: %s",
+                            "Change detected for Cal-ITP GTFS feed stable_id=%s; updating."
+                            " DB fingerprint: %s, API fingerprint: %s",
                             stable_id,
                             db_fp,
                             api_fp,
@@ -739,7 +747,8 @@ def _process_cal_itp_dataset(
                         continue
                     else:
                         logger.info(
-                            "Change detected for Cal-ITP RT feed stable_id=%s; updating. DB fingerprint: %s, API fingerprint: %s",
+                            "Change detected for Cal-ITP RT feed stable_id=%s; updating."
+                            " DB fingerprint: %s, API fingerprint: %s",
                             stable_id,
                             db_rt_fp,
                             api_rt_fp,
@@ -865,7 +874,8 @@ def _import_cal_itp(db_session: Session, dry_run: bool = True) -> dict:
 
     for idx, dataset in enumerate(datasets, start=1):
         previous_total_processed = total_processed
-        logger.info("Processing dataset %d/%d: service_id=%s service_name=%s",
+        logger.info(
+            "Processing dataset %d/%d: service_id=%s service_name=%s",
             idx, len(datasets), dataset.get("service_source_record_id"), dataset.get("service_name")
         )
         try:
