@@ -12,7 +12,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from tasks.data_import.cal_itp.import_cal_itp_feeds import (
     import_cal_itp_handler,
-    _get_license_url,
     _probe_head_format,
     _get_entity_types_from_resource,
     _is_bay_area_511,
@@ -23,7 +22,6 @@ from tasks.data_import.cal_itp.import_cal_itp_feeds import (
     CAL_ITP_SQL_QUERY_URL,
 )
 from test_shared.test_utils.database_utils import default_db_url
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fake HTTP doubles
@@ -148,20 +146,6 @@ def _make_record(
 
 
 class TestCalItpHelpers(unittest.TestCase):
-    def test_get_license_url_mapping_and_unknown(self):
-        # Known (case-insensitive)
-        self.assertEqual(
-            _get_license_url("odc-odbl"),
-            "https://opendatacommons.org/licenses/odbl/1.0/",
-        )
-        self.assertEqual(
-            _get_license_url("ODC-ODBL"),
-            "https://opendatacommons.org/licenses/odbl/1.0/",
-        )
-
-        # Unknown and None
-        self.assertIsNone(_get_license_url("some-other-license"))
-        self.assertIsNone(_get_license_url(None))
 
     def test_probe_head_format_detects_zip_and_csv(self):
         sess = MagicMock()
@@ -447,9 +431,7 @@ class TestFilterCalItpRecords(unittest.TestCase):
         # Bay Area: Regional Subfeed wins (1 record)
         # Normal: customer_facing=true kept (1 record)
         self.assertEqual(len(result), 2)
-        bay_results = [
-            r for r in result if r["service_source_record_id"] == "bay-5"
-        ]
+        bay_results = [r for r in result if r["service_source_record_id"] == "bay-5"]
         self.assertEqual(len(bay_results), 1)
         self.assertEqual(bay_results[0]["regional_feed_type"], "Regional Subfeed")
         normal_results = [
@@ -556,9 +538,7 @@ class TestImportCalItp(unittest.TestCase):
         self.assertGreaterEqual(len(called_args), 2)
         detached_feed = called_args[0]
         merged_feed = db_session.merge(detached_feed)
-        self.assertEqual(
-            getattr(merged_feed, "stable_id", None), "cal_itp-svc-1-s"
-        )
+        self.assertEqual(getattr(merged_feed, "stable_id", None), "cal_itp-svc-1-s")
         self.assertIsInstance(called_args[1], str)  # execution_id
 
     @with_db_session(db_url=default_db_url)

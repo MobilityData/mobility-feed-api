@@ -57,7 +57,7 @@ CKAN_DATASET_IDS = {
     "gtfs_datasets": "e4ca5bd4-e9ce-40aa-a58a-3a6d78b042bd",
     "services": "dbacfa9f-2148-454c-a08f-a77233f2b8c0",
     "provider_gtfs_data": "ebe116fb-b9da-4fee-a0c5-497c9d6d61d7",
-    "organizations": "677e1271-fea5-4c21-92fa-59eb336fde94"
+    "organizations": "677e1271-fea5-4c21-92fa-59eb336fde94",
 }
 
 ENTITY_TYPES_MAP = {
@@ -134,8 +134,10 @@ def _fetch_cal_itp_datasets(session_http: requests.Session) -> List[dict]:
     sql_query = CKAN_QUERY_TEMPLATE_PATH.read_text(encoding="utf-8").format(
         gtfs_dataset=CKAN_DATASET_IDS.get("gtfs_datasets", "gtfs_dataset"),
         services=CKAN_DATASET_IDS.get("services", "services"),
-        provider_gtfs_data=CKAN_DATASET_IDS.get("provider_gtfs_data", "provider_gtfs_data"),
-        organizations=CKAN_DATASET_IDS.get("organizations", "organizations")
+        provider_gtfs_data=CKAN_DATASET_IDS.get(
+            "provider_gtfs_data", "provider_gtfs_data"
+        ),
+        organizations=CKAN_DATASET_IDS.get("organizations", "organizations"),
     )
     encoded_sql = requests.utils.quote(sql_query)
     logger.debug("Rendered Cal-ITP CKAN SQL query: %s", encoded_sql)
@@ -221,9 +223,7 @@ def _filter_cal_itp_records(records: List[dict]) -> List[dict]:
         is_bay_area = any(_is_bay_area_511(r) for r in group)
 
         if is_bay_area:
-            types_present = {
-                str(r.get("regional_feed_type", "") or "") for r in group
-            }
+            types_present = {str(r.get("regional_feed_type", "") or "") for r in group}
             selected_type = None
             for ptype in REGIONAL_FEED_TYPE_PRIORITY:
                 if ptype in types_present:
@@ -232,7 +232,8 @@ def _filter_cal_itp_records(records: List[dict]) -> List[dict]:
 
             if selected_type is not None:
                 matched = [
-                    r for r in group
+                    r
+                    for r in group
                     if str(r.get("regional_feed_type", "") or "") == selected_type
                 ]
                 kept = matched[:1]
@@ -313,7 +314,7 @@ TFeed = TypeVar("TFeed", bound=Feed)
 
 
 def _validate_required_cal_itp_fields(
-    resource: dict
+    resource: dict,
 ) -> Tuple[str, str, str, str, str, str]:
     """
     Validate required Cal-ITP fields BEFORE creating/upserting DB rows.
@@ -356,7 +357,9 @@ def _validate_required_cal_itp_fields(
             f"{feed_type}_dataset_url", f"realtime {feed_type} feed"
         )
     else:
-        raise InvalidCalItpFeedError(f"Cal-ITP resource has unknown format: {res_format!r}")
+        raise InvalidCalItpFeedError(
+            f"Cal-ITP resource has unknown format: {res_format!r}"
+        )
 
     return service_id, res_format, res_id, res_name, res_url, feed_type
 
@@ -520,12 +523,12 @@ def _build_db_rt_fingerprint_cal_itp(feed: Gtfsrealtimefeed) -> dict:
         "feed_name": getattr(feed, "feed_name", None),
         "provider": getattr(feed, "provider", None),
         "producer_url": getattr(feed, "producer_url", None),
-        "static_refs": sorted({gf.stable_id for gf in feed.gtfs_feeds})
-        if feed.gtfs_feeds
-        else [],
-        "entity_types": sorted({et.name for et in feed.entitytypes})
-        if feed.entitytypes
-        else [],
+        "static_refs": (
+            sorted({gf.stable_id for gf in feed.gtfs_feeds}) if feed.gtfs_feeds else []
+        ),
+        "entity_types": (
+            sorted({et.name for et in feed.entitytypes}) if feed.entitytypes else []
+        ),
     }
 
 
@@ -568,23 +571,31 @@ def _process_cal_itp_dataset(
 
     _raw_resources = []
     if dataset.get("schedule_gtfs_dataset_name"):
-        _raw_resources.append({
-            **_common_fields,
-            "format": GTFS_SCHEDULE,
-            "schedule_source_record_id": dataset.get("schedule_source_record_id"),
-            "schedule_gtfs_dataset_name": dataset.get("schedule_gtfs_dataset_name"),
-            "schedule_dataset_url": dataset.get("schedule_dataset_url"),
-        })
+        _raw_resources.append(
+            {
+                **_common_fields,
+                "format": GTFS_SCHEDULE,
+                "schedule_source_record_id": dataset.get("schedule_source_record_id"),
+                "schedule_gtfs_dataset_name": dataset.get("schedule_gtfs_dataset_name"),
+                "schedule_dataset_url": dataset.get("schedule_dataset_url"),
+            }
+        )
     for _rt_type in ENTITY_TYPES_MAP:
         if dataset.get(f"{_rt_type}_gtfs_dataset_name"):
-            _raw_resources.append({
-                **_common_fields,
-                "format": GTFS_REALTIME,
-                "entity_type": [f"{_rt_type}"],
-                f"{_rt_type}_source_record_id": dataset.get(f"{_rt_type}_source_record_id"),
-                f"{_rt_type}_gtfs_dataset_name": dataset.get(f"{_rt_type}_gtfs_dataset_name"),
-                f"{_rt_type}_dataset_url": dataset.get(f"{_rt_type}_dataset_url"),
-            })
+            _raw_resources.append(
+                {
+                    **_common_fields,
+                    "format": GTFS_REALTIME,
+                    "entity_type": [f"{_rt_type}"],
+                    f"{_rt_type}_source_record_id": dataset.get(
+                        f"{_rt_type}_source_record_id"
+                    ),
+                    f"{_rt_type}_gtfs_dataset_name": dataset.get(
+                        f"{_rt_type}_gtfs_dataset_name"
+                    ),
+                    f"{_rt_type}_dataset_url": dataset.get(f"{_rt_type}_dataset_url"),
+                }
+            )
     resources = sorted(
         _raw_resources,
         key=lambda r: 0 if r.get("schedule_gtfs_dataset_name") else 1,
@@ -611,7 +622,9 @@ def _process_cal_itp_dataset(
 
         # Validate required fields up-front (fixes: creating feeds before validation)
         try:
-            service_id, res_format, res_id, res_name, res_url, feed_type = _validate_required_cal_itp_fields(resource)
+            service_id, res_format, res_id, res_name, res_url, feed_type = (
+                _validate_required_cal_itp_fields(resource)
+            )
             logger.info(
                 "Validated Cal-ITP resource fields for resource_id=%s: format=%s name=%s url=%s",
                 res_id,
@@ -667,7 +680,7 @@ def _process_cal_itp_dataset(
                         resource=resource,
                         producer_url=res_url,
                         feed_name=res_name,
-                        stable_id=stable_id
+                        stable_id=stable_id,
                     )
                     db_fp = _build_db_schedule_fingerprint_cal_itp(gtfs_feed)
                     if db_fp == api_fp:
@@ -696,11 +709,13 @@ def _process_cal_itp_dataset(
                     res_name=res_name,
                     producer_url=res_url,
                     locations=locations,
-                    db_session=db_session
+                    db_session=db_session,
                 )
                 _ensure_cal_itp_external_id(gtfs_feed, res_id)
 
-                schedule_feeds_by_service_id.setdefault(service_id, []).append(gtfs_feed)
+                schedule_feeds_by_service_id.setdefault(service_id, []).append(
+                    gtfs_feed
+                )
 
                 if new_feed:
                     created_gtfs += 1
@@ -760,7 +775,7 @@ def _process_cal_itp_dataset(
                     res_name=res_name,
                     producer_url=res_url,
                     locations=locations,
-                    db_session=db_session
+                    db_session=db_session,
                 )
                 _ensure_cal_itp_external_id(rt_feed, res_id)
 
@@ -876,7 +891,10 @@ def _import_cal_itp(db_session: Session, dry_run: bool = True) -> dict:
         previous_total_processed = total_processed
         logger.info(
             "Processing dataset %d/%d: service_id=%s service_name=%s",
-            idx, len(datasets), dataset.get("service_source_record_id"), dataset.get("service_name")
+            idx,
+            len(datasets),
+            dataset.get("service_source_record_id"),
+            dataset.get("service_name"),
         )
         try:
             deltas, new_feeds, changed_ids = _process_cal_itp_dataset(
@@ -913,7 +931,9 @@ def _import_cal_itp(db_session: Session, dry_run: bool = True) -> dict:
                 changed_feed_stable_ids = []
 
         except Exception as e:
-            logger.exception("Exception processing Cal-ITP dataset at index=%d: %s", idx, e)
+            logger.exception(
+                "Exception processing Cal-ITP dataset at index=%d: %s", idx, e
+            )
             continue
 
     if dry_run:
