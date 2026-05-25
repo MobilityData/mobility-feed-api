@@ -28,6 +28,11 @@ from test_shared.test_utils.database_utils import default_db_url
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+class _FakeElapsed:
+    def total_seconds(self):
+        return 0.0
+
+
 class _FakeResponse:
     def __init__(
         self,
@@ -38,6 +43,8 @@ class _FakeResponse:
         self._body = body or {}
         self.status_code = status
         self.headers = headers or {"Content-Type": "application/json; charset=utf-8"}
+        self.elapsed = _FakeElapsed()
+        self.content = b""
 
     def json(self):
         return self._body
@@ -365,8 +372,8 @@ class TestFilterCalItpRecords(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["regional_feed_type"], "Regional Subfeed")
 
-    def test_bay_area_keeps_all_matching_highest_priority(self):
-        """Multiple records with the same highest-priority type are all kept."""
+    def test_bay_area_keeps_only_first_when_multiple_match_highest_priority(self):
+        """When multiple records share the same highest-priority type, only the first is kept."""
         records = [
             _make_record(
                 service_id="bay-3",
@@ -380,7 +387,8 @@ class TestFilterCalItpRecords(unittest.TestCase):
             ),
         ]
         result = _filter_cal_itp_records(records)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["regional_feed_type"], "Regional Subfeed")
 
     def test_bay_area_fallback_keeps_all(self):
         """If no priority type exists, keep all records as fallback."""

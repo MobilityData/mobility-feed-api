@@ -144,8 +144,17 @@ def _fetch_cal_itp_datasets(session_http: requests.Session) -> List[dict]:
     endpoint = f"{CAL_ITP_SQL_QUERY_URL}{encoded_sql}"
     res = session_http.get(endpoint, timeout=REQUEST_TIMEOUT_S, headers={})
     res.raise_for_status()
-    elapsed_ms = res.elapsed.total_seconds() * 1000
-    response_bytes = len(res.content)
+
+    elapsed = getattr(res, "elapsed", None)
+    elapsed_ms = (
+        elapsed.total_seconds() * 1000
+        if elapsed is not None and hasattr(elapsed, "total_seconds")
+        else None
+    )
+
+    content = getattr(res, "content", b"")
+    response_bytes = len(content) if content is not None else 0
+
     logger.debug(
         "Cal-ITP CKAN response: status=%s elapsed_ms=%.1f response_bytes=%d",
         res.status_code,
