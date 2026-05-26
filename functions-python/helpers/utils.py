@@ -174,7 +174,15 @@ def build_feed_request_params(
             "Referer": url,
         }
 
-    auth_type = int(authentication_type) if authentication_type is not None else 0
+    try:
+        auth_type = int(authentication_type) if authentication_type is not None else 0
+    except (ValueError, TypeError):
+        logging.warning(
+            "Invalid authentication_type %r for feed %s, defaulting to 0 (no auth)",
+            authentication_type,
+            feed_id,
+        )
+        auth_type = 0
 
     # authentication_type == 1 -> the credentials are passed in the url
     # Careful, some URLs may already contain a query string

@@ -124,6 +124,18 @@ class TestBuildFeedRequestParams(unittest.TestCase):
         self.assertNotIn("api_key", url)
         self.assertNotIn("api_key", headers)
 
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_invalid_authentication_type_defaults_to_zero(self, _):
+        """A non-numeric authentication_type logs a warning and defaults to 0 (no auth)."""
+        headers, url = build_feed_request_params(
+            "http://example.com/feed.zip",
+            authentication_type="bad_value",
+            api_key_parameter_name="api_key",
+            credentials="secret",
+        )
+        self.assertNotIn("api_key", url)
+        self.assertNotIn("api_key", headers)
+
 
 class TestPerformRequest(unittest.TestCase):
     def _mock_pool(self, status=200, side_effect=None):
