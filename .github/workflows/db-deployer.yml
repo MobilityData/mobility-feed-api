@@ -144,19 +144,11 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          # Base variables for all environments
-          BASE_VARS="ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD"
-          # Add DEV variables only for QA (where DEV users DB is also created)
-          if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-            VARS="${BASE_VARS},POSTGRE_DEV_USER_APP_NAME,POSTGRE_DEV_USER_APP_PASSWORD"
-          else
-            VARS="${BASE_VARS}"
-          fi
-          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables "$VARS"
-          # For non-QA environments, remove the DEV variable lines (they remain as unreplaced placeholders)
-          if [[ "${{ inputs.ENVIRONMENT }}" != "qa" ]]; then
-            sed -i '/postgresql_dev_user_app/d' infra/postgresql/vars.tfvars
-          fi
+          scripts/replace-variables.sh \
+            -in_file infra/postgresql/vars.tfvars.rename_me \
+            -out_file infra/postgresql/vars.tfvars \
+            -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD \
+            -optional_variables POSTGRE_DEV_USER_APP_NAME,POSTGRE_DEV_USER_APP_PASSWORD
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
