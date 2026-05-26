@@ -114,6 +114,59 @@ To backfill MD5 hashes for existing GTFS datasets (reads the MD5 from the GCS ob
 | `only_missing_hashes` | bool | `true` | Skip datasets that already have `hash_md5` set |
 | `limit` | int \| null | `10` | Maximum number of datasets to process; omit or pass `null` for no limit |
 
+To check the availability of non-deprecated published GTFS feeds via HTTP HEAD requests (with GET fallback):
+
+```json
+{
+  "task": "check_gtfs_feed_availability",
+  "payload": {
+    "dry_run": true,
+    "skip_db_update": false,
+    "limit": null,
+    "concurrency": 15,
+    "timeout_seconds": 10,
+    "batch_size": 50,
+    "stable_feed_ids": null,
+    "verbose": false,
+    "fallback_to_get": true
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Count matching feeds only — no HTTP calls or DB writes |
+| `skip_db_update` | bool | `false` | Run HTTP checks but skip writing results to the DB. Each check is logged individually for monitoring and debugging |
+| `limit` | int \| null | `null` | Maximum number of feeds to process; omit or pass `null` for no limit |
+| `concurrency` | int | `10` | Number of parallel HTTP workers |
+| `timeout_seconds` | int | `20` | Per-request HTTP timeout in seconds |
+| `batch_size` | int | `50` | Number of completed results committed to DB at a time |
+| `stable_feed_ids` | list[str] \| null | `null` | If provided, only check feeds with these stable IDs (e.g. mdb-123) |
+| `verbose` | bool | `false` | If `true`, the response includes a `failures` list with `stable_id`, `error_type`, `reason`, `content_type`, and `is_zip` for each failed check |
+| `fallback_to_get` | bool | `true` | If `true`, feeds that fail HEAD are retried with a lightweight GET request (reads only 4 bytes to verify ZIP magic bytes). The stored `request_type` reflects the method that produced the final result (`http_head` or `http_get`) |
+
+The response includes an `elapsed_seconds` field indicating how long the task took to complete. When `verbose=true`, a `failures` list is included:
+
+```json
+{
+  "message": "Checked 3 feed(s): 2 succeeded, 1 failed.",
+  "total_feeds": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "skip_db_update": false,
+  "elapsed_seconds": 4.21,
+  "failures": [
+    {
+      "stable_id": "mdb-123",
+      "error_type": "ConnectionError",
+      "reason": "Max retries exceeded",
+      "content_type": null,
+      "is_zip": null
+    }
+  ]
+}
+```
+
 ## Response Content Type
 
 When the request includes the header `Accept: text/csv`, the server returns the response as a CSV file generated from the handler’s output.

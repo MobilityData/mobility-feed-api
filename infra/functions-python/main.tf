@@ -565,6 +565,30 @@ resource "google_cloud_scheduler_job" "tdg_import_schedule" {
   attempt_deadline = "320s"
 }
 
+# Schedule the GTFS feed availability check to run daily
+resource "google_cloud_scheduler_job" "gtfs_feed_availability_check_schedule" {
+  name = "gtfs-feed-availability-check-scheduler-${var.environment}"
+  description = "Daily check of active/published GTFS feed availability via HTTP HEAD"
+  time_zone = "Etc/UTC"
+  schedule  = var.gtfs_feed_availability_check_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"check_gtfs_feed_availability\", \"payload\": {\"dry_run\": false}}")
+  }
+  # 30min*60 = 1800
+  attempt_deadline = "1800s"
+}
+
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
