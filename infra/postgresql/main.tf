@@ -104,8 +104,9 @@ resource "google_secret_manager_secret" "secret_db_url" {
 }
 
 resource "google_secret_manager_secret_version" "secret_version" {
-  secret = google_secret_manager_secret.secret_db_url.id
-  secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  secret          = google_secret_manager_secret.secret_db_url.id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
 }
 
 # ---------------------------------------------------------------------------
@@ -136,8 +137,9 @@ resource "google_secret_manager_secret" "secret_users_db_url" {
 }
 
 resource "google_secret_manager_secret_version" "secret_users_db_url_version" {
-  secret      = google_secret_manager_secret.secret_users_db_url.id
-  secret_data = "postgresql+psycopg2://${var.postgresql_user_app_name}:${var.postgresql_user_app_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_user_database_name}"
+  secret          = google_secret_manager_secret.secret_users_db_url.id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_user_app_name}:${var.postgresql_user_app_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_user_database_name}"
+  deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
 }
 
 output "instance_address" {

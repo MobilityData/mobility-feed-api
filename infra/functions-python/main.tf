@@ -232,8 +232,9 @@ resource "google_secret_manager_secret" "web_app_revalidate_secret" {
 }
 
 resource "google_secret_manager_secret_version" "web_app_revalidate_secret_version" {
-  secret      = google_secret_manager_secret.web_app_revalidate_secret.id
-  secret_data = var.web_app_revalidate_secret
+  secret          = google_secret_manager_secret.web_app_revalidate_secret.id
+  secret_data     = var.web_app_revalidate_secret
+  deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
 }
 
 # Secrets access
