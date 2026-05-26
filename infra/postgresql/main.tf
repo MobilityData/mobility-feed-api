@@ -142,6 +142,40 @@ resource "google_secret_manager_secret_version" "secret_users_db_url_version" {
   deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
 }
 
+# ---------------------------------------------------------------------------
+# DEV users database (only created on QA instance).
+# The QA Cloud SQL instance hosts both QA and DEV environments.
+# ---------------------------------------------------------------------------
+resource "google_sql_database" "users_dev" {
+  count     = var.environment == "qa" ? 1 : 0
+  name      = "MobilityDatabaseUsersDEV"
+  instance  = google_sql_database_instance.db.name
+  collation = "en_US.UTF8"
+}
+
+resource "google_sql_user" "users_app_dev" {
+  count    = var.environment == "qa" ? 1 : 0
+  name     = var.postgresql_dev_user_app_name
+  instance = google_sql_database_instance.db.name
+  password = var.postgresql_dev_user_app_password
+}
+
+resource "google_secret_manager_secret" "secret_users_db_url_dev" {
+  count     = var.environment == "qa" ? 1 : 0
+  project   = var.project_id
+  secret_id = "DEV_USERS_DATABASE_URL"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_users_db_url_version_dev" {
+  count           = var.environment == "qa" ? 1 : 0
+  secret          = google_secret_manager_secret.secret_users_db_url_dev[0].id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_dev_user_app_name}:${var.postgresql_dev_user_app_password}@${google_sql_database_instance.db.private_ip_address}/MobilityDatabaseUsersDEV"
+  deletion_policy = "DELETE"
+}
+
 output "instance_address" {
   description = "The first public IPv4 address of the SQL instance"
   value       = google_sql_database_instance.db.private_ip_address

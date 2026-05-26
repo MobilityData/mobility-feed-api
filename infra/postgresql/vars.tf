@@ -70,3 +70,21 @@ variable "max_db_connections" {
   type        = string
   description = "Maximum number of database connections"
 }
+
+# ---------------------------------------------------------------------------
+# DEV users database (only created on QA instance).
+# When environment=qa, these variables provision a second users DB for DEV.
+# ---------------------------------------------------------------------------
+variable "postgresql_dev_user_app_name" {
+  type        = string
+  description = "The PostgreSQL role for DEV users database (only used when environment=qa)."
+  sensitive   = true
+  default     = ""
+}
+
+variable "postgresql_dev_user_app_password" {
+  type        = string
+  description = "Password for DEV users database application role (only used when environment=qa)."
+  sensitive   = true
+  default     = ""
+}

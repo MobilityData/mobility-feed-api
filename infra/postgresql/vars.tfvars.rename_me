@@ -19,3 +19,7 @@ postgresql_user_app_name     = {{POSTGRE_USER_APP_NAME}}
 postgresql_user_app_password = {{POSTGRE_USER_APP_PASSWORD}}
 postgresql_db_instance = {{POSTGRE_INSTANCE_TIER}}
 max_db_connections = {{MAX_CONNECTIONS}}
+
+# DEV users database (only used when environment=qa)
+postgresql_dev_user_app_name     = {{POSTGRE_DEV_USER_APP_NAME}}
+postgresql_dev_user_app_password = {{POSTGRE_DEV_USER_APP_PASSWORD}}

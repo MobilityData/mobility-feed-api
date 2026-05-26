@@ -70,6 +70,16 @@ on:
         description: 1Password reference for users DB app password (e.g. op://vault/item/password)
         required: true
         type: string
+      POSTGRE_DEV_USER_APP_NAME_1PASSWORD:
+        description: 1Password reference for DEV users DB app username (only needed for QA deployment)
+        required: false
+        type: string
+        default: ''
+      POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD:
+        description: 1Password reference for DEV users DB app password (only needed for QA deployment)
+        required: false
+        type: string
+        default: ''
 
 jobs:
   terraform:
@@ -100,6 +110,16 @@ jobs:
           POSTGRE_USER_APP_NAME: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }}
           POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
 
+      - name: Load DEV users DB credentials from 1Password
+        if: inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD != ''
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
+          POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
+
       - name: Set Variables
         run: |
           echo "Setting variables"
@@ -120,11 +140,14 @@ jobs:
           echo "POSTGRE_USER_SQL_DB_NAME=MobilityDatabaseUsers${ENV_UPPER}" >> $GITHUB_ENV
           # POSTGRE_USER_APP_NAME / POSTGRE_USER_APP_PASSWORD are already exported
           # to $GITHUB_ENV by the 1Password load-secrets-action above.
+          # DEV credentials default to empty if not provided (for non-QA deployments)
+          echo "POSTGRE_DEV_USER_APP_NAME=${POSTGRE_DEV_USER_APP_NAME:-}" >> $GITHUB_ENV
+          echo "POSTGRE_DEV_USER_APP_PASSWORD=${POSTGRE_DEV_USER_APP_PASSWORD:-}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD
+          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD,POSTGRE_DEV_USER_APP_NAME,POSTGRE_DEV_USER_APP_PASSWORD
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
