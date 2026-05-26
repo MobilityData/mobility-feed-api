@@ -224,6 +224,38 @@ class TestPerformRequest(unittest.TestCase):
 
     @patch("utils.build_feed_request_params")
     @patch("utils.create_feed_ssl_context")
+    def test_credentials_stripped_from_error_message(self, mock_ssl, mock_params):
+        """Auth type 1 credentials in resolved_url must not appear in stored error_message."""
+        producer_url = "http://example.com/feed.zip"
+        resolved_url = "http://example.com/feed.zip?api_key=secret123"
+        mock_params.return_value = ({}, resolved_url)
+        pool_patch, _ = self._mock_pool(
+            side_effect=urllib3.exceptions.MaxRetryError(
+                pool=None, url=resolved_url, reason="refused"
+            )
+        )
+        with pool_patch:
+            result = self._call(url=producer_url)
+        self.assertNotIn("secret123", result.error_message)
+        self.assertIn("http://example.com/feed.zip", result.error_message)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
+    def test_error_message_unchanged_when_no_credentials(self, mock_ssl, mock_params):
+        """When resolved_url == producer_url (no auth), error_message is unchanged."""
+        mock_params.return_value = ({}, "http://example.com/feed.zip")
+        pool_patch, _ = self._mock_pool(
+            side_effect=urllib3.exceptions.MaxRetryError(
+                pool=None, url="http://example.com/feed.zip", reason="refused"
+            )
+        )
+        with pool_patch:
+            result = self._call(url="http://example.com/feed.zip")
+        self.assertIsNotNone(result.error_message)
+        self.assertIn("http://example.com/feed.zip", result.error_message)
+
+    @patch("utils.build_feed_request_params")
+    @patch("utils.create_feed_ssl_context")
     def test_generic_http_error_uses_class_name(self, mock_ssl, mock_params):
         mock_params.return_value = ({}, "http://example.com/feed.zip")
         pool_patch, _ = self._mock_pool(

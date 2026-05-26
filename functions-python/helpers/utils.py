@@ -232,6 +232,15 @@ def _log_redirects(stable_id: str, producer_url: str, redirect_urls: list) -> No
         )
 
 
+def _sanitize_error_message(
+    message: Optional[str], resolved_url: str, producer_url: str
+) -> Optional[str]:
+    """Replace resolved_url (may contain credentials) with producer_url in error messages."""
+    if message and resolved_url != producer_url:
+        return message.replace(resolved_url, producer_url)
+    return message
+
+
 def _execute_http_request(
     method: str,
     url: str,
@@ -329,6 +338,7 @@ def perform_request(
         error_message,
         redirect_urls,
     ) = _execute_http_request("HEAD", resolved_url, headers, timeout_seconds)
+    error_message = _sanitize_error_message(error_message, resolved_url, producer_url)
     request_type = "http_head"
     success = status_code is not None and status_code < 400
     content_type = _parse_content_type(
@@ -364,6 +374,9 @@ def perform_request(
             redirect_urls,
         ) = _execute_http_request(
             "GET", resolved_url, headers, timeout_seconds, read_bytes=4
+        )
+        error_message = _sanitize_error_message(
+            error_message, resolved_url, producer_url
         )
         request_type = "http_get"
         success = status_code is not None and status_code < 400
