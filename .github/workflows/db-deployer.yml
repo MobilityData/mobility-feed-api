@@ -111,7 +111,7 @@ jobs:
           POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
 
       - name: Load DEV users DB credentials from 1Password
-        if: inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD != ''
+        if: inputs.ENVIRONMENT == 'qa'
         uses: 1password/load-secrets-action@v2
         with:
           export-env: true
@@ -119,6 +119,25 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
           POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
+
+      - name: Validate required credentials
+        run: |
+          set -e
+          missing=()
+          [[ -z "${POSTGRE_USER_APP_NAME:-}" ]] && missing+=("POSTGRE_USER_APP_NAME (1Password ref: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }})")
+          [[ -z "${POSTGRE_USER_APP_PASSWORD:-}" ]] && missing+=("POSTGRE_USER_APP_PASSWORD (1Password ref: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }})")
+          if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
+            [[ -z "${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}" ]] && missing+=("input POSTGRE_DEV_USER_APP_NAME_1PASSWORD (set repo var DEV_POSTGRE_USER_APP_NAME_1PASSWORD)")
+            [[ -z "${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}" ]] && missing+=("input POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD (set repo var DEV_POSTGRE_USER_APP_PASSWORD_1PASSWORD)")
+            [[ -z "${POSTGRE_DEV_USER_APP_NAME:-}" ]] && missing+=("POSTGRE_DEV_USER_APP_NAME (1Password returned empty for ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }})")
+            [[ -z "${POSTGRE_DEV_USER_APP_PASSWORD:-}" ]] && missing+=("POSTGRE_DEV_USER_APP_PASSWORD (1Password returned empty for ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }})")
+          fi
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing or empty required credentials:"
+            for v in "${missing[@]}"; do echo "::error:: - $v"; done
+            exit 1
+          fi
+          echo "All required credentials are present."
 
       - name: Set Variables
         run: |
@@ -144,11 +163,23 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh \
-            -in_file infra/postgresql/vars.tfvars.rename_me \
-            -out_file infra/postgresql/vars.tfvars \
-            -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD \
-            -optional_variables POSTGRE_DEV_USER_APP_NAME,POSTGRE_DEV_USER_APP_PASSWORD
+          # Base variables required for all environments
+          BASE_VARS="ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD"
+          if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
+            # DEV users DB is co-located on QA instance — DEV creds required
+            scripts/replace-variables.sh \
+              -in_file infra/postgresql/vars.tfvars.rename_me \
+              -out_file infra/postgresql/vars.tfvars \
+              -variables "${BASE_VARS},POSTGRE_DEV_USER_APP_NAME,POSTGRE_DEV_USER_APP_PASSWORD"
+          else
+            # Non-QA: strip DEV placeholder lines from template before substitution
+            sed '/postgresql_dev_user_app/d' infra/postgresql/vars.tfvars.rename_me > infra/postgresql/vars.tfvars.tmp
+            scripts/replace-variables.sh \
+              -in_file infra/postgresql/vars.tfvars.tmp \
+              -out_file infra/postgresql/vars.tfvars \
+              -variables "${BASE_VARS}"
+            rm infra/postgresql/vars.tfvars.tmp
+          fi
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
