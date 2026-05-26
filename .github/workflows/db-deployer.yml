@@ -67,18 +67,15 @@ on:
         required: false
         type: string
         default: MobilityDatabaseUsers
-      POSTGRE_USER_APP_NAME_1PASSWORD:
-        description: 1Password secret reference for the users DB application role name
-        required: true
-        type: string
-      POSTGRE_USER_APP_PASSWORD_1PASSWORD:
-        description: 1Password secret reference for the users DB application role password
+      GH_ENVIRONMENT:
+        description: GitHub Environment name (used to scope 1Password reference variables)
         required: true
         type: string
 
 jobs:
   terraform:
     name: 'Deploy Database'
+    environment: ${{ inputs.GH_ENVIRONMENT }}
     permissions: write-all
     runs-on: ubuntu-latest
     outputs:
@@ -102,8 +99,8 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          POSTGRE_USER_APP_NAME: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }}
-          POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
+          POSTGRE_USER_APP_NAME: ${{ vars.POSTGRE_USER_APP_NAME_1PASSWORD }}
+          POSTGRE_USER_APP_PASSWORD: ${{ vars.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
 
       - name: Set Variables
         run: |

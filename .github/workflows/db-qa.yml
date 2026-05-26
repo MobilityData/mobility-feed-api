@@ -6,7 +6,6 @@ on:
 
 jobs:
   deploy:
-    environment: qa
     uses: ./.github/workflows/db-deployer.yml
     with:
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
@@ -19,8 +18,7 @@ jobs:
       POSTGRE_INSTANCE_TIER: ${{ vars.QA_POSTGRE_INSTANCE_TIER }}
       MAX_CONNECTIONS: ${{ vars.DEV_DB_MAX_CONNECTIONS }}
       TF_APPLY: true
-      POSTGRE_USER_APP_NAME_1PASSWORD: ${{ vars.POSTGRE_USER_APP_NAME_1PASSWORD }}
-      POSTGRE_USER_APP_PASSWORD_1PASSWORD: ${{ vars.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
+      GH_ENVIRONMENT: qa
     secrets:
       POSTGRE_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       POSTGRE_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}

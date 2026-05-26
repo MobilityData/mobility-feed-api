@@ -6,7 +6,6 @@ on:
 
 jobs:
   deploy:
-    environment: prod
     uses: ./.github/workflows/db-deployer.yml
     with:
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
@@ -19,8 +18,7 @@ jobs:
       POSTGRE_INSTANCE_TIER: ${{ vars.PROD_POSTGRE_INSTANCE_TIER }}
       MAX_CONNECTIONS: ${{ vars.PROD_DB_MAX_CONNECTIONS }}
       TF_APPLY: true
-      POSTGRE_USER_APP_NAME_1PASSWORD: ${{ vars.POSTGRE_USER_APP_NAME_1PASSWORD }}
-      POSTGRE_USER_APP_PASSWORD_1PASSWORD: ${{ vars.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
+      GH_ENVIRONMENT: prod
     secrets:
       POSTGRE_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       POSTGRE_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
