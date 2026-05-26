@@ -107,6 +107,60 @@ def populate_database(db_session: Session | None = None):
     db_session.flush()
     with_visualization_feed.visualization_dataset_id = with_visualization_dataset.id
 
+    # Feeds for feed-availability tests
+    availability_feeds = [
+        Gtfsfeed(
+            id="feed_availability_1",
+            stable_id="stable_feed_availability_1",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url="http://producer1.example.com/feed.zip",
+            created_at=now,
+        ),
+        Gtfsfeed(
+            id="feed_availability_2",
+            stable_id="stable_feed_availability_2",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url="http://producer2.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — inactive
+        Gtfsfeed(
+            id="feed_availability_inactive",
+            stable_id="stable_feed_availability_inactive",
+            data_type="gtfs",
+            status="inactive",
+            operational_status="published",
+            producer_url="http://producer3.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — deprecated
+        Gtfsfeed(
+            id="feed_availability_deprecated",
+            stable_id="stable_feed_availability_deprecated",
+            data_type="gtfs",
+            status="deprecated",
+            operational_status="published",
+            producer_url="http://producer5.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — no producer_url
+        Gtfsfeed(
+            id="feed_availability_no_url",
+            stable_id="stable_feed_availability_no_url",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url=None,
+            created_at=now,
+        ),
+    ]
+    for feed in availability_feeds:
+        db_session.add(feed)
+
     db_session.commit()
 
 

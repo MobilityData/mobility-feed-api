@@ -78,6 +78,12 @@ variable "jbda_scheduler_schedule" {
     default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
 }
 
+variable "gtfs_feed_availability_check_schedule" {
+    type        = string
+    description = "Cron schedule for the GTFS feed availability check job"
+    default     = "0 2 * * *" # Daily at 02:00 UTC
+}
+
 variable "tdg_api_token" {
     type        = string
     description = "TDG API key"
