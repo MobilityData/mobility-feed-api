@@ -21,8 +21,13 @@ on:
         required: false
         type: string
       DB_ENVIRONMENT: #
-        description: Environment where DB is deployed (forwarded to child workflows)
+        description: Environment where DB infrastructure (bastion, Cloud SQL instance) lives. Used to resolve the SSH bastion name.
         required: false
+        type: string
+      USER_DB_ENVIRONMENT: #
+        description: Logical environment for the users DB (issue #1683). Determines the user DB name suffix (MobilityDatabaseUsers<ENV>). Defaults to DB_ENVIRONMENT when empty. For DEV (which shares QA infra), set this to 'dev' while DB_ENVIRONMENT stays 'qa'.
+        required: false
+        default: ''
         type: string
     secrets:
       DB_USER_PASSWORD: #
@@ -117,7 +122,11 @@ jobs:
       if: ${{ !inputs.DRY_RUN }}
       working-directory: ${{ github.workspace }}/liquibase
       run: |
-        ENV_UPPER=$(echo "${{ inputs.DB_ENVIRONMENT }}" | tr '[:lower:]' '[:upper:]')
+        USER_ENV="${{ inputs.USER_DB_ENVIRONMENT }}"
+        if [ -z "${USER_ENV}" ]; then
+          USER_ENV="${{ inputs.DB_ENVIRONMENT }}"
+        fi
+        ENV_UPPER=$(echo "${USER_ENV}" | tr '[:lower:]' '[:upper:]')
         USER_DB_NAME="MobilityDatabaseUsers${ENV_UPPER}"
         echo "Applying users schema to database: ${USER_DB_NAME}"
         export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
