@@ -62,11 +62,6 @@ on:
         description: PostgreSQL maximum number of connections to db
         required: true
         type: string
-      POSTGRE_USER_SQL_DB_NAME:
-        description: PostgreSQL users database name
-        required: false
-        type: string
-        default: MobilityDatabaseUsers
       POSTGRE_USER_APP_NAME_1PASSWORD:
         description: 1Password reference for users DB app username (e.g. op://vault/item/username)
         required: true
@@ -120,7 +115,9 @@ jobs:
           echo "POSTGRE_USER_PASSWORD=${{ secrets.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
           echo "POSTGRE_INSTANCE_TIER=${{ inputs.POSTGRE_INSTANCE_TIER }}" >> $GITHUB_ENV
           echo "MAX_CONNECTIONS=${{ inputs.MAX_CONNECTIONS }}" >> $GITHUB_ENV
-          echo "POSTGRE_USER_SQL_DB_NAME=${{ inputs.POSTGRE_USER_SQL_DB_NAME }}" >> $GITHUB_ENV
+          # Compute users DB name from environment (uppercased)
+          ENV_UPPER=$(echo "${{ inputs.ENVIRONMENT }}" | tr '[:lower:]' '[:upper:]')
+          echo "POSTGRE_USER_SQL_DB_NAME=MobilityDatabaseUsers${ENV_UPPER}" >> $GITHUB_ENV
           # POSTGRE_USER_APP_NAME / POSTGRE_USER_APP_PASSWORD are already exported
           # to $GITHUB_ENV by the 1Password load-secrets-action above.
 

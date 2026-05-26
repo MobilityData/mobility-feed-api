@@ -46,8 +46,7 @@ variable "postgresql_user_password" {
 
 variable "postgresql_user_database_name" {
   type        = string
-  description = "The name of the PostgreSQL database used for user-related data (notifications, subscriptions, app users)."
-  default     = "MobilityDatabaseUsers"
+  description = "The name of the PostgreSQL database used for user-related data (notifications, subscriptions, app users). Computed as MobilityDatabaseUsers<ENV> by CI."
 }
 
 variable "postgresql_user_app_name" {
