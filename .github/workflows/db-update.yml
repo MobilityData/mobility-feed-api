@@ -20,6 +20,11 @@ on:
         description: PostgreSQL Database Name (forwarded to child workflows)
         required: false
         type: string
+      USER_DB_NAME: #
+        description: PostgreSQL Users Database Name (issue #1683). Defaults to "MobilityDatabaseUsers".
+        required: false
+        default: "MobilityDatabaseUsers"
+        type: string
       DB_ENVIRONMENT: #
         description: Environment where DB is deployed (forwarded to child workflows)
         required: false
@@ -104,6 +109,20 @@ jobs:
       run: |
         export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
         export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.DB_NAME }}
+        export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
+        export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
+        export LIQUIBASE_LOG_LEVEL=FINE
+        liquibase update
+
+    - name: Run Liquibase for Users DB
+      # Issue #1683: applies users-schema migrations to the dedicated users
+      # database hosted on the same Cloud SQL instance, through the existing
+      # SSH tunnel. The DB itself is provisioned by Terraform.
+      if: ${{ !inputs.DRY_RUN }}
+      working-directory: ${{ github.workspace }}/liquibase
+      run: |
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.USER_DB_NAME }}
         export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE

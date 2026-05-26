@@ -108,6 +108,38 @@ resource "google_secret_manager_secret_version" "secret_version" {
   secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
 }
 
+# ---------------------------------------------------------------------------
+# Users database (issue #1683).
+# Lives on the same Cloud SQL instance as the catalog DB but is fully isolated:
+# its own database, its own application role, its own secret. The application
+# role has zero grants on the catalog DB; the catalog role has zero grants on
+# this DB. Schema is managed by liquibase/changelog_user.xml.
+# ---------------------------------------------------------------------------
+resource "google_sql_database" "users" {
+  name      = var.postgresql_user_database_name
+  instance  = google_sql_database_instance.db.name
+  collation = "en_US.UTF8"
+}
+
+resource "google_sql_user" "users_app" {
+  name     = var.postgresql_user_app_name
+  instance = google_sql_database_instance.db.name
+  password = var.postgresql_user_app_password
+}
+
+resource "google_secret_manager_secret" "secret_users_db_url" {
+  project   = var.project_id
+  secret_id = "${upper(var.environment)}_USERS_DATABASE_URL"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_users_db_url_version" {
+  secret      = google_secret_manager_secret.secret_users_db_url.id
+  secret_data = "postgresql+psycopg2://${var.postgresql_user_app_name}:${var.postgresql_user_app_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_user_database_name}"
+}
+
 output "instance_address" {
   description = "The first public IPv4 address of the SQL instance"
   value       = google_sql_database_instance.db.private_ip_address

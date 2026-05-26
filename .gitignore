@@ -38,6 +38,7 @@ data-test/
 # Ignore generated files
 api/src/feeds_gen
 database_gen
+users_database_gen
 
 # Ignore openapitools binaries
 scripts/bin

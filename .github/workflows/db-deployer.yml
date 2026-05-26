@@ -18,6 +18,9 @@ on:
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL Instance Name
         required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password Service Account Token (used to load users DB credentials)
+        required: true
     inputs:
       ENVIRONMENT:
         description: Database environment. Possible values prod, staging and dev
@@ -59,6 +62,19 @@ on:
         description: PostgreSQL maximum number of connections to db
         required: true
         type: string
+      POSTGRE_USER_SQL_DB_NAME:
+        description: PostgreSQL users database name
+        required: false
+        type: string
+        default: MobilityDatabaseUsers
+      POSTGRE_USER_APP_NAME_1PASSWORD:
+        description: 1Password secret reference for the users DB application role name
+        required: true
+        type: string
+      POSTGRE_USER_APP_PASSWORD_1PASSWORD:
+        description: 1Password secret reference for the users DB application role password
+        required: true
+        type: string
 
 jobs:
   terraform:
@@ -80,6 +96,15 @@ jobs:
       - name: Google Cloud Setup
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Load users DB credentials from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          POSTGRE_USER_APP_NAME: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }}
+          POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
+
       - name: Set Variables
         run: |
           echo "Setting variables"
@@ -95,11 +120,14 @@ jobs:
           echo "POSTGRE_USER_PASSWORD=${{ secrets.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
           echo "POSTGRE_INSTANCE_TIER=${{ inputs.POSTGRE_INSTANCE_TIER }}" >> $GITHUB_ENV
           echo "MAX_CONNECTIONS=${{ inputs.MAX_CONNECTIONS }}" >> $GITHUB_ENV
+          echo "POSTGRE_USER_SQL_DB_NAME=${{ inputs.POSTGRE_USER_SQL_DB_NAME }}" >> $GITHUB_ENV
+          # POSTGRE_USER_APP_NAME / POSTGRE_USER_APP_PASSWORD are already exported
+          # to $GITHUB_ENV by the 1Password load-secrets-action above.
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS
+          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3

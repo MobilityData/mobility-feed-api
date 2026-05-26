@@ -44,6 +44,24 @@ variable "postgresql_user_password" {
   description = "The password for the PostgreSQL user"
 }
 
+variable "postgresql_user_database_name" {
+  type        = string
+  description = "The name of the PostgreSQL database used for user-related data (notifications, subscriptions, app users)."
+  default     = "MobilityDatabaseUsers"
+}
+
+variable "postgresql_user_app_name" {
+  type        = string
+  description = "The PostgreSQL role used by the application to access the users database. No default: must be supplied per environment (sourced from 1Password)."
+  sensitive   = true
+}
+
+variable "postgresql_user_app_password" {
+  type        = string
+  description = "Password for the users database application role."
+  sensitive   = true
+}
+
 variable "postgresql_db_instance" {
   type        = string
   description = "The db instance tier for the PostgreSQL"

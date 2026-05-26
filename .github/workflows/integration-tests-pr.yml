@@ -83,9 +83,19 @@ jobs:
 
         liquibase update
 
+    - name: Run Liquibase on users DB
+      working-directory: ${{ github.workspace }}/liquibase
+      run: |
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${POSTGRES_USER_DB:-MobilityDatabaseUsers}
+        export LIQUIBASE_COMMAND_USERNAME=postgres
+        export LIQUIBASE_COMMAND_PASSWORD=postgres
+        liquibase update
+
     - name: Generate code
       run: |
         scripts/db-gen.sh
+        scripts/db-gen-user.sh
         scripts/setup-openapi-generator.sh
         scripts/api-gen.sh
 
