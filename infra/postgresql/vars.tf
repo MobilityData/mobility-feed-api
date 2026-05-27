@@ -53,3 +53,13 @@ variable "max_db_connections" {
   type        = string
   description = "Maximum number of database connections"
 }
+
+variable "postgresql_readonly_user_name" {
+  type        = string
+  description = "The name of the read-only PostgreSQL user (used by MCP server)"
+}
+
+variable "postgresql_readonly_user_password" {
+  type        = string
+  description = "The password for the read-only PostgreSQL user"
+}

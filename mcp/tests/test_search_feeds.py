@@ -52,6 +52,7 @@ def make_feed_row(
     feed_stable_id="mdb-1",
     provider="Test Provider",
     feed_name="Test Feed",
+    producer_url="https://example.com/gtfs",
     data_type="gtfs",
     status="active",
     official=True,
@@ -73,6 +74,7 @@ def make_feed_row(
         "feed_stable_id": feed_stable_id,
         "provider": provider,
         "feed_name": feed_name,
+        "producer_url": producer_url,
         "data_type": data_type,
         "status": status,
         "official": official,
@@ -166,6 +168,7 @@ class TestSearchFeedsTool:
         assert "feed_id" in feed
         assert "provider" in feed
         assert "feed_name" in feed
+        assert "producer_url" in feed
         assert "data_type" in feed
         assert "status" in feed
         assert "is_official" in feed
@@ -214,6 +217,22 @@ class TestSearchFeedsTool:
         result = json.loads(self._call_tool("Montreal"))
         feed = result["results"][0]
         assert feed["locations"] == locations
+
+    def test_pagination_offset_and_limit_in_response(self):
+        """Response includes offset and limit for pagination."""
+        self.mock_session.execute.return_value.fetchall.return_value = []
+        self.mock_session.execute.return_value.fetchone.return_value = (50,)
+        result = json.loads(self._call_tool("Montreal", offset=30, limit=10))
+        assert result["offset"] == 30
+        assert result["limit"] == 10
+        assert result["total_matches"] == 50
+
+    def test_default_offset_is_zero(self):
+        """Default offset is 0 when not specified."""
+        self.mock_session.execute.return_value.fetchall.return_value = []
+        self.mock_session.execute.return_value.fetchone.return_value = (0,)
+        result = json.loads(self._call_tool("Montreal"))
+        assert result["offset"] == 0
 
     def test_empty_query_returns_all_feeds(self):
         """Empty search_query returns all feeds without text filter."""

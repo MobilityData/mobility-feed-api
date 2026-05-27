@@ -81,7 +81,7 @@ resource "google_cloud_run_v2_service" "mcp_server" {
         name = "FEEDS_DATABASE_URL"
         value_source {
           secret_key_ref {
-            secret  = "${upper(var.environment)}_FEEDS_DATABASE_URL"
+            secret  = "${upper(var.environment)}_FEEDS_DATABASE_URL_READONLY"
             version = "latest"
           }
         }
@@ -118,7 +118,7 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
 
 resource "google_secret_manager_secret_iam_member" "feeds_db_url_access" {
   project   = var.project_id
-  secret_id = "${upper(var.environment)}_FEEDS_DATABASE_URL"
+  secret_id = "${upper(var.environment)}_FEEDS_DATABASE_URL_READONLY"
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.mcp_service_account.email}"
 }

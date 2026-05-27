@@ -15,6 +15,12 @@ on:
       POSTGRE_USER_PASSWORD:
         description: PostgreSQL User Password
         required: true
+      POSTGRE_READONLY_USER_NAME:
+        description: PostgreSQL Read-Only User Name (used by MCP server)
+        required: true
+      POSTGRE_READONLY_USER_PASSWORD:
+        description: PostgreSQL Read-Only User Password
+        required: true
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL Instance Name
         required: true
@@ -93,13 +99,15 @@ jobs:
           echo "POSTGRE_SQL_DB_NAME=${{ inputs.POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_NAME=${{ secrets.POSTGRE_USER_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_PASSWORD=${{ secrets.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
+          echo "POSTGRE_READONLY_USER_NAME=${{ secrets.POSTGRE_READONLY_USER_NAME }}" >> $GITHUB_ENV
+          echo "POSTGRE_READONLY_USER_PASSWORD=${{ secrets.POSTGRE_READONLY_USER_PASSWORD }}" >> $GITHUB_ENV
           echo "POSTGRE_INSTANCE_TIER=${{ inputs.POSTGRE_INSTANCE_TIER }}" >> $GITHUB_ENV
           echo "MAX_CONNECTIONS=${{ inputs.MAX_CONNECTIONS }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS
+          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_READONLY_USER_NAME,POSTGRE_READONLY_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
@@ -149,6 +157,8 @@ jobs:
     env:
       POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
       POSTGRE_USER_PASSWORD: ${{ secrets.POSTGRE_USER_PASSWORD }}
+      POSTGRE_READONLY_USER_NAME: ${{ secrets.POSTGRE_READONLY_USER_NAME }}
+      POSTGRE_READONLY_USER_PASSWORD: ${{ secrets.POSTGRE_READONLY_USER_PASSWORD }}
       POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
       DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
@@ -165,7 +175,20 @@ jobs:
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
           SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}DEV"
           echo $SECRET_VALUE
-          
+
+          if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
+            echo "Secret $SECRET_NAME already exists, updating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
+          else
+            echo "Secret $SECRET_NAME does not exist, creating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=mobility-feeds-dev
+          fi
+
+      - name: Create or Update Readonly Secret in DEV
+        run: |
+          SECRET_NAME="DEV_FEEDS_DATABASE_URL_READONLY"
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_READONLY_USER_NAME }}:${{ env.POSTGRE_READONLY_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}DEV"
+
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
             echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev

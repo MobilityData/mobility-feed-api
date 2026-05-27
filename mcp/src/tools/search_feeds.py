@@ -18,6 +18,7 @@ def search_feeds_tool(
     data_type: Optional[str] = "gtfs",
     is_official: Optional[bool] = None,
     limit: Optional[int] = 30,
+    offset: Optional[int] = 0,
 ) -> str:
     """
     Search the Mobility Database for GTFS/GBFS/GTFS-RT feeds.
@@ -25,14 +26,18 @@ def search_feeds_tool(
     Returns rich location and metadata context so the AI can disambiguate between results
     (e.g., Montreal Quebec vs Montréal-du-Gers France).
 
+    Supports pagination via limit and offset. The response includes total_matches so you
+    know how many more results are available.
+
     Args:
         search_query: Free-text search (e.g., "Montreal", "Japan", "STM")
         data_type: One of: gtfs, gtfs_rt, gbfs. Default: gtfs
         is_official: Filter for official feeds only
-        limit: Max results to return. Default: 30
+        limit: Max results per page. Default: 30
+        offset: Number of results to skip for pagination. Default: 0
 
     Returns:
-        JSON string with query, total_matches, and results array with feed metadata
+        JSON string with query, total_matches, offset, limit, and results array with feed metadata
     """
     db = Database()
     with db.start_db_session() as session:
@@ -79,7 +84,7 @@ def search_feeds_tool(
         if search_query and len(search_query.strip()) > 0:
             count_query = count_query.filter(t_feedsearch.c.document.op("@@")(ts_query))
 
-        rows = session.execute(query.limit(limit)).fetchall()
+        rows = session.execute(query.offset(offset).limit(limit)).fetchall()
         total_count_result = session.execute(count_query).fetchone()
         total_count = total_count_result[0] if total_count_result else 0
 
@@ -90,6 +95,7 @@ def search_feeds_tool(
             "feed_id": row_dict.get("feed_stable_id"),
             "provider": row_dict.get("provider"),
             "feed_name": row_dict.get("feed_name"),
+            "producer_url": row_dict.get("producer_url"),
             "data_type": row_dict.get("data_type"),
             "status": row_dict.get("status"),
             "is_official": row_dict.get("official"),
@@ -121,6 +127,8 @@ def search_feeds_tool(
         {
             "query": search_query,
             "total_matches": total_count,
+            "offset": offset,
+            "limit": limit,
             "results": results,
         },
         default=str,

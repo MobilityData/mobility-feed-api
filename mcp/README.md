@@ -13,7 +13,8 @@ Searches the Mobility Database using PostgreSQL full-text search against the `Fe
 | `search_query` | string | — | Free-text search (e.g. `"Montreal"`, `"STM"`, `"Japan"`) |
 | `data_type` | string | `gtfs` | `gtfs`, `gtfs_rt`, or `gbfs` |
 | `is_official` | boolean | none | Filter to official feeds only |
-| `limit` | integer | `30` | Max results |
+| `limit` | integer | `30` | Max results per page |
+| `offset` | integer | `0` | Number of results to skip (for pagination) |
 
 **Step 2 — Validation Results (`get_validation_results` tool)**
 
