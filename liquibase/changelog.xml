@@ -109,6 +109,10 @@
     <include file="changes/feat_task_execution_log.sql" relativeToChangelogFile="true"/>
     <!-- Add MD5 hash column to GTFSDataset table. -->
     <include file="changes/feat_1657.sql" relativeToChangelogFile="true"/>
+    <!-- Add table to store GTFS feed availability check results. -->
+    <include file="changes/feat_1700.sql" relativeToChangelogFile="true"/>
+    <!-- Add content_type and is_zip columns to gtfs_feed_availability_check. -->
+    <include file="changes/feat_1700_content_type.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
