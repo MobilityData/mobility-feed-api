@@ -108,10 +108,20 @@ jobs:
           export LIQUIBASE_COMMAND_PASSWORD=postgres
           liquibase update
 
+      - name: Run Liquibase on users test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/${POSTGRES_USER_TEST_DB:-MobilityDatabaseUsersTest}
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
       - name: Generate DB code
         run: |
           export USE_TEST_DB=true
           scripts/db-gen.sh
+          scripts/db-gen-user.sh
 
       - name: Generate API code
         run: |
@@ -140,6 +150,13 @@ jobs:
         with:
           name: database_gen
           path: api/src/shared/database_gen/
+          overwrite: true
+
+      - name: Upload users DB models
+        uses: actions/upload-artifact@v4
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
           overwrite: true
 
       - name: Upload API generated code
@@ -178,6 +195,12 @@ jobs:
         with:
           name: database_gen
           path: api/src/shared/database_gen/
+
+      - name: Download users DB models
+        uses: actions/download-artifact@v4
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
 
       - name: Download API generated code
         uses: actions/download-artifact@v4
@@ -228,6 +251,15 @@ jobs:
         run: |
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+      - name: Run Liquibase on users test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/${POSTGRES_USER_TEST_DB:-MobilityDatabaseUsersTest}
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
           liquibase update

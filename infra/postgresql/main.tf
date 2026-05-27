@@ -104,8 +104,76 @@ resource "google_secret_manager_secret" "secret_db_url" {
 }
 
 resource "google_secret_manager_secret_version" "secret_version" {
-  secret = google_secret_manager_secret.secret_db_url.id
-  secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  secret          = google_secret_manager_secret.secret_db_url.id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
+}
+
+# ---------------------------------------------------------------------------
+# Users database (issue #1683).
+# Lives on the same Cloud SQL instance as the catalog DB but is fully isolated:
+# its own database, its own application role, its own secret. The application
+# role has zero grants on the catalog DB; the catalog role has zero grants on
+# this DB. Schema is managed by liquibase/changelog_user.xml.
+# ---------------------------------------------------------------------------
+resource "google_sql_database" "users" {
+  name      = var.postgresql_user_database_name
+  instance  = google_sql_database_instance.db.name
+  collation = "en_US.UTF8"
+}
+
+resource "google_sql_user" "users_app" {
+  name     = var.postgresql_user_app_name
+  instance = google_sql_database_instance.db.name
+  password = var.postgresql_user_app_password
+}
+
+resource "google_secret_manager_secret" "secret_users_db_url" {
+  project   = var.project_id
+  secret_id = "${upper(var.environment)}_USERS_DATABASE_URL"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_users_db_url_version" {
+  secret          = google_secret_manager_secret.secret_users_db_url.id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_user_app_name}:${var.postgresql_user_app_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_user_database_name}"
+  deletion_policy = "DELETE"  # Destroy old version when replaced to reduce cost
+}
+
+# ---------------------------------------------------------------------------
+# DEV users database (only created on QA instance).
+# The QA Cloud SQL instance hosts both QA and DEV environments.
+# ---------------------------------------------------------------------------
+resource "google_sql_database" "users_dev" {
+  count     = var.environment == "qa" ? 1 : 0
+  name      = "MobilityDatabaseUsersDEV"
+  instance  = google_sql_database_instance.db.name
+  collation = "en_US.UTF8"
+}
+
+resource "google_sql_user" "users_app_dev" {
+  count    = var.environment == "qa" ? 1 : 0
+  name     = var.postgresql_dev_user_app_name
+  instance = google_sql_database_instance.db.name
+  password = var.postgresql_dev_user_app_password
+}
+
+resource "google_secret_manager_secret" "secret_users_db_url_dev" {
+  count     = var.environment == "qa" ? 1 : 0
+  project   = var.project_id
+  secret_id = "DEV_USERS_DATABASE_URL"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_users_db_url_version_dev" {
+  count           = var.environment == "qa" ? 1 : 0
+  secret          = google_secret_manager_secret.secret_users_db_url_dev[0].id
+  secret_data     = "postgresql+psycopg2://${var.postgresql_dev_user_app_name}:${var.postgresql_dev_user_app_password}@${google_sql_database_instance.db.private_ip_address}/MobilityDatabaseUsersDEV"
+  deletion_policy = "DELETE"
 }
 
 output "instance_address" {
