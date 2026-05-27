@@ -1,0 +1,5 @@
+{
+  "name": "mcp-server",
+  "description": "MobilityDatabase MCP Server",
+  "include_api_folders": ["common", "database", "database_gen", "feed_filters", "db_models"]
+}

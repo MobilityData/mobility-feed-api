@@ -95,6 +95,12 @@ resource "google_sql_user" "users" {
   password = var.postgresql_user_password
 }
 
+resource "google_sql_user" "readonly_user" {
+  name     = var.postgresql_readonly_user_name
+  instance = google_sql_database_instance.db.name
+  password = var.postgresql_readonly_user_password
+}
+
 resource "google_secret_manager_secret" "secret_db_url" {
   project   = var.project_id
   secret_id = "${upper(var.environment)}_FEEDS_DATABASE_URL"
@@ -106,6 +112,19 @@ resource "google_secret_manager_secret" "secret_db_url" {
 resource "google_secret_manager_secret_version" "secret_version" {
   secret = google_secret_manager_secret.secret_db_url.id
   secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+}
+
+resource "google_secret_manager_secret" "secret_db_url_readonly" {
+  project   = var.project_id
+  secret_id = "${upper(var.environment)}_FEEDS_DATABASE_URL_READONLY"
+  replication {
+     auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_version_readonly" {
+  secret = google_secret_manager_secret.secret_db_url_readonly.id
+  secret_data = "postgresql+psycopg2://${var.postgresql_readonly_user_name}:${var.postgresql_readonly_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
 }
 
 output "instance_address" {

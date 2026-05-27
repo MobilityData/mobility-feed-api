@@ -87,3 +87,6 @@ functions-python/**/*.csv
 
 # Ignore OpenApi local backup files
 *.yaml.bak
+
+# Claude folder
+.claude

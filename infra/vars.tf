@@ -90,3 +90,8 @@ variable "web_app_revalidate_secret" {
     sensitive   = true
     default     = ""
 }
+
+variable "mcp_image_version" {
+  type        = string
+  description = "Docker image version/tag for the MCP server"
+}

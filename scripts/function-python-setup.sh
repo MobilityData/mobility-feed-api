@@ -43,7 +43,8 @@ display_usage() {
   echo "Options:"
   echo "  -h|--help                           Display help content."
   echo "  --function_name <FUNCTION_NAME>     Name of the function to be setup."
-  echo "  --all                               Setup all functions."
+  echo "  --all                               Setup all functions (includes MCP)."
+  echo "  --mcp                               Setup MCP server shared folders only."
   echo "  --clean                             Clean shared folders."
   exit 1
 }
@@ -51,6 +52,7 @@ display_usage() {
 FX_NAME_PARAM=''
 ALL='false'
 CLEAN='false'
+MCP='false'
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -70,6 +72,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --clean)
     CLEAN="true"
+    shift
+    ;;
+  --mcp)
+    MCP="true"
     shift
     ;;
   *)      # unknown option
@@ -174,6 +180,31 @@ clean_shared_folders() {
   rmdir "$FUNCTIONS_PATH/$function_name/src/test_shared" > /dev/null 2>&1
 }
 
+setup_mcp() {
+  MCP_PATH="$ROOT_PATH/mcp"
+  MCP_SOURCE_PATH="$MCP_PATH/src"
+  MCP_CONFIG_FILE="$MCP_PATH/mcp_config.json"
+
+  if [ ! -f "$MCP_CONFIG_FILE" ]; then
+    echo "INFO: No mcp_config.json found at $MCP_CONFIG_FILE, skipping MCP setup."
+    return
+  fi
+
+  echo "Setting up MCP server shared folders"
+  include_api_folders=$(jq -r '.include_api_folders[]' "$MCP_CONFIG_FILE" 2>/dev/null)
+
+  dst_folder="$MCP_SOURCE_PATH/shared"
+  rm -rf "$dst_folder"
+  mkdir -p "$dst_folder"
+  create_symbolic_links "$API_PATH" "$include_api_folders" "$dst_folder"
+}
+
+clean_mcp() {
+  echo "INFO: Cleaning MCP shared folders"
+  rm -f "$ROOT_PATH/mcp/src/shared/"*
+  rmdir "$ROOT_PATH/mcp/src/shared" 2>/dev/null || true
+}
+
 if [ "$ALL" = "true" ]; then
   # get all the functions in the functions-python folder that contain a function_config.json file
   for function in $(find "$FUNCTIONS_PATH" -maxdepth 2 -name "function_config.json"); do
@@ -184,6 +215,18 @@ if [ "$ALL" = "true" ]; then
       setup_function $function_name
     fi
   done
+  # Also process MCP when --all is used
+  if [ "$CLEAN" = "true" ]; then
+    clean_mcp
+  else
+    setup_mcp
+  fi
+elif [ "$MCP" = "true" ]; then
+  if [ "$CLEAN" = "true" ]; then
+    clean_mcp
+  else
+    setup_mcp
+  fi
 else
   if [ -z "$FX_NAME_PARAM" ]; then
     printf "\nERROR: function name not provided"

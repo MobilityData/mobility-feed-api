@@ -100,6 +100,16 @@ module "feed-api" {
 }
 
 
+module "mcp" {
+  source = "./mcp"
+
+  project_id             = var.project_id
+  gcp_region             = var.gcp_region
+  environment            = var.environment
+  docker_repository_name = "${var.artifact_repo_name}-${var.environment}"
+  mcp_image_version      = var.mcp_image_version
+}
+
 module "functions-python" {
   source = "./functions-python"
   project_id  = var.project_id

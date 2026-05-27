@@ -237,6 +237,11 @@ jobs:
           DOCKER_IMAGE_VERSION=$EXTRACTED_VERSION.$FEED_API_IMAGE_VERSION
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $DOCKER_IMAGE_VERSION
 
+      - name: Build & Publish MCP Server Docker Image
+        run: |
+          MCP_IMAGE_VERSION=$EXTRACTED_VERSION.$FEED_API_IMAGE_VERSION
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service mcp-server -region $REGION -version $MCP_IMAGE_VERSION -dockerfile mcp/Dockerfile -context .
+
   terraform-deploy:
     runs-on: ubuntu-latest
     permissions: write-all
@@ -293,6 +298,7 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
           echo "FEED_API_IMAGE_VERSION=$EXTRACTED_VERSION.${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
+          echo "MCP_IMAGE_VERSION=$EXTRACTED_VERSION.${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
@@ -321,7 +327,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,MCP_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET
 
       - uses: hashicorp/setup-terraform@v3
         with:
