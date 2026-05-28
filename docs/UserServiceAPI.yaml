@@ -1,0 +1,344 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Mobility Database User Service
+  description: |
+    API for the Mobility Database User Service. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/).
+
+    The Mobility Database User Service API uses OAuth2 authentication.
+    To initiate a successful API request, an access token must be included as a bearer token in the HTTP header.
+  termsOfService: https://mobilitydatabase.org/terms-and-conditions
+  contact:
+    name: MobilityData
+    url: https://mobilitydata.org/
+    email: api@mobilitydata.org
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.mobilitydatabase.org/
+    description: Prod release environment
+  - url: https://api-qa.mobilitydatabase.org/
+    description: Pre-prod environment
+  - url: https://api-dev.mobilitydatabase.org/
+    description: Development environment
+  - url: http://localhost:8080/
+    description: Local development environment
+
+tags:
+  - name: "users"
+    description: "User profile management"
+  - name: "notifications"
+    description: "Notification subscriptions"
+
+paths:
+  /v1/user:
+    get:
+      summary: Get the current user's profile
+      description: |
+        Returns the authenticated user's profile. If no profile exists yet, one is created automatically
+        (upsert on first call).
+      operationId: getUser
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: User profile retrieved (or created) successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "500":
+          description: Internal server error.
+    put:
+      summary: Update the current user's profile
+      description: |
+        Updates the authenticated user's profile fields. Email cannot be changed here (requires
+        re-verification).
+      operationId: updateUser
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid request body.
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "404":
+          description: User not found.
+        "500":
+          description: Internal server error.
+
+  /v1/notifications:
+    get:
+      summary: List available notification types
+      description: Returns all predefined notification types that users can subscribe to.
+      operationId: getNotifications
+      tags:
+        - "notifications"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: List of notification types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationType"
+        "401":
+          description: Unauthorized.
+        "501":
+          description: Not yet implemented.
+
+  /v1/user/subscriptions:
+    get:
+      summary: List the current user's notification subscriptions
+      description: Returns all notification subscriptions for the authenticated user.
+      operationId: getUserSubscriptions
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: List of subscriptions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "501":
+          description: Not yet implemented.
+    post:
+      summary: Create a notification subscription
+      description: Subscribes the authenticated user to a notification type.
+      operationId: createUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotificationSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+        "501":
+          description: Not yet implemented.
+
+  /v1/user/subscriptions/{id}:
+    patch:
+      summary: Toggle a notification subscription
+      description: Activates or deactivates a notification subscription by ID.
+      operationId: updateUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subscription ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationSubscriptionRequest"
+      responses:
+        "200":
+          description: Subscription updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Subscription not found.
+        "501":
+          description: Not yet implemented.
+    delete:
+      summary: Delete a notification subscription
+      description: Removes a notification subscription by ID.
+      operationId: deleteUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subscription ID.
+      responses:
+        "204":
+          description: Subscription deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Subscription not found.
+        "501":
+          description: Not yet implemented.
+
+components:
+  schemas:
+    UserProfile:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: The user's unique identifier.
+          example: "abc123uid"
+        email:
+          type: string
+          format: email
+          description: The user's email address. Read-only — cannot be changed via this API.
+          example: "user@example.com"
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        is_registered_to_receive_api_announcements:
+          type: boolean
+          description: Whether the user has opted in to receive API announcement emails.
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the user record was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the user record was last updated.
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Fields to update on the user's profile. Only provided fields are updated (partial update).
+        Email cannot be changed here.
+      properties:
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        is_registered_to_receive_api_announcements:
+          type: boolean
+          description: Whether the user has opted in to receive API announcement emails.
+
+    NotificationType:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the notification type (e.g. 'feed.published').
+          example: "feed.published"
+        description:
+          type: string
+          nullable: true
+          description: Human-readable description of the notification type.
+          example: "Notifies when a new feed is published."
+
+    NotificationSubscription:
+      type: object
+      required:
+        - id
+        - user_id
+        - notification_type_id
+        - active
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique subscription ID (UUID v4).
+        user_id:
+          type: string
+          description: The ID of the subscribed user.
+        notification_type_id:
+          type: string
+          description: The notification type this subscription is for.
+          example: "feed.published"
+        active:
+          type: boolean
+          description: Whether the subscription is currently active.
+          default: true
+        last_notified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last notification sent for this subscription.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the subscription was created.
+
+    CreateNotificationSubscriptionRequest:
+      type: object
+      required:
+        - notification_type_id
+      properties:
+        notification_type_id:
+          type: string
+          description: The notification type to subscribe to.
+          example: "feed.published"
+
+    UpdateNotificationSubscriptionRequest:
+      type: object
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+          description: Whether the subscription should be active.
+
+  securitySchemes:
+    Authentication:
+      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+
+security:
+  - Authentication: []
