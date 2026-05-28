@@ -305,7 +305,7 @@ components:
       required:
         - id
         - user_id
-        - notification_type_id
+        - notification_id
         - active
         - created_at
       properties:
@@ -315,7 +315,7 @@ components:
         user_id:
           type: string
           description: The ID of the subscribed user.
-        notification_type_id:
+        notification_id:
           type: string
           description: The notification type this subscription is for.
           example: "feed.published"
@@ -336,9 +336,9 @@ components:
     CreateNotificationSubscriptionRequest:
       type: object
       required:
-        - notification_type_id
+        - notification_id
       properties:
-        notification_type_id:
+        notification_id:
           type: string
           description: The notification type to subscribe to.
           example: "feed.published"

@@ -180,7 +180,7 @@ class TestSubscriptionStubs(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as ctx:
-            self.api.create_user_subscription(CreateNotificationSubscriptionRequest(notification_type_id="type-1"))
+            self.api.create_user_subscription(CreateNotificationSubscriptionRequest(notification_id="type-1"))
         self.assertEqual(ctx.exception.status_code, 501)
 
     def test_update_user_subscription_returns_501(self):
