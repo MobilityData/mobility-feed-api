@@ -28,6 +28,9 @@ locals {
     "FEEDS_DATABASE_URL" = {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
     }
+    "USERS_DATABASE_URL" = {
+      secret_id = "${var.environment}_USERS_DATABASE_URL"
+    }
   }
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
@@ -87,6 +90,15 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         value_source {
           secret_key_ref {
             secret = "${upper(var.environment)}_FEEDS_DATABASE_URL"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "USERS_DATABASE_URL"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_USERS_DATABASE_URL"
             version = "latest"
           }
         }
