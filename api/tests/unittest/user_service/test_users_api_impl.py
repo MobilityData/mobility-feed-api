@@ -208,6 +208,8 @@ class TestAppUserImpl(unittest.TestCase):
             id="uid-1",
             email="a@b.com",
             full_name="Alice",
+            legacy_org_name="Acme Transit",
+            email_verified=True,
             is_registered_to_receive_api_announcements=True,
             created_at=now,
             updated_at=now,
@@ -216,6 +218,8 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertEqual(profile.id, "uid-1")
         self.assertEqual(profile.email, "a@b.com")
         self.assertEqual(profile.full_name, "Alice")
+        self.assertEqual(profile.legacy_org_name, "Acme Transit")
+        self.assertTrue(profile.email_verified)
         self.assertTrue(profile.is_registered_to_receive_api_announcements)
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)

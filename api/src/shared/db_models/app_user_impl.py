@@ -18,6 +18,8 @@ class AppUserImpl(UserProfile):
             id=user.id,
             email=user.email,
             full_name=user.full_name,
+            legacy_org_name=user.legacy_org_name,
+            email_verified=user.email_verified,
             is_registered_to_receive_api_announcements=user.is_registered_to_receive_api_announcements or False,
             created_at=user.created_at,
             updated_at=user.updated_at,

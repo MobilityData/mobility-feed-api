@@ -225,6 +225,11 @@ jobs:
           name: feeds_gen
           path: api/src/feeds_gen/
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
+
       - name: Set Variables
         id: set_variables
         run: |
@@ -268,6 +273,11 @@ jobs:
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
 
       - uses: actions/download-artifact@v4
         with:

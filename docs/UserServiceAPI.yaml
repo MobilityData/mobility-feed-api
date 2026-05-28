@@ -241,6 +241,16 @@ components:
           nullable: true
           description: The user's full name.
           example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          deprecated: true
+          description: "The user's legacy organisation name (migrated from the previous system). Deprecated: will be removed in a future version."
+          example: "Acme Transit"
+        email_verified:
+          type: boolean
+          nullable: true
+          description: Whether the user's email address has been verified.
         is_registered_to_receive_api_announcements:
           type: boolean
           description: Whether the user has opted in to receive API announcement emails.
@@ -265,6 +275,12 @@ components:
           nullable: true
           description: The user's full name.
           example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          deprecated: true
+          description: "The user's legacy organisation name (migrated from the previous system). Deprecated: will be removed in a future version."
+          example: "Acme Transit"
         is_registered_to_receive_api_announcements:
           type: boolean
           description: Whether the user has opted in to receive API announcement emails.
