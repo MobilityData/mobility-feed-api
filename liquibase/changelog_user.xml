@@ -9,4 +9,6 @@
       http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
     <!-- Add user, notification and subscription tables -->
     <include file="changes_user/feat_1683.sql" relativeToChangelogFile="true"/>
+    <!-- Add is_registered_to_receive_api_announcements to app_user -->
+    <include file="changes_user/feat_1686.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -98,6 +98,7 @@ jobs:
         scripts/db-gen-user.sh
         scripts/setup-openapi-generator.sh
         scripts/api-gen.sh
+        scripts/api-user-service-gen.sh
 
     - name: Load secrets from 1Password
       uses: 1password/load-secrets-action@v2.0.0

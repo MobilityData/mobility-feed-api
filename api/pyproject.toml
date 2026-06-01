@@ -21,6 +21,7 @@ extend-exclude = '''
     | src/feeds_gen/*
     | src/shared/database_gen/*
     | src/shared/users_database_gen/*
+    | src/user_service_gen/*
   )/
 )
 '''
@@ -35,3 +36,4 @@ skip_gitignore = true
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+addopts = ["--import-mode=importlib"]

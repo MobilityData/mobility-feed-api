@@ -28,6 +28,9 @@ locals {
     "FEEDS_DATABASE_URL" = {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
     }
+    "USERS_DATABASE_URL" = {
+      secret_id = "${var.environment}_USERS_DATABASE_URL"
+    }
   }
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
@@ -92,6 +95,15 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         }
       }
       env {
+        name = "USERS_DATABASE_URL"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_USERS_DATABASE_URL"
+            version = "latest"
+          }
+        }
+      }
+      env {
         name = "PROJECT_ID"
         value = data.google_project.project.project_id
       }
@@ -138,6 +150,7 @@ resource "google_secret_manager_secret_iam_member" "policy" {
   role = "roles/secretmanager.secretAccessor"
   member =  "serviceAccount:${google_service_account.containers_service_account.email}"
 }
+
 
 resource "google_project_iam_member" "containers_service_account_roles" {
   for_each = local.service_account_role_bindings

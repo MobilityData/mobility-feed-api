@@ -37,6 +37,7 @@ data-test/
 
 # Ignore generated files
 api/src/feeds_gen
+api/src/user_service_gen
 database_gen
 users_database_gen
 
