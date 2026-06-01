@@ -64,6 +64,7 @@ from tasks.web_revalidation.revalidate_feed import revalidate_feed_handler
 from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
+from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -161,6 +162,16 @@ tasks = {
             "and store results in gtfs_feed_availability_check. "
         ),
         "handler": check_gtfs_feed_availability_handler,
+    },
+    "migrate_firebase_users": {
+        "description": (
+            "Idempotent migration of Firebase users into users.app_user. "
+            "Reads Firebase Auth + Firestore profile data and upserts rows. "
+            "Syncs opted-in users to the Brevo API-announcements list. "
+            "Parameters: dry_run (default true), limit (default null), "
+            "user_ids (default null), only_not_migrated (default true)."
+        ),
+        "handler": migrate_firebase_users_handler,
     },
 }
 

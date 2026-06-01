@@ -31,3 +31,4 @@ pycountry
 shapely
 pandas
 charset_normalizer
+sib-api-v3-sdk

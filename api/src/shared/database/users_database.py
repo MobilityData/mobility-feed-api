@@ -95,4 +95,6 @@ def with_users_db_session(func=None, db_url: str | None = None):
         else:
             return func(*args, **kwargs)
 
+    # Preserve the original callable for inspect/signature-based tooling.
+    wrapper.__wrapped__ = func
     return wrapper

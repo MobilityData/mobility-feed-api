@@ -60,6 +60,9 @@ echo "==> Generating SQLAlchemy models (db-gen)..."
 echo "==> Generating FastAPI stubs (api-gen)..."
 "$SCRIPT_PATH/api-gen.sh"
 
+echo "==> Generating FastAPI stubs (user-gen)..."
+"$SCRIPT_PATH/api-user-service-gen.sh"
+
 echo "==> Setting up the OpenApi Generator"
 "$SCRIPT_PATH/setup-openapi-generator.sh"
 

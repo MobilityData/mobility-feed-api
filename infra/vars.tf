@@ -90,3 +90,9 @@ variable "web_app_revalidate_secret" {
     sensitive   = true
     default     = ""
 }
+
+variable "brevo_api_announcements_list_id" {
+    type        = string
+    description = "Brevo list ID for API announcements"
+    default     = ""
+}
