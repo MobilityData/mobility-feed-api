@@ -82,6 +82,8 @@ paths:
           description: Invalid request body.
         "401":
           description: Unauthorized — missing or invalid token.
+        "403":
+          description: Forbidden — insufficient permissions to update this profile.
         "404":
           description: User not found.
         "500":
