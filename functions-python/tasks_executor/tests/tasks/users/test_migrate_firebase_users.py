@@ -21,7 +21,7 @@ from tasks.users.migrate_firebase_users import (
     migrate_firebase_users,
     migrate_firebase_users_handler,
     _ms_to_datetime,
-    _parse_firestore_timestamp,
+    _parse_datastore_timestamp,
 )
 from shared.common.brevo import BrevoSubscriptionStatus
 from shared.users_database_gen.sqlacodegen_models import AppUser
@@ -44,16 +44,37 @@ def _make_auth_user(
     return user
 
 
-def _make_firestore_doc(data):
-    doc = MagicMock()
-    doc.to_dict.return_value = data
-    return doc
-
-
 def _make_db_session(existing_user=None):
     session = MagicMock()
     session.get.return_value = existing_user
     return session
+
+
+def _make_ds_client(entities: dict):
+    """Return a mock Datastore client where ds_client.get(key) looks up by key.name."""
+    ds_client = MagicMock()
+
+    def _get_key(kind, uid):
+        key = MagicMock()
+        key.name = uid
+        return key
+
+    ds_client.key.side_effect = _get_key
+
+    def _get_entity(key):
+        data = entities.get(key.name)
+        if data is None:
+            return None
+        entity = MagicMock()
+        entity.__iter__ = lambda self: iter(data.items())
+        entity.keys = lambda: data.keys()
+        # Make dict(entity) work correctly
+        entity.__class__ = dict
+        # Use a real dict wrapped in a MagicMock is tricky; return a real dict instead
+        return data  # dict(entity) == data since entity IS the dict here
+
+    ds_client.get.side_effect = _get_entity
+    return ds_client
 
 
 class TestHelpers(unittest.TestCase):
@@ -63,15 +84,15 @@ class TestHelpers(unittest.TestCase):
     def test_ms_to_datetime_none_returns_now(self):
         self.assertIsNotNone(_ms_to_datetime(None).tzinfo)
 
-    def test_parse_firestore_timestamp_none(self):
-        self.assertIsNone(_parse_firestore_timestamp(None))
+    def test_parse_datastore_timestamp_none(self):
+        self.assertIsNone(_parse_datastore_timestamp(None))
 
-    def test_parse_firestore_timestamp_aware_datetime(self):
+    def test_parse_datastore_timestamp_aware_datetime(self):
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        self.assertEqual(_parse_firestore_timestamp(dt), dt)
+        self.assertEqual(_parse_datastore_timestamp(dt), dt)
 
-    def test_parse_firestore_timestamp_naive_datetime(self):
-        self.assertIsNotNone(_parse_firestore_timestamp(datetime(2024, 1, 1)).tzinfo)
+    def test_parse_datastore_timestamp_naive_datetime(self):
+        self.assertIsNotNone(_parse_datastore_timestamp(datetime(2024, 1, 1)).tzinfo)
 
 
 class TestHandlerDefaults(unittest.TestCase):
@@ -114,40 +135,31 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
     def _run(
         self,
         user_records,
-        firestore_data,
+        datastore_data,
         db_session,
         brevo_status=BrevoSubscriptionStatus.NOT_FOUND,
         **kwargs,
     ):
+        ds_client = _make_ds_client(datastore_data)
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.firestore") as mock_fs,
+            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch(
                 "tasks.users.migrate_firebase_users._iter_users",
                 return_value=iter(user_records),
             ),
             patch(BREVO_MODULE, return_value=brevo_status),
         ):
-            fs_client = MagicMock()
-            mock_fs.client.return_value = fs_client
-
-            def _get_doc(uid):
-                doc = MagicMock()
-                doc.to_dict.return_value = firestore_data.get(uid)
-                return doc
-
-            fs_client.collection.return_value.document.side_effect = (
-                lambda uid: MagicMock(get=MagicMock(return_value=_get_doc(uid)))
-            )
+            mock_datastore.Client.return_value = ds_client
             return migrate_firebase_users(db_session=db_session, **kwargs)
 
     # --- INSERT path ---
 
     def test_new_user_full_data_inserted(self):
-        """New user is inserted with all Firestore fields mapped."""
+        """New user is inserted with all Datastore fields mapped."""
         user = _make_auth_user("uid1", email="alice@example.com")
         reg_time = datetime(2023, 6, 1, tzinfo=timezone.utc)
-        fs_data = {
+        ds_data = {
             "uid1": {
                 "fullName": "Alice",
                 "organization": "Transit Corp",
@@ -156,7 +168,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         }
         session = _make_db_session()
 
-        stats = self._run([user], fs_data, session, dry_run=False)
+        stats = self._run([user], ds_data, session, dry_run=False)
 
         self.assertEqual(stats["inserted"], 1)
         added: AppUser = session.add.call_args[0][0]
@@ -223,19 +235,17 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         existing = AppUser(id="uid5", email="e@example.com", migrated_at=None)
         session = _make_db_session(existing)
 
+        ds_client = _make_ds_client({})
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.firestore") as mock_fs,
+            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch(
                 "tasks.users.migrate_firebase_users._iter_users",
                 return_value=iter([user]),
             ),
             patch(BREVO_MODULE) as mock_brevo,
         ):
-            return_value = mock_fs.client.return_value
-            return_value.collection.return_value.document.return_value.get.return_value = _make_firestore_doc(
-                None
-            )
+            mock_datastore.Client.return_value = ds_client
             stats = migrate_firebase_users(db_session=session, dry_run=False)
 
         session.add.assert_not_called()
@@ -276,19 +286,17 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         user = _make_auth_user("uid8", email="h@example.com")
         session = _make_db_session()
 
+        ds_client = _make_ds_client({})
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.firestore") as mock_fs,
+            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch(
                 "tasks.users.migrate_firebase_users._iter_users",
                 return_value=iter([user]),
             ),
             patch(BREVO_MODULE, side_effect=Exception("Brevo down")),
         ):
-            return_value = mock_fs.client.return_value
-            return_value.collection.return_value.document.return_value.get.return_value = _make_firestore_doc(
-                None
-            )
+            mock_datastore.Client.return_value = ds_client
             stats = migrate_firebase_users(db_session=session, dry_run=False)
 
         self.assertEqual(stats["brevo_failed"], 1)
@@ -303,9 +311,10 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         user = _make_auth_user("uid9")
         session = _make_db_session()
 
+        ds_client = _make_ds_client({})
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.firestore") as mock_fs,
+            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch(
                 "tasks.users.migrate_firebase_users._iter_users",
                 return_value=iter([user]),
@@ -314,10 +323,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
                 BREVO_MODULE, return_value=BrevoSubscriptionStatus.SUBSCRIBED
             ) as mock_brevo,
         ):
-            return_value = mock_fs.client.return_value
-            return_value.collection.return_value.document.return_value.get.return_value = _make_firestore_doc(
-                None
-            )
+            mock_datastore.Client.return_value = ds_client
             stats = migrate_firebase_users(db_session=session, dry_run=True)
 
         self.assertTrue(stats["dry_run"])
@@ -351,19 +357,17 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         self.assertEqual(stats["inserted"], 1)
 
     def test_user_ids_param_uses_get_user(self):
+        ds_client = _make_ds_client({})
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.firestore") as mock_fs,
+            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch("tasks.users.migrate_firebase_users.auth") as mock_auth,
             patch(BREVO_MODULE, return_value=BrevoSubscriptionStatus.NOT_FOUND),
         ):
+            mock_datastore.Client.return_value = ds_client
             user = _make_auth_user("uid11", email="j@example.com")
             mock_auth.get_user.return_value = user
             mock_auth.UserNotFoundError = Exception
-            return_value = mock_fs.client.return_value
-            return_value.collection.return_value.document.return_value.get.return_value = _make_firestore_doc(
-                None
-            )
             session = _make_db_session()
             stats = migrate_firebase_users(
                 dry_run=True, user_ids=["uid11"], db_session=session

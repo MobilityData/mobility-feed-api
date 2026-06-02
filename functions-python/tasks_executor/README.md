@@ -199,6 +199,8 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 
 **Brevo subscription logic**: For each new user, `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked. If the contact is `SUBSCRIBED`, `is_registered_to_receive_api_announcements` is set to `true`; `UNSUBSCRIBED` sets it to `false`; `NOT_FOUND` leaves it at the DB default (`false`).
 
+**Datastore entity lookup**: For each new user, the `users` kind is queried by Firebase UID to retrieve `fullName`, `organization`, and `registrationCompletionTime`.
+
 **Required environment variables**:
 - `BREVO_API_KEY` (secret) — Brevo API key
 - `BREVO_API_ANNOUNCEMENTS_LIST_ID` — numeric Brevo list ID for API announcements

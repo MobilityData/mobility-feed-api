@@ -20,9 +20,9 @@ Field mapping:
   app_user.email                 <- Firebase Auth email
   app_user.email_verified        <- Firebase Auth email_verified
   app_user.created_at            <- Firebase Auth user_metadata.creation_timestamp
-  app_user.full_name             <- Firestore users/{uid}.fullName
-  app_user.legacy_org_name       <- Firestore users/{uid}.organization
-  app_user.registration_completed_at <- Firestore users/{uid}.registrationCompletionTime
+  app_user.full_name             <- Datastore users/{uid}.fullName
+  app_user.legacy_org_name       <- Datastore users/{uid}.organization
+  app_user.registration_completed_at <- Datastore users/{uid}.registrationCompletionTime
   app_user.is_registered_to_receive_api_announcements <- Brevo is the source of truth:
     SUBSCRIBED   → True
     UNSUBSCRIBED → False
@@ -41,7 +41,8 @@ from datetime import datetime, timezone
 from typing import Generator
 
 import firebase_admin
-from firebase_admin import auth, firestore
+from firebase_admin import auth
+from google.cloud import datastore
 from sqlalchemy.orm import Session
 
 from shared.common.brevo import (
@@ -69,17 +70,16 @@ def _ms_to_datetime(ms: int | None) -> datetime:
     return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
 
 
-def _parse_firestore_timestamp(value) -> datetime | None:
-    """Convert a Firestore Timestamp or datetime to a timezone-aware datetime, or None."""
+def _parse_datastore_timestamp(value) -> datetime | None:
+    """Convert a Datastore datetime value to a timezone-aware datetime, or None.
+
+    Cloud Datastore returns timestamps as timezone-aware datetime objects.
+    """
     if value is None:
         return None
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    # google.cloud.firestore_v1.types.Timestamp or similar — try .ToDatetime()
-    if hasattr(value, "ToDatetime"):
-        return value.ToDatetime(tzinfo=timezone.utc)
-    # Fallback: ignore unexpected types
-    logger.warning("Unrecognised Firestore timestamp type: %s", type(value))
+    logger.warning("Unrecognised Datastore timestamp type: %s", type(value))
     return None
 
 
@@ -137,7 +137,7 @@ def migrate_firebase_users(
         brevo_subscribed, brevo_unsubscribed, brevo_not_found, brevo_failed, dry_run.
     """
     _get_firebase_app()
-    fs_client = firestore.client()
+    ds_client = datastore.Client()
 
     list_id_raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
     announcements_list_id: int | None = int(list_id_raw) if list_id_raw else None
@@ -173,10 +173,8 @@ def migrate_firebase_users(
                 stats["skipped"] += 1
             continue  # existing users are not updated by this task
 
-        doc_data: dict = (
-            fs_client.collection("users").document(user_record.uid).get().to_dict()
-            or {}
-        )
+        entity = ds_client.get(ds_client.key("users", user_record.uid))
+        doc_data: dict = dict(entity) if entity else {}
         created_at = _ms_to_datetime(
             user_record.user_metadata.creation_timestamp
             if user_record.user_metadata
@@ -215,7 +213,7 @@ def migrate_firebase_users(
                     created_at=created_at,
                     full_name=doc_data.get("fullName"),
                     legacy_org_name=doc_data.get("organization"),
-                    registration_completed_at=_parse_firestore_timestamp(
+                    registration_completed_at=_parse_datastore_timestamp(
                         doc_data.get("registrationCompletionTime")
                     ),
                     migrated_at=now,

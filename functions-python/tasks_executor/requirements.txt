@@ -27,6 +27,7 @@ google-cloud-storage
 
 # Firebase Admin SDK (used by migrate_firebase_users task)
 firebase-admin
+google-cloud-datastore
 
 # Brevo (Sendinblue) SDK for API announcements mailing list sync
 sib-api-v3-sdk
