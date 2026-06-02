@@ -142,7 +142,7 @@ def migrate_firebase_users(
     list_id_raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
     announcements_list_id: int | None = int(list_id_raw) if list_id_raw else None
 
-    stats: dict = {
+    results = {
         "total": 0,
         "inserted": 0,
         "skipped": 0,
@@ -159,18 +159,18 @@ def migrate_firebase_users(
         if limit is not None and processed >= limit:
             break
 
-        stats["total"] += 1
+        results["total"] += 1
 
         if not user_record.email:
             logger.warning("Skipping user with no email: uid=%s", user_record.uid)
-            stats["no_email_skipped"] += 1
+            results["no_email_skipped"] += 1
             continue
 
         existing: AppUser | None = db_session.get(AppUser, user_record.uid)
 
         if existing is not None:
             if only_not_migrated and existing.migrated_at is not None:
-                stats["skipped"] += 1
+                results["skipped"] += 1
             continue  # existing users are not updated by this task
 
         entity = ds_client.get(ds_client.key("users", user_record.uid))
@@ -189,11 +189,11 @@ def migrate_firebase_users(
                 user_record.email, announcements_list_id
             )
             if brevo_status == BrevoSubscriptionStatus.SUBSCRIBED:
-                stats["brevo_subscribed"] += 1
+                results["brevo_subscribed"] += 1
             elif brevo_status == BrevoSubscriptionStatus.UNSUBSCRIBED:
-                stats["brevo_unsubscribed"] += 1
+                results["brevo_unsubscribed"] += 1
             else:
-                stats["brevo_not_found"] += 1
+                results["brevo_not_found"] += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Brevo check failed for uid=%s email=%s: %s",
@@ -201,7 +201,7 @@ def migrate_firebase_users(
                 user_record.email,
                 exc,
             )
-            stats["brevo_failed"] += 1
+            results["brevo_failed"] += 1
 
         if not dry_run:
             now = datetime.now(timezone.utc)
@@ -227,14 +227,23 @@ def migrate_firebase_users(
                     )
                 db_session.add(new_user)
                 db_session.flush()
-                stats["inserted"] += 1
+                results["inserted"] += 1
         else:
             if existing is None:
-                stats["inserted"] += 1
+                results["inserted"] += 1
 
         processed += 1
 
-    return stats
+    logger.info(
+        "migration_completed",
+        extra={
+            "json_fields": {
+                "task": "migrate_firebase_users",
+                **results,
+            }
+        },
+    )
+    return results
 
 
 @with_users_db_session
