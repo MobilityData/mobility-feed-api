@@ -167,7 +167,7 @@ tasks = {
         "description": (
             "Idempotent migration of Firebase users into users.app_user. "
             "Reads Firebase Auth + Firestore profile data and upserts rows. "
-            "Syncs opted-in users to the Brevo API-announcements list. "
+            "Syncs opted-out users from the Brevo API-announcements list. "
             "Parameters: dry_run (default true), limit (default null), "
             "user_ids (default null), only_not_migrated (default true)."
         ),

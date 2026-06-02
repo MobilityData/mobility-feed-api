@@ -171,3 +171,49 @@ The response includes an `elapsed_seconds` field indicating how long the task to
 
 When the request includes the header `Accept: text/csv`, the server returns the response as a CSV file generated from the handler’s output.
 If the header is not provided, the default response content type is `application/json`.
+
+## Tasks
+
+### `migrate_firebase_users`
+
+Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This task is **insert-only** — existing rows are never modified. Brevo is the source of truth for `is_registered_to_receive_api_announcements`.
+
+```json
+{
+  "task": "migrate_firebase_users",
+  "payload": {
+    "dry_run": true,
+    "limit": null,
+    "user_ids": null,
+    "only_not_migrated": true
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Read and count without any DB writes. Brevo is still queried so counts are accurate |
+| `limit` | int \| null | `null` | Maximum number of users to process per run; `null` means no limit |
+| `user_ids` | list[str] \| null | `null` | If provided, only migrate these specific Firebase UIDs |
+| `only_not_migrated` | bool | `true` | Skip users that already have a row in `app_user` with `migrated_at` set |
+
+**Brevo subscription logic**: For each new user, `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked. If the contact is `SUBSCRIBED`, `is_registered_to_receive_api_announcements` is set to `true`; `UNSUBSCRIBED` sets it to `false`; `NOT_FOUND` leaves it at the DB default (`false`).
+
+**Required environment variables**:
+- `BREVO_API_KEY` (secret) — Brevo API key
+- `BREVO_API_ANNOUNCEMENTS_LIST_ID` — numeric Brevo list ID for API announcements
+- `USERS_DATABASE_URL` (secret) — PostgreSQL connection string for the users DB
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `total` | Total Firebase users iterated |
+| `inserted` | Users inserted into `app_user` |
+| `skipped` | Users skipped because they already exist with `migrated_at` set |
+| `no_email_skipped` | Users skipped because they have no email address |
+| `brevo_subscribed` | Users found as subscribed in Brevo |
+| `brevo_unsubscribed` | Users found as unsubscribed in Brevo |
+| `brevo_not_found` | Users not found in Brevo |
+| `brevo_failed` | Users where the Brevo check failed (non-fatal; user is still inserted) |
+| `dry_run` | Whether the task ran in dry-run mode |
