@@ -270,6 +270,8 @@ def get_parameters(payload: dict) -> dict:
     dry_run = payload.get("dry_run", True)
     dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"
     limit = payload.get("limit", None)
+    if limit is not None:
+        limit = int(limit)
     user_ids = payload.get("user_ids", None)
     only_not_migrated = payload.get("only_not_migrated", True)
     only_not_migrated = (
