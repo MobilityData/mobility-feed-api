@@ -113,6 +113,8 @@
     <include file="changes/feat_1700.sql" relativeToChangelogFile="true"/>
     <!-- Add content_type and is_zip columns to gtfs_feed_availability_check. -->
     <include file="changes/feat_1700_content_type.sql" relativeToChangelogFile="true"/>
+    <!-- Add gtfs_dataset_changelog table to store changelog references (issue #1633). -->
+    <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
