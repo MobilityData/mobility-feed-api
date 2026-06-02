@@ -220,12 +220,10 @@ def migrate_firebase_users(
                 results["brevo_unsubscribed"] += 1
             else:
                 results["brevo_not_found"] += 1
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             logger.warning(
-                "Brevo check failed for uid=%s email=%s: %s",
+                "Brevo check failed for uid=%s",
                 user_record.uid,
-                user_record.email,
-                exc,
             )
             results["brevo_failed"] += 1
 
