@@ -1280,6 +1280,18 @@ resource "google_project_iam_member" "invoking" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+resource "google_project_iam_member" "firebase" {
+  project = var.project_id
+  role    = "roles/firebase.admin"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "datastore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_project_iam_member" "event-receiving" {
   project = var.project_id
   role    = "roles/eventarc.eventReceiver"

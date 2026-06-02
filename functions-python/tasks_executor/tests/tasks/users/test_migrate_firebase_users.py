@@ -51,29 +51,23 @@ def _make_db_session(existing_user=None):
 
 
 def _make_ds_client(entities: dict):
-    """Return a mock Datastore client where ds_client.get(key) looks up by key.name."""
+    """Return a mock Datastore client where query.fetch() looks up by uid property."""
     ds_client = MagicMock()
 
-    def _get_key(kind, uid):
-        key = MagicMock()
-        key.name = uid
-        return key
+    def _make_query(kind):
+        query = MagicMock()
+        uid_filter = {}
 
-    ds_client.key.side_effect = _get_key
+        def _add_filter(prop, op, val):
+            uid_filter["uid"] = val
 
-    def _get_entity(key):
-        data = entities.get(key.name)
-        if data is None:
-            return None
-        entity = MagicMock()
-        entity.__iter__ = lambda self: iter(data.items())
-        entity.keys = lambda: data.keys()
-        # Make dict(entity) work correctly
-        entity.__class__ = dict
-        # Use a real dict wrapped in a MagicMock is tricky; return a real dict instead
-        return data  # dict(entity) == data since entity IS the dict here
+        query.add_filter.side_effect = _add_filter
+        query.fetch.side_effect = lambda limit=None: iter(
+            [entities[uid_filter["uid"]]] if uid_filter.get("uid") in entities else []
+        )
+        return query
 
-    ds_client.get.side_effect = _get_entity
+    ds_client.query.side_effect = _make_query
     return ds_client
 
 
@@ -93,6 +87,14 @@ class TestHelpers(unittest.TestCase):
 
     def test_parse_datastore_timestamp_naive_datetime(self):
         self.assertIsNotNone(_parse_datastore_timestamp(datetime(2024, 1, 1)).tzinfo)
+
+    def test_parse_datastore_timestamp_iso_string(self):
+        """registrationCompletionTime is stored as new Date().toJSON() — an ISO string."""
+        result = _parse_datastore_timestamp("2023-06-01T12:00:00.000Z")
+        self.assertEqual(result, datetime(2023, 6, 1, 12, 0, 0, tzinfo=timezone.utc))
+
+    def test_parse_datastore_timestamp_invalid_string(self):
+        self.assertIsNone(_parse_datastore_timestamp("not-a-date"))
 
 
 class TestHandlerDefaults(unittest.TestCase):

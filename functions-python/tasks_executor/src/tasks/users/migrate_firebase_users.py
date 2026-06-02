@@ -71,14 +71,24 @@ def _ms_to_datetime(ms: int | None) -> datetime:
 
 
 def _parse_datastore_timestamp(value) -> datetime | None:
-    """Convert a Datastore datetime value to a timezone-aware datetime, or None.
+    """Convert a Datastore timestamp value to a timezone-aware datetime, or None.
 
-    Cloud Datastore returns timestamps as timezone-aware datetime objects.
+    Handles:
+    - timezone-aware datetime (returned by Datastore for datetime properties)
+    - naive datetime (adds UTC)
+    - ISO 8601 string (stored via new Date().toJSON() in the TS user-api)
     """
     if value is None:
         return None
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            logger.warning("Cannot parse Datastore timestamp string: %r", value)
+            return None
     logger.warning("Unrecognised Datastore timestamp type: %s", type(value))
     return None
 
@@ -173,8 +183,24 @@ def migrate_firebase_users(
                 results["skipped"] += 1
             continue  # existing users are not updated by this task
 
-        entity = ds_client.get(ds_client.key("users", user_record.uid))
+        query = ds_client.query(kind="web_api_users")
+        query.add_filter("uid", "=", user_record.uid)
+        entities = list(query.fetch(limit=1))
+        entity = entities[0] if entities else None
+        if entity is None:
+            logger.warning("No Datastore entity found for uid=%s", user_record.uid)
         doc_data: dict = dict(entity) if entity else {}
+        if doc_data:
+            logger.debug(
+                "Datastore entity keys for uid=%s: %s",
+                user_record.uid,
+                list(doc_data.keys()),
+            )
+        elif entity is not None:
+            logger.warning(
+                "Datastore entity exists but is empty for uid=%s, profile fields will be null",
+                user_record.uid,
+            )
         created_at = _ms_to_datetime(
             user_record.user_metadata.creation_timestamp
             if user_record.user_metadata
