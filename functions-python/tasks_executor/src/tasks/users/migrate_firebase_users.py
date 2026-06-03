@@ -20,9 +20,10 @@ Field mapping:
   app_user.email                 <- Firebase Auth email
   app_user.email_verified        <- Firebase Auth email_verified
   app_user.created_at            <- Firebase Auth user_metadata.creation_timestamp
-  app_user.full_name             <- Datastore users/{uid}.fullName
-  app_user.legacy_org_name       <- Datastore users/{uid}.organization
-  app_user.registration_completed_at <- Datastore users/{uid}.registrationCompletionTime
+  app_user.full_name             <- Datastore kind 'web_api_users' (queried by uid property).fullName
+  app_user.legacy_org_name       <- Datastore kind 'web_api_users' (queried by uid property).organization
+  app_user.registration_completed_at <- Datastore kind 'web_api_users'
+    (queried by uid property).registrationCompletionTime
   app_user.is_registered_to_receive_api_announcements <- Brevo is the source of truth:
     SUBSCRIBED   → True
     UNSUBSCRIBED → False
@@ -150,7 +151,16 @@ def migrate_firebase_users(
     ds_client = datastore.Client()
 
     list_id_raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
-    announcements_list_id: int | None = int(list_id_raw) if list_id_raw else None
+    announcements_list_id: int | None = None
+    if list_id_raw:
+        try:
+            announcements_list_id = int(list_id_raw)
+        except ValueError:
+            logger.warning(
+                "Invalid BREVO_API_ANNOUNCEMENTS_LIST_ID value %r — "
+                "list-specific unsubscribe check will be skipped",
+                list_id_raw,
+            )
 
     results = {
         "total": 0,
@@ -296,7 +306,7 @@ def migrate_firebase_users_handler(
     )
 
 
-def get_parameters(payload: dict) -> dict:
+def get_parameters(payload: dict) -> tuple[bool, int | None, list[str] | None, bool]:
     """Extract and validate parameters from the payload."""
     dry_run = payload.get("dry_run", True)
     dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"

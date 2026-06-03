@@ -54,6 +54,9 @@ fi
 echo "==> Rebuilding test database..."
 "$SCRIPT_PATH/docker-localdb-rebuild-data.sh" --use-test-db
 
+echo "==> Setting up the OpenApi Generator"
+"$SCRIPT_PATH/setup-openapi-generator.sh"
+
 echo "==> Generating SQLAlchemy models (db-gen)..."
 "$SCRIPT_PATH/db-gen.sh"
 
@@ -62,9 +65,6 @@ echo "==> Generating FastAPI stubs (api-gen)..."
 
 echo "==> Generating FastAPI stubs (user-gen)..."
 "$SCRIPT_PATH/api-user-service-gen.sh"
-
-echo "==> Setting up the OpenApi Generator"
-"$SCRIPT_PATH/setup-openapi-generator.sh"
 
 echo "==> Syncing Operations API schema..."
 "$SCRIPT_PATH/api-operations-update-schema.sh"

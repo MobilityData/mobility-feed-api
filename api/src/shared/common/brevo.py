@@ -16,7 +16,7 @@
 """Shared Brevo API helpers.
 
 Usage:
-    from helpers.brevo import BrevoSubscriptionStatus, get_contact_subscription_status
+    from shared.common.brevo import BrevoSubscriptionStatus, get_contact_subscription_status
 
     status = get_contact_subscription_status(email, list_id)
     if status == BrevoSubscriptionStatus.SUBSCRIBED:
@@ -73,6 +73,6 @@ def get_contact_subscription_status(
 
     if contact.email_blacklisted:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
-    if list_id and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
+    if list_id is not None and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
     return BrevoSubscriptionStatus.SUBSCRIBED
