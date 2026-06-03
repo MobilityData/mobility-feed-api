@@ -211,11 +211,6 @@ def migrate_firebase_users(
                 "Datastore entity exists but is empty for uid=%s, profile fields will be null",
                 user_record.uid,
             )
-        created_at = _ms_to_datetime(
-            user_record.user_metadata.creation_timestamp
-            if user_record.user_metadata
-            else None
-        )
 
         # Brevo is the source of truth for subscription status.
         # In dry_run mode we still query Brevo so the counts are accurate.
@@ -238,19 +233,22 @@ def migrate_firebase_users(
             results["brevo_failed"] += 1
 
         if not dry_run:
-            now = datetime.now(timezone.utc)
             if existing is None:
                 new_user = AppUser(
                     id=user_record.uid,
                     email=user_record.email,
                     email_verified=user_record.email_verified,
-                    created_at=created_at,
+                    created_at=_ms_to_datetime(
+                        user_record.user_metadata.creation_timestamp
+                        if user_record.user_metadata
+                        else None
+                    ),
                     full_name=doc_data.get("fullName"),
                     legacy_org_name=doc_data.get("organization"),
                     registration_completed_at=_parse_datastore_timestamp(
                         doc_data.get("registrationCompletionTime")
                     ),
-                    migrated_at=now,
+                    migrated_at=datetime.now(timezone.utc),
                 )
                 if (
                     brevo_status is not None
