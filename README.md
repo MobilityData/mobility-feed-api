@@ -98,7 +98,9 @@ docker-compose --env-file ./config/.env.local  up -d --force-recreate
 
 ```bash
 scripts/api-gen.sh
+scripts/api-user-service-gen.sh
 scripts/db-gen.sh
+scripts/db-gen-user.sh 
 ```
 
 In case you modify the database schema, you can run
