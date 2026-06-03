@@ -64,6 +64,11 @@ on:
         description: URL of the website revalidation endpoint
         required: false
         type: string
+      BREVO_API_ANNOUNCEMENTS_LIST_ID:
+        description: Brevo list ID for API announcements
+        required: false
+        type: string
+        default: ""
       WEB_APP_REVALIDATE_SECRET_1PASSWORD:
         description: 1Password reference for the website revalidation secret token
         required: false
@@ -322,6 +327,7 @@ jobs:
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
           echo "VALIDATOR_ENDPOINT=${{ inputs.VALIDATOR_ENDPOINT }}" >> $GITHUB_ENV
           echo "WEB_APP_REVALIDATE_URL=${{ inputs.WEB_APP_REVALIDATE_URL }}" >> $GITHUB_ENV
+          echo "BREVO_API_ANNOUNCEMENTS_LIST_ID=${{ inputs.BREVO_API_ANNOUNCEMENTS_LIST_ID }}" >> $GITHUB_ENV
 
       - name: Load secret from 1Password
         uses: 1password/load-secrets-action@v2
@@ -345,7 +351,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET,BREVO_API_ANNOUNCEMENTS_LIST_ID
 
       - uses: hashicorp/setup-terraform@v3
         with:

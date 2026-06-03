@@ -1141,6 +1141,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       TDG_API_TOKEN = var.tdg_api_token
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
       WEB_APP_REVALIDATE_URL = var.web_app_revalidate_url
+      BREVO_API_ANNOUNCEMENTS_LIST_ID = var.brevo_api_announcements_list_id
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1276,6 +1277,18 @@ resource "google_cloud_run_service_iam_member" "operastions_cloud_run_invoker" {
 resource "google_project_iam_member" "invoking" {
   project = var.project_id
   role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "firebase" {
+  project = var.project_id
+  role    = "roles/firebase.admin"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "datastore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
