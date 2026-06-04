@@ -183,10 +183,8 @@ paths:
       - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: >
-        Returns historical availability checks for a GTFS feed, ordered by
-        checked_at from oldest to newest. Availability is based on scheduled
-        lightweight HTTP checks (HEAD or ranged GET requests) and does not
-        download or validate the full GTFS dataset.
+        Returns historical availability checks for a GTFS feed, ordered by checked_at from oldest to newest. Availability is based on scheduled lightweight HTTP checks (HEAD or ranged GET requests) and does not download or validate the full GTFS dataset.
+
       tags:
         - "operations"
       operationId: getGtfsFeedAvailability
@@ -211,7 +209,6 @@ paths:
           description: GTFS feed not found.
         500:
           description: Internal server error.
-
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -1729,6 +1726,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1862,6 +1860,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1958,6 +1957,7 @@ components:
 
 
 
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -1975,6 +1975,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
 
 

@@ -166,6 +166,11 @@ class DatabasePopulateTestDataHelper:
         if "validation_reports" in data:
             validation_report_dict = {}
             for report in data["validation_reports"]:
+                if report["dataset_id"] not in dataset_dict:
+                    self.logger.error(
+                        f"No dataset found with id: {report['dataset_id']}; skipping validation report {report['id']}"
+                    )
+                    continue
                 validation_report = Validationreport(
                     id=report["id"],
                     validator_version=report["validator_version"],
@@ -349,6 +354,10 @@ class DatabasePopulateTestDataHelper:
 
     def populate_test_feeds(self, feeds_data, db_session: "Session"):
         for feed_data in feeds_data:
+            existing = db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_data["id"]).one_or_none()
+            if existing:
+                logger.info(f"Feed {feed_data['id']} already exists, skipping")
+                continue
             feed = Gtfsfeed(
                 id=str(uuid4()),
                 stable_id=feed_data["id"],
