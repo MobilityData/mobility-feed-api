@@ -1,11 +1,13 @@
 import copy
 from datetime import datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 import json
 
 from fastapi.testclient import TestClient
 
+from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck as DbAvailabilityCheck
 from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -349,3 +351,61 @@ def assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed):
         response_gtfs_rt_feed["feed_references"][0] == gtfs_rt_feed.gtfs_feeds[0].stable_id
     ), f'response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
     assert response_gtfs_rt_feed["created_at"] is not None, "Response feed created_at was None"
+
+
+# ---- Unit tests for availability endpoint helpers ----
+
+
+def _make_db_check(**kwargs):
+    """Create a minimal mock DB availability check."""
+    defaults = {
+        "checked_at": datetime(2025, 1, 10, 10, 0, 0),
+        "success": True,
+        "request_type": "http_head",
+        "status_code": 200,
+        "latency_ms": 150,
+        "error_type": None,
+    }
+    defaults.update(kwargs)
+    check = MagicMock(spec=DbAvailabilityCheck)
+    for k, v in defaults.items():
+        setattr(check, k, v)
+    return check
+
+
+def test_map_availability_check_http_head():
+    """http_head maps to HEAD."""
+    db_check = _make_db_check(request_type="http_head")
+    result = GtfsFeedAvailabilityCheckImpl.from_orm(db_check)
+    assert result.request_method == "HEAD"
+
+
+def test_map_availability_check_http_get():
+    """http_get maps to GET."""
+    db_check = _make_db_check(request_type="http_get")
+    result = GtfsFeedAvailabilityCheckImpl.from_orm(db_check)
+    assert result.request_method == "GET"
+
+
+def test_map_availability_check_latency_ms_cast_to_float():
+    """latency_ms integer is cast to float."""
+    db_check = _make_db_check(latency_ms=250)
+    result = GtfsFeedAvailabilityCheckImpl.from_orm(db_check)
+    assert result.latency_ms == 250.0
+    assert isinstance(result.latency_ms, float)
+
+
+def test_map_availability_check_latency_ms_none():
+    """latency_ms None stays None."""
+    db_check = _make_db_check(latency_ms=None)
+    result = GtfsFeedAvailabilityCheckImpl.from_orm(db_check)
+    assert result.latency_ms is None
+
+
+def test_map_availability_check_failure():
+    """Failed check maps success=False and preserves error_type."""
+    db_check = _make_db_check(success=False, status_code=503, error_type="http_error")
+    result = GtfsFeedAvailabilityCheckImpl.from_orm(db_check)
+    assert result.success is False
+    assert result.status_code == 503
+    assert result.error_type == "http_error"

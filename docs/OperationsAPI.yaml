@@ -178,6 +178,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationGtfsFeed"
+  /v1/operations/gtfs_feeds/{id}/availability:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        Returns historical availability checks for a GTFS feed, ordered by
+        checked_at from oldest to newest. Availability is based on scheduled
+        lightweight HTTP checks (HEAD or ranged GET requests) and does not
+        download or validate the full GTFS dataset.
+      tags:
+        - "operations"
+      operationId: getGtfsFeedAvailability
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/availability_from"
+        - $ref: "#/components/parameters/availability_to"
+        - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/availability_sort"
+      responses:
+        200:
+          description: Availability history for the GTFS feed, ordered by checked_at (newest first by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedAvailabilityResponse"
+        400:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -867,6 +901,75 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/GtfsRTFeed"
+    GtfsFeedAvailabilityResponse:
+      type: object
+      required:
+        - feed_id
+        - checks
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        total:
+          type: integer
+          description: Total number of matching availability checks regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 100
+        checks:
+          type: array
+          description: Availability checks matching the requested filters, ordered by checked_at from oldest to newest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedAvailabilityCheck"
+    GtfsFeedAvailabilityCheck:
+      type: object
+      required:
+        - checked_at
+        - success
+        - request_method
+      properties:
+        checked_at:
+          type: string
+          format: date-time
+          description: Timestamp when the availability check was performed.
+          example: "2026-05-14T10:00:00Z"
+        success:
+          type: boolean
+          description: Whether the feed URL was reachable using the lightweight check.
+          example: true
+        request_method:
+          type: string
+          description: HTTP method used for the availability check.
+          enum:
+            - HEAD
+            - GET
+          example: HEAD
+        status_code:
+          type: integer
+          nullable: true
+          description: Final HTTP status code returned by the feed URL, when available.
+          example: 200
+        latency_ms:
+          type: number
+          format: double
+          nullable: true
+          description: Time taken to receive the response, in milliseconds.
+          example: 845.3
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the check failed.
+          example: timeout
     LatestDataset:
       type: object
       properties:
@@ -1624,6 +1727,8 @@ components:
 
 
 
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1755,6 +1860,8 @@ components:
 
 
 
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1849,6 +1956,8 @@ components:
 
 
 
+
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -1866,6 +1975,8 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
+
 
 
 
@@ -1941,6 +2052,51 @@ components:
         minimum: 0
         default: 0
         example: 0
+    limit_query_param_availability_endpoint:
+      x-operation: true
+      name: limit
+      in: query
+      description: The number of items to be returned. Maximum is 100.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 100
+        example: 10
+    availability_from:
+      x-operation: true
+      name: from
+      in: query
+      description: Return availability checks performed at or after this timestamp. Date should be in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-01T00:00:00Z"
+    availability_to:
+      x-operation: true
+      name: to
+      in: query
+      description: Return availability checks performed at or before this timestamp. Date should be in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-05-01T00:00:00Z"
+    availability_sort:
+      x-operation: true
+      name: sort
+      in: query
+      description: Sort order of results by checked_at. Use `desc` for newest first (default) or `asc` for oldest first.
+      required: false
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: desc
+        example: asc
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

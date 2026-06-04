@@ -9,6 +9,7 @@ from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
+from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -16,6 +17,7 @@ from feeds_gen.models.feed import Feed
 from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
+from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
 from shared.common.db_utils import (
@@ -26,6 +28,7 @@ from shared.common.db_utils import (
     get_gbfs_feeds_query,
 )
 from shared.common.error_handling import (
+    availability_from_after_to,
     invalid_date_message,
     feed_not_found,
     gtfs_feed_not_found,
@@ -38,6 +41,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed as FeedOrm,
     Gtfsdataset,
     Gtfsfeed,
+    GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
 )
 from shared.feed_filters.feed_filter import FeedFilter
@@ -307,6 +311,53 @@ class FeedsApiImpl(BaseFeedsApi):
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
+
+    @with_db_session
+    def get_gtfs_feed_availability(
+        self,
+        id: str,
+        _from: str,
+        to: str,
+        limit: int,
+        offset: int,
+        sort: str,
+        db_session: Session,
+    ) -> GtfsFeedAvailabilityResponse:
+        """Returns historical availability checks for a GTFS feed."""
+        if _from and not valid_iso_date(_from):
+            raise_http_validation_error(invalid_date_message.format("from"))
+        if to and not valid_iso_date(to):
+            raise_http_validation_error(invalid_date_message.format("to"))
+
+        from_dt = datetime.fromisoformat(_from.replace("Z", "+00:00")) if _from else None
+        to_dt = datetime.fromisoformat(to.replace("Z", "+00:00")) if to else None
+
+        if from_dt and to_dt and from_dt > to_dt:
+            raise_http_validation_error(availability_from_after_to)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(GtfsFeedAvailabilityCheck.feed_id == feed.id)
+        if from_dt:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= from_dt)
+        if to_dt:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to_dt)
+
+        total = query.count()
+        order = (
+            GtfsFeedAvailabilityCheck.checked_at.asc() if sort == "asc" else GtfsFeedAvailabilityCheck.checked_at.desc()
+        )
+        checks = query.order_by(order).offset(offset).limit(limit).all()
+
+        return GtfsFeedAvailabilityResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
 
     @with_db_session
     def get_gbfs_feed(
