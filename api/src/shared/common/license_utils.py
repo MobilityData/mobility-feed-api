@@ -415,11 +415,14 @@ def resolve_license(
     # 4) Generic heuristics
     heuristic_match = heuristic_spdx(url_str)
     if heuristic_match:
-        # Check if the license found is actually in the DB
-        db_lic = db_session.query(License).filter(func.lower(License.id) == func.lower(heuristic_match)).one_or_none()
-        if db_lic is None:
-            logging.warning("Heuristic SPDX ID %s not found in DB, skipping assignment", heuristic_match)
-            heuristic_match = None
+        if db_session is not None:
+            # Check if the license found is actually in the DB
+            db_lic = (
+                db_session.query(License).filter(func.lower(License.id) == func.lower(heuristic_match)).one_or_none()
+            )
+            if db_lic is None:
+                logging.warning("Heuristic SPDX ID %s not found in DB, skipping assignment", heuristic_match)
+                heuristic_match = None
         if heuristic_match:
             return [
                 MatchingLicense(
