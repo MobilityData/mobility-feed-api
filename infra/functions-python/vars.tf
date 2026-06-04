@@ -129,3 +129,9 @@ variable "update_feed_status_schedule" {
     description = "Schedule the update_feed_status function"
     default     = "0 4 * * *" # At 4am every day.
 }
+
+variable "brevo_api_announcements_list_id" {
+    type        = string
+    description = "Brevo list ID for API announcements"
+    default     = ""
+}

@@ -1,0 +1,4 @@
+# Documentation, https://openapi-generator.tech/docs/generators/python-fastapi/
+additionalProperties:
+  packageName: user_service_gen
+  fastapiImplementationPackage: user_service.impl

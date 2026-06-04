@@ -78,6 +78,7 @@ cascade_entities = {
         Feed.redirectingids_,  # redirectingid_target_id_fkey
         Feed.feed_license_changes,
     ],
+    Gtfsfeed: [Gtfsfeed.gtfs_dataset_changelogs],
     Gbfsfeed: [
         Gbfsfeed.gbfsversions,  # gbfsversion_feed_id_fkey
     ],
@@ -97,6 +98,8 @@ cascade_entities = {
     ],
     Gtfsdataset: [
         Gtfsdataset.gtfsfiles,
+        Gtfsdataset.gtfs_dataset_changelogs,  # current_dataset FK
+        Gtfsdataset.gtfs_dataset_changelogs_,  # previous_dataset FK
     ],
 }
 

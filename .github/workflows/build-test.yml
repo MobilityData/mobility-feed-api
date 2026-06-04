@@ -127,6 +127,7 @@ jobs:
         run: |
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
+          scripts/api-user-service-gen.sh
 
       - name: Generate Operations API code
         run: |
@@ -164,6 +165,13 @@ jobs:
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+          overwrite: true
+
+      - name: Upload User Service API generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
           overwrite: true
 
       - name: Upload Operations API generated code
@@ -207,6 +215,12 @@ jobs:
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+
+      - name: Download User Service API generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
 
       - name: Download Operations API generated code
         uses: actions/download-artifact@v4

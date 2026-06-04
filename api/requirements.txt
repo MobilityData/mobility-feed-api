@@ -51,3 +51,6 @@ google-cloud-pubsub
 pycountry
 pytz
 google-cloud-tasks
+
+# Brevo (Sendinblue) SDK for API announcements mailing list sync
+sib-api-v3-sdk

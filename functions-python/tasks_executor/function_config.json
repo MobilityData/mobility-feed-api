@@ -6,13 +6,16 @@
   "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen", "database", "common", "feed_filters"],
+  "include_api_folders": ["database_gen", "database", "common", "feed_filters", "users_database_gen"],
   "environment_variables": [
     {
       "key": "DATASETS_BUCKET_NAME"
     },
     {
       "key": "TDG_API_TOKEN"
+    },
+    {
+      "key": "BREVO_API_ANNOUNCEMENTS_LIST_ID"
     }
   ],
   "secret_environment_variables": [
@@ -25,6 +28,12 @@
     },
     {
       "key": "WEB_APP_REVALIDATE_SECRET"
+    },
+    {
+      "key": "USERS_DATABASE_URL"
+    },
+    {
+      "key": "BREVO_API_KEY"
     }
   ],
   "ingress_settings": "ALLOW_ALL",
