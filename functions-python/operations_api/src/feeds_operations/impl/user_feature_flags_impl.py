@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import delete, insert, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.users_api_base import BaseUsersApi
@@ -40,7 +40,7 @@ from shared.database.users_database import with_users_db_session
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     FeatureFlag as FeatureFlagORM,
-    t_user_feature_flag,
+    UserFeatureFlag,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         offset: Optional[int] = 0,
         db_session=None,
     ) -> List[OperationUserProfile]:
-        q = db_session.query(AppUser).options(selectinload(AppUser.feature_flags))
+        q = db_session.query(AppUser).options(selectinload(AppUser.user_feature_flags))
         if search_query:
             pattern = f"%{search_query}%"
             q = q.filter(
@@ -76,7 +76,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
     ) -> OperationUserProfile:
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.feature_flags))
+            .options(selectinload(AppUser.user_feature_flags))
             .filter_by(id=user_id)
             .first()
         )
@@ -132,7 +132,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
     ) -> OperationUserProfile:
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.feature_flags))
+            .options(selectinload(AppUser.user_feature_flags))
             .filter_by(id=user_id)
             .first()
         )
@@ -157,21 +157,17 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
                 )
 
         # Replace: delete all existing assignments then insert the new set
-        db_session.execute(
-            delete(t_user_feature_flag).where(t_user_feature_flag.c.user_id == user_id)
+        db_session.query(UserFeatureFlag).filter_by(user_id=user_id).delete()
+        db_session.add_all(
+            [
+                UserFeatureFlag(
+                    user_id=user_id,
+                    feature_flag_id=fid,
+                    assigned_at=datetime.now(timezone.utc),
+                )
+                for fid in flag_ids
+            ]
         )
-        if flag_ids:
-            db_session.execute(
-                insert(t_user_feature_flag),
-                [
-                    {
-                        "user_id": user_id,
-                        "feature_flag_id": fid,
-                        "assigned_at": datetime.now(timezone.utc),
-                    }
-                    for fid in flag_ids
-                ],
-            )
         db_session.flush()
 
         # Reload to reflect the new state

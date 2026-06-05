@@ -278,13 +278,12 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
         mock_q.first.return_value = user
         self.session.query.return_value = mock_q
 
-        self.session.execute.return_value = MagicMock()
-
         req = PatchUserFeatureFlagsRequest(feature_flag_ids=[])
         await self.api.patch_user_feature_flags("uid-1", req, db_session=self.session)
 
-        # delete should be called to clear assignments
-        self.assertTrue(self.session.execute.called)
+        # delete() should be called on the query to clear all assignments
+        mock_q.delete.assert_called_once()
+        self.session.add_all.assert_called_once_with([])
 
 
 if __name__ == "__main__":
