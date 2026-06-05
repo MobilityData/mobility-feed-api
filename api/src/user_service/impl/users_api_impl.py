@@ -20,6 +20,8 @@ from typing import List
 
 from fastapi import HTTPException
 
+from sqlalchemy.orm import selectinload
+
 from middleware.request_context import get_request_context
 from shared.database.users_database import with_users_db_session
 from shared.db_models.app_user_impl import AppUserImpl
@@ -56,7 +58,7 @@ class UsersApiImpl(BaseUsersApi):
             logger.warning("Skipping user creation as guest users cannot create a profile. user_id=%s", user_id)
             return UserProfile.from_dict({"id": user_id, "email": "", "created_at": datetime.now(timezone.utc)})
 
-        user = db_session.get(AppUser, user_id)
+        user = db_session.query(AppUser).options(selectinload(AppUser.feature_flags)).filter_by(id=user_id).first()
         if user is None:
             logger.info("Creating new app_user record for user_id=%s", user_id)
             user = AppUser(
@@ -86,7 +88,7 @@ class UsersApiImpl(BaseUsersApi):
         if context.get("is_guest"):
             raise HTTPException(status_code=403, detail="Guest users cannot update a profile.")
 
-        user = db_session.get(AppUser, user_id)
+        user = db_session.query(AppUser).options(selectinload(AppUser.feature_flags)).filter_by(id=user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 

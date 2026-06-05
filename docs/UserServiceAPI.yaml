@@ -257,6 +257,12 @@ components:
           type: boolean
           description: Whether the user has opted in to receive API announcement emails.
           default: false
+        features:
+          type: array
+          description: Feature flags currently active for this user.
+          items:
+            $ref: "#/components/schemas/FeatureFlag"
+          default: []
         created_at:
           type: string
           format: date-time
@@ -353,6 +359,25 @@ components:
         active:
           type: boolean
           description: Whether the subscription should be active.
+
+    FeatureFlag:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+          example: "Beta Editor"
+        description:
+          type: string
+          nullable: true
+          description: Optional description of what this feature flag enables.
 
   securitySchemes:
     Authentication:

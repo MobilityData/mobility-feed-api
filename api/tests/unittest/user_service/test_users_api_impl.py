@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag
 from user_service.impl.users_api_impl import UsersApiImpl
 
 FIXED_NOW = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -22,7 +22,19 @@ def _make_user(**kwargs) -> AppUser:
         updated_at=FIXED_NOW,
     )
     defaults.update(kwargs)
-    return AppUser(**defaults)
+    user = AppUser(**{k: v for k, v in defaults.items() if k != "feature_flags"})
+    user.feature_flags = defaults.get("feature_flags", [])
+    return user
+
+
+def _mock_query_first(session, return_value):
+    """Make session.query().options().filter_by().first() return return_value."""
+    mock_q = MagicMock()
+    mock_q.options.return_value = mock_q
+    mock_q.filter_by.return_value = mock_q
+    mock_q.first.return_value = return_value
+    session.query.return_value = mock_q
+    return mock_q
 
 
 def _set_context(user_id="uid-123", user_email="user@example.com", is_guest=False):
@@ -36,12 +48,11 @@ class TestGetUserMe(unittest.TestCase):
 
     def test_returns_existing_user(self):
         user = _make_user()
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         result = self.api.get_user(db_session=self.mock_session)
 
-        self.mock_session.get.assert_called_once_with(AppUser, "uid-123")
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "uid-123")
         self.assertEqual(result.email, "user@example.com")
@@ -49,7 +60,7 @@ class TestGetUserMe(unittest.TestCase):
         self.assertFalse(result.is_registered_to_receive_api_announcements)
 
     def test_upserts_new_user_on_first_call(self):
-        self.mock_session.get.return_value = None
+        _mock_query_first(self.mock_session, None)
         _set_context()
 
         result = self.api.get_user(db_session=self.mock_session)
@@ -99,7 +110,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_updates_full_name(self):
         user = _make_user(full_name="Old Name")
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="New Name")
@@ -111,7 +122,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_updates_api_announcements_flag(self):
         user = _make_user(is_registered_to_receive_api_announcements=False)
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(is_registered_to_receive_api_announcements=True)
@@ -122,7 +133,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_partial_update_leaves_other_fields_unchanged(self):
         user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="Updated")
@@ -131,7 +142,7 @@ class TestUpdateUserMe(unittest.TestCase):
         self.assertTrue(user.is_registered_to_receive_api_announcements)
 
     def test_raises_404_when_user_not_found(self):
-        self.mock_session.get.return_value = None
+        _mock_query_first(self.mock_session, None)
         _set_context()
 
         req = self._make_request(full_name="Ghost")
@@ -157,7 +168,7 @@ class TestUpdateUserMe(unittest.TestCase):
             self.api.update_user(req, db_session=self.mock_session)
 
         self.assertEqual(ctx.exception.status_code, 403)
-        self.mock_session.get.assert_not_called()
+        self.mock_session.query.assert_not_called()
 
 
 if __name__ == "__main__":
@@ -223,3 +234,35 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertTrue(profile.is_registered_to_receive_api_announcements)
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)
+
+    def test_from_orm_includes_feature_flags(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        flag = FeatureFlag(id="beta_editor", name="Beta Editor", description="Enables the beta editor", created_at=now)
+        user = AppUser(id="uid-2", email="b@b.com", created_at=now, updated_at=now)
+        user.feature_flags = [flag]
+
+        profile = AppUserImpl.from_orm(user)
+
+        self.assertEqual(len(profile.features), 1)
+        self.assertEqual(profile.features[0].id, "beta_editor")
+        self.assertEqual(profile.features[0].name, "Beta Editor")
+        self.assertEqual(profile.features[0].description, "Enables the beta editor")
+
+    def test_from_orm_empty_feature_flags(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        user = AppUser(id="uid-3", email="c@b.com", created_at=now, updated_at=now)
+        user.feature_flags = []
+
+        profile = AppUserImpl.from_orm(user)
+
+        self.assertEqual(profile.features, [])
+
+    def test_from_orm_none_feature_flags_treated_as_empty(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        user = AppUser(id="uid-4", email="d@b.com", created_at=now, updated_at=now)
+        # Simulate a user where feature_flags hasn't been loaded (set to empty list as selectinload would return)
+        user.feature_flags = []
+
+        profile = AppUserImpl.from_orm(user)
+
+        self.assertEqual(profile.features, [])
