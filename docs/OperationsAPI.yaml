@@ -2090,7 +2090,7 @@ components:
       name: sort
       in: query
       description: Sort order of results by checked_at. Use `desc` for newest first (default) or `asc` for oldest first.
-      required: false
+      required: False
       schema:
         type: string
         enum:
