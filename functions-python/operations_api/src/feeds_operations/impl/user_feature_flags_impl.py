@@ -45,6 +45,10 @@ from shared.users_database_gen.sqlacodegen_models import (
 
 logger = logging.getLogger(__name__)
 
+_USER_FLAGS_LOAD = selectinload(AppUser.user_feature_flags).selectinload(
+    UserFeatureFlag.feature_flag
+)
+
 
 class UserFeatureFlagsApiImpl(BaseUsersApi):
     """Implementation of the Operations users/feature-flags API."""
@@ -57,7 +61,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         offset: Optional[int] = 0,
         db_session=None,
     ) -> List[OperationUserProfile]:
-        q = db_session.query(AppUser).options(selectinload(AppUser.user_feature_flags))
+        q = db_session.query(AppUser).options(_USER_FLAGS_LOAD)
         if search_query:
             pattern = f"%{search_query}%"
             q = q.filter(
@@ -76,7 +80,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
     ) -> OperationUserProfile:
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags))
+            .options(_USER_FLAGS_LOAD)
             .filter_by(id=user_id)
             .first()
         )
@@ -101,6 +105,8 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             id=create_feature_flag_request.id,
             name=create_feature_flag_request.name,
             description=create_feature_flag_request.description,
+            value_type=create_feature_flag_request.value_type,
+            default_value=create_feature_flag_request.default_value.actual_instance,
             created_at=datetime.now(timezone.utc),
         )
         db_session.add(flag)
@@ -119,6 +125,9 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="Feature flag not found.")
         update_data = update_feature_flag_request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
+            # default_value is a FeatureFlagValue wrapper — unwrap to raw Python value for JSONB
+            if field == "default_value" and hasattr(value, "actual_instance"):
+                value = value.actual_instance
             setattr(flag, field, value)
         db_session.flush()
         return OperationFeatureFlagImpl.from_orm(flag)
@@ -132,14 +141,15 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
     ) -> OperationUserProfile:
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags))
+            .options(_USER_FLAGS_LOAD)
             .filter_by(id=user_id)
             .first()
         )
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        flag_ids = patch_user_feature_flags_request.feature_flag_ids or []
+        assignments = patch_user_feature_flags_request.assignments or []
+        flag_ids = [a.feature_flag_id for a in assignments]
 
         # Validate all provided flag IDs exist before making any changes
         if flag_ids:
@@ -162,10 +172,10 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             [
                 UserFeatureFlag(
                     user_id=user_id,
-                    feature_flag_id=fid,
-                    assigned_at=datetime.now(timezone.utc),
+                    feature_flag_id=a.feature_flag_id,
+                    value=a.value.actual_instance if a.value is not None else None,
                 )
-                for fid in flag_ids
+                for a in assignments
             ]
         )
         db_session.flush()

@@ -2080,6 +2080,57 @@ components:
         - gtfs_rt
         - gbfs
       example: gtfs
+    FeatureFlagValue:
+      description: >
+        The value of a feature flag. The type is determined by the flag's value_type field.
+        Possible shapes: boolean (true/false), string, number, array, or object.
+      oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+        - type: array
+          items: {}
+        - type: object
+    FeatureFlagAssignment:
+      type: object
+      required:
+        - feature_flag_id
+      properties:
+        feature_flag_id:
+          type: string
+          description: The ID of the feature flag to assign.
+          example: "beta_editor"
+        value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: Per-user value override. null or absent means use the flag's default_value.
+    UserFeatureFlagState:
+      type: object
+      required:
+        - feature_flag_id
+        - value_type
+        - default_value
+      properties:
+        feature_flag_id:
+          type: string
+          description: The feature flag's unique slug.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Human-readable display name.
+          example: "Beta Editor"
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        user_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: The value explicitly set for this user. null means no override — the default applies.
     OperationFeatureFlag:
       type: object
       required:
@@ -2103,10 +2154,19 @@ components:
           format: date-time
           nullable: true
           description: Timestamp when the flag was created.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
     CreateFeatureFlagRequest:
       type: object
       required:
         - id
+        - value_type
+        - default_value
       properties:
         id:
           type: string
@@ -2120,6 +2180,13 @@ components:
           type: string
           nullable: true
           description: Optional description.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries. Cannot be changed after creation.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
     UpdateFeatureFlagRequest:
       type: object
       properties:
@@ -2131,6 +2198,9 @@ components:
           type: string
           nullable: true
           description: Updated description.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: Updated global default value. value_type cannot be changed.
     OperationUserProfile:
       type: object
       required:
@@ -2160,19 +2230,23 @@ components:
           type: array
           description: Feature flags currently assigned to this user.
           items:
-            $ref: "#/components/schemas/OperationFeatureFlag"
+            $ref: "#/components/schemas/UserFeatureFlagState"
           default: []
     PatchUserFeatureFlagsRequest:
       type: object
       required:
-        - feature_flag_ids
+        - assignments
       properties:
-        feature_flag_ids:
+        assignments:
           type: array
-          description: Complete list of feature flag IDs to assign to the user. Replaces the current set.
+          description: Complete list of feature flag assignments for this user. Replaces the current set.
           items:
-            type: string
-          example: ["beta_editor", "dark_mode"]
+            $ref: "#/components/schemas/FeatureFlagAssignment"
+          example:
+            - feature_flag_id: "beta_editor"
+              value: true
+            - feature_flag_id: "max_results"
+              value: 50
   parameters:
     feed_id_path_param:
       x-operation: true

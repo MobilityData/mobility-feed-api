@@ -25,11 +25,15 @@ from sqlalchemy.orm import selectinload
 from middleware.request_context import get_request_context
 from shared.database.users_database import with_users_db_session
 from shared.db_models.app_user_impl import AppUserImpl
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import AppUser, UserFeatureFlag
 from user_service_gen.apis.users_api_base import BaseUsersApi
-from user_service_gen.models.create_notification_subscription_request import CreateNotificationSubscriptionRequest
+from user_service_gen.models.create_notification_subscription_request import (
+    CreateNotificationSubscriptionRequest,
+)
 from user_service_gen.models.notification_subscription import NotificationSubscription
-from user_service_gen.models.update_notification_subscription_request import UpdateNotificationSubscriptionRequest
+from user_service_gen.models.update_notification_subscription_request import (
+    UpdateNotificationSubscriptionRequest,
+)
 from user_service_gen.models.update_user_request import UpdateUserRequest
 from user_service_gen.models.user_profile import UserProfile
 
@@ -55,10 +59,18 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=401, detail="Unable to determine user identity from token.")
 
         if context.get("is_guest"):
-            logger.warning("Skipping user creation as guest users cannot create a profile. user_id=%s", user_id)
+            logger.warning(
+                "Skipping user creation as guest users cannot create a profile. user_id=%s",
+                user_id,
+            )
             return UserProfile.from_dict({"id": user_id, "email": "", "created_at": datetime.now(timezone.utc)})
 
-        user = db_session.query(AppUser).options(selectinload(AppUser.feature_flags)).filter_by(id=user_id).first()
+        user = (
+            db_session.query(AppUser)
+            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .filter_by(id=user_id)
+            .first()
+        )
         if user is None:
             logger.info("Creating new app_user record for user_id=%s", user_id)
             user = AppUser(
@@ -88,7 +100,12 @@ class UsersApiImpl(BaseUsersApi):
         if context.get("is_guest"):
             raise HTTPException(status_code=403, detail="Guest users cannot update a profile.")
 
-        user = db_session.query(AppUser).options(selectinload(AppUser.feature_flags)).filter_by(id=user_id).first()
+        user = (
+            db_session.query(AppUser)
+            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .filter_by(id=user_id)
+            .first()
+        )
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
@@ -106,12 +123,15 @@ class UsersApiImpl(BaseUsersApi):
         raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED)
 
     def create_user_subscription(
-        self, create_notification_subscription_request: CreateNotificationSubscriptionRequest
+        self,
+        create_notification_subscription_request: CreateNotificationSubscriptionRequest,
     ) -> NotificationSubscription:
         raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED)
 
     def update_user_subscription(
-        self, id: str, update_notification_subscription_request: UpdateNotificationSubscriptionRequest
+        self,
+        id: str,
+        update_notification_subscription_request: UpdateNotificationSubscriptionRequest,
     ) -> NotificationSubscription:
         raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED)
 

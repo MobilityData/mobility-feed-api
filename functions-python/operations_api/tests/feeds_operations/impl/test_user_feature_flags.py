@@ -22,6 +22,8 @@ from fastapi import HTTPException
 
 from feeds_operations.impl.user_feature_flags_impl import UserFeatureFlagsApiImpl
 from feeds_gen.models.create_feature_flag_request import CreateFeatureFlagRequest
+from feeds_gen.models.feature_flag_assignment import FeatureFlagAssignment
+from feeds_gen.models.feature_flag_value import FeatureFlagValue
 from feeds_gen.models.patch_user_feature_flags_request import (
     PatchUserFeatureFlagsRequest,
 )
@@ -29,24 +31,43 @@ from feeds_gen.models.update_feature_flag_request import UpdateFeatureFlagReques
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     FeatureFlag as FeatureFlagORM,
+    UserFeatureFlag,
 )
 
 FIXED_NOW = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 
 def _make_flag(
-    flag_id="beta_editor", name="Beta Editor", description="Enables the beta editor"
+    flag_id="beta_editor",
+    name="Beta Editor",
+    description="Enables the beta editor",
+    value_type="boolean",
+    default_value=False,
 ) -> FeatureFlagORM:
     return FeatureFlagORM(
-        id=flag_id, name=name, description=description, created_at=FIXED_NOW
+        id=flag_id,
+        name=name,
+        description=description,
+        value_type=value_type,
+        default_value=default_value,
+        created_at=FIXED_NOW,
     )
 
 
+def _make_uff(flag: FeatureFlagORM, user_id="uid-1", value=None) -> UserFeatureFlag:
+    """Creates a UserFeatureFlag association object with the feature_flag pre-loaded."""
+    uff = UserFeatureFlag(user_id=user_id, feature_flag_id=flag.id, value=value)
+    uff.feature_flag = flag
+    return uff
+
+
 def _make_user(
-    user_id="uid-1", email="user@example.com", feature_flags=None
+    user_id="uid-1", email="user@example.com", user_feature_flags=None
 ) -> AppUser:
     user = AppUser(id=user_id, email=email, created_at=FIXED_NOW, updated_at=FIXED_NOW)
-    user.feature_flags = feature_flags if feature_flags is not None else []
+    user.user_feature_flags = (
+        user_feature_flags if user_feature_flags is not None else []
+    )
     return user
 
 
@@ -91,13 +112,13 @@ class TestGetOperationsUsers(unittest.IsolatedAsyncioTestCase):
 
     async def test_includes_feature_flags_in_results(self):
         flag = _make_flag()
-        user = _make_user(feature_flags=[flag])
+        user = _make_user(user_feature_flags=[_make_uff(flag)])
         _mock_query(self.session, [user])
 
         result = await self.api.get_operations_users(db_session=self.session)
 
         self.assertEqual(len(result[0].features), 1)
-        self.assertEqual(result[0].features[0].id, "beta_editor")
+        self.assertEqual(result[0].features[0].feature_flag_id, "beta_editor")
 
 
 class TestGetOperationsUser(unittest.IsolatedAsyncioTestCase):
@@ -107,14 +128,14 @@ class TestGetOperationsUser(unittest.IsolatedAsyncioTestCase):
 
     async def test_returns_user_with_flags(self):
         flag = _make_flag()
-        user = _make_user(feature_flags=[flag])
+        user = _make_user(user_feature_flags=[_make_uff(flag)])
         _mock_query(self.session, user)
 
         result = await self.api.get_operations_user("uid-1", db_session=self.session)
 
         self.assertEqual(result.id, "uid-1")
         self.assertEqual(len(result.features), 1)
-        self.assertEqual(result.features[0].id, "beta_editor")
+        self.assertEqual(result.features[0].feature_flag_id, "beta_editor")
 
     async def test_raises_404_when_user_not_found(self):
         _mock_query(self.session, None)
@@ -158,7 +179,11 @@ class TestCreateFeatureFlag(unittest.IsolatedAsyncioTestCase):
         self.session.get.return_value = None  # no existing flag
 
         req = CreateFeatureFlagRequest(
-            id="new_flag", name="New Flag", description="A new flag"
+            id="new_flag",
+            name="New Flag",
+            description="A new flag",
+            value_type="boolean",
+            default_value=FeatureFlagValue(actual_instance=False),
         )
         result = await self.api.create_feature_flag(req, db_session=self.session)
 
@@ -166,11 +191,16 @@ class TestCreateFeatureFlag(unittest.IsolatedAsyncioTestCase):
         self.session.flush.assert_called_once()
         self.assertEqual(result.id, "new_flag")
         self.assertEqual(result.name, "New Flag")
+        self.assertEqual(result.value_type, "boolean")
 
     async def test_raises_409_when_flag_already_exists(self):
         self.session.get.return_value = _make_flag("existing")
 
-        req = CreateFeatureFlagRequest(id="existing")
+        req = CreateFeatureFlagRequest(
+            id="existing",
+            value_type="boolean",
+            default_value=FeatureFlagValue(actual_instance=False),
+        )
         with self.assertRaises(HTTPException) as ctx:
             await self.api.create_feature_flag(req, db_session=self.session)
 
@@ -238,7 +268,7 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
     async def test_raises_404_when_user_not_found(self):
         _mock_query(self.session, None)
 
-        req = PatchUserFeatureFlagsRequest(feature_flag_ids=[])
+        req = PatchUserFeatureFlagsRequest(assignments=[])
         with self.assertRaises(HTTPException) as ctx:
             await self.api.patch_user_feature_flags(
                 "missing", req, db_session=self.session
@@ -247,7 +277,7 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 404)
 
     async def test_raises_404_when_flag_not_found(self):
-        user = _make_user(feature_flags=[])
+        user = _make_user(user_feature_flags=[])
 
         def query_side_effect(model):
             mock_q = MagicMock()
@@ -260,7 +290,9 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
 
         self.session.query.side_effect = query_side_effect
 
-        req = PatchUserFeatureFlagsRequest(feature_flag_ids=["nonexistent"])
+        req = PatchUserFeatureFlagsRequest(
+            assignments=[FeatureFlagAssignment(feature_flag_id="nonexistent")]
+        )
         with self.assertRaises(HTTPException) as ctx:
             await self.api.patch_user_feature_flags(
                 "uid-1", req, db_session=self.session
@@ -270,7 +302,8 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
         self.assertIn("nonexistent", ctx.exception.detail)
 
     async def test_clears_flags_when_empty_list_provided(self):
-        user = _make_user(feature_flags=[_make_flag()])
+        flag = _make_flag()
+        user = _make_user(user_feature_flags=[_make_uff(flag)])
 
         mock_q = MagicMock()
         mock_q.options.return_value = mock_q
@@ -278,7 +311,7 @@ class TestPatchUserFeatureFlags(unittest.IsolatedAsyncioTestCase):
         mock_q.first.return_value = user
         self.session.query.return_value = mock_q
 
-        req = PatchUserFeatureFlagsRequest(feature_flag_ids=[])
+        req = PatchUserFeatureFlagsRequest(assignments=[])
         await self.api.patch_user_feature_flags("uid-1", req, db_session=self.session)
 
         # delete() should be called on the query to clear all assignments

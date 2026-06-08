@@ -6,7 +6,11 @@ from fastapi import HTTPException
 
 from middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
-from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag
+from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
+    FeatureFlag,
+    UserFeatureFlag,
+)
 from user_service.impl.users_api_impl import UsersApiImpl
 
 FIXED_NOW = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -23,7 +27,7 @@ def _make_user(**kwargs) -> AppUser:
     )
     defaults.update(kwargs)
     user = AppUser(**{k: v for k, v in defaults.items() if k != "feature_flags"})
-    user.feature_flags = defaults.get("feature_flags", [])
+    user.user_feature_flags = defaults.get("feature_flags", [])
     return user
 
 
@@ -237,21 +241,31 @@ class TestAppUserImpl(unittest.TestCase):
 
     def test_from_orm_includes_feature_flags(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        flag = FeatureFlag(id="beta_editor", name="Beta Editor", description="Enables the beta editor", created_at=now)
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            description="Enables the beta editor",
+            value_type="boolean",
+            default_value=False,
+            created_at=now,
+        )
+        user_flag = UserFeatureFlag(user_id="uid-2", feature_flag_id=flag.id, assigned_at=now)
+        user_flag.feature_flag = flag
         user = AppUser(id="uid-2", email="b@b.com", created_at=now, updated_at=now)
-        user.feature_flags = [flag]
+        user.user_feature_flags = [user_flag]
 
         profile = AppUserImpl.from_orm(user)
 
         self.assertEqual(len(profile.features), 1)
         self.assertEqual(profile.features[0].id, "beta_editor")
         self.assertEqual(profile.features[0].name, "Beta Editor")
-        self.assertEqual(profile.features[0].description, "Enables the beta editor")
+        self.assertEqual(profile.features[0].value_type, "boolean")
+        self.assertEqual(profile.features[0].value.actual_instance, False)
 
     def test_from_orm_empty_feature_flags(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         user = AppUser(id="uid-3", email="c@b.com", created_at=now, updated_at=now)
-        user.feature_flags = []
+        user.user_feature_flags = []
 
         profile = AppUserImpl.from_orm(user)
 
@@ -261,7 +275,7 @@ class TestAppUserImpl(unittest.TestCase):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         user = AppUser(id="uid-4", email="d@b.com", created_at=now, updated_at=now)
         # Simulate a user where feature_flags hasn't been loaded (set to empty list as selectinload would return)
-        user.feature_flags = []
+        user.user_feature_flags = []
 
         profile = AppUserImpl.from_orm(user)
 

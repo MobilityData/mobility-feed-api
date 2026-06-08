@@ -364,6 +364,8 @@ components:
       type: object
       required:
         - id
+        - value_type
+        - value
       properties:
         id:
           type: string
@@ -374,10 +376,19 @@ components:
           nullable: true
           description: Optional human-readable display name.
           example: "Beta Editor"
-        description:
+        value_type:
           type: string
-          nullable: true
-          description: Optional description of what this feature flag enables.
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        value:
+          description: Resolved flag value — the user's override if set, otherwise the global default.
+          oneOf:
+            - type: boolean
+            - type: string
+            - type: number
+            - type: array
+              items: {}
+            - type: object
 
   securitySchemes:
     Authentication:

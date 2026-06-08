@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 
+from feeds_gen.models.feature_flag_value import FeatureFlagValue
 from feeds_gen.models.operation_feature_flag import OperationFeatureFlag
 from shared.users_database_gen.sqlacodegen_models import FeatureFlag
 
@@ -33,4 +34,6 @@ class OperationFeatureFlagImpl(OperationFeatureFlag):
             name=flag.name,
             description=flag.description,
             created_at=flag.created_at,
+            value_type=flag.value_type,
+            default_value=FeatureFlagValue(actual_instance=flag.default_value),
         )

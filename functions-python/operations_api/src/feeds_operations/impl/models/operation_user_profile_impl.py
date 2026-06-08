@@ -15,8 +15,8 @@
 #
 
 from feeds_gen.models.operation_user_profile import OperationUserProfile
-from feeds_operations.impl.models.operation_feature_flag_impl import (
-    OperationFeatureFlagImpl,
+from feeds_operations.impl.models.user_feature_flag_state_impl import (
+    UserFeatureFlagStateImpl,
 )
 from shared.users_database_gen.sqlacodegen_models import AppUser
 
@@ -37,7 +37,7 @@ class OperationUserProfileImpl(OperationUserProfile):
             full_name=user.full_name,
             legacy_org_name=user.legacy_org_name,
             features=[
-                OperationFeatureFlagImpl.from_orm(ff)
-                for ff in (user.feature_flags or [])
+                UserFeatureFlagStateImpl.from_orm(uff)
+                for uff in (user.user_feature_flags or [])
             ],
         )

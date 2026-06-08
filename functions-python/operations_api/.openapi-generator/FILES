@@ -14,6 +14,8 @@ src/feeds_gen/models/create_feature_flag_request.py
 src/feeds_gen/models/data_type.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
+src/feeds_gen/models/feature_flag_assignment.py
+src/feeds_gen/models/feature_flag_value.py
 src/feeds_gen/models/feed.py
 src/feeds_gen/models/feed_related_link.py
 src/feeds_gen/models/feed_status.py
@@ -52,6 +54,7 @@ src/feeds_gen/models/source_info.py
 src/feeds_gen/models/update_feature_flag_request.py
 src/feeds_gen/models/update_request_gtfs_feed.py
 src/feeds_gen/models/update_request_gtfs_rt_feed.py
+src/feeds_gen/models/user_feature_flag_state.py
 src/feeds_gen/models/validation_report.py
 src/feeds_gen/security_api.py
 src/feeds_operations/impl/__init__.py
