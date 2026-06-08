@@ -13,16 +13,16 @@
 #  limitations under the License.
 #
 # This module provides the GtfsChangeTracker Cloud Function. It orchestrates change tracking
-# between two consecutive GTFS datasets: downloads both from GCS, computes a structured diff
-# using gtfs-diff-engine, uploads the changelog JSON to GCS, and persists the record in the
-# gtfs_dataset_changelog database table.
+# between two consecutive GTFS datasets: reads the pre-extracted GTFS files from GCS (uploaded
+# by batch_process_dataset at <feed_stable_id>/<dataset_stable_id>/extracted/), computes a
+# structured diff using gtfs-diff-engine, uploads the changelog JSON to GCS, and persists the
+# record in the gtfs_dataset_changelog database table.
 import logging
 import os
 import tempfile
 
 import flask
 import functions_framework
-import requests
 from google.cloud import storage
 from gtfs_diff.engine import diff_feeds
 from sqlalchemy.dialects.postgresql import insert
@@ -93,7 +93,8 @@ class GtfsChangeTracker:
 
     Steps:
     1. Resolve both datasets and the feed stable_id from the database.
-    2. Download both dataset zip archives to a temporary directory.
+    2. Download the pre-extracted GTFS files from GCS for both datasets
+       (<feed_stable_id>/<dataset_stable_id>/extracted/).
     3. Compute a structured diff using gtfs-diff-engine.
     4. Upload the changelog JSON to GCS at two paths (shared changelogs index
        and per-dataset location).
@@ -125,13 +126,19 @@ class GtfsChangeTracker:
         )
 
         with tempfile.TemporaryDirectory(prefix="gtfs_change_tracker_") as tmpdir:
-            prev_zip = os.path.join(tmpdir, "previous.zip")
-            curr_zip = os.path.join(tmpdir, "current.zip")
+            prev_dir = os.path.join(tmpdir, "previous")
+            curr_dir = os.path.join(tmpdir, "current")
+            os.makedirs(prev_dir)
+            os.makedirs(curr_dir)
 
-            self._download_zip(prev_dataset.hosted_url, prev_zip)
-            self._download_zip(curr_dataset.hosted_url, curr_zip)
+            self._download_extracted_files(
+                feed_stable_id, prev_dataset.stable_id, prev_dir
+            )
+            self._download_extracted_files(
+                feed_stable_id, curr_dataset.stable_id, curr_dir
+            )
 
-            diff_result = diff_feeds(prev_zip, curr_zip)
+            diff_result = diff_feeds(prev_dir, curr_dir)
 
         changelog_json = diff_result.model_dump_json(indent=2).encode("utf-8")
         changelog_url = self._upload_changelog(
@@ -173,13 +180,13 @@ class GtfsChangeTracker:
         if curr_dataset is None:
             raise ValueError(f"Current dataset not found: {self.current_dataset_id}")
 
-        if not prev_dataset.hosted_url:
+        if not prev_dataset.stable_id:
             raise ValueError(
-                f"Previous dataset {self.previous_dataset_id} has no hosted_url."
+                f"Previous dataset {self.previous_dataset_id} has no stable_id."
             )
-        if not curr_dataset.hosted_url:
+        if not curr_dataset.stable_id:
             raise ValueError(
-                f"Current dataset {self.current_dataset_id} has no hosted_url."
+                f"Current dataset {self.current_dataset_id} has no stable_id."
             )
 
         feed_stable_id = curr_dataset.feed.stable_id
@@ -192,14 +199,31 @@ class GtfsChangeTracker:
 
         return prev_dataset, curr_dataset, feed_stable_id
 
-    def _download_zip(self, url: str, local_path: str) -> None:
-        """Download a dataset zip from a URL to a local path."""
-        self.logger.info("Downloading %s", url)
-        response = requests.get(url, stream=True, timeout=120)
-        response.raise_for_status()
-        with open(local_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+    def _download_extracted_files(
+        self, feed_stable_id: str, dataset_stable_id: str, dest_dir: str
+    ) -> None:
+        """
+        Download all pre-extracted GTFS files from GCS to a local directory.
+
+        batch_process_dataset uploads each file from the dataset ZIP individually to:
+            <feed_stable_id>/<dataset_stable_id>/extracted/<filename>
+
+        This avoids re-downloading and re-unzipping the full archive.
+        """
+        prefix = f"{feed_stable_id}/{dataset_stable_id}/extracted/"
+        bucket = storage.Client().bucket(self.bucket_name)
+        blobs = list(bucket.list_blobs(prefix=prefix))
+        if not blobs:
+            raise ValueError(
+                f"No extracted files found in GCS at gs://{self.bucket_name}/{prefix}"
+            )
+        for blob in blobs:
+            filename = os.path.basename(blob.name)
+            if not filename:
+                continue
+            local_path = os.path.join(dest_dir, filename)
+            blob.download_to_filename(local_path)
+            self.logger.debug("Downloaded gs://%s/%s", self.bucket_name, blob.name)
 
     def _upload_changelog(
         self,

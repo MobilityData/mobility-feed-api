@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -104,7 +105,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
 
     @patch("main.GtfsChangeTracker._save_changelog_record")
     @patch("main.GtfsChangeTracker._upload_changelog")
-    @patch("main.GtfsChangeTracker._download_zip")
+    @patch("main.GtfsChangeTracker._download_extracted_files")
     @patch("main.GtfsChangeTracker._resolve_datasets")
     def test_run_happy_path(self, mock_resolve, mock_download, mock_upload, mock_save):
         prev_ds = _make_dataset(
@@ -134,6 +135,12 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
 
         mock_resolve.assert_called_once()
         self.assertEqual(mock_download.call_count, 2)
+        # Verify correct dataset stable_ids are passed to the downloader
+        download_calls = mock_download.call_args_list
+        self.assertEqual(download_calls[0].args[0], "mdb-1")
+        self.assertEqual(download_calls[0].args[1], "mdb-1-20240101")
+        self.assertEqual(download_calls[1].args[0], "mdb-1")
+        self.assertEqual(download_calls[1].args[1], "mdb-1-20240201")
         mock_diff.assert_called_once()
         mock_upload.assert_called_once_with(
             fake_diff.model_dump_json.return_value.encode("utf-8"),
@@ -154,43 +161,46 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
             self.tracker.run()
 
 
-class TestDownloadZip(unittest.TestCase):
+class TestDownloadExtractedFiles(unittest.TestCase):
     def setUp(self):
         self.tracker = GtfsChangeTracker(
             feed_id="f",
             previous_dataset_id="p",
             current_dataset_id="c",
-            bucket_name="bucket",
+            bucket_name="my-bucket",
         )
 
-    @patch("main.requests.get")
-    def test_download_writes_chunks(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.iter_content.return_value = [b"chunk1", b"chunk2"]
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+    @patch("main.storage.Client")
+    def test_downloads_all_blobs_to_dest_dir(self, mock_storage_cls):
+        mock_bucket = MagicMock()
+        mock_storage_cls.return_value.bucket.return_value = mock_bucket
 
-        import tempfile
-        import os
+        blob1 = MagicMock()
+        blob1.name = "mdb-1/mdb-1-20240101/extracted/stops.txt"
+        blob2 = MagicMock()
+        blob2.name = "mdb-1/mdb-1-20240101/extracted/routes.txt"
+        mock_bucket.list_blobs.return_value = [blob1, blob2]
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-            tmp_path = tmp.name
-        try:
-            self.tracker._download_zip("https://example.com/feed.zip", tmp_path)
-            with open(tmp_path, "rb") as f:
-                content = f.read()
-            self.assertEqual(content, b"chunk1chunk2")
-        finally:
-            os.unlink(tmp_path)
+        with tempfile.TemporaryDirectory() as dest:
+            self.tracker._download_extracted_files("mdb-1", "mdb-1-20240101", dest)
 
-    @patch("main.requests.get")
-    def test_download_raises_on_http_error(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = Exception("404 Not Found")
-        mock_get.return_value = mock_response
+        mock_bucket.list_blobs.assert_called_once_with(
+            prefix="mdb-1/mdb-1-20240101/extracted/"
+        )
+        self.assertEqual(blob1.download_to_filename.call_count, 1)
+        self.assertEqual(blob2.download_to_filename.call_count, 1)
+        # Verify destination paths use just the basename
+        self.assertIn("stops.txt", blob1.download_to_filename.call_args.args[0])
+        self.assertIn("routes.txt", blob2.download_to_filename.call_args.args[0])
 
-        with self.assertRaises(Exception):
-            self.tracker._download_zip("https://example.com/missing.zip", "/tmp/x.zip")
+    @patch("main.storage.Client")
+    def test_raises_when_no_files_in_gcs(self, mock_storage_cls):
+        mock_bucket = MagicMock()
+        mock_storage_cls.return_value.bucket.return_value = mock_bucket
+        mock_bucket.list_blobs.return_value = []
+
+        with self.assertRaises(ValueError, msg="No extracted files found"):
+            self.tracker._download_extracted_files("mdb-1", "mdb-1-20240101", "/tmp")
 
 
 class TestUploadChangelog(unittest.TestCase):

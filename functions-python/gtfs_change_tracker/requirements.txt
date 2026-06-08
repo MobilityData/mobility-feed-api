@@ -3,7 +3,6 @@ functions-framework==3.*
 google-cloud-logging
 psycopg2-binary==2.9.6
 urllib3~=2.6.3
-requests~=2.33.1
 attrs~=23.1.0
 certifi~=2025.8.3
 
