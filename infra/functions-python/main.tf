@@ -65,6 +65,9 @@ locals {
 
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
   function_pmtiles_builder_zip = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
+
+  function_gtfs_change_tracker_config = jsondecode(file("${path.module}/../../functions-python/gtfs_change_tracker/function_config.json"))
+  function_gtfs_change_tracker_zip = "${path.module}/../../functions-python/gtfs_change_tracker/.dist/gtfs_change_tracker.zip"
 }
 
 locals {
@@ -76,7 +79,8 @@ locals {
     local.function_update_feed_status_config.secret_environment_variables,
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
-    local.function_pmtiles_builder_config.secret_environment_variables
+    local.function_pmtiles_builder_config.secret_environment_variables,
+    local.function_gtfs_change_tracker_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -220,6 +224,13 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "pmtiles-${substr(filebase64sha256(local.function_pmtiles_builder_zip), 0, 10)}.zip"
   source = local.function_pmtiles_builder_zip
+}
+
+# 16. GTFS Change Tracker
+resource "google_storage_bucket_object" "gtfs_change_tracker_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-change-tracker-${substr(filebase64sha256(local.function_gtfs_change_tracker_zip), 0, 10)}.zip"
+  source = local.function_gtfs_change_tracker_zip
 }
 
 # Web app revalidation secret
@@ -1034,6 +1045,24 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" 
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Grant execution permission to batchfunctions service account to the gtfs_change_tracker function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_change_tracker_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_change_tracker.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+# Grant execution permission to the functions service account to the gtfs_change_tracker function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_change_tracker_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_change_tracker.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 # 13.3 functions/reverse_geolocation - batch cloud function
 resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   name        = "${local.function_reverse_geolocation_config.name}-batch"
@@ -1166,7 +1195,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
 }
 
-# Grant execution permission to bathcfunctions service account to the tasks_executor function
+# Grant execution permission to batchfunctions service account to the tasks_executor function
 resource "google_cloudfunctions2_function_iam_member" "tasks_executor_invoker" {
   project        = var.project_id
   location       = var.gcp_region
@@ -1217,6 +1246,55 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
 
     dynamic "secret_environment_variables" {
       for_each = local.function_pmtiles_builder_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+
+# 16. functions/gtfs_change_tracker cloud function
+resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
+  name        = "${local.function_gtfs_change_tracker_config.name}-${var.environment}"
+  project     = var.project_id
+  description = local.function_gtfs_change_tracker_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_change_tracker_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_change_tracker_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT          = var.environment
+      PROJECT_ID           = var.project_id
+      GCP_REGION           = var.gcp_region
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+    }
+    available_memory                 = local.function_gtfs_change_tracker_config.memory
+    timeout_seconds                  = local.function_gtfs_change_tracker_config.timeout
+    available_cpu                    = local.function_gtfs_change_tracker_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_change_tracker_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_change_tracker_config.max_instance_count
+    min_instance_count               = local.function_gtfs_change_tracker_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_change_tracker_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_change_tracker_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
