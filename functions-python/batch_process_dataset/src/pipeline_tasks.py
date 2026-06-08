@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
-from shared.helpers.utils import create_http_task, create_http_pmtiles_builder_task
+from shared.helpers.utils import (
+    create_http_task,
+    create_http_pmtiles_builder_task,
+    create_http_gtfs_change_tracker_task,
+)
 
 
 def create_http_reverse_geolocation_processor_task(
@@ -135,4 +139,26 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
             f"Skipping PMTiles task for dataset {dataset_stable_id} due to constraints --> "
             f"routes.txt file size : {routes_file.file_size_bytes} bytes"
             f" and changed files: {changed_files}"
+        )
+
+    # Create GTFS change tracker task when a previous dataset exists
+    previous_dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(
+            Gtfsdataset.feed_id == dataset.feed_id,
+            Gtfsdataset.id != dataset.id,
+        )
+        .order_by(Gtfsdataset.downloaded_at.desc())
+        .first()
+    )
+    if previous_dataset:
+        create_http_gtfs_change_tracker_task(
+            feed_id=dataset.feed_id,
+            previous_dataset_id=previous_dataset.id,
+            current_dataset_id=dataset.id,
+        )
+    else:
+        logging.info(
+            "Skipping change tracker task for dataset %s: no previous dataset found.",
+            dataset_stable_id,
         )
