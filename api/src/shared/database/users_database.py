@@ -84,6 +84,7 @@ def with_users_db_session(func=None, db_url: str | None = None):
         return lambda f: with_users_db_session(f, db_url=db_url)
 
     if inspect.iscoroutinefunction(func):
+
         async def wrapper(*args, **kwargs):
             db_session = kwargs.get("db_session")
             if db_session is None:
@@ -96,7 +97,9 @@ def with_users_db_session(func=None, db_url: str | None = None):
                     return await func(*args, **kwargs)
             else:
                 return await func(*args, **kwargs)
+
     else:
+
         def wrapper(*args, **kwargs):
             db_session = kwargs.get("db_session")
             if db_session is None:
