@@ -1281,6 +1281,7 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
       PROJECT_ID           = var.project_id
       GCP_REGION           = var.gcp_region
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
     }
     available_memory                 = local.function_gtfs_change_tracker_config.memory
     timeout_seconds                  = local.function_gtfs_change_tracker_config.timeout
@@ -1293,6 +1294,11 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
     vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
 
+    volume_mounts {
+      name       = "datasets-bucket"
+      mount_path = "/mobilitydata-datasets"
+    }
+
     dynamic "secret_environment_variables" {
       for_each = local.function_gtfs_change_tracker_config.secret_environment_variables
       content {
@@ -1301,6 +1307,14 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
         secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
+    }
+  }
+
+  volumes {
+    name = "datasets-bucket"
+    cloud_storage {
+      bucket    = "${var.datasets_bucket_name}-${var.environment}"
+      read_only = true
     }
   }
 }

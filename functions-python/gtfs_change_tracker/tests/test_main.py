@@ -61,7 +61,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
         instance = MagicMock()
         instance.run.return_value = {
             "message": "Changelog generated successfully.",
-            "changelog_url": "https://storage.googleapis.com/test-bucket/mdb-1/changelogs/p1_c1_changelog.json",
+            "changelog_url": "https://storage.googleapis.com/test-bucket/mdb-1/c1/c1_p1_changelog.json",
         }
         mock_tracker_cls.return_value = instance
 
@@ -75,6 +75,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             previous_dataset_id="p1",
             current_dataset_id="c1",
             bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
         )
 
     @patch("main.GtfsChangeTracker")
@@ -101,13 +102,16 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
             previous_dataset_id="prev-uuid",
             current_dataset_id="curr-uuid",
             bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
         )
 
     @patch("main.GtfsChangeTracker._save_changelog_record")
     @patch("main.GtfsChangeTracker._upload_changelog")
-    @patch("main.GtfsChangeTracker._download_extracted_files")
+    @patch("main.GtfsChangeTracker._extracted_dir")
     @patch("main.GtfsChangeTracker._resolve_datasets")
-    def test_run_happy_path(self, mock_resolve, mock_download, mock_upload, mock_save):
+    def test_run_happy_path(
+        self, mock_resolve, mock_extracted_dir, mock_upload, mock_save
+    ):
         prev_ds = _make_dataset(
             "prev-uuid", "mdb-1-20240101", "https://example.com/prev.zip"
         )
@@ -115,6 +119,10 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
             "curr-uuid", "mdb-1-20240201", "https://example.com/curr.zip"
         )
         mock_resolve.return_value = (prev_ds, curr_ds, "mdb-1")
+        mock_extracted_dir.side_effect = [
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240101/extracted",
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240201/extracted",
+        ]
 
         fake_summary = MagicMock()
         fake_summary.model_dump.return_value = {"total_changes": 42}
@@ -125,8 +133,8 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         )
 
         changelog_url = (
-            "https://storage.googleapis.com/test-bucket/mdb-1/changelogs/"
-            "mdb-1-20240101_mdb-1-20240201_changelog.json"
+            "https://storage.googleapis.com/test-bucket/mdb-1/"
+            "mdb-1-20240201/mdb-1-20240201_mdb-1-20240101_changelog.json"
         )
         mock_upload.return_value = changelog_url
 
@@ -134,13 +142,10 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
             result = self.tracker.run()
 
         mock_resolve.assert_called_once()
-        self.assertEqual(mock_download.call_count, 2)
-        # Verify correct dataset stable_ids are passed to the downloader
-        download_calls = mock_download.call_args_list
-        self.assertEqual(download_calls[0].args[0], "mdb-1")
-        self.assertEqual(download_calls[0].args[1], "mdb-1-20240101")
-        self.assertEqual(download_calls[1].args[0], "mdb-1")
-        self.assertEqual(download_calls[1].args[1], "mdb-1-20240201")
+        self.assertEqual(mock_extracted_dir.call_count, 2)
+        extracted_calls = mock_extracted_dir.call_args_list
+        self.assertEqual(extracted_calls[0].args, ("mdb-1", "mdb-1-20240101"))
+        self.assertEqual(extracted_calls[1].args, ("mdb-1", "mdb-1-20240201"))
         mock_diff.assert_called_once()
         mock_upload.assert_called_once_with(
             fake_diff.model_dump_json.return_value.encode("utf-8"),
@@ -161,46 +166,27 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
             self.tracker.run()
 
 
-class TestDownloadExtractedFiles(unittest.TestCase):
+class TestExtractedDir(unittest.TestCase):
     def setUp(self):
         self.tracker = GtfsChangeTracker(
             feed_id="f",
             previous_dataset_id="p",
             current_dataset_id="c",
             bucket_name="my-bucket",
+            bucket_mount="/mobilitydata-datasets",
         )
 
-    @patch("main.storage.Client")
-    def test_downloads_all_blobs_to_dest_dir(self, mock_storage_cls):
-        mock_bucket = MagicMock()
-        mock_storage_cls.return_value.bucket.return_value = mock_bucket
+    def test_returns_correct_path_when_dir_exists(self):
+        with tempfile.TemporaryDirectory() as mount:
+            extracted = os.path.join(mount, "mdb-1", "mdb-1-20240101", "extracted")
+            os.makedirs(extracted)
+            self.tracker.bucket_mount = mount
+            result = self.tracker._extracted_dir("mdb-1", "mdb-1-20240101")
+            self.assertEqual(result, extracted)
 
-        blob1 = MagicMock()
-        blob1.name = "mdb-1/mdb-1-20240101/extracted/stops.txt"
-        blob2 = MagicMock()
-        blob2.name = "mdb-1/mdb-1-20240101/extracted/routes.txt"
-        mock_bucket.list_blobs.return_value = [blob1, blob2]
-
-        with tempfile.TemporaryDirectory() as dest:
-            self.tracker._download_extracted_files("mdb-1", "mdb-1-20240101", dest)
-
-        mock_bucket.list_blobs.assert_called_once_with(
-            prefix="mdb-1/mdb-1-20240101/extracted/"
-        )
-        self.assertEqual(blob1.download_to_filename.call_count, 1)
-        self.assertEqual(blob2.download_to_filename.call_count, 1)
-        # Verify destination paths use just the basename
-        self.assertIn("stops.txt", blob1.download_to_filename.call_args.args[0])
-        self.assertIn("routes.txt", blob2.download_to_filename.call_args.args[0])
-
-    @patch("main.storage.Client")
-    def test_raises_when_no_files_in_gcs(self, mock_storage_cls):
-        mock_bucket = MagicMock()
-        mock_storage_cls.return_value.bucket.return_value = mock_bucket
-        mock_bucket.list_blobs.return_value = []
-
-        with self.assertRaises(ValueError, msg="No extracted files found"):
-            self.tracker._download_extracted_files("mdb-1", "mdb-1-20240101", "/tmp")
+    def test_raises_when_dir_not_found(self):
+        with self.assertRaises(ValueError, msg="Extracted files not found"):
+            self.tracker._extracted_dir("mdb-1", "mdb-1-20240101")
 
 
 class TestUploadChangelog(unittest.TestCase):
@@ -210,10 +196,11 @@ class TestUploadChangelog(unittest.TestCase):
             previous_dataset_id="p",
             current_dataset_id="c",
             bucket_name="my-bucket",
+            bucket_mount="/mobilitydata-datasets",
         )
 
     @patch("main.storage.Client")
-    def test_uploads_two_blobs_and_returns_primary_url(self, mock_storage_cls):
+    def test_uploads_one_blob_and_returns_url(self, mock_storage_cls):
         mock_bucket = MagicMock()
         mock_blob = MagicMock()
         mock_storage_cls.return_value.bucket.return_value = mock_bucket
@@ -223,25 +210,14 @@ class TestUploadChangelog(unittest.TestCase):
             b'{"data": 1}', "mdb-1", "mdb-1-20240101", "mdb-1-20240201"
         )
 
-        self.assertEqual(mock_bucket.blob.call_count, 2)
-        upload_calls = mock_blob.upload_from_string.call_args_list
-        self.assertEqual(len(upload_calls), 2)
-        for c in upload_calls:
-            self.assertEqual(
-                c.kwargs.get("content_type") or c.args[1], "application/json"
-            )
-
-        expected_primary = (
-            "https://storage.googleapis.com/my-bucket/mdb-1/changelogs/"
-            "mdb-1-20240101_mdb-1-20240201_changelog.json"
+        mock_bucket.blob.assert_called_once_with(
+            "mdb-1/mdb-1-20240201/mdb-1-20240201_mdb-1-20240101_changelog.json"
         )
-        self.assertEqual(url, expected_primary)
-
-        blob_paths = [c.args[0] for c in mock_bucket.blob.call_args_list]
-        self.assertIn(
-            "mdb-1/changelogs/mdb-1-20240101_mdb-1-20240201_changelog.json", blob_paths
+        mock_blob.upload_from_string.assert_called_once_with(
+            b'{"data": 1}', content_type="application/json"
         )
-        self.assertIn(
+        self.assertEqual(
+            url,
+            "https://storage.googleapis.com/my-bucket/"
             "mdb-1/mdb-1-20240201/mdb-1-20240201_mdb-1-20240101_changelog.json",
-            blob_paths,
         )

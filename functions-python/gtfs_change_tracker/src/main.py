@@ -19,7 +19,6 @@
 # record in the gtfs_dataset_changelog database table.
 import logging
 import os
-import tempfile
 
 import flask
 import functions_framework
@@ -66,12 +65,14 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
             "error": "DATASETS_BUCKET_NAME environment variable is not set.",
         }
 
+    bucket_mount = os.getenv("DATASETS_BUCKET_MOUNT", "/mobilitydata-datasets")
     try:
         tracker = GtfsChangeTracker(
             feed_id=feed_id,
             previous_dataset_id=previous_dataset_id,
             current_dataset_id=current_dataset_id,
             bucket_name=bucket_name,
+            bucket_mount=bucket_mount,
         )
         result = tracker.run()
         return {"status": "success", **result}
@@ -93,8 +94,8 @@ class GtfsChangeTracker:
 
     Steps:
     1. Resolve both datasets and the feed stable_id from the database.
-    2. Download the pre-extracted GTFS files from GCS for both datasets
-       (<feed_stable_id>/<dataset_stable_id>/extracted/).
+    2. Locate the pre-extracted GTFS files on the mounted GCS bucket filesystem
+       (<bucket_mount>/<feed_stable_id>/<dataset_stable_id>/extracted/).
     3. Compute a structured diff using gtfs-diff-engine.
     4. Upload the changelog JSON to GCS at two paths (shared changelogs index
        and per-dataset location).
@@ -107,11 +108,13 @@ class GtfsChangeTracker:
         previous_dataset_id: str,
         current_dataset_id: str,
         bucket_name: str,
+        bucket_mount: str,
     ):
         self.feed_id = feed_id
         self.previous_dataset_id = previous_dataset_id
         self.current_dataset_id = current_dataset_id
         self.bucket_name = bucket_name
+        self.bucket_mount = bucket_mount
         self.logger = get_logger(GtfsChangeTracker.__name__, current_dataset_id)
 
     def run(self) -> dict:
@@ -125,20 +128,10 @@ class GtfsChangeTracker:
             curr_dataset.stable_id,
         )
 
-        with tempfile.TemporaryDirectory(prefix="gtfs_change_tracker_") as tmpdir:
-            prev_dir = os.path.join(tmpdir, "previous")
-            curr_dir = os.path.join(tmpdir, "current")
-            os.makedirs(prev_dir)
-            os.makedirs(curr_dir)
+        prev_dir = self._extracted_dir(feed_stable_id, prev_dataset.stable_id)
+        curr_dir = self._extracted_dir(feed_stable_id, curr_dataset.stable_id)
 
-            self._download_extracted_files(
-                feed_stable_id, prev_dataset.stable_id, prev_dir
-            )
-            self._download_extracted_files(
-                feed_stable_id, curr_dataset.stable_id, curr_dir
-            )
-
-            diff_result = diff_feeds(prev_dir, curr_dir)
+        diff_result = diff_feeds(prev_dir, curr_dir)
 
         changelog_json = diff_result.model_dump_json(indent=2).encode("utf-8")
         changelog_url = self._upload_changelog(
@@ -199,66 +192,44 @@ class GtfsChangeTracker:
 
         return prev_dataset, curr_dataset, feed_stable_id
 
-    def _download_extracted_files(
-        self, feed_stable_id: str, dataset_stable_id: str, dest_dir: str
-    ) -> None:
+    def _extracted_dir(self, feed_stable_id: str, dataset_stable_id: str) -> str:
         """
-        Download all pre-extracted GTFS files from GCS to a local directory.
+        Return the path to the pre-extracted GTFS files on the mounted bucket filesystem.
 
-        batch_process_dataset uploads each file from the dataset ZIP individually to:
+        batch_process_dataset uploads each file to:
             <feed_stable_id>/<dataset_stable_id>/extracted/<filename>
-
-        This avoids re-downloading and re-unzipping the full archive.
+        which appears on the mount at:
+            <bucket_mount>/<feed_stable_id>/<dataset_stable_id>/extracted/
         """
-        prefix = f"{feed_stable_id}/{dataset_stable_id}/extracted/"
-        bucket = storage.Client().bucket(self.bucket_name)
-        blobs = list(bucket.list_blobs(prefix=prefix))
-        if not blobs:
-            raise ValueError(
-                f"No extracted files found in GCS at gs://{self.bucket_name}/{prefix}"
-            )
-        for blob in blobs:
-            filename = os.path.basename(blob.name)
-            if not filename:
-                continue
-            local_path = os.path.join(dest_dir, filename)
-            blob.download_to_filename(local_path)
-            self.logger.debug("Downloaded gs://%s/%s", self.bucket_name, blob.name)
+        path = os.path.join(
+            self.bucket_mount, feed_stable_id, dataset_stable_id, "extracted"
+        )
+        if not os.path.isdir(path):
+            raise ValueError(f"Extracted files not found on mounted bucket at {path}")
+        self.logger.debug("Using extracted dir from mounted bucket: %s", path)
+        return path
 
     def _upload_changelog(
         self,
         json_bytes: bytes,
         feed_stable_id: str,
-        prev_stable_id: str,
-        curr_stable_id: str,
+        prev_dataset_id: str,
+        curr_dataset_id: str,
     ) -> str:
         """
-        Upload the changelog JSON to GCS at two paths.
+        Upload the changelog JSON to GCS at:
+          <feed_stable_id>/<curr_dataset_id>/<curr_dataset_id>_<prev_dataset_id>_changelog.json
 
-        Paths:
-          - <feed_stable_id>/changelogs/<prev_stable_id>_<curr_stable_id>_changelog.json
-          - <feed_stable_id>/<curr_stable_id>/<curr_stable_id>_<prev_stable_id>_changelog.json
-
-        Returns the primary (changelogs/) URL.
+        Returns the GCS public URL.
         """
-        primary_blob_path = f"{feed_stable_id}/changelogs/{prev_stable_id}_{curr_stable_id}_changelog.json"
-        secondary_blob_path = f"{feed_stable_id}/{curr_stable_id}/{curr_stable_id}_{prev_stable_id}_changelog.json"
-
+        blob_path = f"{feed_stable_id}/{curr_dataset_id}/{curr_dataset_id}_{prev_dataset_id}_changelog.json"
         bucket = storage.Client().bucket(self.bucket_name)
-        primary_url = None
-
-        for blob_path in (primary_blob_path, secondary_blob_path):
-            blob = bucket.blob(blob_path)
-            blob.upload_from_string(json_bytes, content_type="application/json")
-            self.logger.info(
-                "Uploaded changelog to gs://%s/%s", self.bucket_name, blob_path
-            )
-            if blob_path == primary_blob_path:
-                primary_url = (
-                    f"https://storage.googleapis.com/{self.bucket_name}/{blob_path}"
-                )
-
-        return primary_url
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(json_bytes, content_type="application/json")
+        self.logger.info(
+            "Uploaded changelog to gs://%s/%s", self.bucket_name, blob_path
+        )
+        return f"https://storage.googleapis.com/{self.bucket_name}/{blob_path}"
 
     @with_db_session
     def _save_changelog_record(
@@ -271,28 +242,39 @@ class GtfsChangeTracker:
         Upsert a row into gtfs_dataset_changelog.
         The UNIQUE constraint on (previous_dataset_id, current_dataset_id) ensures idempotency.
         """
-        stmt = (
-            insert(GtfsDatasetChangelog)
-            .values(
-                feed_id=self.feed_id,
-                previous_dataset_id=self.previous_dataset_id,
-                current_dataset_id=self.current_dataset_id,
-                changelog_url=changelog_url,
-                diff_summary=diff_summary,
+        # TODO: remove this flag and always write to DB once testing is complete
+        if os.getenv("CHANGELOG_DB_WRITE_ENABLED", "false").lower() == "true":
+            stmt = (
+                insert(GtfsDatasetChangelog)
+                .values(
+                    feed_id=self.feed_id,
+                    previous_dataset_id=self.previous_dataset_id,
+                    current_dataset_id=self.current_dataset_id,
+                    changelog_url=changelog_url,
+                    diff_summary=diff_summary,
+                )
+                .on_conflict_do_update(
+                    constraint="gtfs_dataset_changelog_previous_current_key",
+                    set_={
+                        "changelog_url": changelog_url,
+                        "diff_summary": diff_summary,
+                        "generated_at": GtfsDatasetChangelog.generated_at.default,
+                    },
+                )
             )
-            .on_conflict_do_update(
-                constraint="gtfs_dataset_changelog_previous_current_key",
-                set_={
-                    "changelog_url": changelog_url,
-                    "diff_summary": diff_summary,
-                    "generated_at": GtfsDatasetChangelog.generated_at.default,
-                },
+            db_session.execute(stmt)
+            db_session.commit()
+            self.logger.info(
+                "Saved changelog record for %s -> %s",
+                self.previous_dataset_id,
+                self.current_dataset_id,
             )
-        )
-        db_session.execute(stmt)
-        db_session.commit()
-        self.logger.info(
-            "Saved changelog record for %s -> %s",
-            self.previous_dataset_id,
-            self.current_dataset_id,
-        )
+        else:
+            self.logger.info(
+                "[TEMP] Would upsert gtfs_dataset_changelog: feed_id=%s previous=%s current=%s url=%s summary=%s",
+                self.feed_id,
+                self.previous_dataset_id,
+                self.current_dataset_id,
+                changelog_url,
+                diff_summary,
+            )
