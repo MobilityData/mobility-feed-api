@@ -384,7 +384,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LicenseWithRules"
-
   /v1/operations/users:
     get:
       summary: Search users
@@ -429,7 +428,6 @@ paths:
                   $ref: "#/components/schemas/OperationUserProfile"
         "401":
           description: Unauthorized.
-
   /v1/operations/users/{user_id}:
     get:
       summary: Get a user by ID
@@ -457,7 +455,6 @@ paths:
           description: Unauthorized.
         "404":
           description: User not found.
-
   /v1/operations/users/{user_id}/feature-flags:
     patch:
       summary: Replace a user's feature flags
@@ -493,7 +490,6 @@ paths:
           description: Unauthorized.
         "404":
           description: User or one of the provided feature flag IDs not found.
-
   /v1/operations/feature-flags:
     get:
       summary: List all feature flags
@@ -541,7 +537,6 @@ paths:
           description: Unauthorized.
         "409":
           description: A feature flag with this ID already exists.
-
   /v1/operations/feature-flags/{id}:
     put:
       summary: Update a feature flag
@@ -575,7 +570,6 @@ paths:
           description: Unauthorized.
         "404":
           description: Feature flag not found.
-
 components:
   schemas:
     Redirect:
@@ -1819,6 +1813,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1951,6 +1946,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2046,6 +2042,7 @@ components:
 
 
 
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2071,6 +2068,7 @@ components:
 
 
 
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -2081,11 +2079,12 @@ components:
         - gbfs
       example: gtfs
     FeatureFlagValue:
+      x-operation: true
       description: >
-        The value of a feature flag. The type is determined by the flag's value_type field.
-        Possible shapes: boolean (true/false), string, number, array, or object.
-      nullable: true
+        The value of a feature flag. The type is determined by the flag's value_type field. Possible shapes: boolean (true/false), string, number, array, or object.
+
     FeatureFlagAssignment:
+      x-operation: true
       type: object
       required:
         - feature_flag_id
@@ -2099,6 +2098,7 @@ components:
           nullable: true
           description: Per-user value override. null or absent means use the flag's default_value.
     UserFeatureFlagState:
+      x-operation: true
       type: object
       required:
         - feature_flag_id
@@ -2126,6 +2126,7 @@ components:
           nullable: true
           description: The value explicitly set for this user. null means no override — the default applies.
     OperationFeatureFlag:
+      x-operation: true
       type: object
       required:
         - id
@@ -2156,6 +2157,7 @@ components:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: The flag's global default value.
     CreateFeatureFlagRequest:
+      x-operation: true
       type: object
       required:
         - id
@@ -2182,6 +2184,7 @@ components:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: The flag's global default value.
     UpdateFeatureFlagRequest:
+      x-operation: true
       type: object
       properties:
         name:
@@ -2196,6 +2199,7 @@ components:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: Updated global default value. value_type cannot be changed.
     OperationUserProfile:
+      x-operation: true
       type: object
       required:
         - id
@@ -2227,6 +2231,7 @@ components:
             $ref: "#/components/schemas/UserFeatureFlagState"
           default: []
     PatchUserFeatureFlagsRequest:
+      x-operation: true
       type: object
       required:
         - assignments
