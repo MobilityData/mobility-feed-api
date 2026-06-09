@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 
-from feeds_gen.models.feature_flag_value import FeatureFlagValue
 from feeds_gen.models.user_feature_flag_state import UserFeatureFlagState
 from shared.users_database_gen.sqlacodegen_models import UserFeatureFlag
 
@@ -33,12 +32,6 @@ class UserFeatureFlagStateImpl(UserFeatureFlagState):
             feature_flag_id=uff.feature_flag_id,
             name=uff.feature_flag.name,
             value_type=uff.feature_flag.value_type,
-            default_value=FeatureFlagValue(
-                actual_instance=uff.feature_flag.default_value
-            ),
-            user_value=(
-                FeatureFlagValue(actual_instance=uff.value)
-                if uff.value is not None
-                else None
-            ),
+            default_value=uff.feature_flag.default_value,
+            user_value=uff.value,
         )

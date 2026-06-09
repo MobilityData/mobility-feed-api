@@ -23,7 +23,6 @@ from fastapi import HTTPException
 from feeds_operations.impl.user_feature_flags_impl import UserFeatureFlagsApiImpl
 from feeds_gen.models.create_feature_flag_request import CreateFeatureFlagRequest
 from feeds_gen.models.feature_flag_assignment import FeatureFlagAssignment
-from feeds_gen.models.feature_flag_value import FeatureFlagValue
 from feeds_gen.models.patch_user_feature_flags_request import (
     PatchUserFeatureFlagsRequest,
 )
@@ -183,7 +182,7 @@ class TestCreateFeatureFlag(unittest.IsolatedAsyncioTestCase):
             name="New Flag",
             description="A new flag",
             value_type="boolean",
-            default_value=FeatureFlagValue(actual_instance=False),
+            default_value=False,
         )
         result = await self.api.create_feature_flag(req, db_session=self.session)
 
@@ -199,7 +198,7 @@ class TestCreateFeatureFlag(unittest.IsolatedAsyncioTestCase):
         req = CreateFeatureFlagRequest(
             id="existing",
             value_type="boolean",
-            default_value=FeatureFlagValue(actual_instance=False),
+            default_value=False,
         )
         with self.assertRaises(HTTPException) as ctx:
             await self.api.create_feature_flag(req, db_session=self.session)

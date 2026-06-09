@@ -382,13 +382,7 @@ components:
           description: The type of value this flag carries.
         value:
           description: Resolved flag value — the user's override if set, otherwise the global default.
-          oneOf:
-            - type: boolean
-            - type: string
-            - type: number
-            - type: array
-              items: {}
-            - type: object
+          nullable: true
 
   securitySchemes:
     Authentication:

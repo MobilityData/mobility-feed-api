@@ -1,6 +1,5 @@
 from shared.users_database_gen.sqlacodegen_models import AppUser
 from user_service_gen.models.feature_flag import FeatureFlag as FeatureFlagModel
-from user_service_gen.models.feature_flag_value import FeatureFlagValue
 from user_service_gen.models.user_profile import UserProfile
 
 
@@ -29,9 +28,7 @@ class AppUserImpl(UserProfile):
                     id=uff.feature_flag.id,
                     name=uff.feature_flag.name,
                     value_type=uff.feature_flag.value_type,
-                    value=FeatureFlagValue(
-                        actual_instance=(uff.value if uff.value is not None else uff.feature_flag.default_value)
-                    ),
+                    value=uff.value if uff.value is not None else uff.feature_flag.default_value,
                 )
                 for uff in (user.user_feature_flags or [])
                 if uff.feature_flag.default_value is not None or uff.value is not None

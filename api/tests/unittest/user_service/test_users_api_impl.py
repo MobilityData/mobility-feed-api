@@ -260,7 +260,7 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertEqual(profile.features[0].id, "beta_editor")
         self.assertEqual(profile.features[0].name, "Beta Editor")
         self.assertEqual(profile.features[0].value_type, "boolean")
-        self.assertEqual(profile.features[0].value.actual_instance, False)
+        self.assertEqual(profile.features[0].value, False)
 
     def test_from_orm_empty_feature_flags(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)

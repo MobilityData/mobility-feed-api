@@ -106,7 +106,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             name=create_feature_flag_request.name,
             description=create_feature_flag_request.description,
             value_type=create_feature_flag_request.value_type,
-            default_value=create_feature_flag_request.default_value.actual_instance,
+            default_value=create_feature_flag_request.default_value,
             created_at=datetime.now(timezone.utc),
         )
         db_session.add(flag)
@@ -125,9 +125,6 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="Feature flag not found.")
         update_data = update_feature_flag_request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            # default_value is a FeatureFlagValue wrapper — unwrap to raw Python value for JSONB
-            if field == "default_value" and hasattr(value, "actual_instance"):
-                value = value.actual_instance
             setattr(flag, field, value)
         db_session.flush()
         return OperationFeatureFlagImpl.from_orm(flag)
@@ -173,7 +170,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
                 UserFeatureFlag(
                     user_id=user_id,
                     feature_flag_id=a.feature_flag_id,
-                    value=a.value.actual_instance if a.value is not None else None,
+                    value=a.value,
                 )
                 for a in assignments
             ]

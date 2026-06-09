@@ -2084,13 +2084,7 @@ components:
       description: >
         The value of a feature flag. The type is determined by the flag's value_type field.
         Possible shapes: boolean (true/false), string, number, array, or object.
-      oneOf:
-        - type: boolean
-        - type: string
-        - type: number
-        - type: array
-          items: {}
-        - type: object
+      nullable: true
     FeatureFlagAssignment:
       type: object
       required:
