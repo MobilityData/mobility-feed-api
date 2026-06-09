@@ -1277,10 +1277,10 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT          = var.environment
-      PROJECT_ID           = var.project_id
-      GCP_REGION           = var.gcp_region
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
+      DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
     }
     available_memory                 = local.function_gtfs_change_tracker_config.memory
@@ -1294,11 +1294,6 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
     vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
 
-    volume_mounts {
-      name       = "datasets-bucket"
-      mount_path = "/mobilitydata-datasets"
-    }
-
     dynamic "secret_environment_variables" {
       for_each = local.function_gtfs_change_tracker_config.secret_environment_variables
       content {
@@ -1309,14 +1304,39 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
       }
     }
   }
+}
 
-  volumes {
-    name = "datasets-bucket"
-    cloud_storage {
-      bucket    = "${var.datasets_bucket_name}-${var.environment}"
-      read_only = true
-    }
+# google_cloudfunctions2_function does not expose volume mounts in its schema.
+# This terraform_data resource mounts the datasets GCS bucket on the underlying Cloud Run service
+# after the function is deployed, using `gcloud run services update`.
+resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.gtfs_change_tracker.name
+    bucket        = "${var.datasets_bucket_name}-${var.environment}"
+    region        = var.gcp_region
+    project       = var.project_id
   }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.gtfs_change_tracker.name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+      if echo "$MOUNTS" | grep -q "datasets-bucket"; then
+        echo "GCS volume already mounted, skipping."
+      else
+        gcloud run services update ${google_cloudfunctions2_function.gtfs_change_tracker.name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          --add-volume name=datasets-bucket,type=cloud-storage,bucket=${var.datasets_bucket_name}-${var.environment},readonly=true \
+          --add-volume-mount volume=datasets-bucket,mount-path=/mobilitydata-datasets \
+          --quiet
+      fi
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.gtfs_change_tracker]
 }
 
 # Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
