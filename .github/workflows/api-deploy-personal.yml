@@ -16,6 +16,10 @@
 name: Deploy Personal Feeds API
 
 on:
+# PR for testing
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       name_suffix:
@@ -25,7 +29,7 @@ on:
             Cloud Function: operations-api-personal-<suffix>
           Use your name or branch (e.g. "david", "feat-1723").
         required: true
-        default: 'dev'
+        default: 'developer'
       deploy_feeds_api:
         description: 'Deploy Feeds API (Cloud Run)'
         required: false
