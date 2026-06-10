@@ -83,18 +83,6 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
-      - name: Create local .env
-        run: |
-          echo "POSTGRES_USER=postgres_user"          > config/.env.local
-          echo "PGUSER=postgres_user"                >> config/.env.local
-          echo "POSTGRES_PASSWORD=postgres_password" >> config/.env.local
-          echo "POSTGRES_DB=postgres_db"             >> config/.env.local
-          echo "POSTGRES_PORT=5432"                  >> config/.env.local
-          echo "POSTGRES_USER_DB=MobilityDatabaseUsers"     >> config/.env.local
-          echo "POSTGRES_USER_TEST_DB=MobilityDatabaseUsersTest" >> config/.env.local
-          echo "POSTGRES_HOST=localhost"             >> config/.env.local
-          echo "ENVIRONMENT=dev"                     >> config/.env.local
-
       - name: Start PostgreSQL (needed for db-gen)
         run: docker compose --env-file ./config/.env.local up -d --wait postgres postgres-test
 
