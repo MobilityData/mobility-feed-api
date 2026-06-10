@@ -96,7 +96,7 @@ jobs:
           echo "ENVIRONMENT=dev"                     >> config/.env.local
 
       - name: Start PostgreSQL (needed for db-gen)
-        run: docker compose --env-file ./config/.env.local up -d postgres postgres-test
+        run: docker compose --env-file ./config/.env.local up -d --wait postgres postgres-test
 
       - name: Install Liquibase
         env:
