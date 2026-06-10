@@ -43,19 +43,21 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     HTTP entrypoint for the GTFS change tracker function.
 
     Expects a JSON body with:
-        feed_id             – DB id of the GTFS feed (FK to gtfsfeed.id)
-        previous_dataset_id – DB id of the previous Gtfsdataset
-        current_dataset_id  – DB id of the current Gtfsdataset
+        feed_stable_id                – stable_id of the GTFS feed
+        previous_dataset_stable_id    – stable_id of the previous Gtfsdataset
+        current_dataset_stable_id     – stable_id of the current Gtfsdataset
     """
     payload = request.get_json(silent=True) or {}
-    feed_id = payload.get("feed_id")
-    previous_dataset_id = payload.get("previous_dataset_id")
-    current_dataset_id = payload.get("current_dataset_id")
+    feed_stable_id = payload.get("feed_stable_id")
+    previous_dataset_stable_id = payload.get("previous_dataset_stable_id")
+    current_dataset_stable_id = payload.get("current_dataset_stable_id")
 
-    if not (feed_id and previous_dataset_id and current_dataset_id):
+    if not (
+        feed_stable_id and previous_dataset_stable_id and current_dataset_stable_id
+    ):
         return {
             "status": "error",
-            "error": "feed_id, previous_dataset_id, and current_dataset_id are required.",
+            "error": "feed_stable_id, previous_dataset_stable_id, and current_dataset_stable_id are required.",
         }
 
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
@@ -68,9 +70,9 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     bucket_mount = os.getenv("DATASETS_BUCKET_MOUNT", "/mobilitydata-datasets")
     try:
         tracker = GtfsChangeTracker(
-            feed_id=feed_id,
-            previous_dataset_id=previous_dataset_id,
-            current_dataset_id=current_dataset_id,
+            feed_stable_id=feed_stable_id,
+            previous_dataset_stable_id=previous_dataset_stable_id,
+            current_dataset_stable_id=current_dataset_stable_id,
             bucket_name=bucket_name,
             bucket_mount=bucket_mount,
         )
@@ -79,8 +81,8 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     except Exception as e:
         logging.exception(
             "Failed to generate changelog for %s -> %s",
-            previous_dataset_id,
-            current_dataset_id,
+            previous_dataset_stable_id,
+            current_dataset_stable_id,
         )
         return {
             "status": "error",
@@ -93,57 +95,64 @@ class GtfsChangeTracker:
     Orchestrates GTFS change tracking between two consecutive datasets.
 
     Steps:
-    1. Resolve both datasets and the feed stable_id from the database.
+    1. Resolve both datasets from the database using their stable_ids.
     2. Locate the pre-extracted GTFS files on the mounted GCS bucket filesystem
        (<bucket_mount>/<feed_stable_id>/<dataset_stable_id>/extracted/).
     3. Compute a structured diff using gtfs-diff-engine.
-    4. Upload the changelog JSON to GCS at two paths (shared changelogs index
-       and per-dataset location).
+    4. Upload the changelog JSON to GCS.
     5. Upsert a row in gtfs_dataset_changelog.
     """
 
     def __init__(
         self,
-        feed_id: str,
-        previous_dataset_id: str,
-        current_dataset_id: str,
+        feed_stable_id: str,
+        previous_dataset_stable_id: str,
+        current_dataset_stable_id: str,
         bucket_name: str,
         bucket_mount: str,
     ):
-        self.feed_id = feed_id
-        self.previous_dataset_id = previous_dataset_id
-        self.current_dataset_id = current_dataset_id
+        self.feed_stable_id = feed_stable_id
+        self.previous_dataset_stable_id = previous_dataset_stable_id
+        self.current_dataset_stable_id = current_dataset_stable_id
         self.bucket_name = bucket_name
         self.bucket_mount = bucket_mount
-        self.logger = get_logger(GtfsChangeTracker.__name__, current_dataset_id)
+        self.logger = get_logger(GtfsChangeTracker.__name__, current_dataset_stable_id)
 
     def run(self) -> dict:
         """Execute the full change-tracking pipeline."""
-        prev_dataset, curr_dataset, feed_stable_id = self._resolve_datasets()
+        prev_dataset, curr_dataset = self._resolve_datasets()
 
         self.logger.info(
             "Computing diff for feed %s: %s -> %s",
-            feed_stable_id,
-            prev_dataset.stable_id,
-            curr_dataset.stable_id,
+            self.feed_stable_id,
+            self.previous_dataset_stable_id,
+            self.current_dataset_stable_id,
         )
 
-        prev_dir = self._extracted_dir(feed_stable_id, prev_dataset.stable_id)
-        curr_dir = self._extracted_dir(feed_stable_id, curr_dataset.stable_id)
+        prev_dir = self._extracted_dir(
+            self.feed_stable_id, self.previous_dataset_stable_id
+        )
+        curr_dir = self._extracted_dir(
+            self.feed_stable_id, self.current_dataset_stable_id
+        )
 
         diff_result = diff_feeds(prev_dir, curr_dir)
 
         changelog_json = diff_result.model_dump_json(indent=2).encode("utf-8")
         changelog_url = self._upload_changelog(
             changelog_json,
-            feed_stable_id,
-            prev_dataset.stable_id,
-            curr_dataset.stable_id,
+            self.feed_stable_id,
+            self.previous_dataset_stable_id,
+            self.current_dataset_stable_id,
         )
 
         diff_summary = diff_result.summary.model_dump()
         self._save_changelog_record(
-            changelog_url=changelog_url, diff_summary=diff_summary
+            feed_uuid=curr_dataset.feed.id,
+            prev_dataset_uuid=prev_dataset.id,
+            curr_dataset_uuid=curr_dataset.id,
+            changelog_url=changelog_url,
+            diff_summary=diff_summary,
         )
 
         self.logger.info("Changelog stored at %s", changelog_url)
@@ -155,42 +164,38 @@ class GtfsChangeTracker:
     @with_db_session
     def _resolve_datasets(self, db_session: Session = None) -> tuple:
         """
-        Load both Gtfsdataset rows and return (previous_dataset, current_dataset, feed_stable_id).
+        Load both Gtfsdataset rows by stable_id and return (previous_dataset, current_dataset).
         """
         prev_dataset = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.id == self.previous_dataset_id)
+            .filter(Gtfsdataset.stable_id == self.previous_dataset_stable_id)
             .one_or_none()
         )
         if prev_dataset is None:
-            raise ValueError(f"Previous dataset not found: {self.previous_dataset_id}")
+            raise ValueError(
+                f"Previous dataset not found: {self.previous_dataset_stable_id}"
+            )
 
         curr_dataset = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.id == self.current_dataset_id)
+            .filter(Gtfsdataset.stable_id == self.current_dataset_stable_id)
             .one_or_none()
         )
         if curr_dataset is None:
-            raise ValueError(f"Current dataset not found: {self.current_dataset_id}")
-
-        if not prev_dataset.stable_id:
             raise ValueError(
-                f"Previous dataset {self.previous_dataset_id} has no stable_id."
-            )
-        if not curr_dataset.stable_id:
-            raise ValueError(
-                f"Current dataset {self.current_dataset_id} has no stable_id."
+                f"Current dataset not found: {self.current_dataset_stable_id}"
             )
 
-        feed_stable_id = curr_dataset.feed.stable_id
-        if not feed_stable_id:
-            raise ValueError(f"Feed {self.feed_id} has no stable_id.")
+        if curr_dataset.feed.stable_id != self.feed_stable_id:
+            raise ValueError(
+                f"Dataset {self.current_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
+            )
 
         # Detach from session before returning so objects can be used outside the session
         db_session.expunge(prev_dataset)
         db_session.expunge(curr_dataset)
 
-        return prev_dataset, curr_dataset, feed_stable_id
+        return prev_dataset, curr_dataset
 
     def _extracted_dir(self, feed_stable_id: str, dataset_stable_id: str) -> str:
         """
@@ -234,6 +239,9 @@ class GtfsChangeTracker:
     @with_db_session
     def _save_changelog_record(
         self,
+        feed_uuid: str,
+        prev_dataset_uuid: str,
+        curr_dataset_uuid: str,
         changelog_url: str,
         diff_summary: dict,
         db_session: Session = None,
@@ -247,9 +255,9 @@ class GtfsChangeTracker:
             stmt = (
                 insert(GtfsDatasetChangelog)
                 .values(
-                    feed_id=self.feed_id,
-                    previous_dataset_id=self.previous_dataset_id,
-                    current_dataset_id=self.current_dataset_id,
+                    feed_id=feed_uuid,
+                    previous_dataset_id=prev_dataset_uuid,
+                    current_dataset_id=curr_dataset_uuid,
                     changelog_url=changelog_url,
                     diff_summary=diff_summary,
                 )
@@ -266,15 +274,15 @@ class GtfsChangeTracker:
             db_session.commit()
             self.logger.info(
                 "Saved changelog record for %s -> %s",
-                self.previous_dataset_id,
-                self.current_dataset_id,
+                self.previous_dataset_stable_id,
+                self.current_dataset_stable_id,
             )
         else:
             self.logger.info(
                 "[TEMP] Would upsert gtfs_dataset_changelog: feed_id=%s previous=%s current=%s url=%s summary=%s",
-                self.feed_id,
-                self.previous_dataset_id,
-                self.current_dataset_id,
+                feed_uuid,
+                prev_dataset_uuid,
+                curr_dataset_uuid,
                 changelog_url,
                 diff_summary,
             )
