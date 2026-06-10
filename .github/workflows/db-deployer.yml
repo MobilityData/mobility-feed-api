@@ -240,15 +240,6 @@ jobs:
       - name: Google Cloud Setup DEV
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Load DEV users DB credentials from 1Password
-        uses: 1password/load-secrets-action@v2
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
-          POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
-
       - name: Create or Update Secret in DEV
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
@@ -266,7 +257,10 @@ jobs:
       - name: Create or Update Users DB Secret in DEV
         run: |
           SECRET_NAME="DEV_USERS_DATABASE_URL"
-          SECRET_VALUE="postgresql://${POSTGRE_DEV_USER_APP_NAME}:${POSTGRE_DEV_USER_APP_PASSWORD}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
+          # DEV has no dedicated DB/role of its own — it shares the QA Cloud SQL instance.
+          # Use the QA main postgres credentials (same as DEV_FEEDS_DATABASE_URL) which can
+          # reach MobilityDatabaseUsersDEV, instead of the dev app role that isn't provisioned.
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
 
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."

@@ -296,6 +296,7 @@ jobs:
             --concurrency     100 \
             --cpu             1 \
             --ingress-settings all \
+            --trigger-http \
             --allow-unauthenticated \
             --set-env-vars    "ENVIRONMENT=dev,PROJECT_ID=${{ env.PROJECT_ID }},GCP_REGION=${{ env.REGION }},GOOGLE_CLIENT_ID=${OPERATIONS_OAUTH2_CLIENT_ID}" \
             --set-secrets     "FEEDS_DATABASE_URL=DEV_FEEDS_DATABASE_URL:latest,USERS_DATABASE_URL=DEV_USERS_DATABASE_URL:latest"
