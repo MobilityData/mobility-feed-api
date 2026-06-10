@@ -26,6 +26,7 @@ jobs:
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       # DRY_RUN is passed through directly from inputs
       DRY_RUN: ${{ inputs.DRY_RUN }}
+      USERS_APP_ROLE_1PASSWORD: ${{ vars.QA_POSTGRE_USER_APP_NAME_1PASSWORD }}
     secrets:
       # DB auth and connectivity
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
@@ -35,4 +36,3 @@ jobs:
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       # 1Password tokens
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      USERS_APP_ROLE_1PASSWORD: ${{ vars.QA_POSTGRE_USER_APP_NAME_1PASSWORD }}
