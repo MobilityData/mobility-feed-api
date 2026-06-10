@@ -14,9 +14,12 @@
 #  limitations under the License.
 #
 import os
+import uuid
+from datetime import datetime, timezone
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    GtfsFeedAvailabilityCheck,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Entitytype,
@@ -61,6 +64,64 @@ feed_mdb_40 = Gtfsfeed(
     gtfs_rt_feeds=[feed_mdb_41],
     operational_status="wip",
 )
+
+availability_checks_mdb_40 = [
+    GtfsFeedAvailabilityCheck(
+        id=uuid.UUID("11111111-0000-0000-0000-000000000001"),
+        feed_id="mdb-40",
+        checked_at=datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+        request_url="http://example.com/feed.zip",
+        request_type="http_head",
+        success=True,
+        status_code=200,
+        latency_ms=120,
+        error_type=None,
+    ),
+    GtfsFeedAvailabilityCheck(
+        id=uuid.UUID("11111111-0000-0000-0000-000000000002"),
+        feed_id="mdb-40",
+        checked_at=datetime(2025, 2, 10, 12, 0, 0, tzinfo=timezone.utc),
+        request_url="http://example.com/feed.zip",
+        request_type="http_get",
+        success=False,
+        status_code=503,
+        latency_ms=450,
+        error_type="http_error",
+    ),
+    GtfsFeedAvailabilityCheck(
+        id=uuid.UUID("11111111-0000-0000-0000-000000000003"),
+        feed_id="mdb-40",
+        checked_at=datetime(2025, 3, 5, 8, 0, 0, tzinfo=timezone.utc),
+        request_url="http://example.com/feed.zip",
+        request_type="http_head",
+        success=True,
+        status_code=200,
+        latency_ms=95,
+        error_type=None,
+    ),
+    GtfsFeedAvailabilityCheck(
+        id=uuid.UUID("11111111-0000-0000-0000-000000000004"),
+        feed_id="mdb-40",
+        checked_at=datetime(2025, 4, 20, 14, 0, 0, tzinfo=timezone.utc),
+        request_url="http://example.com/feed.zip",
+        request_type="http_head",
+        success=True,
+        status_code=200,
+        latency_ms=88,
+        error_type=None,
+    ),
+    GtfsFeedAvailabilityCheck(
+        id=uuid.UUID("11111111-0000-0000-0000-000000000005"),
+        feed_id="mdb-40",
+        checked_at=datetime(2025, 5, 1, 9, 30, 0, tzinfo=timezone.utc),
+        request_url="http://example.com/feed.zip",
+        request_type="http_get",
+        success=False,
+        status_code=None,
+        latency_ms=None,
+        error_type="connection_timeout",
+    ),
+]
 
 feed_mdb_400 = Gtfsfeed(
     id="mdb-400",
@@ -129,6 +190,8 @@ def populate_database(db_session):
     db_session.add(feed_mdb_41)
     db_session.add(feed_mdb_40)
     db_session.add(feed_mdb_400)
+    for check in availability_checks_mdb_40:
+        db_session.add(check)
     db_session.add(rule_attribution)
     db_session.add(rule_share_alike)
     db_session.add(license_std_mit)

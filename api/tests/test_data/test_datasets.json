@@ -1,4 +1,81 @@
 {
+  "feeds": [
+    {
+      "id": "mdb-1",
+      "data_type": "gtfs",
+      "status": "active",
+      "created_at": "2024-01-01T00:00:00Z",
+      "provider": "Test Provider 1",
+      "feed_name": "Test Feed 1",
+      "note": "",
+      "feed_contact_email": "",
+      "source_info": {
+        "producer_url": "https://example.com/feed1.zip",
+        "authentication_type": 0,
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+        "license_url": ""
+      },
+      "locations": [
+        {
+          "country_code": "CA",
+          "country": "Canada",
+          "subdivision_name": null,
+          "municipality": null
+        }
+      ]
+    },
+    {
+      "id": "mdb-2",
+      "data_type": "gtfs",
+      "status": "active",
+      "created_at": "2024-01-02T00:00:00Z",
+      "provider": "Test Provider 2",
+      "feed_name": "Test Feed 2",
+      "note": "",
+      "feed_contact_email": "",
+      "source_info": {
+        "producer_url": "https://example.com/feed2.zip",
+        "authentication_type": 0,
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+        "license_url": ""
+      },
+      "locations": [
+        {
+          "country_code": "US",
+          "country": "United States",
+          "subdivision_name": null,
+          "municipality": null
+        }
+      ]
+    },
+    {
+      "id": "mdb-3",
+      "data_type": "gtfs",
+      "status": "active",
+      "created_at": "2024-01-03T00:00:00Z",
+      "provider": "Test Provider 3",
+      "feed_name": "Test Feed 3",
+      "note": "",
+      "feed_contact_email": "",
+      "source_info": {
+        "producer_url": "https://example.com/feed3.zip",
+        "authentication_type": 0,
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+        "license_url": ""
+      },
+      "locations": [
+        {
+          "country_code": "FR",
+          "country": "France",
+          "subdivision_name": null,
+          "municipality": null
+        }
+      ]
+    }
+  ],
   "datasets": [
     {
       "id": "dataset-1",
@@ -227,6 +304,68 @@
     {
       "validation_report_id": "dataset-2-report-1",
       "feature_name": "Time-Based Fares"
+    }
+  ],
+  "gtfs_availability_checks": [
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-01-15T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_head",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 110,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-02-15T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_head",
+      "success": false,
+      "status_code": 503,
+      "latency_ms": 380,
+      "error_type": "http_error"
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-03-15T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_get",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 220,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-04-15T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_head",
+      "success": false,
+      "status_code": null,
+      "latency_ms": null,
+      "error_type": "connection_timeout"
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-05-15T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_head",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 95,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-06-01T08:00:00+00:00",
+      "request_url": "https://example.com/gtfs-mdb1.zip",
+      "request_type": "http_get",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 175,
+      "error_type": null
     }
   ]
 }
