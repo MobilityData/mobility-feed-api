@@ -1,9 +1,9 @@
-# Deploys a personal Feeds API (Cloud Run) and Operations API (Cloud Function) to the DEV project.
+# Deploys a developer Feeds API (Cloud Run) and Operations API (Cloud Function) to the DEV project.
 #
 # Completely isolated — no Terraform, no shared infrastructure changes.
 # Only two new named resources are created/updated (both scoped to your suffix):
 #   - Cloud Run:      developer-feed-api-<name_suffix>
-#   - Cloud Function: operations-api-personal-<name_suffix>
+#   - Cloud Function: operations-api-developer-<name_suffix>
 #
 # Both use the same dev secrets/databases as the shared dev environment (read-safe).
 #
@@ -12,8 +12,8 @@
 #   Variables (already set for api-dev.yml): DEV_MOBILITY_FEEDS_PROJECT_ID,
 #     DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT, MOBILITY_FEEDS_REGION
 #
-# Usage: Actions → "Deploy Personal Feeds API" → Run workflow → fill in name_suffix
-name: Deploy Personal Feeds API
+# Usage: Actions → "Deploy Developer Feeds API" → Run workflow → fill in name_suffix
+name: Deploy Developer Feeds API
 
 on:
 # PR for testing
@@ -24,12 +24,12 @@ on:
     inputs:
       name_suffix:
         description: >
-          Personal identifier suffix. Creates:
-            Cloud Run:      developer-feed-api-<suffix>
-            Cloud Function: operations-api-personal-<suffix>
+          Developer identifier suffix. Creates:
+            Cloud Run:      mobility-feed-api-developer-<suffix>
+            Cloud Function: operations-api-developer-<suffix>
           Use your name or branch (e.g. "david", "feat-1723").
         required: true
-        default: 'developer'
+        default: 'x'
       deploy_feeds_api:
         description: 'Deploy Feeds API (Cloud Run)'
         required: false
@@ -142,7 +142,7 @@ jobs:
           path: functions-python/operations_api/.dist/
           include-hidden-files: true
 
-  # ── Feeds API: build Docker image and deploy to personal Cloud Run ─────────
+  # ── Feeds API: build Docker image and deploy to developer Cloud Run ─────────
   deploy-feeds-api:
     if: ${{ github.event.inputs.deploy_feeds_api != 'false' }}
     runs-on: ubuntu-latest
@@ -158,8 +158,8 @@ jobs:
       - name: Set service name and image tag
         id: names
         run: |
-          echo "service_name=developer-feed-api-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
-          echo "image_tag=personal-$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          echo "service_name=mobility-feed-api-developer${{ github.event.inputs.name_suffix || 'x' }}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=developer-$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
       - name: Download generated artifacts
         uses: actions/download-artifact@v4
@@ -210,7 +210,7 @@ jobs:
       - name: GCloud Setup
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy to personal Cloud Run
+      - name: Deploy to developer Cloud Run
         # Creates/updates ONLY developer-feed-api-<suffix> — shared dev Cloud Run is untouched.
         # Secret names follow the same DEV_<KEY> pattern used by Terraform (infra/feed-api/main.tf).
         run: |
@@ -237,7 +237,7 @@ jobs:
             --format   'value(status.url)')
           echo "url=${URL}" >> "$GITHUB_OUTPUT"
 
-  # ── Operations API: build zip and deploy to personal Cloud Function ────────
+  # ── Operations API: build zip and deploy to developer Cloud Function ────────
   deploy-operations-api:
     if: ${{ github.event.inputs.deploy_operations_api != 'false' }}
     runs-on: ubuntu-latest
@@ -253,7 +253,7 @@ jobs:
       - name: Set function name
         id: names
         run: |
-          echo "function_name=operations-api-personal-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
+          echo "function_name=operations-api-developer-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
 
       - name: Download operations API build
         uses: actions/download-artifact@v4
@@ -277,8 +277,8 @@ jobs:
       - name: GCloud Setup
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy to personal Cloud Function
-        # Creates/updates ONLY operations-api-personal-<suffix> — shared operations-api is untouched.
+      - name: Deploy to developer Cloud Function
+        # Creates/updates ONLY operations-api-developer-<suffix> — shared operations-api is untouched.
         # Secret names follow the same DEV_<KEY> pattern used by Terraform (infra/functions-python/main.tf).
         run: |
           gcloud functions deploy "${{ steps.names.outputs.function_name }}" \
@@ -319,7 +319,7 @@ jobs:
     steps:
       - name: Write job summary
         run: |
-          echo "## 🚀 Personal API deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "## 🚀 Developer API deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Service | Name | URL |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---------|------|-----|" >> "$GITHUB_STEP_SUMMARY"
@@ -337,5 +337,5 @@ jobs:
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> ⚠️ These are personal services sharing the **dev databases** (read/write)." >> "$GITHUB_STEP_SUMMARY"
+          echo "> ⚠️ These are developer services sharing the **dev databases** (read/write)." >> "$GITHUB_STEP_SUMMARY"
           echo "> No shared Cloud Run, Terraform state, load balancer, or IAM was modified." >> "$GITHUB_STEP_SUMMARY"
