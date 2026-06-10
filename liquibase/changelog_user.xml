@@ -15,6 +15,4 @@
     <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
     <!-- Add feature_flag and user_feature_flag tables -->
     <include file="changes_user/feat_1694.sql" relativeToChangelogFile="true"/>
-    <!-- Grant app role access to all users DB tables (covers future tables via ALTER DEFAULT PRIVILEGES) -->
-    <include file="changes_user/feat_1694_grants.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

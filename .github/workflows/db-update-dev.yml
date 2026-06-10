@@ -34,7 +34,6 @@ jobs:
       USER_DB_ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       # DRY_RUN: use provided input if defined (workflow_dispatch/workflow_call); fallback to false on push events
       DRY_RUN: ${{ inputs.DRY_RUN || false }}
-      USERS_APP_ROLE_1PASSWORD: ${{ vars.DEV_POSTGRE_USER_APP_NAME_1PASSWORD }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
