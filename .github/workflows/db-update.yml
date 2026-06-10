@@ -140,5 +140,5 @@ jobs:
         export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE
-        liquibase update --changelogParameters=users_app_role=${{ env.USERS_APP_ROLE }}
+        liquibase update -Dusers_app_role=${{ env.USERS_APP_ROLE }}
 
