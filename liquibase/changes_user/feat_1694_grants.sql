@@ -1,6 +1,8 @@
+--liquibase formatted sql
+--changeset liquibase:feat-1694-grants-app-role
 -- Grant the application role access to all existing tables in the users DB
 -- and configure default privileges so any future tables are automatically accessible.
--- The role name is injected at migration time via the Liquibase property ${users_app_role}.
+-- The role name is injected at migration time via the Liquibase -D property flag.
 -- Locally: users_app_role=postgres (same as the Liquibase user — grant is a no-op).
 -- Production: users_app_role is sourced from the environment secret.
 

@@ -102,8 +102,8 @@ services:
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
       - --classpath=postgresql-42.7.8.jar
-      - -Dusers_app_role=${POSTGRES_USER}
       - update
+      - -Dusers_app_role=${POSTGRES_USER}
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,8 +122,8 @@ services:
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
       - --classpath=postgresql-42.7.8.jar
-      - -Dusers_app_role=${POSTGRES_USER}
       - update
+      - -Dusers_app_role=${POSTGRES_USER}
     depends_on:
       postgres-test:
         condition: service_healthy
