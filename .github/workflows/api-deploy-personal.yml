@@ -17,9 +17,9 @@ name: Deploy Personal Feeds API
 
 on:
 # PR for testing
-  pull_request:
+  push:
     branches:
-      - main
+      - 'user_feature_flag' 
   workflow_dispatch:
     inputs:
       name_suffix:
