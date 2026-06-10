@@ -1,0 +1,331 @@
+# Deploys a personal Feeds API (Cloud Run) and Operations API (Cloud Function) to the DEV project.
+#
+# Completely isolated — no Terraform, no shared infrastructure changes.
+# Only two new named resources are created/updated (both scoped to your suffix):
+#   - Cloud Run:      developer-feed-api-<name_suffix>
+#   - Cloud Function: operations-api-personal-<name_suffix>
+#
+# Both use the same dev secrets/databases as the shared dev environment (read-safe).
+#
+# Prerequisites: none — reuses all existing dev environment vars and secrets:
+#   Secrets (already set for api-dev.yml):  DEV_GCP_MOBILITY_FEEDS_SA_KEY, OP_SERVICE_ACCOUNT_TOKEN
+#   Variables (already set for api-dev.yml): DEV_MOBILITY_FEEDS_PROJECT_ID,
+#     DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT, MOBILITY_FEEDS_REGION
+#
+# Usage: Actions → "Deploy Personal Feeds API" → Run workflow → fill in name_suffix
+name: Deploy Personal Feeds API
+
+on:
+  workflow_dispatch:
+    inputs:
+      name_suffix:
+        description: >
+          Personal identifier suffix. Creates:
+            Cloud Run:      developer-feed-api-<suffix>
+            Cloud Function: operations-api-personal-<suffix>
+          Use your name or branch (e.g. "david", "feat-1723").
+        required: true
+        default: 'dev'
+      deploy_feeds_api:
+        description: 'Deploy Feeds API (Cloud Run)'
+        required: false
+        default: 'true'
+      deploy_operations_api:
+        description: 'Deploy Operations API (Cloud Function)'
+        required: false
+        default: 'true'
+      skip_tests:
+        description: 'Skip build/lint tests (faster deploy)'
+        required: false
+        default: 'true'
+
+env:
+  python_version: '3.11'
+  java_version: '11'
+  REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+  PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+  ARTIFACT_REPO: feeds-dev
+  # Dev VPC connector lives in the QA project (matches Terraform logic in infra/main.tf)
+  VPC_CONNECTOR: vpc-connector-qa
+  VPC_CONNECTOR_PROJECT: mobility-feeds-qa
+
+jobs:
+  # ── Optional: run tests before deploying ──────────────────────────────────
+  build-test:
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+    uses: ./.github/workflows/build-test.yml
+    with:
+      SKIP_TESTS: false
+
+  # ── Shared setup: generate code stubs needed by both deploy jobs ──────────
+  generate-and-build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    needs: []   # runs in parallel with build-test (or immediately if tests skipped)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract commit hash and version from git
+        run: ./scripts/extract-hash-and-version.sh
+
+      - name: Set up JDK ${{ env.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.java_version }}
+          distribution: 'temurin'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Create local .env
+        run: |
+          echo "POSTGRES_USER=postgres_user"          > config/.env.local
+          echo "PGUSER=postgres_user"                >> config/.env.local
+          echo "POSTGRES_PASSWORD=postgres_password" >> config/.env.local
+          echo "POSTGRES_DB=postgres_db"             >> config/.env.local
+          echo "POSTGRES_PORT=5432"                  >> config/.env.local
+          echo "POSTGRES_USER_DB=MobilityDatabaseUsers"     >> config/.env.local
+          echo "POSTGRES_USER_TEST_DB=MobilityDatabaseUsersTest" >> config/.env.local
+          echo "POSTGRES_HOST=localhost"             >> config/.env.local
+          echo "ENVIRONMENT=dev"                     >> config/.env.local
+
+      - name: Generate API stubs and DB models
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
+          scripts/api-operations-gen.sh
+          scripts/db-gen.sh
+
+      - name: Build operations API function zip
+        if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+        run: scripts/function-python-build.sh --function_name operations_api
+
+      - name: Upload generated feeds_gen
+        uses: actions/upload-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
+
+      - name: Upload generated database_gen
+        uses: actions/upload-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/shared/database_gen/
+
+      - name: Upload generated users_database_gen
+        uses: actions/upload-artifact@v4
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
+
+      - name: Upload generated user_service_gen
+        uses: actions/upload-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
+
+      - name: Upload operations API build
+        if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: operations_api_build
+          path: functions-python/operations_api/.dist/
+
+  # ── Feeds API: build Docker image and deploy to personal Cloud Run ─────────
+  deploy-feeds-api:
+    if: ${{ github.event.inputs.deploy_feeds_api == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    needs: [generate-and-build]
+    outputs:
+      service_name: ${{ steps.names.outputs.service_name }}
+      service_url: ${{ steps.get_url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set service name and image tag
+        id: names
+        run: |
+          echo "service_name=developer-feed-api-${{ github.event.inputs.name_suffix }}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=personal-$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Download generated artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/shared/database_gen/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: user_service_gen
+          path: api/src/user_service_gen/
+
+      - name: Create local .env (required by Dockerfile)
+        run: |
+          echo "ENVIRONMENT=dev" > config/.env.local
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: _json_key_base64
+          password: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Build & Push Docker image
+        run: |
+          scripts/docker-build-push.sh \
+            -project_id "${{ env.PROJECT_ID }}" \
+            -repo_name  "${{ env.ARTIFACT_REPO }}" \
+            -service    "${{ steps.names.outputs.service_name }}" \
+            -region     "${{ env.REGION }}" \
+            -version    "${{ steps.names.outputs.image_tag }}"
+
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to personal Cloud Run
+        # Creates/updates ONLY developer-feed-api-<suffix> — shared dev Cloud Run is untouched.
+        # Secret names follow the same DEV_<KEY> pattern used by Terraform (infra/feed-api/main.tf).
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ steps.names.outputs.service_name }}:${{ steps.names.outputs.image_tag }}"
+          gcloud run deploy "${{ steps.names.outputs.service_name }}" \
+            --image           "$IMAGE" \
+            --platform        managed \
+            --region          "${{ env.REGION }}" \
+            --allow-unauthenticated \
+            --project         "${{ env.PROJECT_ID }}" \
+            --service-account "${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" \
+            --update-secrets  "FEEDS_DATABASE_URL=DEV_FEEDS_DATABASE_URL:latest,USERS_DATABASE_URL=DEV_USERS_DATABASE_URL:latest,S2S_JWT_SECRET=DEV_S2S_JWT_SECRET:latest" \
+            --set-env-vars    "PROJECT_ID=${{ env.PROJECT_ID }}" \
+            --vpc-connector   "projects/${{ env.VPC_CONNECTOR_PROJECT }}/locations/${{ env.REGION }}/connectors/${{ env.VPC_CONNECTOR }}" \
+            --vpc-egress      all
+
+      - name: Get service URL
+        id: get_url
+        run: |
+          URL=$(gcloud run services describe "${{ steps.names.outputs.service_name }}" \
+            --platform managed \
+            --region   "${{ env.REGION }}" \
+            --project  "${{ env.PROJECT_ID }}" \
+            --format   'value(status.url)')
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+  # ── Operations API: build zip and deploy to personal Cloud Function ────────
+  deploy-operations-api:
+    if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    needs: [generate-and-build]
+    outputs:
+      function_name: ${{ steps.names.outputs.function_name }}
+      function_url: ${{ steps.get_url.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set function name
+        id: names
+        run: |
+          echo "function_name=operations-api-personal-${{ github.event.inputs.name_suffix }}" >> "$GITHUB_OUTPUT"
+
+      - name: Download operations API build
+        uses: actions/download-artifact@v4
+        with:
+          name: operations_api_build
+          path: functions-python/operations_api/.dist/
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Load OPERATIONS_OAUTH2_CLIENT_ID from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          OPERATIONS_OAUTH2_CLIENT_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_RETOOL_OAUTH2_CREDS/username"
+
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to personal Cloud Function
+        # Creates/updates ONLY operations-api-personal-<suffix> — shared operations-api is untouched.
+        # Secret names follow the same DEV_<KEY> pattern used by Terraform (infra/functions-python/main.tf).
+        run: |
+          gcloud functions deploy "${{ steps.names.outputs.function_name }}" \
+            --gen2 \
+            --project         "${{ env.PROJECT_ID }}" \
+            --region          "${{ env.REGION }}" \
+            --runtime         python311 \
+            --entry-point     main \
+            --source          functions-python/operations_api/.dist/build \
+            --service-account "${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" \
+            --memory          1Gi \
+            --timeout         540s \
+            --max-instances   10 \
+            --min-instances   0 \
+            --concurrency     100 \
+            --cpu             1 \
+            --ingress-settings ALLOW_ALL \
+            --allow-unauthenticated \
+            --set-env-vars    "ENVIRONMENT=dev,PROJECT_ID=${{ env.PROJECT_ID }},GCP_REGION=${{ env.REGION }},GOOGLE_CLIENT_ID=${OPERATIONS_OAUTH2_CLIENT_ID}" \
+            --set-secrets     "FEEDS_DATABASE_URL=DEV_FEEDS_DATABASE_URL:latest,USERS_DATABASE_URL=DEV_USERS_DATABASE_URL:latest"
+
+      - name: Get function URL
+        id: get_url
+        run: |
+          URL=$(gcloud functions describe "${{ steps.names.outputs.function_name }}" \
+            --gen2 \
+            --region  "${{ env.REGION }}" \
+            --project "${{ env.PROJECT_ID }}" \
+            --format  'value(serviceConfig.uri)')
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+  # ── Summary ───────────────────────────────────────────────────────────────
+  summary:
+    runs-on: ubuntu-latest
+    needs: [deploy-feeds-api, deploy-operations-api]
+    if: always()
+    steps:
+      - name: Write job summary
+        run: |
+          echo "## 🚀 Personal API deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Service | Name | URL |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|------|-----|" >> "$GITHUB_STEP_SUMMARY"
+
+          FEEDS_URL="${{ needs.deploy-feeds-api.outputs.service_url }}"
+          FEEDS_NAME="${{ needs.deploy-feeds-api.outputs.service_name }}"
+          if [ -n "$FEEDS_URL" ]; then
+            echo "| Feeds API | \`${FEEDS_NAME}\` | [${FEEDS_URL}/docs/](${FEEDS_URL}/docs/) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          OPS_URL="${{ needs.deploy-operations-api.outputs.function_url }}"
+          OPS_NAME="${{ needs.deploy-operations-api.outputs.function_name }}"
+          if [ -n "$OPS_URL" ]; then
+            echo "| Operations API | \`${OPS_NAME}\` | [${OPS_URL}](${OPS_URL}) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> ⚠️ These are personal services sharing the **dev databases** (read/write)." >> "$GITHUB_STEP_SUMMARY"
+          echo "> No shared Cloud Run, Terraform state, load balancer, or IAM was modified." >> "$GITHUB_STEP_SUMMARY"
