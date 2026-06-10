@@ -120,7 +120,7 @@ class GtfsChangeTracker:
 
     def run(self) -> dict:
         """Execute the full change-tracking pipeline."""
-        prev_dataset, curr_dataset = self._resolve_datasets()
+        prev_dataset_uuid, curr_dataset_uuid, feed_uuid = self._resolve_datasets()
 
         self.logger.info(
             "Computing diff for feed %s: %s -> %s",
@@ -148,9 +148,9 @@ class GtfsChangeTracker:
 
         diff_summary = diff_result.summary.model_dump()
         self._save_changelog_record(
-            feed_uuid=curr_dataset.feed.id,
-            prev_dataset_uuid=prev_dataset.id,
-            curr_dataset_uuid=curr_dataset.id,
+            feed_uuid=feed_uuid,
+            prev_dataset_uuid=prev_dataset_uuid,
+            curr_dataset_uuid=curr_dataset_uuid,
             changelog_url=changelog_url,
             diff_summary=diff_summary,
         )
@@ -164,7 +164,8 @@ class GtfsChangeTracker:
     @with_db_session
     def _resolve_datasets(self, db_session: Session = None) -> tuple:
         """
-        Load both Gtfsdataset rows by stable_id and return (previous_dataset, current_dataset).
+        Validate both datasets exist and belong to the given feed.
+        Returns (prev_dataset_uuid, curr_dataset_uuid, feed_uuid) as plain strings.
         """
         prev_dataset = (
             db_session.query(Gtfsdataset)
@@ -191,11 +192,7 @@ class GtfsChangeTracker:
                 f"Dataset {self.current_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
             )
 
-        # Detach from session before returning so objects can be used outside the session
-        db_session.expunge(prev_dataset)
-        db_session.expunge(curr_dataset)
-
-        return prev_dataset, curr_dataset
+        return prev_dataset.id, curr_dataset.id, curr_dataset.feed.id
 
     def _extracted_dir(self, feed_stable_id: str, dataset_stable_id: str) -> str:
         """

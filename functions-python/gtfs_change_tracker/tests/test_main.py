@@ -129,13 +129,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
     def test_run_happy_path(
         self, mock_resolve, mock_extracted_dir, mock_upload, mock_save
     ):
-        prev_ds = _make_dataset(
-            "prev-uuid", "mdb-1-20240101", "https://example.com/prev.zip"
-        )
-        curr_ds = _make_dataset(
-            "curr-uuid", "mdb-1-20240201", "https://example.com/curr.zip"
-        )
-        mock_resolve.return_value = (prev_ds, curr_ds)
+        mock_resolve.return_value = ("prev-uuid", "curr-uuid", "feed-uuid")
         mock_extracted_dir.side_effect = [
             "/mobilitydata-datasets/mdb-1/mdb-1-20240101/extracted",
             "/mobilitydata-datasets/mdb-1/mdb-1-20240201/extracted",
@@ -186,6 +180,68 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             self.tracker.run()
+
+
+class TestResolveDatasets(unittest.TestCase):
+    """Tests for _resolve_datasets — verifies plain string UUIDs are returned."""
+
+    def setUp(self):
+        self.tracker = GtfsChangeTracker(
+            feed_stable_id="mdb-1",
+            previous_dataset_stable_id="mdb-1-20240101",
+            current_dataset_stable_id="mdb-1-20240201",
+            bucket_name="my-bucket",
+            bucket_mount="/mobilitydata-datasets",
+        )
+
+    def _mock_session_with_datasets(self):
+        prev_ds = MagicMock()
+        prev_ds.id = "prev-uuid"
+        prev_ds.stable_id = "mdb-1-20240101"
+
+        curr_ds = MagicMock()
+        curr_ds.id = "curr-uuid"
+        curr_ds.stable_id = "mdb-1-20240201"
+        curr_ds.feed.id = "feed-uuid"
+        curr_ds.feed.stable_id = "mdb-1"
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
+            prev_ds,
+            curr_ds,
+        ]
+        return mock_session
+
+    @patch("main.with_db_session", lambda f: f)
+    def test_returns_plain_string_uuids(self):
+        """_resolve_datasets must return str UUIDs, not ORM objects.
+        If ORM objects were returned, accessing lazy attributes after session
+        close would raise DetachedInstanceError in production."""
+        mock_session = self._mock_session_with_datasets()
+        result = self.tracker._resolve_datasets(db_session=mock_session)
+        prev_uuid, curr_uuid, feed_uuid = result
+        self.assertIsInstance(prev_uuid, str, "prev_uuid must be a plain string")
+        self.assertIsInstance(curr_uuid, str, "curr_uuid must be a plain string")
+        self.assertIsInstance(feed_uuid, str, "feed_uuid must be a plain string")
+        self.assertEqual(prev_uuid, "prev-uuid")
+        self.assertEqual(curr_uuid, "curr-uuid")
+        self.assertEqual(feed_uuid, "feed-uuid")
+
+    @patch("main.with_db_session", lambda f: f)
+    def test_raises_when_feed_mismatch(self):
+        prev_ds = MagicMock()
+        prev_ds.id = "prev-uuid"
+        curr_ds = MagicMock()
+        curr_ds.id = "curr-uuid"
+        curr_ds.feed.stable_id = "mdb-999"  # wrong feed
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
+            prev_ds,
+            curr_ds,
+        ]
+        with self.assertRaises(ValueError, msg="should reject dataset from wrong feed"):
+            self.tracker._resolve_datasets(db_session=mock_session)
 
 
 class TestExtractedDir(unittest.TestCase):
