@@ -230,6 +230,8 @@ jobs:
       POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
       POSTGRE_USER_PASSWORD: ${{ secrets.POSTGRE_USER_PASSWORD }}
       POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
+      POSTGRE_DEV_USER_APP_NAME: ${{ secrets.POSTGRE_DEV_USER_APP_NAME }}
+      POSTGRE_DEV_USER_APP_PASSWORD: ${{ secrets.POSTGRE_DEV_USER_APP_PASSWORD }}
       DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
       - name: Authenticate to Google Cloud DEV
@@ -260,7 +262,7 @@ jobs:
           # DEV has no dedicated DB/role of its own — it shares the QA Cloud SQL instance.
           # Use the QA main postgres credentials (same as DEV_FEEDS_DATABASE_URL) which can
           # reach MobilityDatabaseUsersDEV, instead of the dev app role that isn't provisioned.
-          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_DEV_USER_APP_NAME }}:${{ env.POSTGRE_DEV_USER_APP_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
 
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
