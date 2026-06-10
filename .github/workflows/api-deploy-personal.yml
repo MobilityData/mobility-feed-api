@@ -140,6 +140,7 @@ jobs:
         with:
           name: operations_api_build
           path: functions-python/operations_api/.dist/
+          include-hidden-files: true
 
   # ── Feeds API: build Docker image and deploy to personal Cloud Run ─────────
   deploy-feeds-api:
