@@ -38,10 +38,6 @@ on:
         description: 'Deploy Operations API (Cloud Function)'
         required: false
         default: 'true'
-      skip_tests:
-        description: 'Skip build/lint tests (faster deploy)'
-        required: false
-        default: 'true'
 
 env:
   python_version: '3.11'
@@ -54,18 +50,11 @@ env:
   VPC_CONNECTOR_PROJECT: mobility-feeds-qa
 
 jobs:
-  # ── Optional: run tests before deploying ──────────────────────────────────
-  build-test:
-    if: ${{ github.event.inputs.skip_tests != 'true' }}
-    uses: ./.github/workflows/build-test.yml
-    with:
-      SKIP_TESTS: false
-
   # ── Shared setup: generate code stubs needed by both deploy jobs ──────────
   generate-and-build:
     runs-on: ubuntu-latest
     permissions: write-all
-    needs: []   # runs in parallel with build-test (or immediately if tests skipped)
+    needs: []
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,7 +107,7 @@ jobs:
           scripts/db-gen-user.sh
 
       - name: Build operations API function zip
-        if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+        if: ${{ github.event.inputs.deploy_operations_api != 'false' }}
         run: scripts/function-python-build.sh --function_name operations_api
 
       - name: Upload generated feeds_gen
@@ -146,7 +135,7 @@ jobs:
           path: api/src/user_service_gen/
 
       - name: Upload operations API build
-        if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+        if: ${{ github.event.inputs.deploy_operations_api != 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: operations_api_build
@@ -154,7 +143,7 @@ jobs:
 
   # ── Feeds API: build Docker image and deploy to personal Cloud Run ─────────
   deploy-feeds-api:
-    if: ${{ github.event.inputs.deploy_feeds_api == 'true' }}
+    if: ${{ github.event.inputs.deploy_feeds_api != 'false' }}
     runs-on: ubuntu-latest
     permissions: write-all
     needs: [generate-and-build]
@@ -168,7 +157,7 @@ jobs:
       - name: Set service name and image tag
         id: names
         run: |
-          echo "service_name=developer-feed-api-${{ github.event.inputs.name_suffix }}" >> "$GITHUB_OUTPUT"
+          echo "service_name=developer-feed-api-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
           echo "image_tag=personal-$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
       - name: Download generated artifacts
@@ -249,7 +238,7 @@ jobs:
 
   # ── Operations API: build zip and deploy to personal Cloud Function ────────
   deploy-operations-api:
-    if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
+    if: ${{ github.event.inputs.deploy_operations_api != 'false' }}
     runs-on: ubuntu-latest
     permissions: write-all
     needs: [generate-and-build]
@@ -263,7 +252,7 @@ jobs:
       - name: Set function name
         id: names
         run: |
-          echo "function_name=operations-api-personal-${{ github.event.inputs.name_suffix }}" >> "$GITHUB_OUTPUT"
+          echo "function_name=operations-api-personal-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
 
       - name: Download operations API build
         uses: actions/download-artifact@v4
