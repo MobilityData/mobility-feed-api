@@ -95,12 +95,39 @@ jobs:
           echo "POSTGRES_HOST=localhost"             >> config/.env.local
           echo "ENVIRONMENT=dev"                     >> config/.env.local
 
+      - name: Start PostgreSQL (needed for db-gen)
+        run: docker compose --env-file ./config/.env.local up -d postgres postgres-test
+
+      - name: Install Liquibase
+        env:
+          LIQUIBASE_VERSION: 4.33.0
+        run: |
+          curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          mkdir liquibase-dist && tar -xzf liquibase.tar.gz -C liquibase-dist
+          sudo mv liquibase-dist /usr/local/liquibase
+          sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+
+      - name: Run Liquibase migrations
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE=changelog.xml
+          liquibase update
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseUsersTest
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE=changelog_user.xml
+          liquibase update
+
       - name: Generate API stubs and DB models
         run: |
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
+          scripts/api-user-service-gen.sh
           scripts/api-operations-gen.sh
+          export USE_TEST_DB=true
           scripts/db-gen.sh
+          scripts/db-gen-user.sh
 
       - name: Build operations API function zip
         if: ${{ github.event.inputs.deploy_operations_api == 'true' }}
