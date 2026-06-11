@@ -47,8 +47,10 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
 
     Expects a JSON body with:
         feed_stable_id            – stable_id of the GTFS feed
-        base_dataset_stable_id    – stable_id of the previous Gtfsdataset
-        new_dataset_stable_id     – stable_id of the current Gtfsdataset
+        base_dataset_stable_id    – stable_id of the base (previous) Gtfsdataset
+        new_dataset_stable_id     – stable_id of the new (current) Gtfsdataset
+        allow_overwrite           – (optional, default false) overwrite existing changelog
+        dry_run                   – (optional, default false) compute diff but skip GCS upload and DB write
 
     Always returns HTTP 200 — errors are reported in the response body.
     This prevents GCP from retrying failures: we cannot distinguish transient from
@@ -59,6 +61,8 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     feed_stable_id = payload.get("feed_stable_id")
     base_dataset_stable_id = payload.get("base_dataset_stable_id")
     new_dataset_stable_id = payload.get("new_dataset_stable_id")
+    allow_overwrite = bool(payload.get("allow_overwrite", False))
+    dry_run = bool(payload.get("dry_run", False))
 
     if not (feed_stable_id and base_dataset_stable_id and new_dataset_stable_id):
         return flask.make_response(
@@ -87,6 +91,8 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
             new_dataset_stable_id=new_dataset_stable_id,
             bucket_name=bucket_name,
             bucket_mount=bucket_mount,
+            allow_overwrite=allow_overwrite,
+            dry_run=dry_run,
         )
         result = tracker.run()
         return flask.make_response({"status": "success", **result}, 200)
@@ -124,24 +130,29 @@ class GtfsChangeTracker:
         new_dataset_stable_id: str,
         bucket_name: str,
         bucket_mount: str,
+        allow_overwrite: bool = False,
+        dry_run: bool = False,
     ):
         self.feed_stable_id = feed_stable_id
         self.base_dataset_stable_id = base_dataset_stable_id
         self.new_dataset_stable_id = new_dataset_stable_id
         self.bucket_name = bucket_name
         self.bucket_mount = bucket_mount
+        self.allow_overwrite = allow_overwrite
+        self.dry_run = dry_run
         self.logger = get_logger(GtfsChangeTracker.__name__, new_dataset_stable_id)
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def run(self) -> dict:
         """Execute the full change-tracking pipeline."""
-        # Idempotency: if the changelog already exists in GCS, skip recomputing.
         changelog_blob_path = (
             f"{self.feed_stable_id}/{self.new_dataset_stable_id}/"
             f"{self.new_dataset_stable_id}_{self.base_dataset_stable_id}_changelog.json"
         )
         blob = storage.Client().bucket(self.bucket_name).blob(changelog_blob_path)
-        if blob.exists():
+
+        # Idempotency: skip if changelog already exists, unless allow_overwrite is set.
+        if not self.allow_overwrite and blob.exists():
             changelog_url = f"https://storage.googleapis.com/{self.bucket_name}/{changelog_blob_path}"
             self.logger.info("Changelog already exists, skipping: %s", changelog_url)
             return {
@@ -162,6 +173,13 @@ class GtfsChangeTracker:
         curr_dir = self._extracted_dir(self.feed_stable_id, self.new_dataset_stable_id)
 
         diff_result = diff_feeds(prev_dir, curr_dir)
+
+        if self.dry_run:
+            self.logger.info("Dry run — skipping GCS upload and DB write.")
+            return {
+                "message": "Dry run completed. Diff computed but not persisted.",
+                "summary": diff_result.summary.model_dump(),
+            }
 
         changelog_json = diff_result.model_dump_json(indent=2).encode("utf-8")
         changelog_url = self._upload_changelog(

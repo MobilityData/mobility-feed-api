@@ -98,6 +98,35 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             new_dataset_stable_id="mdb-1-20240201",
             bucket_name="test-bucket",
             bucket_mount="/mobilitydata-datasets",
+            allow_overwrite=False,
+            dry_run=False,
+        )
+
+    @patch("main.GtfsChangeTracker")
+    def test_allow_overwrite_and_dry_run_passed(self, mock_tracker_cls):
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        os.environ["DATASETS_BUCKET_MOUNT"] = "/mobilitydata-datasets"
+        instance = MagicMock()
+        instance.run.return_value = {"message": "Dry run completed.", "summary": {}}
+        mock_tracker_cls.return_value = instance
+
+        self._request(
+            {
+                "feed_stable_id": "mdb-1",
+                "base_dataset_stable_id": "mdb-1-20240101",
+                "new_dataset_stable_id": "mdb-1-20240201",
+                "allow_overwrite": True,
+                "dry_run": True,
+            }
+        )
+        mock_tracker_cls.assert_called_once_with(
+            feed_stable_id="mdb-1",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
+            bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
+            allow_overwrite=True,
+            dry_run=True,
         )
 
     @patch("main.GtfsChangeTracker")
@@ -208,6 +237,77 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         result = self.tracker.run()
         self.assertIn("already exists", result["message"])
         self.assertIn("changelog_url", result)
+
+    @patch("main.storage.Client")
+    @patch("main.GtfsChangeTracker._save_changelog_record")
+    @patch("main.GtfsChangeTracker._upload_changelog")
+    @patch("main.GtfsChangeTracker._extracted_dir")
+    @patch("main.GtfsChangeTracker._resolve_datasets")
+    def test_allow_overwrite_skips_existence_check(
+        self, mock_resolve, mock_extracted_dir, mock_upload, mock_save, mock_storage
+    ):
+        """allow_overwrite=True should proceed even when the blob exists."""
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            True
+        )
+        mock_resolve.return_value = ("prev-uuid", "curr-uuid", "feed-uuid")
+        mock_extracted_dir.side_effect = [
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240101/extracted",
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240201/extracted",
+        ]
+        fake_diff = MagicMock()
+        fake_diff.summary.model_dump.return_value = {}
+        fake_diff.model_dump_json.return_value = "{}"
+        mock_upload.return_value = (
+            "https://storage.googleapis.com/test-bucket/changelog.json"
+        )
+
+        tracker = GtfsChangeTracker(
+            feed_stable_id="mdb-1",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
+            bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
+            allow_overwrite=True,
+        )
+        with patch("main.diff_feeds", return_value=fake_diff, create=True):
+            result = tracker.run()
+        self.assertIn("generated successfully", result["message"])
+        mock_upload.assert_called_once()
+
+    @patch("main.storage.Client")
+    @patch("main.GtfsChangeTracker._upload_changelog")
+    @patch("main.GtfsChangeTracker._extracted_dir")
+    @patch("main.GtfsChangeTracker._resolve_datasets")
+    def test_dry_run_skips_upload_and_db(
+        self, mock_resolve, mock_extracted_dir, mock_upload, mock_storage
+    ):
+        """dry_run=True should compute the diff but not upload or write to DB."""
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            False
+        )
+        mock_resolve.return_value = ("prev-uuid", "curr-uuid", "feed-uuid")
+        mock_extracted_dir.side_effect = [
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240101/extracted",
+            "/mobilitydata-datasets/mdb-1/mdb-1-20240201/extracted",
+        ]
+        fake_diff = MagicMock()
+        fake_diff.summary.model_dump.return_value = {"total_changes": 5}
+
+        tracker = GtfsChangeTracker(
+            feed_stable_id="mdb-1",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
+            bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
+            dry_run=True,
+        )
+        with patch("main.diff_feeds", return_value=fake_diff, create=True):
+            result = tracker.run()
+
+        self.assertIn("Dry run", result["message"])
+        self.assertIn("summary", result)
+        mock_upload.assert_not_called()
 
 
 class TestResolveDatasets(unittest.TestCase):
