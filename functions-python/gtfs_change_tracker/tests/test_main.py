@@ -342,6 +342,8 @@ class TestResolveDatasets(unittest.TestCase):
         prev_ds = MagicMock()
         prev_ds.id = "prev-uuid"
         prev_ds.stable_id = "mdb-1-20240101"
+        prev_ds.feed.id = "feed-uuid"
+        prev_ds.feed.stable_id = "mdb-1"
 
         curr_ds = MagicMock()
         curr_ds.id = "curr-uuid"
@@ -370,6 +372,21 @@ class TestResolveDatasets(unittest.TestCase):
         self.assertEqual(prev_uuid, "prev-uuid")
         self.assertEqual(curr_uuid, "curr-uuid")
         self.assertEqual(feed_uuid, "feed-uuid")
+
+    @patch("main.with_db_session", lambda f: f)
+    def test_raises_when_prev_feed_mismatch(self):
+        prev_ds = MagicMock()
+        prev_ds.id = "prev-uuid"
+        prev_ds.feed.stable_id = "mdb-999"  # wrong feed
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
+            prev_ds,
+        ]
+        with self.assertRaises(
+            ValueError, msg="should reject prev dataset from wrong feed"
+        ):
+            self.tracker._resolve_datasets(db_session=mock_session)
 
     @patch("main.with_db_session", lambda f: f)
     def test_raises_when_feed_mismatch(self):

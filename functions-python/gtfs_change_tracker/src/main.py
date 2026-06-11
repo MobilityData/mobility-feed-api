@@ -219,6 +219,10 @@ class GtfsChangeTracker:
             raise ValueError(
                 f"Previous dataset not found: {self.base_dataset_stable_id}"
             )
+        if prev_dataset.feed.stable_id != self.feed_stable_id:
+            raise ValueError(
+                f"Dataset {self.base_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
+            )
 
         curr_dataset = (
             db_session.query(Gtfsdataset)
