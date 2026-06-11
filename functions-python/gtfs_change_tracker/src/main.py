@@ -49,7 +49,7 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
         feed_stable_id            – stable_id of the GTFS feed
         base_dataset_stable_id    – stable_id of the base (previous) Gtfsdataset
         new_dataset_stable_id     – stable_id of the new (current) Gtfsdataset
-        allow_overwrite           – (optional, default false) overwrite existing changelog
+        disallow_overwrite        – (optional, default false) skip if changelog already exists
         dry_run                   – (optional, default false) compute diff but skip GCS upload and DB write
 
     Always returns HTTP 200 — errors are reported in the response body.
@@ -61,7 +61,7 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     feed_stable_id = payload.get("feed_stable_id")
     base_dataset_stable_id = payload.get("base_dataset_stable_id")
     new_dataset_stable_id = payload.get("new_dataset_stable_id")
-    allow_overwrite = bool(payload.get("allow_overwrite", False))
+    disallow_overwrite = bool(payload.get("disallow_overwrite", False))
     dry_run = bool(payload.get("dry_run", False))
 
     if not (feed_stable_id and base_dataset_stable_id and new_dataset_stable_id):
@@ -91,7 +91,7 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
             new_dataset_stable_id=new_dataset_stable_id,
             bucket_name=bucket_name,
             bucket_mount=bucket_mount,
-            allow_overwrite=allow_overwrite,
+            disallow_overwrite=disallow_overwrite,
             dry_run=dry_run,
         )
         result = tracker.run()
@@ -130,7 +130,7 @@ class GtfsChangeTracker:
         new_dataset_stable_id: str,
         bucket_name: str,
         bucket_mount: str,
-        allow_overwrite: bool = False,
+        disallow_overwrite: bool = False,
         dry_run: bool = False,
     ):
         self.feed_stable_id = feed_stable_id
@@ -138,7 +138,7 @@ class GtfsChangeTracker:
         self.new_dataset_stable_id = new_dataset_stable_id
         self.bucket_name = bucket_name
         self.bucket_mount = bucket_mount
-        self.allow_overwrite = allow_overwrite
+        self.disallow_overwrite = disallow_overwrite
         self.dry_run = dry_run
         self.logger = get_logger(GtfsChangeTracker.__name__, new_dataset_stable_id)
 
@@ -151,8 +151,8 @@ class GtfsChangeTracker:
         )
         blob = storage.Client().bucket(self.bucket_name).blob(changelog_blob_path)
 
-        # Idempotency: skip if changelog already exists, unless allow_overwrite is set.
-        if not self.allow_overwrite and blob.exists():
+        # Idempotency: skip if changelog already exists and disallow_overwrite is set.
+        if self.disallow_overwrite and blob.exists():
             changelog_url = f"https://storage.googleapis.com/{self.bucket_name}/{changelog_blob_path}"
             self.logger.info("Changelog already exists, skipping: %s", changelog_url)
             return {

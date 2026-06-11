@@ -98,12 +98,12 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             new_dataset_stable_id="mdb-1-20240201",
             bucket_name="test-bucket",
             bucket_mount="/mobilitydata-datasets",
-            allow_overwrite=False,
+            disallow_overwrite=False,
             dry_run=False,
         )
 
     @patch("main.GtfsChangeTracker")
-    def test_allow_overwrite_and_dry_run_passed(self, mock_tracker_cls):
+    def test_disallow_overwrite_and_dry_run_passed(self, mock_tracker_cls):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         os.environ["DATASETS_BUCKET_MOUNT"] = "/mobilitydata-datasets"
         instance = MagicMock()
@@ -115,7 +115,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
                 "feed_stable_id": "mdb-1",
                 "base_dataset_stable_id": "mdb-1-20240101",
                 "new_dataset_stable_id": "mdb-1-20240201",
-                "allow_overwrite": True,
+                "disallow_overwrite": True,
                 "dry_run": True,
             }
         )
@@ -125,7 +125,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             new_dataset_stable_id="mdb-1-20240201",
             bucket_name="test-bucket",
             bucket_mount="/mobilitydata-datasets",
-            allow_overwrite=True,
+            disallow_overwrite=True,
             dry_run=True,
         )
 
@@ -234,19 +234,44 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             True
         )
-        result = self.tracker.run()
+        tracker = GtfsChangeTracker(
+            feed_stable_id="mdb-1",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
+            bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
+            disallow_overwrite=True,
+        )
+        result = tracker.run()
         self.assertIn("already exists", result["message"])
         self.assertIn("changelog_url", result)
+
+    @patch("main.storage.Client")
+    def test_disallow_overwrite_skips_when_exists(self, mock_storage):
+        """disallow_overwrite=True should skip when the blob already exists."""
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            True
+        )
+        tracker = GtfsChangeTracker(
+            feed_stable_id="mdb-1",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
+            bucket_name="test-bucket",
+            bucket_mount="/mobilitydata-datasets",
+            disallow_overwrite=True,
+        )
+        result = tracker.run()
+        self.assertIn("already exists", result["message"])
 
     @patch("main.storage.Client")
     @patch("main.GtfsChangeTracker._save_changelog_record")
     @patch("main.GtfsChangeTracker._upload_changelog")
     @patch("main.GtfsChangeTracker._extracted_dir")
     @patch("main.GtfsChangeTracker._resolve_datasets")
-    def test_allow_overwrite_skips_existence_check(
+    def test_overwrite_proceeds_when_exists_by_default(
         self, mock_resolve, mock_extracted_dir, mock_upload, mock_save, mock_storage
     ):
-        """allow_overwrite=True should proceed even when the blob exists."""
+        """By default (disallow_overwrite=False) the changelog is overwritten even if it exists."""
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             True
         )
@@ -261,17 +286,8 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         mock_upload.return_value = (
             "https://storage.googleapis.com/test-bucket/changelog.json"
         )
-
-        tracker = GtfsChangeTracker(
-            feed_stable_id="mdb-1",
-            base_dataset_stable_id="mdb-1-20240101",
-            new_dataset_stable_id="mdb-1-20240201",
-            bucket_name="test-bucket",
-            bucket_mount="/mobilitydata-datasets",
-            allow_overwrite=True,
-        )
         with patch("main.diff_feeds", return_value=fake_diff, create=True):
-            result = tracker.run()
+            result = self.tracker.run()
         self.assertIn("generated successfully", result["message"])
         mock_upload.assert_called_once()
 
