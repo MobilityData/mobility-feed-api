@@ -49,12 +49,49 @@ _USER_FLAGS_LOAD = selectinload(AppUser.user_feature_flags).selectinload(
     UserFeatureFlag.feature_flag
 )
 
+# Maps a flag's value_type to the JSON/Python type(s) its value must have.
+_VALUE_TYPE_LABELS = {
+    "boolean": "a boolean",
+    "string": "a string",
+    "numeric": "a number",
+    "array": "an array",
+    "json": "an object",
+}
+
+
+def _validate_value_type(value_type: str, value) -> None:
+    """Ensures `value` is compatible with the declared `value_type`.
+
+    Raises HTTPException(422) when the value's shape does not match the type.
+    """
+    if value_type == "boolean":
+        ok = isinstance(value, bool)
+    elif value_type == "string":
+        ok = isinstance(value, str)
+    elif value_type == "numeric":
+        ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+    elif value_type == "array":
+        ok = isinstance(value, list)
+    elif value_type == "json":
+        ok = isinstance(value, dict)
+    else:
+        ok = False
+
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"default_value does not match value_type '{value_type}': "
+                f"expected {_VALUE_TYPE_LABELS.get(value_type, 'a valid value')}."
+            ),
+        )
+
 
 class UserFeatureFlagsApiImpl(BaseUsersApi):
     """Implementation of the Operations users/feature-flags API."""
 
     @with_users_db_session
-    async def get_operations_users(
+    def get_operations_users(
         self,
         search_query: Optional[str] = None,
         limit: Optional[int] = 100,
@@ -72,10 +109,11 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
                 )
             )
         users = q.order_by(AppUser.email).offset(offset or 0).limit(limit or 100).all()
-        return [OperationUserProfileImpl.from_orm(u) for u in users]
+        all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
+        return [OperationUserProfileImpl.from_orm(u, all_flags) for u in users]
 
     @with_users_db_session
-    async def get_operations_user(
+    def get_operations_user(
         self, user_id: str, db_session=None
     ) -> OperationUserProfile:
         user = (
@@ -86,27 +124,33 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         )
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
-        return OperationUserProfileImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
+        return OperationUserProfileImpl.from_orm(user, all_flags)
 
     @with_users_db_session
-    async def list_feature_flags(self, db_session=None) -> List[OperationFeatureFlag]:
+    def list_feature_flags(self, db_session=None) -> List[OperationFeatureFlag]:
         flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
         return [OperationFeatureFlagImpl.from_orm(f) for f in flags]
 
     @with_users_db_session
-    async def create_feature_flag(
+    def create_feature_flag(
         self, create_feature_flag_request: CreateFeatureFlagRequest, db_session=None
     ) -> OperationFeatureFlag:
         if db_session.get(FeatureFlagORM, create_feature_flag_request.id):
             raise HTTPException(
                 status_code=409, detail="A feature flag with this ID already exists."
             )
+        _validate_value_type(
+            create_feature_flag_request.value_type,
+            create_feature_flag_request.default_value,
+        )
         flag = FeatureFlagORM(
             id=create_feature_flag_request.id,
             name=create_feature_flag_request.name,
             description=create_feature_flag_request.description,
             value_type=create_feature_flag_request.value_type,
             default_value=create_feature_flag_request.default_value,
+            disabled=create_feature_flag_request.disabled or False,
             created_at=datetime.now(timezone.utc),
         )
         db_session.add(flag)
@@ -114,7 +158,15 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         return OperationFeatureFlagImpl.from_orm(flag)
 
     @with_users_db_session
-    async def update_feature_flag(
+    def delete_feature_flag(self, id: str, db_session=None) -> None:
+        flag = db_session.get(FeatureFlagORM, id)
+        if not flag:
+            raise HTTPException(status_code=404, detail="Feature flag not found.")
+        db_session.delete(flag)
+        db_session.flush()
+
+    @with_users_db_session
+    def update_feature_flag(
         self,
         id: str,
         update_feature_flag_request: UpdateFeatureFlagRequest,
@@ -124,13 +176,16 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         if not flag:
             raise HTTPException(status_code=404, detail="Feature flag not found.")
         update_data = update_feature_flag_request.model_dump(exclude_unset=True)
+        # value_type is immutable; validate any new default_value against it.
+        if "default_value" in update_data:
+            _validate_value_type(flag.value_type, update_data["default_value"])
         for field, value in update_data.items():
             setattr(flag, field, value)
         db_session.flush()
         return OperationFeatureFlagImpl.from_orm(flag)
 
     @with_users_db_session
-    async def patch_user_feature_flags(
+    def patch_user_feature_flags(
         self,
         user_id: str,
         patch_user_feature_flags_request: PatchUserFeatureFlagsRequest,
@@ -179,4 +234,5 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
 
         # Reload to reflect the new state
         db_session.refresh(user)
-        return OperationUserProfileImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
+        return OperationUserProfileImpl.from_orm(user, all_flags)

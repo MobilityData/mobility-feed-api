@@ -18,7 +18,7 @@ from feeds_gen.models.operation_user_profile import OperationUserProfile
 from feeds_operations.impl.models.user_feature_flag_state_impl import (
     UserFeatureFlagStateImpl,
 )
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag
 
 
 class OperationUserProfileImpl(OperationUserProfile):
@@ -28,16 +28,26 @@ class OperationUserProfileImpl(OperationUserProfile):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, user: AppUser | None) -> OperationUserProfile | None:
+    def from_orm(
+        cls,
+        user: AppUser | None,
+        all_flags: list[FeatureFlag] | None = None,
+    ) -> OperationUserProfile | None:
         if not user:
             return None
+        # Always return every feature flag with its default; overlay the user's
+        # value where an override exists. Users need not be linked to a flag.
+        overrides = {
+            uff.feature_flag_id: uff.value for uff in (user.user_feature_flags or [])
+        }
+        features = [
+            UserFeatureFlagStateImpl.from_flag(flag, overrides.get(flag.id))
+            for flag in (all_flags or [])
+        ]
         return cls(
             id=user.id,
             email=user.email,
             full_name=user.full_name,
             legacy_org_name=user.legacy_org_name,
-            features=[
-                UserFeatureFlagStateImpl.from_orm(uff)
-                for uff in (user.user_feature_flags or [])
-            ],
+            features=features,
         )

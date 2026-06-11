@@ -35,4 +35,5 @@ class OperationFeatureFlagImpl(OperationFeatureFlag):
             created_at=flag.created_at,
             value_type=flag.value_type,
             default_value=flag.default_value,
+            disabled=flag.disabled,
         )

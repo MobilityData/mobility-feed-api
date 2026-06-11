@@ -14,12 +14,14 @@
 #  limitations under the License.
 #
 
+from typing import Any
+
 from feeds_gen.models.user_feature_flag_state import UserFeatureFlagState
-from shared.users_database_gen.sqlacodegen_models import UserFeatureFlag
+from shared.users_database_gen.sqlacodegen_models import FeatureFlag, UserFeatureFlag
 
 
 class UserFeatureFlagStateImpl(UserFeatureFlagState):
-    """Converts a UserFeatureFlag ORM row (with loaded feature_flag) to UserFeatureFlagState."""
+    """Converts a feature flag (with the user's optional override) to UserFeatureFlagState."""
 
     class Config:
         from_attributes = True
@@ -34,4 +36,16 @@ class UserFeatureFlagStateImpl(UserFeatureFlagState):
             value_type=uff.feature_flag.value_type,
             default_value=uff.feature_flag.default_value,
             user_value=uff.value,
+        )
+
+    @classmethod
+    def from_flag(
+        cls, flag: FeatureFlag, user_value: Any = None
+    ) -> UserFeatureFlagState:
+        return cls(
+            feature_flag_id=flag.id,
+            name=flag.name,
+            value_type=flag.value_type,
+            default_value=flag.default_value,
+            user_value=user_value,
         )

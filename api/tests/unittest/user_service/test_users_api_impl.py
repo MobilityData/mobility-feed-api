@@ -31,14 +31,25 @@ def _make_user(**kwargs) -> AppUser:
     return user
 
 
-def _mock_query_first(session, return_value):
-    """Make session.query().options().filter_by().first() return return_value."""
-    mock_q = MagicMock()
-    mock_q.options.return_value = mock_q
-    mock_q.filter_by.return_value = mock_q
-    mock_q.first.return_value = return_value
-    session.query.return_value = mock_q
-    return mock_q
+def _mock_query_first(session, return_value, flags=None):
+    """Dispatch session.query per model.
+
+    AppUser query → .options().filter_by().first() returns `return_value`.
+    FeatureFlag query → .order_by().all() returns `flags` (default []).
+    """
+    flags = flags if flags is not None else []
+    user_q = MagicMock()
+    user_q.options.return_value = user_q
+    user_q.filter_by.return_value = user_q
+    user_q.first.return_value = return_value
+
+    flags_q = MagicMock()
+    flags_q.filter.return_value = flags_q
+    flags_q.order_by.return_value = flags_q
+    flags_q.all.return_value = flags
+
+    session.query.side_effect = lambda model: (flags_q if model is FeatureFlag else user_q)
+    return user_q
 
 
 def _set_context(user_id="uid-123", user_email="user@example.com", is_guest=False):
@@ -100,6 +111,35 @@ class TestGetUserMe(unittest.TestCase):
         self.mock_session.get.assert_not_called()
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "uid-123")
+
+    def test_returns_active_flags_with_resolved_values(self):
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            value_type="boolean",
+            default_value=False,
+            disabled=False,
+            created_at=FIXED_NOW,
+        )
+        user = _make_user()
+        _mock_query_first(self.mock_session, user, flags=[flag])
+        _set_context()
+
+        result = self.api.get_user(db_session=self.mock_session)
+
+        self.assertEqual([f.id for f in result.features], ["beta_editor"])
+        self.assertEqual(result.features[0].value, False)
+
+    def test_disabled_flags_filtered_out_of_query(self):
+        user = _make_user()
+        _mock_query_first(self.mock_session, user, flags=[])
+        _set_context()
+
+        self.api.get_user(db_session=self.mock_session)
+
+        # The user-facing query must exclude disabled flags.
+        flags_q = self.mock_session.query(FeatureFlag)
+        flags_q.filter.assert_called()
 
 
 class TestUpdateUserMe(unittest.TestCase):
@@ -239,7 +279,7 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)
 
-    def test_from_orm_includes_feature_flags(self):
+    def test_from_orm_resolves_user_override_and_default(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         flag = FeatureFlag(
             id="beta_editor",
@@ -249,34 +289,44 @@ class TestAppUserImpl(unittest.TestCase):
             default_value=False,
             created_at=now,
         )
-        user_flag = UserFeatureFlag(user_id="uid-2", feature_flag_id=flag.id, assigned_at=now)
+        user_flag = UserFeatureFlag(user_id="uid-2", feature_flag_id=flag.id, value=True, assigned_at=now)
         user_flag.feature_flag = flag
         user = AppUser(id="uid-2", email="b@b.com", created_at=now, updated_at=now)
         user.user_feature_flags = [user_flag]
 
-        profile = AppUserImpl.from_orm(user)
+        profile = AppUserImpl.from_orm(user, [flag])
 
         self.assertEqual(len(profile.features), 1)
         self.assertEqual(profile.features[0].id, "beta_editor")
         self.assertEqual(profile.features[0].name, "Beta Editor")
         self.assertEqual(profile.features[0].value_type, "boolean")
-        self.assertEqual(profile.features[0].value, False)
+        # User override (True) wins over the default (False)
+        self.assertEqual(profile.features[0].value, True)
 
-    def test_from_orm_empty_feature_flags(self):
+    def test_from_orm_returns_all_flags_with_defaults_when_user_has_none(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            value_type="boolean",
+            default_value=False,
+            created_at=now,
+        )
         user = AppUser(id="uid-3", email="c@b.com", created_at=now, updated_at=now)
         user.user_feature_flags = []
 
-        profile = AppUserImpl.from_orm(user)
+        profile = AppUserImpl.from_orm(user, [flag])
 
-        self.assertEqual(profile.features, [])
+        # Flag is returned even though the user has no override; value is the default
+        self.assertEqual(len(profile.features), 1)
+        self.assertEqual(profile.features[0].id, "beta_editor")
+        self.assertEqual(profile.features[0].value, False)
 
-    def test_from_orm_none_feature_flags_treated_as_empty(self):
+    def test_from_orm_empty_when_no_flags_exist(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         user = AppUser(id="uid-4", email="d@b.com", created_at=now, updated_at=now)
-        # Simulate a user where feature_flags hasn't been loaded (set to empty list as selectinload would return)
         user.user_feature_flags = []
 
-        profile = AppUserImpl.from_orm(user)
+        profile = AppUserImpl.from_orm(user, [])
 
         self.assertEqual(profile.features, [])

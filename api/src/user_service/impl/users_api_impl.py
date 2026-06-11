@@ -25,7 +25,7 @@ from sqlalchemy.orm import selectinload
 from middleware.request_context import get_request_context
 from shared.database.users_database import with_users_db_session
 from shared.db_models.app_user_impl import AppUserImpl
-from shared.users_database_gen.sqlacodegen_models import AppUser, UserFeatureFlag
+from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag, UserFeatureFlag
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
     CreateNotificationSubscriptionRequest,
@@ -82,7 +82,8 @@ class UsersApiImpl(BaseUsersApi):
             db_session.add(user)
             db_session.flush()
 
-        return AppUserImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
 
     @with_users_db_session
     def update_user(self, update_user_request: UpdateUserRequest, db_session=None) -> UserProfile:
@@ -115,7 +116,8 @@ class UsersApiImpl(BaseUsersApi):
         user.updated_at = datetime.now(timezone.utc)
         db_session.flush()
 
-        return AppUserImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
 
     # ── Subscription stubs — implemented in a follow-up issue ────────────────
 

@@ -7,9 +7,10 @@ CREATE TABLE feature_flag (
     id           TEXT PRIMARY KEY,    -- human-readable slug, e.g. 'beta_editor'
     name         TEXT,                -- optional display label
     description  TEXT,
-    value_type   TEXT NOT NULL DEFAULT 'boolean'
+    value_type   TEXT NOT NULL DEFAULT 'string'
                      CHECK (value_type IN ('boolean','string','numeric','array','json')),
-    default_value JSONB NOT NULL DEFAULT 'false',
+    disabled     BOOLEAN NOT NULL DEFAULT false,
+    default_value JSONB NOT NULL DEFAULT 'string',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

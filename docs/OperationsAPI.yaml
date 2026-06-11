@@ -568,6 +568,8 @@ paths:
           description: Unauthorized.
         "409":
           description: A feature flag with this ID already exists.
+        "422":
+          description: default_value does not match the declared value_type.
   /v1/operations/feature-flags/{id}:
     put:
       summary: Update a feature flag
@@ -597,6 +599,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationFeatureFlag"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feature flag not found.
+        "422":
+          description: default_value does not match the declared value_type.
+    delete:
+      summary: Delete a feature flag
+      description: >
+        Deletes a feature flag definition. All user assignments for this flag are removed as well (cascading delete).
+
+      operationId: deleteFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feature flag slug ID.
+      responses:
+        "204":
+          description: Feature flag deleted.
         "401":
           description: Unauthorized.
         "404":
@@ -1905,6 +1933,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2029,6 +2058,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2116,6 +2146,7 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2133,6 +2164,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -2220,6 +2252,12 @@ components:
         default_value:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
+          default: false
     CreateFeatureFlagRequest:
       x-operation: true
       type: object
@@ -2247,6 +2285,12 @@ components:
         default_value:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
+          default: false
     UpdateFeatureFlagRequest:
       x-operation: true
       type: object
@@ -2262,6 +2306,11 @@ components:
         default_value:
           $ref: "#/components/schemas/FeatureFlagValue"
           description: Updated global default value. value_type cannot be changed.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
     OperationUserProfile:
       x-operation: true
       type: object
@@ -2290,7 +2339,9 @@ components:
           example: "Acme Transit"
         features:
           type: array
-          description: Feature flags currently assigned to this user.
+          description: >
+            All feature flags with their resolved state for this user. Every flag is returned (including those the user has no explicit override for); user_value holds the per-user override when set, otherwise the flag's default_value applies.
+
           items:
             $ref: "#/components/schemas/UserFeatureFlagState"
           default: []

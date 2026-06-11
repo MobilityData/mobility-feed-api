@@ -259,7 +259,10 @@ components:
           default: false
         features:
           type: array
-          description: Feature flags currently active for this user.
+          description: >
+            All active feature flags for this user. Each flag's value is resolved to the
+            user's override when set, otherwise the global default. Disabled flags are not
+            included.
           items:
             $ref: "#/components/schemas/FeatureFlag"
           default: []
