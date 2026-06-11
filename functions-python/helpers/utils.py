@@ -536,9 +536,9 @@ def create_http_pmtiles_builder_task(
 
 
 def create_http_gtfs_change_tracker_task(
-    feed_id: str,
-    previous_dataset_id: str,
-    current_dataset_id: str,
+    feed_stable_id: str,
+    base_dataset_stable_id: str,
+    new_dataset_stable_id: str,
 ) -> None:
     """
     Create a Cloud Task to run the gtfs-change-tracker function for a pair of datasets.
@@ -549,9 +549,9 @@ def create_http_gtfs_change_tracker_task(
     client = tasks_v2.CloudTasksClient()
     body = json.dumps(
         {
-            "feed_id": feed_id,
-            "previous_dataset_id": previous_dataset_id,
-            "current_dataset_id": current_dataset_id,
+            "feed_stable_id": feed_stable_id,
+            "base_dataset_stable_id": base_dataset_stable_id,
+            "new_dataset_stable_id": new_dataset_stable_id,
         }
     ).encode()
     queue_name = os.getenv("GTFS_CHANGE_TRACKER_QUEUE")

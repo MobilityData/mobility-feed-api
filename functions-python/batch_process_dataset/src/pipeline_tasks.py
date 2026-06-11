@@ -153,9 +153,9 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
     )
     if previous_dataset:
         create_http_gtfs_change_tracker_task(
-            feed_id=dataset.feed_id,
-            previous_dataset_id=previous_dataset.id,
-            current_dataset_id=dataset.id,
+            feed_stable_id=stable_id,
+            base_dataset_stable_id=previous_dataset.stable_id,
+            new_dataset_stable_id=dataset_stable_id,
         )
     else:
         logging.info(
