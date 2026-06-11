@@ -70,16 +70,7 @@ on:
         description: 1Password reference for users DB app password (e.g. op://vault/item/password)
         required: true
         type: string
-      POSTGRE_DEV_USER_APP_NAME_1PASSWORD:
-        description: 1Password reference for DEV users DB app username (only needed for QA deployment)
-        required: false
-        type: string
-        default: ''
-      POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD:
-        description: 1Password reference for DEV users DB app password (only needed for QA deployment)
-        required: false
-        type: string
-        default: ''
+
 
 jobs:
   terraform:
@@ -110,28 +101,12 @@ jobs:
           POSTGRE_USER_APP_NAME: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }}
           POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
 
-      - name: Load DEV users DB credentials from 1Password
-        if: inputs.ENVIRONMENT == 'qa'
-        uses: 1password/load-secrets-action@v2
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
-          POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
-
       - name: Validate required credentials
         run: |
           set -e
           missing=()
           [[ -z "${POSTGRE_USER_APP_NAME:-}" ]] && missing+=("POSTGRE_USER_APP_NAME (1Password ref: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }})")
           [[ -z "${POSTGRE_USER_APP_PASSWORD:-}" ]] && missing+=("POSTGRE_USER_APP_PASSWORD (1Password ref: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }})")
-          if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-            [[ -z "${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}" ]] && missing+=("input POSTGRE_DEV_USER_APP_NAME_1PASSWORD (set repo var DEV_POSTGRE_USER_APP_NAME_1PASSWORD)")
-            [[ -z "${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}" ]] && missing+=("input POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD (set repo var DEV_POSTGRE_USER_APP_PASSWORD_1PASSWORD)")
-            [[ -z "${POSTGRE_DEV_USER_APP_NAME:-}" ]] && missing+=("POSTGRE_DEV_USER_APP_NAME (1Password returned empty for ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }})")
-            [[ -z "${POSTGRE_DEV_USER_APP_PASSWORD:-}" ]] && missing+=("POSTGRE_DEV_USER_APP_PASSWORD (1Password returned empty for ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }})")
-          fi
           if [[ ${#missing[@]} -gt 0 ]]; then
             echo "::error::Missing or empty required credentials:"
             for v in "${missing[@]}"; do echo "::error:: - $v"; done
@@ -166,7 +141,9 @@ jobs:
           # Base variables required for all environments
           BASE_VARS="ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS,POSTGRE_USER_SQL_DB_NAME,POSTGRE_USER_APP_NAME,POSTGRE_USER_APP_PASSWORD"
           if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-            # DEV users DB is co-located on QA instance — DEV creds required
+            # DEV shares QA instance and app user — reuse QA app user creds for DEV Terraform vars
+            export POSTGRE_DEV_USER_APP_NAME="$POSTGRE_USER_APP_NAME"
+            export POSTGRE_DEV_USER_APP_PASSWORD="$POSTGRE_USER_APP_PASSWORD"
             scripts/replace-variables.sh \
               -in_file infra/postgresql/vars.tfvars.rename_me \
               -out_file infra/postgresql/vars.tfvars \
@@ -232,14 +209,14 @@ jobs:
       POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
       DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
-      - name: Load DEV users DB credentials from 1Password
+      - name: Load app user credentials from 1Password
         uses: 1password/load-secrets-action@v2
         with:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
-          POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
+          POSTGRE_USER_APP_NAME: ${{ inputs.POSTGRE_USER_APP_NAME_1PASSWORD }}
+          POSTGRE_USER_APP_PASSWORD: ${{ inputs.POSTGRE_USER_APP_PASSWORD_1PASSWORD }}
 
       - name: Authenticate to Google Cloud DEV
         uses: google-github-actions/auth@v2
@@ -266,10 +243,8 @@ jobs:
       - name: Create or Update Users DB Secret in DEV
         run: |
           SECRET_NAME="DEV_USERS_DATABASE_URL"
-          # DEV has no dedicated DB/role of its own — it shares the QA Cloud SQL instance.
-          # Use the QA main postgres credentials (same as DEV_FEEDS_DATABASE_URL) which can
-          # reach MobilityDatabaseUsersDEV, instead of the dev app role that isn't provisioned.
-          SECRET_VALUE="postgresql://${{ env.POSTGRE_DEV_USER_APP_NAME }}:${{ env.POSTGRE_DEV_USER_APP_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
+          # DEV shares the QA Cloud SQL instance and app user — use QA app user creds with the DEV database name.
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_APP_NAME }}:${{ env.POSTGRE_USER_APP_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/MobilityDatabaseUsersDEV"
 
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
