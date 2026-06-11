@@ -273,6 +273,7 @@ class GtfsChangeTracker:
         bucket = storage.Client().bucket(self.bucket_name)
         blob = bucket.blob(blob_path)
         blob.upload_from_string(json_bytes, content_type="application/json")
+        blob.make_public()
         self.logger.info(
             "Uploaded changelog to gs://%s/%s", self.bucket_name, blob_path
         )
