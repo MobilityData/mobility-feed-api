@@ -292,39 +292,28 @@ class GtfsChangeTracker:
         Upsert a row into gtfs_dataset_changelog.
         The UNIQUE constraint on (previous_dataset_id, current_dataset_id) ensures idempotency.
         """
-        # TODO: remove this flag and always write to DB once testing is complete
-        if os.getenv("CHANGELOG_DB_WRITE_ENABLED", "true").lower() == "true":
-            stmt = (
-                insert(GtfsDatasetChangelog)
-                .values(
-                    feed_id=feed_uuid,
-                    previous_dataset_id=prev_dataset_uuid,
-                    current_dataset_id=curr_dataset_uuid,
-                    changelog_url=changelog_url,
-                    diff_summary=diff_summary,
-                )
-                .on_conflict_do_update(
-                    constraint="gtfs_dataset_changelog_previous_current_key",
-                    set_={
-                        "changelog_url": changelog_url,
-                        "diff_summary": diff_summary,
-                        "generated_at": GtfsDatasetChangelog.generated_at.default,
-                    },
-                )
+        stmt = (
+            insert(GtfsDatasetChangelog)
+            .values(
+                feed_id=feed_uuid,
+                previous_dataset_id=prev_dataset_uuid,
+                current_dataset_id=curr_dataset_uuid,
+                changelog_url=changelog_url,
+                diff_summary=diff_summary,
             )
-            db_session.execute(stmt)
-            db_session.commit()
-            self.logger.info(
-                "Saved changelog record for %s -> %s",
-                self.base_dataset_stable_id,
-                self.new_dataset_stable_id,
+            .on_conflict_do_update(
+                constraint="gtfs_dataset_changelog_previous_current_key",
+                set_={
+                    "changelog_url": changelog_url,
+                    "diff_summary": diff_summary,
+                    "generated_at": GtfsDatasetChangelog.generated_at.default,
+                },
             )
-        else:
-            self.logger.info(
-                "[TEMP] Would upsert gtfs_dataset_changelog: feed_id=%s previous=%s current=%s url=%s summary=%s",
-                feed_uuid,
-                prev_dataset_uuid,
-                curr_dataset_uuid,
-                changelog_url,
-                diff_summary,
-            )
+        )
+        db_session.execute(stmt)
+        db_session.commit()
+        self.logger.info(
+            "Saved changelog record for %s -> %s",
+            self.base_dataset_stable_id,
+            self.new_dataset_stable_id,
+        )

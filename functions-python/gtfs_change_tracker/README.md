@@ -78,5 +78,4 @@ The function always returns HTTP 200, including on errors. Errors are reported i
 - `DATASETS_BUCKET_MOUNT`: Mount path for the GCS bucket (default: `/mobilitydata-datasets`).
 - `GTFS_DIFF_DUCKDB_TMPDIR`: Mount path for the in-memory tmpfs used by the diff engine (default: `/tmp/in-memory`). Used by `limit_gcp_memory` to compute the available process memory and set `RLIMIT_AS`, preventing silent OOM kills.
 - `MEMORY_MARGIN_MB`: Safety margin in MiB subtracted from the memory limit before setting `RLIMIT_AS` (default: `200`).
-- `CHANGELOG_DB_WRITE_ENABLED`: Set to `true` to enable writing changelog records to the database (default: `false`).
 - `LOGGING_LEVEL`: Log level (default: `INFO`).

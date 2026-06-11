@@ -1282,7 +1282,8 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
       GCP_REGION            = var.gcp_region
       DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
-      GTFS_DIFF_DUCKDB_TMPDIR           = "/tmp/in-memory"
+      # GTFS_DIFF_DUCKDB_TMPDIR: directs DuckDB spill files to the in-memory volume.
+      GTFS_DIFF_DUCKDB_TMPDIR = "/tmp/in-memory"
     }
     available_memory                 = local.function_gtfs_change_tracker_config.memory
     timeout_seconds                  = local.function_gtfs_change_tracker_config.timeout
