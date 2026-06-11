@@ -37,36 +37,44 @@ def _make_dataset(
 class TestGtfsChangeTrackerHandler(unittest.TestCase):
     """Tests for the HTTP handler function."""
 
+    app = flask.Flask(__name__)
+
     def _request(self, payload):
-        with flask.Flask(__name__).test_request_context(json=payload):
-            return gtfs_change_tracker(flask.request)
+        with self.app.test_request_context(json=payload):
+            response = gtfs_change_tracker(flask.request)
+        with self.app.app_context():
+            return response.status_code, response.get_json()
 
     def test_missing_all_params(self):
-        result = self._request({})
-        self.assertEqual(result["status"], "error")
-        self.assertIn("required", result["error"])
+        status, body = self._request({})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertIn("required", body["error"])
 
     def test_missing_one_param(self):
-        result = self._request(
-            {"feed_stable_id": "mdb-1", "previous_dataset_stable_id": "mdb-1-20240101"}
+        status, body = self._request(
+            {"feed_stable_id": "mdb-1", "base_dataset_stable_id": "mdb-1-20240101"}
         )
-        self.assertEqual(result["status"], "error")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "error")
 
     def test_missing_bucket_env(self):
         os.environ.pop("DATASETS_BUCKET_NAME", None)
-        result = self._request(
+        status, body = self._request(
             {
                 "feed_stable_id": "mdb-1",
-                "previous_dataset_stable_id": "mdb-1-20240101",
-                "current_dataset_stable_id": "mdb-1-20240201",
+                "base_dataset_stable_id": "mdb-1-20240101",
+                "new_dataset_stable_id": "mdb-1-20240201",
             }
         )
-        self.assertEqual(result["status"], "error")
-        self.assertIn("DATASETS_BUCKET_NAME", result["error"])
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertIn("DATASETS_BUCKET_NAME", body["error"])
 
     @patch("main.GtfsChangeTracker")
     def test_success(self, mock_tracker_cls):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        os.environ["DATASETS_BUCKET_MOUNT"] = "/mobilitydata-datasets"
         instance = MagicMock()
         instance.run.return_value = {
             "message": "Changelog generated successfully.",
@@ -74,39 +82,42 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
         }
         mock_tracker_cls.return_value = instance
 
-        result = self._request(
+        status, body = self._request(
             {
                 "feed_stable_id": "mdb-1",
-                "previous_dataset_stable_id": "mdb-1-20240101",
-                "current_dataset_stable_id": "mdb-1-20240201",
+                "base_dataset_stable_id": "mdb-1-20240101",
+                "new_dataset_stable_id": "mdb-1-20240201",
             }
         )
-        self.assertEqual(result["status"], "success")
-        self.assertIn("changelog_url", result)
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "success")
+        self.assertIn("changelog_url", body)
         mock_tracker_cls.assert_called_once_with(
             feed_stable_id="mdb-1",
-            previous_dataset_stable_id="mdb-1-20240101",
-            current_dataset_stable_id="mdb-1-20240201",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
             bucket_name="test-bucket",
             bucket_mount="/mobilitydata-datasets",
         )
 
     @patch("main.GtfsChangeTracker")
-    def test_exception_returns_error(self, mock_tracker_cls):
+    def test_exception_returns_200_with_error(self, mock_tracker_cls):
+        """All exceptions return HTTP 200 to suppress GCP retries."""
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         instance = MagicMock()
         instance.run.side_effect = Exception("something went wrong")
         mock_tracker_cls.return_value = instance
 
-        result = self._request(
+        status, body = self._request(
             {
                 "feed_stable_id": "mdb-1",
-                "previous_dataset_stable_id": "mdb-1-20240101",
-                "current_dataset_stable_id": "mdb-1-20240201",
+                "base_dataset_stable_id": "mdb-1-20240101",
+                "new_dataset_stable_id": "mdb-1-20240201",
             }
         )
-        self.assertEqual(result["status"], "error")
-        self.assertIn("something went wrong", result["error"])
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertIn("something went wrong", body["error"])
 
 
 class TestGtfsChangeTrackerRun(unittest.TestCase):
@@ -116,19 +127,23 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         self.tracker = GtfsChangeTracker(
             feed_stable_id="mdb-1",
-            previous_dataset_stable_id="mdb-1-20240101",
-            current_dataset_stable_id="mdb-1-20240201",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
             bucket_name="test-bucket",
             bucket_mount="/mobilitydata-datasets",
         )
 
+    @patch("main.storage.Client")
     @patch("main.GtfsChangeTracker._save_changelog_record")
     @patch("main.GtfsChangeTracker._upload_changelog")
     @patch("main.GtfsChangeTracker._extracted_dir")
     @patch("main.GtfsChangeTracker._resolve_datasets")
     def test_run_happy_path(
-        self, mock_resolve, mock_extracted_dir, mock_upload, mock_save
+        self, mock_resolve, mock_extracted_dir, mock_upload, mock_save, mock_storage
     ):
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            False
+        )
         mock_resolve.return_value = ("prev-uuid", "curr-uuid", "feed-uuid")
         mock_extracted_dir.side_effect = [
             "/mobilitydata-datasets/mdb-1/mdb-1-20240101/extracted",
@@ -173,13 +188,26 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         )
         self.assertEqual(result["changelog_url"], changelog_url)
 
+    @patch("main.storage.Client")
     @patch("main.GtfsChangeTracker._resolve_datasets")
-    def test_run_raises_when_resolve_fails(self, mock_resolve):
+    def test_run_raises_when_resolve_fails(self, mock_resolve, mock_storage):
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            False
+        )
         mock_resolve.side_effect = ValueError(
             "Previous dataset not found: mdb-1-20240101"
         )
         with self.assertRaises(ValueError):
             self.tracker.run()
+
+    @patch("main.storage.Client")
+    def test_run_skips_when_changelog_exists(self, mock_storage):
+        mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
+            True
+        )
+        result = self.tracker.run()
+        self.assertIn("already exists", result["message"])
+        self.assertIn("changelog_url", result)
 
 
 class TestResolveDatasets(unittest.TestCase):
@@ -188,8 +216,8 @@ class TestResolveDatasets(unittest.TestCase):
     def setUp(self):
         self.tracker = GtfsChangeTracker(
             feed_stable_id="mdb-1",
-            previous_dataset_stable_id="mdb-1-20240101",
-            current_dataset_stable_id="mdb-1-20240201",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
             bucket_name="my-bucket",
             bucket_mount="/mobilitydata-datasets",
         )
@@ -248,8 +276,8 @@ class TestExtractedDir(unittest.TestCase):
     def setUp(self):
         self.tracker = GtfsChangeTracker(
             feed_stable_id="mdb-1",
-            previous_dataset_stable_id="mdb-1-20240101",
-            current_dataset_stable_id="mdb-1-20240201",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
             bucket_name="my-bucket",
             bucket_mount="/mobilitydata-datasets",
         )
@@ -271,8 +299,8 @@ class TestUploadChangelog(unittest.TestCase):
     def setUp(self):
         self.tracker = GtfsChangeTracker(
             feed_stable_id="mdb-1",
-            previous_dataset_stable_id="mdb-1-20240101",
-            current_dataset_stable_id="mdb-1-20240201",
+            base_dataset_stable_id="mdb-1-20240101",
+            new_dataset_stable_id="mdb-1-20240201",
             bucket_name="my-bucket",
             bucket_mount="/mobilitydata-datasets",
         )

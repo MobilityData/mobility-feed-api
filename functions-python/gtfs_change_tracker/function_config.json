@@ -13,6 +13,9 @@
     },
     {
       "key": "LOGGING_LEVEL"
+    },
+    {
+      "key": "GTFS_DIFF_DUCKDB_TMPDIR"
     }
   ],
   "secret_environment_variables": [

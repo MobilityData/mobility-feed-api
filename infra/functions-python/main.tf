@@ -1282,6 +1282,7 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
       GCP_REGION            = var.gcp_region
       DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
+      GTFS_DIFF_DUCKDB_TMPDIR           = "/tmp/in-memory"
     }
     available_memory                 = local.function_gtfs_change_tracker_config.memory
     timeout_seconds                  = local.function_gtfs_change_tracker_config.timeout
@@ -1307,8 +1308,8 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
 }
 
 # google_cloudfunctions2_function does not expose volume mounts in its schema.
-# This terraform_data resource mounts the datasets GCS bucket on the underlying Cloud Run service
-# after the function is deployed, using `gcloud run services update`.
+# This terraform_data resource mounts both the datasets GCS bucket and an in-memory tmpfs
+# on the underlying Cloud Run service after the function is deployed.
 resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
   triggers_replace = {
     function_name = google_cloudfunctions2_function.gtfs_change_tracker.name
@@ -1323,14 +1324,27 @@ resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
         --project ${var.project_id} \
         --region ${var.gcp_region} \
         --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      ARGS=""
       if echo "$MOUNTS" | grep -q "datasets-bucket"; then
         echo "GCS volume already mounted, skipping."
       else
+        ARGS="$ARGS --add-volume name=datasets-bucket,type=cloud-storage,bucket=${var.datasets_bucket_name}-${var.environment},readonly=true"
+        ARGS="$ARGS --add-volume-mount volume=datasets-bucket,mount-path=/mobilitydata-datasets"
+      fi
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted, skipping."
+      else
+        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=2Gi"
+        ARGS="$ARGS --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory"
+      fi
+
+      if [ -n "$ARGS" ]; then
         gcloud run services update ${google_cloudfunctions2_function.gtfs_change_tracker.name} \
           --project ${var.project_id} \
           --region ${var.gcp_region} \
-          --add-volume name=datasets-bucket,type=cloud-storage,bucket=${var.datasets_bucket_name}-${var.environment},readonly=true \
-          --add-volume-mount volume=datasets-bucket,mount-path=/mobilitydata-datasets \
+          $ARGS \
           --quiet
       fi
     EOT

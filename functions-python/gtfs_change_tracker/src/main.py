@@ -27,14 +27,17 @@ from gtfs_diff.engine import diff_feeds
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     GtfsDatasetChangelog,
     Gtfsdataset,
 )
 from shared.helpers.logger import get_logger, init_logger
+from shared.helpers.runtime_metrics import track_metrics
 
 init_logger()
+limit_gcp_memory(os.getenv("GTFS_DIFF_DUCKDB_TMPDIR", "/tmp/in-memory"))
 
 
 @functions_framework.http
@@ -43,51 +46,62 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
     HTTP entrypoint for the GTFS change tracker function.
 
     Expects a JSON body with:
-        feed_stable_id                – stable_id of the GTFS feed
-        previous_dataset_stable_id    – stable_id of the previous Gtfsdataset
-        current_dataset_stable_id     – stable_id of the current Gtfsdataset
+        feed_stable_id            – stable_id of the GTFS feed
+        base_dataset_stable_id    – stable_id of the previous Gtfsdataset
+        new_dataset_stable_id     – stable_id of the current Gtfsdataset
+
+    Always returns HTTP 200 — errors are reported in the response body.
+    This prevents GCP from retrying failures: we cannot distinguish transient from
+    permanent errors (e.g. a DB blip vs the DB being down), so retrying would only
+    waste resources. The idempotency check in run() makes explicit reruns safe.
     """
     payload = request.get_json(silent=True) or {}
     feed_stable_id = payload.get("feed_stable_id")
-    previous_dataset_stable_id = payload.get("previous_dataset_stable_id")
-    current_dataset_stable_id = payload.get("current_dataset_stable_id")
+    base_dataset_stable_id = payload.get("base_dataset_stable_id")
+    new_dataset_stable_id = payload.get("new_dataset_stable_id")
 
-    if not (
-        feed_stable_id and previous_dataset_stable_id and current_dataset_stable_id
-    ):
-        return {
-            "status": "error",
-            "error": "feed_stable_id, previous_dataset_stable_id, and current_dataset_stable_id are required.",
-        }
+    if not (feed_stable_id and base_dataset_stable_id and new_dataset_stable_id):
+        return flask.make_response(
+            {
+                "status": "error",
+                "error": "feed_stable_id, base_dataset_stable_id, and new_dataset_stable_id are required.",
+            },
+            200,
+        )
 
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
     if not bucket_name:
-        return {
-            "status": "error",
-            "error": "DATASETS_BUCKET_NAME environment variable is not set.",
-        }
+        return flask.make_response(
+            {
+                "status": "error",
+                "error": "DATASETS_BUCKET_NAME environment variable is not set.",
+            },
+            200,
+        )
 
-    bucket_mount = os.getenv("DATASETS_BUCKET_MOUNT", "/mobilitydata-datasets")
+    bucket_mount = os.getenv("DATASETS_BUCKET_MOUNT", "/tmp/mobilitydata-datasets")
     try:
         tracker = GtfsChangeTracker(
             feed_stable_id=feed_stable_id,
-            previous_dataset_stable_id=previous_dataset_stable_id,
-            current_dataset_stable_id=current_dataset_stable_id,
+            base_dataset_stable_id=base_dataset_stable_id,
+            new_dataset_stable_id=new_dataset_stable_id,
             bucket_name=bucket_name,
             bucket_mount=bucket_mount,
         )
         result = tracker.run()
-        return {"status": "success", **result}
+        return flask.make_response({"status": "success", **result}, 200)
     except Exception as e:
+        # We cannot reliably distinguish transient from permanent errors, so we always
+        # return HTTP 200 to suppress GCP retries. If a specific exception type is
+        # identified as safely retriable in the future, catch it here and return 500.
         logging.exception(
             "Failed to generate changelog for %s -> %s",
-            previous_dataset_stable_id,
-            current_dataset_stable_id,
+            base_dataset_stable_id,
+            new_dataset_stable_id,
         )
-        return {
-            "status": "error",
-            "error": f"Failed to generate changelog: {e}",
-        }
+        return flask.make_response(
+            {"status": "error", "error": f"Failed to generate changelog: {e}"}, 200
+        )
 
 
 class GtfsChangeTracker:
@@ -106,35 +120,46 @@ class GtfsChangeTracker:
     def __init__(
         self,
         feed_stable_id: str,
-        previous_dataset_stable_id: str,
-        current_dataset_stable_id: str,
+        base_dataset_stable_id: str,
+        new_dataset_stable_id: str,
         bucket_name: str,
         bucket_mount: str,
     ):
         self.feed_stable_id = feed_stable_id
-        self.previous_dataset_stable_id = previous_dataset_stable_id
-        self.current_dataset_stable_id = current_dataset_stable_id
+        self.base_dataset_stable_id = base_dataset_stable_id
+        self.new_dataset_stable_id = new_dataset_stable_id
         self.bucket_name = bucket_name
         self.bucket_mount = bucket_mount
-        self.logger = get_logger(GtfsChangeTracker.__name__, current_dataset_stable_id)
+        self.logger = get_logger(GtfsChangeTracker.__name__, new_dataset_stable_id)
 
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def run(self) -> dict:
         """Execute the full change-tracking pipeline."""
+        # Idempotency: if the changelog already exists in GCS, skip recomputing.
+        changelog_blob_path = (
+            f"{self.feed_stable_id}/{self.new_dataset_stable_id}/"
+            f"{self.new_dataset_stable_id}_{self.base_dataset_stable_id}_changelog.json"
+        )
+        blob = storage.Client().bucket(self.bucket_name).blob(changelog_blob_path)
+        if blob.exists():
+            changelog_url = f"https://storage.googleapis.com/{self.bucket_name}/{changelog_blob_path}"
+            self.logger.info("Changelog already exists, skipping: %s", changelog_url)
+            return {
+                "message": "Changelog already exists.",
+                "changelog_url": changelog_url,
+            }
+
         prev_dataset_uuid, curr_dataset_uuid, feed_uuid = self._resolve_datasets()
 
         self.logger.info(
             "Computing diff for feed %s: %s -> %s",
             self.feed_stable_id,
-            self.previous_dataset_stable_id,
-            self.current_dataset_stable_id,
+            self.base_dataset_stable_id,
+            self.new_dataset_stable_id,
         )
 
-        prev_dir = self._extracted_dir(
-            self.feed_stable_id, self.previous_dataset_stable_id
-        )
-        curr_dir = self._extracted_dir(
-            self.feed_stable_id, self.current_dataset_stable_id
-        )
+        prev_dir = self._extracted_dir(self.feed_stable_id, self.base_dataset_stable_id)
+        curr_dir = self._extracted_dir(self.feed_stable_id, self.new_dataset_stable_id)
 
         diff_result = diff_feeds(prev_dir, curr_dir)
 
@@ -142,8 +167,8 @@ class GtfsChangeTracker:
         changelog_url = self._upload_changelog(
             changelog_json,
             self.feed_stable_id,
-            self.previous_dataset_stable_id,
-            self.current_dataset_stable_id,
+            self.base_dataset_stable_id,
+            self.new_dataset_stable_id,
         )
 
         diff_summary = diff_result.summary.model_dump()
@@ -169,27 +194,25 @@ class GtfsChangeTracker:
         """
         prev_dataset = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.stable_id == self.previous_dataset_stable_id)
+            .filter(Gtfsdataset.stable_id == self.base_dataset_stable_id)
             .one_or_none()
         )
         if prev_dataset is None:
             raise ValueError(
-                f"Previous dataset not found: {self.previous_dataset_stable_id}"
+                f"Previous dataset not found: {self.base_dataset_stable_id}"
             )
 
         curr_dataset = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.stable_id == self.current_dataset_stable_id)
+            .filter(Gtfsdataset.stable_id == self.new_dataset_stable_id)
             .one_or_none()
         )
         if curr_dataset is None:
-            raise ValueError(
-                f"Current dataset not found: {self.current_dataset_stable_id}"
-            )
+            raise ValueError(f"Current dataset not found: {self.new_dataset_stable_id}")
 
         if curr_dataset.feed.stable_id != self.feed_stable_id:
             raise ValueError(
-                f"Dataset {self.current_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
+                f"Dataset {self.new_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
             )
 
         return prev_dataset.id, curr_dataset.id, curr_dataset.feed.id
@@ -248,7 +271,7 @@ class GtfsChangeTracker:
         The UNIQUE constraint on (previous_dataset_id, current_dataset_id) ensures idempotency.
         """
         # TODO: remove this flag and always write to DB once testing is complete
-        if os.getenv("CHANGELOG_DB_WRITE_ENABLED", "false").lower() == "true":
+        if os.getenv("CHANGELOG_DB_WRITE_ENABLED", "true").lower() == "true":
             stmt = (
                 insert(GtfsDatasetChangelog)
                 .values(
@@ -271,8 +294,8 @@ class GtfsChangeTracker:
             db_session.commit()
             self.logger.info(
                 "Saved changelog record for %s -> %s",
-                self.previous_dataset_stable_id,
-                self.current_dataset_stable_id,
+                self.base_dataset_stable_id,
+                self.new_dataset_stable_id,
             )
         else:
             self.logger.info(
