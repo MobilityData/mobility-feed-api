@@ -135,3 +135,8 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
+variable "gtfs_change_tracker_in_memory_size" {
+    type        = string
+    description = "Size limit for the gtfs_change_tracker in-memory tmpfs volume"
+    default     = "3Gi"
+}

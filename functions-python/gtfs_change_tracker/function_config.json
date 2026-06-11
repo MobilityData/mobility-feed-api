@@ -3,7 +3,7 @@
   "description": "Tracks changes between two GTFS datasets and stores a structured changelog in GCS and the database",
   "entry_point": "gtfs_change_tracker",
   "timeout": 540,
-  "memory": "4Gi",
+  "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen", "database", "common"],

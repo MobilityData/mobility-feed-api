@@ -1336,7 +1336,7 @@ resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
       if echo "$MOUNTS" | grep -q "in-memory"; then
         echo "In-memory volume already mounted, skipping."
       else
-        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=2Gi"
+        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=${var.gtfs_change_tracker_in_memory_size}"
         ARGS="$ARGS --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory"
       fi
 
