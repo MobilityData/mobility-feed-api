@@ -22,6 +22,8 @@ src/feeds_gen/models/get_feeds200_response.py
 src/feeds_gen/models/get_matching_licenses_request.py
 src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
+src/feeds_gen/models/gtfs_feed_availability_check.py
+src/feeds_gen/models/gtfs_feed_availability_response.py
 src/feeds_gen/models/gtfs_rt_feed.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py

@@ -10,6 +10,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
     Gtfsfeed,
+    GtfsFeedAvailabilityCheck,
     Notice,
     Feature,
     License,
@@ -165,6 +166,11 @@ class DatabasePopulateTestDataHelper:
         if "validation_reports" in data:
             validation_report_dict = {}
             for report in data["validation_reports"]:
+                if report["dataset_id"] not in dataset_dict:
+                    self.logger.error(
+                        f"No dataset found with id: {report['dataset_id']}; skipping validation report {report['id']}"
+                    )
+                    continue
                 validation_report = Validationreport(
                     id=report["id"],
                     validator_version=report["validator_version"],
@@ -305,6 +311,29 @@ class DatabasePopulateTestDataHelper:
                         gbfs_version.gbfsendpoints.append(gbfs_endpoint)
                 gbfs_feed.gbfsversions.append(gbfs_version)
 
+        # GTFS feed availability checks
+        if "gtfs_availability_checks" in data:
+            for check in data["gtfs_availability_checks"]:
+                feed_stable_id = check.get("feed_stable_id")
+                gtfs_feed = db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_stable_id).one_or_none()
+                if not gtfs_feed:
+                    self.logger.error(
+                        f"No GTFS feed found with stable_id: {feed_stable_id}; skipping availability check"
+                    )
+                    continue
+                availability_check = GtfsFeedAvailabilityCheck(
+                    id=uuid4(),
+                    feed_id=gtfs_feed.id,
+                    checked_at=check["checked_at"],
+                    request_url=check.get("request_url", "https://example.com/feed.zip"),
+                    request_type=check["request_type"],
+                    success=check["success"],
+                    status_code=check.get("status_code"),
+                    latency_ms=check.get("latency_ms"),
+                    error_type=check.get("error_type"),
+                )
+                db_session.add(availability_check)
+
         db_session.commit()
         db_session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
 
@@ -325,6 +354,10 @@ class DatabasePopulateTestDataHelper:
 
     def populate_test_feeds(self, feeds_data, db_session: "Session"):
         for feed_data in feeds_data:
+            existing = db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_data["id"]).one_or_none()
+            if existing:
+                logger.info(f"Feed {feed_data['id']} already exists, skipping")
+                continue
             feed = Gtfsfeed(
                 id=str(uuid4()),
                 stable_id=feed_data["id"],

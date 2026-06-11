@@ -109,11 +109,13 @@ if [ "$POPULATE_DB" = true ]; then
     # download the latest csv file and populate the db
     mkdir $SCRIPT_PATH/../data/
     wget -O $SCRIPT_PATH/../data/$target_csv_file https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
+    # populate licenses before feeds so that feed.license_id FK references are satisfied
+    $SCRIPT_PATH/populate-licenses.sh
+    printf "\n---------\nCompleted: populating license data.\n---------\n"
     # populate db
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
     printf "\n---------\nCompleted: populating catalog data.\n---------\n"
-    $SCRIPT_PATH/populate-licenses.sh
 fi
 
 if [ "$POPULATE_TEST_DATA" = true ]; then

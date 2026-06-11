@@ -192,11 +192,37 @@ class TestLicenseUtils(unittest.TestCase):
 
     @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
     def test_resolve_license_generic_heuristic(self, _mock_find):
-        # Provide URL that matches heuristic patterns
+        # Provide URL that matches heuristic patterns; mock DB returning a matching license
+        lic = self._make_license("MIT", "choosealicense.com/licenses/mit/", "MIT License")
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = lic
         results = resolve_license("https://choosealicense.com/licenses/mit/", db_session=self.session)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].spdx_id, "MIT")
         self.assertEqual(results[0].match_type, "heuristic")
+        self.assertEqual(results[0].matched_source, "pattern-heuristics")
+
+    @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
+    def test_resolve_license_generic_heuristic_db_miss(self, _mock_find):
+        """When heuristic matches a SPDX ID but that ID is not in the DB, skip assignment."""
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = None
+        results = resolve_license(
+            "https://opendatacommons.org/licenses/pddl/1.0/",
+            db_session=self.session,
+            allow_fuzzy=False,
+        )
+        self.assertEqual(results, [])
+
+    @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
+    def test_resolve_license_generic_heuristic_no_session(self, _mock_find):
+        """Without a db_session, heuristic match is returned directly (no DB guard possible)."""
+        results = resolve_license(
+            "https://choosealicense.com/licenses/mit/",
+            db_session=None,
+            allow_fuzzy=False,
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].spdx_id, "MIT")
+        self.assertEqual(results[0].matched_source, "pattern-heuristics")
 
     @patch("shared.common.license_utils.find_exact_match_license_url", return_value=None)
     def test_resolve_license_fuzzy(self, _mock_find):
