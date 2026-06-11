@@ -7,7 +7,7 @@ from google.cloud import tasks_v2
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, GtfsDatasetChangelog
 from shared.helpers.utils import (
     create_http_task,
     create_http_pmtiles_builder_task,
@@ -152,11 +152,31 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
         .first()
     )
     if previous_dataset:
-        create_http_gtfs_change_tracker_task(
-            feed_stable_id=stable_id,
-            base_dataset_stable_id=previous_dataset.stable_id,
-            new_dataset_stable_id=dataset_stable_id,
+        # Check the DB for an existing changelog record rather than the GCS blob presence.
+        # The unique constraint on (previous_dataset_id, current_dataset_id) makes this the
+        # authoritative idempotency check. GCS blob presence could be used instead, but that
+        # would require an extra API call and could miss cases where the blob exists but the
+        # DB record does not (or vice versa).
+        changelog_exists = (
+            db_session.query(GtfsDatasetChangelog)
+            .filter_by(
+                previous_dataset_id=previous_dataset.id,
+                current_dataset_id=dataset.id,
+            )
+            .first()
+            is not None
         )
+        if changelog_exists:
+            logging.info(
+                "Skipping change tracker task for dataset %s: changelog already exists.",
+                dataset_stable_id,
+            )
+        else:
+            create_http_gtfs_change_tracker_task(
+                feed_stable_id=stable_id,
+                base_dataset_stable_id=previous_dataset.stable_id,
+                new_dataset_stable_id=dataset_stable_id,
+            )
     else:
         logging.info(
             "Skipping change tracker task for dataset %s: no previous dataset found.",

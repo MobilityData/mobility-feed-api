@@ -552,6 +552,7 @@ def create_http_gtfs_change_tracker_task(
             "feed_stable_id": feed_stable_id,
             "base_dataset_stable_id": base_dataset_stable_id,
             "new_dataset_stable_id": new_dataset_stable_id,
+            "disallow_overwrite": True,
         }
     ).encode()
     queue_name = os.getenv("GTFS_CHANGE_TRACKER_QUEUE")
