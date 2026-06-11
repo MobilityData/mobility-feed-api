@@ -230,10 +230,17 @@ jobs:
       POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
       POSTGRE_USER_PASSWORD: ${{ secrets.POSTGRE_USER_PASSWORD }}
       POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
-      POSTGRE_DEV_USER_APP_NAME: ${{ secrets.POSTGRE_DEV_USER_APP_NAME }}
-      POSTGRE_DEV_USER_APP_PASSWORD: ${{ secrets.POSTGRE_DEV_USER_APP_PASSWORD }}
       DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
+      - name: Load DEV users DB credentials from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          POSTGRE_DEV_USER_APP_NAME: ${{ inputs.POSTGRE_DEV_USER_APP_NAME_1PASSWORD }}
+          POSTGRE_DEV_USER_APP_PASSWORD: ${{ inputs.POSTGRE_DEV_USER_APP_PASSWORD_1PASSWORD }}
+
       - name: Authenticate to Google Cloud DEV
         uses: google-github-actions/auth@v2
         with:
