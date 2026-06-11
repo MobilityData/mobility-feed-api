@@ -11,7 +11,6 @@
       "content_html": "",
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-02T00:00:00Z"
-
     },
     {
       "id": "license-2",
@@ -24,7 +23,6 @@
       "content_html": "",
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-02T00:00:00Z"
-
     },
     {
       "id": "license-3",
@@ -39,7 +37,6 @@
       "updated_at": "2024-01-02T00:00:00Z"
     }
   ],
-
   "rules": [
     {
       "name": "license-rule-1",
@@ -60,7 +57,6 @@
       "type": "limitation"
     }
   ],
-
   "license_rules": [
     {
       "license_id": "license-1",
@@ -79,7 +75,6 @@
       "rule_id": "license-rule-3"
     }
   ],
-
   "license_tag_groups": [
     {
       "id": "family",
@@ -92,7 +87,6 @@
       "description": "License type taxonomy"
     }
   ],
-
   "license_tags": [
     {
       "id": "family:ODC",
@@ -107,7 +101,6 @@
       "description": "Open Data Commons license"
     }
   ],
-
   "license_license_tags": [
     {
       "license_id": "license-1",
@@ -118,7 +111,6 @@
       "tag_id": "license:open-data-commons"
     }
   ],
-
   "feeds": [
     {
       "id": "mdb-60",
@@ -236,6 +228,58 @@
           "municipality": null
         }
       ]
+    }
+  ],
+  "gtfs_availability_checks": [
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-01-10T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_head",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 120,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-02-10T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_head",
+      "success": false,
+      "status_code": 503,
+      "latency_ms": 450,
+      "error_type": "http_error"
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-03-10T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_get",
+      "success": true,
+      "status_code": 206,
+      "latency_ms": 200,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-04-10T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_head",
+      "success": true,
+      "status_code": 200,
+      "latency_ms": 95,
+      "error_type": null
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-05-10T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_head",
+      "success": false,
+      "status_code": null,
+      "latency_ms": null,
+      "error_type": "connection_timeout"
     }
   ]
 }

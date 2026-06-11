@@ -18,6 +18,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
+from datetime import datetime
 from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
@@ -29,6 +30,9 @@ from starlette.responses import Response
 
 from feeds_gen.models.data_type import DataType
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
+from feeds_gen.models.gtfs_feed_availability_response import (
+    GtfsFeedAvailabilityResponse,
+)
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
 )
@@ -52,12 +56,16 @@ from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
+    GtfsFeedAvailabilityCheck,
     t_feedsearch,
     Feed,
     Gtfsrealtimefeed,
 )
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
+from shared.db_models.gtfs_feed_availability_check_impl import (
+    GtfsFeedAvailabilityCheckImpl,
+)
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
@@ -70,6 +78,7 @@ from .models.operation_create_request_gtfs_feed import (
 from .models.operation_create_request_gtfs_rt_feed import (
     OperationCreateRequestGtfsRtFeedImpl,
 )
+
 from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
@@ -194,6 +203,50 @@ class OperationsApiImpl(BaseOperationsApi):
         if gtfs_feed is None:
             raise HTTPException(status_code=404, detail="GTFS feed not found")
         return OperationGtfsFeedImpl.from_orm(gtfs_feed)
+
+    @with_db_session
+    async def get_gtfs_feed_availability(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        var_from: Optional[datetime] = None,
+        to: Optional[datetime] = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        sort: Optional[str] = "desc",
+        db_session: Session = None,
+    ) -> GtfsFeedAvailabilityResponse:
+        """Get availability check history for the specified GTFS feed."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(
+            GtfsFeedAvailabilityCheck.feed_id == gtfs_feed.id
+        )
+        if var_from is not None:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
+        if to is not None:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
+
+        total = query.count()
+        order = (
+            GtfsFeedAvailabilityCheck.checked_at.asc()
+            if sort == "asc"
+            else GtfsFeedAvailabilityCheck.checked_at.desc()
+        )
+        checks = query.order_by(order).offset(offset).limit(limit).all()
+
+        return GtfsFeedAvailabilityResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
 
     @with_db_session
     async def get_gtfs_rt_feed(
