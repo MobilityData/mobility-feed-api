@@ -449,8 +449,9 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
     )
+    @patch("pipeline_tasks.create_http_gtfs_change_tracker_task")
     @with_db_session(db_url=default_db_url)
-    def test_process(self, db_session):
+    def test_process(self, mock_gtfs_change_tracker_task, db_session):
         feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 

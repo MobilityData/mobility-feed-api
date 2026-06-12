@@ -1,0 +1,22 @@
+# Common packages
+functions-framework==3.*
+google-cloud-logging
+psycopg2-binary==2.9.6
+urllib3~=2.6.3
+attrs~=23.1.0
+certifi~=2025.8.3
+
+# SQL Alchemy and Geo Alchemy
+SQLAlchemy==2.0.23
+geoalchemy2==0.14.7
+
+# Google specific packages for this function
+flask
+google-cloud-storage
+google-cloud-tasks
+
+# GTFS diff engine
+gtfs-diff-engine
+
+# Configuration
+python-dotenv==1.2.2

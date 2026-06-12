@@ -535,6 +535,41 @@ def create_http_pmtiles_builder_task(
     )
 
 
+def create_http_gtfs_change_tracker_task(
+    feed_stable_id: str,
+    base_dataset_stable_id: str,
+    new_dataset_stable_id: str,
+) -> None:
+    """
+    Create a Cloud Task to run the gtfs-change-tracker function for a pair of datasets.
+    """
+    from google.cloud import tasks_v2
+    import json
+
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {
+            "feed_stable_id": feed_stable_id,
+            "base_dataset_stable_id": base_dataset_stable_id,
+            "new_dataset_stable_id": new_dataset_stable_id,
+            "disallow_overwrite": True,
+        }
+    ).encode()
+    queue_name = os.getenv("GTFS_CHANGE_TRACKER_QUEUE")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+    gcp_env = os.getenv("ENVIRONMENT")
+
+    create_http_task(
+        client,
+        body,
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/gtfs-change-tracker-{gcp_env}",
+        project_id,
+        gcp_region,
+        queue_name,
+    )
+
+
 def get_execution_id(json_payload: dict, stable_id: Optional[str]) -> str:
     """
     Extracts the execution_id from the JSON payload.
