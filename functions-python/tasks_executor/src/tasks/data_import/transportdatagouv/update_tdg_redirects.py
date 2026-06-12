@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Feed, Redirectingid
+from shared.notifications.notification_event_service import emit_feed_redirected
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,14 @@ def _update_feed_redirect(
     mdb_feed.status = "deprecated"
     db_session.add(redirect)
     counters["redirects_created"] = 1
+    emit_feed_redirected(
+        source_stable_id=mdb_stable_id,
+        target_stable_id=tdg_stable_id,
+        old_url=mdb_feed.producer_url,
+        new_url=tdg_feed.producer_url,
+        source="tdg_redirects",
+        extra_data={"redirect_comment": "Redirecting post TDG import"},
+    )
     return counters
 
 

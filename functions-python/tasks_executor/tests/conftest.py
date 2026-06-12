@@ -24,7 +24,11 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gbfsfeed,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
+from test_shared.test_utils.database_utils import (
+    clean_testing_db,
+    default_db_url,
+    clean_testing_users_db,
+)
 
 
 @with_db_session(db_url=default_db_url)
@@ -178,6 +182,7 @@ def pytest_sessionstart():
     before performing collection and entering the run test loop.
     """
     clean_testing_db()
+    clean_testing_users_db()
     populate_database()
 
 
@@ -187,6 +192,7 @@ def pytest_sessionfinish(session, exitstatus):
     returning the exit status to the system.
     """
     clean_testing_db()
+    clean_testing_users_db()
 
 
 def pytest_unconfigure(config):

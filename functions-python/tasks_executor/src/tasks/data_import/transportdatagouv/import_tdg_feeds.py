@@ -37,6 +37,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import trigger_dataset_download
+from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
     get_or_create_feed,
     get_or_create_entity_type,
@@ -564,6 +565,16 @@ def _process_tdg_dataset(
                         )
                         nested.commit()
                         continue
+                    if (
+                        db_fp.get("producer_url")
+                        and db_fp["producer_url"] != api_fp["producer_url"]
+                    ):
+                        emit_url_replaced(
+                            feed_stable_id=stable_id,
+                            old_url=db_fp["producer_url"],
+                            new_url=api_fp["producer_url"],
+                            source="tdg_import",
+                        )
 
                 _update_common_tdg_fields(
                     gtfs_feed, dataset, resource, res_url, locations, db_session
@@ -615,6 +626,16 @@ def _process_tdg_dataset(
                         processed += 1
                         nested.commit()
                         continue
+                    if (
+                        db_rt_fp.get("producer_url")
+                        and db_rt_fp["producer_url"] != api_rt_fp["producer_url"]
+                    ):
+                        emit_url_replaced(
+                            feed_stable_id=stable_id,
+                            old_url=db_rt_fp["producer_url"],
+                            new_url=api_rt_fp["producer_url"],
+                            source="tdg_import",
+                        )
 
                 _update_common_tdg_fields(
                     rt_feed, dataset, resource, res_url, locations, db_session
