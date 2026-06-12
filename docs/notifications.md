@@ -11,6 +11,9 @@
 3. [Database Schema](#database-schema)
 4. [Event Creation — Integration Points](#event-creation--integration-points)
 5. [Dispatcher Task](#dispatcher-task)
+   - [Payload Parameters](#payload-parameters)
+   - [active_since — Eligibility Gate](#active_since--eligibility-gate)
+   - [Example Invocations](#example-invocations)
 6. [Cadence vs Digest](#cadence-vs-digest)
 7. [Retry Strategy](#retry-strategy)
 8. [Email Delivery — Brevo](#email-delivery--brevo)
@@ -169,9 +172,21 @@ Both functions are **fire-and-forget**: if `USERS_DATABASE_URL` is not set, or i
 | `status_filter` | str | `'new'` | `'new'` = unsent events; `'failed'` = retry mode; `'all'` = both |
 | `user_ids` | list[str] | `[]` | Restrict to specific users (manual trigger) |
 | `force` | bool | `false` | When `true` + `user_ids`: bypass cadence and window |
-| `since_dt` | str | `null` | ISO 8601 window start override |
-| `until_dt` | str | `null` | ISO 8601 window end override |
+| `since_dt` | str | `null` | ISO 8601 lower-bound override. Acts as an *additional* floor on top of `active_since`: effective lower bound is `max(subscription.active_since, since_dt)`. Can narrow the window but cannot expand it to include pre-subscription or disabled-period events. |
+| `until_dt` | str | `null` | ISO 8601 window end override. Defaults to `now()`. |
 | `max_retries` | int | `5` | Stop retrying at this retry_count |
+
+### active_since — Eligibility Gate
+
+Every `notification_subscription` row has an `active_since` timestamp. `_find_new_events` uses it as the **exclusive lower bound** when querying for undelivered events — only events with `created_at >= active_since` are candidates.
+
+| Subscription state | `active_since` behaviour |
+|--------------------|-------------------------|
+| **Newly created** (`active=True` from birth) | Set to the creation timestamp. The subscription can never receive events that pre-date its own existence. |
+| **Re-enabled** (`active` flipped `False → True`) | **Must be updated to `now()`** by the re-activation code. Events emitted while the subscription was inactive are permanently excluded — a user who paused notifications should not be flooded with stale events on re-enable. |
+| **Active, no state change** | Never modified. Only `last_notified_at` is updated after a dispatch run. |
+
+> **Key rule**: `since_dt` in the payload can narrow the window further, but it can never override the `active_since` floor. Pre-subscription and disabled-period events are always excluded.
 
 ### Example invocations
 

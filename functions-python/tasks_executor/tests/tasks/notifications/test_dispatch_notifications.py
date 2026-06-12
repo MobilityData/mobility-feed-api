@@ -25,6 +25,7 @@ import re
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -72,6 +73,22 @@ def _compile_jsonb_sqlite(element, compiler, **kw):
 
 @pytest.fixture
 def engine():
+    # active_since is added by migration feat_1724 and then reflected into the
+    # auto-generated sqlacodegen_models.py.  Until that cycle completes we add
+    # the column to the in-memory SQLite schema here so unit tests can run.
+    # We guard against duplicate addition since the Table object is a module-level
+    # singleton and the fixture may be called multiple times per test session.
+    if "active_since" not in NotificationSubscription.__table__.c:
+        from sqlalchemy import Column as _Col, DateTime as _DT
+
+        NotificationSubscription.__table__.append_column(
+            _Col(
+                "active_since",
+                _DT(True),
+                nullable=False,
+                server_default=text("CURRENT_TIMESTAMP"),
+            )
+        )
     eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     with _sqlite_compatible_defaults():
         Base.metadata.create_all(eng)
@@ -155,6 +172,7 @@ def _make_subscription(
     digest: bool = True,
     filter_params=None,
     active: bool = True,
+    active_since: Optional[datetime] = None,
 ) -> NotificationSubscription:
     sub = NotificationSubscription(
         id=_uid(),
@@ -164,6 +182,11 @@ def _make_subscription(
         digest=digest,
         filter_params=filter_params,
         active=active,
+    )
+    # Set active_since explicitly so it is available in Python memory regardless
+    # of whether the ORM model has been regenerated post-migration.
+    sub.active_since = active_since or (
+        datetime.now(timezone.utc) - timedelta(seconds=5)
     )
     sess.add(sub)
     sess.flush()
@@ -299,7 +322,6 @@ class TestFindEventsForSubscription:
             db_session=session,
             subscription=sub,
             status_filter="new",
-            since=now - timedelta(hours=1),
             until=now + timedelta(hours=1),
             max_retries=5,
         )
@@ -324,7 +346,6 @@ class TestFindEventsForSubscription:
             db_session=session,
             subscription=sub,
             status_filter="new",
-            since=now - timedelta(hours=1),
             until=now + timedelta(hours=1),
             max_retries=5,
         )
@@ -349,7 +370,6 @@ class TestFindEventsForSubscription:
             db_session=session,
             subscription=sub,
             status_filter="failed",
-            since=now - timedelta(hours=1),
             until=now + timedelta(hours=1),
             max_retries=5,
         )
@@ -374,29 +394,114 @@ class TestFindEventsForSubscription:
             db_session=session,
             subscription=sub,
             status_filter="failed",
-            since=now - timedelta(hours=1),
             until=now + timedelta(hours=1),
             max_retries=5,
         )
         assert event.id not in {e.id for e in events}
 
-    def test_outside_window_excluded(self, session):
-        sub = _make_subscription(session, "user-alice")
+    def test_event_before_active_since_excluded(self, session):
+        """Events older than active_since are always excluded, even with no log row.
+
+        This covers both the pre-subscription case (event existed before the user
+        subscribed) and the disabled-period case (active_since was reset to now()
+        when the subscription was re-enabled).
+        """
+        now = datetime.now(timezone.utc)
+        # Subscription became active 7 days ago.
+        sub = _make_subscription(
+            session, "user-alice", active_since=now - timedelta(days=7)
+        )
+        # Event was emitted 14 days ago — before active_since.
         old_event = _make_event(
             session,
-            created_at=datetime.now(timezone.utc) - timedelta(days=14),
+            created_at=now - timedelta(days=14),
         )
 
-        now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
             db_session=session,
             subscription=sub,
             status_filter="new",
-            since=now - timedelta(days=7),
             until=now,
             max_retries=5,
         )
         assert old_event.id not in {e.id for e in events}
+
+    def test_event_outside_cadence_window_but_after_active_since_is_found(
+        self, session
+    ):
+        """Regression: events that fell outside the old cadence window but have no
+        log row (e.g. because a previous run crashed before writing one) must be
+        picked up on subsequent runs.
+
+        With the old implementation these were silently dropped once the cadence
+        window (e.g. 24 h) advanced past their created_at.  With active_since as
+        the lower bound they are always found.
+        """
+        now = datetime.now(timezone.utc)
+        # Subscription has been active for 48 hours.
+        sub = _make_subscription(
+            session,
+            "user-alice",
+            cadence=NotificationCadence.DAILY,
+            active_since=now - timedelta(hours=48),
+        )
+        # Event was emitted 36 hours ago — inside active_since window but
+        # outside the daily cadence window (now - 24 h).
+        event = _make_event(
+            session,
+            created_at=now - timedelta(hours=36),
+        )
+
+        events = find_events_for_subscription(
+            db_session=session,
+            subscription=sub,
+            status_filter="new",
+            until=now,
+            max_retries=5,
+        )
+        assert event.id in {e.id for e in events}
+
+    def test_explicit_since_can_narrow_window_but_not_below_active_since(self, session):
+        """explicit_since further restricts the window but never expands it past active_since."""
+        now = datetime.now(timezone.utc)
+        active_since = now - timedelta(days=3)
+        sub = _make_subscription(session, "user-alice", active_since=active_since)
+
+        # Event 2 days ago — after active_since.
+        recent_event = _make_event(
+            session, created_at=now - timedelta(days=2), feed_stable_id="mdb-1"
+        )
+        # Event 5 days ago — before active_since (pre-subscription / dead zone).
+        old_event = _make_event(
+            session, created_at=now - timedelta(days=5), feed_stable_id="mdb-2"
+        )
+
+        # explicit_since = now - 1 day: should narrow window further.
+        events = find_events_for_subscription(
+            db_session=session,
+            subscription=sub,
+            status_filter="new",
+            explicit_since=now - timedelta(days=1),
+            until=now,
+            max_retries=5,
+        )
+        ids = {e.id for e in events}
+        # recent_event is outside explicit_since window (2 days > 1 day) → excluded.
+        assert recent_event.id not in ids
+        # old_event is before active_since → also excluded.
+        assert old_event.id not in ids
+
+        # Without explicit_since, recent_event is included; old_event still excluded.
+        events_no_override = find_events_for_subscription(
+            db_session=session,
+            subscription=sub,
+            status_filter="new",
+            until=now,
+            max_retries=5,
+        )
+        ids_no_override = {e.id for e in events_no_override}
+        assert recent_event.id in ids_no_override
+        assert old_event.id not in ids_no_override
 
 
 # ---------------------------------------------------------------------------

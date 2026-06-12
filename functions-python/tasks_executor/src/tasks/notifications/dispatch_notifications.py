@@ -16,65 +16,10 @@
 """dispatch_notifications — match notification_event rows to active subscriptions,
 send emails, and record delivery in notification_log.
 
-Overview
---------
-This task is the central dispatcher for the notification system.  It is designed
-to be invoked by Cloud Scheduler (daily / weekly) or triggered manually.
-
-Payload parameters
-------------------
-cadence : str
-    Which subscription cadence to process: ``'daily'``, ``'weekly'``, or ``'all'``.
-    ``'immediate'`` is architecturally supported but not scheduled in MVP.
-    Defaults to ``'weekly'``.
-dry_run : bool
-    When ``True`` (default), discover and log what *would* be sent but make no DB
-    writes and send no emails.
-status_filter : str
-    ``'new'`` (default) — process events that have no log row yet for a subscription.
-    ``'failed'`` — retry events whose log row has ``status='failed'``.
-    ``'all'`` — process both new and failed.
-user_ids : list[str]
-    Optional.  Restrict processing to the given user IDs (manual trigger / debug).
-force : bool
-    When ``True`` and ``user_ids`` is non-empty, bypass cadence and window checks.
-since_dt : str | None
-    ISO 8601 override for the window start.  Defaults to cadence-appropriate look-back.
-until_dt : str | None
-    ISO 8601 override for the window end.  Defaults to ``now()``.
-max_retries : int
-    Stop retrying a log row once its ``retry_count`` reaches this threshold.
-    Defaults to ``5``.
-
-Retry strategy
---------------
-1. In-run retries: each send is attempted up to 3× with short back-off (1 s, 2 s, 4 s).
-   Handles transient Brevo API errors.
-2. Cross-run retries: failed log rows are picked up when the task is called with
-   ``status_filter='failed'``.  A dedicated Cloud Scheduler job runs this daily.
-3. Permanent failure: once ``retry_count >= max_retries``, the row is marked
-   ``'permanently_failed'`` and excluded from future runs.
-
-admin.event_summary
--------------------
-After every non-dry-run dispatch, a ``notification_event`` of type
-``admin.event_summary`` is created with dispatch statistics in ``extra_data``.
-Admin subscribers (cadence ``'daily'``) receive this digest automatically on the
-next daily run (or immediately if ``cadence='all'``).
-
-Cadence vs digest
------------------
-``cadence`` — *when* the dispatcher runs for a subscription (``'daily'`` | ``'weekly'``).
-``digest``   — *how many emails* per run:
-  * ``True``  → one email batching all pending events in the window.
-  * ``False`` → one email per pending event.
-Both axes are independent.
-
-Architecture note — immediate cadence (non-MVP)
------------------------------------------------
-The code path for ``cadence='immediate'`` is fully implemented here.  To activate
-it, schedule a Cloud Scheduler job that calls this task with ``cadence='immediate'``
-at the desired frequency (e.g. every 15 minutes).  No code changes are needed.
+Invoked by Cloud Scheduler (daily / weekly) or triggered manually via the
+tasks_executor. See ``docs/notifications.md`` for the full architecture,
+payload reference, retry strategy, active_since semantics, and operational
+runbook.
 """
 
 from __future__ import annotations
@@ -184,7 +129,13 @@ def dispatch(
 ) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     until = _parse_dt(until_dt) or now
-    since = _parse_dt(since_dt) or (
+    # explicit_since: only set when the caller explicitly provided since_dt.
+    # Used as an additional lower-bound floor in _find_new_events on top of
+    # each subscription's active_since.  Never replaces active_since.
+    explicit_since: Optional[datetime] = _parse_dt(since_dt)
+    # since is kept for logging only; it is no longer used as the correctness
+    # gate for new-event discovery (active_since fills that role).
+    since = explicit_since or (
         now
         - _CADENCE_WINDOWS.get(cadence, _CADENCE_WINDOWS[NotificationCadence.WEEKLY])
     )
@@ -227,7 +178,7 @@ def dispatch(
             db_session=db_session,
             subscription=subscription,
             status_filter=status_filter,
-            since=since,
+            explicit_since=explicit_since,
             until=until,
             max_retries=max_retries,
         )
@@ -316,18 +267,29 @@ def find_events_for_subscription(
     db_session: Session,
     subscription: NotificationSubscription,
     status_filter: str,
-    since: datetime,
+    explicit_since: Optional[datetime] = None,
     until: datetime,
     max_retries: int,
 ) -> List[NotificationEvent]:
-    """Return events that need to be (re-)sent for this subscription."""
+    """Return events that need to be (re-)sent for this subscription.
+
+    Parameters
+    ----------
+    explicit_since:
+        Optional caller-provided lower bound (from ``since_dt`` payload param).
+        When set, the effective lower bound for new-event discovery becomes
+        ``max(subscription.active_since, explicit_since)``.  It can only
+        *narrow* the window further — it cannot expand it past ``active_since``.
+    until:
+        Upper bound for new-event discovery (exclusive for failed events).
+    """
     events: List[NotificationEvent] = []
 
     if status_filter in ("new", "all"):
         events += _find_new_events(
             db_session=db_session,
             subscription=subscription,
-            since=since,
+            explicit_since=explicit_since,
             until=until,
         )
 
@@ -352,10 +314,39 @@ def _find_new_events(
     *,
     db_session: Session,
     subscription: NotificationSubscription,
-    since: datetime,
+    explicit_since: Optional[datetime],
     until: datetime,
 ) -> List[NotificationEvent]:
-    """Events in the time window with no log row for this subscription yet."""
+    """Events with no log row for this subscription, created on or after active_since.
+
+    Lower-bound logic
+    -----------------
+    The primary lower bound is ``subscription.active_since`` — the moment the
+    subscription last became active.  This ensures:
+
+    * Events emitted **before the subscription was created** are never sent.
+    * Events emitted **while the subscription was disabled** (the dead zone
+      between deactivation and re-activation) are never sent.
+    * Events that previously had no log row due to a mid-run crash are **always
+      retried** on subsequent runs, regardless of how long ago they occurred.
+
+    If the caller provided an explicit ``since_dt`` override, the effective lower
+    bound is ``max(active_since, explicit_since)`` so the override can only
+    *further narrow* the window, never widen it past the eligibility floor.
+    """
+    # Compute the effective lower bound.
+    # active_since is the primary gate: only events created after this subscription
+    # last became active are eligible.  Fall back to created_at for the transition
+    # period before the DB migration is applied and the model regenerated — this is
+    # safe because created_at is the original "subscription exists since" boundary.
+
+    lower_bound: datetime = subscription.active_since or subscription.created_at
+    # Normalize to UTC if the value is timezone-naive (e.g. SQLite in tests).
+    if lower_bound.tzinfo is None:
+        lower_bound = lower_bound.replace(tzinfo=timezone.utc)
+    if explicit_since is not None and explicit_since > lower_bound:
+        lower_bound = explicit_since
+
     already_logged = select(NotificationLog.notification_event_id).where(
         NotificationLog.subscription_id == subscription.id
     )
@@ -363,7 +354,7 @@ def _find_new_events(
         db_session.query(NotificationEvent)
         .filter(
             NotificationEvent.notification_type_id == subscription.notification_type_id,
-            NotificationEvent.created_at >= since,
+            NotificationEvent.created_at >= lower_bound,
             NotificationEvent.created_at <= until,
             not_(NotificationEvent.id.in_(already_logged)),
         )
