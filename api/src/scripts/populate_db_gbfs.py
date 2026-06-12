@@ -17,6 +17,7 @@ from scripts.populate_db import DatabasePopulateHelper, set_up_configs
 from shared.common.license_utils import assign_license_by_url
 from shared.database.database import generate_unique_id, configure_polymorphic_mappers
 from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Externalid
+from shared.notifications.notification_event_service import emit_url_replaced
 
 GBFS_PUBSUB_TOPIC_NAME = "validate-gbfs-feed"
 
@@ -108,9 +109,18 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                 gbfs_feed.operator = row["Name"]
                 gbfs_feed.provider = row["Name"]
                 gbfs_feed.operator_url = row["URL"]
-                gbfs_feed.producer_url = row["Auto-Discovery URL"]
-                gbfs_feed.auto_discovery_url = row["Auto-Discovery URL"]
+                old_producer_url = gbfs_feed.producer_url
+                new_producer_url = row["Auto-Discovery URL"]
+                gbfs_feed.producer_url = new_producer_url
+                gbfs_feed.auto_discovery_url = new_producer_url
                 gbfs_feed.updated_at = datetime.now(pytz.utc)
+                if not is_new_feed and old_producer_url and old_producer_url != new_producer_url:
+                    emit_url_replaced(
+                        feed_stable_id=stable_id,
+                        old_url=old_producer_url,
+                        new_url=new_producer_url,
+                        source="populate_db_gbfs",
+                    )
 
                 if not gbfs_feed.locations:  # If locations are empty, create a new location (no overwrite)
                     country_code = self.get_safe_value(row, "Country Code", "")

@@ -16,6 +16,10 @@ from shared.database_gen.sqlacodegen_models import (
     Location,
     Redirectingid,
 )
+from shared.notifications.notification_event_service import (
+    emit_feed_redirected,
+    emit_url_replaced,
+)
 from utils.data_utils import set_up_defaults
 
 if TYPE_CHECKING:
@@ -200,6 +204,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         )
                         # Flush to avoid FK violation
                         session.flush()
+                        emit_feed_redirected(
+                            source_stable_id=stable_id,
+                            target_stable_id=target_stable_id,
+                            old_url=getattr(feed, "producer_url", None),
+                            new_url=getattr(target_feed, "producer_url", None),
+                            source="populate_db_gtfs",
+                            extra_data={"redirect_comment": comment} if comment else None,
+                        )
 
     def populate_db(self, session: "Session", fetch_url: bool = True):
         """
@@ -252,7 +264,15 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.note = self.get_safe_value(row, "note", "")
             producer_url = self.get_safe_value(row, "urls.direct_download", "")
             if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
+                old_producer_url = feed.producer_url
                 feed.producer_url = producer_url
+                if not is_new_feed and old_producer_url and old_producer_url != producer_url:
+                    emit_url_replaced(
+                        feed_stable_id=stable_id,
+                        old_url=old_producer_url,
+                        new_url=producer_url,
+                        source="populate_db_gtfs",
+                    )
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")

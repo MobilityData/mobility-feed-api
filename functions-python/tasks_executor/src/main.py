@@ -65,6 +65,7 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
+from tasks.notifications.dispatch_notifications import dispatch_notifications_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -173,6 +174,22 @@ tasks = {
             "user_ids (default null), only_not_migrated (default true)."
         ),
         "handler": migrate_firebase_users_handler,
+    },
+    "dispatch_notifications": {
+        "description": (
+            "Match notification_event rows to active subscriptions, send emails via Brevo, "
+            "and record delivery in notification_log. "
+            "Parameters: "
+            "cadence ('daily'|'weekly'|'all', default 'weekly'), "
+            "dry_run (default true), "
+            "status_filter ('new'|'failed'|'all', default 'new'), "
+            "user_ids (list of user IDs for manual trigger, default []), "
+            "force (bypass cadence when user_ids set, default false), "
+            "since_dt (ISO8601 window start override), "
+            "until_dt (ISO8601 window end override), "
+            "max_retries (default 5)."
+        ),
+        "handler": dispatch_notifications_handler,
     },
 }
 

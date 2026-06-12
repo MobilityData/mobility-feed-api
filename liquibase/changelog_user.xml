@@ -13,4 +13,8 @@
     <include file="changes_user/feat_1686.sql" relativeToChangelogFile="true"/>
     <!-- Add migrated_at to app_user for migration tracking -->
     <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
+    <!-- Add notification_event table, cadence/digest on notification_subscription,
+         event FK + retry_count on notification_log, seed feed.url_updated and
+         admin.event_summary notification types (issue #1723) -->
+    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
