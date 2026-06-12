@@ -19,6 +19,8 @@ tags:
     description: "Mobility Database Operations"
   - name: "licenses"
     description: "Licenses of the Mobility Database"
+  - name: "users"
+    description: "User and feature flag management"
 paths:
   /v1/operations/feeds:
     get:
@@ -413,6 +415,232 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LicenseWithRules"
+  /v1/operations/users:
+    get:
+      summary: Search users
+      description: |
+        Returns a paginated list of users. When `search_query` is provided, filters
+        case-insensitively across email, full_name, and legacy_org_name.
+      operationId: getOperationsUsers
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: search_query
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive substring match across email, full_name, and legacy_org_name.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Paginated list of matching users.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of users matching the query, ignoring pagination.
+                  offset:
+                    type: integer
+                    description: Number of items skipped for pagination.
+                  limit:
+                    type: integer
+                    description: Maximum number of items returned.
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+  /v1/operations/users/{user_id}:
+    get:
+      summary: Get a user by ID
+      description: Returns the user profile including their currently assigned feature flags.
+      operationId: getOperationsUser
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      responses:
+        "200":
+          description: User profile with feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+  /v1/operations/users/{user_id}/feature-flags:
+    patch:
+      summary: Replace a user's feature flags
+      description: |
+        Replaces the user's complete set of feature flags in a single call.
+        Flags in the list are assigned; any previously assigned flags not in the list are removed.
+        All provided flag IDs must exist.
+      operationId: patchUserFeatureFlags
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchUserFeatureFlagsRequest"
+      responses:
+        "200":
+          description: Updated user profile with the new feature flag set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User or one of the provided feature flag IDs not found.
+  /v1/operations/feature-flags:
+    get:
+      summary: List all feature flags
+      description: Returns all feature flag definitions.
+      operationId: listFeatureFlags
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of feature flags.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationFeatureFlag"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create a feature flag
+      description: Creates a new feature flag definition.
+      operationId: createFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeatureFlagRequest"
+      responses:
+        "201":
+          description: Feature flag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationFeatureFlag"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+        "409":
+          description: A feature flag with this ID already exists.
+        "422":
+          description: default_value does not match the declared value_type.
+  /v1/operations/feature-flags/{id}:
+    put:
+      summary: Update a feature flag
+      description: Updates the name and/or description of an existing feature flag.
+      operationId: updateFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feature flag slug ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFeatureFlagRequest"
+      responses:
+        "200":
+          description: Updated feature flag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationFeatureFlag"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feature flag not found.
+        "422":
+          description: default_value does not match the declared value_type.
+    delete:
+      summary: Delete a feature flag
+      description: >
+        Deletes a feature flag definition. All user assignments for this flag are removed as well (cascading delete).
+
+      operationId: deleteFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feature flag slug ID.
+      responses:
+        "204":
+          description: Feature flag deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feature flag not found.
 components:
   schemas:
     Redirect:
@@ -751,7 +979,6 @@ components:
                 example: vp
                 description: >
                   The type of realtime entry:
-
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
@@ -868,7 +1095,6 @@ components:
             example: vp
             description: >
               The type of realtime entry:
-
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1717,16 +1943,6 @@ components:
             example: vp
             description: >
               The type of realtime entry:
-
-
-
-
-
-
-
-
-
-
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1964,6 +2180,193 @@ components:
         - gtfs_rt
         - gbfs
       example: gtfs
+    FeatureFlagValue:
+      x-operation: true
+      description: >
+        The value of a feature flag. The type is determined by the flag's value_type field. Possible shapes: boolean (true/false), string, number, array, or object.
+
+    FeatureFlagAssignment:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+      properties:
+        feature_flag_id:
+          type: string
+          description: The ID of the feature flag to assign.
+          example: "beta_editor"
+        value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: Per-user value override. null or absent means use the flag's default_value.
+    UserFeatureFlagState:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+        - value_type
+        - default_value
+      properties:
+        feature_flag_id:
+          type: string
+          description: The feature flag's unique slug.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Human-readable display name.
+          example: "Beta Editor"
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        user_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: The value explicitly set for this user. null means no override — the default applies.
+    OperationFeatureFlag:
+      x-operation: true
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+          example: "Beta Editor"
+        description:
+          type: string
+          nullable: true
+          description: Optional description of what this feature flag enables.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the flag was created.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
+          default: false
+    CreateFeatureFlagRequest:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - value_type
+        - default_value
+      properties:
+        id:
+          type: string
+          description: Unique slug for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+        description:
+          type: string
+          nullable: true
+          description: Optional description.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries. Cannot be changed after creation.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
+          default: false
+    UpdateFeatureFlagRequest:
+      x-operation: true
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: Updated display name.
+        description:
+          type: string
+          nullable: true
+          description: Updated description.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: Updated global default value. value_type cannot be changed.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+
+    OperationUserProfile:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          description: The user's unique identifier.
+          example: "abc123uid"
+        email:
+          type: string
+          format: email
+          description: The user's email address.
+          example: "user@example.com"
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          description: The user's legacy organisation name.
+          example: "Acme Transit"
+        features:
+          type: array
+          description: >
+            All feature flags with their resolved state for this user. Every flag is returned (including those the user has no explicit override for); user_value holds the per-user override when set, otherwise the flag's default_value applies.
+
+          items:
+            $ref: "#/components/schemas/UserFeatureFlagState"
+          default: []
+    PatchUserFeatureFlagsRequest:
+      x-operation: true
+      type: object
+      required:
+        - assignments
+      properties:
+        assignments:
+          type: array
+          description: Complete list of feature flag assignments for this user. Replaces the current set.
+          items:
+            $ref: "#/components/schemas/FeatureFlagAssignment"
+          example:
+            - feature_flag_id: "beta_editor"
+              value: true
+            - feature_flag_id: "max_results"
+              value: 50
   parameters:
     feed_id_path_param:
       x-operation: true
