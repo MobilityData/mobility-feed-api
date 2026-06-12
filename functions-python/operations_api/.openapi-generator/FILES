@@ -24,6 +24,7 @@ src/feeds_gen/models/gbfs_validation_report.py
 src/feeds_gen/models/gbfs_version.py
 src/feeds_gen/models/get_feeds200_response.py
 src/feeds_gen/models/get_matching_licenses_request.py
+src/feeds_gen/models/get_operations_users200_response.py
 src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_feed_availability_check.py

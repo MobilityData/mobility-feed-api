@@ -24,6 +24,9 @@ from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.users_api_base import BaseUsersApi
 from feeds_gen.models.create_feature_flag_request import CreateFeatureFlagRequest
+from feeds_gen.models.get_operations_users200_response import (
+    GetOperationsUsers200Response,
+)
 from feeds_gen.models.operation_feature_flag import OperationFeatureFlag
 from feeds_gen.models.operation_user_profile import OperationUserProfile
 from feeds_gen.models.patch_user_feature_flags_request import (
@@ -97,7 +100,9 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
         db_session=None,
-    ) -> List[OperationUserProfile]:
+    ) -> GetOperationsUsers200Response:
+        limit = limit or 100
+        offset = offset or 0
         q = db_session.query(AppUser).options(_USER_FLAGS_LOAD)
         if search_query:
             pattern = f"%{search_query}%"
@@ -108,9 +113,15 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
                     AppUser.legacy_org_name.ilike(pattern),
                 )
             )
-        users = q.order_by(AppUser.email).offset(offset or 0).limit(limit or 100).all()
+        total = q.order_by(None).count()
+        users = q.order_by(AppUser.email).offset(offset).limit(limit).all()
         all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
-        return [OperationUserProfileImpl.from_orm(u, all_flags) for u in users]
+        return GetOperationsUsers200Response(
+            total=total,
+            offset=offset,
+            limit=limit,
+            users=[OperationUserProfileImpl.from_orm(u, all_flags) for u in users],
+        )
 
     @with_users_db_session
     def get_operations_user(

@@ -88,9 +88,9 @@ def _mock_query(session, result, flags=None):
         mock_q.offset.return_value = mock_q
         mock_q.limit.return_value = mock_q
         mock_q.filter.return_value = mock_q
-        mock_q.all.return_value = (
-            value if isinstance(value, list) else [value] if value else []
-        )
+        all_value = value if isinstance(value, list) else [value] if value else []
+        mock_q.all.return_value = all_value
+        mock_q.count.return_value = len(all_value)
         mock_q.first.return_value = (
             value if not isinstance(value, list) else (value[0] if value else None)
         )
@@ -115,14 +115,18 @@ class TestGetOperationsUsers(unittest.TestCase):
 
         result = self.api.get_operations_users(db_session=self.session)
 
-        self.assertEqual(len(result), 2)
+        self.assertEqual(result.total, 2)
+        self.assertEqual(result.offset, 0)
+        self.assertEqual(result.limit, 100)
+        self.assertEqual(len(result.users), 2)
 
     def test_returns_empty_list_when_no_users(self):
         _mock_query(self.session, [])
 
         result = self.api.get_operations_users(db_session=self.session)
 
-        self.assertEqual(result, [])
+        self.assertEqual(result.total, 0)
+        self.assertEqual(result.users, [])
 
     def test_includes_all_flags_with_user_override(self):
         flag = _make_flag()
@@ -131,9 +135,9 @@ class TestGetOperationsUsers(unittest.TestCase):
 
         result = self.api.get_operations_users(db_session=self.session)
 
-        self.assertEqual(len(result[0].features), 1)
-        self.assertEqual(result[0].features[0].feature_flag_id, "beta_editor")
-        self.assertEqual(result[0].features[0].user_value, True)
+        self.assertEqual(len(result.users[0].features), 1)
+        self.assertEqual(result.users[0].features[0].feature_flag_id, "beta_editor")
+        self.assertEqual(result.users[0].features[0].user_value, True)
 
     def test_returns_all_flags_with_defaults_when_user_has_none(self):
         flag = _make_flag(default_value=False)
@@ -142,10 +146,10 @@ class TestGetOperationsUsers(unittest.TestCase):
 
         result = self.api.get_operations_users(db_session=self.session)
 
-        self.assertEqual(len(result[0].features), 1)
-        self.assertEqual(result[0].features[0].feature_flag_id, "beta_editor")
-        self.assertEqual(result[0].features[0].default_value, False)
-        self.assertIsNone(result[0].features[0].user_value)
+        self.assertEqual(len(result.users[0].features), 1)
+        self.assertEqual(result.users[0].features[0].feature_flag_id, "beta_editor")
+        self.assertEqual(result.users[0].features[0].default_value, False)
+        self.assertIsNone(result.users[0].features[0].user_value)
 
 
 class TestGetOperationsUser(unittest.TestCase):
