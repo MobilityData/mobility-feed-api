@@ -16,7 +16,7 @@ google-cloud-storage
 google-cloud-tasks
 
 # GTFS diff engine
-gtfs-diff-engine==0.1.0
+gtfs-diff-engine
 
 # Configuration
 python-dotenv==1.2.2

@@ -26,6 +26,7 @@ from google.cloud import storage
 from gtfs_diff.engine import diff_feeds
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.database.database import with_db_session
@@ -101,12 +102,18 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
         # return HTTP 200 to suppress GCP retries. If a specific exception type is
         # identified as safely retriable in the future, catch it here and return 500.
         logging.exception(
-            "Failed to generate changelog for %s -> %s",
+            "Failed to generate changelog for feed=%s base=%s new=%s",
+            feed_stable_id,
             base_dataset_stable_id,
             new_dataset_stable_id,
         )
         return flask.make_response(
-            {"status": "error", "error": f"Failed to generate changelog: {e}"}, 200
+            {
+                "status": "error",
+                "error": f"Failed to generate changelog: {e}",
+                "payload": payload,
+            },
+            200,
         )
 
 
@@ -307,7 +314,7 @@ class GtfsChangeTracker:
                 set_={
                     "changelog_url": changelog_url,
                     "diff_summary": diff_summary,
-                    "generated_at": GtfsDatasetChangelog.generated_at.default,
+                    "generated_at": func.now(),
                 },
             )
         )
