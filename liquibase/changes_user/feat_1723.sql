@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_event_feed_stable_id
 ALTER TABLE notification_subscription
     ADD COLUMN IF NOT EXISTS cadence TEXT    NOT NULL DEFAULT 'weekly',
     ADD COLUMN IF NOT EXISTS digest  BOOLEAN NOT NULL DEFAULT true,
-    ADD COLUMN IF NOT EXISTS active_since TIMESTAMPTZ NOT NULL DEFAULT now();
+    ADD COLUMN IF NOT EXISTS active_since TIMESTAMPTZ DEFAULT now();
 
 -- Index to let the dispatcher efficiently find subscriptions to process per run.
 CREATE INDEX IF NOT EXISTS idx_notification_subscription_cadence_active
