@@ -11,7 +11,7 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, GtfsDatasetChang
 from shared.helpers.utils import (
     create_http_task,
     create_http_pmtiles_builder_task,
-    create_http_gtfs_change_tracker_task,
+    create_http_gtfs_datasets_comparer_task,
 )
 
 
@@ -172,7 +172,7 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
                 dataset_stable_id,
             )
         else:
-            create_http_gtfs_change_tracker_task(
+            create_http_gtfs_datasets_comparer_task(
                 feed_stable_id=stable_id,
                 base_dataset_stable_id=previous_dataset.stable_id,
                 new_dataset_stable_id=dataset_stable_id,

@@ -45,7 +45,7 @@ locals {
 
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
 
-  function_gtfs_change_tracker_config = jsondecode(file("${path.module}/../../functions-python/gtfs_change_tracker/function_config.json"))
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -274,11 +274,11 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   }
 }
 
-# Task queue to invoke gtfs_change_tracker function
-resource "google_cloud_tasks_queue" "gtfs_change_tracker_task_queue" {
+# Task queue to invoke gtfs_datasets_comparer function
+resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_task_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "gtfs-change-tracker-queue-${var.environment}-${local.deployment_timestamp}"
+  name     = "gtfs-datasets-comparer-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
     max_concurrent_dispatches = 10
@@ -332,7 +332,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
-      GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_change_tracker_task_queue.name
+      GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_datasets_comparer_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     dynamic "secret_environment_variables" {
@@ -493,10 +493,10 @@ resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-resource "google_cloud_run_service_iam_member" "gtfs_change_tracker_invoker" {
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_invoker" {
   project  = var.project_id
   location = var.gcp_region
-  service  = "${local.function_gtfs_change_tracker_config.name}-${var.environment}"
+  service  = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }

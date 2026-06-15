@@ -535,13 +535,13 @@ def create_http_pmtiles_builder_task(
     )
 
 
-def create_http_gtfs_change_tracker_task(
+def create_http_gtfs_datasets_comparer_task(
     feed_stable_id: str,
     base_dataset_stable_id: str,
     new_dataset_stable_id: str,
 ) -> None:
     """
-    Create a Cloud Task to run the gtfs-change-tracker function for a pair of datasets.
+    Create a Cloud Task to run the gtfs-datasets-comparer function for a pair of datasets.
     """
     from google.cloud import tasks_v2
     import json
@@ -563,7 +563,7 @@ def create_http_gtfs_change_tracker_task(
     create_http_task(
         client,
         body,
-        f"https://{gcp_region}-{project_id}.cloudfunctions.net/gtfs-change-tracker-{gcp_env}",
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/gtfs-datasets-comparer-{gcp_env}",
         project_id,
         gcp_region,
         queue_name,

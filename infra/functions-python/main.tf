@@ -66,8 +66,8 @@ locals {
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
   function_pmtiles_builder_zip = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
 
-  function_gtfs_change_tracker_config = jsondecode(file("${path.module}/../../functions-python/gtfs_change_tracker/function_config.json"))
-  function_gtfs_change_tracker_zip = "${path.module}/../../functions-python/gtfs_change_tracker/.dist/gtfs_change_tracker.zip"
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
+  function_gtfs_datasets_comparer_zip = "${path.module}/../../functions-python/gtfs_datasets_comparer/.dist/gtfs_datasets_comparer.zip"
 }
 
 locals {
@@ -80,7 +80,7 @@ locals {
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
     local.function_pmtiles_builder_config.secret_environment_variables,
-    local.function_gtfs_change_tracker_config.secret_environment_variables
+    local.function_gtfs_datasets_comparer_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -227,10 +227,10 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
 }
 
 # 16. GTFS Change Tracker
-resource "google_storage_bucket_object" "gtfs_change_tracker_zip" {
+resource "google_storage_bucket_object" "gtfs_datasets_comparer_zip" {
   bucket = google_storage_bucket.functions_bucket.name
-  name   = "gtfs-change-tracker-${substr(filebase64sha256(local.function_gtfs_change_tracker_zip), 0, 10)}.zip"
-  source = local.function_gtfs_change_tracker_zip
+  name   = "gtfs-datasets-comparer-${substr(filebase64sha256(local.function_gtfs_datasets_comparer_zip), 0, 10)}.zip"
+  source = local.function_gtfs_datasets_comparer_zip
 }
 
 # Web app revalidation secret
@@ -1045,20 +1045,20 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" 
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-# Grant execution permission to batchfunctions service account to the gtfs_change_tracker function
-resource "google_cloudfunctions2_function_iam_member" "gtfs_change_tracker_invoker_batch_sa" {
+# Grant execution permission to batchfunctions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker_batch_sa" {
   project        = var.project_id
   location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.gtfs_change_tracker.name
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
-# Grant execution permission to the functions service account to the gtfs_change_tracker function
-resource "google_cloudfunctions2_function_iam_member" "gtfs_change_tracker_invoker" {
+# Grant execution permission to the functions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.gtfs_change_tracker.name
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -1257,21 +1257,21 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
 }
 
 
-# 16. functions/gtfs_change_tracker cloud function
-resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
-  name        = "${local.function_gtfs_change_tracker_config.name}-${var.environment}"
+# 16. functions/gtfs_datasets_comparer cloud function
+resource "google_cloudfunctions2_function" "gtfs_datasets_comparer" {
+  name        = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
   project     = var.project_id
-  description = local.function_gtfs_change_tracker_config.description
+  description = local.function_gtfs_datasets_comparer_config.description
   location    = var.gcp_region
   depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = local.function_gtfs_change_tracker_config.entry_point
+    entry_point = local.function_gtfs_datasets_comparer_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.gtfs_change_tracker_zip.name
+        object = google_storage_bucket_object.gtfs_datasets_comparer_zip.name
       }
     }
   }
@@ -1285,19 +1285,19 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
       # GTFS_DIFF_DUCKDB_TMPDIR: directs DuckDB spill files to the in-memory volume.
       GTFS_DIFF_DUCKDB_TMPDIR = "/tmp/in-memory"
     }
-    available_memory                 = local.function_gtfs_change_tracker_config.memory
-    timeout_seconds                  = local.function_gtfs_change_tracker_config.timeout
-    available_cpu                    = local.function_gtfs_change_tracker_config.available_cpu
-    max_instance_request_concurrency = local.function_gtfs_change_tracker_config.max_instance_request_concurrency
-    max_instance_count               = local.function_gtfs_change_tracker_config.max_instance_count
-    min_instance_count               = local.function_gtfs_change_tracker_config.min_instance_count
+    available_memory                 = local.function_gtfs_datasets_comparer_config.memory
+    timeout_seconds                  = local.function_gtfs_datasets_comparer_config.timeout
+    available_cpu                    = local.function_gtfs_datasets_comparer_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_datasets_comparer_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_datasets_comparer_config.max_instance_count
+    min_instance_count               = local.function_gtfs_datasets_comparer_config.min_instance_count
     service_account_email            = google_service_account.functions_service_account.email
-    ingress_settings                 = local.function_gtfs_change_tracker_config.ingress_settings
+    ingress_settings                 = local.function_gtfs_datasets_comparer_config.ingress_settings
     vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
 
     dynamic "secret_environment_variables" {
-      for_each = local.function_gtfs_change_tracker_config.secret_environment_variables
+      for_each = local.function_gtfs_datasets_comparer_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -1311,9 +1311,9 @@ resource "google_cloudfunctions2_function" "gtfs_change_tracker" {
 # google_cloudfunctions2_function does not expose volume mounts in its schema.
 # This terraform_data resource mounts both the datasets GCS bucket and an in-memory tmpfs
 # on the underlying Cloud Run service after the function is deployed.
-resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
+resource "terraform_data" "gtfs_datasets_comparer_gcs_mount" {
   triggers_replace = {
-    function_name = google_cloudfunctions2_function.gtfs_change_tracker.name
+    function_name = google_cloudfunctions2_function.gtfs_datasets_comparer.name
     bucket        = "${var.datasets_bucket_name}-${var.environment}"
     region        = var.gcp_region
     project       = var.project_id
@@ -1321,7 +1321,7 @@ resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.gtfs_change_tracker.name} \
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
         --project ${var.project_id} \
         --region ${var.gcp_region} \
         --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
@@ -1337,12 +1337,12 @@ resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
       if echo "$MOUNTS" | grep -q "in-memory"; then
         echo "In-memory volume already mounted, skipping."
       else
-        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=${var.gtfs_change_tracker_in_memory_size}"
+        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=${var.gtfs_datasets_comparer_in_memory_size}"
         ARGS="$ARGS --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory"
       fi
 
       if [ -n "$ARGS" ]; then
-        gcloud run services update ${google_cloudfunctions2_function.gtfs_change_tracker.name} \
+        gcloud run services update ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
           --project ${var.project_id} \
           --region ${var.gcp_region} \
           $ARGS \
@@ -1351,7 +1351,7 @@ resource "terraform_data" "gtfs_change_tracker_gcs_mount" {
     EOT
   }
 
-  depends_on = [google_cloudfunctions2_function.gtfs_change_tracker]
+  depends_on = [google_cloudfunctions2_function.gtfs_datasets_comparer]
 }
 
 # Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
