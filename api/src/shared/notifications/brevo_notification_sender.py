@@ -29,19 +29,19 @@ BREVO_SENDER_NAME
     From-name (default: ``Mobility Database``).
 BREVO_TEMPLATE_FEED_URL_UPDATED
     Integer Brevo template ID for ``feed.url_updated`` single-event emails.
-    When not set, a plain-text fallback is used.
+    When not set, an inline HTML fallback is used.
 BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST
     Integer Brevo template ID for ``feed.url_updated`` digest emails.
-    When not set, a plain-text fallback is used.
+    When not set, an inline HTML fallback is used.
 BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY
     Integer Brevo template ID for ``admin.event_summary`` emails.
-    When not set, a plain-text fallback is used.
+    When not set, an inline HTML fallback is used.
 
 Design
 ------
 * ``send_single`` sends one email for one notification_event.
 * ``send_digest`` sends one email batching multiple notification_events.
-* Both raise ``BrevSendError`` on failure so the caller can update
+* Both raise ``BrevoSendError`` on failure so the caller can update
   ``notification_log.status`` and ``retry_count`` accordingly.
 * Template params are passed as ``params`` to the Brevo API; Brevo renders
   them via its template engine.  When no template ID is configured, a minimal
@@ -55,10 +55,26 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from shared.notifications.notification_constants import (
+    NotificationFeedRole,
+    NotificationTypeId,
+)
+from shared.users_database_gen.sqlacodegen_models import NotificationEvent
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SENDER_EMAIL = "noreply@mobilitydatabase.org"
 _DEFAULT_SENDER_NAME = "Mobility Database"
+
+_DIGEST_EMAIL_SUBJECT_DICTIONARY = {
+    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] %s feed URL update%s",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+}
+
+_SINGLE_EMAIL_SUBJECT_DICTIONARY = {
+    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] Feed %s has been updated",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+}
 
 
 class BrevoSendError(Exception):
@@ -77,14 +93,173 @@ class EmailRecipient:
         return d
 
 
+def get_template_id_by_notification(
+    notification_type_id: str,
+    *,
+    digest: bool = False,
+) -> Optional[int]:
+    match notification_type_id:
+        case NotificationTypeId.FEED_URL_UPDATED:
+            if digest:
+                return _int_env("BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST")
+            return _int_env("BREVO_TEMPLATE_FEED_URL_UPDATED")
+        case NotificationTypeId.ADMIN_EVENT_SUMMARY:
+            return _int_env("BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY")
+        case _:
+            return None
+
+
 # ---------------------------------------------------------------------------
-# Public API
+# Event accessors — read feeds (from notification_event_feed) and payload
 # ---------------------------------------------------------------------------
+
+
+def _feeds_with_role(event, role: str) -> List[str]:
+    """Return the stable_ids of feeds attached to ``event`` with the given role."""
+    return [f.feed_stable_id for f in (getattr(event, "notification_event_feeds", None) or []) if f.role == role]
+
+
+def subject_feed(event) -> Optional[str]:
+    """First feed in the 'subject' role, or None."""
+    feeds = _feeds_with_role(event, NotificationFeedRole.SUBJECT)
+    return feeds[0] if feeds else None
+
+
+def target_feed(event) -> Optional[str]:
+    """First feed in the 'target' role, or None."""
+    feeds = _feeds_with_role(event, NotificationFeedRole.TARGET)
+    return feeds[0] if feeds else None
+
+
+def event_payload(event) -> Dict[str, Any]:
+    """Type-specific payload dict for ``event`` (never None)."""
+    return event.payload or {}
+
+
+# ---------------------------------------------------------------------------
+# Email content builders (plain-HTML fallback when no template is configured)
+# ---------------------------------------------------------------------------
+
+
+def build_single_subject(event) -> str:
+    template = _SINGLE_EMAIL_SUBJECT_DICTIONARY.get(event.notification_type_id)
+    if template is None:
+        return f"[Mobility Database] Notification for {event.notification_type_id}"
+
+    if "%s" in template:
+        return template % (subject_feed(event) or "unknown")
+    return template
+
+
+def build_digest_subject(events: List) -> str:
+    count = len(events)
+    type_id = events[0].notification_type_id if events else "notification"
+    template = _DIGEST_EMAIL_SUBJECT_DICTIONARY.get(type_id)
+    if template is None:
+        return f"[Mobility Database] {count} notification{'s' if count != 1 else ''}"
+
+    placeholder_count = template.count("%s")
+    if placeholder_count == 2:
+        return template % (count, "s" if count != 1 else "")
+    if placeholder_count == 1:
+        return template % count
+    return template
+
+
+def build_params_feed_url_updated(events: List, subscription):
+    return {
+        "event_count": len(events),
+        "subscription_id": subscription.id,
+        "events": [
+            {
+                "feed_stable_id": subject_feed(e),
+                "target_feed_stable_id": target_feed(e),
+                "event_subtype": e.event_subtype,
+                "old_url": event_payload(e).get("old_url") or "",
+                "new_url": event_payload(e).get("new_url") or "",
+                "source": e.source or "",
+                "created_at": e.created_at.isoformat() if e.created_at else "",
+                "payload": event_payload(e),
+            }
+            for e in events
+        ],
+    }
+
+
+def build_params_admin_event_summary(events: List, subscription):
+    summary_event = events[0] if events else None
+    return {
+        "event_count": len(events),
+        "subscription_id": subscription.id,
+        "summary": event_payload(summary_event) if summary_event else {},
+    }
+
+
+def build_params_by_notification(
+    notification_type_id: str, events: List[NotificationEvent], subscription
+) -> Dict[str, Any]:
+    match notification_type_id:
+        case NotificationTypeId.FEED_URL_UPDATED:
+            return build_params_feed_url_updated(events, subscription)
+        case NotificationTypeId.ADMIN_EVENT_SUMMARY:
+            return build_params_admin_event_summary(events, subscription)
+        case _:
+            raise ValueError(f"Unsupported notification type for Brevo params: {notification_type_id}")
+
+
+def build_single_html(event) -> str:
+    payload = event_payload(event)
+    if event.event_subtype == "feed_redirected":
+        return (
+            f"<p>Feed <strong>{subject_feed(event)}</strong> has been deprecated "
+            f"and now redirects to <strong>{target_feed(event)}</strong>.</p>"
+            f"<p>New URL: <a href='{payload.get('new_url')}'>{payload.get('new_url')}</a></p>"
+        )
+    return (
+        f"<p>The URL for feed <strong>{subject_feed(event)}</strong> has changed.</p>"
+        f"<p>Old URL: {payload.get('old_url')}</p>"
+        f"<p>New URL: <a href='{payload.get('new_url')}'>{payload.get('new_url')}</a></p>"
+    )
+
+
+def build_digest_html(events: List) -> str:
+    if not events:
+        return "<p>No feed URL changes in this period.</p>"
+
+    if events[0].notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
+        rows = "".join(
+            f"<tr><td>{subject_feed(e) or '-'}</td>"
+            f"<td>{e.event_subtype}</td>"
+            f"<td>{event_payload(e).get('emails_sent', event_payload(e).get('sent', 0))}</td>"
+            f"<td>{event_payload(e).get('emails_failed', event_payload(e).get('failed', 0))}"
+            f"</td></tr>"
+            for e in events
+        )
+        return (
+            "<h2>Notification Dispatch Summary</h2>"
+            "<table border='1'><thead>"
+            "<tr><th>Feed</th><th>Type</th><th>Sent</th><th>Failed</th></tr>"
+            f"</thead><tbody>{rows}</tbody></table>"
+        )
+
+    rows = "".join(
+        f"<tr><td>{subject_feed(e)}</td><td>{e.event_subtype}</td>"
+        f"<td>{event_payload(e).get('old_url') or '-'}</td>"
+        f"<td>{event_payload(e).get('new_url') or '-'}</td>"
+        f"<td>{e.source or '-'}</td></tr>"
+        for e in events
+    )
+    return (
+        "<h2>Feed URL Updates</h2>"
+        "<table border='1'><thead>"
+        "<tr><th>Feed</th><th>Type</th><th>Old URL</th><th>New URL</th><th>Source</th></tr>"
+        f"</thead><tbody>{rows}</tbody></table>"
+    )
 
 
 def send_single(
     recipient: EmailRecipient,
-    notification_event,  # NotificationEvent ORM object
+    notification_event: NotificationEvent,  # NotificationEvent ORM object
     subscription,  # NotificationSubscription ORM object
 ) -> None:
     """Send a single-event notification email.
@@ -103,10 +278,18 @@ def send_single(
     BrevoSendError
         When the Brevo API returns an error.
     """
-    template_id = _int_env("BREVO_TEMPLATE_FEED_URL_UPDATED")
-    params = _build_single_params(notification_event, subscription)
-    subject = _build_single_subject(notification_event)
-    html = _build_single_html(notification_event) if template_id is None else None
+    template_id = get_template_id_by_notification(
+        notification_event.notification_type_id,
+        digest=False,
+    )
+    params = build_params_by_notification(
+        notification_event.notification_type_id,
+        [notification_event],
+        subscription,
+    )
+    subject = build_single_subject(notification_event)
+    # This is case the HTML fallback is used, so we don't need to pass html_content
+    html = build_single_html(notification_event) if template_id is None else None
 
     _send(
         recipient=recipient,
@@ -144,14 +327,20 @@ def send_digest(
 
     notification_type_id = notification_events[0].notification_type_id
 
-    if notification_type_id == "admin.event_summary":
-        template_id = _int_env("BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY")
-    else:
-        template_id = _int_env("BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST")
+    template_id = get_template_id_by_notification(notification_type_id, digest=True)
+    if template_id is None:
+        logger.info(
+            "No Brevo template configured for notification type %s; using HTML fallback",
+            notification_type_id,
+        )
 
-    params = _build_digest_params(notification_events, subscription)
-    subject = _build_digest_subject(notification_events)
-    html = _build_digest_html(notification_events) if template_id is None else None
+    params = build_params_by_notification(
+        notification_type_id,
+        notification_events,
+        subscription,
+    )
+    subject = build_digest_subject(notification_events)
+    html = build_digest_html(notification_events) if template_id is None else None
 
     _send(
         recipient=recipient,
@@ -180,6 +369,7 @@ def _send(
     """
     try:
         import sib_api_v3_sdk
+        from sib_api_v3_sdk.rest import ApiException
     except ImportError as exc:
         raise BrevoSendError(f"sib_api_v3_sdk is not installed: {exc}") from exc
 
@@ -188,7 +378,7 @@ def _send(
         raise BrevoSendError("BREVO_API_KEY environment variable is not set")
 
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key["api-key"] = api_key
+    configuration.api_key = {"api-key": api_key}
 
     client = sib_api_v3_sdk.ApiClient(configuration)
     api = sib_api_v3_sdk.TransactionalEmailsApi(client)
@@ -212,7 +402,7 @@ def _send(
             recipient.email,
             getattr(result, "message_id", "n/a"),
         )
-    except sib_api_v3_sdk.rest.ApiException as exc:
+    except ApiException as exc:
         raise BrevoSendError(f"Brevo API error {exc.status} sending to {recipient.email}: {exc.reason}") from exc
     except Exception as exc:
         raise BrevoSendError(f"Unexpected error sending to {recipient.email}: {exc}") from exc
@@ -228,102 +418,3 @@ def _int_env(var: str) -> Optional[int]:
     except ValueError:
         logger.warning("Environment variable %s=%r is not a valid integer; ignoring", var, val)
         return None
-
-
-# ---------------------------------------------------------------------------
-# Email content builders (plain-HTML fallback when no template is configured)
-# ---------------------------------------------------------------------------
-
-
-def _build_single_subject(event) -> str:
-    if event.update_type == "feed_redirected":
-        return f"[Mobility Database] Feed {event.feed_stable_id} has been redirected"
-    return f"[Mobility Database] Feed {event.feed_stable_id} URL updated"
-
-
-def _build_digest_subject(events: List) -> str:
-    count = len(events)
-    type_id = events[0].notification_type_id if events else "notification"
-    if type_id == "admin.event_summary":
-        return "[Mobility Database] Daily notification dispatch summary"
-    return f"[Mobility Database] {count} feed URL update{'s' if count != 1 else ''}"
-
-
-def _build_single_params(event, subscription) -> Dict[str, Any]:
-    return {
-        "feed_stable_id": event.feed_stable_id,
-        "target_feed_stable_id": event.target_feed_stable_id,
-        "update_type": event.update_type,
-        "old_url": event.old_url or "",
-        "new_url": event.new_url or "",
-        "source": event.source or "",
-        "event_created_at": event.created_at.isoformat() if event.created_at else "",
-        "subscription_id": subscription.id,
-    }
-
-
-def _build_digest_params(events: List, subscription) -> Dict[str, Any]:
-    return {
-        "event_count": len(events),
-        "subscription_id": subscription.id,
-        "events": [
-            {
-                "feed_stable_id": e.feed_stable_id,
-                "target_feed_stable_id": e.target_feed_stable_id,
-                "update_type": e.update_type,
-                "old_url": e.old_url or "",
-                "new_url": e.new_url or "",
-                "source": e.source or "",
-                "created_at": e.created_at.isoformat() if e.created_at else "",
-                "extra_data": e.extra_data or {},
-            }
-            for e in events
-        ],
-    }
-
-
-def _build_single_html(event) -> str:
-    if event.update_type == "feed_redirected":
-        return (
-            f"<p>Feed <strong>{event.feed_stable_id}</strong> has been deprecated "
-            f"and now redirects to <strong>{event.target_feed_stable_id}</strong>.</p>"
-            f"<p>New URL: <a href='{event.new_url}'>{event.new_url}</a></p>"
-        )
-    return (
-        f"<p>The URL for feed <strong>{event.feed_stable_id}</strong> has changed.</p>"
-        f"<p>Old URL: {event.old_url}</p>"
-        f"<p>New URL: <a href='{event.new_url}'>{event.new_url}</a></p>"
-    )
-
-
-def _build_digest_html(events: List) -> str:
-    if not events:
-        return "<p>No feed URL changes in this period.</p>"
-
-    if events[0].notification_type_id == "admin.event_summary":
-        rows = "".join(
-            f"<tr><td>{e.feed_stable_id or '-'}</td>"
-            f"<td>{e.update_type}</td>"
-            f"<td>{(e.extra_data or {}).get('sent', 0)}</td>"
-            f"<td>{(e.extra_data or {}).get('failed', 0)}</td></tr>"
-            for e in events
-        )
-        return (
-            "<h2>Notification Dispatch Summary</h2>"
-            "<table border='1'><thead>"
-            "<tr><th>Feed</th><th>Type</th><th>Sent</th><th>Failed</th></tr>"
-            f"</thead><tbody>{rows}</tbody></table>"
-        )
-
-    rows = "".join(
-        f"<tr><td>{e.feed_stable_id}</td><td>{e.update_type}</td>"
-        f"<td>{e.old_url or '-'}</td><td>{e.new_url or '-'}</td>"
-        f"<td>{e.source or '-'}</td></tr>"
-        for e in events
-    )
-    return (
-        "<h2>Feed URL Updates</h2>"
-        "<table border='1'><thead>"
-        "<tr><th>Feed</th><th>Type</th><th>Old URL</th><th>New URL</th><th>Source</th></tr>"
-        f"</thead><tbody>{rows}</tbody></table>"
-    )

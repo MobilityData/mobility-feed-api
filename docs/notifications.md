@@ -59,16 +59,16 @@ Because these are separate PostgreSQL instances, event creation is **best-effort
 | `feed.url_updated` | Fired when a feed URL changes in-place (`url_replaced`) or a feed is deprecated and redirected to another feed (`feed_redirected`). |
 | `admin.event_summary` | Daily digest for admin subscribers summarising dispatcher run statistics. |
 
-### `feed.url_updated` — `update_type` values
+### `feed.url_updated` — `event_subtype` values
 
-| `update_type` | Trigger |
+| `event_subtype` | Trigger |
 |---------------|---------|
 | `feed_redirected` | A new `Redirectingid` row is created; source feed is deprecated. |
 | `url_replaced` | `Feed.producer_url` is updated in-place by automation or an operator. |
 
-### `admin.event_summary` — `update_type` values
+### `admin.event_summary` — `event_subtype` values
 
-| `update_type` | Trigger |
+| `event_subtype` | Trigger |
 |---------------|---------|
 | `dispatch_summary` | Created after every non-dry-run dispatcher invocation. |
 
@@ -77,6 +77,11 @@ Because these are separate PostgreSQL instances, event creation is **best-effort
 ## Database Schema
 
 All notification tables live in the **users DB**.
+
+The schema is deliberately **generic** so new notification types reuse it without DDL changes:
+`notification_event` holds only type-agnostic columns, the feeds an event is about live in a
+separate `notification_event_feed` link table (so one event can reference multiple feeds), and
+**all type-specific data goes in the JSONB `payload`**.
 
 ### `notification_type`
 
@@ -95,14 +100,38 @@ One row per real-world change event.  Created by the integration points below.
 |--------|------|-------|
 | `id` | TEXT PK | UUID v4 |
 | `notification_type_id` | TEXT FK | `→ notification_type.id` |
-| `update_type` | TEXT | `feed_redirected` \| `url_replaced` \| `dispatch_summary` |
-| `feed_stable_id` | TEXT | Stable ID of the changed feed |
-| `target_feed_stable_id` | TEXT | For `feed_redirected`: the new feed |
-| `old_url` | TEXT | Previous `producer_url` |
-| `new_url` | TEXT | New `producer_url` |
+| `event_subtype` | TEXT | Discriminator within the type (`feed_redirected` \| `url_replaced` \| `dispatch_summary` \| ...) |
 | `source` | TEXT | Which process emitted this (see source constants) |
-| `extra_data` | JSONB | Free-form payload (redirect comment, dispatch stats, etc.) |
+| `payload` | JSONB | **All type-specific data** (see payload conventions below) |
 | `created_at` | TIMESTAMPTZ | Auto-set by DB |
+
+### `notification_event_feed`
+
+Relates one event to one-or-more feeds. Lets a single event reference multiple feeds (e.g. a
+redirect has both a source and a target feed) and drives `feed_ids` subscription filtering.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID v4 |
+| `notification_event_id` | TEXT FK | `→ notification_event.id ON DELETE CASCADE` |
+| `feed_stable_id` | TEXT | The referenced feed |
+| `role` | TEXT | `'subject'` (default) \| `'target'` |
+
+**Unique constraint** on `(notification_event_id, feed_stable_id, role)`.
+
+### `payload` conventions per type
+
+Non-feed entities (location, dataset) also live in `payload` — they are type-specific and not used
+for the cross-cutting `feed_ids` filter.
+
+| Type / subtype | Feeds (`role`) | `payload` keys |
+|----------------|----------------|----------------|
+| `feed.url_updated` / `feed_redirected` | old (`subject`), new (`target`) | `old_url`, `new_url` |
+| `feed.url_updated` / `url_replaced` | feed (`subject`) | `old_url`, `new_url` |
+| `location.feed_added` (#1725) | feed (`subject`) | `location_id`, `location_name`, `data_type`, `country`, `region`, `provider` |
+| `feed.url_availability` (#1726) | feed (`subject`) | `feed_url`, `http_status`, `error_reason`, `first_failure_at`, `latest_checked_at`, `recovery_at`, `outage_duration` |
+| `feed.coverage` (#1727) | feed (`subject`) | `latest_dataset_id`, `coverage_end_date`, `days_remaining`, `days_expired`, `feed_url`, `guidance` |
+| `admin.event_summary` / `dispatch_summary` | — | `emails_sent`, `emails_failed`, ..., `cadence` |
 
 ### `notification_subscription`
 
@@ -110,7 +139,7 @@ One row per real-world change event.  Created by the integration points below.
 |--------|------|---------|-------|
 | `cadence` | TEXT | `'weekly'` | `'immediate'` \| `'daily'` \| `'weekly'` |
 | `digest` | BOOLEAN | `true` | `true` = one batched email; `false` = one email per event |
-| `filter_params` | JSONB | `null` | `null` = all feeds; `{"feed_ids": ["mdb-1"]}` = specific feeds |
+| `filter_params` | JSONB | `null` | `null` = all feeds; `{"feed_ids": ["mdb-1"]}` = events referencing any of those feeds |
 
 ### `notification_log`
 
@@ -126,11 +155,15 @@ One row per real-world change event.  Created by the integration points below.
 
 ## Event Creation — Integration Points
 
-`notification_event` rows are created by calling helpers from
-`shared/notifications/notification_event_service.py`.
+`notification_event` rows (and their `notification_event_feed` rows) are created by calling helpers
+from `shared/notifications/notification_event_service.py`.
 
-### `emit_feed_redirected(source_stable_id, target_stable_id, old_url, new_url, source)`
-### `emit_url_replaced(feed_stable_id, old_url, new_url, source)`
+### `emit_feed_redirected(source_stable_id, target_stable_id, old_url, new_url, source, extra_data=None)`
+### `emit_url_replaced(feed_stable_id, old_url, new_url, source, extra_data=None)`
+
+These wrap the generic `_emit(notification_type_id, event_subtype, source, feeds, payload)`.
+`old_url`/`new_url` are stored in `payload`; the feed(s) become `notification_event_feed` rows.
+Any `extra_data` is merged into `payload`.
 
 Both functions are **fire-and-forget**: if `USERS_DATABASE_URL` is not set, or if the write fails, a warning is logged and the calling code continues normally.
 
@@ -284,19 +317,25 @@ When a template ID env var is not set, a **plain HTML fallback** is generated in
 
 ### Template parameters (`params`)
 
-The following params are passed to Brevo templates (accessible in templates as `{{ params.feed_stable_id }}`, etc.):
+The following params are passed to Brevo templates (accessible in templates as `{{ params.events[0].feed_stable_id }}`, etc.). Both single and digest sends use the same `event_count` / `events[]` shape:
 
-**Single event**:
+**Single event** (`events` has one entry):
 ```json
 {
-  "feed_stable_id": "mdb-1234",
-  "target_feed_stable_id": "tdg-5678",
-  "update_type": "feed_redirected",
-  "old_url": "https://...",
-  "new_url": "https://...",
-  "source": "tdg_redirects",
-  "event_created_at": "2026-06-09T12:00:00+00:00",
-  "subscription_id": "sub-uuid"
+  "event_count": 1,
+  "subscription_id": "sub-uuid",
+  "events": [
+    {
+      "feed_stable_id": "mdb-1234",
+      "target_feed_stable_id": "tdg-5678",
+      "event_subtype": "feed_redirected",
+      "old_url": "https://...",
+      "new_url": "https://...",
+      "source": "tdg_redirects",
+      "created_at": "2026-06-09T12:00:00+00:00",
+      "payload": { "old_url": "https://...", "new_url": "https://..." }
+    }
+  ]
 }
 ```
 
@@ -305,7 +344,7 @@ The following params are passed to Brevo templates (accessible in templates as `
 {
   "event_count": 3,
   "subscription_id": "sub-uuid",
-  "events": [{ "feed_stable_id": "...", ... }, ...]
+  "events": [{ "feed_stable_id": "...", "event_subtype": "...", ... }, ...]
 }
 ```
 
@@ -313,7 +352,7 @@ The following params are passed to Brevo templates (accessible in templates as `
 
 ## Admin Event Summary
 
-After every **non-dry-run** dispatcher invocation, a `notification_event` of type `admin.event_summary` / `dispatch_summary` is created with dispatch statistics in `extra_data`:
+After every **non-dry-run** dispatcher invocation, a `notification_event` of type `admin.event_summary` / `dispatch_summary` is created with dispatch statistics in `payload`:
 
 ```json
 {
@@ -397,6 +436,6 @@ Until this is added, `populate_db` scripts will log a warning and skip notificat
 ## Future Work
 
 - **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `dispatch_notifications` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
-- **Additional notification types**: Add a new `notification_type` row + call `_emit()` in `notification_event_service.py`. The dispatcher, delivery, and retry infrastructure is reused automatically.
+- **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
 - **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
 - **Unsubscribe link**: Pass `subscription_id` in Brevo template params; build a one-click unsubscribe endpoint that sets `notification_subscription.active = false`.

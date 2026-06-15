@@ -16,9 +16,9 @@
 """Notification system string constants.
 
 These classes act as namespaced string constants for values stored in the
-``notification_type.id``, ``notification_event.update_type``,
-``notification_subscription.cadence``, ``notification_log.status``, and
-``notification_event.source`` columns.
+``notification_type.id``, ``notification_event.event_subtype``,
+``notification_subscription.cadence``, ``notification_log.status``,
+``notification_event.source``, and ``notification_event_feed.role`` columns.
 
 Usage
 -----
@@ -29,6 +29,7 @@ Usage
         NotificationCadence,
         NotificationLogStatus,
         NotificationSource,
+        NotificationFeedRole,
     )
 """
 
@@ -41,7 +42,7 @@ class NotificationTypeId:
 
 
 class FeedUrlUpdateType:
-    """Allowed values for ``notification_event.update_type`` when
+    """Allowed values for ``notification_event.event_subtype`` when
     ``notification_type_id == NotificationTypeId.FEED_URL_UPDATED``."""
 
     URL_REPLACED = "url_replaced"
@@ -49,10 +50,18 @@ class FeedUrlUpdateType:
 
 
 class AdminEventUpdateType:
-    """Allowed values for ``notification_event.update_type`` when
+    """Allowed values for ``notification_event.event_subtype`` when
     ``notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY``."""
 
     DISPATCH_SUMMARY = "dispatch_summary"
+
+
+class NotificationFeedRole:
+    """Allowed values for ``notification_event_feed.role`` — the role a feed
+    plays within a notification event."""
+
+    SUBJECT = "subject"  # the feed the event is primarily about
+    TARGET = "target"  # the destination feed (e.g. redirect target)
 
 
 class NotificationCadence:

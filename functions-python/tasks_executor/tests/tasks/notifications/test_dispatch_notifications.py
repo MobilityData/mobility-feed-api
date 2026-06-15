@@ -39,6 +39,7 @@ from shared.notifications.notification_constants import (
     AdminEventUpdateType,
     FeedUrlUpdateType,
     NotificationCadence,
+    NotificationFeedRole,
     NotificationLogStatus,
     NotificationTypeId,
 )
@@ -46,6 +47,7 @@ from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     Base,
     NotificationEvent,
+    NotificationEventFeed,
     NotificationLog,
     NotificationSubscription,
     NotificationType,
@@ -201,20 +203,47 @@ def _make_event(
     created_at: datetime = None,
     old_url: str = "https://old.example.com",
     new_url: str = "https://new.example.com",
+    target_feed_stable_id: str = None,
 ) -> NotificationEvent:
     event = NotificationEvent(
         id=_uid(),
         notification_type_id=notification_type_id,
-        update_type=update_type,
-        feed_stable_id=feed_stable_id,
-        old_url=old_url,
-        new_url=new_url,
+        event_subtype=update_type,
         source="test",
+        payload={"old_url": old_url, "new_url": new_url},
         created_at=created_at or datetime.now(timezone.utc),
     )
     sess.add(event)
     sess.flush()
+    if feed_stable_id is not None:
+        sess.add(
+            NotificationEventFeed(
+                id=_uid(),
+                notification_event_id=event.id,
+                feed_stable_id=feed_stable_id,
+                role=NotificationFeedRole.SUBJECT,
+            )
+        )
+    if target_feed_stable_id is not None:
+        sess.add(
+            NotificationEventFeed(
+                id=_uid(),
+                notification_event_id=event.id,
+                feed_stable_id=target_feed_stable_id,
+                role=NotificationFeedRole.TARGET,
+            )
+        )
+    sess.flush()
+    sess.refresh(event)
     return event
+
+
+def _mock_event(*feed_ids):
+    """A lightweight stand-in for a NotificationEvent exposing
+    ``notification_event_feeds`` for apply_filter_params tests."""
+    return MagicMock(
+        notification_event_feeds=[MagicMock(feed_stable_id=fid) for fid in feed_ids]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -226,8 +255,8 @@ class TestApplyFilterParams:
     def test_no_filter_returns_all(self, session):
         sub = _make_subscription(session, "user-alice", filter_params=None)
         events = [
-            MagicMock(feed_stable_id="mdb-1"),
-            MagicMock(feed_stable_id="mdb-2"),
+            _mock_event("mdb-1"),
+            _mock_event("mdb-2"),
         ]
         result = apply_filter_params(events, sub)
         assert result == events
@@ -236,14 +265,14 @@ class TestApplyFilterParams:
         sub = _make_subscription(
             session, "user-alice", filter_params={"feed_ids": ["mdb-1"]}
         )
-        e1 = MagicMock(feed_stable_id="mdb-1")
-        e2 = MagicMock(feed_stable_id="mdb-2")
+        e1 = _mock_event("mdb-1")
+        e2 = _mock_event("mdb-2")
         result = apply_filter_params([e1, e2], sub)
         assert result == [e1]
 
     def test_empty_feed_ids_returns_all(self, session):
         sub = _make_subscription(session, "user-alice", filter_params={"feed_ids": []})
-        events = [MagicMock(feed_stable_id="mdb-1")]
+        events = [_mock_event("mdb-1")]
         # Empty list means no filter — all pass
         result = apply_filter_params(events, sub)
         assert result == events
@@ -518,13 +547,13 @@ class TestEmitAdminSummary:
             session.query(NotificationEvent)
             .filter_by(
                 notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
-                update_type=AdminEventUpdateType.DISPATCH_SUMMARY,
+                event_subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
             )
             .one_or_none()
         )
         assert event is not None
-        assert event.extra_data["emails_sent"] == 3
-        assert event.extra_data["cadence"] == "weekly"
+        assert event.payload["emails_sent"] == 3
+        assert event.payload["cadence"] == "weekly"
 
 
 # ---------------------------------------------------------------------------

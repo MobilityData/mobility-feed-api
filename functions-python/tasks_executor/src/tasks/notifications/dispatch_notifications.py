@@ -399,7 +399,8 @@ def apply_filter_params(
     """Filter events against subscription.filter_params.
 
     Supported keys:
-      ``feed_ids``: list of feed stable_ids — only return events for those feeds.
+      ``feed_ids``: list of feed stable_ids — only return events that reference
+                    at least one of those feeds (in any role).
       ``None`` / missing key → all events pass.
     """
     fp = subscription.filter_params
@@ -408,7 +409,16 @@ def apply_filter_params(
     allowed_feed_ids = fp.get("feed_ids")
     if not allowed_feed_ids:
         return events
-    return [e for e in events if e.feed_stable_id in allowed_feed_ids]
+    allowed = set(allowed_feed_ids)
+    return [e for e in events if _event_feed_ids(e) & allowed]
+
+
+def _event_feed_ids(event: NotificationEvent) -> set:
+    """Set of feed stable_ids referenced by an event (across all roles)."""
+    return {
+        f.feed_stable_id
+        for f in (getattr(event, "notification_event_feeds", None) or [])
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -595,9 +605,9 @@ def emit_admin_summary(
     event = NotificationEvent(
         id=str(uuid.uuid4()),
         notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
-        update_type=AdminEventUpdateType.DISPATCH_SUMMARY,
+        event_subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
         source=NotificationSource.DISPATCHER,
-        extra_data={**stats, "cadence": cadence},
+        payload={**stats, "cadence": cadence},
     )
     db_session.add(event)
     db_session.flush()

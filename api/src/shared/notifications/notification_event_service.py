@@ -52,7 +52,13 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from shared.notifications.notification_constants import (
+    FeedUrlUpdateType,
+    NotificationFeedRole,
+    NotificationTypeId,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,17 +90,21 @@ def emit_feed_redirected(
         Human-readable tag identifying the process that triggered this
         (e.g. ``NotificationSource.TDG_REDIRECTS``).
     extra_data:
-        Optional free-form JSON payload (e.g. redirect_comment).
+        Optional extra free-form JSON merged into the event payload
+        (e.g. redirect_comment).
     """
+    payload: Dict[str, Any] = {"old_url": old_url, "new_url": new_url}
+    if extra_data:
+        payload.update(extra_data)
     _emit(
-        notification_type_id="feed.url_updated",
-        update_type="feed_redirected",
-        feed_stable_id=source_stable_id,
-        target_feed_stable_id=target_stable_id,
-        old_url=old_url,
-        new_url=new_url,
+        notification_type_id=NotificationTypeId.FEED_URL_UPDATED,
+        event_subtype=FeedUrlUpdateType.FEED_REDIRECTED,
         source=source,
-        extra_data=extra_data,
+        feeds=[
+            (source_stable_id, NotificationFeedRole.SUBJECT),
+            (target_stable_id, NotificationFeedRole.TARGET),
+        ],
+        payload=payload,
     )
 
 
@@ -123,16 +133,17 @@ def emit_url_replaced(
     source:
         Human-readable tag identifying the process (e.g. ``NotificationSource.TDG_IMPORT``).
     extra_data:
-        Optional free-form JSON payload.
+        Optional extra free-form JSON merged into the event payload.
     """
+    payload: Dict[str, Any] = {"old_url": old_url, "new_url": new_url}
+    if extra_data:
+        payload.update(extra_data)
     _emit(
-        notification_type_id="feed.url_updated",
-        update_type="url_replaced",
-        feed_stable_id=feed_stable_id,
-        old_url=old_url,
-        new_url=new_url,
+        notification_type_id=NotificationTypeId.FEED_URL_UPDATED,
+        event_subtype=FeedUrlUpdateType.URL_REPLACED,
         source=source,
-        extra_data=extra_data,
+        feeds=[(feed_stable_id, NotificationFeedRole.SUBJECT)],
+        payload=payload,
     )
 
 
@@ -143,15 +154,27 @@ def emit_url_replaced(
 
 def _emit(
     notification_type_id: str,
-    update_type: str,
+    event_subtype: str,
     source: str,
-    feed_stable_id: Optional[str] = None,
-    target_feed_stable_id: Optional[str] = None,
-    old_url: Optional[str] = None,
-    new_url: Optional[str] = None,
-    extra_data: Optional[Dict[str, Any]] = None,
+    feeds: Optional[List[Tuple[str, str]]] = None,
+    payload: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Write one notification_event row to the users DB.
+    """Write one notification_event row (plus its notification_event_feed rows)
+    to the users DB.
+
+    Parameters
+    ----------
+    notification_type_id:
+        Row id in ``notification_type`` (e.g. ``feed.url_updated``).
+    event_subtype:
+        Discriminator within the type (e.g. ``url_replaced``).
+    source:
+        Tag identifying the emitting process.
+    feeds:
+        Optional list of ``(feed_stable_id, role)`` tuples relating this event to
+        one-or-more feeds. ``role`` is a ``NotificationFeedRole`` value.
+    payload:
+        Optional type-specific JSON payload.
 
     Gracefully degrades if the users DB is unavailable:
     - ``USERS_DATABASE_URL`` not set → log warning, return.
@@ -163,7 +186,10 @@ def _emit(
         # Import here to avoid circular imports and to allow graceful degradation
         # when the users DB is not configured (e.g. populate_db CI scripts).
         from shared.database.users_database import UsersDatabase
-        from shared.users_database_gen.sqlacodegen_models import NotificationEvent
+        from shared.users_database_gen.sqlacodegen_models import (
+            NotificationEvent,
+            NotificationEventFeed,
+        )
     except ImportError as exc:
         logger.warning("notification_event_service: import error, skipping emit: %s", exc)
         return
@@ -171,43 +197,53 @@ def _emit(
     try:
         db = UsersDatabase()
     except Exception as exc:
+        primary_feed = feeds[0][0] if feeds else None
         logger.warning(
             "notification_event_service: users DB unavailable (%s), " "skipping %s/%s for feed=%s",
             exc,
             notification_type_id,
-            update_type,
-            feed_stable_id,
+            event_subtype,
+            primary_feed,
         )
         return
 
+    event_id = str(uuid.uuid4())
     event = NotificationEvent(
-        id=str(uuid.uuid4()),
+        id=event_id,
         notification_type_id=notification_type_id,
-        update_type=update_type,
-        feed_stable_id=feed_stable_id,
-        target_feed_stable_id=target_feed_stable_id,
-        old_url=old_url,
-        new_url=new_url,
+        event_subtype=event_subtype,
         source=source,
-        extra_data=extra_data,
+        payload=payload,
     )
+    feed_rows = [
+        NotificationEventFeed(
+            id=str(uuid.uuid4()),
+            notification_event_id=event_id,
+            feed_stable_id=feed_stable_id,
+            role=role,
+        )
+        for feed_stable_id, role in (feeds or [])
+    ]
 
+    primary_feed = feeds[0][0] if feeds else None
     try:
         with db.start_db_session() as session:
             session.add(event)
+            for feed_row in feed_rows:
+                session.add(feed_row)
         logger.info(
-            "notification_event created: type=%s update_type=%s feed=%s source=%s id=%s",
+            "notification_event created: type=%s subtype=%s feeds=%s source=%s id=%s",
             notification_type_id,
-            update_type,
-            feed_stable_id,
+            event_subtype,
+            [f[0] for f in (feeds or [])],
             source,
-            event.id,
+            event_id,
         )
     except Exception as exc:
         logger.exception(
-            "notification_event_service: failed to persist event " "type=%s update_type=%s feed=%s: %s",
+            "notification_event_service: failed to persist event " "type=%s subtype=%s feed=%s: %s",
             notification_type_id,
-            update_type,
-            feed_stable_id,
+            event_subtype,
+            primary_feed,
             exc,
         )
