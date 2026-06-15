@@ -499,13 +499,13 @@ paths:
         "404":
           description: User not found.
   /v1/operations/users/{user_id}/feature-flags:
-    patch:
+    put:
       summary: Replace a user's feature flags
       description: |
         Replaces the user's complete set of feature flags in a single call.
         Flags in the list are assigned; any previously assigned flags not in the list are removed.
         All provided flag IDs must exist.
-      operationId: patchUserFeatureFlags
+      operationId: putUserFeatureFlags
       tags:
         - "users"
       security:
@@ -521,7 +521,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PatchUserFeatureFlagsRequest"
+              $ref: "#/components/schemas/PutUserFeatureFlagsRequest"
       responses:
         "200":
           description: Updated user profile with the new feature flag set.
@@ -2351,7 +2351,7 @@ components:
           items:
             $ref: "#/components/schemas/UserFeatureFlagState"
           default: []
-    PatchUserFeatureFlagsRequest:
+    PutUserFeatureFlagsRequest:
       x-operation: true
       type: object
       required:

@@ -46,10 +46,10 @@ src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
 src/feeds_gen/models/operation_user_profile.py
-src/feeds_gen/models/patch_user_feature_flags_request.py
 src/feeds_gen/models/propagate_license_affected_feed.py
 src/feeds_gen/models/propagate_license_request.py
 src/feeds_gen/models/propagate_license_response.py
+src/feeds_gen/models/put_user_feature_flags_request.py
 src/feeds_gen/models/redirect.py
 src/feeds_gen/models/search_feed_item_result.py
 src/feeds_gen/models/source_info.py

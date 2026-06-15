@@ -23,8 +23,8 @@ from fastapi import HTTPException
 from feeds_operations.impl.user_feature_flags_impl import UserFeatureFlagsApiImpl
 from feeds_gen.models.create_feature_flag_request import CreateFeatureFlagRequest
 from feeds_gen.models.feature_flag_assignment import FeatureFlagAssignment
-from feeds_gen.models.patch_user_feature_flags_request import (
-    PatchUserFeatureFlagsRequest,
+from feeds_gen.models.put_user_feature_flags_request import (
+    PutUserFeatureFlagsRequest,
 )
 from feeds_gen.models.update_feature_flag_request import UpdateFeatureFlagRequest
 from shared.users_database_gen.sqlacodegen_models import (
@@ -412,7 +412,7 @@ class TestDeleteFeatureFlag(unittest.TestCase):
         self.session.delete.assert_not_called()
 
 
-class TestPatchUserFeatureFlags(unittest.TestCase):
+class TestPutUserFeatureFlags(unittest.TestCase):
     def setUp(self):
         self.api = UserFeatureFlagsApiImpl()
         self.session = MagicMock()
@@ -431,9 +431,9 @@ class TestPatchUserFeatureFlags(unittest.TestCase):
     def test_raises_404_when_user_not_found(self):
         _mock_query(self.session, None)
 
-        req = PatchUserFeatureFlagsRequest(assignments=[])
+        req = PutUserFeatureFlagsRequest(assignments=[])
         with self.assertRaises(HTTPException) as ctx:
-            self.api.patch_user_feature_flags("missing", req, db_session=self.session)
+            self.api.put_user_feature_flags("missing", req, db_session=self.session)
 
         self.assertEqual(ctx.exception.status_code, 404)
 
@@ -451,11 +451,11 @@ class TestPatchUserFeatureFlags(unittest.TestCase):
 
         self.session.query.side_effect = query_side_effect
 
-        req = PatchUserFeatureFlagsRequest(
+        req = PutUserFeatureFlagsRequest(
             assignments=[FeatureFlagAssignment(feature_flag_id="nonexistent")]
         )
         with self.assertRaises(HTTPException) as ctx:
-            self.api.patch_user_feature_flags("uid-1", req, db_session=self.session)
+            self.api.put_user_feature_flags("uid-1", req, db_session=self.session)
 
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertIn("nonexistent", ctx.exception.detail)
@@ -472,8 +472,8 @@ class TestPatchUserFeatureFlags(unittest.TestCase):
         mock_q.all.return_value = []  # all-flags query returns no flags
         self.session.query.return_value = mock_q
 
-        req = PatchUserFeatureFlagsRequest(assignments=[])
-        self.api.patch_user_feature_flags("uid-1", req, db_session=self.session)
+        req = PutUserFeatureFlagsRequest(assignments=[])
+        self.api.put_user_feature_flags("uid-1", req, db_session=self.session)
 
         # delete() should be called on the query to clear all assignments
         mock_q.delete.assert_called_once()

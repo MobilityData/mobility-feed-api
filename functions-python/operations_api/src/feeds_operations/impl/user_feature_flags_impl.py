@@ -29,8 +29,8 @@ from feeds_gen.models.get_operations_users200_response import (
 )
 from feeds_gen.models.operation_feature_flag import OperationFeatureFlag
 from feeds_gen.models.operation_user_profile import OperationUserProfile
-from feeds_gen.models.patch_user_feature_flags_request import (
-    PatchUserFeatureFlagsRequest,
+from feeds_gen.models.put_user_feature_flags_request import (
+    PutUserFeatureFlagsRequest,
 )
 from feeds_gen.models.update_feature_flag_request import UpdateFeatureFlagRequest
 from feeds_operations.impl.models.operation_feature_flag_impl import (
@@ -196,10 +196,10 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         return OperationFeatureFlagImpl.from_orm(flag)
 
     @with_users_db_session
-    def patch_user_feature_flags(
+    def put_user_feature_flags(
         self,
         user_id: str,
-        patch_user_feature_flags_request: PatchUserFeatureFlagsRequest,
+        put_user_feature_flags_request: PutUserFeatureFlagsRequest,
         db_session=None,
     ) -> OperationUserProfile:
         user = (
@@ -211,7 +211,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        assignments = patch_user_feature_flags_request.assignments or []
+        assignments = put_user_feature_flags_request.assignments or []
         flag_ids = [a.feature_flag_id for a in assignments]
 
         # Validate all provided flag IDs exist before making any changes
