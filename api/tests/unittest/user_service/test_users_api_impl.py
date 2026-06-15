@@ -6,7 +6,11 @@ from fastapi import HTTPException
 
 from middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
+    FeatureFlag,
+    UserFeatureFlag,
+)
 import user_service.impl.subscription_helpers as helpers
 from user_service.impl.users_api_impl import UsersApiImpl
 from user_service_gen.models.create_notification_subscription_request import CreateNotificationSubscriptionRequest
@@ -25,7 +29,30 @@ def _make_user(**kwargs) -> AppUser:
         updated_at=FIXED_NOW,
     )
     defaults.update(kwargs)
-    return AppUser(**defaults)
+    user = AppUser(**{k: v for k, v in defaults.items() if k != "feature_flags"})
+    user.user_feature_flags = defaults.get("feature_flags", [])
+    return user
+
+
+def _mock_query_first(session, return_value, flags=None):
+    """Dispatch session.query per model.
+
+    AppUser query → .options().filter_by().first() returns `return_value`.
+    FeatureFlag query → .order_by().all() returns `flags` (default []).
+    """
+    flags = flags if flags is not None else []
+    user_q = MagicMock()
+    user_q.options.return_value = user_q
+    user_q.filter_by.return_value = user_q
+    user_q.first.return_value = return_value
+
+    flags_q = MagicMock()
+    flags_q.filter.return_value = flags_q
+    flags_q.order_by.return_value = flags_q
+    flags_q.all.return_value = flags
+
+    session.query.side_effect = lambda model: (flags_q if model is FeatureFlag else user_q)
+    return user_q
 
 
 def _set_context(user_id="uid-123", user_email="user@example.com", is_guest=False):
@@ -39,12 +66,11 @@ class TestGetUserMe(unittest.TestCase):
 
     def test_returns_existing_user(self):
         user = _make_user()
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         result = self.api.get_user(db_session=self.mock_session)
 
-        self.mock_session.get.assert_called_once_with(AppUser, "uid-123")
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "uid-123")
         self.assertEqual(result.email, "user@example.com")
@@ -52,7 +78,7 @@ class TestGetUserMe(unittest.TestCase):
         self.assertFalse(result.is_registered_to_receive_api_announcements)
 
     def test_upserts_new_user_on_first_call(self):
-        self.mock_session.get.return_value = None
+        _mock_query_first(self.mock_session, None)
         _set_context()
 
         result = self.api.get_user(db_session=self.mock_session)
@@ -89,6 +115,35 @@ class TestGetUserMe(unittest.TestCase):
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "uid-123")
 
+    def test_returns_active_flags_with_resolved_values(self):
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            value_type="boolean",
+            default_value=False,
+            disabled=False,
+            created_at=FIXED_NOW,
+        )
+        user = _make_user()
+        _mock_query_first(self.mock_session, user, flags=[flag])
+        _set_context()
+
+        result = self.api.get_user(db_session=self.mock_session)
+
+        self.assertEqual([f.id for f in result.features], ["beta_editor"])
+        self.assertEqual(result.features[0].value, False)
+
+    def test_disabled_flags_filtered_out_of_query(self):
+        user = _make_user()
+        _mock_query_first(self.mock_session, user, flags=[])
+        _set_context()
+
+        self.api.get_user(db_session=self.mock_session)
+
+        # The user-facing query must exclude disabled flags.
+        flags_q = self.mock_session.query(FeatureFlag)
+        flags_q.filter.assert_called()
+
 
 class TestUpdateUserMe(unittest.TestCase):
     def setUp(self):
@@ -102,7 +157,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_updates_full_name(self):
         user = _make_user(full_name="Old Name")
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="New Name")
@@ -114,7 +169,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_updates_api_announcements_flag(self):
         user = _make_user(is_registered_to_receive_api_announcements=False)
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(is_registered_to_receive_api_announcements=True)
@@ -125,7 +180,7 @@ class TestUpdateUserMe(unittest.TestCase):
 
     def test_partial_update_leaves_other_fields_unchanged(self):
         user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)
-        self.mock_session.get.return_value = user
+        _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="Updated")
@@ -134,7 +189,7 @@ class TestUpdateUserMe(unittest.TestCase):
         self.assertTrue(user.is_registered_to_receive_api_announcements)
 
     def test_raises_404_when_user_not_found(self):
-        self.mock_session.get.return_value = None
+        _mock_query_first(self.mock_session, None)
         _set_context()
 
         req = self._make_request(full_name="Ghost")
@@ -160,7 +215,7 @@ class TestUpdateUserMe(unittest.TestCase):
             self.api.update_user(req, db_session=self.mock_session)
 
         self.assertEqual(ctx.exception.status_code, 403)
-        self.mock_session.get.assert_not_called()
+        self.mock_session.query.assert_not_called()
 
 
 class TestSubscriptions(unittest.TestCase):
@@ -371,3 +426,55 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertTrue(profile.is_registered_to_receive_api_announcements)
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)
+
+    def test_from_orm_resolves_user_override_and_default(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            description="Enables the beta editor",
+            value_type="boolean",
+            default_value=False,
+            created_at=now,
+        )
+        user_flag = UserFeatureFlag(user_id="uid-2", feature_flag_id=flag.id, value=True, assigned_at=now)
+        user_flag.feature_flag = flag
+        user = AppUser(id="uid-2", email="b@b.com", created_at=now, updated_at=now)
+        user.user_feature_flags = [user_flag]
+
+        profile = AppUserImpl.from_orm(user, [flag])
+
+        self.assertEqual(len(profile.features), 1)
+        self.assertEqual(profile.features[0].id, "beta_editor")
+        self.assertEqual(profile.features[0].name, "Beta Editor")
+        self.assertEqual(profile.features[0].value_type, "boolean")
+        # User override (True) wins over the default (False)
+        self.assertEqual(profile.features[0].value, True)
+
+    def test_from_orm_returns_all_flags_with_defaults_when_user_has_none(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        flag = FeatureFlag(
+            id="beta_editor",
+            name="Beta Editor",
+            value_type="boolean",
+            default_value=False,
+            created_at=now,
+        )
+        user = AppUser(id="uid-3", email="c@b.com", created_at=now, updated_at=now)
+        user.user_feature_flags = []
+
+        profile = AppUserImpl.from_orm(user, [flag])
+
+        # Flag is returned even though the user has no override; value is the default
+        self.assertEqual(len(profile.features), 1)
+        self.assertEqual(profile.features[0].id, "beta_editor")
+        self.assertEqual(profile.features[0].value, False)
+
+    def test_from_orm_empty_when_no_flags_exist(self):
+        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        user = AppUser(id="uid-4", email="d@b.com", created_at=now, updated_at=now)
+        user.user_feature_flags = []
+
+        profile = AppUserImpl.from_orm(user, [])
+
+        self.assertEqual(profile.features, [])

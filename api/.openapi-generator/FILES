@@ -53,6 +53,7 @@ src/user_service_gen/main.py
 src/user_service_gen/models/__init__.py
 src/user_service_gen/models/create_notification_subscription_request.py
 src/user_service_gen/models/extra_models.py
+src/user_service_gen/models/feature_flag.py
 src/user_service_gen/models/notification_subscription.py
 src/user_service_gen/models/notification_type.py
 src/user_service_gen/models/update_notification_subscription_request.py

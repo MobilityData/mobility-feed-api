@@ -13,4 +13,6 @@
     <include file="changes_user/feat_1686.sql" relativeToChangelogFile="true"/>
     <!-- Add migrated_at to app_user for migration tracking -->
     <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
+    <!-- Add feature_flag and user_feature_flag tables -->
+    <include file="changes_user/feat_1694.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

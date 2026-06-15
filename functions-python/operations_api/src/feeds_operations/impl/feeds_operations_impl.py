@@ -174,7 +174,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 status_code=500, detail=f"Internal server error: {str(e)}"
             )
 
-    async def get_feeds(
+    def get_feeds(
         self,
         search_query: Optional[str] = None,
         operation_status: Optional[str] = None,
@@ -189,7 +189,7 @@ class OperationsApiImpl(BaseOperationsApi):
         )
 
     @with_db_session
-    async def get_gtfs_feed(
+    def get_gtfs_feed(
         self,
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")
@@ -205,7 +205,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return OperationGtfsFeedImpl.from_orm(gtfs_feed)
 
     @with_db_session
-    async def get_gtfs_feed_availability(
+    def get_gtfs_feed_availability(
         self,
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")
@@ -249,7 +249,7 @@ class OperationsApiImpl(BaseOperationsApi):
         )
 
     @with_db_session
-    async def get_gtfs_rt_feed(
+    def get_gtfs_rt_feed(
         self,
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")

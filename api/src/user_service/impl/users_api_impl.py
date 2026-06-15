@@ -20,6 +20,8 @@ from typing import List
 
 from fastapi import HTTPException
 
+from sqlalchemy.orm import selectinload
+
 from middleware.request_context import get_request_context
 from shared.database.database import generate_unique_id
 from shared.database.users_database import with_users_db_session
@@ -27,14 +29,20 @@ from shared.db_models.app_user_impl import AppUserImpl
 from shared.db_models.notification_subscription_impl import NotificationSubscriptionImpl
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
+    FeatureFlag,
+    UserFeatureFlag,
     NotificationSubscription as NotificationSubscriptionOrm,
     NotificationType,
 )
 from user_service.impl.subscription_helpers import ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, sync_announcements
 from user_service_gen.apis.users_api_base import BaseUsersApi
-from user_service_gen.models.create_notification_subscription_request import CreateNotificationSubscriptionRequest
+from user_service_gen.models.create_notification_subscription_request import (
+    CreateNotificationSubscriptionRequest,
+)
 from user_service_gen.models.notification_subscription import NotificationSubscription
-from user_service_gen.models.update_notification_subscription_request import UpdateNotificationSubscriptionRequest
+from user_service_gen.models.update_notification_subscription_request import (
+    UpdateNotificationSubscriptionRequest,
+)
 from user_service_gen.models.update_user_request import UpdateUserRequest
 from user_service_gen.models.user_profile import UserProfile
 
@@ -58,10 +66,18 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=401, detail="Unable to determine user identity from token.")
 
         if context.get("is_guest"):
-            logger.warning("Skipping user creation as guest users cannot create a profile. user_id=%s", user_id)
+            logger.warning(
+                "Skipping user creation as guest users cannot create a profile. user_id=%s",
+                user_id,
+            )
             return UserProfile.from_dict({"id": user_id, "email": "", "created_at": datetime.now(timezone.utc)})
 
-        user = db_session.get(AppUser, user_id)
+        user = (
+            db_session.query(AppUser)
+            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .filter_by(id=user_id)
+            .first()
+        )
         if user is None:
             logger.info("Creating new app_user record for user_id=%s", user_id)
             user = AppUser(
@@ -73,7 +89,8 @@ class UsersApiImpl(BaseUsersApi):
             db_session.add(user)
             db_session.flush()
 
-        return AppUserImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
 
     @with_users_db_session
     def update_user(self, update_user_request: UpdateUserRequest, db_session=None) -> UserProfile:
@@ -84,7 +101,12 @@ class UsersApiImpl(BaseUsersApi):
         """
         user_id = self._require_user_id()
 
-        user = db_session.get(AppUser, user_id)
+        user = (
+            db_session.query(AppUser)
+            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .filter_by(id=user_id)
+            .first()
+        )
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
@@ -94,7 +116,8 @@ class UsersApiImpl(BaseUsersApi):
         user.updated_at = datetime.now(timezone.utc)
         db_session.flush()
 
-        return AppUserImpl.from_orm(user)
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
 
     # ── Subscriptions ────────────────────────────────────────────────────────
 
