@@ -133,5 +133,5 @@ variable "update_feed_status_schedule" {
 variable "brevo_api_announcements_list_id" {
     type        = string
     description = "Brevo list ID for API announcements"
-    default     = "3"
+    default     = ""
 }
