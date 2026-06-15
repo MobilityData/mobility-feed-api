@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 
 import flask
 
-from main import GtfsChangeTracker, gtfs_change_tracker
+from main import GtfsDatasetsComparer, gtfs_datasets_comparer
 
 
 def _make_dataset(
@@ -34,14 +34,14 @@ def _make_dataset(
     return dataset
 
 
-class TestGtfsChangeTrackerHandler(unittest.TestCase):
+class TestGtfsDatasetsComparerHandler(unittest.TestCase):
     """Tests for the HTTP handler function."""
 
     app = flask.Flask(__name__)
 
     def _request(self, payload):
         with self.app.test_request_context(json=payload):
-            response = gtfs_change_tracker(flask.request)
+            response = gtfs_datasets_comparer(flask.request)
         with self.app.app_context():
             return response.status_code, response.get_json()
 
@@ -71,7 +71,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertIn("DATASETS_BUCKET_NAME", body["error"])
 
-    @patch("main.GtfsChangeTracker")
+    @patch("main.GtfsDatasetsComparer")
     def test_success(self, mock_tracker_cls):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         os.environ["DATASETS_BUCKET_MOUNT"] = "/mobilitydata-datasets"
@@ -102,7 +102,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             dry_run=False,
         )
 
-    @patch("main.GtfsChangeTracker")
+    @patch("main.GtfsDatasetsComparer")
     def test_disallow_overwrite_and_dry_run_passed(self, mock_tracker_cls):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         os.environ["DATASETS_BUCKET_MOUNT"] = "/mobilitydata-datasets"
@@ -129,7 +129,7 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
             dry_run=True,
         )
 
-    @patch("main.GtfsChangeTracker")
+    @patch("main.GtfsDatasetsComparer")
     def test_exception_returns_200_with_error(self, mock_tracker_cls):
         """All exceptions return HTTP 200 to suppress GCP retries."""
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
@@ -149,12 +149,12 @@ class TestGtfsChangeTrackerHandler(unittest.TestCase):
         self.assertIn("something went wrong", body["error"])
 
 
-class TestGtfsChangeTrackerRun(unittest.TestCase):
-    """Tests for GtfsChangeTracker.run() with mocked collaborators."""
+class TestGtfsDatasetsComparerRun(unittest.TestCase):
+    """Tests for GtfsDatasetsComparer.run() with mocked collaborators."""
 
     def setUp(self):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
-        self.tracker = GtfsChangeTracker(
+        self.tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -163,10 +163,10 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         )
 
     @patch("main.storage.Client")
-    @patch("main.GtfsChangeTracker._save_changelog_record")
-    @patch("main.GtfsChangeTracker._upload_changelog")
-    @patch("main.GtfsChangeTracker._extracted_dir")
-    @patch("main.GtfsChangeTracker._resolve_datasets")
+    @patch("main.GtfsDatasetsComparer._save_changelog_record")
+    @patch("main.GtfsDatasetsComparer._upload_changelog")
+    @patch("main.GtfsDatasetsComparer._extracted_dir")
+    @patch("main.GtfsDatasetsComparer._resolve_datasets")
     def test_run_happy_path(
         self, mock_resolve, mock_extracted_dir, mock_upload, mock_save, mock_storage
     ):
@@ -218,7 +218,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         self.assertEqual(result["changelog_url"], changelog_url)
 
     @patch("main.storage.Client")
-    @patch("main.GtfsChangeTracker._resolve_datasets")
+    @patch("main.GtfsDatasetsComparer._resolve_datasets")
     def test_run_raises_when_resolve_fails(self, mock_resolve, mock_storage):
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             False
@@ -234,7 +234,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             True
         )
-        tracker = GtfsChangeTracker(
+        tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -252,7 +252,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             True
         )
-        tracker = GtfsChangeTracker(
+        tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -264,10 +264,10 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         self.assertIn("already exists", result["message"])
 
     @patch("main.storage.Client")
-    @patch("main.GtfsChangeTracker._save_changelog_record")
-    @patch("main.GtfsChangeTracker._upload_changelog")
-    @patch("main.GtfsChangeTracker._extracted_dir")
-    @patch("main.GtfsChangeTracker._resolve_datasets")
+    @patch("main.GtfsDatasetsComparer._save_changelog_record")
+    @patch("main.GtfsDatasetsComparer._upload_changelog")
+    @patch("main.GtfsDatasetsComparer._extracted_dir")
+    @patch("main.GtfsDatasetsComparer._resolve_datasets")
     def test_overwrite_proceeds_when_exists_by_default(
         self, mock_resolve, mock_extracted_dir, mock_upload, mock_save, mock_storage
     ):
@@ -292,9 +292,9 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         mock_upload.assert_called_once()
 
     @patch("main.storage.Client")
-    @patch("main.GtfsChangeTracker._upload_changelog")
-    @patch("main.GtfsChangeTracker._extracted_dir")
-    @patch("main.GtfsChangeTracker._resolve_datasets")
+    @patch("main.GtfsDatasetsComparer._upload_changelog")
+    @patch("main.GtfsDatasetsComparer._extracted_dir")
+    @patch("main.GtfsDatasetsComparer._resolve_datasets")
     def test_dry_run_skips_upload_and_db(
         self, mock_resolve, mock_extracted_dir, mock_upload, mock_storage
     ):
@@ -310,7 +310,7 @@ class TestGtfsChangeTrackerRun(unittest.TestCase):
         fake_diff = MagicMock()
         fake_diff.summary.model_dump.return_value = {"total_changes": 5}
 
-        tracker = GtfsChangeTracker(
+        tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -330,7 +330,7 @@ class TestResolveDatasets(unittest.TestCase):
     """Tests for _resolve_datasets — verifies plain string UUIDs are returned."""
 
     def setUp(self):
-        self.tracker = GtfsChangeTracker(
+        self.tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -407,7 +407,7 @@ class TestResolveDatasets(unittest.TestCase):
 
 class TestExtractedDir(unittest.TestCase):
     def setUp(self):
-        self.tracker = GtfsChangeTracker(
+        self.tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",
@@ -430,7 +430,7 @@ class TestExtractedDir(unittest.TestCase):
 
 class TestUploadChangelog(unittest.TestCase):
     def setUp(self):
-        self.tracker = GtfsChangeTracker(
+        self.tracker = GtfsDatasetsComparer(
             feed_stable_id="mdb-1",
             base_dataset_stable_id="mdb-1-20240101",
             new_dataset_stable_id="mdb-1-20240201",

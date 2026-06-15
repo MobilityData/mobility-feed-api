@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# This module provides the GtfsChangeTracker Cloud Function. It orchestrates change tracking
+# This module provides the GtfsDatasetsComparer Cloud Function. It orchestrates change tracking
 # between two consecutive GTFS datasets: reads the pre-extracted GTFS files from GCS (uploaded
 # by batch_process_dataset at <feed_stable_id>/<dataset_stable_id>/extracted/), computes a
 # structured diff using gtfs-diff-engine, uploads the changelog JSON to GCS, and persists the
@@ -42,9 +42,9 @@ limit_gcp_memory(os.getenv("GTFS_DIFF_DUCKDB_TMPDIR", "/tmp/in-memory"))
 
 
 @functions_framework.http
-def gtfs_change_tracker(request: flask.Request) -> dict:
+def gtfs_datasets_comparer(request: flask.Request) -> dict:
     """
-    HTTP entrypoint for the GTFS change tracker function.
+    HTTP entrypoint for the GTFS datasets comparer function.
 
     Expects a JSON body with:
         feed_stable_id            – stable_id of the GTFS feed
@@ -86,7 +86,7 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
 
     bucket_mount = os.getenv("DATASETS_BUCKET_MOUNT", "/tmp/mobilitydata-datasets")
     try:
-        tracker = GtfsChangeTracker(
+        tracker = GtfsDatasetsComparer(
             feed_stable_id=feed_stable_id,
             base_dataset_stable_id=base_dataset_stable_id,
             new_dataset_stable_id=new_dataset_stable_id,
@@ -117,7 +117,7 @@ def gtfs_change_tracker(request: flask.Request) -> dict:
         )
 
 
-class GtfsChangeTracker:
+class GtfsDatasetsComparer:
     """
     Orchestrates GTFS change tracking between two consecutive datasets.
 
@@ -147,7 +147,7 @@ class GtfsChangeTracker:
         self.bucket_mount = bucket_mount
         self.disallow_overwrite = disallow_overwrite
         self.dry_run = dry_run
-        self.logger = get_logger(GtfsChangeTracker.__name__, new_dataset_stable_id)
+        self.logger = get_logger(GtfsDatasetsComparer.__name__, new_dataset_stable_id)
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def run(self) -> dict:
