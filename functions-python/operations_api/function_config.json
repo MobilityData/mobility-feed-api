@@ -6,7 +6,7 @@
   "memory": "1Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen", "database", "common", "db_models", "feed_filters"],
+  "include_api_folders": ["database_gen", "database", "common", "db_models", "feed_filters", "users_database_gen"],
   "environment_variables": [
     {
       "key": "GOOGLE_CLIENT_ID"
@@ -15,6 +15,9 @@
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
+    },
+    {
+      "key": "USERS_DATABASE_URL"
     }
   ],
   "ingress_settings": "ALLOW_ALL",
