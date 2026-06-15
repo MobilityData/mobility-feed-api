@@ -32,7 +32,7 @@ tags:
   - name: "notifications"
     description: "Notification subscriptions"
   - name: "subscriptions"
-    description: "Public subscription management via unguessable subscription ID (e.g. email unsubscribe links)"
+    description: "Public subscription management via subscription ID (e.g. email unsubscribe links)"
 
 paths:
   /v1/user:
@@ -228,7 +228,7 @@ paths:
     get:
       summary: Get a subscription by ID (unauthenticated)
       description: |
-        Returns a single notification subscription identified by its unguessable ID.
+        Returns a single notification subscription identified by its ID.
         Intended for use from email links (e.g. a "manage your subscription" page) where the
         user is not authenticated — the subscription ID itself acts as the access capability.
       operationId: getSubscription
@@ -254,7 +254,7 @@ paths:
     delete:
       summary: Delete a subscription by ID (unauthenticated)
       description: |
-        Removes a notification subscription identified by its unguessable ID. Intended for
+        Removes a notification subscription identified by its ID. Intended for
         one-click unsubscribe links in emails where the user is not authenticated — the
         subscription ID itself acts as the access capability.
       operationId: deleteSubscription
