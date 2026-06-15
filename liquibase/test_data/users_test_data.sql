@@ -35,3 +35,33 @@ INSERT INTO notification_log (id, subscription_id, sent_at, channel, status, err
     ('log_0000000000000000000000000003', 'sub_0000000000000000000000000004', now() - interval '3 days',  'email', 'failed', 'SMTP 550: mailbox unavailable'),
     ('log_0000000000000000000000000004', 'sub_0000000000000000000000000004', now() - interval '2 days',  'email', 'failed', 'SMTP timeout')
 ON CONFLICT (id) DO NOTHING;
+
+-- Feature flags ---------------------------------------------------------------
+INSERT INTO feature_flag (id, name, description, value_type, default_value) VALUES
+    ('beta_editor',    'Beta Editor',        'Enables the experimental feed editor UI',          'boolean', 'false'),
+    ('max_results',    'Max Results',        'Maximum number of results returned per query',     'numeric', '100'),
+    ('allowed_formats','Allowed Formats',    'Feed formats the user is allowed to submit',       'array',   '["gtfs","gtfs-rt"]'),
+    ('ui_theme',       'UI Theme',           'Default UI theme for the user',                    'string',  '"light"'),
+    ('extra_config',   'Extra Config',       'Arbitrary extra configuration blob for the user',  'json',    '{}')
+ON CONFLICT (id) DO NOTHING;
+
+-- User feature flag assignments (with optional per-user value overrides) ------
+-- Alice: beta editor enabled (uses default false → overridden to true), max_results capped at 50
+INSERT INTO user_feature_flag (user_id, feature_flag_id, value) VALUES
+    ('test_user_alice_000000000001', 'beta_editor',     'true'),
+    ('test_user_alice_000000000001', 'max_results',     '50')
+ON CONFLICT (user_id, feature_flag_id) DO NOTHING;
+
+-- Bob: beta editor with no value override (uses default false), custom allowed_formats
+INSERT INTO user_feature_flag (user_id, feature_flag_id, value) VALUES
+    ('test_user_bob_00000000000002', 'beta_editor',      NULL),
+    ('test_user_bob_00000000000002', 'allowed_formats',  '["gtfs"]')
+ON CONFLICT (user_id, feature_flag_id) DO NOTHING;
+
+-- Dan: custom theme and extra_config blob
+INSERT INTO user_feature_flag (user_id, feature_flag_id, value) VALUES
+    ('test_user_dan_00000000000004', 'ui_theme',     '"dark"'),
+    ('test_user_dan_00000000000004', 'extra_config', '{"debug": true, "beta_notes": "testing phase 2"}')
+ON CONFLICT (user_id, feature_flag_id) DO NOTHING;
+
+-- Carol: no feature flag assignments (uses all defaults)

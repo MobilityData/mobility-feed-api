@@ -15,6 +15,9 @@
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
+    },
+    {
+      "key": "USERS_DATABASE_URL"
     }
   ],
   "ingress_settings": "ALLOW_ALL",
