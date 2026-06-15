@@ -417,17 +417,6 @@ class TestPutUserFeatureFlags(unittest.TestCase):
         self.api = UserFeatureFlagsApiImpl()
         self.session = MagicMock()
 
-    def _setup_flags_query(self, flag_ids):
-        """Make session.query(FeatureFlagORM.id).filter(...).all() return rows for given IDs."""
-        mock_rows = [MagicMock(id=fid) for fid in flag_ids]
-        mock_q = MagicMock()
-        mock_q.filter.return_value = mock_q
-        mock_q.all.return_value = mock_rows
-        self.session.query.side_effect = lambda model: (
-            mock_q if model is FeatureFlagORM.id else self.session.query(model)
-        )
-        return mock_q
-
     def test_raises_404_when_user_not_found(self):
         _mock_query(self.session, None)
 
@@ -440,7 +429,7 @@ class TestPutUserFeatureFlags(unittest.TestCase):
     def test_raises_404_when_flag_not_found(self):
         user = _make_user(user_feature_flags=[])
 
-        def query_side_effect(model):
+        def query_side_effect(*args):
             mock_q = MagicMock()
             mock_q.options.return_value = mock_q
             mock_q.filter_by.return_value = mock_q
@@ -459,6 +448,91 @@ class TestPutUserFeatureFlags(unittest.TestCase):
 
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertIn("nonexistent", ctx.exception.detail)
+
+    def _dispatch_put_queries(self, user, flag_meta_rows):
+        """Route session.query() calls for the put flow.
+
+        `flag_meta_rows` are the (id, value_type) rows returned for the
+        flag-validation query.
+        """
+        user_q = MagicMock()
+        user_q.options.return_value = user_q
+        user_q.filter_by.return_value = user_q
+        user_q.first.return_value = user
+
+        meta_q = MagicMock()
+        meta_q.filter.return_value = meta_q
+        meta_q.all.return_value = flag_meta_rows
+
+        delete_q = MagicMock()
+        delete_q.filter_by.return_value = delete_q
+
+        flags_q = MagicMock()
+        flags_q.order_by.return_value = flags_q
+        flags_q.all.return_value = []
+
+        def side_effect(*args):
+            first = args[0]
+            if first is AppUser:
+                return user_q
+            if first is FeatureFlagORM.id:
+                return meta_q
+            if first is UserFeatureFlag:
+                return delete_q
+            return flags_q
+
+        self.session.query.side_effect = side_effect
+        return delete_q
+
+    def test_assigns_value_matching_flag_type(self):
+        user = _make_user(user_feature_flags=[])
+        rows = [MagicMock(id="beta_editor", value_type="boolean")]
+        delete_q = self._dispatch_put_queries(user, rows)
+
+        req = PutUserFeatureFlagsRequest(
+            assignments=[
+                FeatureFlagAssignment(feature_flag_id="beta_editor", value=True)
+            ]
+        )
+        self.api.put_user_feature_flags("uid-1", req, db_session=self.session)
+
+        delete_q.delete.assert_called_once()
+        added = self.session.add_all.call_args[0][0]
+        self.assertEqual(len(added), 1)
+        self.assertEqual(added[0].feature_flag_id, "beta_editor")
+        self.assertEqual(added[0].value, True)
+
+    def test_raises_422_when_value_type_mismatch(self):
+        user = _make_user(user_feature_flags=[])
+        rows = [MagicMock(id="beta_editor", value_type="boolean")]
+        self._dispatch_put_queries(user, rows)
+
+        req = PutUserFeatureFlagsRequest(
+            assignments=[
+                FeatureFlagAssignment(feature_flag_id="beta_editor", value="not-a-bool")
+            ]
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.put_user_feature_flags("uid-1", req, db_session=self.session)
+
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.session.add_all.assert_not_called()
+
+    def test_skips_type_validation_when_value_is_null(self):
+        user = _make_user(user_feature_flags=[])
+        rows = [MagicMock(id="beta_editor", value_type="boolean")]
+        self._dispatch_put_queries(user, rows)
+
+        req = PutUserFeatureFlagsRequest(
+            assignments=[
+                FeatureFlagAssignment(feature_flag_id="beta_editor", value=None)
+            ]
+        )
+        self.api.put_user_feature_flags("uid-1", req, db_session=self.session)
+
+        added = self.session.add_all.call_args[0][0]
+        self.assertEqual(len(added), 1)
+        self.assertIsNone(added[0].value)
 
     def test_clears_flags_when_empty_list_provided(self):
         flag = _make_flag()

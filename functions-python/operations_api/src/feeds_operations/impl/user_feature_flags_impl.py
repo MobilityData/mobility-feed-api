@@ -217,17 +217,21 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         # Validate all provided flag IDs exist before making any changes
         if flag_ids:
             existing_flags = (
-                db_session.query(FeatureFlagORM.id)
+                db_session.query(FeatureFlagORM.id, FeatureFlagORM.value_type)
                 .filter(FeatureFlagORM.id.in_(flag_ids))
                 .all()
             )
-            found_ids = {row.id for row in existing_flags}
-            missing = set(flag_ids) - found_ids
+            value_type_by_id = {row.id: row.value_type for row in existing_flags}
+            missing = set(flag_ids) - value_type_by_id.keys()
             if missing:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Feature flag(s) not found: {', '.join(sorted(missing))}",
                 )
+            # Verify each provided value matches the flag's declared value_type.
+            for a in assignments:
+                if a.value is not None:
+                    _validate_value_type(value_type_by_id[a.feature_flag_id], a.value)
 
         # Replace: delete all existing assignments then insert the new set
         db_session.query(UserFeatureFlag).filter_by(user_id=user_id).delete()
