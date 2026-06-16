@@ -589,6 +589,32 @@ resource "google_cloud_scheduler_job" "gtfs_feed_availability_check_schedule" {
   attempt_deadline = "1800s"
 }
 
+# Schedule the notification dispatcher to run daily.
+# A single daily job covers both cadences: it always processes daily-cadence
+# subscriptions and processes weekly-cadence subscriptions on weekly_weekday
+# (Monday=0). Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "dispatch_notifications_daily_scheduler" {
+  name = "dispatch-notifications-daily-${var.environment}"
+  description = "Daily run of the notification dispatcher (daily cadence every day, weekly cadence on weekly_weekday)"
+  time_zone = "Etc/UTC"
+  schedule = var.notification_dispatch_daily_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"dispatch_notifications\", \"payload\": {\"cadence\": \"scheduled\", \"weekly_weekday\": ${var.notification_dispatch_weekly_weekday}, \"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {

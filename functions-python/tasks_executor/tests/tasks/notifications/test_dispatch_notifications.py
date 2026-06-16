@@ -52,6 +52,7 @@ from tasks.notifications.dispatch_notifications import (
     find_events_for_subscription,
     find_subscriptions,
     dispatch_notifications_handler,
+    _resolve_scheduled_cadences,
 )
 from test_shared.test_utils.database_utils import default_users_db_url
 
@@ -503,6 +504,42 @@ class TestDispatchDryRun(unittest.TestCase):
         result = dispatch_notifications_handler({"dry_run": True, "cadence": "weekly"})
         # dry_run default is True, so no emails sent
         self.assertTrue("dry_run" in result or isinstance(result, dict))
+
+
+# ---------------------------------------------------------------------------
+# _resolve_scheduled_cadences — day-of-week gating for the single daily job
+# ---------------------------------------------------------------------------
+
+
+class TestResolveScheduledCadences(unittest.TestCase):
+    def test_passthrough_for_explicit_cadence(self):
+        self.assertEqual(_resolve_scheduled_cadences("weekly", 0), ["weekly"])
+        self.assertEqual(_resolve_scheduled_cadences("daily", 0), ["daily"])
+        self.assertEqual(_resolve_scheduled_cadences("all", 0), ["all"])
+
+    def test_scheduled_runs_daily_only_off_weekday(self):
+        # 2026-06-16 is a Tuesday (weekday()==1); weekly_weekday=0 (Monday).
+        tuesday = datetime(2026, 6, 16, 8, 0, tzinfo=timezone.utc)
+        self.assertEqual(
+            _resolve_scheduled_cadences("scheduled", 0, now=tuesday),
+            ["daily"],
+        )
+
+    def test_scheduled_adds_weekly_on_weekday(self):
+        # 2026-06-15 is a Monday (weekday()==0).
+        monday = datetime(2026, 6, 15, 8, 0, tzinfo=timezone.utc)
+        self.assertEqual(
+            _resolve_scheduled_cadences("scheduled", 0, now=monday),
+            ["daily", "weekly"],
+        )
+
+    def test_scheduled_respects_configured_weekday(self):
+        # Configure weekly on Sunday (weekday()==6); 2026-06-21 is a Sunday.
+        sunday = datetime(2026, 6, 21, 8, 0, tzinfo=timezone.utc)
+        self.assertEqual(
+            _resolve_scheduled_cadences("scheduled", 6, now=sunday),
+            ["daily", "weekly"],
+        )
 
 
 # ---------------------------------------------------------------------------

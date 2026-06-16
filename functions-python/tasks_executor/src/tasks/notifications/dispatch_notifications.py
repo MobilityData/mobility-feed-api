@@ -64,6 +64,15 @@ DEFAULT_CADENCE = NotificationCadence.WEEKLY
 DEFAULT_MAX_RETRIES = 5
 _IN_RUN_RETRY_DELAYS = (1, 2, 4)  # seconds between in-run attempts
 
+# Cadence directive used by the single daily Cloud Scheduler job. When passed,
+# the dispatcher always processes daily-cadence subscriptions and additionally
+# processes weekly-cadence subscriptions only on ``weekly_weekday`` (so a single
+# daily-running scheduler covers both cadences).
+SCHEDULED_CADENCE = "scheduled"
+# Day of week the weekly digest is sent when running under SCHEDULED_CADENCE.
+# Uses datetime.weekday(): Monday=0 .. Sunday=6.
+DEFAULT_WEEKLY_WEEKDAY = 0  # Monday
+
 # Time windows per cadence (look-back for finding relevant events)
 _CADENCE_WINDOWS: Dict[str, timedelta] = {
     NotificationCadence.IMMEDIATE: timedelta(hours=1),
@@ -95,19 +104,70 @@ def dispatch_notifications_handler(
     since_dt: Optional[str] = payload.get("since_dt")
     until_dt: Optional[str] = payload.get("until_dt")
     max_retries: int = int(payload.get("max_retries", DEFAULT_MAX_RETRIES))
+    weekly_weekday: int = int(payload.get("weekly_weekday", DEFAULT_WEEKLY_WEEKDAY))
 
-    result = dispatch(
-        cadence=cadence,
-        dry_run=dry_run,
-        status_filter=status_filter,
-        user_ids=user_ids,
-        force=force,
-        since_dt=since_dt,
-        until_dt=until_dt,
-        max_retries=max_retries,
-    )
+    cadences = _resolve_scheduled_cadences(cadence, weekly_weekday)
+    logger.info("Resolved cadence=%s to run cadences=%s", cadence, cadences)
+
+    per_cadence: Dict[str, Dict[str, Any]] = {}
+    for run_cadence in cadences:
+        per_cadence[run_cadence] = dispatch(
+            cadence=run_cadence,
+            dry_run=dry_run,
+            status_filter=status_filter,
+            user_ids=user_ids,
+            force=force,
+            since_dt=since_dt,
+            until_dt=until_dt,
+            max_retries=max_retries,
+        )
+
+    result = _merge_cadence_results(per_cadence)
     logger.info("dispatch_notifications_handler result: %s", result)
     return result
+
+
+def _resolve_scheduled_cadences(
+    cadence: str,
+    weekly_weekday: int,
+    now: Optional[datetime] = None,
+) -> List[str]:
+    """Resolve the cadence directive into the concrete cadences to process.
+
+    ``SCHEDULED_CADENCE`` lets a single daily-running scheduler cover both
+    cadences: daily-cadence subscriptions run every day, while weekly-cadence
+    subscriptions run only when today matches ``weekly_weekday`` (Monday=0).
+    Any other value (``'daily'``/``'weekly'``/``'all'``/...) is passed through
+    unchanged for backward compatibility and manual triggers.
+    """
+    if cadence != SCHEDULED_CADENCE:
+        return [cadence]
+    now = now or datetime.now(timezone.utc)
+    cadences = [NotificationCadence.DAILY]
+    if now.weekday() == weekly_weekday:
+        cadences.append(NotificationCadence.WEEKLY)
+    return cadences
+
+
+def _merge_cadence_results(
+    per_cadence: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Combine per-cadence stats into a single result dict.
+
+    Integer counters are summed; the per-cadence breakdown is preserved under
+    ``"by_cadence"``. A single-cadence run returns the same shape as before
+    plus the breakdown, keeping existing callers working.
+    """
+    merged: Dict[str, Any] = {}
+    for stats in per_cadence.values():
+        for key, value in stats.items():
+            if isinstance(value, int):
+                merged[key] = merged.get(key, 0) + value
+            else:
+                merged[key] = value
+    merged["cadences"] = list(per_cadence.keys())
+    merged["by_cadence"] = per_cadence
+    return merged
 
 
 # ---------------------------------------------------------------------------

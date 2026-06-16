@@ -410,13 +410,23 @@ The `force: true` flag bypasses cadence filtering, so the specified users receiv
 
 ## Deployment Notes
 
-### Cloud Scheduler jobs to create
+### Cloud Scheduler jobs
+
+A **single daily** Cloud Scheduler job (`dispatch-notifications-daily-<env>`, defined in
+`infra/functions-python/main.tf`) covers both cadences. It is **paused outside `prod`**
+(`paused = var.environment == "prod" ? false : true`), matching the other tasks_executor
+schedulers. The dispatcher always processes daily-cadence subscriptions and additionally
+processes weekly-cadence subscriptions only on `weekly_weekday` (Monday=0 .. Sunday=6).
 
 | Job name | Schedule | Payload |
 |----------|----------|---------|
-| `dispatch-notifications-weekly` | `0 9 * * MON` (Mon 9 AM UTC) | `{"task":"dispatch_notifications","payload":{"cadence":"weekly","dry_run":false}}` |
-| `dispatch-notifications-daily` | `0 8 * * *` (daily 8 AM UTC) | `{"task":"dispatch_notifications","payload":{"cadence":"daily","dry_run":false}}` |
-| `dispatch-notifications-retry` | `0 10 * * *` (daily 10 AM UTC) | `{"task":"dispatch_notifications","payload":{"cadence":"all","status_filter":"failed","dry_run":false}}` |
+| `dispatch-notifications-daily-<env>` | `0 8 * * *` (daily 8 AM UTC, `var.notification_dispatch_daily_schedule`) | `{"task":"dispatch_notifications","payload":{"cadence":"scheduled","weekly_weekday":0,"dry_run":false}}` |
+
+The `scheduled` cadence directive is resolved in `dispatch_notifications_handler`:
+`['daily']` every day, plus `'weekly'` when `now.weekday() == weekly_weekday`. The weekday
+is configurable via `var.notification_dispatch_weekly_weekday`. A dedicated retry job is
+optional — weekly-cadence failures are retried on the next daily run via the dispatcher's
+`failed` status handling.
 
 ### Adding `USERS_DATABASE_URL` to content update workflow
 
