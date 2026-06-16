@@ -36,6 +36,9 @@ BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST
 BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY
     Integer Brevo template ID for ``admin.event_summary`` emails.
     When not set, an inline HTML fallback is used.
+BREVO_MAX_RPS
+    Maximum Brevo API requests per second (default: ``900``). Stays below
+    Brevo's hard limit of 1000 rps. Enforced by a shared token-bucket limiter.
 
 Design
 ------
@@ -55,6 +58,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from shared.common.rate_limiter import RateLimiter, get_rate_limiter
 from shared.notifications.notification_constants import (
     NotificationFeedRole,
     NotificationTypeId,
@@ -65,6 +69,47 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_SENDER_EMAIL = "noreply@mobilitydatabase.org"
 _DEFAULT_SENDER_NAME = "Mobility Database"
+
+# Brevo's transactional email API allows up to 1000 requests/second. Default
+# below that to leave headroom for clock skew and other API consumers.
+BREVO_MAX_RPS_ENV = "BREVO_MAX_RPS"
+DEFAULT_BREVO_MAX_RPS = 900.0
+_BREVO_RATE_LIMITER_NAME = "brevo"
+
+
+def _configured_brevo_rps() -> float:
+    raw = os.getenv(BREVO_MAX_RPS_ENV)
+    if not raw:
+        return DEFAULT_BREVO_MAX_RPS
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid %s=%r; falling back to %.0f rps",
+            BREVO_MAX_RPS_ENV,
+            raw,
+            DEFAULT_BREVO_MAX_RPS,
+        )
+        return DEFAULT_BREVO_MAX_RPS
+    if value <= 0:
+        logger.warning(
+            "%s must be > 0 (got %r); falling back to %.0f rps",
+            BREVO_MAX_RPS_ENV,
+            raw,
+            DEFAULT_BREVO_MAX_RPS,
+        )
+        return DEFAULT_BREVO_MAX_RPS
+    return value
+
+
+def get_brevo_rate_limiter() -> RateLimiter:
+    """Return the process-wide Brevo rate limiter (token bucket).
+
+    Configured from ``BREVO_MAX_RPS`` (default :data:`DEFAULT_BREVO_MAX_RPS`).
+    Callers should ``acquire()`` before each Brevo API request.
+    """
+    return get_rate_limiter(_BREVO_RATE_LIMITER_NAME, _configured_brevo_rps())
+
 
 _DIGEST_EMAIL_SUBJECT_DICTIONARY = {
     NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] %s feed URL update%s",

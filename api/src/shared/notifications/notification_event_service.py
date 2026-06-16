@@ -63,6 +63,23 @@ from shared.notifications.notification_constants import (
 logger = logging.getLogger(__name__)
 
 
+def normalize_url(url: Optional[str]) -> str:
+    """Normalize a producer URL for change detection.
+
+    Comparisons should ignore case and leading/trailing whitespace so that
+    cosmetic differences (e.g. ``" HTTPS://Example.com "`` vs
+    ``"https://example.com"``) do not trigger a notification event.
+    """
+    if url is None:
+        return ""
+    return url.strip().casefold()
+
+
+def urls_differ(old_url: Optional[str], new_url: Optional[str]) -> bool:
+    """Return True if two URLs differ after normalization (case/whitespace-insensitive)."""
+    return normalize_url(old_url) != normalize_url(new_url)
+
+
 def emit_feed_redirected(
     source_stable_id: str,
     target_stable_id: str,
@@ -120,7 +137,8 @@ def emit_url_replaced(
     Called when automation changes ``Feed.producer_url`` **in-place** — the feed
     keeps the same ``stable_id`` but its source URL has changed.
 
-    Only emit when ``old_url != new_url`` (callers are responsible for this check).
+    Only emit when the URLs differ after normalization (case- and
+    surrounding-whitespace-insensitive); identical URLs are skipped.
 
     Parameters
     ----------
@@ -135,6 +153,12 @@ def emit_url_replaced(
     extra_data:
         Optional extra free-form JSON merged into the event payload.
     """
+    if not urls_differ(old_url, new_url):
+        logger.debug(
+            "Skipping url_replaced event for %s: URLs are equivalent after normalization",
+            feed_stable_id,
+        )
+        return
     payload: Dict[str, Any] = {"old_url": old_url, "new_url": new_url}
     if extra_data:
         payload.update(extra_data)

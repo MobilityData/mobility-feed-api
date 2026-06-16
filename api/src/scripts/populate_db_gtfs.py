@@ -19,6 +19,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.notifications.notification_event_service import (
     emit_feed_redirected,
     emit_url_replaced,
+    urls_differ,
 )
 from utils.data_utils import set_up_defaults
 
@@ -266,7 +267,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
                 old_producer_url = feed.producer_url
                 feed.producer_url = producer_url
-                if not is_new_feed and old_producer_url and old_producer_url != producer_url:
+                if not is_new_feed and old_producer_url and urls_differ(old_producer_url, producer_url):
                     emit_url_replaced(
                         feed_stable_id=stable_id,
                         old_url=old_producer_url,

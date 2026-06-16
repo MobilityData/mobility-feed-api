@@ -37,6 +37,7 @@ from shared.database.users_database import with_users_db_session
 from shared.notifications.brevo_notification_sender import (
     BrevoSendError,
     EmailRecipient,
+    get_brevo_rate_limiter,
     send_digest,
     send_single,
 )
@@ -499,9 +500,15 @@ def _send_and_log_digest(
 
 
 def _attempt_send(send_fn) -> Optional[str]:
-    """Call ``send_fn()`` up to 3× with back-off. Return None on success, error str on failure."""
+    """Call ``send_fn()`` up to 3× with back-off. Return None on success, error str on failure.
+
+    Each attempt (including retries) first acquires a token from the shared
+    Brevo rate limiter so the dispatch run never exceeds Brevo's rps limit.
+    """
+    rate_limiter = get_brevo_rate_limiter()
     last_error: Optional[str] = None
     for i, delay in enumerate((*_IN_RUN_RETRY_DELAYS, None)):
+        rate_limiter.acquire()
         try:
             send_fn()
             return None

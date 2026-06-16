@@ -13,28 +13,24 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Unit tests for dispatch_notifications task.
+"""Integration tests for the dispatch_notifications task.
 
-These tests use in-memory SQLite via SQLAlchemy and mock out Brevo calls,
-so no real database connection or API keys are required.
+These run against the real Postgres users test database
+(``MobilityDatabaseUsersTest``). The baseline notification types and app users
+are seeded by ``conftest.py``; each test creates its own subscriptions/events
+and removes them again in ``tearDown`` so the baseline is preserved. Brevo
+calls are mocked, so no API keys are required.
 """
 
-from __future__ import annotations
-
-import re
+import unittest
 import uuid
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
-import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.schema import DefaultClause
+from sqlalchemy.orm import Session
 
+from shared.database.users_database import with_users_db_session
 from shared.notifications.notification_constants import (
     AdminEventUpdateType,
     FeedUrlUpdateType,
@@ -44,13 +40,10 @@ from shared.notifications.notification_constants import (
     NotificationTypeId,
 )
 from shared.users_database_gen.sqlacodegen_models import (
-    AppUser,
-    Base,
     NotificationEvent,
     NotificationEventFeed,
     NotificationLog,
     NotificationSubscription,
-    NotificationType,
 )
 from tasks.notifications.dispatch_notifications import (
     apply_filter_params,
@@ -60,114 +53,31 @@ from tasks.notifications.dispatch_notifications import (
     find_subscriptions,
     dispatch_notifications_handler,
 )
+from test_shared.test_utils.database_utils import default_users_db_url
+
+# Test-created rows live in these tables, in FK-safe deletion order. The
+# baseline notification_type / app_user rows seeded by conftest are preserved.
+_WRITE_MODELS = [
+    NotificationLog,
+    NotificationEventFeed,
+    NotificationEvent,
+    NotificationSubscription,
+]
 
 
-@compiles(JSONB, "sqlite")
-def _compile_jsonb_sqlite(element, compiler, **kw):
-    """Render Postgres JSONB columns as TEXT under SQLite for unit tests."""
-    return "TEXT"
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def engine():
-    # active_since is added by migration feat_1724 and then reflected into the
-    # auto-generated sqlacodegen_models.py.  Until that cycle completes we add
-    # the column to the in-memory SQLite schema here so unit tests can run.
-    # We guard against duplicate addition since the Table object is a module-level
-    # singleton and the fixture may be called multiple times per test session.
-    if "active_since" not in NotificationSubscription.__table__.c:
-        from sqlalchemy import Column as _Col, DateTime as _DT
-
-        NotificationSubscription.__table__.append_column(
-            _Col(
-                "active_since",
-                _DT(True),
-                nullable=False,
-                server_default=text("CURRENT_TIMESTAMP"),
-            )
-        )
-    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    with _sqlite_compatible_defaults():
-        Base.metadata.create_all(eng)
-    return eng
-
-
-@contextmanager
-def _sqlite_compatible_defaults():
-    """Temporarily rewrite Postgres-specific ``server_default`` clauses into
-    SQLite-compatible DDL so ``create_all`` can build an in-memory database.
-
-    Handles ``now()`` (-> ``CURRENT_TIMESTAMP``) and ``::type`` casts (e.g.
-    ``'weekly'::text``, ``(gen_random_uuid())::text``). Originals are restored
-    on exit so the generated models remain untouched for any other test.
-    """
-    originals = []
-    for table in Base.metadata.tables.values():
-        for column in table.columns:
-            default = column.server_default
-            if not isinstance(default, DefaultClause):
-                continue
-            original_text = str(getattr(default.arg, "text", ""))
-            if not original_text:
-                continue
-            rewritten = re.sub(r"::\w+", "", original_text).replace(
-                "now()", "CURRENT_TIMESTAMP"
-            )
-            if rewritten == original_text:
-                continue
-            originals.append((column, default))
-            column.server_default = DefaultClause(text(rewritten))
-    try:
-        yield
-    finally:
-        for column, default in originals:
-            column.server_default = default
-
-
-@pytest.fixture
-def session(engine):
-    Session = sessionmaker(bind=engine)
-    sess = Session()
-    _seed(sess)
-    yield sess
-    sess.close()
+@with_users_db_session(db_url=default_users_db_url)
+def _cleanup_notifications(db_session: Session = None):
+    """Remove subscriptions/events/logs created by a test."""
+    for model in _WRITE_MODELS:
+        db_session.query(model).delete()
 
 
 def _uid() -> str:
     return str(uuid.uuid4())
 
 
-def _seed(sess):
-    """Insert minimal seed data into the in-memory DB."""
-    sess.add_all(
-        [
-            NotificationType(
-                id=NotificationTypeId.FEED_URL_UPDATED, description="Feed URL updated"
-            ),
-            NotificationType(
-                id=NotificationTypeId.ADMIN_EVENT_SUMMARY, description="Admin summary"
-            ),
-        ]
-    )
-    sess.flush()
-
-    sess.add_all(
-        [
-            AppUser(id="user-alice", email="alice@example.com", full_name="Alice"),
-            AppUser(id="user-bob", email="bob@example.com", full_name="Bob"),
-            AppUser(id="user-admin", email="admin@example.com", full_name="Admin"),
-        ]
-    )
-    sess.flush()
-
-
 def _make_subscription(
-    sess,
+    db_session,
     user_id: str,
     notification_type_id: str = NotificationTypeId.FEED_URL_UPDATED,
     cadence: str = NotificationCadence.WEEKLY,
@@ -184,19 +94,16 @@ def _make_subscription(
         digest=digest,
         filter_params=filter_params,
         active=active,
+        active_since=active_since
+        or (datetime.now(timezone.utc) - timedelta(seconds=5)),
     )
-    # Set active_since explicitly so it is available in Python memory regardless
-    # of whether the ORM model has been regenerated post-migration.
-    sub.active_since = active_since or (
-        datetime.now(timezone.utc) - timedelta(seconds=5)
-    )
-    sess.add(sub)
-    sess.flush()
+    db_session.add(sub)
+    db_session.flush()
     return sub
 
 
 def _make_event(
-    sess,
+    db_session,
     feed_stable_id: str = "mdb-1",
     update_type: str = FeedUrlUpdateType.URL_REPLACED,
     notification_type_id: str = NotificationTypeId.FEED_URL_UPDATED,
@@ -213,10 +120,10 @@ def _make_event(
         payload={"old_url": old_url, "new_url": new_url},
         created_at=created_at or datetime.now(timezone.utc),
     )
-    sess.add(event)
-    sess.flush()
+    db_session.add(event)
+    db_session.flush()
     if feed_stable_id is not None:
-        sess.add(
+        db_session.add(
             NotificationEventFeed(
                 id=_uid(),
                 notification_event_id=event.id,
@@ -225,7 +132,7 @@ def _make_event(
             )
         )
     if target_feed_stable_id is not None:
-        sess.add(
+        db_session.add(
             NotificationEventFeed(
                 id=_uid(),
                 notification_event_id=event.id,
@@ -233,13 +140,13 @@ def _make_event(
                 role=NotificationFeedRole.TARGET,
             )
         )
-    sess.flush()
-    sess.refresh(event)
+    db_session.flush()
+    db_session.refresh(event)
     return event
 
 
 def _mock_event(*feed_ids):
-    """A lightweight stand-in for a NotificationEvent exposing
+    """Lightweight stand-in for a NotificationEvent exposing
     ``notification_event_feeds`` for apply_filter_params tests."""
     return MagicMock(
         notification_event_feeds=[MagicMock(feed_stable_id=fid) for fid in feed_ids]
@@ -251,31 +158,36 @@ def _mock_event(*feed_ids):
 # ---------------------------------------------------------------------------
 
 
-class TestApplyFilterParams:
-    def test_no_filter_returns_all(self, session):
-        sub = _make_subscription(session, "user-alice", filter_params=None)
-        events = [
-            _mock_event("mdb-1"),
-            _mock_event("mdb-2"),
-        ]
-        result = apply_filter_params(events, sub)
-        assert result == events
+class TestApplyFilterParams(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
 
-    def test_feed_ids_filter(self, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_no_filter_returns_all(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice", filter_params=None)
+        events = [_mock_event("mdb-1"), _mock_event("mdb-2")]
+        result = apply_filter_params(events, sub)
+        self.assertEqual(result, events)
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_feed_ids_filter(self, db_session: Session = None):
         sub = _make_subscription(
-            session, "user-alice", filter_params={"feed_ids": ["mdb-1"]}
+            db_session, "user-alice", filter_params={"feed_ids": ["mdb-1"]}
         )
         e1 = _mock_event("mdb-1")
         e2 = _mock_event("mdb-2")
         result = apply_filter_params([e1, e2], sub)
-        assert result == [e1]
+        self.assertEqual(result, [e1])
 
-    def test_empty_feed_ids_returns_all(self, session):
-        sub = _make_subscription(session, "user-alice", filter_params={"feed_ids": []})
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_empty_feed_ids_returns_all(self, db_session: Session = None):
+        sub = _make_subscription(
+            db_session, "user-alice", filter_params={"feed_ids": []}
+        )
         events = [_mock_event("mdb-1")]
         # Empty list means no filter — all pass
         result = apply_filter_params(events, sub)
-        assert result == events
+        self.assertEqual(result, events)
 
 
 # ---------------------------------------------------------------------------
@@ -283,57 +195,64 @@ class TestApplyFilterParams:
 # ---------------------------------------------------------------------------
 
 
-class TestFindSubscriptions:
-    def test_filters_by_cadence(self, session):
+class TestFindSubscriptions(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_filters_by_cadence(self, db_session: Session = None):
         weekly_sub = _make_subscription(
-            session, "user-alice", cadence=NotificationCadence.WEEKLY
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY
         )
-        _make_subscription(session, "user-bob", cadence=NotificationCadence.DAILY)
+        _make_subscription(db_session, "user-bob", cadence=NotificationCadence.DAILY)
 
         result = find_subscriptions(
-            db_session=session,
+            db_session=db_session,
             cadence=NotificationCadence.WEEKLY,
             user_ids=[],
             force=False,
         )
         ids = {s.id for s in result}
-        assert weekly_sub.id in ids
+        self.assertIn(weekly_sub.id, ids)
 
-    def test_all_cadence_returns_all_active(self, session):
-        _make_subscription(session, "user-alice", cadence=NotificationCadence.WEEKLY)
-        _make_subscription(session, "user-bob", cadence=NotificationCadence.DAILY)
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_all_cadence_returns_all_active(self, db_session: Session = None):
+        _make_subscription(db_session, "user-alice", cadence=NotificationCadence.WEEKLY)
+        _make_subscription(db_session, "user-bob", cadence=NotificationCadence.DAILY)
         _make_subscription(
-            session, "user-admin", cadence=NotificationCadence.WEEKLY, active=False
+            db_session, "user-admin", cadence=NotificationCadence.WEEKLY, active=False
         )
 
         result = find_subscriptions(
-            db_session=session, cadence="all", user_ids=[], force=False
+            db_session=db_session, cadence="all", user_ids=[], force=False
         )
-        assert len(result) == 2  # inactive excluded
+        self.assertEqual(len(result), 2)  # inactive excluded
 
-    def test_user_ids_filter(self, session):
-        _make_subscription(session, "user-alice")
-        bob_sub = _make_subscription(session, "user-bob")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_user_ids_filter(self, db_session: Session = None):
+        _make_subscription(db_session, "user-alice")
+        bob_sub = _make_subscription(db_session, "user-bob")
 
         result = find_subscriptions(
-            db_session=session, cadence="all", user_ids=["user-bob"], force=False
+            db_session=db_session, cadence="all", user_ids=["user-bob"], force=False
         )
-        assert [s.id for s in result] == [bob_sub.id]
+        self.assertEqual([s.id for s in result], [bob_sub.id])
 
-    def test_force_with_user_ids_ignores_cadence(self, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_force_with_user_ids_ignores_cadence(self, db_session: Session = None):
         """force=True + user_ids means bypass cadence."""
         weekly_sub = _make_subscription(
-            session, "user-alice", cadence=NotificationCadence.WEEKLY
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY
         )
 
         result = find_subscriptions(
-            db_session=session,
+            db_session=db_session,
             cadence=NotificationCadence.DAILY,  # different cadence
             user_ids=["user-alice"],
             force=True,
         )
         ids = {s.id for s in result}
-        assert weekly_sub.id in ids
+        self.assertIn(weekly_sub.id, ids)
 
 
 # ---------------------------------------------------------------------------
@@ -341,24 +260,29 @@ class TestFindSubscriptions:
 # ---------------------------------------------------------------------------
 
 
-class TestFindEventsForSubscription:
-    def test_new_events_no_log(self, session):
-        sub = _make_subscription(session, "user-alice")
-        event = _make_event(session)
+class TestFindEventsForSubscription(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_new_events_no_log(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        event = _make_event(db_session)
 
         now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             until=now + timedelta(hours=1),
             max_retries=5,
         )
-        assert event.id in {e.id for e in events}
+        self.assertIn(event.id, {e.id for e in events})
 
-    def test_already_sent_excluded(self, session):
-        sub = _make_subscription(session, "user-alice")
-        event = _make_event(session)
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_already_sent_excluded(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        event = _make_event(db_session)
         # Mark as already sent
         log = NotificationLog(
             id=_uid(),
@@ -367,22 +291,23 @@ class TestFindEventsForSubscription:
             channel="email",
             status=NotificationLogStatus.SENT,
         )
-        session.add(log)
-        session.flush()
+        db_session.add(log)
+        db_session.flush()
 
         now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             until=now + timedelta(hours=1),
             max_retries=5,
         )
-        assert event.id not in {e.id for e in events}
+        self.assertNotIn(event.id, {e.id for e in events})
 
-    def test_failed_events_returned_in_retry_mode(self, session):
-        sub = _make_subscription(session, "user-alice")
-        event = _make_event(session)
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_failed_events_returned_in_retry_mode(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        event = _make_event(db_session)
         log = NotificationLog(
             id=_uid(),
             notification_event_id=event.id,
@@ -391,22 +316,23 @@ class TestFindEventsForSubscription:
             status=NotificationLogStatus.FAILED,
             retry_count=1,
         )
-        session.add(log)
-        session.flush()
+        db_session.add(log)
+        db_session.flush()
 
         now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="failed",
             until=now + timedelta(hours=1),
             max_retries=5,
         )
-        assert event.id in {e.id for e in events}
+        self.assertIn(event.id, {e.id for e in events})
 
-    def test_max_retries_exceeded_excluded(self, session):
-        sub = _make_subscription(session, "user-alice")
-        event = _make_event(session)
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_max_retries_exceeded_excluded(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        event = _make_event(db_session)
         log = NotificationLog(
             id=_uid(),
             notification_event_id=event.id,
@@ -415,20 +341,21 @@ class TestFindEventsForSubscription:
             status=NotificationLogStatus.FAILED,
             retry_count=5,  # at max
         )
-        session.add(log)
-        session.flush()
+        db_session.add(log)
+        db_session.flush()
 
         now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="failed",
             until=now + timedelta(hours=1),
             max_retries=5,
         )
-        assert event.id not in {e.id for e in events}
+        self.assertNotIn(event.id, {e.id for e in events})
 
-    def test_event_before_active_since_excluded(self, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_event_before_active_since_excluded(self, db_session: Session = None):
         """Events older than active_since are always excluded, even with no log row.
 
         This covers both the pre-subscription case (event existed before the user
@@ -438,25 +365,26 @@ class TestFindEventsForSubscription:
         now = datetime.now(timezone.utc)
         # Subscription became active 7 days ago.
         sub = _make_subscription(
-            session, "user-alice", active_since=now - timedelta(days=7)
+            db_session, "user-alice", active_since=now - timedelta(days=7)
         )
         # Event was emitted 14 days ago — before active_since.
         old_event = _make_event(
-            session,
+            db_session,
             created_at=now - timedelta(days=14),
         )
 
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             until=now,
             max_retries=5,
         )
-        assert old_event.id not in {e.id for e in events}
+        self.assertNotIn(old_event.id, {e.id for e in events})
 
+    @with_users_db_session(db_url=default_users_db_url)
     def test_event_outside_cadence_window_but_after_active_since_is_found(
-        self, session
+        self, db_session: Session = None
     ):
         """Regression: events that fell outside the old cadence window but have no
         log row (e.g. because a previous run crashed before writing one) must be
@@ -469,7 +397,7 @@ class TestFindEventsForSubscription:
         now = datetime.now(timezone.utc)
         # Subscription has been active for 48 hours.
         sub = _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.DAILY,
             active_since=now - timedelta(hours=48),
@@ -477,37 +405,40 @@ class TestFindEventsForSubscription:
         # Event was emitted 36 hours ago — inside active_since window but
         # outside the daily cadence window (now - 24 h).
         event = _make_event(
-            session,
+            db_session,
             created_at=now - timedelta(hours=36),
         )
 
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             until=now,
             max_retries=5,
         )
-        assert event.id in {e.id for e in events}
+        self.assertIn(event.id, {e.id for e in events})
 
-    def test_explicit_since_can_narrow_window_but_not_below_active_since(self, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_explicit_since_can_narrow_window_but_not_below_active_since(
+        self, db_session: Session = None
+    ):
         """explicit_since further restricts the window but never expands it past active_since."""
         now = datetime.now(timezone.utc)
         active_since = now - timedelta(days=3)
-        sub = _make_subscription(session, "user-alice", active_since=active_since)
+        sub = _make_subscription(db_session, "user-alice", active_since=active_since)
 
         # Event 2 days ago — after active_since.
         recent_event = _make_event(
-            session, created_at=now - timedelta(days=2), feed_stable_id="mdb-1"
+            db_session, created_at=now - timedelta(days=2), feed_stable_id="mdb-1"
         )
         # Event 5 days ago — before active_since (pre-subscription / dead zone).
         old_event = _make_event(
-            session, created_at=now - timedelta(days=5), feed_stable_id="mdb-2"
+            db_session, created_at=now - timedelta(days=5), feed_stable_id="mdb-2"
         )
 
         # explicit_since = now - 1 day: should narrow window further.
         events = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             explicit_since=now - timedelta(days=1),
@@ -516,21 +447,21 @@ class TestFindEventsForSubscription:
         )
         ids = {e.id for e in events}
         # recent_event is outside explicit_since window (2 days > 1 day) → excluded.
-        assert recent_event.id not in ids
+        self.assertNotIn(recent_event.id, ids)
         # old_event is before active_since → also excluded.
-        assert old_event.id not in ids
+        self.assertNotIn(old_event.id, ids)
 
         # Without explicit_since, recent_event is included; old_event still excluded.
         events_no_override = find_events_for_subscription(
-            db_session=session,
+            db_session=db_session,
             subscription=sub,
             status_filter="new",
             until=now,
             max_retries=5,
         )
         ids_no_override = {e.id for e in events_no_override}
-        assert recent_event.id in ids_no_override
-        assert old_event.id not in ids_no_override
+        self.assertIn(recent_event.id, ids_no_override)
+        self.assertNotIn(old_event.id, ids_no_override)
 
 
 # ---------------------------------------------------------------------------
@@ -538,22 +469,26 @@ class TestFindEventsForSubscription:
 # ---------------------------------------------------------------------------
 
 
-class TestEmitAdminSummary:
-    def test_creates_notification_event(self, session):
+class TestEmitAdminSummary(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_creates_notification_event(self, db_session: Session = None):
         stats = {"emails_sent": 3, "emails_failed": 1}
-        emit_admin_summary(db_session=session, stats=stats, cadence="weekly")
+        emit_admin_summary(db_session=db_session, stats=stats, cadence="weekly")
 
         event = (
-            session.query(NotificationEvent)
+            db_session.query(NotificationEvent)
             .filter_by(
                 notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
                 event_subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
             )
             .one_or_none()
         )
-        assert event is not None
-        assert event.payload["emails_sent"] == 3
-        assert event.payload["cadence"] == "weekly"
+        self.assertIsNotNone(event)
+        self.assertEqual(event.payload["emails_sent"], 3)
+        self.assertEqual(event.payload["cadence"], "weekly")
 
 
 # ---------------------------------------------------------------------------
@@ -561,30 +496,36 @@ class TestEmitAdminSummary:
 # ---------------------------------------------------------------------------
 
 
-class TestDispatchDryRun:
+class TestDispatchDryRun(unittest.TestCase):
     @patch("tasks.notifications.dispatch_notifications.with_users_db_session")
     def test_dry_run_returns_stats_without_sending(self, mock_decorator):
         """Smoke test: handler returns a stats dict and does not crash."""
         result = dispatch_notifications_handler({"dry_run": True, "cadence": "weekly"})
         # dry_run default is True, so no emails sent
-        assert "dry_run" in result or isinstance(result, dict)
+        self.assertTrue("dry_run" in result or isinstance(result, dict))
 
 
 # ---------------------------------------------------------------------------
-# dispatch — integration-style (in-memory DB, mocked Brevo)
+# dispatch — integration-style (real users DB, mocked Brevo)
 # ---------------------------------------------------------------------------
 
 
-class TestDispatchIntegration:
+class TestDispatchIntegration(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
+
     @patch("tasks.notifications.dispatch_notifications.send_single")
-    def test_single_event_non_digest_sends_one_email(self, mock_send, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_single_event_non_digest_sends_one_email(
+        self, mock_send, db_session: Session = None
+    ):
         _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.WEEKLY,
             digest=False,
         )
-        _make_event(session)
+        _make_event(db_session)
 
         now = datetime.now(timezone.utc)
         stats = dispatch(
@@ -596,22 +537,58 @@ class TestDispatchIntegration:
             since_dt=(now - timedelta(hours=1)).isoformat(),
             until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
-            db_session=session,
+            db_session=db_session,
         )
 
-        assert mock_send.called
-        assert stats["emails_sent"] == 1
+        self.assertTrue(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 1)
+
+    @patch("tasks.notifications.dispatch_notifications.get_brevo_rate_limiter")
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_rate_limiter_acquired_once_per_send(
+        self, mock_send, mock_get_limiter, db_session: Session = None
+    ):
+        """Each Brevo send attempt acquires a token from the shared limiter."""
+        limiter = MagicMock()
+        mock_get_limiter.return_value = limiter
+        _make_subscription(
+            db_session,
+            "user-alice",
+            cadence=NotificationCadence.WEEKLY,
+            digest=False,
+        )
+        _make_event(db_session)
+
+        now = datetime.now(timezone.utc)
+        dispatch(
+            cadence=NotificationCadence.WEEKLY,
+            dry_run=False,
+            status_filter="new",
+            user_ids=[],
+            force=False,
+            since_dt=(now - timedelta(hours=1)).isoformat(),
+            until_dt=(now + timedelta(hours=1)).isoformat(),
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        # One successful send => exactly one token acquired.
+        limiter.acquire.assert_called_once_with()
 
     @patch("tasks.notifications.dispatch_notifications.send_digest")
-    def test_digest_batches_events_into_one_email(self, mock_send, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_digest_batches_events_into_one_email(
+        self, mock_send, db_session: Session = None
+    ):
         _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.WEEKLY,
             digest=True,
         )
-        _make_event(session, feed_stable_id="mdb-1")
-        _make_event(session, feed_stable_id="mdb-2")
+        _make_event(db_session, feed_stable_id="mdb-1")
+        _make_event(db_session, feed_stable_id="mdb-2")
 
         now = datetime.now(timezone.utc)
         stats = dispatch(
@@ -623,27 +600,28 @@ class TestDispatchIntegration:
             since_dt=(now - timedelta(hours=1)).isoformat(),
             until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
-            db_session=session,
+            db_session=db_session,
         )
 
         # One digest call for 2 events
-        assert mock_send.call_count == 1
-        assert stats["emails_sent"] == 2
+        self.assertEqual(mock_send.call_count, 1)
+        self.assertEqual(stats["emails_sent"], 2)
 
     @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
     def test_brevo_failure_marks_log_failed_and_increments_retry_count(
-        self, mock_send, session
+        self, mock_send, db_session: Session = None
     ):
         from shared.notifications.brevo_notification_sender import BrevoSendError
 
         mock_send.side_effect = BrevoSendError("Brevo 429")
         sub = _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.WEEKLY,
             digest=False,
         )
-        event = _make_event(session)
+        event = _make_event(db_session)
 
         now = datetime.now(timezone.utc)
         with patch("tasks.notifications.dispatch_notifications.time.sleep"):
@@ -656,30 +634,33 @@ class TestDispatchIntegration:
                 since_dt=(now - timedelta(hours=1)).isoformat(),
                 until_dt=(now + timedelta(hours=1)).isoformat(),
                 max_retries=5,
-                db_session=session,
+                db_session=db_session,
             )
 
         log = (
-            session.query(NotificationLog)
+            db_session.query(NotificationLog)
             .filter_by(notification_event_id=event.id, subscription_id=sub.id)
             .one()
         )
-        assert log.status == NotificationLogStatus.FAILED
-        assert log.retry_count == 1
-        assert stats["emails_failed"] == 1
+        self.assertEqual(log.status, NotificationLogStatus.FAILED)
+        self.assertEqual(log.retry_count, 1)
+        self.assertEqual(stats["emails_failed"], 1)
 
     @patch("tasks.notifications.dispatch_notifications.send_single")
-    def test_permanently_failed_after_max_retries(self, mock_send, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_permanently_failed_after_max_retries(
+        self, mock_send, db_session: Session = None
+    ):
         from shared.notifications.brevo_notification_sender import BrevoSendError
 
         mock_send.side_effect = BrevoSendError("Persistent failure")
         sub = _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.WEEKLY,
             digest=False,
         )
-        event = _make_event(session)
+        event = _make_event(db_session)
 
         # Pre-seed a log with retry_count = max_retries - 1
         log = NotificationLog(
@@ -690,8 +671,8 @@ class TestDispatchIntegration:
             status=NotificationLogStatus.FAILED,
             retry_count=4,  # one below max
         )
-        session.add(log)
-        session.flush()
+        db_session.add(log)
+        db_session.flush()
 
         now = datetime.now(timezone.utc)
         with patch("tasks.notifications.dispatch_notifications.time.sleep"):
@@ -704,23 +685,26 @@ class TestDispatchIntegration:
                 since_dt=(now - timedelta(hours=1)).isoformat(),
                 until_dt=(now + timedelta(hours=1)).isoformat(),
                 max_retries=5,
-                db_session=session,
+                db_session=db_session,
             )
 
-        session.refresh(log)
-        assert log.status == NotificationLogStatus.PERMANENTLY_FAILED
-        assert log.retry_count == 5
-        assert stats["permanently_failed"] == 1
+        db_session.refresh(log)
+        self.assertEqual(log.status, NotificationLogStatus.PERMANENTLY_FAILED)
+        self.assertEqual(log.retry_count, 5)
+        self.assertEqual(stats["permanently_failed"], 1)
 
     @patch("tasks.notifications.dispatch_notifications.send_single")
-    def test_unique_constraint_prevents_duplicate_log(self, mock_send, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_unique_constraint_prevents_duplicate_log(
+        self, mock_send, db_session: Session = None
+    ):
         sub = _make_subscription(
-            session,
+            db_session,
             "user-alice",
             cadence=NotificationCadence.WEEKLY,
             digest=False,
         )
-        event = _make_event(session)
+        event = _make_event(db_session)
 
         now = datetime.now(timezone.utc)
         kwargs = dict(
@@ -732,23 +716,26 @@ class TestDispatchIntegration:
             since_dt=(now - timedelta(hours=1)).isoformat(),
             until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
-            db_session=session,
+            db_session=db_session,
         )
         dispatch(**kwargs)
         dispatch(**kwargs)  # second run — event already sent
 
         logs = (
-            session.query(NotificationLog)
+            db_session.query(NotificationLog)
             .filter_by(notification_event_id=event.id, subscription_id=sub.id)
             .all()
         )
-        assert len(logs) == 1
+        self.assertEqual(len(logs), 1)
 
     @patch("tasks.notifications.dispatch_notifications.send_single")
-    def test_filter_params_excludes_unmatched_feed(self, mock_send, session):
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_filter_params_excludes_unmatched_feed(
+        self, mock_send, db_session: Session = None
+    ):
         _make_event(
-            session, feed_stable_id="mdb-1"
-        )  # different feed — should not match
+            db_session, feed_stable_id="mdb-1"
+        )  # event exists but no subscription matches
 
         now = datetime.now(timezone.utc)
         stats = dispatch(
@@ -760,15 +747,16 @@ class TestDispatchIntegration:
             since_dt=(now - timedelta(hours=1)).isoformat(),
             until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
-            db_session=session,
+            db_session=db_session,
         )
 
-        assert not mock_send.called
-        assert stats["emails_sent"] == 0
+        self.assertFalse(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 0)
 
-    def test_dry_run_does_not_write_logs(self, session):
-        _make_subscription(session, "user-alice", cadence=NotificationCadence.WEEKLY)
-        _make_event(session)
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_dry_run_does_not_write_logs(self, db_session: Session = None):
+        _make_subscription(db_session, "user-alice", cadence=NotificationCadence.WEEKLY)
+        _make_event(db_session)
 
         now = datetime.now(timezone.utc)
         dispatch(
@@ -780,7 +768,11 @@ class TestDispatchIntegration:
             since_dt=(now - timedelta(hours=1)).isoformat(),
             until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
-            db_session=session,
+            db_session=db_session,
         )
 
-        assert session.query(NotificationLog).count() == 0
+        self.assertEqual(db_session.query(NotificationLog).count(), 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

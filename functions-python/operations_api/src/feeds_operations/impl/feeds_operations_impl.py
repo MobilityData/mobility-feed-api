@@ -75,6 +75,7 @@ from shared.helpers.query_helper import (
 from shared.notifications.notification_event_service import (
     emit_feed_redirected,
     emit_url_replaced,
+    urls_differ,
 )
 from .models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeedImpl,
@@ -399,7 +400,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 if (
                     old_producer_url
                     and new_producer_url
-                    and old_producer_url != new_producer_url
+                    and urls_differ(old_producer_url, new_producer_url)
                 ):
                     emit_url_replaced(
                         feed_stable_id=feed_stable_id,
