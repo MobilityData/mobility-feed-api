@@ -51,6 +51,15 @@ def test_burst_up_to_capacity_does_not_sleep():
     assert clock.slept == []
 
 
+def test_rate_and_capacity_properties():
+    limiter, _ = _limiter(rate=10, capacity=5)
+    assert limiter.rate == 10
+    assert limiter.capacity == 5
+    # capacity defaults to rate when not provided.
+    default_limiter, _ = _limiter(rate=7)
+    assert default_limiter.capacity == 7
+
+
 def test_exceeding_capacity_sleeps_deficit_over_rate():
     limiter, clock = _limiter(rate=10, capacity=2)
     assert limiter.acquire() == 0.0

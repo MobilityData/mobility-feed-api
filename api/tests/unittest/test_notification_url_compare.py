@@ -1,9 +1,10 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from shared.notifications.notification_event_service import (
     emit_url_replaced,
     normalize_url,
     urls_differ,
+    _emit,
 )
 
 
@@ -38,3 +39,61 @@ def test_emit_url_replaced_emits_on_real_change():
             source="unit_test",
         )
         mock_emit.assert_called_once()
+
+
+def test_emit_url_replaced_merges_extra_data_into_payload():
+    with patch("shared.notifications.notification_event_service._emit") as mock_emit:
+        emit_url_replaced(
+            feed_stable_id="mdb-1",
+            old_url="https://example.com/old.zip",
+            new_url="https://example.com/new.zip",
+            source="unit_test",
+            extra_data={"note": "manual"},
+        )
+        payload = mock_emit.call_args.kwargs["payload"]
+        assert payload["note"] == "manual"
+        assert payload["old_url"] == "https://example.com/old.zip"
+
+
+def test_emit_swallows_import_error(caplog):
+    import sys
+
+    # Force `from shared.database.users_database import UsersDatabase` to raise
+    # ImportError inside _emit; the call must degrade gracefully (no raise).
+    with patch.dict(sys.modules, {"shared.database.users_database": None}):
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+        )
+
+
+def test_emit_swallows_users_db_unavailable():
+    # UsersDatabase() construction failing must not raise out of _emit.
+    with patch(
+        "shared.database.users_database.UsersDatabase",
+        side_effect=RuntimeError("no users db"),
+    ):
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+        )
+
+
+def test_emit_swallows_persist_failure():
+    # A failure while persisting must be logged and swallowed (fire-and-forget).
+    fake_db = MagicMock()
+    fake_db.start_db_session.side_effect = RuntimeError("commit failed")
+    with patch("shared.database.users_database.UsersDatabase", return_value=fake_db):
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+        )
