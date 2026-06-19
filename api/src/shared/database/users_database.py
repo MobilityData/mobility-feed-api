@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import inspect
 import logging
 import os
 import threading
@@ -82,19 +83,35 @@ def with_users_db_session(func=None, db_url: str | None = None):
     if func is None:
         return lambda f: with_users_db_session(f, db_url=db_url)
 
-    def wrapper(*args, **kwargs):
-        db_session = kwargs.get("db_session")
-        if db_session is None:
-            db = UsersDatabase(
-                echo_sql=get_env_logging_level() == logging.getLevelName("DEBUG"),
-                users_database_url=db_url,
-            )
-            with db.start_db_session() as session:
-                kwargs["db_session"] = session
-                return func(*args, **kwargs)
-        else:
-            return func(*args, **kwargs)
+    if inspect.iscoroutinefunction(func):
 
-    # Preserve the original callable for inspect/signature-based tooling.
+        async def wrapper(*args, **kwargs):
+            db_session = kwargs.get("db_session")
+            if db_session is None:
+                db = UsersDatabase(
+                    echo_sql=get_env_logging_level() == logging.getLevelName("DEBUG"),
+                    users_database_url=db_url,
+                )
+                with db.start_db_session() as session:
+                    kwargs["db_session"] = session
+                    return await func(*args, **kwargs)
+            else:
+                return await func(*args, **kwargs)
+
+    else:
+
+        def wrapper(*args, **kwargs):
+            db_session = kwargs.get("db_session")
+            if db_session is None:
+                db = UsersDatabase(
+                    echo_sql=get_env_logging_level() == logging.getLevelName("DEBUG"),
+                    users_database_url=db_url,
+                )
+                with db.start_db_session() as session:
+                    kwargs["db_session"] = session
+                    return func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+
     wrapper.__wrapped__ = func
     return wrapper

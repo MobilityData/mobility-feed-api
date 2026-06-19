@@ -18,6 +18,7 @@ from flask import Request, Response
 from fastapi import FastAPI
 from feeds_gen.apis.operations_api import router as FeedsApiRouter
 from feeds_gen.apis.licenses_api import router as LicenseApiRouter
+from feeds_gen.apis.users_api import router as UsersApiRouter
 import functions_framework
 import asyncio
 
@@ -36,6 +37,7 @@ app = FastAPI(
 app.add_middleware(RequestContextMiddleware)
 app.include_router(FeedsApiRouter)
 app.include_router(LicenseApiRouter)
+app.include_router(UsersApiRouter)
 
 
 def build_scope_from_wsgi(request: Request) -> dict:
