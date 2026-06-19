@@ -54,6 +54,8 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
+from sqlalchemy import event
+
 from shared.notifications.notification_constants import (
     FeedUrlUpdateType,
     NotificationFeedRole,
@@ -87,6 +89,7 @@ def emit_feed_redirected(
     new_url: Optional[str],
     source: str,
     extra_data: Optional[Dict[str, Any]] = None,
+    source_session: Optional[Any] = None,
 ) -> None:
     """Create a ``feed.url_updated / feed_redirected`` notification_event.
 
@@ -109,6 +112,11 @@ def emit_feed_redirected(
     extra_data:
         Optional extra free-form JSON merged into the event payload
         (e.g. redirect_comment).
+    source_session:
+        Optional SQLAlchemy session of the feed-change transaction. When given,
+        the event is written only **after** that transaction commits (and is
+        dropped if it rolls back), so subscribers are never notified about a
+        change that did not take effect.
     """
     payload: Dict[str, Any] = {"old_url": old_url, "new_url": new_url}
     if extra_data:
@@ -122,6 +130,7 @@ def emit_feed_redirected(
             (target_stable_id, NotificationFeedRole.TARGET),
         ],
         payload=payload,
+        source_session=source_session,
     )
 
 
@@ -131,6 +140,7 @@ def emit_url_replaced(
     new_url: str,
     source: str,
     extra_data: Optional[Dict[str, Any]] = None,
+    source_session: Optional[Any] = None,
 ) -> None:
     """Create a ``feed.url_updated / url_replaced`` notification_event.
 
@@ -152,6 +162,10 @@ def emit_url_replaced(
         Human-readable tag identifying the process (e.g. ``NotificationSource.TDG_IMPORT``).
     extra_data:
         Optional extra free-form JSON merged into the event payload.
+    source_session:
+        Optional SQLAlchemy session of the feed-change transaction. When given,
+        the event is written only **after** that transaction commits (and is
+        dropped if it rolls back).
     """
     if not urls_differ(old_url, new_url):
         logger.debug(
@@ -168,6 +182,7 @@ def emit_url_replaced(
         source=source,
         feeds=[(feed_stable_id, NotificationFeedRole.SUBJECT)],
         payload=payload,
+        source_session=source_session,
     )
 
 
@@ -182,6 +197,7 @@ def _emit(
     source: str,
     feeds: Optional[List[Tuple[str, str]]] = None,
     payload: Optional[Dict[str, Any]] = None,
+    source_session: Optional[Any] = None,
 ) -> None:
     """Write one notification_event row (plus its notification_event_feed rows)
     to the users DB.
@@ -199,6 +215,12 @@ def _emit(
         one-or-more feeds. ``role`` is a ``NotificationFeedRole`` value.
     payload:
         Optional type-specific JSON payload.
+    source_session:
+        Optional SQLAlchemy session of the originating feed-change transaction.
+        When provided, the write is deferred until that session's transaction
+        commits (and discarded on rollback), so the event is never persisted for
+        a change that did not take effect. When ``None``, the write happens
+        immediately.
 
     Gracefully degrades if the users DB is unavailable:
     - ``USERS_DATABASE_URL`` not set → log warning, return.
@@ -206,6 +228,104 @@ def _emit(
 
     This ensures that feed-change code paths are never blocked.
     """
+    if source_session is not None:
+        # Defer the write until the source transaction durably commits.
+        _run_after_commit(
+            source_session,
+            lambda: _write_event(
+                notification_type_id=notification_type_id,
+                event_subtype=event_subtype,
+                source=source,
+                feeds=feeds,
+                payload=payload,
+            ),
+        )
+        return
+    _write_event(
+        notification_type_id=notification_type_id,
+        event_subtype=event_subtype,
+        source=source,
+        feeds=feeds,
+        payload=payload,
+    )
+
+
+_PENDING_KEY = "_pending_notification_events"
+_LISTENERS_KEY = "_notification_events_listeners_registered"
+
+
+def _run_after_commit(session: Any, fn) -> None:
+    """Run ``fn`` after ``session``'s current transaction durably commits.
+
+    If the transaction rolls back instead, ``fn`` is discarded. ``fn`` is queued
+    on the session (via ``session.info``) and flushed by persistent
+    ``after_commit`` / ``after_rollback`` listeners that are registered exactly
+    once per session.
+
+    The listeners are intentionally *persistent* (never removed from inside their
+    own dispatch) — removing a listener while SQLAlchemy iterates its listener
+    collection raises ``RuntimeError: deque mutated during iteration`` and aborts
+    the commit. Draining a per-session queue keeps them harmless no-ops once the
+    queue is empty. Falls back to running ``fn`` immediately if the session does
+    not expose an ``info`` mapping (e.g. a plain mock).
+    """
+    try:
+        info = session.info
+        info.setdefault(_PENDING_KEY, [])
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("notification_event_service: could not defer emit (%s); writing immediately", exc)
+        fn()
+        return
+
+    info[_PENDING_KEY].append(fn)
+
+    if info.get(_LISTENERS_KEY):
+        return
+    info[_LISTENERS_KEY] = True
+
+    def _on_commit(committed_session) -> None:
+        pending = committed_session.info.get(_PENDING_KEY)
+        if not pending:
+            return
+        # Detach the queue before running so re-entrant emits start a fresh batch.
+        committed_session.info[_PENDING_KEY] = []
+        for pending_fn in pending:
+            try:
+                pending_fn()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.exception("notification_event_service: deferred emit failed: %s", exc)
+
+    def _on_rollback(rolled_back_session) -> None:
+        pending = rolled_back_session.info.get(_PENDING_KEY)
+        if pending:
+            rolled_back_session.info[_PENDING_KEY] = []
+            logger.debug(
+                "notification_event_service: source transaction rolled back; " "dropping %d pending event(s)",
+                len(pending),
+            )
+
+    try:
+        event.listen(session, "after_commit", _on_commit)
+        event.listen(session, "after_rollback", _on_rollback)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "notification_event_service: could not register deferred listeners (%s); "
+            "writing pending events immediately",
+            exc,
+        )
+        for pending_fn in info.get(_PENDING_KEY, []):
+            pending_fn()
+        info[_PENDING_KEY] = []
+
+
+def _write_event(
+    notification_type_id: str,
+    event_subtype: str,
+    source: str,
+    feeds: Optional[List[Tuple[str, str]]] = None,
+    payload: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Perform the actual notification_event write (see :func:`_emit`)."""
     try:
         # Import here to avoid circular imports and to allow graceful degradation
         # when the users DB is not configured (e.g. populate_db CI scripts).

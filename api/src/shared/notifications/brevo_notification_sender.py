@@ -56,6 +56,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from html import escape as _html_escape
 from typing import Any, Dict, List, Optional
 
 from shared.common.rate_limiter import RateLimiter, get_rate_limiter
@@ -256,14 +257,14 @@ def build_single_html(event) -> str:
     payload = event_payload(event)
     if event.event_subtype == "feed_redirected":
         return (
-            f"<p>Feed <strong>{subject_feed(event)}</strong> has been deprecated "
-            f"and now redirects to <strong>{target_feed(event)}</strong>.</p>"
-            f"<p>New URL: <a href='{payload.get('new_url')}'>{payload.get('new_url')}</a></p>"
+            f"<p>Feed <strong>{_esc(subject_feed(event))}</strong> has been deprecated "
+            f"and now redirects to <strong>{_esc(target_feed(event))}</strong>.</p>"
+            f"<p>New URL: {_link(payload.get('new_url'))}</p>"
         )
     return (
-        f"<p>The URL for feed <strong>{subject_feed(event)}</strong> has changed.</p>"
-        f"<p>Old URL: {payload.get('old_url')}</p>"
-        f"<p>New URL: <a href='{payload.get('new_url')}'>{payload.get('new_url')}</a></p>"
+        f"<p>The URL for feed <strong>{_esc(subject_feed(event))}</strong> has changed.</p>"
+        f"<p>Old URL: {_esc(payload.get('old_url'))}</p>"
+        f"<p>New URL: {_link(payload.get('new_url'))}</p>"
     )
 
 
@@ -273,10 +274,10 @@ def build_digest_html(events: List) -> str:
 
     if events[0].notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
         rows = "".join(
-            f"<tr><td>{subject_feed(e) or '-'}</td>"
-            f"<td>{e.event_subtype}</td>"
-            f"<td>{event_payload(e).get('emails_sent', event_payload(e).get('sent', 0))}</td>"
-            f"<td>{event_payload(e).get('emails_failed', event_payload(e).get('failed', 0))}"
+            f"<tr><td>{_esc(subject_feed(e) or '-')}</td>"
+            f"<td>{_esc(e.event_subtype)}</td>"
+            f"<td>{_esc(event_payload(e).get('emails_sent', event_payload(e).get('sent', 0)))}</td>"
+            f"<td>{_esc(event_payload(e).get('emails_failed', event_payload(e).get('failed', 0)))}"
             f"</td></tr>"
             for e in events
         )
@@ -288,10 +289,10 @@ def build_digest_html(events: List) -> str:
         )
 
     rows = "".join(
-        f"<tr><td>{subject_feed(e)}</td><td>{e.event_subtype}</td>"
-        f"<td>{event_payload(e).get('old_url') or '-'}</td>"
-        f"<td>{event_payload(e).get('new_url') or '-'}</td>"
-        f"<td>{e.source or '-'}</td></tr>"
+        f"<tr><td>{_esc(subject_feed(e))}</td><td>{_esc(e.event_subtype)}</td>"
+        f"<td>{_esc(event_payload(e).get('old_url') or '-')}</td>"
+        f"<td>{_esc(event_payload(e).get('new_url') or '-')}</td>"
+        f"<td>{_esc(e.source or '-')}</td></tr>"
         for e in events
     )
     return (
@@ -300,6 +301,33 @@ def build_digest_html(events: List) -> str:
         "<tr><th>Feed</th><th>Type</th><th>Old URL</th><th>New URL</th><th>Source</th></tr>"
         f"</thead><tbody>{rows}</tbody></table>"
     )
+
+
+def _esc(value: Any) -> str:
+    """HTML-escape an arbitrary value for safe inline interpolation.
+
+    Feed stable_ids, URLs and ``source`` originate from provider-supplied data,
+    so every value rendered into the fallback HTML emails must be escaped to
+    prevent markup/attribute injection.
+    """
+    if value is None:
+        return ""
+    return _html_escape(str(value), quote=True)
+
+
+def _link(url: Optional[str]) -> str:
+    """Render a safe ``<a>`` for a URL, escaping it and only linking http(s).
+
+    Non-http(s) (or empty) values are rendered as escaped text only, so a
+    crafted ``javascript:`` / malformed value cannot become a live link or
+    break out of the ``href`` attribute.
+    """
+    if not url:
+        return ""
+    safe = _esc(url)
+    if str(url).strip().lower().startswith(("http://", "https://")):
+        return f'<a href="{safe}">{safe}</a>'
+    return safe
 
 
 def send_single(

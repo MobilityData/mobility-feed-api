@@ -574,6 +574,7 @@ def _process_tdg_dataset(
                             old_url=db_fp["producer_url"],
                             new_url=api_fp["producer_url"],
                             source="tdg_import",
+                            source_session=db_session,
                         )
 
                 _update_common_tdg_fields(
@@ -635,6 +636,7 @@ def _process_tdg_dataset(
                             old_url=db_rt_fp["producer_url"],
                             new_url=api_rt_fp["producer_url"],
                             source="tdg_import",
+                            source_session=db_session,
                         )
 
                 _update_common_tdg_fields(

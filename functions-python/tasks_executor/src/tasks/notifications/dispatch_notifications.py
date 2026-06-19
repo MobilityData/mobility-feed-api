@@ -289,6 +289,19 @@ def dispatch(
                     max_retries=max_retries,
                 )
 
+        # Commit per subscription so that already-delivered emails are durably
+        # logged before we continue. Otherwise a crash / timeout / DB error later
+        # in the run would roll back ALL log rows for the run while the emails
+        # were already sent, causing duplicate sends on the next run.
+        try:
+            db_session.commit()
+        except Exception:
+            logger.exception(
+                "Failed to commit notification logs for subscription %s; rolling back",
+                subscription.id,
+            )
+            db_session.rollback()
+
     # After the run, emit an admin.event_summary notification_event.
     if not dry_run:
         emit_admin_summary(db_session=db_session, stats=stats, cadence=cadence)
@@ -408,8 +421,13 @@ def _find_new_events(
     if explicit_since is not None and explicit_since > lower_bound:
         lower_bound = explicit_since
 
+    # IMPORTANT: exclude NULL notification_event_id rows. Legacy notification_log
+    # rows (created before this column existed) have NULL here, and SQL
+    # ``x NOT IN (<set containing NULL>)`` evaluates to NULL (never TRUE) for every
+    # row — which would silently suppress ALL new events for the subscription.
     already_logged = select(NotificationLog.notification_event_id).where(
-        NotificationLog.subscription_id == subscription.id
+        NotificationLog.subscription_id == subscription.id,
+        NotificationLog.notification_event_id.isnot(None),
     )
     q = (
         db_session.query(NotificationEvent)
@@ -536,6 +554,8 @@ def _send_and_log_digest(
     # For digests: attempt the send once; apply the same result to all event logs.
     error = _attempt_send(lambda: send_digest(recipient, events, subscription))
 
+    # Count each event exactly once across the sent / failed / skipped / permanently
+    # buckets so the admin.event_summary stats stay accurate.
     for event in events:
         log = _get_or_create_log(db_session, event.id, subscription.id, "email")
         if log.retry_count >= max_retries:
@@ -545,18 +565,12 @@ def _send_and_log_digest(
             stats["skipped_max_retries"] += 1
             continue
         _update_log(db_session, log, error, max_retries)
-
-    if error:
-        stats["emails_failed"] += len(events)
-        failed_permanently = sum(
-            1
-            for e in events
-            if _get_log_status(db_session, e.id, subscription.id)
-            == NotificationLogStatus.PERMANENTLY_FAILED
-        )
-        stats["permanently_failed"] += failed_permanently
-    else:
-        stats["emails_sent"] += len(events)
+        if error:
+            stats["emails_failed"] += 1
+            if log.status == NotificationLogStatus.PERMANENTLY_FAILED:
+                stats["permanently_failed"] += 1
+        else:
+            stats["emails_sent"] += 1
 
 
 def _attempt_send(send_fn) -> Optional[str]:
@@ -640,21 +654,6 @@ def _update_log(
             log.status = NotificationLogStatus.FAILED
     log.sent_at = datetime.now(timezone.utc)
     db_session.flush()
-
-
-def _get_log_status(
-    db_session: Session, event_id: str, subscription_id: str
-) -> Optional[str]:
-    log = (
-        db_session.query(NotificationLog.status)
-        .filter_by(
-            notification_event_id=event_id,
-            subscription_id=subscription_id,
-            channel="email",
-        )
-        .scalar()
-    )
-    return log
 
 
 # ---------------------------------------------------------------------------

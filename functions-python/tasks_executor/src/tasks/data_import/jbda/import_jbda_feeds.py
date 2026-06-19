@@ -426,6 +426,7 @@ def _process_feed(
                     old_url=old_url,
                     new_url=new_url,
                     source="jbda_import",
+                    source_session=db_session,
                 )
 
     # Apply schedule fields

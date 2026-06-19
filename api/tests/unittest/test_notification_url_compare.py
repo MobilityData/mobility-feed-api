@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from shared.notifications.notification_event_service import (
@@ -97,3 +98,64 @@ def test_emit_swallows_persist_failure():
             feeds=[("mdb-1", "subject")],
             payload={"old_url": "o", "new_url": "n"},
         )
+
+
+def _fake_event_recorder():
+    """Return a fake `event` module that records listen()/remove() calls."""
+    listeners = {}
+    fake_event = MagicMock()
+    fake_event.listen.side_effect = lambda target, name, fn: listeners.__setitem__(name, fn)
+    fake_event.remove.side_effect = lambda target, name, fn: listeners.pop(name, None)
+    return fake_event, listeners
+
+
+def test_emit_defers_write_until_source_commit():
+    fake_event, listeners = _fake_event_recorder()
+    session = SimpleNamespace(info={})
+    with patch("shared.notifications.notification_event_service.event", fake_event), patch(
+        "shared.notifications.notification_event_service._write_event"
+    ) as mock_write:
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+            source_session=session,
+        )
+        # Nothing written yet — deferred until the source transaction commits.
+        mock_write.assert_not_called()
+        # Simulate the source transaction committing.
+        listeners["after_commit"](session)
+        mock_write.assert_called_once()
+
+
+def test_emit_drops_write_on_source_rollback():
+    fake_event, listeners = _fake_event_recorder()
+    session = SimpleNamespace(info={})
+    with patch("shared.notifications.notification_event_service.event", fake_event), patch(
+        "shared.notifications.notification_event_service._write_event"
+    ) as mock_write:
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+            source_session=session,
+        )
+        # Source transaction rolls back -> event must be dropped, never written.
+        listeners["after_rollback"](session)
+        mock_write.assert_not_called()
+
+
+def test_emit_immediate_when_no_source_session():
+    with patch("shared.notifications.notification_event_service._write_event") as mock_write:
+        _emit(
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="unit_test",
+            feeds=[("mdb-1", "subject")],
+            payload={"old_url": "o", "new_url": "n"},
+        )
+        mock_write.assert_called_once()

@@ -212,6 +212,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                             new_url=getattr(target_feed, "producer_url", None),
                             source="populate_db_gtfs",
                             extra_data={"redirect_comment": comment} if comment else None,
+                            source_session=session,
                         )
 
     def populate_db(self, session: "Session", fetch_url: bool = True):
@@ -273,6 +274,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         old_url=old_producer_url,
                         new_url=producer_url,
                         source="populate_db_gtfs",
+                        source_session=session,
                     )
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")

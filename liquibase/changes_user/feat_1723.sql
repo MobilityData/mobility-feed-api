@@ -20,6 +20,9 @@
 -- 1. notification_event — generic, type-agnostic event record
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notification_event (
+    -- NOTE: gen_random_uuid() requires PostgreSQL 13+ (built-in) or the pgcrypto
+    -- extension on older servers. This DEFAULT is a fallback only; the
+    -- application always supplies an explicit UUID (see notification_event_service).
     id                    TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
     notification_type_id  TEXT        NOT NULL REFERENCES notification_type(id),
     -- Discriminator within a notification type.

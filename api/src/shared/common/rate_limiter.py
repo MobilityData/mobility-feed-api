@@ -20,6 +20,13 @@ registry (:func:`get_rate_limiter`) so any outbound API caller can share a
 single process-wide bucket keyed by a logical name (e.g. ``"brevo"``,
 ``"tdg"``). The algorithm is API-agnostic; callers only choose a name and rate.
 
+.. note::
+    Scope is **per process**. Each Cloud Function instance / worker process keeps
+    its own bucket, so the effective aggregate rate against an external API is
+    ``configured_rate * number_of_concurrent_instances``. Size per-process rates
+    accordingly (or run a single-instance/serialized caller) when an external
+    provider enforces a hard global limit.
+
 Example::
 
     limiter = get_rate_limiter("tdg", rate=10)  # 10 requests/second
@@ -83,21 +90,25 @@ class RateLimiter:
         """Consume ``n`` tokens, blocking until they are available.
 
         Returns the number of seconds spent waiting (``0`` when tokens were
-        immediately available). The lock is held for the call so concurrent
-        callers are serialized against the single shared bucket.
+        immediately available).
+
+        Tokens are *reserved* atomically under the lock (the bucket is allowed
+        to go negative), and the wait that corresponds to a reservation is slept
+        **outside** the lock. This keeps the shared bucket consistent while still
+        allowing concurrent callers to make progress instead of being serialized
+        behind one another's sleep.
         """
         if n <= 0:
             return 0.0
         with self._lock:
             self._refill()
-            waited = 0.0
-            if self._tokens < n:
-                deficit = n - self._tokens
-                waited = deficit / self._rate
-                self._sleep(waited)
-                self._refill()
+            # Reserve the tokens now; a negative balance represents tokens that
+            # future refill will repay, and determines how long this caller waits.
             self._tokens -= n
-            return waited
+            waited = 0.0 if self._tokens >= 0 else (-self._tokens) / self._rate
+        if waited > 0:
+            self._sleep(waited)
+        return waited
 
     def __enter__(self) -> "RateLimiter":
         self.acquire()

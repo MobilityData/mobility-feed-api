@@ -409,3 +409,48 @@ def test_int_env_valid_invalid_and_unset(monkeypatch):
     assert _int_env("SOME_INT") is None
     monkeypatch.delenv("SOME_INT", raising=False)
     assert _int_env("SOME_INT") is None
+
+
+# ---------------------------------------------------------------------------
+# HTML escaping (injection safety)
+# ---------------------------------------------------------------------------
+
+
+def test_build_single_html_escapes_injection():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-<script>", NotificationFeedRole.SUBJECT)],
+        payload={
+            "old_url": "https://x.com/a' onmouseover='alert(1)",
+            "new_url": "https://x.com/<b>",
+        },
+    )
+    html = build_single_html(event)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    # The raw single-quote attribute breakout must be escaped.
+    assert "onmouseover='alert(1)" not in html
+
+
+def test_link_only_links_http_schemes():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "javascript:alert(1)"},
+    )
+    html = build_single_html(event)
+    # A non-http(s) URL must not become a live <a href> link (rendered as plain text only).
+    assert "<a href=" not in html
+    assert 'href="javascript:' not in html
+
+
+def test_build_digest_html_escapes_values():
+    event = _event(
+        feeds=[_feed("<i>mdb</i>", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "<o>", "new_url": "<n>"},
+        source="<src>",
+    )
+    html = build_digest_html([event])
+    assert "<i>mdb</i>" not in html
+    assert "&lt;i&gt;mdb&lt;/i&gt;" in html
+    assert "<o>" not in html
