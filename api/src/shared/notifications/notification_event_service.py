@@ -51,11 +51,13 @@ Usage
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import event
+from dotenv import load_dotenv
 
+from shared.database.users_database import with_users_db_session
 from shared.notifications.notification_constants import (
     FeedUrlUpdateType,
     NotificationFeedRole,
@@ -89,7 +91,6 @@ def emit_feed_redirected(
     new_url: Optional[str],
     source: str,
     extra_data: Optional[Dict[str, Any]] = None,
-    source_session: Optional[Any] = None,
 ) -> None:
     """Create a ``feed.url_updated / feed_redirected`` notification_event.
 
@@ -112,11 +113,12 @@ def emit_feed_redirected(
     extra_data:
         Optional extra free-form JSON merged into the event payload
         (e.g. redirect_comment).
-    source_session:
-        Optional SQLAlchemy session of the feed-change transaction. When given,
-        the event is written only **after** that transaction commits (and is
-        dropped if it rolls back), so subscribers are never notified about a
-        change that did not take effect.
+
+    The event is written immediately and best-effort (see :func:`_emit`). It is
+    fire-and-forget: if the surrounding feed-change transaction is later rolled
+    back, the event row remains. This is an accepted trade-off — duplicate or
+    rare spurious events are bounded by the dispatcher, which commits its
+    delivery log after every send.
     """
     payload: Dict[str, Any] = {"old_url": old_url, "new_url": new_url}
     if extra_data:
@@ -130,7 +132,6 @@ def emit_feed_redirected(
             (target_stable_id, NotificationFeedRole.TARGET),
         ],
         payload=payload,
-        source_session=source_session,
     )
 
 
@@ -140,7 +141,6 @@ def emit_url_replaced(
     new_url: str,
     source: str,
     extra_data: Optional[Dict[str, Any]] = None,
-    source_session: Optional[Any] = None,
 ) -> None:
     """Create a ``feed.url_updated / url_replaced`` notification_event.
 
@@ -162,10 +162,12 @@ def emit_url_replaced(
         Human-readable tag identifying the process (e.g. ``NotificationSource.TDG_IMPORT``).
     extra_data:
         Optional extra free-form JSON merged into the event payload.
-    source_session:
-        Optional SQLAlchemy session of the feed-change transaction. When given,
-        the event is written only **after** that transaction commits (and is
-        dropped if it rolls back).
+
+    The event is written immediately and best-effort (see :func:`_emit`). It is
+    fire-and-forget: if the surrounding feed-change transaction is later rolled
+    back, the event row remains. This is an accepted trade-off — duplicate or
+    rare spurious events are bounded by the dispatcher, which commits its
+    delivery log after every send.
     """
     if not urls_differ(old_url, new_url):
         logger.debug(
@@ -182,7 +184,6 @@ def emit_url_replaced(
         source=source,
         feeds=[(feed_stable_id, NotificationFeedRole.SUBJECT)],
         payload=payload,
-        source_session=source_session,
     )
 
 
@@ -197,10 +198,9 @@ def _emit(
     source: str,
     feeds: Optional[List[Tuple[str, str]]] = None,
     payload: Optional[Dict[str, Any]] = None,
-    source_session: Optional[Any] = None,
 ) -> None:
     """Write one notification_event row (plus its notification_event_feed rows)
-    to the users DB.
+    to the users DB, immediately and best-effort.
 
     Parameters
     ----------
@@ -215,175 +215,32 @@ def _emit(
         one-or-more feeds. ``role`` is a ``NotificationFeedRole`` value.
     payload:
         Optional type-specific JSON payload.
-    source_session:
-        Optional SQLAlchemy session of the originating feed-change transaction.
-        When provided, the write is deferred until that session's transaction
-        commits (and discarded on rollback), so the event is never persisted for
-        a change that did not take effect. When ``None``, the write happens
-        immediately.
 
-    Gracefully degrades if the users DB is unavailable:
-    - ``USERS_DATABASE_URL`` not set → log warning, return.
-    - Any DB error → log exception, return.
-
-    This ensures that feed-change code paths are never blocked.
+    Fire-and-forget: any failure is logged and swallowed so the calling
+    feed-change code is never blocked or rolled back. If ``USERS_DATABASE_URL``
+    is not configured (e.g. the populate_db CI scripts that only reach the feeds
+    DB), the call is a no-op with a warning.
     """
-    if source_session is not None:
-        # Defer the write until the source transaction durably commits.
-        _run_after_commit(
-            source_session,
-            lambda: _write_event(
-                notification_type_id=notification_type_id,
-                event_subtype=event_subtype,
-                source=source,
-                feeds=feeds,
-                payload=payload,
-            ),
-        )
-        return
-    _write_event(
-        notification_type_id=notification_type_id,
-        event_subtype=event_subtype,
-        source=source,
-        feeds=feeds,
-        payload=payload,
-    )
-
-
-_PENDING_KEY = "_pending_notification_events"
-_LISTENERS_KEY = "_notification_events_listeners_registered"
-
-
-def _run_after_commit(session: Any, fn) -> None:
-    """Run ``fn`` after ``session``'s current transaction durably commits.
-
-    If the transaction rolls back instead, ``fn`` is discarded. ``fn`` is queued
-    on the session (via ``session.info``) and flushed by persistent
-    ``after_commit`` / ``after_rollback`` listeners that are registered exactly
-    once per session.
-
-    The listeners are intentionally *persistent* (never removed from inside their
-    own dispatch) — removing a listener while SQLAlchemy iterates its listener
-    collection raises ``RuntimeError: deque mutated during iteration`` and aborts
-    the commit. Draining a per-session queue keeps them harmless no-ops once the
-    queue is empty. Falls back to running ``fn`` immediately if the session does
-    not expose an ``info`` mapping (e.g. a plain mock).
-    """
-    try:
-        info = session.info
-        info.setdefault(_PENDING_KEY, [])
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("notification_event_service: could not defer emit (%s); writing immediately", exc)
-        fn()
-        return
-
-    info[_PENDING_KEY].append(fn)
-
-    if info.get(_LISTENERS_KEY):
-        return
-    info[_LISTENERS_KEY] = True
-
-    def _on_commit(committed_session) -> None:
-        pending = committed_session.info.get(_PENDING_KEY)
-        if not pending:
-            return
-        # Detach the queue before running so re-entrant emits start a fresh batch.
-        committed_session.info[_PENDING_KEY] = []
-        for pending_fn in pending:
-            try:
-                pending_fn()
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.exception("notification_event_service: deferred emit failed: %s", exc)
-
-    def _on_rollback(rolled_back_session) -> None:
-        pending = rolled_back_session.info.get(_PENDING_KEY)
-        if pending:
-            rolled_back_session.info[_PENDING_KEY] = []
-            logger.debug(
-                "notification_event_service: source transaction rolled back; " "dropping %d pending event(s)",
-                len(pending),
-            )
-
-    try:
-        event.listen(session, "after_commit", _on_commit)
-        event.listen(session, "after_rollback", _on_rollback)
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning(
-            "notification_event_service: could not register deferred listeners (%s); "
-            "writing pending events immediately",
-            exc,
-        )
-        for pending_fn in info.get(_PENDING_KEY, []):
-            pending_fn()
-        info[_PENDING_KEY] = []
-
-
-def _write_event(
-    notification_type_id: str,
-    event_subtype: str,
-    source: str,
-    feeds: Optional[List[Tuple[str, str]]] = None,
-    payload: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Perform the actual notification_event write (see :func:`_emit`)."""
-    try:
-        # Import here to avoid circular imports and to allow graceful degradation
-        # when the users DB is not configured (e.g. populate_db CI scripts).
-        from shared.database.users_database import UsersDatabase
-        from shared.users_database_gen.sqlacodegen_models import (
-            NotificationEvent,
-            NotificationEventFeed,
-        )
-    except ImportError as exc:
-        logger.warning("notification_event_service: import error, skipping emit: %s", exc)
-        return
-
-    try:
-        db = UsersDatabase()
-    except Exception as exc:
+    load_dotenv()
+    if not os.getenv("USERS_DATABASE_URL"):
         primary_feed = feeds[0][0] if feeds else None
         logger.warning(
-            "notification_event_service: users DB unavailable (%s), " "skipping %s/%s for feed=%s",
-            exc,
+            "notification_event_service: USERS_DATABASE_URL not configured; " "skipping %s/%s for feed=%s",
             notification_type_id,
             event_subtype,
             primary_feed,
         )
         return
-
-    event_id = str(uuid.uuid4())
-    event = NotificationEvent(
-        id=event_id,
-        notification_type_id=notification_type_id,
-        event_subtype=event_subtype,
-        source=source,
-        payload=payload,
-    )
-    feed_rows = [
-        NotificationEventFeed(
-            id=str(uuid.uuid4()),
-            notification_event_id=event_id,
-            feed_stable_id=feed_stable_id,
-            role=role,
-        )
-        for feed_stable_id, role in (feeds or [])
-    ]
-
-    primary_feed = feeds[0][0] if feeds else None
     try:
-        with db.start_db_session() as session:
-            session.add(event)
-            for feed_row in feed_rows:
-                session.add(feed_row)
-        logger.info(
-            "notification_event created: type=%s subtype=%s feeds=%s source=%s id=%s",
-            notification_type_id,
-            event_subtype,
-            [f[0] for f in (feeds or [])],
-            source,
-            event_id,
+        _persist_event(
+            notification_type_id=notification_type_id,
+            event_subtype=event_subtype,
+            source=source,
+            feeds=feeds,
+            payload=payload,
         )
     except Exception as exc:
+        primary_feed = feeds[0][0] if feeds else None
         logger.exception(
             "notification_event_service: failed to persist event " "type=%s subtype=%s feed=%s: %s",
             notification_type_id,
@@ -391,3 +248,52 @@ def _write_event(
             primary_feed,
             exc,
         )
+
+
+@with_users_db_session
+def _persist_event(
+    notification_type_id: str,
+    event_subtype: str,
+    source: str,
+    feeds: Optional[List[Tuple[str, str]]] = None,
+    payload: Optional[Dict[str, Any]] = None,
+    db_session=None,
+) -> None:
+    """Insert the notification_event (and its feed rows) on ``db_session``.
+
+    Wrapped by :func:`with_users_db_session`, which opens a users-DB session and
+    commits when this function returns. Exceptions propagate to :func:`_emit`,
+    which logs and swallows them.
+    """
+    from shared.users_database_gen.sqlacodegen_models import (
+        NotificationEvent,
+        NotificationEventFeed,
+    )
+
+    event_id = str(uuid.uuid4())
+    db_session.add(
+        NotificationEvent(
+            id=event_id,
+            notification_type_id=notification_type_id,
+            event_subtype=event_subtype,
+            source=source,
+            payload=payload,
+        )
+    )
+    for feed_stable_id, role in feeds or []:
+        db_session.add(
+            NotificationEventFeed(
+                id=str(uuid.uuid4()),
+                notification_event_id=event_id,
+                feed_stable_id=feed_stable_id,
+                role=role,
+            )
+        )
+    logger.info(
+        "notification_event created: type=%s subtype=%s feeds=%s source=%s id=%s",
+        notification_type_id,
+        event_subtype,
+        [f[0] for f in (feeds or [])],
+        source,
+        event_id,
+    )

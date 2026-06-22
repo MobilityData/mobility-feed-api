@@ -118,7 +118,6 @@ def _update_feed_redirect(
         new_url=tdg_feed.producer_url,
         source="tdg_redirects",
         extra_data={"redirect_comment": "Redirecting post TDG import"},
-        source_session=db_session,
     )
     return counters
 

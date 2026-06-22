@@ -394,7 +394,7 @@ class OperationsApiImpl(BaseOperationsApi):
                     update_request_feed.id,
                     diff.values(),
                 )
-                # Emit notification events for URL / redirect changes (post-commit, best-effort).
+                # Emit notification events for URL / redirect changes (best-effort, fire-and-forget).
                 feed_stable_id = update_request_feed.id
                 new_producer_url = getattr(feed_from_db, "producer_url", None)
                 if (
@@ -407,7 +407,6 @@ class OperationsApiImpl(BaseOperationsApi):
                         old_url=old_producer_url,
                         new_url=new_producer_url,
                         source="operations_api",
-                        source_session=db_session,
                     )
                 new_redirect_target_ids = {
                     r.target_id for r in getattr(feed_from_db, "redirectingids", [])
@@ -422,7 +421,6 @@ class OperationsApiImpl(BaseOperationsApi):
                         old_url=old_producer_url,
                         new_url=getattr(target_feed, "producer_url", None),
                         source="operations_api",
-                        source_session=db_session,
                     )
                 try:
                     create_web_revalidation_task([update_request_feed.id])

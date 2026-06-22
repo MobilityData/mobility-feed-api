@@ -278,6 +278,8 @@ def dispatch(
                 stats=stats,
                 max_retries=max_retries,
             )
+            # A digest is a single email; commit its log right after sending.
+            _commit_delivery_logs(db_session, subscription)
         else:
             for event in events:
                 _send_and_log_single(
@@ -288,25 +290,33 @@ def dispatch(
                     stats=stats,
                     max_retries=max_retries,
                 )
-
-        # Commit per subscription so that already-delivered emails are durably
-        # logged before we continue. Otherwise a crash / timeout / DB error later
-        # in the run would roll back ALL log rows for the run while the emails
-        # were already sent, causing duplicate sends on the next run.
-        try:
-            db_session.commit()
-        except Exception:
-            logger.exception(
-                "Failed to commit notification logs for subscription %s; rolling back",
-                subscription.id,
-            )
-            db_session.rollback()
+                # Commit after every send so a later crash / timeout / DB error
+                # can never roll back the log of an email that was already sent
+                # (which would cause a duplicate send on the next run).
+                _commit_delivery_logs(db_session, subscription)
 
     # After the run, emit an admin.event_summary notification_event.
     if not dry_run:
         emit_admin_summary(db_session=db_session, stats=stats, cadence=cadence)
 
     return stats
+
+
+def _commit_delivery_logs(db_session, subscription) -> None:
+    """Durably persist the notification_log rows written for ``subscription``.
+
+    Called after every email send so that an already-delivered email is always
+    logged before the dispatcher continues. On failure the partial transaction
+    is rolled back and the run continues (best-effort).
+    """
+    try:
+        db_session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to commit notification logs for subscription %s; rolling back",
+            subscription.id,
+        )
+        db_session.rollback()
 
 
 # ---------------------------------------------------------------------------

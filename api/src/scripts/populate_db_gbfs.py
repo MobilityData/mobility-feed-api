@@ -120,7 +120,6 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                         old_url=old_producer_url,
                         new_url=new_producer_url,
                         source="populate_db_gbfs",
-                        source_session=session,
                     )
 
                 if not gbfs_feed.locations:  # If locations are empty, create a new location (no overwrite)

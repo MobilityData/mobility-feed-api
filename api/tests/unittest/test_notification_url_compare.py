@@ -1,5 +1,4 @@
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from shared.notifications.notification_event_service import (
     emit_url_replaced,
@@ -56,12 +55,11 @@ def test_emit_url_replaced_merges_extra_data_into_payload():
         assert payload["old_url"] == "https://example.com/old.zip"
 
 
-def test_emit_swallows_import_error(caplog):
-    import sys
-
-    # Force `from shared.database.users_database import UsersDatabase` to raise
-    # ImportError inside _emit; the call must degrade gracefully (no raise).
-    with patch.dict(sys.modules, {"shared.database.users_database": None}):
+def test_emit_skips_when_users_db_not_configured():
+    # When USERS_DATABASE_URL is unset, _emit is a no-op (never touches the DB).
+    with patch("shared.notifications.notification_event_service.os.getenv", return_value=None), patch(
+        "shared.notifications.notification_event_service._persist_event"
+    ) as mock_persist:
         _emit(
             notification_type_id="feed.url_updated",
             event_subtype="url_replaced",
@@ -69,14 +67,15 @@ def test_emit_swallows_import_error(caplog):
             feeds=[("mdb-1", "subject")],
             payload={"old_url": "o", "new_url": "n"},
         )
+        mock_persist.assert_not_called()
 
 
-def test_emit_swallows_users_db_unavailable():
-    # UsersDatabase() construction failing must not raise out of _emit.
+def test_emit_persists_when_users_db_configured():
+    # When configured, _emit delegates to _persist_event (which writes + commits).
     with patch(
-        "shared.database.users_database.UsersDatabase",
-        side_effect=RuntimeError("no users db"),
-    ):
+        "shared.notifications.notification_event_service.os.getenv",
+        return_value="postgresql://user:pass@localhost/db",
+    ), patch("shared.notifications.notification_event_service._persist_event") as mock_persist:
         _emit(
             notification_type_id="feed.url_updated",
             event_subtype="url_replaced",
@@ -84,13 +83,19 @@ def test_emit_swallows_users_db_unavailable():
             feeds=[("mdb-1", "subject")],
             payload={"old_url": "o", "new_url": "n"},
         )
+        mock_persist.assert_called_once()
 
 
 def test_emit_swallows_persist_failure():
     # A failure while persisting must be logged and swallowed (fire-and-forget).
-    fake_db = MagicMock()
-    fake_db.start_db_session.side_effect = RuntimeError("commit failed")
-    with patch("shared.database.users_database.UsersDatabase", return_value=fake_db):
+    with patch(
+        "shared.notifications.notification_event_service.os.getenv",
+        return_value="postgresql://user:pass@localhost/db",
+    ), patch(
+        "shared.notifications.notification_event_service._persist_event",
+        side_effect=RuntimeError("commit failed"),
+    ):
+        # Must not raise.
         _emit(
             notification_type_id="feed.url_updated",
             event_subtype="url_replaced",
@@ -98,64 +103,3 @@ def test_emit_swallows_persist_failure():
             feeds=[("mdb-1", "subject")],
             payload={"old_url": "o", "new_url": "n"},
         )
-
-
-def _fake_event_recorder():
-    """Return a fake `event` module that records listen()/remove() calls."""
-    listeners = {}
-    fake_event = MagicMock()
-    fake_event.listen.side_effect = lambda target, name, fn: listeners.__setitem__(name, fn)
-    fake_event.remove.side_effect = lambda target, name, fn: listeners.pop(name, None)
-    return fake_event, listeners
-
-
-def test_emit_defers_write_until_source_commit():
-    fake_event, listeners = _fake_event_recorder()
-    session = SimpleNamespace(info={})
-    with patch("shared.notifications.notification_event_service.event", fake_event), patch(
-        "shared.notifications.notification_event_service._write_event"
-    ) as mock_write:
-        _emit(
-            notification_type_id="feed.url_updated",
-            event_subtype="url_replaced",
-            source="unit_test",
-            feeds=[("mdb-1", "subject")],
-            payload={"old_url": "o", "new_url": "n"},
-            source_session=session,
-        )
-        # Nothing written yet — deferred until the source transaction commits.
-        mock_write.assert_not_called()
-        # Simulate the source transaction committing.
-        listeners["after_commit"](session)
-        mock_write.assert_called_once()
-
-
-def test_emit_drops_write_on_source_rollback():
-    fake_event, listeners = _fake_event_recorder()
-    session = SimpleNamespace(info={})
-    with patch("shared.notifications.notification_event_service.event", fake_event), patch(
-        "shared.notifications.notification_event_service._write_event"
-    ) as mock_write:
-        _emit(
-            notification_type_id="feed.url_updated",
-            event_subtype="url_replaced",
-            source="unit_test",
-            feeds=[("mdb-1", "subject")],
-            payload={"old_url": "o", "new_url": "n"},
-            source_session=session,
-        )
-        # Source transaction rolls back -> event must be dropped, never written.
-        listeners["after_rollback"](session)
-        mock_write.assert_not_called()
-
-
-def test_emit_immediate_when_no_source_session():
-    with patch("shared.notifications.notification_event_service._write_event") as mock_write:
-        _emit(
-            notification_type_id="feed.url_updated",
-            event_subtype="url_replaced",
-            source="unit_test",
-            feeds=[("mdb-1", "subject")],
-            payload={"old_url": "o", "new_url": "n"},
-        )
-        mock_write.assert_called_once()

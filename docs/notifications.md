@@ -276,7 +276,10 @@ These are **two independent axes** on `notification_subscription`:
 
 ## Retry Strategy
 
-Three independent layers:
+Durability plus three independent retry layers:
+
+### Layer 0 — Commit after every send (crash durability)
+The dispatcher commits the `notification_log` row **immediately after each email is sent** (after every single send, and after each digest). This guarantees that a crash, timeout (`attempt_deadline`), or DB error later in the run can never roll back the log of an email that was already delivered — bounding any duplicate to at most the one send in flight.
 
 ### Layer 1 — In-run retries (transient failures)
 Each Brevo send attempt is retried **up to 3 times** within the same dispatcher run with short back-off (1 s, 2 s, 4 s). Handles transient Brevo API errors, rate limits, and timeouts.
