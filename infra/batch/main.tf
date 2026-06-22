@@ -42,6 +42,10 @@ locals {
   retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
 
   deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
+
+  function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
+
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -479,5 +483,21 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   port_range            = "443"
   ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = "${local.function_pmtiles_builder_config.name}-${var.environment}"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
