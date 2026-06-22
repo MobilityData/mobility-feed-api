@@ -500,3 +500,4 @@ resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_invoker" 
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
+

@@ -1036,6 +1036,14 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker_b
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
+resource "google_cloud_run_service_iam_member" "pmtiles_builder_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.pmtiles_builder.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # Grant execution permission to the service account to the pmtiles_builder function
 resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" {
   project        = var.project_id
@@ -1052,6 +1060,14 @@ resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_in
   cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
 # Grant execution permission to the functions service account to the gtfs_datasets_comparer function
