@@ -25,6 +25,7 @@ from shared.database_gen.sqlacodegen_models import (
     GtfsDatasetChangelog,
     Gtfsdataset,
     Gtfsfeed,
+    Gtfsfile,
 )
 from tasks.changelog.backfill_changelog import (
     DEFAULT_DATASETS_PER_FEED,
@@ -42,17 +43,30 @@ PATCH_DISPATCH = (
 SCOPE = ["stable_a", "stable_b"]
 
 
+def _extracted_file(dataset_id: str) -> Gtfsfile:
+    """A minimal gtfsfile row marking a dataset as extracted in GCP."""
+    return Gtfsfile(
+        id=f"file_{dataset_id}",
+        gtfs_dataset_id=dataset_id,
+        file_name="stops.txt",
+        file_size_bytes=1,
+    )
+
+
 @with_db_session(db_url=default_db_url)
 def seed(db_session: Session):
-    """Seed two published GTFS feeds with dataset history.
+    """Seed published GTFS feeds with dataset history.
 
-    feed_a: 3 datasets (a0 oldest -> a2 newest), one existing changelog (a0->a1).
-    feed_b: 1 dataset (no pairs possible).
+    feed_a: 3 datasets (a0 oldest -> a2 newest), all extracted, one existing
+            changelog (a0->a1).
+    feed_b: 1 extracted dataset (no pairs possible).
+    feed_c: 3 datasets but the newest (c2) has NO extracted files, so only c0,c1
+            are comparable -> a single pair. Used to test the extracted-files filter.
 
-    Only our own rows are touched: existing feed_a/feed_b are deleted first
-    (FK cascade removes their datasets and changelogs), then re-inserted.
+    Only our own rows are touched: existing feeds are deleted first (FK cascade
+    removes their datasets, files and changelogs), then re-inserted.
     """
-    db_session.query(Feed).filter(Feed.id.in_(["feed_a", "feed_b"])).delete(
+    db_session.query(Feed).filter(Feed.id.in_(["feed_a", "feed_b", "feed_c"])).delete(
         synchronize_session=False
     )
     db_session.commit()
@@ -74,7 +88,15 @@ def seed(db_session: Session):
         operational_status="published",
         created_at=now,
     )
-    db_session.add_all([feed_a, feed_b])
+    feed_c = Gtfsfeed(
+        id="feed_c",
+        stable_id="stable_c",
+        data_type="gtfs",
+        status="active",
+        operational_status="published",
+        created_at=now,
+    )
+    db_session.add_all([feed_a, feed_b, feed_c])
     db_session.flush()
 
     for i in range(3):
@@ -94,6 +116,21 @@ def seed(db_session: Session):
             downloaded_at=now - timedelta(days=5),
         )
     )
+    for i in range(3):
+        db_session.add(
+            Gtfsdataset(
+                id=f"c{i}",
+                stable_id=f"stable_c{i}",
+                feed_id="feed_c",
+                downloaded_at=now - timedelta(days=10 - i),
+            )
+        )
+    db_session.flush()
+
+    # Mark datasets as extracted in GCP via gtfsfile rows. c2 (newest of feed_c)
+    # and b0 are intentionally left without files.
+    for dataset_id in ["a0", "a1", "a2", "c0", "c1"]:
+        db_session.add(_extracted_file(dataset_id))
     db_session.flush()
 
     # Existing changelog for the oldest pair (a0 -> a1) => must be skipped.
@@ -262,6 +299,31 @@ class TestBackfillChangelog(unittest.TestCase):
         # feed_b (1 dataset) is excluded from processing, only feed_a remains.
         result = backfill_changelog(dry_run=True, stable_feed_ids=SCOPE)
         self.assertEqual(result["feeds_processed"], 1)
+
+    @patch(PATCH_DISPATCH)
+    def test_only_extracted_datasets_considered(self, mock_dispatch):
+        # feed_c has 3 datasets but c2 (newest) has no extracted files, so only the
+        # c0->c1 pair is comparable.
+        result = backfill_changelog(dry_run=True, stable_feed_ids=["stable_c"])
+        self.assertEqual(result["feeds_processed"], 1)
+        self.assertEqual(result["pairs_found"], 1)
+        self.assertEqual(
+            result["dispatched"],
+            [
+                {
+                    "feed_stable_id": "stable_c",
+                    "base_dataset_stable_id": "stable_c0",
+                    "new_dataset_stable_id": "stable_c1",
+                }
+            ],
+        )
+
+    @patch(PATCH_DISPATCH)
+    def test_feed_without_extracted_datasets_excluded(self, mock_dispatch):
+        # feed_b's only dataset has no extracted files -> not comparable.
+        result = backfill_changelog(dry_run=True, stable_feed_ids=["stable_b"])
+        self.assertEqual(result["feeds_processed"], 0)
+        self.assertEqual(result["pairs_found"], 0)
 
     @patch(PATCH_DISPATCH)
     def test_existing_feed_with_few_datasets_not_reported_missing(self, mock_dispatch):

@@ -117,7 +117,8 @@ def get_feeds_query(
 
     If stable_feed_ids is provided, restrict results to those specific stable IDs.
     If min_datasets is provided, restrict to feeds that have at least that many
-    datasets with a downloaded_at timestamp (i.e. enough to form a pair).
+    *comparable* datasets — ones with a downloaded_at timestamp AND extracted GTFS
+    files registered in the db (gtfsfile rows), since the comparer reads those.
     """
     query = db_session.query(Gtfsfeed).filter(
         Feed.data_type == "gtfs",
@@ -127,7 +128,10 @@ def get_feeds_query(
     if min_datasets is not None:
         feeds_with_enough_datasets = (
             select(Gtfsdataset.feed_id)
-            .where(Gtfsdataset.downloaded_at.isnot(None))
+            .where(
+                Gtfsdataset.downloaded_at.isnot(None),
+                Gtfsdataset.gtfsfiles.any(),
+            )
             .group_by(Gtfsdataset.feed_id)
             .having(func.count(Gtfsdataset.id) >= min_datasets)
         )
@@ -140,7 +144,10 @@ def get_feeds_query(
 def get_recent_datasets(
     db_session: Session, feed_id: str, datasets_per_feed: int
 ) -> list[Gtfsdataset]:
-    """Return the `datasets_per_feed` most recent datasets for a feed, oldest first.
+    """Return the `datasets_per_feed` most recent comparable datasets, oldest first.
+
+    Only datasets with extracted GTFS files (gtfsfile rows) are considered, since the
+    comparer reads those pre-extracted files; a dataset without them can't be compared.
 
     We order by downloaded_at DESC + LIMIT to grab the *most recent* N datasets
     (ASC + LIMIT would grab the oldest N), then reverse in Python so the list is
@@ -151,6 +158,7 @@ def get_recent_datasets(
         .filter(
             Gtfsdataset.feed_id == feed_id,
             Gtfsdataset.downloaded_at.isnot(None),
+            Gtfsdataset.gtfsfiles.any(),
         )
         .order_by(Gtfsdataset.downloaded_at.desc())
         .limit(datasets_per_feed)

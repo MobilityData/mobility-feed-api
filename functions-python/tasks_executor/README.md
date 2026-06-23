@@ -226,6 +226,8 @@ Backfills `gtfs_dataset_changelog` records from the **existing** dataset history
 
 The task is **idempotent / restartable**: pairs that already have a changelog row are skipped (unless `force` is set), and each dispatched Cloud Task runs with `disallow_overwrite=true`. It is **rate-limited**: `limit` caps how many feeds are processed per invocation, and a dedicated Cloud Tasks queue (`GTFS_CHANGE_TRACKER_QUEUE`) throttles the actual comparer invocations. Call it repeatedly to walk the whole catalog.
 
+Only **comparable** datasets are considered: a dataset must have a `downloaded_at` timestamp and extracted GTFS files registered in the db (`gtfsfile` rows), since the comparer reads those pre-extracted files. Datasets without extracted files are skipped, and a feed needs at least two comparable datasets to produce a pair.
+
 ```json
 {
   "task": "backfill_changelog",
