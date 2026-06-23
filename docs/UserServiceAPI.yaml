@@ -226,15 +226,12 @@ paths:
 
   /v1/subscriptions/{id}:
     get:
-      summary: Get a subscription by ID (unauthenticated)
+      summary: Get a subscription by ID
       description: |
         Returns a single notification subscription identified by its ID.
-        Intended for use from email links (e.g. a "manage your subscription" page) where the
-        user is not authenticated — the subscription ID itself acts as the access capability.
       operationId: getSubscription
       tags:
         - "subscriptions"
-      security: []
       parameters:
         - name: id
           in: path
@@ -252,15 +249,12 @@ paths:
         "404":
           description: Subscription not found.
     delete:
-      summary: Delete a subscription by ID (unauthenticated)
+      summary: Delete a subscription by ID
       description: |
-        Removes a notification subscription identified by its ID. Intended for
-        one-click unsubscribe links in emails where the user is not authenticated — the
-        subscription ID itself acts as the access capability.
+        Removes a notification subscription identified by its ID.
       operationId: deleteSubscription
       tags:
         - "subscriptions"
-      security: []
       parameters:
         - name: id
           in: path
