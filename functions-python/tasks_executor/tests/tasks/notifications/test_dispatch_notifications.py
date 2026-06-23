@@ -1002,9 +1002,7 @@ class TestProcessSubscription(unittest.TestCase):
 
     @patch("tasks.notifications.dispatch_notifications.send_single")
     @with_users_db_session(db_url=default_users_db_url)
-    def test_inactive_subscription_skipped(
-        self, mock_send, db_session: Session = None
-    ):
+    def test_inactive_subscription_skipped(self, mock_send, db_session: Session = None):
         sub = _make_subscription(
             db_session,
             "user-alice",
