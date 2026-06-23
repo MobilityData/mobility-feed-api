@@ -31,6 +31,9 @@ locals {
     "USERS_DATABASE_URL" = {
       secret_id = "${var.environment}_USERS_DATABASE_URL"
     }
+    "BREVO_API_KEY" = {
+      secret_id = "${var.environment}_BREVO_API_KEY"
+    }
   }
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
@@ -115,6 +118,19 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
             version = "latest"
           }
         }
+      }
+      env {
+        name = "BREVO_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_BREVO_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "BREVO_API_ANNOUNCEMENTS_LIST_ID"
+        value = var.brevo_api_announcements_list_id
       }
       resources {
         limits = {
