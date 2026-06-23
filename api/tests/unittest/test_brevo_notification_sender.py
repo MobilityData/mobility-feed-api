@@ -254,6 +254,28 @@ def test_build_single_html_redirected_and_replaced():
     assert "https://old" in html
 
 
+def test_build_single_html_admin_summary():
+    event = _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        feeds=[],
+        payload={
+            "subscriptions_processed": 4,
+            "events_found": 7,
+            "emails_sent": 5,
+            "emails_failed": 2,
+            "cadence": "weekly",
+        },
+    )
+    html = build_single_html(event)
+    assert "Notification Dispatch Summary" in html
+    assert "weekly" in html
+    assert "<td>5</td>" in html
+    assert "<td>2</td>" in html
+    # Must NOT fall through to the feed url-updated layout.
+    assert "has changed" not in html
+    assert "Old URL" not in html
+
+
 def test_build_digest_html_empty():
     assert "No feed URL changes" in build_digest_html([])
 

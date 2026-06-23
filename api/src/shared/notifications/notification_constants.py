@@ -75,6 +75,7 @@ class NotificationCadence:
 class NotificationLogStatus:
     """Allowed values for ``notification_log.status``."""
 
+    PENDING = "pending"
     SENT = "sent"
     FAILED = "failed"
     PERMANENTLY_FAILED = "permanently_failed"

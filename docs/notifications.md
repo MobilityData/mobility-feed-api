@@ -10,9 +10,11 @@
 2. [Notification Types](#notification-types)
 3. [Database Schema](#database-schema)
 4. [Event Creation — Integration Points](#event-creation--integration-points)
-5. [Dispatcher Task](#dispatcher-task)
-   - [Payload Parameters](#payload-parameters)
+5. [Dispatcher Tasks (Cloud Tasks fan-out)](#dispatcher-tasks-cloud-tasks-fan-out)
+   - [Run tracking & dynamic task names](#run-tracking--dynamic-task-names)
+   - [Planner Payload Parameters](#planner-payload-parameters)
    - [active_since — Eligibility Gate](#active_since--eligibility-gate)
+   - [Claim-then-send (no duplicate emails)](#claim-then-send-no-duplicate-emails)
    - [Example Invocations](#example-invocations)
 6. [Cadence vs Digest](#cadence-vs-digest)
 7. [Retry Strategy](#retry-strategy)
@@ -36,12 +38,22 @@ Feed change happens
   └── users DB: notification_event  (new, best-effort)
 
            │
-           ▼  Cloud Scheduler (daily / weekly)
-   dispatch_notifications task
-     • finds unprocessed / failed notification_events
-     • matches active notification_subscriptions
-     • sends emails via Brevo
-     • records delivery in notification_log
+           ▼  Cloud Scheduler (daily)
+   notifications_dispatch_plan       (producer / planner)
+     • resolves cadences for today
+     • finds active notification_subscriptions
+     • registers a run in TaskExecutionTracker (feeds DB)
+     • enqueues 1 Cloud Task per subscription + 1 monitor task
+           │
+           ├──▶ notifications_dispatch_subscription  (worker, 1 per subscription)
+           │      • claim-then-send each pending event (lock-free, no duplicates)
+           │      • sends emails via Brevo
+           │      • records delivery in notification_log
+           │      • reports completion to TaskExecutionTracker
+           │
+           └──▶ notifications_dispatch_monitor        (barrier, 1 per run)
+                  • polls until every worker has reported (Cloud Tasks native retry)
+                  • emits exactly ONE admin.event_summary with aggregated stats
 ```
 
 **Two databases** are involved:
@@ -191,68 +203,115 @@ Both functions are **fire-and-forget**: if `USERS_DATABASE_URL` is not set, or i
 
 ---
 
-## Dispatcher Task
+## Dispatcher Tasks (Cloud Tasks fan-out)
 
-**Task name**: `dispatch_notifications`
-**File**: `functions-python/tasks_executor/src/tasks/notifications/dispatch_notifications.py`
+Dispatch is a **Cloud Tasks fan-out**, not a single monolithic task. Cloud
+Scheduler triggers a **planner** that enqueues one **worker** per subscription
+plus a single **monitor** that emits the run summary once the run drains. This
+scales horizontally (workers run in parallel) and makes duplicate emails
+structurally impossible under concurrency (lock-free claim-then-send).
 
-### Payload parameters
+**Files**: `functions-python/tasks_executor/src/tasks/notifications/`
+— `dispatch_plan.py` (planner), `dispatch_subscription.py` (worker),
+`dispatch_monitor.py` (monitor). Shared query/send/log/claim helpers live in
+`dispatch_notifications.py`.
+
+| Task name | Role | Triggered by |
+|-----------|------|--------------|
+| `notifications_dispatch_plan` | Producer: resolve cadences, find subscriptions, register the run, enqueue workers + monitor | Cloud Scheduler |
+| `notifications_dispatch_subscription` | Worker: claim-then-send one subscription's pending events | `notifications_dispatch_plan` (one task per subscription) |
+| `notifications_dispatch_monitor` | Barrier: poll until the run drains, then emit one `admin.event_summary` | `notifications_dispatch_plan` (one task per run) |
+
+### Run tracking & dynamic task names
+
+Each planner invocation picks a fresh `run_id` (`<cadence>-<YYYYMMDDThhmmss>`) and
+registers it in **`TaskExecutionTracker`** (feeds DB) with one tracked entry per
+subscription. Workers mark their entry `completed`/`failed`; the monitor settles
+when every entry has reported (`triggered == 0`). Because `run_id` carries a
+per-invocation timestamp, every Cloud Task name is **dynamic**
+(`notifications-dispatch-<run_id>-<sub_id>`,
+`notifications-dispatch-monitor-<run_id>`) — re-running the planner never
+collides with Cloud Tasks' ~1h name tombstones. Idempotency comes from the DB
+claim, **not** task-name dedup.
+
+### Planner payload parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `cadence` | str | `'weekly'` | Which subscriptions to process: `'daily'` \| `'weekly'` \| `'all'` |
-| `dry_run` | bool | `true` | Discover and log without sending or writing |
-| `status_filter` | str | `'new'` | `'new'` = unsent events; `'failed'` = retry mode; `'all'` = both |
+| `cadence` | str | `'scheduled'` | `'scheduled'` (daily every day + weekly on `weekly_weekday`) \| `'daily'` \| `'weekly'` \| `'all'` |
+| `weekly_weekday` | int | `0` | Day-of-week (Mon=0..Sun=6) that weekly-cadence runs under `'scheduled'` |
+| `dry_run` | bool | `false` | Resolve and log subscriptions without enqueuing workers |
+| `status_filter` | str | `'new'` | `'new'` = unsent events; `'failed'` = retry mode; `'all'` = both (passed through to workers) |
 | `user_ids` | list[str] | `[]` | Restrict to specific users (manual trigger) |
 | `force` | bool | `false` | When `true` + `user_ids`: bypass cadence and window |
-| `since_dt` | str | `null` | ISO 8601 lower-bound override. Acts as an *additional* floor on top of `active_since`: effective lower bound is `max(subscription.active_since, since_dt)`. Can narrow the window but cannot expand it to include pre-subscription or disabled-period events. |
+| `since_dt` | str | `null` | ISO 8601 lower-bound override. An *additional* floor on top of `active_since`: effective lower bound is `max(subscription.active_since, since_dt)`. |
 | `until_dt` | str | `null` | ISO 8601 window end override. Defaults to `now()`. |
 | `max_retries` | int | `5` | Stop retrying at this retry_count |
+| `stale_claim_seconds` | int | `1800` | A `pending` claim older than this (crashed worker) is reclaimable |
+| `monitor_delay_seconds` | int | `60` | Delay before the monitor's first poll |
+| `deadline_seconds` | int | `21600` (6h) | Wall-clock cap: monitor stops polling and emits an "incomplete" summary past this |
 
 ### active_since — Eligibility Gate
 
-Every `notification_subscription` row has an `active_since` timestamp. `_find_new_events` uses it as the **exclusive lower bound** when querying for undelivered events — only events with `created_at >= active_since` are candidates.
+Every `notification_subscription` row has an `active_since` timestamp. Event
+discovery uses it as the **exclusive lower bound** — only events with
+`created_at >= active_since` are candidates.
 
 | Subscription state | `active_since` behaviour |
 |--------------------|-------------------------|
 | **Newly created** (`active=True` from birth) | Set to the creation timestamp. The subscription can never receive events that pre-date its own existence. |
-| **Re-enabled** (`active` flipped `False → True`) | **Must be updated to `now()`** by the re-activation code. Events emitted while the subscription was inactive are permanently excluded — a user who paused notifications should not be flooded with stale events on re-enable. |
+| **Re-enabled** (`active` flipped `False → True`) | **Must be updated to `now()`** by the re-activation code. Events emitted while the subscription was inactive are permanently excluded. |
 | **Active, no state change** | Never modified. Only `last_notified_at` is updated after a dispatch run. |
 
-> **Key rule**: `since_dt` in the payload can narrow the window further, but it can never override the `active_since` floor. Pre-subscription and disabled-period events are always excluded.
+> **Key rule**: `since_dt` in the payload can narrow the window further, but it can never override the `active_since` floor.
+
+### Claim-then-send (no duplicate emails)
+
+The worker (`process_subscription`) guarantees at-most-one email per
+`(event, subscription, channel)` even under concurrent workers, **lock-free**:
+
+1. **Claim**: `INSERT INTO notification_log (... status='pending') ON CONFLICT DO NOTHING`.
+   - `0` rows → another worker owns this event → skip.
+   - `1` row → we own it → proceed.
+2. **Send** via Brevo, then `UPDATE` the row to `sent`/`failed`.
+
+A `pending` row younger than `stale_claim_seconds` is treated as in-flight and
+skipped; an older one (crashed worker) is reclaimed. This bounds the rare
+crash-after-send case to "at most one duplicate", never a lost email. The
+unique constraint `uq_notification_log_event_sub_channel` enforces the claim.
 
 ### Example invocations
 
 ```json
-// Weekly scheduled run (dry_run=false in production)
-{"cadence": "weekly", "dry_run": false}
+// Daily scheduled run (production) — drives both cadences
+{"cadence": "scheduled", "weekly_weekday": 0, "dry_run": false}
 
-// Daily scheduled run
-{"cadence": "daily", "dry_run": false}
-
-// Retry failed notifications from last 7 days
+// Retry failed notifications
 {"cadence": "all", "status_filter": "failed", "dry_run": false}
 
 // Manual trigger for specific users
 {"cadence": "all", "user_ids": ["uid-123", "uid-456"], "force": true, "dry_run": false}
 
-// Admin-only test run (dry run, no emails sent)
+// Dry run — resolve subscriptions, enqueue nothing
 {"cadence": "weekly", "dry_run": true}
 ```
 
-### Response
+### Responses
+
+The **planner** returns the per-cadence fan-out summary:
 
 ```json
 {
-  "subscriptions_processed": 42,
-  "events_found": 18,
-  "emails_sent": 17,
-  "emails_failed": 1,
-  "permanently_failed": 0,
-  "skipped_max_retries": 0,
-  "dry_run": 0
+  "cadences": ["daily"],
+  "by_cadence": {
+    "daily": {"run_id": "daily-20260622T080000", "subscriptions": 42, "enqueued": 42, "dry_run": false}
+  }
 }
 ```
+
+Each **worker** returns its per-subscription stats (`emails_sent`,
+`events_claimed`, `emails_failed`, ...). The **monitor** returns the aggregated
+run summary (see [Admin Event Summary](#admin-event-summary)).
 
 ---
 
@@ -282,21 +341,19 @@ Durability plus three independent retry layers:
 The dispatcher commits the `notification_log` row **immediately after each email is sent** (after every single send, and after each digest). This guarantees that a crash, timeout (`attempt_deadline`), or DB error later in the run can never roll back the log of an email that was already delivered — bounding any duplicate to at most the one send in flight.
 
 ### Layer 1 — In-run retries (transient failures)
-Each Brevo send attempt is retried **up to 3 times** within the same dispatcher run with short back-off (1 s, 2 s, 4 s). Handles transient Brevo API errors, rate limits, and timeouts.
+Each Brevo send attempt is retried **up to 3 times** within the same worker run with short back-off (1 s, 2 s, 4 s). Handles transient Brevo API errors, rate limits, and timeouts.
 
-### Layer 2 — Cross-run retries (via Cloud Scheduler)
-A dedicated **daily retry Cloud Scheduler job** calls `dispatch_notifications` with `{"status_filter": "failed"}`. This ensures that even weekly-cadence subscribers whose email failed will be retried within ~24 hours, not next week.
-
-```
-Monday: weekly dispatch → email fails → notification_log status='failed'
-Tuesday: daily retry job → status_filter='failed' → retry → status='sent'
-```
+### Layer 2 — Cross-run retries (next scheduled run + Cloud Tasks)
+Two mechanisms cooperate:
+- **DB ledger**: a `failed` (non-permanent) `notification_log` row is re-claimed and retried by the next scheduled planner run (`status_filter` includes `failed` events whose `retry_count < max_retries`).
+- **Cloud Tasks native retry**: if a *worker* task fails on an infrastructure error (HTTP 500), Cloud Tasks retries it per the queue's `retry_config`; the claim-then-send logic makes the redelivery a no-op for already-sent events.
 
 ### Layer 3 — Permanent failure (`retry_count >= max_retries`)
 Once a log row reaches `retry_count >= max_retries` (default 5), it is marked `'permanently_failed'` and excluded from all future runs. Monitor for `permanently_failed` rows in dashboards or alerts.
 
-### No GCP pub/sub per notification
-A dedicated message queue per notification would add operational complexity without meaningful benefit at current scale. The `notification_log` table **is** the queue: `pending`/`failed` rows are the work items; the unique constraint prevents duplicates; `retry_count` tracks attempts.
+### The ledger is the source of truth, not the queue
+Cloud Tasks gives at-least-once *eventual* delivery, not a by-deadline guarantee, so completeness is anchored in the DB: a run is "done" when every pending event for an active subscription has a terminal `notification_log` row (`sent`/`permanently_failed`). The re-entrant planner re-publishes any stragglers on the next pass; the unique constraint + claim-then-send prevent duplicates; the monitor's `admin.event_summary` reports the outcome.
+
 
 ---
 
@@ -355,21 +412,35 @@ The following params are passed to Brevo templates (accessible in templates as `
 
 ## Admin Event Summary
 
-After every **non-dry-run** dispatcher invocation, a `notification_event` of type `admin.event_summary` / `dispatch_summary` is created with dispatch statistics in `payload`:
+The **monitor task** (`notifications_dispatch_monitor`) emits **exactly one**
+`notification_event` of type `admin.event_summary` / `dispatch_summary` per
+dispatch run, once every worker has reported (or the run deadline passes). It
+aggregates delivery stats from `notification_log` over the run window into
+`payload`:
 
 ```json
 {
   "subscriptions_processed": 42,
+  "workers_failed": 0,
   "events_found": 18,
   "emails_sent": 17,
   "emails_failed": 1,
   "permanently_failed": 0,
-  "skipped_max_retries": 0,
-  "cadence": "weekly"
+  "incomplete_workers": 0,
+  "cadence": "daily"
 }
 ```
 
-Admin users subscribe to this with `notification_type_id='admin.event_summary'` and `cadence='daily'`. They receive a daily digest of dispatcher run statistics.
+`incomplete_workers > 0` means the run hit its `deadline_seconds` cap before all
+workers reported — the summary is still emitted (marked incomplete) so the run
+terminates. Because the summary is created by the single barrier task keyed off
+the run's `TaskExecutionTracker` state (and the run is marked complete
+afterward), the **multiple-summary bug class is structurally impossible** — a
+monitor redelivery sees the run already `completed` and is a no-op.
+
+Admin users subscribe with `notification_type_id='admin.event_summary'` and
+`cadence='daily'` to receive these as a daily digest.
+
 
 ---
 
@@ -383,7 +454,7 @@ curl -X POST https://<region>-<project>.cloudfunctions.net/tasks_executor-<env> 
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{
-    "task": "dispatch_notifications",
+    "task": "notifications_dispatch_plan",
     "payload": {
       "cadence": "all",
       "user_ids": ["firebase-uid-of-user"],
@@ -408,28 +479,41 @@ The `force: true` flag bypasses cadence filtering, so the specified users receiv
 | `BREVO_TEMPLATE_FEED_URL_UPDATED` | No | Brevo template ID (integer) for single events |
 | `BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST` | No | Brevo template ID for digest emails |
 | `BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY` | No | Brevo template ID for admin summary |
+| `NOTIFICATION_DISPATCH_QUEUE` | Yes (in tasks_executor) | Cloud Tasks queue name for per-subscription dispatch workers |
+| `NOTIFICATION_DISPATCH_MONITOR_QUEUE` | Yes (in tasks_executor) | Cloud Tasks queue name for the dispatch barrier/monitor task |
+| `PROJECT_ID` / `GCP_REGION` / `ENVIRONMENT` / `SERVICE_ACCOUNT_EMAIL` | Yes (in tasks_executor) | Used to build the worker/monitor task URLs and OIDC token when enqueuing |
 
 ---
 
 ## Deployment Notes
 
+### Cloud Tasks queues
+
+Two queues back the fan-out (defined in `infra/functions-python/main.tf`, names
+suffixed with `<env>-<deployment_timestamp>` so they can be recreated without
+collisions):
+
+| Queue | Purpose | Key `retry_config` |
+|-------|---------|--------------------|
+| `notifications-dispatch-queue-<env>-<ts>` | Per-subscription workers. `max_dispatches_per_second` is a guardrail below the Brevo cap (sends are also governed by the in-process token-bucket limiter). | `max_attempts=5`, backoff 30s→300s |
+| `notifications-dispatch-monitor-queue-<env>-<ts>` | Single barrier/monitor task per run. Returns 503 while workers are in flight; native retry polls at a fixed interval until drained. | `max_attempts=-1` (unlimited), fixed `60s` backoff — the in-handler `deadline_seconds` guard stops runaway polling |
+
 ### Cloud Scheduler jobs
 
-A **single daily** Cloud Scheduler job (`dispatch-notifications-daily-<env>`, defined in
-`infra/functions-python/main.tf`) covers both cadences. It is **paused outside `prod`**
-(`paused = var.environment == "prod" ? false : true`), matching the other tasks_executor
-schedulers. The dispatcher always processes daily-cadence subscriptions and additionally
-processes weekly-cadence subscriptions only on `weekly_weekday` (Monday=0 .. Sunday=6).
+A **single daily** Cloud Scheduler job (`dispatch-notifications-daily-<env>`,
+in `infra/functions-python/main.tf`) triggers the **planner**. It is **paused
+outside `prod`** (`paused = var.environment == "prod" ? false : true`). The
+`scheduled` cadence directive resolves in `notifications_dispatch_plan` to
+`['daily']` every day plus `'weekly'` when `now.weekday() == weekly_weekday`.
 
 | Job name | Schedule | Payload |
 |----------|----------|---------|
-| `dispatch-notifications-daily-<env>` | `0 8 * * *` (daily 8 AM UTC, `var.notification_dispatch_daily_schedule`) | `{"task":"dispatch_notifications","payload":{"cadence":"scheduled","weekly_weekday":0,"dry_run":false}}` |
+| `dispatch-notifications-daily-<env>` | `0 8 * * *` (daily 8 AM UTC, `var.notification_dispatch_daily_schedule`) | `{"task":"notifications_dispatch_plan","payload":{"cadence":"scheduled","weekly_weekday":0,"dry_run":false}}` |
 
-The `scheduled` cadence directive is resolved in `dispatch_notifications_handler`:
-`['daily']` every day, plus `'weekly'` when `now.weekday() == weekly_weekday`. The weekday
-is configurable via `var.notification_dispatch_weekly_weekday`. A dedicated retry job is
-optional — weekly-cadence failures are retried on the next daily run via the dispatcher's
-`failed` status handling.
+The weekday is configurable via `var.notification_dispatch_weekly_weekday`. A
+dedicated retry job is unnecessary — `failed` (non-permanent) events are
+re-claimed by the next daily run.
+
 
 ### Adding `USERS_DATABASE_URL` to content update workflow
 
@@ -448,7 +532,7 @@ Until this is added, `populate_db` scripts will log a warning and skip notificat
 
 ## Future Work
 
-- **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `dispatch_notifications` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
+- **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_plan` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
 - **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
 - **Unsubscribe link**: Pass `subscription_id` in Brevo template params; build a one-click unsubscribe endpoint that sets `notification_subscription.active = false`.

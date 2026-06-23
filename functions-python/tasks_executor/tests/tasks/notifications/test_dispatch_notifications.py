@@ -52,6 +52,7 @@ from tasks.notifications.dispatch_notifications import (
     find_events_for_subscription,
     find_subscriptions,
     dispatch_notifications_handler,
+    process_subscription,
     _resolve_scheduled_cadences,
 )
 from test_shared.test_utils.database_utils import default_users_db_url
@@ -580,6 +581,64 @@ class TestDispatchIntegration(unittest.TestCase):
         self.assertTrue(mock_send.called)
         self.assertEqual(stats["emails_sent"], 1)
 
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_admin_summary_emitted_only_on_real_activity(
+        self, mock_send, db_session: Session = None
+    ):
+        """A new admin.event_summary is emitted when real notifications are
+        dispatched, but a follow-up run that only delivers that summary (or does
+        nothing) must NOT mint another summary — otherwise the admin receives a
+        summary email on every dispatch forever."""
+        _make_subscription(
+            db_session,
+            "user-alice",
+            cadence=NotificationCadence.WEEKLY,
+            digest=False,
+        )
+        # An admin subscriber that picks up dispatch summaries.
+        _make_subscription(
+            db_session,
+            "user-admin",
+            notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            cadence=NotificationCadence.WEEKLY,
+            digest=False,
+        )
+        _make_event(db_session)
+
+        now = datetime.now(timezone.utc)
+        kwargs = dict(
+            cadence=NotificationCadence.WEEKLY,
+            dry_run=False,
+            status_filter="new",
+            user_ids=[],
+            force=False,
+            since_dt=(now - timedelta(hours=1)).isoformat(),
+            until_dt=(now + timedelta(hours=1)).isoformat(),
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        def _summary_count() -> int:
+            return (
+                db_session.query(NotificationEvent)
+                .filter_by(notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY)
+                .count()
+            )
+
+        # First run: a real event is dispatched => exactly one summary emitted.
+        dispatch(**kwargs)
+        self.assertEqual(_summary_count(), 1)
+
+        # Second run: the only thing to deliver is the prior summary (to the
+        # admin) — no real activity, so NO new summary must be created.
+        dispatch(**kwargs)
+        self.assertEqual(_summary_count(), 1)
+
+        # Third run: nothing new at all — still no additional summary.
+        dispatch(**kwargs)
+        self.assertEqual(_summary_count(), 1)
+
     @patch("tasks.notifications.dispatch_notifications.get_brevo_rate_limiter")
     @patch("tasks.notifications.dispatch_notifications.send_single")
     @with_users_db_session(db_url=default_users_db_url)
@@ -809,6 +868,158 @@ class TestDispatchIntegration(unittest.TestCase):
         )
 
         self.assertEqual(db_session.query(NotificationLog).count(), 0)
+
+
+class TestProcessSubscription(unittest.TestCase):
+    """Worker core: claim-then-send for a single subscription."""
+
+    def tearDown(self):
+        _cleanup_notifications()
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_sends_and_logs_single(self, mock_send, db_session: Session = None):
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        event = _make_event(db_session)
+
+        stats = process_subscription(
+            subscription_id=sub.id,
+            status_filter="new",
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        self.assertTrue(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 1)
+        self.assertEqual(stats["events_claimed"], 1)
+        log = (
+            db_session.query(NotificationLog)
+            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
+            .one()
+        )
+        self.assertEqual(log.status, NotificationLogStatus.SENT)
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_fresh_pending_claim_blocks_duplicate_send(
+        self, mock_send, db_session: Session = None
+    ):
+        """A fresh 'pending' claim (another worker in flight) must not be re-sent."""
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        event = _make_event(db_session)
+        db_session.add(
+            NotificationLog(
+                id=_uid(),
+                notification_event_id=event.id,
+                subscription_id=sub.id,
+                channel="email",
+                status=NotificationLogStatus.PENDING,
+                retry_count=0,
+                sent_at=datetime.now(timezone.utc),
+            )
+        )
+        db_session.flush()
+
+        stats = process_subscription(
+            subscription_id=sub.id,
+            status_filter="all",
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        self.assertFalse(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 0)
+        # No duplicate log row was created.
+        self.assertEqual(
+            db_session.query(NotificationLog)
+            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
+            .count(),
+            1,
+        )
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_reclaims_stale_pending(self, mock_send, db_session: Session = None):
+        """A 'pending' claim older than the lease (crashed worker) is re-sent."""
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        event = _make_event(db_session)
+        db_session.add(
+            NotificationLog(
+                id=_uid(),
+                notification_event_id=event.id,
+                subscription_id=sub.id,
+                channel="email",
+                status=NotificationLogStatus.PENDING,
+                retry_count=0,
+                sent_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            )
+        )
+        db_session.flush()
+
+        stats = process_subscription(
+            subscription_id=sub.id,
+            status_filter="new",
+            max_retries=5,
+            stale_claim_seconds=60,
+            db_session=db_session,
+        )
+
+        self.assertTrue(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 1)
+        log = (
+            db_session.query(NotificationLog)
+            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
+            .one()
+        )
+        self.assertEqual(log.status, NotificationLogStatus.SENT)
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_second_run_is_noop(self, mock_send, db_session: Session = None):
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        _make_event(db_session)
+
+        kwargs = dict(
+            subscription_id=sub.id,
+            status_filter="new",
+            max_retries=5,
+            db_session=db_session,
+        )
+        process_subscription(**kwargs)
+        mock_send.reset_mock()
+        stats = process_subscription(**kwargs)
+
+        self.assertFalse(mock_send.called)
+        self.assertEqual(stats["emails_sent"], 0)
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_inactive_subscription_skipped(
+        self, mock_send, db_session: Session = None
+    ):
+        sub = _make_subscription(
+            db_session,
+            "user-alice",
+            cadence=NotificationCadence.WEEKLY,
+            digest=False,
+            active=False,
+        )
+        _make_event(db_session)
+
+        stats = process_subscription(
+            subscription_id=sub.id, status_filter="new", db_session=db_session
+        )
+
+        self.assertFalse(mock_send.called)
+        self.assertEqual(stats["events_found"], 0)
 
 
 if __name__ == "__main__":

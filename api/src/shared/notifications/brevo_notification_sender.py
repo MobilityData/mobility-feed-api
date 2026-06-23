@@ -255,6 +255,8 @@ def build_params_by_notification(
 
 def build_single_html(event) -> str:
     payload = event_payload(event)
+    if event.notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
+        return build_admin_summary_html(event)
     if event.event_subtype == "feed_redirected":
         return (
             f"<p>Feed <strong>{_esc(subject_feed(event))}</strong> has been deprecated "
@@ -268,25 +270,39 @@ def build_single_html(event) -> str:
     )
 
 
+def build_admin_summary_html(event) -> str:
+    """Render the dispatch-statistics summary for an ``admin.event_summary`` event."""
+    p = event_payload(event)
+
+    def _row(label: str, key: str) -> str:
+        return f"<tr><td>{_esc(label)}</td><td>{_esc(p.get(key, 0))}</td></tr>"
+
+    rows = "".join(
+        [
+            _row("Subscriptions processed", "subscriptions_processed"),
+            _row("Events found", "events_found"),
+            _row("Emails sent", "emails_sent"),
+            _row("Emails failed", "emails_failed"),
+            _row("Permanently failed", "permanently_failed"),
+            _row("Skipped (max retries)", "skipped_max_retries"),
+        ]
+    )
+    return (
+        "<h2>Notification Dispatch Summary</h2>"
+        f"<p>Cadence: <strong>{_esc(p.get('cadence', '-'))}</strong></p>"
+        "<table border='1'><thead>"
+        "<tr><th>Metric</th><th>Count</th></tr>"
+        f"</thead><tbody>{rows}</tbody></table>"
+    )
+
+
 def build_digest_html(events: List) -> str:
     if not events:
         return "<p>No feed URL changes in this period.</p>"
 
     if events[0].notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
-        rows = "".join(
-            f"<tr><td>{_esc(subject_feed(e) or '-')}</td>"
-            f"<td>{_esc(e.event_subtype)}</td>"
-            f"<td>{_esc(event_payload(e).get('emails_sent', event_payload(e).get('sent', 0)))}</td>"
-            f"<td>{_esc(event_payload(e).get('emails_failed', event_payload(e).get('failed', 0)))}"
-            f"</td></tr>"
-            for e in events
-        )
-        return (
-            "<h2>Notification Dispatch Summary</h2>"
-            "<table border='1'><thead>"
-            "<tr><th>Feed</th><th>Type</th><th>Sent</th><th>Failed</th></tr>"
-            f"</thead><tbody>{rows}</tbody></table>"
-        )
+        # One run summary per event (most digests contain a single summary).
+        return "".join(build_admin_summary_html(e) for e in events)
 
     rows = "".join(
         f"<tr><td>{_esc(subject_feed(e))}</td><td>{_esc(e.event_subtype)}</td>"

@@ -30,7 +30,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import not_, select
+from sqlalchemy import and_, not_, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from shared.database.users_database import with_users_db_session
@@ -63,6 +64,15 @@ logger = logging.getLogger(__name__)
 DEFAULT_CADENCE = NotificationCadence.WEEKLY
 DEFAULT_MAX_RETRIES = 5
 _IN_RUN_RETRY_DELAYS = (1, 2, 4)  # seconds between in-run attempts
+
+# TaskExecutionTracker task_name for a distributed dispatch run (fan-out workers
+# + monitor all key off this plus a per-run run_id).
+DISPATCH_TASK_NAME = "notifications_dispatch"
+
+# A notification_log row left in 'pending' (claimed but not completed) for longer
+# than this is treated as a crashed/abandoned claim and may be re-claimed by a
+# later worker. Should comfortably exceed a single worker task's max runtime.
+DEFAULT_STALE_CLAIM_SECONDS = 1800  # 30 minutes
 
 # Cadence directive used by the single daily Cloud Scheduler job. When passed,
 # the dispatcher always processes daily-cadence subscriptions and additionally
@@ -230,6 +240,13 @@ def dispatch(
     )
     logger.info("Found %d active subscription(s) to process", len(subscriptions))
 
+    # Count of real (non-admin) events dispatched this run.  We only emit a new
+    # admin.event_summary when there was genuine activity, otherwise the summary
+    # would feed itself: every run delivers the previous run's summary, which in
+    # turn justifies emitting yet another summary, producing one admin email per
+    # run forever.
+    real_events_dispatched = 0
+
     for subscription in subscriptions:
         stats["subscriptions_processed"] += 1
         user = subscription.user
@@ -247,6 +264,8 @@ def dispatch(
             continue
 
         stats["events_found"] += len(events)
+        if subscription.notification_type_id != NotificationTypeId.ADMIN_EVENT_SUMMARY:
+            real_events_dispatched += len(events)
         logger.info(
             "Subscription %s (user=%s cadence=%s digest=%s): %d event(s)",
             subscription.id,
@@ -295,8 +314,11 @@ def dispatch(
                 # (which would cause a duplicate send on the next run).
                 _commit_delivery_logs(db_session, subscription)
 
-    # After the run, emit an admin.event_summary notification_event.
-    if not dry_run:
+    # After the run, emit an admin.event_summary notification_event, but only
+    # when real notifications were dispatched.  Emitting on empty runs (or runs
+    # that only delivered prior summaries) would create a perpetual summary
+    # loop, sending the admin a new summary email on every dispatch.
+    if not dry_run and real_events_dispatched > 0:
         emit_admin_summary(db_session=db_session, stats=stats, cadence=cadence)
 
     return stats
@@ -354,6 +376,7 @@ def find_events_for_subscription(
     explicit_since: Optional[datetime] = None,
     until: datetime,
     max_retries: int,
+    stale_claim_seconds: int = DEFAULT_STALE_CLAIM_SECONDS,
 ) -> List[NotificationEvent]:
     """Return events that need to be (re-)sent for this subscription.
 
@@ -366,6 +389,9 @@ def find_events_for_subscription(
         *narrow* the window further — it cannot expand it past ``active_since``.
     until:
         Upper bound for new-event discovery (exclusive for failed events).
+    stale_claim_seconds:
+        Age past which a ``pending`` (claimed-but-not-completed) log is treated
+        as abandoned by a crashed worker and the event becomes re-claimable.
     """
     events: List[NotificationEvent] = []
 
@@ -376,6 +402,15 @@ def find_events_for_subscription(
             explicit_since=explicit_since,
             until=until,
         )
+
+    # Stale claims (pending logs from a crashed worker) are always recoverable,
+    # independent of status_filter, so an interrupted send is never lost.
+    events += _find_stale_pending_events(
+        db_session=db_session,
+        subscription=subscription,
+        max_retries=max_retries,
+        stale_claim_seconds=stale_claim_seconds,
+    )
 
     if status_filter in ("failed", "all"):
         events += _find_failed_events(
@@ -473,6 +508,43 @@ def _find_failed_events(
     if not failed_logs:
         return []
     event_ids = [log.notification_event_id for log in failed_logs]
+    events = (
+        db_session.query(NotificationEvent)
+        .filter(NotificationEvent.id.in_(event_ids))
+        .all()
+    )
+    return apply_filter_params(events, subscription)
+
+
+def _find_stale_pending_events(
+    *,
+    db_session: Session,
+    subscription: NotificationSubscription,
+    max_retries: int,
+    stale_claim_seconds: int,
+) -> List[NotificationEvent]:
+    """Events with a 'pending' log older than the stale-claim lease.
+
+    A 'pending' row is a claim written by a worker that then crashed before
+    recording the terminal outcome.  Past the lease it is safe to re-claim and
+    re-send (accepting a rare duplicate if the crash happened *after* Brevo
+    accepted the email — the standard at-least-once trade-off).
+    """
+    stale_before = datetime.now(timezone.utc) - timedelta(seconds=stale_claim_seconds)
+    stale_logs = (
+        db_session.query(NotificationLog)
+        .filter(
+            NotificationLog.subscription_id == subscription.id,
+            NotificationLog.status == NotificationLogStatus.PENDING,
+            NotificationLog.retry_count < max_retries,
+            NotificationLog.notification_event_id.isnot(None),
+            NotificationLog.sent_at < stale_before,
+        )
+        .all()
+    )
+    if not stale_logs:
+        return []
+    event_ids = [log.notification_event_id for log in stale_logs]
     events = (
         db_session.query(NotificationEvent)
         .filter(NotificationEvent.id.in_(event_ids))
@@ -664,6 +736,219 @@ def _update_log(
             log.status = NotificationLogStatus.FAILED
     log.sent_at = datetime.now(timezone.utc)
     db_session.flush()
+
+
+# ---------------------------------------------------------------------------
+# Worker core: claim-then-send for a single subscription
+# ---------------------------------------------------------------------------
+
+
+def _claim_event(
+    db_session: Session,
+    event_id: str,
+    subscription_id: str,
+    channel: str,
+    max_retries: int,
+    stale_claim_seconds: int,
+) -> Optional[NotificationLog]:
+    """Atomically claim ``(event, subscription, channel)`` for sending.
+
+    Returns the claimed ``NotificationLog`` if THIS worker won the claim, else
+    ``None`` (another worker owns it, or it is already terminal). This is the
+    lock-free concurrency guard: two workers processing the same subscription can
+    never both send the same event because the claim is a single atomic write.
+
+    A claim is won by either:
+      * inserting a fresh ``pending`` row (no log existed yet), or
+      * flipping an existing ``failed`` row, or a STALE ``pending`` row (crashed
+        worker), to ``pending`` — guarded by status/age so only one worker wins.
+    """
+    now = datetime.now(timezone.utc)
+
+    # 1) New event: insert a pending claim; ON CONFLICT DO NOTHING means a
+    #    concurrent worker that already inserted wins and we fall through.
+    ins = (
+        insert(NotificationLog)
+        .values(
+            id=str(uuid.uuid4()),
+            notification_event_id=event_id,
+            subscription_id=subscription_id,
+            channel=channel,
+            status=NotificationLogStatus.PENDING,
+            retry_count=0,
+            sent_at=now,
+        )
+        .on_conflict_do_nothing(
+            constraint="uq_notification_log_event_sub_channel",
+        )
+    )
+    if db_session.execute(ins).rowcount == 1:
+        db_session.flush()
+        return _get_log(db_session, event_id, subscription_id, channel)
+
+    # 2) Existing row: claim only if it is retryable (failed) or a stale pending
+    #    claim. The WHERE guard makes exactly one concurrent worker succeed.
+    stale_before = now - timedelta(seconds=stale_claim_seconds)
+    upd = (
+        update(NotificationLog)
+        .where(
+            NotificationLog.notification_event_id == event_id,
+            NotificationLog.subscription_id == subscription_id,
+            NotificationLog.channel == channel,
+            NotificationLog.retry_count < max_retries,
+            or_(
+                NotificationLog.status == NotificationLogStatus.FAILED,
+                and_(
+                    NotificationLog.status == NotificationLogStatus.PENDING,
+                    NotificationLog.sent_at < stale_before,
+                ),
+            ),
+        )
+        .values(status=NotificationLogStatus.PENDING, sent_at=now)
+        .returning(NotificationLog.id)
+    )
+    claimed_id = db_session.execute(upd).scalar_one_or_none()
+    db_session.flush()
+    if claimed_id is None:
+        return None
+    return _get_log(db_session, event_id, subscription_id, channel)
+
+
+def _get_log(
+    db_session: Session, event_id: str, subscription_id: str, channel: str
+) -> NotificationLog:
+    return (
+        db_session.query(NotificationLog)
+        .filter_by(
+            notification_event_id=event_id,
+            subscription_id=subscription_id,
+            channel=channel,
+        )
+        .one()
+    )
+
+
+def _new_stats() -> Dict[str, int]:
+    return {
+        "events_found": 0,
+        "events_claimed": 0,
+        "emails_sent": 0,
+        "emails_failed": 0,
+        "permanently_failed": 0,
+        "skipped_max_retries": 0,
+        "skipped_not_claimed": 0,
+    }
+
+
+@with_users_db_session
+def process_subscription(
+    *,
+    subscription_id: str,
+    status_filter: str = "new",
+    since_dt: Optional[str] = None,
+    until_dt: Optional[str] = None,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    stale_claim_seconds: int = DEFAULT_STALE_CLAIM_SECONDS,
+    db_session: Session = None,
+) -> Dict[str, int]:
+    """Process a single subscription's pending notifications (Cloud Tasks worker).
+
+    Finds candidate events, atomically claims each (claim-then-send, so concurrent
+    workers never duplicate an email), sends via Brevo, and commits the log after
+    every send so an already-delivered email can never be rolled back.
+    """
+    stats = _new_stats()
+
+    subscription = (
+        db_session.query(NotificationSubscription)
+        .filter(NotificationSubscription.id == subscription_id)
+        .one_or_none()
+    )
+    if subscription is None or not subscription.active:
+        logger.info(
+            "process_subscription: %s missing or inactive; nothing to do",
+            subscription_id,
+        )
+        return stats
+
+    user = subscription.user
+    if user is None or not user.email:
+        logger.warning(
+            "process_subscription: subscription %s has no usable user/email",
+            subscription_id,
+        )
+        return stats
+
+    until = _parse_dt(until_dt) or datetime.now(timezone.utc)
+    explicit_since = _parse_dt(since_dt)
+
+    events = find_events_for_subscription(
+        db_session=db_session,
+        subscription=subscription,
+        status_filter=status_filter,
+        explicit_since=explicit_since,
+        until=until,
+        max_retries=max_retries,
+        stale_claim_seconds=stale_claim_seconds,
+    )
+    stats["events_found"] = len(events)
+    if not events:
+        return stats
+
+    # Claim every candidate atomically; only the events this worker wins proceed.
+    claimed: List[NotificationEvent] = []
+    for event in events:
+        log = _claim_event(
+            db_session,
+            event.id,
+            subscription.id,
+            "email",
+            max_retries,
+            stale_claim_seconds,
+        )
+        if log is None:
+            stats["skipped_not_claimed"] += 1
+            continue
+        claimed.append(event)
+    # Persist the claims before sending so a crash can't lose them.
+    _commit_delivery_logs(db_session, subscription)
+    stats["events_claimed"] = len(claimed)
+    if not claimed:
+        return stats
+
+    recipient = EmailRecipient(email=user.email, name=user.full_name)
+
+    if subscription.digest:
+        _send_and_log_digest(
+            db_session=db_session,
+            recipient=recipient,
+            events=claimed,
+            subscription=subscription,
+            stats=stats,
+            max_retries=max_retries,
+        )
+        _commit_delivery_logs(db_session, subscription)
+    else:
+        for event in claimed:
+            _send_and_log_single(
+                db_session=db_session,
+                recipient=recipient,
+                event=event,
+                subscription=subscription,
+                stats=stats,
+                max_retries=max_retries,
+            )
+            _commit_delivery_logs(db_session, subscription)
+
+    logger.info(
+        "process_subscription %s: found=%d claimed=%d sent=%d failed=%d",
+        subscription_id,
+        stats["events_found"],
+        stats["events_claimed"],
+        stats["emails_sent"],
+        stats["emails_failed"],
+    )
+    return stats
 
 
 # ---------------------------------------------------------------------------
