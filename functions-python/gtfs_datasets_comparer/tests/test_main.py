@@ -210,8 +210,8 @@ class TestGtfsDatasetsComparerRun(unittest.TestCase):
         )
         mock_save.assert_called_once_with(
             feed_uuid="feed-uuid",
-            prev_dataset_uuid="prev-uuid",
-            curr_dataset_uuid="curr-uuid",
+            base_dataset_uuid="prev-uuid",
+            new_dataset_uuid="curr-uuid",
             changelog_url=changelog_url,
             diff_summary={"total_changes": 42},
         )
@@ -223,9 +223,7 @@ class TestGtfsDatasetsComparerRun(unittest.TestCase):
         mock_storage.return_value.bucket.return_value.blob.return_value.exists.return_value = (
             False
         )
-        mock_resolve.side_effect = ValueError(
-            "Previous dataset not found: mdb-1-20240101"
-        )
+        mock_resolve.side_effect = ValueError("Base dataset not found: mdb-1-20240101")
         with self.assertRaises(ValueError):
             self.tracker.run()
 
@@ -339,22 +337,22 @@ class TestResolveDatasets(unittest.TestCase):
         )
 
     def _mock_session_with_datasets(self):
-        prev_ds = MagicMock()
-        prev_ds.id = "prev-uuid"
-        prev_ds.stable_id = "mdb-1-20240101"
-        prev_ds.feed.id = "feed-uuid"
-        prev_ds.feed.stable_id = "mdb-1"
+        base_ds = MagicMock()
+        base_ds.id = "prev-uuid"
+        base_ds.stable_id = "mdb-1-20240101"
+        base_ds.feed.id = "feed-uuid"
+        base_ds.feed.stable_id = "mdb-1"
 
-        curr_ds = MagicMock()
-        curr_ds.id = "curr-uuid"
-        curr_ds.stable_id = "mdb-1-20240201"
-        curr_ds.feed.id = "feed-uuid"
-        curr_ds.feed.stable_id = "mdb-1"
+        new_ds = MagicMock()
+        new_ds.id = "curr-uuid"
+        new_ds.stable_id = "mdb-1-20240201"
+        new_ds.feed.id = "feed-uuid"
+        new_ds.feed.stable_id = "mdb-1"
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
-            prev_ds,
-            curr_ds,
+            base_ds,
+            new_ds,
         ]
         return mock_session
 
@@ -365,41 +363,41 @@ class TestResolveDatasets(unittest.TestCase):
         close would raise DetachedInstanceError in production."""
         mock_session = self._mock_session_with_datasets()
         result = self.tracker._resolve_datasets(db_session=mock_session)
-        prev_uuid, curr_uuid, feed_uuid = result
-        self.assertIsInstance(prev_uuid, str, "prev_uuid must be a plain string")
-        self.assertIsInstance(curr_uuid, str, "curr_uuid must be a plain string")
+        base_uuid, new_uuid, feed_uuid = result
+        self.assertIsInstance(base_uuid, str, "base_uuid must be a plain string")
+        self.assertIsInstance(new_uuid, str, "new_uuid must be a plain string")
         self.assertIsInstance(feed_uuid, str, "feed_uuid must be a plain string")
-        self.assertEqual(prev_uuid, "prev-uuid")
-        self.assertEqual(curr_uuid, "curr-uuid")
+        self.assertEqual(base_uuid, "prev-uuid")
+        self.assertEqual(new_uuid, "curr-uuid")
         self.assertEqual(feed_uuid, "feed-uuid")
 
     @patch("main.with_db_session", lambda f: f)
-    def test_raises_when_prev_feed_mismatch(self):
-        prev_ds = MagicMock()
-        prev_ds.id = "prev-uuid"
-        prev_ds.feed.stable_id = "mdb-999"  # wrong feed
+    def test_raises_when_base_feed_mismatch(self):
+        base_ds = MagicMock()
+        base_ds.id = "prev-uuid"
+        base_ds.feed.stable_id = "mdb-999"  # wrong feed
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
-            prev_ds,
+            base_ds,
         ]
         with self.assertRaises(
-            ValueError, msg="should reject prev dataset from wrong feed"
+            ValueError, msg="should reject base dataset from wrong feed"
         ):
             self.tracker._resolve_datasets(db_session=mock_session)
 
     @patch("main.with_db_session", lambda f: f)
     def test_raises_when_feed_mismatch(self):
-        prev_ds = MagicMock()
-        prev_ds.id = "prev-uuid"
-        curr_ds = MagicMock()
-        curr_ds.id = "curr-uuid"
-        curr_ds.feed.stable_id = "mdb-999"  # wrong feed
+        base_ds = MagicMock()
+        base_ds.id = "prev-uuid"
+        new_ds = MagicMock()
+        new_ds.id = "curr-uuid"
+        new_ds.feed.stable_id = "mdb-999"  # wrong feed
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.one_or_none.side_effect = [
-            prev_ds,
-            curr_ds,
+            base_ds,
+            new_ds,
         ]
         with self.assertRaises(ValueError, msg="should reject dataset from wrong feed"):
             self.tracker._resolve_datasets(db_session=mock_session)

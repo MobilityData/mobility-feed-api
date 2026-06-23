@@ -100,8 +100,8 @@ def seed(db_session: Session):
     db_session.add(
         GtfsDatasetChangelog(
             feed_id="feed_a",
-            previous_dataset_id="a0",
-            current_dataset_id="a1",
+            base_dataset_id="a0",
+            new_dataset_id="a1",
             changelog_url="https://example.com/changelog.json",
             diff_summary={},
         )
@@ -120,6 +120,7 @@ class TestBackfillChangelogHandler(unittest.TestCase):
             datasets_per_feed=DEFAULT_DATASETS_PER_FEED,
             stable_feed_ids=None,
             feeds_not_updated_days=None,
+            force=False,
         )
 
     @patch("tasks.changelog.backfill_changelog.backfill_changelog")
@@ -132,6 +133,7 @@ class TestBackfillChangelogHandler(unittest.TestCase):
                 "datasets_per_feed": 4,
                 "stable_feed_ids": ["stable_a"],
                 "feeds_not_updated_days": 30,
+                "force": True,
             }
         )
         mock_backfill.assert_called_once_with(
@@ -140,6 +142,7 @@ class TestBackfillChangelogHandler(unittest.TestCase):
             datasets_per_feed=4,
             stable_feed_ids=["stable_a"],
             feeds_not_updated_days=30,
+            force=True,
         )
 
 
@@ -186,8 +189,8 @@ class TestBackfillChangelog(unittest.TestCase):
             db_session.add(
                 GtfsDatasetChangelog(
                     feed_id="feed_a",
-                    previous_dataset_id="a1",
-                    current_dataset_id="a2",
+                    base_dataset_id="a1",
+                    new_dataset_id="a2",
                     changelog_url="https://example.com/c2.json",
                     diff_summary={},
                 )
@@ -234,6 +237,28 @@ class TestBackfillChangelog(unittest.TestCase):
             dry_run=True, feeds_not_updated_days=1, stable_feed_ids=SCOPE
         )
         self.assertEqual(result["feeds_processed"], 1)
+
+    @patch(PATCH_DISPATCH)
+    def test_force_redispatches_existing_pairs(self, mock_dispatch):
+        # With force=True the already-done a0->a1 pair is dispatched too.
+        result = backfill_changelog(dry_run=True, force=True, stable_feed_ids=SCOPE)
+        self.assertTrue(result["force"])
+        self.assertEqual(result["pairs_found"], 2)
+        self.assertEqual(result["pairs_already_done"], 0)
+        self.assertEqual(result["pairs_dispatched"], 2)
+
+    @patch(PATCH_DISPATCH)
+    def test_min_datasets_filter_excludes_short_feeds(self, mock_dispatch):
+        # feed_b (1 dataset) is excluded from processing, only feed_a remains.
+        result = backfill_changelog(dry_run=True, stable_feed_ids=SCOPE)
+        self.assertEqual(result["feeds_processed"], 1)
+
+    @patch(PATCH_DISPATCH)
+    def test_existing_feed_with_few_datasets_not_reported_missing(self, mock_dispatch):
+        # stable_b exists but has <2 datasets: it must not raise "not found".
+        result = backfill_changelog(dry_run=True, stable_feed_ids=["stable_b"])
+        self.assertEqual(result["feeds_processed"], 0)
+        self.assertEqual(result["pairs_found"], 0)
 
     @patch(PATCH_DISPATCH)
     def test_invalid_datasets_per_feed_raises(self, mock_dispatch):

@@ -222,9 +222,9 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 
 ### `backfill_changelog`
 
-Backfills `gtfs_dataset_changelog` records from the **existing** dataset history. The live pipeline (`batch_process_dataset` → `gtfs-datasets-comparer`) only produces changelogs for new datasets going forward; this task walks the stored history and, for each consecutive `(previous, current)` dataset pair that has no changelog row yet, dispatches a Cloud Task to the same `gtfs-datasets-comparer` function.
+Backfills `gtfs_dataset_changelog` records from the **existing** dataset history. The live pipeline (`batch_process_dataset` → `gtfs-datasets-comparer`) only produces changelogs for new datasets going forward; this task walks the stored history and, for each consecutive `(base, new)` dataset pair that has no changelog row yet, dispatches a Cloud Task to the same `gtfs-datasets-comparer` function.
 
-The task is **idempotent / restartable**: pairs that already have a changelog row are skipped, and each dispatched Cloud Task runs with `disallow_overwrite=true`. It is **rate-limited**: `limit` caps how many feeds are processed per invocation, and a dedicated Cloud Tasks queue (`GTFS_CHANGE_TRACKER_QUEUE`) throttles the actual comparer invocations. Call it repeatedly to walk the whole catalog.
+The task is **idempotent / restartable**: pairs that already have a changelog row are skipped (unless `force` is set), and each dispatched Cloud Task runs with `disallow_overwrite=true`. It is **rate-limited**: `limit` caps how many feeds are processed per invocation, and a dedicated Cloud Tasks queue (`GTFS_CHANGE_TRACKER_QUEUE`) throttles the actual comparer invocations. Call it repeatedly to walk the whole catalog.
 
 ```json
 {
@@ -234,7 +234,8 @@ The task is **idempotent / restartable**: pairs that already have a changelog ro
     "limit": 100,
     "datasets_per_feed": 3,
     "stable_feed_ids": null,
-    "feeds_not_updated_days": null
+    "feeds_not_updated_days": null,
+    "force": false
   }
 }
 ```
@@ -246,6 +247,7 @@ The task is **idempotent / restartable**: pairs that already have a changelog ro
 | `datasets_per_feed` | int | `3` | Number of most recent datasets considered per feed. `N` datasets produce up to `N-1` consecutive pairs (must be `>= 2`) |
 | `stable_feed_ids` | list[str] \| null | `null` | If provided, only process feeds with these stable IDs |
 | `feeds_not_updated_days` | int \| null | `null` | If provided, only process feeds whose most recent dataset is older than this many days (e.g. `30` to target feeds not updated in the last month) |
+| `force` | bool | `false` | If `true`, dispatch every pair even when a changelog row already exists (forces a rerun) |
 
 **Required environment variables**: `GTFS_CHANGE_TRACKER_QUEUE`, `PROJECT_ID`, `GCP_REGION`, `ENVIRONMENT` (used to dispatch Cloud Tasks to the `gtfs-datasets-comparer` function).
 

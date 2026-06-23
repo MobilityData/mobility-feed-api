@@ -17,7 +17,7 @@
 
 The live pipeline (batch_process_dataset -> gtfs-datasets-comparer) only produces
 changelog records for *new* datasets going forward. This task walks the already
-stored dataset history and, for each consecutive (previous, current) pair that has
+stored dataset history and, for each consecutive (base, new) pair that has
 no gtfs_dataset_changelog row yet, dispatches a Cloud Task to the same
 gtfs-datasets-comparer function that the live pipeline uses.
 
@@ -32,6 +32,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
@@ -44,10 +45,11 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.utils import create_http_gtfs_datasets_comparer_task
 
 # Default number of most recent datasets to consider per feed. With 3 datasets we
-# compute 2 diffs: (latest, previous) and (previous, the one before) — matching the
-# issue's request to backfill the last three datasets.
+# compute 2 diffs from consecutive pairs: (d-2 -> d-1) and (d-1 -> latest).
 DEFAULT_DATASETS_PER_FEED: int = 3
 DEFAULT_LIMIT: int = 100
+# Minimum datasets a feed must have to form at least one (base, new) pair.
+MIN_DATASETS_FOR_PAIR: int = 2
 
 
 def get_parameters(payload: dict):
@@ -56,7 +58,15 @@ def get_parameters(payload: dict):
     datasets_per_feed = payload.get("datasets_per_feed", DEFAULT_DATASETS_PER_FEED)
     stable_feed_ids = payload.get("stable_feed_ids", None)
     feeds_not_updated_days = payload.get("feeds_not_updated_days", None)
-    return dry_run, limit, datasets_per_feed, stable_feed_ids, feeds_not_updated_days
+    force = payload.get("force", False)
+    return (
+        dry_run,
+        limit,
+        datasets_per_feed,
+        stable_feed_ids,
+        feeds_not_updated_days,
+        force,
+    )
 
 
 def backfill_changelog_handler(payload: dict) -> dict:
@@ -72,7 +82,12 @@ def backfill_changelog_handler(payload: dict) -> dict:
                                  N datasets produce up to N-1 consecutive pairs. Default: 3.
         stable_feed_ids (list[str] | None): If provided, only process these feeds. Default: None.
         feeds_not_updated_days (int | None): If provided, only process feeds whose most recent
-                                 dataset was downloaded more than this many days ago. Default: None.
+                                 dataset was downloaded more than this many days ago. Implements
+                                 the requirement to target feeds that haven't been updated in a
+                                 while (e.g. 30 to backfill feeds untouched in the last month).
+                                 Default: None (all feeds).
+        force (bool): If True, dispatch every pair even when a changelog row already exists
+                      (use to force a rerun). Default: False.
     """
     (
         dry_run,
@@ -80,6 +95,7 @@ def backfill_changelog_handler(payload: dict) -> dict:
         datasets_per_feed,
         stable_feed_ids,
         feeds_not_updated_days,
+        force,
     ) = get_parameters(payload)
     return backfill_changelog(
         dry_run=dry_run,
@@ -87,19 +103,34 @@ def backfill_changelog_handler(payload: dict) -> dict:
         datasets_per_feed=datasets_per_feed,
         stable_feed_ids=stable_feed_ids,
         feeds_not_updated_days=feeds_not_updated_days,
+        force=force,
     )
 
 
-def get_feeds_query(db_session: Session, stable_feed_ids: Optional[list[str]] = None):
+def get_feeds_query(
+    db_session: Session,
+    stable_feed_ids: Optional[list[str]] = None,
+    min_datasets: Optional[int] = None,
+):
     """Return a query for non-deprecated, published GTFS feeds.
 
     If stable_feed_ids is provided, restrict results to those specific stable IDs.
+    If min_datasets is provided, restrict to feeds that have at least that many
+    datasets with a downloaded_at timestamp (i.e. enough to form a pair).
     """
     query = db_session.query(Gtfsfeed).filter(
         Feed.data_type == "gtfs",
         Feed.status != "deprecated",
         Feed.operational_status == "published",
     )
+    if min_datasets is not None:
+        feeds_with_enough_datasets = (
+            select(Gtfsdataset.feed_id)
+            .where(Gtfsdataset.downloaded_at.isnot(None))
+            .group_by(Gtfsdataset.feed_id)
+            .having(func.count(Gtfsdataset.id) >= min_datasets)
+        )
+        query = query.filter(Feed.id.in_(feeds_with_enough_datasets))
     if stable_feed_ids is not None:
         query = query.filter(Feed.stable_id.in_(stable_feed_ids))
     return query.order_by(Feed.stable_id)
@@ -110,7 +141,9 @@ def get_recent_datasets(
 ) -> list[Gtfsdataset]:
     """Return the `datasets_per_feed` most recent datasets for a feed, oldest first.
 
-    Ordering oldest-first lets us build consecutive (previous, current) pairs directly.
+    We order by downloaded_at DESC + LIMIT to grab the *most recent* N datasets
+    (ASC + LIMIT would grab the oldest N), then reverse in Python so the list is
+    oldest-first, which lets us build consecutive (base, new) pairs directly.
     """
     datasets = (
         db_session.query(Gtfsdataset)
@@ -126,14 +159,14 @@ def get_recent_datasets(
 
 
 def changelog_exists(
-    db_session: Session, previous_dataset_id: str, current_dataset_id: str
+    db_session: Session, base_dataset_id: str, new_dataset_id: str
 ) -> bool:
     """Authoritative idempotency check against the gtfs_dataset_changelog table."""
     return (
         db_session.query(GtfsDatasetChangelog.id)
         .filter_by(
-            previous_dataset_id=previous_dataset_id,
-            current_dataset_id=current_dataset_id,
+            base_dataset_id=base_dataset_id,
+            new_dataset_id=new_dataset_id,
         )
         .first()
         is not None
@@ -148,13 +181,15 @@ def backfill_changelog(
     datasets_per_feed: int = DEFAULT_DATASETS_PER_FEED,
     stable_feed_ids: Optional[list[str]] = None,
     feeds_not_updated_days: Optional[int] = None,
+    force: bool = False,
 ) -> dict:
     """
     Walk the stored dataset history and dispatch comparer Cloud Tasks for missing pairs.
 
     For each eligible GTFS feed, take its `datasets_per_feed` most recent datasets,
-    form consecutive (previous, current) pairs, and — for each pair without an existing
-    changelog row — dispatch a Cloud Task to the gtfs-datasets-comparer function.
+    form consecutive (base, new) pairs, and — for each pair without an existing
+    changelog row (unless `force`) — dispatch a Cloud Task to the gtfs-datasets-comparer
+    function.
 
     Args:
         db_session: SQLAlchemy session (injected by @with_db_session).
@@ -164,13 +199,16 @@ def backfill_changelog(
         stable_feed_ids: If provided, only process feeds with these stable IDs.
         feeds_not_updated_days: If provided, only process feeds whose most recent dataset
                                 is older than this many days.
+        force: If True, dispatch every pair even when a changelog row already exists.
 
     Returns:
         dict: Summary with feeds processed, pairs found, pairs skipped (already done),
               and pairs dispatched.
     """
-    if datasets_per_feed < 2:
-        raise ValueError("datasets_per_feed must be >= 2 to form at least one pair.")
+    if datasets_per_feed < MIN_DATASETS_FOR_PAIR:
+        raise ValueError(
+            f"datasets_per_feed must be >= {MIN_DATASETS_FOR_PAIR} to form at least one pair."
+        )
 
     cutoff = (
         datetime.now(timezone.utc) - timedelta(days=feeds_not_updated_days)
@@ -178,13 +216,25 @@ def backfill_changelog(
         else None
     )
 
-    query = get_feeds_query(db_session, stable_feed_ids=stable_feed_ids)
+    # Validate requested feeds exist (as published GTFS feeds) independently of the
+    # min-datasets filter, so a feed that simply lacks history yields no misleading error.
     if stable_feed_ids is not None:
-        found = {feed.stable_id for feed in query.all()}
+        found = {
+            feed.stable_id
+            for feed in get_feeds_query(
+                db_session, stable_feed_ids=stable_feed_ids
+            ).all()
+        }
         missing = sorted(set(stable_feed_ids) - found)
         if missing:
             raise ValueError(f"stable_feed_ids not found: {missing}")
 
+    # Only feeds with enough datasets to form at least one pair are processed.
+    query = get_feeds_query(
+        db_session,
+        stable_feed_ids=stable_feed_ids,
+        min_datasets=MIN_DATASETS_FOR_PAIR,
+    )
     if limit is not None:
         query = query.limit(limit)
     feeds = query.all()
@@ -198,8 +248,6 @@ def backfill_changelog(
 
     for feed in feeds:
         datasets = get_recent_datasets(db_session, feed.id, datasets_per_feed)
-        if len(datasets) < 2:
-            continue
 
         if cutoff is not None and datasets[-1].downloaded_at >= cutoff:
             # Most recent dataset is newer than the cutoff — feed updated recently, skip.
@@ -208,27 +256,24 @@ def backfill_changelog(
 
         feeds_processed += 1
 
-        for previous, current in zip(datasets, datasets[1:]):
+        for base, new in zip(datasets, datasets[1:]):
             pairs_found += 1
-            if changelog_exists(db_session, previous.id, current.id):
+            if not force and changelog_exists(db_session, base.id, new.id):
                 pairs_already_done += 1
                 continue
             pairs_dispatched += 1
             dispatched.append(
                 {
                     "feed_stable_id": feed.stable_id,
-                    "base_dataset_stable_id": previous.stable_id,
-                    "new_dataset_stable_id": current.stable_id,
+                    "base_dataset_stable_id": base.stable_id,
+                    "new_dataset_stable_id": new.stable_id,
                 }
             )
             if not dry_run:
-                # ponytail: missing extracted GTFS files on the bucket for old datasets
-                # surface as comparer-side errors (logged, HTTP 200), not here. If that
-                # becomes common, pre-check the extracted/ prefix before dispatching.
                 create_http_gtfs_datasets_comparer_task(
                     feed_stable_id=feed.stable_id,
-                    base_dataset_stable_id=previous.stable_id,
-                    new_dataset_stable_id=current.stable_id,
+                    base_dataset_stable_id=base.stable_id,
+                    new_dataset_stable_id=new.stable_id,
                 )
 
     result = {
@@ -239,6 +284,7 @@ def backfill_changelog(
             f"{pairs_already_done} already done."
         ),
         "dry_run": dry_run,
+        "force": force,
         "feeds_processed": feeds_processed,
         "feeds_skipped_recent": feeds_skipped_recent,
         "pairs_found": pairs_found,

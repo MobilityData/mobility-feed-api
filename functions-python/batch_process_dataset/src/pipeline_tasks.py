@@ -153,15 +153,15 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
     )
     if previous_dataset:
         # Check the DB for an existing changelog record rather than the GCS blob presence.
-        # The unique constraint on (previous_dataset_id, current_dataset_id) makes this the
+        # The unique constraint on (base_dataset_id, new_dataset_id) makes this the
         # authoritative idempotency check. GCS blob presence could be used instead, but that
         # would require an extra API call and could miss cases where the blob exists but the
         # DB record does not (or vice versa).
         changelog_exists = (
             db_session.query(GtfsDatasetChangelog)
             .filter_by(
-                previous_dataset_id=previous_dataset.id,
-                current_dataset_id=dataset.id,
+                base_dataset_id=previous_dataset.id,
+                new_dataset_id=dataset.id,
             )
             .first()
             is not None

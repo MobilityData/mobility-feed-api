@@ -115,6 +115,8 @@
     <include file="changes/feat_1700_content_type.sql" relativeToChangelogFile="true"/>
     <!-- Add gtfs_dataset_changelog table to store changelog references (issue #1633). -->
     <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
+    <!-- Rename gtfs_dataset_changelog (previous, current) dataset columns to (base, new) (issue #1639). -->
+    <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

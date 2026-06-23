@@ -48,8 +48,8 @@ def gtfs_datasets_comparer(request: flask.Request) -> dict:
 
     Expects a JSON body with:
         feed_stable_id            – stable_id of the GTFS feed
-        base_dataset_stable_id    – stable_id of the base (previous) Gtfsdataset
-        new_dataset_stable_id     – stable_id of the new (current) Gtfsdataset
+        base_dataset_stable_id    – stable_id of the base Gtfsdataset
+        new_dataset_stable_id     – stable_id of the new Gtfsdataset
         disallow_overwrite        – (optional, default false) skip if changelog already exists
         dry_run                   – (optional, default false) compute diff but skip GCS upload and DB write
 
@@ -167,7 +167,7 @@ class GtfsDatasetsComparer:
                 "changelog_url": changelog_url,
             }
 
-        prev_dataset_uuid, curr_dataset_uuid, feed_uuid = self._resolve_datasets()
+        base_dataset_uuid, new_dataset_uuid, feed_uuid = self._resolve_datasets()
 
         self.logger.info(
             "Computing diff for feed %s: %s -> %s",
@@ -176,10 +176,10 @@ class GtfsDatasetsComparer:
             self.new_dataset_stable_id,
         )
 
-        prev_dir = self._extracted_dir(self.feed_stable_id, self.base_dataset_stable_id)
-        curr_dir = self._extracted_dir(self.feed_stable_id, self.new_dataset_stable_id)
+        base_dir = self._extracted_dir(self.feed_stable_id, self.base_dataset_stable_id)
+        new_dir = self._extracted_dir(self.feed_stable_id, self.new_dataset_stable_id)
 
-        diff_result = diff_feeds(prev_dir, curr_dir)
+        diff_result = diff_feeds(base_dir, new_dir)
 
         if self.dry_run:
             self.logger.info("Dry run — skipping GCS upload and DB write.")
@@ -199,8 +199,8 @@ class GtfsDatasetsComparer:
         diff_summary = diff_result.summary.model_dump()
         self._save_changelog_record(
             feed_uuid=feed_uuid,
-            prev_dataset_uuid=prev_dataset_uuid,
-            curr_dataset_uuid=curr_dataset_uuid,
+            base_dataset_uuid=base_dataset_uuid,
+            new_dataset_uuid=new_dataset_uuid,
             changelog_url=changelog_url,
             diff_summary=diff_summary,
         )
@@ -215,36 +215,34 @@ class GtfsDatasetsComparer:
     def _resolve_datasets(self, db_session: Session = None) -> tuple:
         """
         Validate both datasets exist and belong to the given feed.
-        Returns (prev_dataset_uuid, curr_dataset_uuid, feed_uuid) as plain strings.
+        Returns (base_dataset_uuid, new_dataset_uuid, feed_uuid) as plain strings.
         """
-        prev_dataset = (
+        base_dataset = (
             db_session.query(Gtfsdataset)
             .filter(Gtfsdataset.stable_id == self.base_dataset_stable_id)
             .one_or_none()
         )
-        if prev_dataset is None:
-            raise ValueError(
-                f"Previous dataset not found: {self.base_dataset_stable_id}"
-            )
-        if prev_dataset.feed.stable_id != self.feed_stable_id:
+        if base_dataset is None:
+            raise ValueError(f"Base dataset not found: {self.base_dataset_stable_id}")
+        if base_dataset.feed.stable_id != self.feed_stable_id:
             raise ValueError(
                 f"Dataset {self.base_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
             )
 
-        curr_dataset = (
+        new_dataset = (
             db_session.query(Gtfsdataset)
             .filter(Gtfsdataset.stable_id == self.new_dataset_stable_id)
             .one_or_none()
         )
-        if curr_dataset is None:
-            raise ValueError(f"Current dataset not found: {self.new_dataset_stable_id}")
+        if new_dataset is None:
+            raise ValueError(f"New dataset not found: {self.new_dataset_stable_id}")
 
-        if curr_dataset.feed.stable_id != self.feed_stable_id:
+        if new_dataset.feed.stable_id != self.feed_stable_id:
             raise ValueError(
                 f"Dataset {self.new_dataset_stable_id} does not belong to feed {self.feed_stable_id}."
             )
 
-        return prev_dataset.id, curr_dataset.id, curr_dataset.feed.id
+        return base_dataset.id, new_dataset.id, new_dataset.feed.id
 
     def _extracted_dir(self, feed_stable_id: str, dataset_stable_id: str) -> str:
         """
@@ -267,16 +265,16 @@ class GtfsDatasetsComparer:
         self,
         json_bytes: bytes,
         feed_stable_id: str,
-        prev_dataset_id: str,
-        curr_dataset_id: str,
+        base_dataset_id: str,
+        new_dataset_id: str,
     ) -> str:
         """
         Upload the changelog JSON to GCS at:
-          <feed_stable_id>/<curr_dataset_id>/<curr_dataset_id>_<prev_dataset_id>_changelog.json
+          <feed_stable_id>/<new_dataset_id>/<new_dataset_id>_<base_dataset_id>_changelog.json
 
         Returns the GCS public URL.
         """
-        blob_path = f"{feed_stable_id}/{curr_dataset_id}/{curr_dataset_id}_{prev_dataset_id}_changelog.json"
+        blob_path = f"{feed_stable_id}/{new_dataset_id}/{new_dataset_id}_{base_dataset_id}_changelog.json"
         bucket = storage.Client().bucket(self.bucket_name)
         blob = bucket.blob(blob_path)
         blob.upload_from_string(json_bytes, content_type="application/json")
@@ -290,27 +288,27 @@ class GtfsDatasetsComparer:
     def _save_changelog_record(
         self,
         feed_uuid: str,
-        prev_dataset_uuid: str,
-        curr_dataset_uuid: str,
+        base_dataset_uuid: str,
+        new_dataset_uuid: str,
         changelog_url: str,
         diff_summary: dict,
         db_session: Session = None,
     ) -> None:
         """
         Upsert a row into gtfs_dataset_changelog.
-        The UNIQUE constraint on (previous_dataset_id, current_dataset_id) ensures idempotency.
+        The UNIQUE constraint on (base_dataset_id, new_dataset_id) ensures idempotency.
         """
         stmt = (
             insert(GtfsDatasetChangelog)
             .values(
                 feed_id=feed_uuid,
-                previous_dataset_id=prev_dataset_uuid,
-                current_dataset_id=curr_dataset_uuid,
+                base_dataset_id=base_dataset_uuid,
+                new_dataset_id=new_dataset_uuid,
                 changelog_url=changelog_url,
                 diff_summary=diff_summary,
             )
             .on_conflict_do_update(
-                constraint="gtfs_dataset_changelog_previous_current_key",
+                constraint="gtfs_dataset_changelog_base_new_key",
                 set_={
                     "changelog_url": changelog_url,
                     "diff_summary": diff_summary,
