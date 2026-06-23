@@ -15,9 +15,11 @@
     <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
     <!-- Add feature_flag and user_feature_flag tables -->
     <include file="changes_user/feat_1694.sql" relativeToChangelogFile="true"/>
+    <!-- Seed 'api.announcements' notification type (issue #1729). -->
+    <include file="changes_user/feat_1729.sql" relativeToChangelogFile="true"/>
     <!-- Add generic notification_event + notification_event_feed (N feeds per event),
          cadence/digest and active_since on notification_subscription,
          event FK + retry_count on notification_log, seed feed.url_updated and
          admin.event_summary notification types (issue #1723) -->
-    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>    
+    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>        
 </databaseChangeLog>
