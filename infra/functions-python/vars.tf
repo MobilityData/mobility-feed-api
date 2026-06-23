@@ -135,3 +135,8 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
+variable "gtfs_datasets_comparer_in_memory_size" {
+    type        = string
+    description = "Size limit for the gtfs_datasets_comparer in-memory tmpfs volume"
+    default     = "3Gi"
+}

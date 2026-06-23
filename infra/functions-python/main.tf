@@ -65,6 +65,9 @@ locals {
 
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
   function_pmtiles_builder_zip = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
+
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
+  function_gtfs_datasets_comparer_zip = "${path.module}/../../functions-python/gtfs_datasets_comparer/.dist/gtfs_datasets_comparer.zip"
 }
 
 locals {
@@ -76,7 +79,8 @@ locals {
     local.function_update_feed_status_config.secret_environment_variables,
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
-    local.function_pmtiles_builder_config.secret_environment_variables
+    local.function_pmtiles_builder_config.secret_environment_variables,
+    local.function_gtfs_datasets_comparer_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -220,6 +224,13 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "pmtiles-${substr(filebase64sha256(local.function_pmtiles_builder_zip), 0, 10)}.zip"
   source = local.function_pmtiles_builder_zip
+}
+
+# 16. GTFS Change Tracker
+resource "google_storage_bucket_object" "gtfs_datasets_comparer_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-datasets-comparer-${substr(filebase64sha256(local.function_gtfs_datasets_comparer_zip), 0, 10)}.zip"
+  source = local.function_gtfs_datasets_comparer_zip
 }
 
 # Web app revalidation secret
@@ -1025,11 +1036,45 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker_b
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
+resource "google_cloud_run_service_iam_member" "pmtiles_builder_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.pmtiles_builder.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # Grant execution permission to the service account to the pmtiles_builder function
 resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" {
   project        = var.project_id
   location       = var.gcp_region
   cloud_function = google_cloudfunctions2_function.pmtiles_builder.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant execution permission to batchfunctions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+# Grant execution permission to the functions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -1166,7 +1211,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
 }
 
-# Grant execution permission to bathcfunctions service account to the tasks_executor function
+# Grant execution permission to batchfunctions service account to the tasks_executor function
 resource "google_cloudfunctions2_function_iam_member" "tasks_executor_invoker" {
   project        = var.project_id
   location       = var.gcp_region
@@ -1225,6 +1270,104 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
       }
     }
   }
+}
+
+
+# 16. functions/gtfs_datasets_comparer cloud function
+resource "google_cloudfunctions2_function" "gtfs_datasets_comparer" {
+  name        = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
+  project     = var.project_id
+  description = local.function_gtfs_datasets_comparer_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_datasets_comparer_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_datasets_comparer_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
+      DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
+      # GTFS_DIFF_DUCKDB_TMPDIR: directs DuckDB spill files to the in-memory volume.
+      GTFS_DIFF_DUCKDB_TMPDIR = "/tmp/in-memory"
+    }
+    available_memory                 = local.function_gtfs_datasets_comparer_config.memory
+    timeout_seconds                  = local.function_gtfs_datasets_comparer_config.timeout
+    available_cpu                    = local.function_gtfs_datasets_comparer_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_datasets_comparer_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_datasets_comparer_config.max_instance_count
+    min_instance_count               = local.function_gtfs_datasets_comparer_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_datasets_comparer_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_datasets_comparer_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# google_cloudfunctions2_function does not expose volume mounts in its schema.
+# This terraform_data resource mounts both the datasets GCS bucket and an in-memory tmpfs
+# on the underlying Cloud Run service after the function is deployed.
+resource "terraform_data" "gtfs_datasets_comparer_gcs_mount" {
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+    bucket        = "${var.datasets_bucket_name}-${var.environment}"
+    region        = var.gcp_region
+    project       = var.project_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      ARGS=""
+      if echo "$MOUNTS" | grep -q "datasets-bucket"; then
+        echo "GCS volume already mounted, skipping."
+      else
+        ARGS="$ARGS --add-volume name=datasets-bucket,type=cloud-storage,bucket=${var.datasets_bucket_name}-${var.environment},readonly=true"
+        ARGS="$ARGS --add-volume-mount volume=datasets-bucket,mount-path=/mobilitydata-datasets"
+      fi
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted, skipping."
+      else
+        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=${var.gtfs_datasets_comparer_in_memory_size}"
+        ARGS="$ARGS --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory"
+      fi
+
+      if [ -n "$ARGS" ]; then
+        gcloud run services update ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          $ARGS \
+          --quiet
+      fi
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.gtfs_datasets_comparer]
 }
 
 # Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
