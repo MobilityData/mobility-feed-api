@@ -83,13 +83,6 @@ SCHEDULED_CADENCE = "scheduled"
 # Uses datetime.weekday(): Monday=0 .. Sunday=6.
 DEFAULT_WEEKLY_WEEKDAY = 0  # Monday
 
-# Time windows per cadence (look-back for finding relevant events)
-_CADENCE_WINDOWS: Dict[str, timedelta] = {
-    NotificationCadence.IMMEDIATE: timedelta(hours=1),
-    NotificationCadence.DAILY: timedelta(days=1),
-    NotificationCadence.WEEKLY: timedelta(weeks=1),
-}
-
 
 # ---------------------------------------------------------------------------
 # Public handler
@@ -111,8 +104,6 @@ def dispatch_notifications_handler(
     status_filter: str = payload.get("status_filter", "new")
     user_ids: List[str] = payload.get("user_ids", [])
     force: bool = bool(payload.get("force", False))
-    since_dt: Optional[str] = payload.get("since_dt")
-    until_dt: Optional[str] = payload.get("until_dt")
     max_retries: int = int(payload.get("max_retries", DEFAULT_MAX_RETRIES))
     weekly_weekday: int = int(payload.get("weekly_weekday", DEFAULT_WEEKLY_WEEKDAY))
 
@@ -127,8 +118,6 @@ def dispatch_notifications_handler(
             status_filter=status_filter,
             user_ids=user_ids,
             force=force,
-            since_dt=since_dt,
-            until_dt=until_dt,
             max_retries=max_retries,
         )
 
@@ -193,30 +182,13 @@ def dispatch(
     status_filter: str,
     user_ids: List[str],
     force: bool,
-    since_dt: Optional[str],
-    until_dt: Optional[str],
     max_retries: int,
     db_session: Session = None,
 ) -> Dict[str, Any]:
-    now = datetime.now(timezone.utc)
-    until = _parse_dt(until_dt) or now
-    # explicit_since: only set when the caller explicitly provided since_dt.
-    # Used as an additional lower-bound floor in _find_new_events on top of
-    # each subscription's active_since.  Never replaces active_since.
-    explicit_since: Optional[datetime] = _parse_dt(since_dt)
-    # since is kept for logging only; it is no longer used as the correctness
-    # gate for new-event discovery (active_since fills that role).
-    since = explicit_since or (
-        now
-        - _CADENCE_WINDOWS.get(cadence, _CADENCE_WINDOWS[NotificationCadence.WEEKLY])
-    )
-
     logger.info(
-        "Dispatching cadence=%s status_filter=%s window=[%s, %s] dry_run=%s user_ids=%s",
+        "Dispatching cadence=%s status_filter=%s dry_run=%s user_ids=%s",
         cadence,
         status_filter,
-        since.isoformat(),
-        until.isoformat(),
         dry_run,
         user_ids or "all",
     )
@@ -256,8 +228,6 @@ def dispatch(
             db_session=db_session,
             subscription=subscription,
             status_filter=status_filter,
-            explicit_since=explicit_since,
-            until=until,
             max_retries=max_retries,
         )
         if not events:
@@ -373,22 +343,17 @@ def find_events_for_subscription(
     db_session: Session,
     subscription: NotificationSubscription,
     status_filter: str,
-    explicit_since: Optional[datetime] = None,
-    until: datetime,
     max_retries: int,
     stale_claim_seconds: int = DEFAULT_STALE_CLAIM_SECONDS,
 ) -> List[NotificationEvent]:
     """Return events that need to be (re-)sent for this subscription.
 
+    The eligibility lower bound is always ``subscription.active_since`` (see
+    ``_find_new_events``); there is no upper bound — events cannot be created in
+    the future, and Cloud Tasks fan-out removes the need for window narrowing.
+
     Parameters
     ----------
-    explicit_since:
-        Optional caller-provided lower bound (from ``since_dt`` payload param).
-        When set, the effective lower bound for new-event discovery becomes
-        ``max(subscription.active_since, explicit_since)``.  It can only
-        *narrow* the window further — it cannot expand it past ``active_since``.
-    until:
-        Upper bound for new-event discovery (exclusive for failed events).
     stale_claim_seconds:
         Age past which a ``pending`` (claimed-but-not-completed) log is treated
         as abandoned by a crashed worker and the event becomes re-claimable.
@@ -399,8 +364,6 @@ def find_events_for_subscription(
         events += _find_new_events(
             db_session=db_session,
             subscription=subscription,
-            explicit_since=explicit_since,
-            until=until,
         )
 
     # Stale claims (pending logs from a crashed worker) are always recoverable,
@@ -433,14 +396,12 @@ def _find_new_events(
     *,
     db_session: Session,
     subscription: NotificationSubscription,
-    explicit_since: Optional[datetime],
-    until: datetime,
 ) -> List[NotificationEvent]:
     """Events with no log row for this subscription, created on or after active_since.
 
     Lower-bound logic
     -----------------
-    The primary lower bound is ``subscription.active_since`` — the moment the
+    The lower bound is ``subscription.active_since`` — the moment the
     subscription last became active.  This ensures:
 
     * Events emitted **before the subscription was created** are never sent.
@@ -448,23 +409,16 @@ def _find_new_events(
       between deactivation and re-activation) are never sent.
     * Events that previously had no log row due to a mid-run crash are **always
       retried** on subsequent runs, regardless of how long ago they occurred.
-
-    If the caller provided an explicit ``since_dt`` override, the effective lower
-    bound is ``max(active_since, explicit_since)`` so the override can only
-    *further narrow* the window, never widen it past the eligibility floor.
     """
-    # Compute the effective lower bound.
-    # active_since is the primary gate: only events created after this subscription
-    # last became active are eligible.  Fall back to created_at for the transition
-    # period before the DB migration is applied and the model regenerated — this is
-    # safe because created_at is the original "subscription exists since" boundary.
-
+    # active_since is the eligibility gate: only events created after this
+    # subscription last became active are eligible.  Fall back to created_at for
+    # the transition period before the DB migration is applied and the model
+    # regenerated — this is safe because created_at is the original
+    # "subscription exists since" boundary.
     lower_bound: datetime = subscription.active_since or subscription.created_at
     # Normalize to UTC if the value is timezone-naive (e.g. SQLite in tests).
     if lower_bound.tzinfo is None:
         lower_bound = lower_bound.replace(tzinfo=timezone.utc)
-    if explicit_since is not None and explicit_since > lower_bound:
-        lower_bound = explicit_since
 
     # IMPORTANT: exclude NULL notification_event_id rows. Legacy notification_log
     # rows (created before this column existed) have NULL here, and SQL
@@ -479,7 +433,6 @@ def _find_new_events(
         .filter(
             NotificationEvent.notification_type_id == subscription.notification_type_id,
             NotificationEvent.created_at >= lower_bound,
-            NotificationEvent.created_at <= until,
             not_(NotificationEvent.id.in_(already_logged)),
         )
         .order_by(NotificationEvent.created_at.asc())
@@ -845,8 +798,6 @@ def process_subscription(
     *,
     subscription_id: str,
     status_filter: str = "new",
-    since_dt: Optional[str] = None,
-    until_dt: Optional[str] = None,
     max_retries: int = DEFAULT_MAX_RETRIES,
     stale_claim_seconds: int = DEFAULT_STALE_CLAIM_SECONDS,
     db_session: Session = None,
@@ -879,15 +830,10 @@ def process_subscription(
         )
         return stats
 
-    until = _parse_dt(until_dt) or datetime.now(timezone.utc)
-    explicit_since = _parse_dt(since_dt)
-
     events = find_events_for_subscription(
         db_session=db_session,
         subscription=subscription,
         status_filter=status_filter,
-        explicit_since=explicit_since,
-        until=until,
         max_retries=max_retries,
         stale_claim_seconds=stale_claim_seconds,
     )
@@ -973,21 +919,3 @@ def emit_admin_summary(
     db_session.add(event)
     db_session.flush()
     logger.info("admin.event_summary created: id=%s stats=%s", event.id, stats)
-
-
-# ---------------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------------
-
-
-def _parse_dt(value: Optional[str]) -> Optional[datetime]:
-    if not value:
-        return None
-    try:
-        dt = datetime.fromisoformat(value)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except ValueError:
-        logger.warning("Could not parse datetime %r; ignoring", value)
-        return None

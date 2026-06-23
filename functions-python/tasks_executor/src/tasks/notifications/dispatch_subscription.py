@@ -33,8 +33,6 @@ Payload::
         "subscription_id": str,   # required
         "run_id": str,            # required — TaskExecutionTracker run id
         "status_filter": str,     # optional, default "new"
-        "since_dt": str | None,   # optional ISO8601 window start
-        "until_dt": str | None,   # optional ISO8601 window end
         "max_retries": int,       # optional, default DEFAULT_MAX_RETRIES
         "stale_claim_seconds": int  # optional, default DEFAULT_STALE_CLAIM_SECONDS
     }
@@ -63,8 +61,6 @@ def notifications_dispatch_subscription_handler(payload: dict) -> dict:
         raise ValueError("subscription_id is required")
 
     status_filter = payload.get("status_filter", "new")
-    since_dt = payload.get("since_dt")
-    until_dt = payload.get("until_dt")
     max_retries = int(payload.get("max_retries", DEFAULT_MAX_RETRIES))
     stale_claim_seconds = int(
         payload.get("stale_claim_seconds", DEFAULT_STALE_CLAIM_SECONDS)
@@ -74,8 +70,6 @@ def notifications_dispatch_subscription_handler(payload: dict) -> dict:
         stats = process_subscription(
             subscription_id=subscription_id,
             status_filter=status_filter,
-            since_dt=since_dt,
-            until_dt=until_dt,
             max_retries=max_retries,
             stale_claim_seconds=stale_claim_seconds,
         )

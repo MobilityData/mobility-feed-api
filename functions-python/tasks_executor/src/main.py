@@ -195,7 +195,6 @@ tasks = {
             "status_filter ('new'|'failed'|'all', default 'new'), "
             "user_ids (list of user IDs for manual trigger, default []), "
             "force (bypass cadence when user_ids set, default false), "
-            "since_dt / until_dt (ISO8601 window overrides), "
             "max_retries (default 5), stale_claim_seconds (default 1800), "
             "monitor_delay_seconds (default 60), deadline_seconds (default 21600)."
         ),
@@ -208,7 +207,7 @@ tasks = {
             "emails under concurrency), sends via Brevo, and marks the run entry "
             "completed/failed in TaskExecutionTracker. "
             "Parameters: subscription_id (required), run_id (required), "
-            "status_filter, since_dt, until_dt, max_retries, stale_claim_seconds."
+            "status_filter, max_retries, stale_claim_seconds."
         ),
         "handler": notifications_dispatch_subscription_handler,
     },

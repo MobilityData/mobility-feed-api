@@ -251,8 +251,6 @@ architecture, retry strategy, and operational runbook.
     "status_filter": "new",
     "user_ids": [],
     "force": false,
-    "since_dt": null,
-    "until_dt": null,
     "max_retries": 5,
     "stale_claim_seconds": 1800,
     "monitor_delay_seconds": 60,
@@ -268,9 +266,7 @@ architecture, retry strategy, and operational runbook.
 | `dry_run` | bool | `false` | Resolve and log subscriptions without enqueuing workers |
 | `status_filter` | str | `new` | `new` \| `failed` \| `all`. Selects which `notification_log` states workers (re)process |
 | `user_ids` | list[str] | `[]` | If provided, only dispatch to these user IDs (manual trigger) |
-| `force` | bool | `false` | When `user_ids` is set, bypass the cadence window/check |
-| `since_dt` | str \| null | `null` | ISO8601 override for the event look-back window start |
-| `until_dt` | str \| null | `null` | ISO8601 override for the event look-back window end |
+| `force` | bool | `false` | When `user_ids` is set, bypass the cadence check |
 | `max_retries` | int | `5` | Attempts before a log row is marked `permanently_failed` |
 | `stale_claim_seconds` | int | `1800` | A `pending` claim older than this (crashed worker) is reclaimable |
 | `monitor_delay_seconds` | int | `60` | Delay before the monitor's first poll |

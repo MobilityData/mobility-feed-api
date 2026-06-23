@@ -271,12 +271,10 @@ class TestFindEventsForSubscription(unittest.TestCase):
         sub = _make_subscription(db_session, "user-alice")
         event = _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
             db_session=db_session,
             subscription=sub,
             status_filter="new",
-            until=now + timedelta(hours=1),
             max_retries=5,
         )
         self.assertIn(event.id, {e.id for e in events})
@@ -296,12 +294,10 @@ class TestFindEventsForSubscription(unittest.TestCase):
         db_session.add(log)
         db_session.flush()
 
-        now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
             db_session=db_session,
             subscription=sub,
             status_filter="new",
-            until=now + timedelta(hours=1),
             max_retries=5,
         )
         self.assertNotIn(event.id, {e.id for e in events})
@@ -321,12 +317,10 @@ class TestFindEventsForSubscription(unittest.TestCase):
         db_session.add(log)
         db_session.flush()
 
-        now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
             db_session=db_session,
             subscription=sub,
             status_filter="failed",
-            until=now + timedelta(hours=1),
             max_retries=5,
         )
         self.assertIn(event.id, {e.id for e in events})
@@ -346,12 +340,10 @@ class TestFindEventsForSubscription(unittest.TestCase):
         db_session.add(log)
         db_session.flush()
 
-        now = datetime.now(timezone.utc)
         events = find_events_for_subscription(
             db_session=db_session,
             subscription=sub,
             status_filter="failed",
-            until=now + timedelta(hours=1),
             max_retries=5,
         )
         self.assertNotIn(event.id, {e.id for e in events})
@@ -379,7 +371,6 @@ class TestFindEventsForSubscription(unittest.TestCase):
             db_session=db_session,
             subscription=sub,
             status_filter="new",
-            until=now,
             max_retries=5,
         )
         self.assertNotIn(old_event.id, {e.id for e in events})
@@ -415,55 +406,9 @@ class TestFindEventsForSubscription(unittest.TestCase):
             db_session=db_session,
             subscription=sub,
             status_filter="new",
-            until=now,
             max_retries=5,
         )
         self.assertIn(event.id, {e.id for e in events})
-
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_explicit_since_can_narrow_window_but_not_below_active_since(
-        self, db_session: Session = None
-    ):
-        """explicit_since further restricts the window but never expands it past active_since."""
-        now = datetime.now(timezone.utc)
-        active_since = now - timedelta(days=3)
-        sub = _make_subscription(db_session, "user-alice", active_since=active_since)
-
-        # Event 2 days ago — after active_since.
-        recent_event = _make_event(
-            db_session, created_at=now - timedelta(days=2), feed_stable_id="mdb-1"
-        )
-        # Event 5 days ago — before active_since (pre-subscription / dead zone).
-        old_event = _make_event(
-            db_session, created_at=now - timedelta(days=5), feed_stable_id="mdb-2"
-        )
-
-        # explicit_since = now - 1 day: should narrow window further.
-        events = find_events_for_subscription(
-            db_session=db_session,
-            subscription=sub,
-            status_filter="new",
-            explicit_since=now - timedelta(days=1),
-            until=now,
-            max_retries=5,
-        )
-        ids = {e.id for e in events}
-        # recent_event is outside explicit_since window (2 days > 1 day) → excluded.
-        self.assertNotIn(recent_event.id, ids)
-        # old_event is before active_since → also excluded.
-        self.assertNotIn(old_event.id, ids)
-
-        # Without explicit_since, recent_event is included; old_event still excluded.
-        events_no_override = find_events_for_subscription(
-            db_session=db_session,
-            subscription=sub,
-            status_filter="new",
-            until=now,
-            max_retries=5,
-        )
-        ids_no_override = {e.id for e in events_no_override}
-        self.assertIn(recent_event.id, ids_no_override)
-        self.assertNotIn(old_event.id, ids_no_override)
 
 
 # ---------------------------------------------------------------------------
@@ -565,15 +510,12 @@ class TestDispatchIntegration(unittest.TestCase):
         )
         _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         stats = dispatch(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -606,15 +548,12 @@ class TestDispatchIntegration(unittest.TestCase):
         )
         _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         kwargs = dict(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -656,15 +595,12 @@ class TestDispatchIntegration(unittest.TestCase):
         )
         _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         dispatch(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -686,15 +622,12 @@ class TestDispatchIntegration(unittest.TestCase):
         _make_event(db_session, feed_stable_id="mdb-1")
         _make_event(db_session, feed_stable_id="mdb-2")
 
-        now = datetime.now(timezone.utc)
         stats = dispatch(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -719,7 +652,6 @@ class TestDispatchIntegration(unittest.TestCase):
         )
         event = _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         with patch("tasks.notifications.dispatch_notifications.time.sleep"):
             stats = dispatch(
                 cadence=NotificationCadence.WEEKLY,
@@ -727,8 +659,6 @@ class TestDispatchIntegration(unittest.TestCase):
                 status_filter="new",
                 user_ids=[],
                 force=False,
-                since_dt=(now - timedelta(hours=1)).isoformat(),
-                until_dt=(now + timedelta(hours=1)).isoformat(),
                 max_retries=5,
                 db_session=db_session,
             )
@@ -770,7 +700,6 @@ class TestDispatchIntegration(unittest.TestCase):
         db_session.add(log)
         db_session.flush()
 
-        now = datetime.now(timezone.utc)
         with patch("tasks.notifications.dispatch_notifications.time.sleep"):
             stats = dispatch(
                 cadence=NotificationCadence.WEEKLY,
@@ -778,8 +707,6 @@ class TestDispatchIntegration(unittest.TestCase):
                 status_filter="failed",
                 user_ids=[],
                 force=False,
-                since_dt=(now - timedelta(hours=1)).isoformat(),
-                until_dt=(now + timedelta(hours=1)).isoformat(),
                 max_retries=5,
                 db_session=db_session,
             )
@@ -802,15 +729,12 @@ class TestDispatchIntegration(unittest.TestCase):
         )
         event = _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         kwargs = dict(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -833,15 +757,12 @@ class TestDispatchIntegration(unittest.TestCase):
             db_session, feed_stable_id="mdb-1"
         )  # event exists but no subscription matches
 
-        now = datetime.now(timezone.utc)
         stats = dispatch(
             cadence=NotificationCadence.WEEKLY,
             dry_run=False,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )
@@ -854,15 +775,12 @@ class TestDispatchIntegration(unittest.TestCase):
         _make_subscription(db_session, "user-alice", cadence=NotificationCadence.WEEKLY)
         _make_event(db_session)
 
-        now = datetime.now(timezone.utc)
         dispatch(
             cadence=NotificationCadence.WEEKLY,
             dry_run=True,
             status_filter="new",
             user_ids=[],
             force=False,
-            since_dt=(now - timedelta(hours=1)).isoformat(),
-            until_dt=(now + timedelta(hours=1)).isoformat(),
             max_retries=5,
             db_session=db_session,
         )

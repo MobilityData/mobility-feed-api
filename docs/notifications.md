@@ -243,9 +243,7 @@ claim, **not** task-name dedup.
 | `dry_run` | bool | `false` | Resolve and log subscriptions without enqueuing workers |
 | `status_filter` | str | `'new'` | `'new'` = unsent events; `'failed'` = retry mode; `'all'` = both (passed through to workers) |
 | `user_ids` | list[str] | `[]` | Restrict to specific users (manual trigger) |
-| `force` | bool | `false` | When `true` + `user_ids`: bypass cadence and window |
-| `since_dt` | str | `null` | ISO 8601 lower-bound override. An *additional* floor on top of `active_since`: effective lower bound is `max(subscription.active_since, since_dt)`. |
-| `until_dt` | str | `null` | ISO 8601 window end override. Defaults to `now()`. |
+| `force` | bool | `false` | When `true` + `user_ids`: bypass cadence |
 | `max_retries` | int | `5` | Stop retrying at this retry_count |
 | `stale_claim_seconds` | int | `1800` | A `pending` claim older than this (crashed worker) is reclaimable |
 | `monitor_delay_seconds` | int | `60` | Delay before the monitor's first poll |
@@ -263,7 +261,7 @@ discovery uses it as the **exclusive lower bound** — only events with
 | **Re-enabled** (`active` flipped `False → True`) | **Must be updated to `now()`** by the re-activation code. Events emitted while the subscription was inactive are permanently excluded. |
 | **Active, no state change** | Never modified. Only `last_notified_at` is updated after a dispatch run. |
 
-> **Key rule**: `since_dt` in the payload can narrow the window further, but it can never override the `active_since` floor.
+> **Key rule**: `active_since` is the **sole** lower bound for event eligibility. There is no upper bound (events can't be created in the future) and no payload override — pre-subscription and disabled-period events are always excluded.
 
 ### Claim-then-send (no duplicate emails)
 

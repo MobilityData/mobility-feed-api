@@ -34,7 +34,6 @@ Payload (all optional)::
         "cadence": "scheduled" | "daily" | "weekly" | "all",
         "weekly_weekday": 0..6,
         "status_filter": "new" | "failed" | "all",
-        "since_dt": ISO8601, "until_dt": ISO8601,
         "max_retries": int, "stale_claim_seconds": int,
         "user_ids": [str], "force": bool, "dry_run": bool,
         "monitor_delay_seconds": int, "deadline_seconds": int
@@ -95,8 +94,6 @@ def _plan_cadence(
     stale_claim_seconds = int(
         payload.get("stale_claim_seconds", DEFAULT_STALE_CLAIM_SECONDS)
     )
-    since_dt = payload.get("since_dt")
-    until_dt = payload.get("until_dt")
     monitor_delay = int(
         payload.get("monitor_delay_seconds", DEFAULT_MONITOR_DELAY_SECONDS)
     )
@@ -131,8 +128,6 @@ def _plan_cadence(
     run_params = {
         "cadence": run_cadence,
         "status_filter": status_filter,
-        "since_dt": since_dt,
-        "until_dt": until_dt or now.isoformat(),
         "max_retries": max_retries,
         "stale_claim_seconds": stale_claim_seconds,
         "run_started_at": now.isoformat(),
@@ -146,8 +141,6 @@ def _plan_cadence(
             "subscription_id": subscription_id,
             "run_id": run_id,
             "status_filter": status_filter,
-            "since_dt": since_dt,
-            "until_dt": run_params["until_dt"],
             "max_retries": max_retries,
             "stale_claim_seconds": stale_claim_seconds,
         }
