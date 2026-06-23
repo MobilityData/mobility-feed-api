@@ -179,7 +179,7 @@ tasks = {
         "description": (
             "Backfills gtfs_dataset_changelog records from existing dataset history by "
             "dispatching Cloud Tasks to the gtfs-datasets-comparer function for each "
-            "consecutive (previous, current) dataset pair that has no changelog row yet. "
+            "consecutive (base, new) dataset pair that has no changelog row yet. "
             "Parameters: dry_run (default true), limit (default 100), "
             "datasets_per_feed (default 3), stable_feed_ids (default null), "
             "feeds_not_updated_days (default null)."
