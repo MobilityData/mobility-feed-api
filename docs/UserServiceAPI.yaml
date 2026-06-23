@@ -31,6 +31,8 @@ tags:
     description: "User profile management"
   - name: "notifications"
     description: "Notification subscriptions"
+  - name: "subscriptions"
+    description: "Public subscription management via subscription ID (e.g. email unsubscribe links)"
 
 paths:
   /v1/user:
@@ -221,6 +223,50 @@ paths:
           description: Subscription not found.
         "501":
           description: Not yet implemented.
+
+  /v1/subscriptions/{id}:
+    get:
+      summary: Get a subscription by ID
+      description: |
+        Returns a single notification subscription identified by its ID.
+      operationId: getSubscription
+      tags:
+        - "subscriptions"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subscription ID.
+      responses:
+        "200":
+          description: Subscription retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "404":
+          description: Subscription not found.
+    delete:
+      summary: Delete a subscription by ID
+      description: |
+        Removes a notification subscription identified by its ID.
+      operationId: deleteSubscription
+      tags:
+        - "subscriptions"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Subscription ID.
+      responses:
+        "204":
+          description: Subscription deleted.
+        "404":
+          description: Subscription not found.
 
 components:
   schemas:

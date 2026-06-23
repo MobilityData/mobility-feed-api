@@ -43,3 +43,8 @@ variable "feed_api_image_version" {
   type        = string
   description = "Docker image version"
 }
+
+variable "brevo_api_announcements_list_id" {
+  type        = string
+  description = "Brevo list ID for API announcements"
+}

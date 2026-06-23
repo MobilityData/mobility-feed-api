@@ -15,4 +15,6 @@
     <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
     <!-- Add feature_flag and user_feature_flag tables -->
     <include file="changes_user/feat_1694.sql" relativeToChangelogFile="true"/>
+    <!-- Seed 'api.announcements' notification type (issue #1729). -->
+    <include file="changes_user/feat_1729.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

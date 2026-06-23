@@ -40,6 +40,54 @@ class BrevoSubscriptionStatus(Enum):
     NOT_FOUND = "not_found"
 
 
+def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
+    """Build a Brevo ContactsApi client. Raises RuntimeError if BREVO_API_KEY is unset."""
+    api_key = os.getenv("BREVO_API_KEY")
+    if not api_key:
+        raise RuntimeError("BREVO_API_KEY environment variable is not set")
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key["api-key"] = api_key
+    return sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+
+def get_announcements_list_id() -> int:
+    """Return the Brevo API-announcements list id from BREVO_API_ANNOUNCEMENTS_LIST_ID."""
+    raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
+    if not raw:
+        raise RuntimeError("BREVO_API_ANNOUNCEMENTS_LIST_ID environment variable is not set")
+    return int(raw)
+
+
+def add_contact_to_list(email: str, list_id: int, subscription_id: str) -> None:
+    """Create/update a Brevo contact, add it to the list, and set MDB_SUBSCRIPTION_ID.
+
+    Uses create_contact with update_enabled so it works whether or not the
+    contact already exists.
+    """
+    api = _get_contacts_api()
+    api.create_contact(
+        sib_api_v3_sdk.CreateContact(
+            email=email,
+            attributes={"MDB_SUBSCRIPTION_ID": subscription_id},
+            list_ids=[list_id],
+            update_enabled=True,
+        )
+    )
+
+
+def remove_contact_from_list(email: str, list_id: int) -> None:
+    """Remove a Brevo contact from the list. No-op if the contact is not on the list."""
+    api = _get_contacts_api()
+    try:
+        api.remove_contact_from_list(list_id, sib_api_v3_sdk.RemoveContactFromList(emails=[email]))
+    except sib_api_v3_sdk.rest.ApiException as exc:
+        # 400 "Contact already removed from list" / 404 contact-not-found are idempotent no-ops.
+        if exc.status in (400, 404):
+            logger.info("Contact %s not on list %s, nothing to remove", email, list_id)
+            return
+        raise
+
+
 def get_contact_subscription_status(
     email: str,
     list_id: int | None = None,
@@ -56,13 +104,7 @@ def get_contact_subscription_status(
     Raises RuntimeError if BREVO_API_KEY is not set.
     Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.
     """
-    api_key = os.getenv("BREVO_API_KEY")
-    if not api_key:
-        raise RuntimeError("BREVO_API_KEY environment variable is not set")
-
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key["api-key"] = api_key
-    api = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
+    api = _get_contacts_api()
 
     try:
         contact = api.get_contact_info(email)

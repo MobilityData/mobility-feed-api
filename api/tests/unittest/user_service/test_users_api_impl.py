@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -11,7 +11,10 @@ from shared.users_database_gen.sqlacodegen_models import (
     FeatureFlag,
     UserFeatureFlag,
 )
+import user_service.impl.subscription_helpers as helpers
 from user_service.impl.users_api_impl import UsersApiImpl
+from user_service_gen.models.create_notification_subscription_request import CreateNotificationSubscriptionRequest
+from user_service_gen.models.update_notification_subscription_request import UpdateNotificationSubscriptionRequest
 
 FIXED_NOW = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -215,42 +218,187 @@ class TestUpdateUserMe(unittest.TestCase):
         self.mock_session.query.assert_not_called()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-class TestSubscriptionStubs(unittest.TestCase):
+class TestSubscriptions(unittest.TestCase):
     def setUp(self):
         self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
         _set_context()
 
-    def test_get_user_subscriptions_returns_501(self):
-        with self.assertRaises(HTTPException) as ctx:
-            self.api.get_user_subscriptions()
-        self.assertEqual(ctx.exception.status_code, 501)
+    def _make_sub(self, **kwargs):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
 
-    def test_create_user_subscription_returns_501(self):
-        from user_service_gen.models.create_notification_subscription_request import (
-            CreateNotificationSubscriptionRequest,
+        defaults = dict(
+            id="sub-1",
+            user_id="uid-123",
+            notification_type_id="feed.published",
+            active=True,
+            created_at=FIXED_NOW,
+            last_notified_at=None,
+        )
+        defaults.update(kwargs)
+        return Orm(**defaults)
+
+    # ── list ──
+    def test_get_user_subscriptions_returns_user_subs(self):
+        sub = self._make_sub()
+        query = self.mock_session.query.return_value
+        query.filter.return_value.order_by.return_value.all.return_value = [sub]
+
+        result = self.api.get_user_subscriptions(db_session=self.mock_session)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].id, "sub-1")
+        self.assertEqual(result[0].notification_id, "feed.published")
+
+    def test_get_user_subscriptions_guest_403(self):
+        _set_context(is_guest=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.get_user_subscriptions(db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    # ── create ──
+    def test_create_unknown_type_400(self):
+        self.mock_session.get.return_value = None  # NotificationType lookup
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="nope"), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_create_non_announcement_no_brevo(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.published") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with patch.object(helpers, "add_contact_to_list") as add:
+            result = self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+            )
+
+        add.assert_not_called()
+        self.mock_session.add.assert_called_once()
+        self.assertTrue(result.active)
+        self.assertEqual(result.notification_id, "feed.published")
+
+    def test_create_announcement_syncs_brevo(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="api.announcements") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="api.announcements"), db_session=self.mock_session
+            )
+
+        add.assert_called_once()
+        self.assertEqual(add.call_args[0][0], "user@example.com")
+        self.assertEqual(add.call_args[0][1], 42)
+        self.assertEqual(result.notification_id, "api.announcements")
+
+    def test_create_idempotent_reactivates_existing(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        existing = self._make_sub(notification_type_id="feed.published", active=False)
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.published") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
         )
 
-        with self.assertRaises(HTTPException) as ctx:
-            self.api.create_user_subscription(CreateNotificationSubscriptionRequest(notification_id="type-1"))
-        self.assertEqual(ctx.exception.status_code, 501)
+        self.assertTrue(existing.active)
+        self.mock_session.add.assert_not_called()
+        self.assertEqual(result.id, "sub-1")
 
-    def test_update_user_subscription_returns_501(self):
-        from user_service_gen.models.update_notification_subscription_request import (
-            UpdateNotificationSubscriptionRequest,
+    # ── update ──
+    def test_update_deactivate_announcement_removes_brevo(self):
+        sub = self._make_sub(notification_type_id="api.announcements", active=True)
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
         )
 
-        with self.assertRaises(HTTPException) as ctx:
-            self.api.update_user_subscription("sub-id", UpdateNotificationSubscriptionRequest(active=True))
-        self.assertEqual(ctx.exception.status_code, 501)
+        with patch.object(helpers, "remove_contact_from_list") as rem, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
 
-    def test_delete_user_subscription_returns_501(self):
+        rem.assert_called_once_with("user@example.com", 42)
+        self.assertFalse(result.active)
+
+    def test_update_not_owned_404(self):
+        other = self._make_sub(user_id="someone-else")
+        self.mock_session.get.return_value = other
         with self.assertRaises(HTTPException) as ctx:
-            self.api.delete_user_subscription("sub-id")
-        self.assertEqual(ctx.exception.status_code, 501)
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    # ── delete ──
+    def test_delete_announcement_removes_brevo(self):
+        sub = self._make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        with patch.object(helpers, "remove_contact_from_list") as rem, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
+
+        rem.assert_called_once_with("user@example.com", 42)
+        self.mock_session.delete.assert_called_once_with(sub)
+
+    def test_delete_non_announcement_no_brevo(self):
+        sub = self._make_sub(notification_type_id="feed.published")
+        self.mock_session.get.return_value = sub
+
+        with patch.object(helpers, "remove_contact_from_list") as rem:
+            self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
+
+        rem.assert_not_called()
+        self.mock_session.delete.assert_called_once_with(sub)
+
+    def test_delete_not_found_404(self):
+        self.mock_session.get.return_value = None
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_user_subscription("missing", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_brevo_failure_raises_502(self):
+        import sib_api_v3_sdk
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="api.announcements") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with patch.object(
+            helpers, "add_contact_to_list", side_effect=sib_api_v3_sdk.rest.ApiException(status=500)
+        ), patch.object(helpers, "get_announcements_list_id", return_value=42):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.create_user_subscription(
+                    CreateNotificationSubscriptionRequest(notification_id="api.announcements"),
+                    db_session=self.mock_session,
+                )
+        self.assertEqual(ctx.exception.status_code, 502)
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 
 class TestAppUserImpl(unittest.TestCase):
