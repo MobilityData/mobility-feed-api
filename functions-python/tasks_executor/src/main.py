@@ -65,6 +65,7 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
+from tasks.changelog.backfill_changelog import backfill_changelog_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -173,6 +174,17 @@ tasks = {
             "user_ids (default null), only_not_migrated (default true)."
         ),
         "handler": migrate_firebase_users_handler,
+    },
+    "backfill_changelog": {
+        "description": (
+            "Backfills gtfs_dataset_changelog records from existing dataset history by "
+            "dispatching Cloud Tasks to the gtfs-datasets-comparer function for each "
+            "consecutive (previous, current) dataset pair that has no changelog row yet. "
+            "Parameters: dry_run (default true), limit (default 100), "
+            "datasets_per_feed (default 3), stable_feed_ids (default null), "
+            "feeds_not_updated_days (default null)."
+        ),
+        "handler": backfill_changelog_handler,
     },
 }
 

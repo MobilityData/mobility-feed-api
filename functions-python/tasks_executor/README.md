@@ -219,3 +219,45 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 | `brevo_not_found` | Users not found in Brevo |
 | `brevo_failed` | Users where the Brevo check failed (non-fatal; user is still inserted) |
 | `dry_run` | Whether the task ran in dry-run mode |
+
+### `backfill_changelog`
+
+Backfills `gtfs_dataset_changelog` records from the **existing** dataset history. The live pipeline (`batch_process_dataset` → `gtfs-datasets-comparer`) only produces changelogs for new datasets going forward; this task walks the stored history and, for each consecutive `(previous, current)` dataset pair that has no changelog row yet, dispatches a Cloud Task to the same `gtfs-datasets-comparer` function.
+
+The task is **idempotent / restartable**: pairs that already have a changelog row are skipped, and each dispatched Cloud Task runs with `disallow_overwrite=true`. It is **rate-limited**: `limit` caps how many feeds are processed per invocation, and a dedicated Cloud Tasks queue (`GTFS_CHANGE_TRACKER_QUEUE`) throttles the actual comparer invocations. Call it repeatedly to walk the whole catalog.
+
+```json
+{
+  "task": "backfill_changelog",
+  "payload": {
+    "dry_run": true,
+    "limit": 100,
+    "datasets_per_feed": 3,
+    "stable_feed_ids": null,
+    "feeds_not_updated_days": null
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Enumerate the pairs that would be dispatched without creating any Cloud Task. The response includes a `dispatched` list of the pairs |
+| `limit` | int \| null | `100` | Maximum number of feeds processed per invocation; omit or pass `null` for no limit |
+| `datasets_per_feed` | int | `3` | Number of most recent datasets considered per feed. `N` datasets produce up to `N-1` consecutive pairs (must be `>= 2`) |
+| `stable_feed_ids` | list[str] \| null | `null` | If provided, only process feeds with these stable IDs |
+| `feeds_not_updated_days` | int \| null | `null` | If provided, only process feeds whose most recent dataset is older than this many days (e.g. `30` to target feeds not updated in the last month) |
+
+**Required environment variables**: `GTFS_CHANGE_TRACKER_QUEUE`, `PROJECT_ID`, `GCP_REGION`, `ENVIRONMENT` (used to dispatch Cloud Tasks to the `gtfs-datasets-comparer` function).
+
+> Note: the comparer reads the pre-extracted GTFS files from the datasets bucket (`<feed>/<dataset>/extracted/`). Historical datasets whose extracted files are no longer present will surface as comparer-side errors (logged, HTTP 200); the backfill dispatch itself still succeeds.
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `feeds_processed` | Feeds that had at least one consecutive pair to consider |
+| `feeds_skipped_recent` | Feeds skipped because of `feeds_not_updated_days` |
+| `pairs_found` | Total consecutive pairs examined |
+| `pairs_already_done` | Pairs skipped because a changelog row already exists |
+| `pairs_dispatched` | Pairs dispatched (or, in `dry_run`, that would be dispatched) |
+| `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
