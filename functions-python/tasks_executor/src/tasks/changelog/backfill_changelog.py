@@ -23,7 +23,8 @@ gtfs-datasets-comparer function that the live pipeline uses.
 
 The task is:
   * idempotent / restartable — pairs that already have a changelog row are skipped,
-    and the dispatched Cloud Task itself runs with disallow_overwrite=True.
+    and the dispatched Cloud Task runs with disallow_overwrite=True (unless `force`,
+    which sets disallow_overwrite=False to regenerate even existing changelogs).
   * rate-limited — `limit` caps how many feeds are processed per invocation, and the
     dedicated Cloud Tasks queue throttles the actual comparer invocations.
 """
@@ -274,6 +275,7 @@ def backfill_changelog(
                     feed_stable_id=feed.stable_id,
                     base_dataset_stable_id=base.stable_id,
                     new_dataset_stable_id=new.stable_id,
+                    disallow_overwrite=not force,
                 )
 
     result = {

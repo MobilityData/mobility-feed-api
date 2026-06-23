@@ -247,7 +247,7 @@ The task is **idempotent / restartable**: pairs that already have a changelog ro
 | `datasets_per_feed` | int | `3` | Number of most recent datasets considered per feed. `N` datasets produce up to `N-1` consecutive pairs (must be `>= 2`) |
 | `stable_feed_ids` | list[str] \| null | `null` | If provided, only process feeds with these stable IDs |
 | `feeds_not_updated_days` | int \| null | `null` | If provided, only process feeds whose most recent dataset is older than this many days (e.g. `30` to target feeds not updated in the last month) |
-| `force` | bool | `false` | If `true`, dispatch every pair even when a changelog row already exists (forces a rerun) |
+| `force` | bool | `false` | If `true`, dispatch every pair even when a changelog row already exists, and run the comparer with `disallow_overwrite=false` so existing changelogs are regenerated (forces a full rerun) |
 
 **Required environment variables**: `GTFS_CHANGE_TRACKER_QUEUE`, `PROJECT_ID`, `GCP_REGION`, `ENVIRONMENT` (used to dispatch Cloud Tasks to the `gtfs-datasets-comparer` function).
 

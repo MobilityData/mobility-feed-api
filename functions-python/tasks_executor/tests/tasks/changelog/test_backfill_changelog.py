@@ -179,7 +179,17 @@ class TestBackfillChangelog(unittest.TestCase):
             feed_stable_id="stable_a",
             base_dataset_stable_id="stable_a1",
             new_dataset_stable_id="stable_a2",
+            disallow_overwrite=True,
         )
+
+    @patch(PATCH_DISPATCH)
+    def test_force_dispatch_allows_overwrite(self, mock_dispatch):
+        # force=True must dispatch every pair with disallow_overwrite=False so the
+        # comparer regenerates even existing changelogs.
+        result = backfill_changelog(dry_run=False, force=True, stable_feed_ids=SCOPE)
+        self.assertEqual(result["pairs_dispatched"], 2)
+        for call in mock_dispatch.call_args_list:
+            self.assertFalse(call.kwargs["disallow_overwrite"])
 
     @patch(PATCH_DISPATCH)
     def test_idempotent_when_all_pairs_done(self, mock_dispatch):
