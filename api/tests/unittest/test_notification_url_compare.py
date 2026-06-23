@@ -2,15 +2,15 @@ from unittest.mock import patch
 
 from shared.notifications.notification_event_service import (
     emit_url_replaced,
-    normalize_url,
+    normalize_url_for_strict_compare,
     urls_differ,
     _emit,
 )
 
 
-def test_normalize_url_strips_and_casefolds():
-    assert normalize_url("  HTTPS://Example.com/Feed.zip  ") == "https://example.com/feed.zip"
-    assert normalize_url(None) == ""
+def test_normalize_url_for_strict_compare_strips_and_casefolds():
+    assert normalize_url_for_strict_compare("  HTTPS://Example.com/Feed.zip  ") == "https://example.com/feed.zip"
+    assert normalize_url_for_strict_compare(None) == ""
 
 
 def test_urls_differ_ignores_case_and_surrounding_whitespace():

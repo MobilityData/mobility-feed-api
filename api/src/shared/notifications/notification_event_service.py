@@ -67,12 +67,14 @@ from shared.notifications.notification_constants import (
 logger = logging.getLogger(__name__)
 
 
-def normalize_url(url: Optional[str]) -> str:
+def normalize_url_for_strict_compare(url: Optional[str]) -> str:
     """Normalize a producer URL for change detection.
 
     Comparisons should ignore case and leading/trailing whitespace so that
     cosmetic differences (e.g. ``" HTTPS://Example.com "`` vs
-    ``"https://example.com"``) do not trigger a notification event.
+    ``"http://example.com"``) do not trigger a notification event.
+    This function is different from the previously implemented normalize_url
+    in that it accounts for protocol changes and www. prefix.
     """
     if url is None:
         return ""
@@ -81,7 +83,7 @@ def normalize_url(url: Optional[str]) -> str:
 
 def urls_differ(old_url: Optional[str], new_url: Optional[str]) -> bool:
     """Return True if two URLs differ after normalization (case/whitespace-insensitive)."""
-    return normalize_url(old_url) != normalize_url(new_url)
+    return normalize_url_for_strict_compare(old_url) != normalize_url_for_strict_compare(new_url)
 
 
 def emit_feed_redirected(
