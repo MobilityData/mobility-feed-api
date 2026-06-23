@@ -60,3 +60,5 @@ src/user_service_gen/models/update_notification_subscription_request.py
 src/user_service_gen/models/update_user_request.py
 src/user_service_gen/models/user_profile.py
 src/user_service_gen/security_api.py
+src/user_service_gen/apis/subscriptions_api.py
+src/user_service_gen/apis/subscriptions_api_base.py
