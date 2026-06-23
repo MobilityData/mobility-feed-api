@@ -28,10 +28,10 @@ from unittest.mock import MagicMock, patch
 from shared.helpers.task_execution.task_execution_tracker import TaskInProgressError
 
 # ---------------------------------------------------------------------------
-# notifications_dispatch_plan (producer)
+# notifications_dispatch_batch (producer)
 # ---------------------------------------------------------------------------
 
-_PLAN = "tasks.notifications.dispatch_plan"
+_PLAN = "tasks.notifications.dispatch_batch"
 
 
 class TestPlanHandler(unittest.TestCase):
@@ -44,13 +44,13 @@ class TestPlanHandler(unittest.TestCase):
     def test_enqueues_worker_per_subscription_plus_monitor(
         self, find_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.notifications.dispatch_plan import (
-            notifications_dispatch_plan_handler,
+        from tasks.notifications.dispatch_batch import (
+            notifications_dispatch_batch_handler,
         )
 
         find_mock.return_value = self._subs("sub-1", "sub-2")
 
-        result = notifications_dispatch_plan_handler(
+        result = notifications_dispatch_batch_handler(
             {"cadence": "weekly", "dry_run": False}
         )
 
@@ -59,7 +59,7 @@ class TestPlanHandler(unittest.TestCase):
         # 2 workers + 1 monitor enqueued
         self.assertEqual(enqueue_mock.call_count, 3)
         in_body_tasks = [c.kwargs["in_body_task"] for c in enqueue_mock.call_args_list]
-        self.assertEqual(in_body_tasks.count("notifications_dispatch_subscription"), 2)
+        self.assertEqual(in_body_tasks.count("notifications_dispatch"), 2)
         self.assertEqual(in_body_tasks.count("notifications_dispatch_monitor"), 1)
         self.assertEqual(result["by_cadence"]["weekly"]["enqueued"], 2)
 
@@ -69,12 +69,12 @@ class TestPlanHandler(unittest.TestCase):
     def test_dynamic_task_names_use_prefix(
         self, find_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.notifications.dispatch_plan import (
-            notifications_dispatch_plan_handler,
+        from tasks.notifications.dispatch_batch import (
+            notifications_dispatch_batch_handler,
         )
 
         find_mock.return_value = self._subs("sub-1")
-        notifications_dispatch_plan_handler({"cadence": "weekly", "dry_run": False})
+        notifications_dispatch_batch_handler({"cadence": "weekly", "dry_run": False})
 
         names = [c.kwargs["task_name"] for c in enqueue_mock.call_args_list]
         self.assertTrue(all(n.startswith("notifications-dispatch-") for n in names))
@@ -87,12 +87,12 @@ class TestPlanHandler(unittest.TestCase):
     @patch(f"{_PLAN}._enqueue", return_value=True)
     @patch(f"{_PLAN}.find_subscriptions")
     def test_dry_run_enqueues_nothing(self, find_mock, enqueue_mock, start_run_mock):
-        from tasks.notifications.dispatch_plan import (
-            notifications_dispatch_plan_handler,
+        from tasks.notifications.dispatch_batch import (
+            notifications_dispatch_batch_handler,
         )
 
         find_mock.return_value = self._subs("sub-1", "sub-2")
-        result = notifications_dispatch_plan_handler(
+        result = notifications_dispatch_batch_handler(
             {"cadence": "weekly", "dry_run": True}
         )
 
@@ -106,42 +106,42 @@ class TestPlanHandler(unittest.TestCase):
     def test_no_subscriptions_enqueues_nothing(
         self, find_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.notifications.dispatch_plan import (
-            notifications_dispatch_plan_handler,
+        from tasks.notifications.dispatch_batch import (
+            notifications_dispatch_batch_handler,
         )
 
         find_mock.return_value = []
-        notifications_dispatch_plan_handler({"cadence": "weekly", "dry_run": False})
+        notifications_dispatch_batch_handler({"cadence": "weekly", "dry_run": False})
 
         enqueue_mock.assert_not_called()
         start_run_mock.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
-# notifications_dispatch_subscription (worker)
+# notifications_dispatch (worker)
 # ---------------------------------------------------------------------------
 
-_WORKER = "tasks.notifications.dispatch_subscription"
+_WORKER = "tasks.notifications.dispatch_worker"
 
 
 class TestWorkerHandler(unittest.TestCase):
     def test_requires_subscription_id(self):
-        from tasks.notifications.dispatch_subscription import (
-            notifications_dispatch_subscription_handler,
+        from tasks.notifications.dispatch_worker import (
+            notifications_dispatch_handler,
         )
 
         with self.assertRaises(ValueError):
-            notifications_dispatch_subscription_handler({"run_id": "r1"})
+            notifications_dispatch_handler({"run_id": "r1"})
 
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.process_subscription")
     def test_marks_completed_on_success(self, proc_mock, mark_mock):
-        from tasks.notifications.dispatch_subscription import (
-            notifications_dispatch_subscription_handler,
+        from tasks.notifications.dispatch_worker import (
+            notifications_dispatch_handler,
         )
 
         proc_mock.return_value = {"emails_sent": 2, "events_claimed": 2}
-        result = notifications_dispatch_subscription_handler(
+        result = notifications_dispatch_handler(
             {"subscription_id": "sub-1", "run_id": "r1"}
         )
 
@@ -154,15 +154,13 @@ class TestWorkerHandler(unittest.TestCase):
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.process_subscription")
     def test_infra_error_marks_failed_and_reraises(self, proc_mock, mark_mock):
-        from tasks.notifications.dispatch_subscription import (
-            notifications_dispatch_subscription_handler,
+        from tasks.notifications.dispatch_worker import (
+            notifications_dispatch_handler,
         )
 
         proc_mock.side_effect = RuntimeError("db down")
         with self.assertRaises(RuntimeError):
-            notifications_dispatch_subscription_handler(
-                {"subscription_id": "sub-1", "run_id": "r1"}
-            )
+            notifications_dispatch_handler({"subscription_id": "sub-1", "run_id": "r1"})
 
         mark_mock.assert_called_once_with("r1", "sub-1", error="db down")
 

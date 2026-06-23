@@ -28,7 +28,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import and_, not_, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -61,13 +61,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-DEFAULT_CADENCE = NotificationCadence.WEEKLY
 DEFAULT_MAX_RETRIES = 5
 _IN_RUN_RETRY_DELAYS = (1, 2, 4)  # seconds between in-run attempts
 
 # TaskExecutionTracker task_name for a distributed dispatch run (fan-out workers
 # + monitor all key off this plus a per-run run_id).
-DISPATCH_TASK_NAME = "notifications_dispatch"
+DISPATCH_TASK_NAME = "notifications_dispatch_run"
 
 # A notification_log row left in 'pending' (claimed but not completed) for longer
 # than this is treated as a crashed/abandoned claim and may be re-claimed by a
@@ -79,51 +78,11 @@ DEFAULT_STALE_CLAIM_SECONDS = 1800  # 30 minutes
 # processes weekly-cadence subscriptions only on ``weekly_weekday`` (so a single
 # daily-running scheduler covers both cadences).
 SCHEDULED_CADENCE = "scheduled"
-# Day of week the weekly digest is sent when running under SCHEDULED_CADENCE.
-# Uses datetime.weekday(): Monday=0 .. Sunday=6.
-DEFAULT_WEEKLY_WEEKDAY = 0  # Monday
 
 
 # ---------------------------------------------------------------------------
-# Public handler
+# Cadence scheduling
 # ---------------------------------------------------------------------------
-
-
-def dispatch_notifications_handler(
-    payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Cloud Function / tasks_executor entrypoint.
-
-    Parameters are taken from ``payload``; see module docstring for full list.
-    """
-    payload = payload or {}
-    logger.info("dispatch_notifications_handler called with payload=%s", payload)
-
-    cadence: str = payload.get("cadence", DEFAULT_CADENCE)
-    dry_run: bool = bool(payload.get("dry_run", True))
-    status_filter: str = payload.get("status_filter", "new")
-    user_ids: List[str] = payload.get("user_ids", [])
-    force: bool = bool(payload.get("force", False))
-    max_retries: int = int(payload.get("max_retries", DEFAULT_MAX_RETRIES))
-    weekly_weekday: int = int(payload.get("weekly_weekday", DEFAULT_WEEKLY_WEEKDAY))
-
-    cadences = _resolve_scheduled_cadences(cadence, weekly_weekday)
-    logger.info("Resolved cadence=%s to run cadences=%s", cadence, cadences)
-
-    per_cadence: Dict[str, Dict[str, Any]] = {}
-    for run_cadence in cadences:
-        per_cadence[run_cadence] = dispatch(
-            cadence=run_cadence,
-            dry_run=dry_run,
-            status_filter=status_filter,
-            user_ids=user_ids,
-            force=force,
-            max_retries=max_retries,
-        )
-
-    result = _merge_cadence_results(per_cadence)
-    logger.info("dispatch_notifications_handler result: %s", result)
-    return result
 
 
 def _resolve_scheduled_cadences(
@@ -146,152 +105,6 @@ def _resolve_scheduled_cadences(
     if now.weekday() == weekly_weekday:
         cadences.append(NotificationCadence.WEEKLY)
     return cadences
-
-
-def _merge_cadence_results(
-    per_cadence: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Combine per-cadence stats into a single result dict.
-
-    Integer counters are summed; the per-cadence breakdown is preserved under
-    ``"by_cadence"``. A single-cadence run returns the same shape as before
-    plus the breakdown, keeping existing callers working.
-    """
-    merged: Dict[str, Any] = {}
-    for stats in per_cadence.values():
-        for key, value in stats.items():
-            if isinstance(value, int):
-                merged[key] = merged.get(key, 0) + value
-            else:
-                merged[key] = value
-    merged["cadences"] = list(per_cadence.keys())
-    merged["by_cadence"] = per_cadence
-    return merged
-
-
-# ---------------------------------------------------------------------------
-# Core dispatcher
-# ---------------------------------------------------------------------------
-
-
-@with_users_db_session
-def dispatch(
-    *,
-    cadence: str,
-    dry_run: bool,
-    status_filter: str,
-    user_ids: List[str],
-    force: bool,
-    max_retries: int,
-    db_session: Session = None,
-) -> Dict[str, Any]:
-    logger.info(
-        "Dispatching cadence=%s status_filter=%s dry_run=%s user_ids=%s",
-        cadence,
-        status_filter,
-        dry_run,
-        user_ids or "all",
-    )
-
-    stats: Dict[str, int] = {
-        "subscriptions_processed": 0,
-        "events_found": 0,
-        "emails_sent": 0,
-        "emails_failed": 0,
-        "permanently_failed": 0,
-        "skipped_max_retries": 0,
-        "dry_run": int(dry_run),
-    }
-
-    # Find active subscriptions to process.
-    subscriptions = find_subscriptions(
-        db_session=db_session,
-        cadence=cadence,
-        user_ids=user_ids,
-        force=force,
-    )
-    logger.info("Found %d active subscription(s) to process", len(subscriptions))
-
-    # Count of real (non-admin) events dispatched this run.  We only emit a new
-    # admin.event_summary when there was genuine activity, otherwise the summary
-    # would feed itself: every run delivers the previous run's summary, which in
-    # turn justifies emitting yet another summary, producing one admin email per
-    # run forever.
-    real_events_dispatched = 0
-
-    for subscription in subscriptions:
-        stats["subscriptions_processed"] += 1
-        user = subscription.user
-
-        # Collect notification_events that need a delivery log for this subscription.
-        events = find_events_for_subscription(
-            db_session=db_session,
-            subscription=subscription,
-            status_filter=status_filter,
-            max_retries=max_retries,
-        )
-        if not events:
-            continue
-
-        stats["events_found"] += len(events)
-        if subscription.notification_type_id != NotificationTypeId.ADMIN_EVENT_SUMMARY:
-            real_events_dispatched += len(events)
-        logger.info(
-            "Subscription %s (user=%s cadence=%s digest=%s): %d event(s)",
-            subscription.id,
-            user.email if user else "?",
-            subscription.cadence,
-            subscription.digest,
-            len(events),
-        )
-
-        if dry_run:
-            logger.info(
-                "[dry_run] Would send %d event(s) to %s",
-                len(events),
-                user.email if user else "?",
-            )
-            continue
-
-        recipient = EmailRecipient(
-            email=user.email,
-            name=user.full_name,
-        )
-
-        if subscription.digest:
-            _send_and_log_digest(
-                db_session=db_session,
-                recipient=recipient,
-                events=events,
-                subscription=subscription,
-                stats=stats,
-                max_retries=max_retries,
-            )
-            # A digest is a single email; commit its log right after sending.
-            _commit_delivery_logs(db_session, subscription)
-        else:
-            for event in events:
-                _send_and_log_single(
-                    db_session=db_session,
-                    recipient=recipient,
-                    event=event,
-                    subscription=subscription,
-                    stats=stats,
-                    max_retries=max_retries,
-                )
-                # Commit after every send so a later crash / timeout / DB error
-                # can never roll back the log of an email that was already sent
-                # (which would cause a duplicate send on the next run).
-                _commit_delivery_logs(db_session, subscription)
-
-    # After the run, emit an admin.event_summary notification_event, but only
-    # when real notifications were dispatched.  Emitting on empty runs (or runs
-    # that only delivered prior summaries) would create a perpetual summary
-    # loop, sending the admin a new summary email on every dispatch.
-    if not dry_run and real_events_dispatched > 0:
-        emit_admin_summary(db_session=db_session, stats=stats, cadence=cadence)
-
-    return stats
 
 
 def _commit_delivery_logs(db_session, subscription) -> None:

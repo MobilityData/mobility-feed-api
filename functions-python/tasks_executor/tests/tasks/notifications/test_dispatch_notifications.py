@@ -47,11 +47,9 @@ from shared.users_database_gen.sqlacodegen_models import (
 )
 from tasks.notifications.dispatch_notifications import (
     apply_filter_params,
-    dispatch,
     emit_admin_summary,
     find_events_for_subscription,
     find_subscriptions,
-    dispatch_notifications_handler,
     process_subscription,
     _resolve_scheduled_cadences,
 )
@@ -439,20 +437,6 @@ class TestEmitAdminSummary(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# dispatch_notifications_handler — dry run
-# ---------------------------------------------------------------------------
-
-
-class TestDispatchDryRun(unittest.TestCase):
-    @patch("tasks.notifications.dispatch_notifications.with_users_db_session")
-    def test_dry_run_returns_stats_without_sending(self, mock_decorator):
-        """Smoke test: handler returns a stats dict and does not crash."""
-        result = dispatch_notifications_handler({"dry_run": True, "cadence": "weekly"})
-        # dry_run default is True, so no emails sent
-        self.assertTrue("dry_run" in result or isinstance(result, dict))
-
-
-# ---------------------------------------------------------------------------
 # _resolve_scheduled_cadences — day-of-week gating for the single daily job
 # ---------------------------------------------------------------------------
 
@@ -486,306 +470,6 @@ class TestResolveScheduledCadences(unittest.TestCase):
             _resolve_scheduled_cadences("scheduled", 6, now=sunday),
             ["daily", "weekly"],
         )
-
-
-# ---------------------------------------------------------------------------
-# dispatch — integration-style (real users DB, mocked Brevo)
-# ---------------------------------------------------------------------------
-
-
-class TestDispatchIntegration(unittest.TestCase):
-    def tearDown(self):
-        _cleanup_notifications()
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_single_event_non_digest_sends_one_email(
-        self, mock_send, db_session: Session = None
-    ):
-        _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        _make_event(db_session)
-
-        stats = dispatch(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        self.assertTrue(mock_send.called)
-        self.assertEqual(stats["emails_sent"], 1)
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_admin_summary_emitted_only_on_real_activity(
-        self, mock_send, db_session: Session = None
-    ):
-        """A new admin.event_summary is emitted when real notifications are
-        dispatched, but a follow-up run that only delivers that summary (or does
-        nothing) must NOT mint another summary — otherwise the admin receives a
-        summary email on every dispatch forever."""
-        _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        # An admin subscriber that picks up dispatch summaries.
-        _make_subscription(
-            db_session,
-            "user-admin",
-            notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        _make_event(db_session)
-
-        kwargs = dict(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        def _summary_count() -> int:
-            return (
-                db_session.query(NotificationEvent)
-                .filter_by(notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY)
-                .count()
-            )
-
-        # First run: a real event is dispatched => exactly one summary emitted.
-        dispatch(**kwargs)
-        self.assertEqual(_summary_count(), 1)
-
-        # Second run: the only thing to deliver is the prior summary (to the
-        # admin) — no real activity, so NO new summary must be created.
-        dispatch(**kwargs)
-        self.assertEqual(_summary_count(), 1)
-
-        # Third run: nothing new at all — still no additional summary.
-        dispatch(**kwargs)
-        self.assertEqual(_summary_count(), 1)
-
-    @patch("tasks.notifications.dispatch_notifications.get_brevo_rate_limiter")
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_rate_limiter_acquired_once_per_send(
-        self, mock_send, mock_get_limiter, db_session: Session = None
-    ):
-        """Each Brevo send attempt acquires a token from the shared limiter."""
-        limiter = MagicMock()
-        mock_get_limiter.return_value = limiter
-        _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        _make_event(db_session)
-
-        dispatch(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        # One successful send => exactly one token acquired.
-        limiter.acquire.assert_called_once_with()
-
-    @patch("tasks.notifications.dispatch_notifications.send_digest")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_digest_batches_events_into_one_email(
-        self, mock_send, db_session: Session = None
-    ):
-        _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=True,
-        )
-        _make_event(db_session, feed_stable_id="mdb-1")
-        _make_event(db_session, feed_stable_id="mdb-2")
-
-        stats = dispatch(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        # One digest call for 2 events
-        self.assertEqual(mock_send.call_count, 1)
-        self.assertEqual(stats["emails_sent"], 2)
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_brevo_failure_marks_log_failed_and_increments_retry_count(
-        self, mock_send, db_session: Session = None
-    ):
-        from shared.notifications.brevo_notification_sender import BrevoSendError
-
-        mock_send.side_effect = BrevoSendError("Brevo 429")
-        sub = _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        event = _make_event(db_session)
-
-        with patch("tasks.notifications.dispatch_notifications.time.sleep"):
-            stats = dispatch(
-                cadence=NotificationCadence.WEEKLY,
-                dry_run=False,
-                status_filter="new",
-                user_ids=[],
-                force=False,
-                max_retries=5,
-                db_session=db_session,
-            )
-
-        log = (
-            db_session.query(NotificationLog)
-            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
-            .one()
-        )
-        self.assertEqual(log.status, NotificationLogStatus.FAILED)
-        self.assertEqual(log.retry_count, 1)
-        self.assertEqual(stats["emails_failed"], 1)
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_permanently_failed_after_max_retries(
-        self, mock_send, db_session: Session = None
-    ):
-        from shared.notifications.brevo_notification_sender import BrevoSendError
-
-        mock_send.side_effect = BrevoSendError("Persistent failure")
-        sub = _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        event = _make_event(db_session)
-
-        # Pre-seed a log with retry_count = max_retries - 1
-        log = NotificationLog(
-            id=_uid(),
-            notification_event_id=event.id,
-            subscription_id=sub.id,
-            channel="email",
-            status=NotificationLogStatus.FAILED,
-            retry_count=4,  # one below max
-        )
-        db_session.add(log)
-        db_session.flush()
-
-        with patch("tasks.notifications.dispatch_notifications.time.sleep"):
-            stats = dispatch(
-                cadence=NotificationCadence.WEEKLY,
-                dry_run=False,
-                status_filter="failed",
-                user_ids=[],
-                force=False,
-                max_retries=5,
-                db_session=db_session,
-            )
-
-        db_session.refresh(log)
-        self.assertEqual(log.status, NotificationLogStatus.PERMANENTLY_FAILED)
-        self.assertEqual(log.retry_count, 5)
-        self.assertEqual(stats["permanently_failed"], 1)
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_unique_constraint_prevents_duplicate_log(
-        self, mock_send, db_session: Session = None
-    ):
-        sub = _make_subscription(
-            db_session,
-            "user-alice",
-            cadence=NotificationCadence.WEEKLY,
-            digest=False,
-        )
-        event = _make_event(db_session)
-
-        kwargs = dict(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-        dispatch(**kwargs)
-        dispatch(**kwargs)  # second run — event already sent
-
-        logs = (
-            db_session.query(NotificationLog)
-            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
-            .all()
-        )
-        self.assertEqual(len(logs), 1)
-
-    @patch("tasks.notifications.dispatch_notifications.send_single")
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_filter_params_excludes_unmatched_feed(
-        self, mock_send, db_session: Session = None
-    ):
-        _make_event(
-            db_session, feed_stable_id="mdb-1"
-        )  # event exists but no subscription matches
-
-        stats = dispatch(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=False,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        self.assertFalse(mock_send.called)
-        self.assertEqual(stats["emails_sent"], 0)
-
-    @with_users_db_session(db_url=default_users_db_url)
-    def test_dry_run_does_not_write_logs(self, db_session: Session = None):
-        _make_subscription(db_session, "user-alice", cadence=NotificationCadence.WEEKLY)
-        _make_event(db_session)
-
-        dispatch(
-            cadence=NotificationCadence.WEEKLY,
-            dry_run=True,
-            status_filter="new",
-            user_ids=[],
-            force=False,
-            max_retries=5,
-            db_session=db_session,
-        )
-
-        self.assertEqual(db_session.query(NotificationLog).count(), 0)
 
 
 class TestProcessSubscription(unittest.TestCase):
@@ -936,6 +620,120 @@ class TestProcessSubscription(unittest.TestCase):
 
         self.assertFalse(mock_send.called)
         self.assertEqual(stats["events_found"], 0)
+
+    @patch("tasks.notifications.dispatch_notifications.send_digest")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_digest_batches_events_into_one_email(
+        self, mock_send, db_session: Session = None
+    ):
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=True
+        )
+        _make_event(db_session, feed_stable_id="mdb-1")
+        _make_event(db_session, feed_stable_id="mdb-2")
+
+        stats = process_subscription(
+            subscription_id=sub.id,
+            status_filter="new",
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        # One digest call covering both claimed events.
+        self.assertEqual(mock_send.call_count, 1)
+        self.assertEqual(stats["emails_sent"], 2)
+
+    @patch("tasks.notifications.dispatch_notifications.get_brevo_rate_limiter")
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_rate_limiter_acquired_once_per_send(
+        self, mock_send, mock_get_limiter, db_session: Session = None
+    ):
+        """Each Brevo send attempt acquires a token from the shared limiter."""
+        limiter = MagicMock()
+        mock_get_limiter.return_value = limiter
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        _make_event(db_session)
+
+        process_subscription(
+            subscription_id=sub.id,
+            status_filter="new",
+            max_retries=5,
+            db_session=db_session,
+        )
+
+        # One successful send => exactly one token acquired.
+        limiter.acquire.assert_called_once_with()
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_brevo_failure_marks_log_failed_and_increments_retry_count(
+        self, mock_send, db_session: Session = None
+    ):
+        from shared.notifications.brevo_notification_sender import BrevoSendError
+
+        mock_send.side_effect = BrevoSendError("Brevo 429")
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        event = _make_event(db_session)
+
+        with patch("tasks.notifications.dispatch_notifications.time.sleep"):
+            stats = process_subscription(
+                subscription_id=sub.id,
+                status_filter="new",
+                max_retries=5,
+                db_session=db_session,
+            )
+
+        log = (
+            db_session.query(NotificationLog)
+            .filter_by(notification_event_id=event.id, subscription_id=sub.id)
+            .one()
+        )
+        self.assertEqual(log.status, NotificationLogStatus.FAILED)
+        self.assertEqual(log.retry_count, 1)
+        self.assertEqual(stats["emails_failed"], 1)
+
+    @patch("tasks.notifications.dispatch_notifications.send_single")
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_permanently_failed_after_max_retries(
+        self, mock_send, db_session: Session = None
+    ):
+        from shared.notifications.brevo_notification_sender import BrevoSendError
+
+        mock_send.side_effect = BrevoSendError("Persistent failure")
+        sub = _make_subscription(
+            db_session, "user-alice", cadence=NotificationCadence.WEEKLY, digest=False
+        )
+        event = _make_event(db_session)
+
+        # Pre-seed a log one retry below the max so this attempt makes it terminal.
+        log = NotificationLog(
+            id=_uid(),
+            notification_event_id=event.id,
+            subscription_id=sub.id,
+            channel="email",
+            status=NotificationLogStatus.FAILED,
+            retry_count=4,
+        )
+        db_session.add(log)
+        db_session.flush()
+
+        with patch("tasks.notifications.dispatch_notifications.time.sleep"):
+            stats = process_subscription(
+                subscription_id=sub.id,
+                status_filter="failed",
+                max_retries=5,
+                db_session=db_session,
+            )
+
+        db_session.refresh(log)
+        self.assertEqual(log.status, NotificationLogStatus.PERMANENTLY_FAILED)
+        self.assertEqual(log.retry_count, 5)
+        self.assertEqual(stats["permanently_failed"], 1)
 
 
 if __name__ == "__main__":

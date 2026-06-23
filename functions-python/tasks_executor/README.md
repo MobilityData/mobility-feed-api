@@ -220,15 +220,15 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 | `brevo_failed` | Users where the Brevo check failed (non-fatal; user is still inserted) |
 | `dry_run` | Whether the task ran in dry-run mode |
 
-### `notifications_dispatch_plan` (+ `notifications_dispatch_subscription`, `notifications_dispatch_monitor`)
+### `notifications_dispatch_batch` (+ `notifications_dispatch`, `notifications_dispatch_monitor`)
 
 Notification dispatch is a **Cloud Tasks fan-out** of three tasks:
 
-- **`notifications_dispatch_plan`** (producer) — resolves cadences, finds active
+- **`notifications_dispatch_batch`** (producer) — resolves cadences, finds active
   `notification_subscription` rows, registers a run in `TaskExecutionTracker`,
   and enqueues one worker task per subscription plus a single monitor task.
   Triggered by the daily Cloud Scheduler job (disabled in dev/qa) or manually.
-- **`notifications_dispatch_subscription`** (worker, one per subscription) —
+- **`notifications_dispatch`** (worker, one per subscription) —
   **claim-then-send** (lock-free `INSERT ... ON CONFLICT DO NOTHING` into
   `notification_log`, so concurrent workers never duplicate an email), sends via
   Brevo, records delivery, and reports completion to the tracker.
@@ -243,7 +243,7 @@ architecture, retry strategy, and operational runbook.
 
 ```json
 {
-  "task": "notifications_dispatch_plan",
+  "task": "notifications_dispatch_batch",
   "payload": {
     "cadence": "scheduled",
     "weekly_weekday": 0,

@@ -25,13 +25,13 @@ Feed change happens
 
            │
            ▼  Cloud Scheduler (daily)
-   notifications_dispatch_plan       (producer / planner)
+   notifications_dispatch_batch       (producer / planner)
      • resolves cadences for today
      • finds active notification_subscriptions
      • registers a run in TaskExecutionTracker (feeds DB)
      • enqueues 1 Cloud Task per subscription + 1 monitor task
            │
-           ├──▶ notifications_dispatch_subscription  (worker, 1 per subscription)
+           ├──▶ notifications_dispatch  (worker, 1 per subscription)
            │      • claim-then-send each pending event (lock-free, no duplicates)
            │      • sends emails via Brevo
            │      • records delivery in notification_log
@@ -103,15 +103,64 @@ scales horizontally (workers run in parallel) and makes duplicate emails
 structurally impossible under concurrency (lock-free claim-then-send).
 
 **Files**: `functions-python/tasks_executor/src/tasks/notifications/`
-— `dispatch_plan.py` (planner), `dispatch_subscription.py` (worker),
+— `dispatch_batch.py` (planner), `dispatch_worker.py` (worker),
 `dispatch_monitor.py` (monitor). Shared query/send/log/claim helpers live in
 `dispatch_notifications.py`.
 
+### Topology — Cloud Scheduler, tasks_executor & Cloud Tasks
+
+All three dispatch tasks are handlers hosted in the **same `tasks_executor`
+service**; they are decoupled by **Cloud Tasks** queues. Cloud Scheduler kicks
+off the run; the producer fans out into per-subscription worker tasks plus a
+single monitor task, each of which calls back into `tasks_executor`.
+
+```mermaid
+flowchart TD
+    SCHED["Cloud Scheduler<br/>(daily cron)"]
+
+    subgraph TE["tasks_executor service"]
+        BATCH["notifications_dispatch_batch<br/>(producer / planner)"]
+        WORKER["notifications_dispatch<br/>(worker · 1 per subscription)"]
+        MONITOR["notifications_dispatch_monitor<br/>(barrier · 1 per run)"]
+    end
+
+    subgraph CT["Cloud Tasks"]
+        WQ[["notifications-dispatch-queue<br/>(worker tasks)"]]
+        MQ[["notifications-dispatch-monitor-queue<br/>(monitor task)"]]
+    end
+
+    subgraph DBS["Databases"]
+        USERS[("Users DB<br/>subscriptions · events · logs")]
+        FEEDS[("Feeds DB<br/>TaskExecutionTracker")]
+    end
+
+    BREVO{{"Brevo<br/>transactional email"}}
+
+    SCHED -->|"POST task=notifications_dispatch_batch"| BATCH
+
+    BATCH -->|"read active subscriptions"| USERS
+    BATCH -->|"start_run + 1 entry per subscription"| FEEDS
+    BATCH -->|"enqueue 1 task / subscription"| WQ
+    BATCH -->|"enqueue 1 task / run"| MQ
+
+    WQ -->|"POST task=notifications_dispatch"| WORKER
+    MQ -->|"POST task=notifications_dispatch_monitor"| MONITOR
+
+    WORKER -->|"claim-then-send · write notification_log"| USERS
+    WORKER -->|"send email"| BREVO
+    WORKER -->|"mark entry completed / failed"| FEEDS
+    WORKER -. "HTTP 500 → native retry" .-> WQ
+
+    MONITOR -->|"poll run status"| FEEDS
+    MONITOR -. "503 while workers in flight → native retry" .-> MQ
+    MONITOR -->|"emit one admin.event_summary"| USERS
+```
+
 | Task name | Role | Triggered by |
 |-----------|------|--------------|
-| `notifications_dispatch_plan` | Producer: resolve cadences, find subscriptions, register the run, enqueue workers + monitor | Cloud Scheduler |
-| `notifications_dispatch_subscription` | Worker: claim-then-send one subscription's pending events | `notifications_dispatch_plan` (one task per subscription) |
-| `notifications_dispatch_monitor` | Barrier: poll until the run drains, then emit one `admin.event_summary` | `notifications_dispatch_plan` (one task per run) |
+| `notifications_dispatch_batch` | Producer: resolve cadences, find subscriptions, register the run, enqueue workers + monitor | Cloud Scheduler |
+| `notifications_dispatch` | Worker: claim-then-send one subscription's pending events | `notifications_dispatch_batch` (one task per subscription) |
+| `notifications_dispatch_monitor` | Barrier: poll until the run drains, then emit one `admin.event_summary` | `notifications_dispatch_batch` (one task per run) |
 
 ## Retry Strategy
 
@@ -175,7 +224,7 @@ Admin users subscribe with `notification_type_id='admin.event_summary'` and
 
 ## Future Work
 
-- **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_plan` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
+- **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
 - **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
 - **Unsubscribe link**: Pass `subscription_id` in Brevo template params; build a one-click unsubscribe endpoint that sets `notification_subscription.active = false`.

@@ -621,7 +621,7 @@ resource "google_cloud_scheduler_job" "dispatch_notifications_daily_scheduler" {
     headers = {
       "Content-Type" = "application/json"
     }
-    body = base64encode("{\"task\": \"notifications_dispatch_plan\", \"payload\": {\"cadence\": \"scheduled\", \"weekly_weekday\": ${var.notification_dispatch_weekly_weekday}, \"dry_run\": false}}")
+    body = base64encode("{\"task\": \"notifications_dispatch_batch\", \"payload\": {\"cadence\": \"scheduled\", \"weekly_weekday\": ${var.notification_dispatch_weekly_weekday}, \"dry_run\": false}}")
   }
   attempt_deadline = "320s"
 }
@@ -1607,7 +1607,7 @@ resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
 }
 
 # Task queue for the per-subscription notification dispatch workers (fan-out). One task per subscription is enqueued by the
-# 'notifications_dispatch_plan' producer; each runs 'process_subscription'
+# 'notifications_dispatch_batch' producer; each runs 'process_subscription'
 # (lock-free claim-then-send). max_dispatches_per_second is a guardrail below
 # Brevo's transactional limit (sends are additionally governed by the in-process
 # token-bucket rate limiter). Cloud Tasks task names are DYNAMIC (run_id +

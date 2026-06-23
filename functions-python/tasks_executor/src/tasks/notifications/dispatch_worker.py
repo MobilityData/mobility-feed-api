@@ -16,8 +16,8 @@
 
 """Cloud Tasks worker: process a single subscription's pending notifications.
 
-One ``notifications_dispatch_subscription`` task is enqueued per subscription by
-the ``notifications_dispatch_plan`` producer. The worker claims-then-sends each
+One ``notifications_dispatch`` task is enqueued per subscription by
+the ``notifications_dispatch_batch`` producer. The worker claims-then-sends each
 pending event (so concurrent workers never duplicate an email — see
 ``process_subscription``) and reports completion to the shared
 ``TaskExecutionTracker`` so the monitor knows when the run has drained.
@@ -53,8 +53,8 @@ from tasks.notifications.dispatch_notifications import (
 logger = logging.getLogger(__name__)
 
 
-def notifications_dispatch_subscription_handler(payload: dict) -> dict:
-    """Entry point for the ``notifications_dispatch_subscription`` task."""
+def notifications_dispatch_handler(payload: dict) -> dict:
+    """Entry point for the ``notifications_dispatch`` task."""
     subscription_id = (payload or {}).get("subscription_id")
     run_id = (payload or {}).get("run_id")
     if not subscription_id:
@@ -74,7 +74,7 @@ def notifications_dispatch_subscription_handler(payload: dict) -> dict:
             stale_claim_seconds=stale_claim_seconds,
         )
     except Exception as error:  # infra failure — let Cloud Tasks retry
-        logger.exception("dispatch_subscription failed for %s", subscription_id)
+        logger.exception("notifications_dispatch failed for %s", subscription_id)
         _mark_entry(run_id, subscription_id, error=str(error))
         raise
 

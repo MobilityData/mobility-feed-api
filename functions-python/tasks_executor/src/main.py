@@ -65,9 +65,9 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
-from tasks.notifications.dispatch_plan import notifications_dispatch_plan_handler
-from tasks.notifications.dispatch_subscription import (
-    notifications_dispatch_subscription_handler,
+from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
+from tasks.notifications.dispatch_worker import (
+    notifications_dispatch_handler,
 )
 from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
@@ -181,12 +181,12 @@ tasks = {
         ),
         "handler": migrate_firebase_users_handler,
     },
-    "notifications_dispatch_plan": {
+    "notifications_dispatch_batch": {
         "description": (
             "Cloud Tasks producer for notification dispatch. Triggered by Cloud "
             "Scheduler. Resolves cadences, finds active subscriptions (users DB), "
             "registers a run in TaskExecutionTracker (feeds DB), and enqueues one "
-            "'notifications_dispatch_subscription' worker task per subscription plus "
+            "'notifications_dispatch' worker task per subscription plus "
             "a single 'notifications_dispatch_monitor' barrier task. "
             "Parameters: "
             "cadence ('daily'|'weekly'|'all'|'scheduled', default 'scheduled'), "
@@ -198,9 +198,9 @@ tasks = {
             "max_retries (default 5), stale_claim_seconds (default 1800), "
             "monitor_delay_seconds (default 60), deadline_seconds (default 21600)."
         ),
-        "handler": notifications_dispatch_plan_handler,
+        "handler": notifications_dispatch_batch_handler,
     },
-    "notifications_dispatch_subscription": {
+    "notifications_dispatch": {
         "description": (
             "Cloud Tasks worker: process one subscription's pending notification "
             "events. Lock-free claim-then-send into notification_log (no duplicate "
@@ -209,7 +209,7 @@ tasks = {
             "Parameters: subscription_id (required), run_id (required), "
             "status_filter, max_retries, stale_claim_seconds."
         ),
-        "handler": notifications_dispatch_subscription_handler,
+        "handler": notifications_dispatch_handler,
     },
     "notifications_dispatch_monitor": {
         "description": (

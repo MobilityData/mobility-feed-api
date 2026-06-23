@@ -21,7 +21,7 @@ Triggered by Cloud Scheduler. For each resolved cadence it:
      is DYNAMIC — re-running never collides with Cloud Tasks' name tombstones;
   2. finds the active subscriptions for that cadence (users DB);
   3. registers the run + one entry per subscription in TaskExecutionTracker
-     (feeds DB) and enqueues one ``notifications_dispatch_subscription`` Cloud
+     (feeds DB) and enqueues one ``notifications_dispatch`` Cloud
      Task each;
   4. enqueues a single ``notifications_dispatch_monitor`` barrier task.
 
@@ -65,8 +65,8 @@ DEFAULT_MONITOR_DELAY_SECONDS = 60
 DEFAULT_DEADLINE_SECONDS = 6 * 60 * 60  # 6h wall-clock cap for a run
 
 
-def notifications_dispatch_plan_handler(payload: dict) -> dict:
-    """Entry point for the ``notifications_dispatch_plan`` task."""
+def notifications_dispatch_batch_handler(payload: dict) -> dict:
+    """Entry point for the ``notifications_dispatch_batch`` task."""
     payload = payload or {}
     cadence = payload.get("cadence", SCHEDULED_CADENCE)
     weekly_weekday = int(payload.get("weekly_weekday", 0))
@@ -145,7 +145,7 @@ def _plan_cadence(
             "stale_claim_seconds": stale_claim_seconds,
         }
         if _enqueue(
-            in_body_task="notifications_dispatch_subscription",
+            in_body_task="notifications_dispatch",
             payload=worker_payload,
             queue_env="NOTIFICATION_DISPATCH_QUEUE",
             task_name=_safe_task_name(
