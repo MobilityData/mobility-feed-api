@@ -39,6 +39,9 @@ class NotificationTypeId:
 
     FEED_URL_UPDATED = "feed.url_updated"
     ADMIN_EVENT_SUMMARY = "admin.event_summary"
+    # Delivered via Brevo contact lists/campaigns (managed at opt-in time), NOT by
+    # the notification dispatcher. The batch planner must skip these subscriptions.
+    API_ANNOUNCEMENTS = "api.announcements"
 
 
 class FeedUrlUpdateType:

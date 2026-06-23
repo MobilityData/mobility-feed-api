@@ -136,11 +136,20 @@ def find_subscriptions(
     user_ids: List[str],
     force: bool,
 ) -> List[NotificationSubscription]:
-    """Return active subscriptions matching the cadence (or all if force=True)."""
+    """Return active subscriptions matching the cadence (or all if force=True).
+
+    ``api.announcements`` subscriptions are excluded: that notification type is
+    delivered through Brevo contact lists (managed at opt-in time), not by this
+    dispatcher, so it must never be batched into a dispatch run.
+    """
     q = (
         db_session.query(NotificationSubscription)
         .join(AppUser, NotificationSubscription.user_id == AppUser.id)
         .filter(NotificationSubscription.active == True)  # noqa: E712
+        .filter(
+            NotificationSubscription.notification_type_id
+            != NotificationTypeId.API_ANNOUNCEMENTS
+        )
     )
     if not (force and user_ids):
         # Normal (non-forced) run: filter by cadence.

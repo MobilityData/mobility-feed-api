@@ -162,6 +162,12 @@ flowchart TD
 | `notifications_dispatch` | Worker: claim-then-send one subscription's pending events | `notifications_dispatch_batch` (one task per subscription) |
 | `notifications_dispatch_monitor` | Barrier: poll until the run drains, then emit one `admin.event_summary` | `notifications_dispatch_batch` (one task per run) |
 
+> **Excluded notification type — `api.announcements`**: the batch planner
+> (`find_subscriptions`) deliberately skips `api.announcements` subscriptions.
+> That type is **not** sent by this dispatcher — it is delivered through Brevo
+> contact lists managed at opt-in time — so it is never batched into a dispatch
+> run (including manual/forced runs).
+
 ## Retry Strategy
 
 Durability plus three independent retry layers:

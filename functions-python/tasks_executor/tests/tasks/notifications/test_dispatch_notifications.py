@@ -216,6 +216,34 @@ class TestFindSubscriptions(unittest.TestCase):
         self.assertIn(weekly_sub.id, ids)
 
     @with_users_db_session(db_url=default_users_db_url)
+    def test_api_announcements_excluded(self, db_session: Session = None):
+        """api.announcements is delivered via Brevo lists, never batched here."""
+        feed_sub = _make_subscription(
+            db_session,
+            "user-alice",
+            notification_type_id=NotificationTypeId.FEED_URL_UPDATED,
+            cadence=NotificationCadence.WEEKLY,
+        )
+        _make_subscription(
+            db_session,
+            "user-bob",
+            notification_type_id=NotificationTypeId.API_ANNOUNCEMENTS,
+            cadence=NotificationCadence.WEEKLY,
+        )
+
+        result = find_subscriptions(
+            db_session=db_session, cadence="all", user_ids=[], force=False
+        )
+        ids = {s.id for s in result}
+        self.assertIn(feed_sub.id, ids)
+        self.assertFalse(
+            any(
+                s.notification_type_id == NotificationTypeId.API_ANNOUNCEMENTS
+                for s in result
+            )
+        )
+
+    @with_users_db_session(db_url=default_users_db_url)
     def test_all_cadence_returns_all_active(self, db_session: Session = None):
         _make_subscription(db_session, "user-alice", cadence=NotificationCadence.WEEKLY)
         _make_subscription(db_session, "user-bob", cadence=NotificationCadence.DAILY)

@@ -204,6 +204,9 @@ def populate_users_database(db_session: Session | None = None):
         NotificationType(
             id=NotificationTypeId.ADMIN_EVENT_SUMMARY, description="Admin summary"
         ),
+        NotificationType(
+            id=NotificationTypeId.API_ANNOUNCEMENTS, description="API announcements"
+        ),
     ):
         db_session.merge(notification_type)
     for app_user in (
