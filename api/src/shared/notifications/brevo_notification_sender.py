@@ -487,14 +487,13 @@ def _send(
     try:
         result = api.send_transac_email(send_email)
         logger.info(
-            "Brevo email sent to %s (message_id=%s)",
-            recipient.email,
+            "Brevo email sent (message_id=%s)",
             getattr(result, "message_id", "n/a"),
         )
     except ApiException as exc:
-        raise BrevoSendError(f"Brevo API error {exc.status} sending to {recipient.email}: {exc.reason}") from exc
+        raise BrevoSendError(f"Brevo API error {exc.status}: {exc.reason}") from exc
     except Exception as exc:
-        raise BrevoSendError(f"Unexpected error sending to {recipient.email}: {exc}") from exc
+        raise BrevoSendError(f"Unexpected error sending email: {exc}") from exc
 
 
 def _int_env(var: str) -> Optional[int]:
