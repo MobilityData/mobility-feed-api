@@ -74,9 +74,7 @@ def get_changed_files(
     if not base_dataset:
         return [f.file_name for f in new_files]
 
-    prev_map = {
-        f.file_name: getattr(f, "hash", None) for f in base_dataset.gtfsfiles
-    }
+    prev_map = {f.file_name: getattr(f, "hash", None) for f in base_dataset.gtfsfiles}
 
     changed_files = []
     for f in new_files:
