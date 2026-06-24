@@ -19,6 +19,19 @@ def test_urls_differ_ignores_case_and_surrounding_whitespace():
     assert urls_differ(None, "") is False
 
 
+def test_strict_compare_treats_protocol_and_www_as_changes():
+    # "strict" compare intentionally does NOT normalize protocol or the www. prefix,
+    # so these differences must be reported as a URL change.
+    assert urls_differ("https://example.com", "http://www.example.com/") is True
+    assert normalize_url_for_strict_compare("https://example.com") != normalize_url_for_strict_compare(
+        "http://www.example.com/"
+    )
+    # Protocol-only difference.
+    assert urls_differ("http://example.com/feed.zip", "https://example.com/feed.zip") is True
+    # www-only difference.
+    assert urls_differ("https://example.com/feed.zip", "https://www.example.com/feed.zip") is True
+
+
 def test_emit_url_replaced_skips_equivalent_urls():
     with patch("shared.notifications.notification_event_service._emit") as mock_emit:
         emit_url_replaced(

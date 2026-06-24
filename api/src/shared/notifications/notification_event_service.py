@@ -66,15 +66,21 @@ from shared.notifications.notification_constants import (
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+
 
 def normalize_url_for_strict_compare(url: Optional[str]) -> str:
     """Normalize a producer URL for change detection.
 
-    Comparisons should ignore case and leading/trailing whitespace so that
-    cosmetic differences (e.g. ``" HTTPS://Example.com "`` vs
-    ``"http://example.com"``) do not trigger a notification event.
-    This function is different from the previously implemented normalize_url
-    in that it accounts for protocol changes and www. prefix.
+    Only case and leading/trailing whitespace are ignored, so cosmetic
+    differences (e.g. ``" HTTPS://Example.com/Feed.zip "`` vs
+    ``"https://example.com/feed.zip"``) do not trigger a notification event.
+
+    Unlike the previously implemented ``normalize_url``, this "strict" compare
+    treats protocol changes (``http`` vs ``https``) and the ``www.`` prefix as
+    **significant**: they are not stripped, so such differences ARE reported as
+    a URL change. This is intentional because any of those differences can
+    influence whether the feed can be downloaded.
     """
     if url is None:
         return ""
@@ -223,7 +229,6 @@ def _emit(
     is not configured (e.g. the populate_db CI scripts that only reach the feeds
     DB), the call is a no-op with a warning.
     """
-    load_dotenv()
     if not os.getenv("USERS_DATABASE_URL"):
         primary_feed = feeds[0][0] if feeds else None
         logger.warning(
