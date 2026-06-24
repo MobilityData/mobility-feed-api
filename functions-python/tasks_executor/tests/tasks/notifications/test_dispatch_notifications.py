@@ -45,6 +45,7 @@ from shared.users_database_gen.sqlacodegen_models import (
     NotificationLog,
     NotificationSubscription,
 )
+from tasks.notifications.dispatch_monitor import _aggregate_delivery_stats
 from tasks.notifications.dispatch_notifications import (
     apply_filter_params,
     emit_admin_summary,
@@ -462,6 +463,54 @@ class TestEmitAdminSummary(unittest.TestCase):
         self.assertIsNotNone(event)
         self.assertEqual(event.payload["emails_sent"], 3)
         self.assertEqual(event.payload["cadence"], "weekly")
+
+
+# ---------------------------------------------------------------------------
+# _aggregate_delivery_stats — admin.event_summary deliveries are not counted
+# ---------------------------------------------------------------------------
+
+
+class TestAggregateDeliveryStats(unittest.TestCase):
+    def tearDown(self):
+        _cleanup_notifications()
+
+    def _make_log(self, db_session, event_id, subscription_id, status):
+        db_session.add(
+            NotificationLog(
+                id=_uid(),
+                notification_event_id=event_id,
+                subscription_id=subscription_id,
+                channel="email",
+                status=status,
+                retry_count=0,
+                sent_at=datetime.now(timezone.utc),
+            )
+        )
+        db_session.flush()
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_excludes_admin_summary_deliveries(self, db_session: Session = None):
+        since = datetime.now(timezone.utc) - timedelta(minutes=5)
+        sub = _make_subscription(db_session, "user-alice")
+
+        feed_event = _make_event(db_session)
+        self._make_log(db_session, feed_event.id, sub.id, NotificationLogStatus.SENT)
+
+        # The admin summary email itself must not be counted as a sent
+        # notification — it is misleading for admins.
+        admin_event = _make_event(
+            db_session,
+            feed_stable_id=None,
+            notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            update_type=AdminEventUpdateType.DISPATCH_SUMMARY,
+        )
+        self._make_log(db_session, admin_event.id, sub.id, NotificationLogStatus.SENT)
+
+        stats = _aggregate_delivery_stats(since=since, db_session=db_session)
+
+        self.assertEqual(stats["emails_sent"], 1)
+        self.assertEqual(stats["events_found"], 1)
+        self.assertEqual(stats["emails_failed"], 0)
 
 
 # ---------------------------------------------------------------------------
