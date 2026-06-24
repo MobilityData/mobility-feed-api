@@ -362,6 +362,26 @@ class TestSubscriptions(unittest.TestCase):
         self.mock_session.delete.assert_not_called()
         self.assertFalse(sub.active)
 
+    def test_delete_announcement_brevo_connection_error_502(self):
+        import urllib3
+
+        sub = self._make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        with patch.object(
+            helpers,
+            "remove_contact_from_list",
+            side_effect=urllib3.exceptions.MaxRetryError(None, "url", reason="unreachable"),
+        ), patch.object(helpers, "get_announcements_list_id", return_value=42):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 502)
+        self.mock_session.delete.assert_not_called()
+        self.assertTrue(sub.active)
+
     def test_delete_non_announcement_no_brevo(self):
         sub = self._make_sub(notification_type_id="feed.published")
         self.mock_session.get.return_value = sub

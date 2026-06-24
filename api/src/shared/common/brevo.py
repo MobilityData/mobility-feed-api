@@ -33,6 +33,12 @@ import sib_api_v3_sdk
 
 logger = logging.getLogger(__name__)
 
+# (connect, read) timeout in seconds for every Brevo API call. Without this the SDK uses no
+# timeout, so when Brevo is unreachable the underlying urllib3 retries hang for a long time while
+# holding the caller's DB connection from the pool, which can exhaust the pool and make requests
+# appear "stuck". A short connect timeout makes the failure fast and bounded.
+BREVO_REQUEST_TIMEOUT = (3.05, 10)
+
 
 class BrevoSubscriptionStatus(Enum):
     SUBSCRIBED = "subscribed"
@@ -71,7 +77,8 @@ def add_contact_to_list(email: str, list_id: int, subscription_id: str) -> None:
             attributes={"MDB_SUBSCRIPTION_ID": subscription_id},
             list_ids=[list_id],
             update_enabled=True,
-        )
+        ),
+        _request_timeout=BREVO_REQUEST_TIMEOUT,
     )
 
 
@@ -79,7 +86,11 @@ def remove_contact_from_list(email: str, list_id: int) -> None:
     """Remove a Brevo contact from the list. No-op if the contact is not on the list."""
     api = _get_contacts_api()
     try:
-        api.remove_contact_from_list(list_id, sib_api_v3_sdk.RemoveContactFromList(emails=[email]))
+        api.remove_contact_from_list(
+            list_id,
+            sib_api_v3_sdk.RemoveContactFromList(emails=[email]),
+            _request_timeout=BREVO_REQUEST_TIMEOUT,
+        )
     except sib_api_v3_sdk.rest.ApiException as exc:
         # 400 "Contact already removed from list" / 404 contact-not-found are idempotent no-ops.
         if exc.status in (400, 404):
@@ -107,7 +118,7 @@ def get_contact_subscription_status(
     api = _get_contacts_api()
 
     try:
-        contact = api.get_contact_info(email)
+        contact = api.get_contact_info(email, _request_timeout=BREVO_REQUEST_TIMEOUT)
     except sib_api_v3_sdk.rest.ApiException as exc:
         if exc.status == 404:
             return BrevoSubscriptionStatus.NOT_FOUND

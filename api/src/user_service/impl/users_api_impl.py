@@ -203,8 +203,12 @@ class UsersApiImpl(BaseUsersApi):
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            user = db_session.get(AppUser, user_id)
-            sync_announcements(user.email, subscribe=False)
+            email = db_session.get(AppUser, user_id).email
+            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
+            # or unreachable provider never holds a connection while we talk to it. The reads above
+            # took no row locks, so committing here only returns the connection to the pool.
+            db_session.commit()
+            sync_announcements(email, subscribe=False)
             sub.active = False
         else:
             db_session.delete(sub)

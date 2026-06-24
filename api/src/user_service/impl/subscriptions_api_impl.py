@@ -55,8 +55,13 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, sub.user_id)
-            if user is not None:
-                sync_announcements(user.email, subscribe=False)
+            email = user.email if user is not None else None
+            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
+            # or unreachable provider never holds a connection while we talk to it. The read above
+            # took no row locks, so committing here only returns the connection to the pool.
+            db_session.commit()
+            if email is not None:
+                sync_announcements(email, subscribe=False)
             sub.active = False
         else:
             db_session.delete(sub)
