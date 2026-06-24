@@ -24,7 +24,6 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, mapper
 
 from shared.common.logging_utils import get_env_logging_level
-from shared.users_database_gen.sqlacodegen_models import NotificationSubscription
 
 
 class UsersDatabase:
@@ -128,8 +127,12 @@ def _configure_users_passive_deletes(mapper_, class_):
 
     This mirrors the ``set_cascade`` mechanism in ``shared.database.database`` but is scoped to
     the users models, so ``users_database`` stays independent of the feeds ``database_gen``.
+
+    The mapper is matched by class name rather than by importing the model, so importing this
+    module does not require ``shared.users_database_gen`` to be present (functions that symlink
+    ``shared`` without the users models must still be able to import ``users_database``).
     """
-    if class_ is NotificationSubscription:
+    if class_.__name__ == "NotificationSubscription" and "notification_logs" in mapper_.relationships:
         rel = mapper_.relationships["notification_logs"]
         rel.cascade = "all, delete-orphan"
         rel.passive_deletes = True

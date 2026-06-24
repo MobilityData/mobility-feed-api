@@ -52,7 +52,7 @@ def test_notification_logs_relationship_uses_passive_deletes():
     assert "delete-orphan" in rel.cascade
 
 
-def test_delete_subscription_cascades_to_notification_log():
+def test_delete_subscription_cascades_to_notification_log(users_test_database_url):
     """End-to-end: deleting a subscription removes its notification_log rows via the DB cascade."""
     _reset_singleton()
     db = UsersDatabase()
