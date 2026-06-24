@@ -45,8 +45,16 @@ from shared.helpers.task_execution.task_execution_tracker import (
     TaskExecutionTracker,
     TaskInProgressError,
 )
-from shared.notifications.notification_constants import NotificationLogStatus
-from shared.users_database_gen.sqlacodegen_models import NotificationLog
+from sqlalchemy import or_
+
+from shared.notifications.notification_constants import (
+    NotificationLogStatus,
+    NotificationTypeId,
+)
+from shared.users_database_gen.sqlacodegen_models import (
+    NotificationEvent,
+    NotificationLog,
+)
 from tasks.notifications.dispatch_notifications import (
     DISPATCH_TASK_NAME,
     emit_admin_summary,
@@ -132,8 +140,23 @@ def _aggregate_delivery_stats(
     """Aggregate notification_log outcomes for this run from the users DB.
 
     Scoped by ``sent_at >= run_started_at`` so it reflects only this run's sends.
+    ``admin.event_summary`` deliveries are excluded: counting the summary email
+    itself as a "sent notification" is misleading to admins.
     """
-    q = db_session.query(NotificationLog)
+    q = (
+        db_session.query(NotificationLog)
+        .outerjoin(
+            NotificationEvent,
+            NotificationLog.notification_event_id == NotificationEvent.id,
+        )
+        .filter(
+            or_(
+                NotificationEvent.notification_type_id.is_(None),
+                NotificationEvent.notification_type_id
+                != NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            )
+        )
+    )
     if since is not None:
         q = q.filter(NotificationLog.sent_at >= since)
     rows = q.with_entities(NotificationLog.status).all()
