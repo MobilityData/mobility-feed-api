@@ -30,6 +30,7 @@ import os
 from enum import Enum
 
 import sib_api_v3_sdk
+import urllib3
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,11 @@ logger = logging.getLogger(__name__)
 # holding the caller's DB connection from the pool, which can exhaust the pool and make requests
 # appear "stuck". A short connect timeout makes the failure fast and bounded.
 BREVO_REQUEST_TIMEOUT = (3.05, 10)
+
+# Do not retry on connection failures. The Brevo call runs inside an async FastAPI route (which
+# executes on the event loop), so a long retry loop would block the whole API, not just this
+# request. With no retries, an unreachable Brevo fails within ~the connect timeout above.
+_BREVO_RETRIES = urllib3.Retry(total=0, connect=0, read=0, redirect=0, status=0)
 
 
 class BrevoSubscriptionStatus(Enum):
@@ -53,7 +59,10 @@ def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
         raise RuntimeError("BREVO_API_KEY environment variable is not set")
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key["api-key"] = api_key
-    return sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
+    api = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
+    # Disable urllib3 retries so a connection failure fails fast instead of looping.
+    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = _BREVO_RETRIES
+    return api
 
 
 def get_announcements_list_id() -> int:
