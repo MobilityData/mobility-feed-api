@@ -31,11 +31,14 @@ Field mapping:
   app_user.migrated_at           <- now() (set by this task)
 
 Announcements subscription (notification_subscription table):
-  Every newly migrated user is associated with the ``api.announcements`` notification
-  type. The subscription is created enabled (``active=True``) for all users EXCEPT
-  those explicitly UNSUBSCRIBED on Brevo, who get a disabled (``active=False``)
-  subscription. Users not found on Brevo (or whose Brevo check failed) are treated as
-  not unsubscribed and therefore enabled.
+  Every migrated user is associated with the ``api.announcements`` notification
+  type. New users get the subscription created alongside their app_user row;
+  existing users (including already-migrated ones) are backfilled a subscription
+  if they don't already have one. The subscription is created enabled
+  (``active=True``) for all users EXCEPT those explicitly UNSUBSCRIBED on Brevo,
+  who get a disabled (``active=False``) subscription. Users not found on Brevo (or
+  whose Brevo check failed) are treated as not unsubscribed and therefore enabled.
+  This step is idempotent: users that already have the subscription are untouched.
 
 NOT set by migration (managed by the API layer):
   app_user.updated_at
@@ -141,6 +144,19 @@ def _iter_users(user_ids: list[str] | None) -> Generator[auth.UserRecord, None, 
             page = page.get_next_page()
 
 
+def _has_announcements_subscription(db_session: Session, user_id: str) -> bool:
+    """Return True if the user already has an api.announcements subscription."""
+    return (
+        db_session.query(NotificationSubscription.id)
+        .filter(
+            NotificationSubscription.user_id == user_id,
+            NotificationSubscription.notification_type_id == API_ANNOUNCEMENTS_TYPE_ID,
+        )
+        .first()
+        is not None
+    )
+
+
 def migrate_firebase_users(
     dry_run: bool = True,
     limit: int | None = None,
@@ -206,31 +222,51 @@ def migrate_firebase_users(
 
         existing: AppUser | None = db_session.get(AppUser, user_record.uid)
 
-        if existing is not None:
-            if only_not_migrated and existing.migrated_at is not None:
-                results["skipped"] += 1
-            continue  # existing users are not updated by this task
+        # Already-migrated users are counted as skipped for the user-row
+        # migration, but we still ensure their announcements subscription
+        # exists below (the subscription backfill ignores only_not_migrated).
+        if (
+            existing is not None
+            and only_not_migrated
+            and existing.migrated_at is not None
+        ):
+            results["skipped"] += 1
 
-        query = ds_client.query(kind="web_api_users")
-        query.add_filter("uid", "=", user_record.uid)
-        entities = list(query.fetch(limit=1))
-        entity = entities[0] if entities else None
-        if entity is None:
-            logger.warning("No Datastore entity found for uid=%s", user_record.uid)
-        doc_data: dict = dict(entity) if entity else {}
-        if doc_data:
-            logger.debug(
-                "Datastore entity keys for uid=%s: %s",
-                user_record.uid,
-                list(doc_data.keys()),
-            )
-        elif entity is not None:
-            logger.warning(
-                "Datastore entity exists but is empty for uid=%s, profile fields will be null",
-                user_record.uid,
-            )
+        # Idempotency: every user must end up with exactly one announcements
+        # subscription. New users always need one; existing users only if absent.
+        needs_announcements_sub = (
+            existing is None
+            or not _has_announcements_subscription(db_session, user_record.uid)
+        )
 
-        # Brevo is the source of truth for subscription status.
+        # Nothing to do for an existing user that already has the subscription.
+        if existing is not None and not needs_announcements_sub:
+            continue
+
+        # Datastore profile lookup is only needed when inserting a new app_user.
+        doc_data: dict = {}
+        if existing is None:
+            query = ds_client.query(kind="web_api_users")
+            query.add_filter("uid", "=", user_record.uid)
+            entities = list(query.fetch(limit=1))
+            entity = entities[0] if entities else None
+            if entity is None:
+                logger.warning("No Datastore entity found for uid=%s", user_record.uid)
+            doc_data = dict(entity) if entity else {}
+            if doc_data:
+                logger.debug(
+                    "Datastore entity keys for uid=%s: %s",
+                    user_record.uid,
+                    list(doc_data.keys()),
+                )
+            elif entity is not None:
+                logger.warning(
+                    "Datastore entity exists but is empty for uid=%s, profile fields will be null",
+                    user_record.uid,
+                )
+
+        # Brevo is the source of truth for subscription status. Queried whenever
+        # we will create the announcements subscription (new user or backfill).
         # In dry_run mode we still query Brevo so the counts are accurate.
         brevo_status: BrevoSubscriptionStatus | None = None
         try:
@@ -250,9 +286,9 @@ def migrate_firebase_users(
             )
             results["brevo_failed"] += 1
 
-        # Every migrated user is associated with the announcements subscription.
-        # It is enabled unless the user is explicitly unsubscribed on Brevo
-        # (NOT_FOUND or a failed Brevo check are treated as "not unsubscribed").
+        # The announcements subscription is enabled unless the user is explicitly
+        # unsubscribed on Brevo (NOT_FOUND or a failed Brevo check are treated as
+        # "not unsubscribed").
         announcements_active = brevo_status != BrevoSubscriptionStatus.UNSUBSCRIBED
         announcements_key = (
             "announcements_enabled"
@@ -286,22 +322,23 @@ def migrate_firebase_users(
                         brevo_status == BrevoSubscriptionStatus.SUBSCRIBED
                     )
                 db_session.add(new_user)
-                db_session.add(
-                    NotificationSubscription(
-                        id=generate_unique_id(),
-                        user_id=user_record.uid,
-                        notification_type_id=API_ANNOUNCEMENTS_TYPE_ID,
-                        active=announcements_active,
-                        created_at=datetime.now(timezone.utc),
-                    )
+            db_session.add(
+                NotificationSubscription(
+                    id=generate_unique_id(),
+                    user_id=user_record.uid,
+                    notification_type_id=API_ANNOUNCEMENTS_TYPE_ID,
+                    active=announcements_active,
+                    created_at=datetime.now(timezone.utc),
                 )
-                db_session.flush()
+            )
+            db_session.flush()
+            if existing is None:
                 results["inserted"] += 1
-                results[announcements_key] += 1
+            results[announcements_key] += 1
         else:
             if existing is None:
                 results["inserted"] += 1
-                results[announcements_key] += 1
+            results[announcements_key] += 1
 
         processed += 1
 
