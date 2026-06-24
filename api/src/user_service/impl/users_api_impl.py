@@ -190,6 +190,7 @@ class UsersApiImpl(BaseUsersApi):
             sync_announcements(user.email, subscribe=active, subscription_id=sub.id)
 
         sub.active = active
+        sub.last_notified_at = datetime.now(timezone.utc)
         db_session.flush()
         return NotificationSubscriptionImpl.from_orm(sub)
 
@@ -210,6 +211,7 @@ class UsersApiImpl(BaseUsersApi):
             db_session.commit()
             sync_announcements(email, subscribe=False)
             sub.active = False
+            sub.last_notified_at = datetime.now(timezone.utc)
         else:
             db_session.delete(sub)
         db_session.flush()
