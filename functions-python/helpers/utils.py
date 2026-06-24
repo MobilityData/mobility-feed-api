@@ -539,9 +539,13 @@ def create_http_gtfs_datasets_comparer_task(
     feed_stable_id: str,
     base_dataset_stable_id: str,
     new_dataset_stable_id: str,
+    disallow_overwrite: bool = True,
 ) -> None:
     """
     Create a Cloud Task to run the gtfs-datasets-comparer function for a pair of datasets.
+
+    disallow_overwrite: when True (default) the comparer skips the pair if its changelog
+    already exists; pass False to force regeneration/overwrite.
     """
     from google.cloud import tasks_v2
     import json
@@ -552,7 +556,7 @@ def create_http_gtfs_datasets_comparer_task(
             "feed_stable_id": feed_stable_id,
             "base_dataset_stable_id": base_dataset_stable_id,
             "new_dataset_stable_id": new_dataset_stable_id,
-            "disallow_overwrite": True,
+            "disallow_overwrite": disallow_overwrite,
         }
     ).encode()
     queue_name = os.getenv("GTFS_CHANGE_TRACKER_QUEUE")
