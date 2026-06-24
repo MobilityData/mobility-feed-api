@@ -34,7 +34,10 @@ from shared.users_database_gen.sqlacodegen_models import (
     NotificationSubscription as NotificationSubscriptionOrm,
     NotificationType,
 )
-from user_service.impl.subscription_helpers import ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, sync_announcements
+from user_service.impl.subscription_helpers import (
+    ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    sync_announcements,
+)
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
     CreateNotificationSubscriptionRequest,

@@ -21,5 +21,8 @@
          cadence/digest and active_since on notification_subscription,
          event FK + retry_count on notification_log, seed feed.url_updated and
          admin.event_summary notification types (issue #1723) -->
-    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>        
+    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>
+    <!-- Cascade-delete notification_log rows when their notification_subscription
+         is deleted (fixes delete subscription endpoint). -->
+    <include file="changes_user/feat_notification_log_cascade.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -84,6 +84,7 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_not_called()
+        # ORM delete is used; passive_deletes lets the DB ON DELETE CASCADE remove notification_log rows.
         self.mock_session.delete.assert_called_once_with(sub)
 
     def test_delete_announcement_disables_instead_of_delete(self):
