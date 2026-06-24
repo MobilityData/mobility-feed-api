@@ -134,6 +134,8 @@ jobs:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       # dev uses the QA sql instance
       DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      # User DB lives on the shared QA instance but uses the DEV-suffixed name (MobilityDatabaseUsersDEV).
+      USER_DB_ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       # With repository_dispatch, DRY_RUN is always false.
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}

@@ -65,6 +65,13 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
+from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
+from tasks.notifications.dispatch_worker import (
+    notifications_dispatch_handler,
+)
+from tasks.notifications.dispatch_monitor import (
+    notifications_dispatch_monitor_handler,
+)
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
 
 init_logger()
@@ -174,6 +181,46 @@ tasks = {
             "user_ids (default null), only_not_migrated (default true)."
         ),
         "handler": migrate_firebase_users_handler,
+    },
+    "notifications_dispatch_batch": {
+        "description": (
+            "Cloud Tasks producer for notification dispatch. Triggered by Cloud "
+            "Scheduler. Resolves cadences, finds active subscriptions (users DB), "
+            "registers a run in TaskExecutionTracker (feeds DB), and enqueues one "
+            "'notifications_dispatch' worker task per subscription plus "
+            "a single 'notifications_dispatch_monitor' barrier task. "
+            "Parameters: "
+            "cadence ('daily'|'weekly'|'all'|'scheduled', default 'scheduled'), "
+            "weekly_weekday (0=Mon..6=Sun, default 0, only used with cadence='scheduled'), "
+            "dry_run (default false), "
+            "status_filter ('new'|'failed'|'all', default 'new'), "
+            "user_ids (list of user IDs for manual trigger, default []), "
+            "force (bypass cadence when user_ids set, default false), "
+            "max_retries (default 5), stale_claim_seconds (default 1800), "
+            "monitor_delay_seconds (default 60), deadline_seconds (default 21600)."
+        ),
+        "handler": notifications_dispatch_batch_handler,
+    },
+    "notifications_dispatch": {
+        "description": (
+            "Cloud Tasks worker: process one subscription's pending notification "
+            "events. Lock-free claim-then-send into notification_log (no duplicate "
+            "emails under concurrency), sends via Brevo, and marks the run entry "
+            "completed/failed in TaskExecutionTracker. "
+            "Parameters: subscription_id (required), run_id (required), "
+            "status_filter, max_retries, stale_claim_seconds."
+        ),
+        "handler": notifications_dispatch_handler,
+    },
+    "notifications_dispatch_monitor": {
+        "description": (
+            "Cloud Tasks barrier/monitor: polls TaskExecutionTracker until every "
+            "worker for a run has reported (or the run deadline passes), then emits "
+            "exactly one admin.event_summary with aggregated delivery stats. Returns "
+            "503 (native Cloud Tasks retry) while workers are still in flight. "
+            "Parameters: run_id (required)."
+        ),
+        "handler": notifications_dispatch_monitor_handler,
     },
     "backfill_changelog": {
         "description": (

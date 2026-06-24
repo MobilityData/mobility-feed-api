@@ -220,6 +220,78 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 | `brevo_failed` | Users where the Brevo check failed (non-fatal; user is still inserted) |
 | `dry_run` | Whether the task ran in dry-run mode |
 
+### `notifications_dispatch_batch` (+ `notifications_dispatch`, `notifications_dispatch_monitor`)
+
+Notification dispatch is a **Cloud Tasks fan-out** of three tasks:
+
+- **`notifications_dispatch_batch`** (producer) — resolves cadences, finds active
+  `notification_subscription` rows, registers a run in `TaskExecutionTracker`,
+  and enqueues one worker task per subscription plus a single monitor task.
+  Triggered by the daily Cloud Scheduler job (disabled in dev/qa) or manually.
+- **`notifications_dispatch`** (worker, one per subscription) —
+  **claim-then-send** (lock-free `INSERT ... ON CONFLICT DO NOTHING` into
+  `notification_log`, so concurrent workers never duplicate an email), sends via
+  Brevo, records delivery, and reports completion to the tracker.
+- **`notifications_dispatch_monitor`** (barrier, one per run) — returns 503
+  (Cloud Tasks native retry) while workers are in flight, then emits exactly one
+  `admin.event_summary` with aggregated stats.
+
+Cloud Task names are **dynamic** (`run_id` carries a per-invocation timestamp),
+so re-running the planner never collides with Cloud Tasks' name tombstones;
+idempotency comes from the DB claim. See `docs/notifications.md` for the full
+architecture, retry strategy, and operational runbook.
+
+```json
+{
+  "task": "notifications_dispatch_batch",
+  "payload": {
+    "cadence": "scheduled",
+    "weekly_weekday": 0,
+    "dry_run": false,
+    "status_filter": "new",
+    "user_ids": [],
+    "force": false,
+    "max_retries": 5,
+    "stale_claim_seconds": 1800,
+    "monitor_delay_seconds": 60,
+    "deadline_seconds": 21600
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `cadence` | str | `scheduled` | `daily` \| `weekly` \| `all` \| `scheduled`. `scheduled` (used by the daily Cloud Scheduler job) processes daily-cadence subscriptions every day and weekly-cadence subscriptions only on `weekly_weekday` |
+| `weekly_weekday` | int | `0` | Day of week the weekly digest is sent under `cadence=scheduled` (0=Mon .. 6=Sun). Only used with `cadence=scheduled` |
+| `dry_run` | bool | `false` | Resolve and log subscriptions without enqueuing workers |
+| `status_filter` | str | `new` | `new` \| `failed` \| `all`. Selects which `notification_log` states workers (re)process |
+| `user_ids` | list[str] | `[]` | If provided, only dispatch to these user IDs (manual trigger) |
+| `force` | bool | `false` | When `user_ids` is set, bypass the cadence check |
+| `max_retries` | int | `5` | Attempts before a log row is marked `permanently_failed` |
+| `stale_claim_seconds` | int | `1800` | A `pending` claim older than this (crashed worker) is reclaimable |
+| `monitor_delay_seconds` | int | `60` | Delay before the monitor's first poll |
+| `deadline_seconds` | int | `21600` | Wall-clock cap before the monitor emits an incomplete summary and stops polling |
+
+**Required environment variables**:
+- `USERS_DATABASE_URL` (secret) — PostgreSQL connection string for the users DB
+- `BREVO_API_KEY` (secret) — Brevo API key for sending email
+- `PROJECT_ID`, `GCP_REGION`, `ENVIRONMENT`, `SERVICE_ACCOUNT_EMAIL` — used to enqueue worker/monitor tasks
+- `NOTIFICATION_DISPATCH_QUEUE`, `NOTIFICATION_DISPATCH_MONITOR_QUEUE` — Cloud Tasks queue names
+
+**Planner response** (`by_cadence` carries per-cadence `run_id` / `subscriptions` / `enqueued`):
+
+| Field | Description |
+|---|---|
+| `cadences` | List of cadences processed in this run |
+| `by_cadence.<cadence>.run_id` | The `TaskExecutionTracker` run id (`<cadence>-<YYYYMMDDThhmmss>`) |
+| `by_cadence.<cadence>.subscriptions` | Active subscriptions resolved for the cadence |
+| `by_cadence.<cadence>.enqueued` | Worker tasks enqueued |
+
+Each **worker** returns its per-subscription stats (`emails_sent`,
+`events_claimed`, `emails_failed`, ...); the **monitor** returns the aggregated
+run summary that is also emitted as `admin.event_summary`.
+| `by_cadence` | Per-cadence breakdown of the above counters |
+
 ### `backfill_changelog`
 
 Backfills `gtfs_dataset_changelog` records from the **existing** dataset history. The live pipeline (`batch_process_dataset` → `gtfs-datasets-comparer`) only produces changelogs for new datasets going forward; this task walks the stored history and, for each consecutive `(base, new)` dataset pair that has no changelog row yet, dispatches a Cloud Task to the same `gtfs-datasets-comparer` function.
@@ -265,3 +337,4 @@ Only **comparable** datasets are considered: a dataset must have a `downloaded_a
 | `pairs_already_done` | Pairs skipped because a changelog row already exists |
 | `pairs_dispatched` | Pairs dispatched (or, in `dry_run`, that would be dispatched) |
 | `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
+

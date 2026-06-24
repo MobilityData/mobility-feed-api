@@ -6,7 +6,7 @@
   "memory": "1Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen", "database", "common", "db_models", "feed_filters", "users_database_gen"],
+  "include_api_folders": ["database_gen", "database", "common", "db_models", "feed_filters", "users_database_gen", "notifications"],
   "environment_variables": [
     {
       "key": "GOOGLE_CLIENT_ID"
