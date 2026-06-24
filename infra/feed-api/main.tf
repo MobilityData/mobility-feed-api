@@ -84,7 +84,8 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
     }
     vpc_access {
       connector = data.google_vpc_access_connector.vpc_connector.id
-      egress = "ALL_TRAFFIC"
+      # PRIVATE_RANGES_ONLY so public egress (e.g. Brevo) bypasses the VPC, which has no Cloud NAT.
+      egress = "PRIVATE_RANGES_ONLY"
     }
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"

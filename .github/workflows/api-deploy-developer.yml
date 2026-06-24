@@ -225,7 +225,7 @@ jobs:
             --update-secrets  "FEEDS_DATABASE_URL=DEV_FEEDS_DATABASE_URL:latest,USERS_DATABASE_URL=DEV_USERS_DATABASE_URL:latest,S2S_JWT_SECRET=DEV_S2S_JWT_SECRET:latest" \
             --set-env-vars    "PROJECT_ID=${{ env.PROJECT_ID }}" \
             --vpc-connector   "projects/${{ env.VPC_CONNECTOR_PROJECT }}/locations/${{ env.REGION }}/connectors/${{ env.VPC_CONNECTOR }}" \
-            --vpc-egress      all
+            --vpc-egress      private-ranges-only
 
       - name: Get service URL
         id: get_url
