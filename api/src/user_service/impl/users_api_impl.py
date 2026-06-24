@@ -192,15 +192,19 @@ class UsersApiImpl(BaseUsersApi):
 
     @with_users_db_session
     def delete_user_subscription(self, id: str, db_session=None) -> None:
-        """Removes a notification subscription by ID."""
+        """Removes a notification subscription by ID.
+
+        The announcements subscription cannot be deleted; it is disabled instead.
+        """
         user_id = self._require_user_id()
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, user_id)
             sync_announcements(user.email, subscribe=False)
-
-        db_session.delete(sub)
+            sub.active = False
+        else:
+            db_session.delete(sub)
         db_session.flush()
 
     # ── Helpers ──────────────────────────────────────────────────────────────

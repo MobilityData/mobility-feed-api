@@ -979,6 +979,7 @@ components:
                 example: vp
                 description: >
                   The type of realtime entry:
+
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
@@ -1095,6 +1096,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1943,6 +1945,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2067,6 +2070,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2154,6 +2158,7 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2171,6 +2176,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.

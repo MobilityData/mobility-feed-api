@@ -347,7 +347,7 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 404)
 
     # ── delete ──
-    def test_delete_announcement_removes_brevo(self):
+    def test_delete_announcement_disables_instead_of_delete(self):
         sub = self._make_sub(notification_type_id="api.announcements")
         self.mock_session.get.side_effect = lambda model, key: (
             sub if "Subscription" in model.__name__ else _make_user()
@@ -359,7 +359,8 @@ class TestSubscriptions(unittest.TestCase):
             self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_called_once_with("user@example.com", 42)
-        self.mock_session.delete.assert_called_once_with(sub)
+        self.mock_session.delete.assert_not_called()
+        self.assertFalse(sub.active)
 
     def test_delete_non_announcement_no_brevo(self):
         sub = self._make_sub(notification_type_id="feed.published")

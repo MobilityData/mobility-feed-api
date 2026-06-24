@@ -30,6 +30,13 @@ Field mapping:
     NOT_FOUND    → field not set (left at DB default false for new rows, untouched for existing)
   app_user.migrated_at           <- now() (set by this task)
 
+Announcements subscription (notification_subscription table):
+  Every newly migrated user is associated with the ``api.announcements`` notification
+  type. The subscription is created enabled (``active=True``) for all users EXCEPT
+  those explicitly UNSUBSCRIBED on Brevo, who get a disabled (``active=False``)
+  subscription. Users not found on Brevo (or whose Brevo check failed) are treated as
+  not unsubscribed and therefore enabled.
+
 NOT set by migration (managed by the API layer):
   app_user.updated_at
 """
@@ -50,10 +57,18 @@ from shared.common.brevo import (
     BrevoSubscriptionStatus,
     get_contact_subscription_status,
 )
+from shared.database.database import generate_unique_id
 from shared.database.users_database import with_users_db_session
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
+    NotificationSubscription,
+)
 
 logger = logging.getLogger(__name__)
+
+# Primary key of the api.announcements row in the notification_type table.
+# Defined locally because shared.notifications is not exposed to this module.
+API_ANNOUNCEMENTS_TYPE_ID = "api.announcements"
 
 
 def _get_firebase_app() -> firebase_admin.App:
@@ -145,7 +160,8 @@ def migrate_firebase_users(
 
     Returns:
         Summary dict with counts: total, inserted, skipped, no_email_skipped,
-        brevo_subscribed, brevo_unsubscribed, brevo_not_found, brevo_failed, dry_run.
+        brevo_subscribed, brevo_unsubscribed, brevo_not_found, brevo_failed,
+        announcements_enabled, announcements_disabled, dry_run.
     """
     _get_firebase_app()
     ds_client = datastore.Client()
@@ -171,6 +187,8 @@ def migrate_firebase_users(
         "brevo_unsubscribed": 0,
         "brevo_not_found": 0,
         "brevo_failed": 0,
+        "announcements_enabled": 0,
+        "announcements_disabled": 0,
         "dry_run": dry_run,
     }
     processed = 0
@@ -232,6 +250,16 @@ def migrate_firebase_users(
             )
             results["brevo_failed"] += 1
 
+        # Every migrated user is associated with the announcements subscription.
+        # It is enabled unless the user is explicitly unsubscribed on Brevo
+        # (NOT_FOUND or a failed Brevo check are treated as "not unsubscribed").
+        announcements_active = brevo_status != BrevoSubscriptionStatus.UNSUBSCRIBED
+        announcements_key = (
+            "announcements_enabled"
+            if announcements_active
+            else "announcements_disabled"
+        )
+
         if not dry_run:
             if existing is None:
                 new_user = AppUser(
@@ -258,11 +286,22 @@ def migrate_firebase_users(
                         brevo_status == BrevoSubscriptionStatus.SUBSCRIBED
                     )
                 db_session.add(new_user)
+                db_session.add(
+                    NotificationSubscription(
+                        id=generate_unique_id(),
+                        user_id=user_record.uid,
+                        notification_type_id=API_ANNOUNCEMENTS_TYPE_ID,
+                        active=announcements_active,
+                        created_at=datetime.now(timezone.utc),
+                    )
+                )
                 db_session.flush()
                 results["inserted"] += 1
+                results[announcements_key] += 1
         else:
             if existing is None:
                 results["inserted"] += 1
+                results[announcements_key] += 1
 
         processed += 1
 

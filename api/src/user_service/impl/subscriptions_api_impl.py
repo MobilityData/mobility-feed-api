@@ -42,6 +42,10 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
 
     @with_users_db_session
     def delete_subscription(self, id: str, db_session=None) -> None:
+        """Removes a subscription by ID.
+
+        The announcements subscription cannot be deleted; it is disabled instead.
+        """
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
@@ -50,6 +54,7 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
             user = db_session.get(AppUser, sub.user_id)
             if user is not None:
                 sync_announcements(user.email, subscribe=False)
-
-        db_session.delete(sub)
+            sub.active = False
+        else:
+            db_session.delete(sub)
         db_session.flush()

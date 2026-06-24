@@ -24,9 +24,30 @@ from tasks.users.migrate_firebase_users import (
     _parse_datastore_timestamp,
 )
 from shared.common.brevo import BrevoSubscriptionStatus
-from shared.users_database_gen.sqlacodegen_models import AppUser
+from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
+    NotificationSubscription,
+)
 
 BREVO_MODULE = "tasks.users.migrate_firebase_users.get_contact_subscription_status"
+
+
+def _added_of_type(session, cls):
+    """Return the single object of *cls* passed to session.add(), or None."""
+    matches = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], cls)
+    ]
+    return matches[0] if matches else None
+
+
+def _added_app_user(session) -> AppUser:
+    return _added_of_type(session, AppUser)
+
+
+def _added_subscription(session) -> NotificationSubscription:
+    return _added_of_type(session, NotificationSubscription)
 
 
 def _make_auth_user(
@@ -173,7 +194,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         stats = self._run([user], ds_data, session, dry_run=False)
 
         self.assertEqual(stats["inserted"], 1)
-        added: AppUser = session.add.call_args[0][0]
+        added: AppUser = _added_app_user(session)
         self.assertEqual(added.id, "uid1")
         self.assertEqual(added.email, "alice@example.com")
         self.assertEqual(added.full_name, "Alice")
@@ -194,7 +215,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
             dry_run=False,
         )
 
-        added: AppUser = session.add.call_args[0][0]
+        added: AppUser = _added_app_user(session)
         self.assertTrue(added.is_registered_to_receive_api_announcements)
 
     def test_new_user_brevo_unsubscribed_sets_false(self):
@@ -210,7 +231,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
             dry_run=False,
         )
 
-        added: AppUser = session.add.call_args[0][0]
+        added: AppUser = _added_app_user(session)
         self.assertFalse(added.is_registered_to_receive_api_announcements)
 
     def test_new_user_brevo_not_found_field_not_set(self):
@@ -226,8 +247,64 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
             dry_run=False,
         )
 
-        added: AppUser = session.add.call_args[0][0]
+        added: AppUser = _added_app_user(session)
         self.assertIsNone(added.is_registered_to_receive_api_announcements)
+
+    # --- Announcements subscription association ---
+
+    def test_new_user_gets_enabled_announcements_subscription_when_subscribed(self):
+        user = _make_auth_user("uid-sub", email="sub@example.com")
+        session = _make_db_session()
+
+        stats = self._run(
+            [user],
+            {},
+            session,
+            brevo_status=BrevoSubscriptionStatus.SUBSCRIBED,
+            dry_run=False,
+        )
+
+        sub = _added_subscription(session)
+        self.assertIsNotNone(sub)
+        self.assertEqual(sub.user_id, "uid-sub")
+        self.assertEqual(sub.notification_type_id, "api.announcements")
+        self.assertTrue(sub.active)
+        self.assertEqual(stats["announcements_enabled"], 1)
+        self.assertEqual(stats["announcements_disabled"], 0)
+
+    def test_new_user_gets_disabled_announcements_subscription_when_unsubscribed(self):
+        user = _make_auth_user("uid-unsub", email="unsub@example.com")
+        session = _make_db_session()
+
+        stats = self._run(
+            [user],
+            {},
+            session,
+            brevo_status=BrevoSubscriptionStatus.UNSUBSCRIBED,
+            dry_run=False,
+        )
+
+        sub = _added_subscription(session)
+        self.assertIsNotNone(sub)
+        self.assertFalse(sub.active)
+        self.assertEqual(stats["announcements_enabled"], 0)
+        self.assertEqual(stats["announcements_disabled"], 1)
+
+    def test_new_user_not_found_gets_enabled_announcements_subscription(self):
+        user = _make_auth_user("uid-nf", email="nf@example.com")
+        session = _make_db_session()
+
+        stats = self._run(
+            [user],
+            {},
+            session,
+            brevo_status=BrevoSubscriptionStatus.NOT_FOUND,
+            dry_run=False,
+        )
+
+        sub = _added_subscription(session)
+        self.assertTrue(sub.active)
+        self.assertEqual(stats["announcements_enabled"], 1)
 
     # --- Existing users are never updated ---
 
@@ -303,8 +380,12 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
 
         self.assertEqual(stats["brevo_failed"], 1)
         self.assertEqual(stats["inserted"], 1)
-        added: AppUser = session.add.call_args[0][0]
+        added: AppUser = _added_app_user(session)
         self.assertIsNone(added.is_registered_to_receive_api_announcements)
+        # Failed Brevo check is treated as "not unsubscribed" → subscription enabled.
+        sub = _added_subscription(session)
+        self.assertTrue(sub.active)
+        self.assertEqual(stats["announcements_enabled"], 1)
 
     # --- dry_run ---
 

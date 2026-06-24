@@ -86,7 +86,7 @@ class TestPublicDeleteSubscription(unittest.TestCase):
         rem.assert_not_called()
         self.mock_session.delete.assert_called_once_with(sub)
 
-    def test_delete_announcement_removes_brevo(self):
+    def test_delete_announcement_disables_instead_of_delete(self):
         sub = _make_sub(notification_type_id="api.announcements")
         self.mock_session.get.side_effect = lambda model, key: (
             sub if model is NotificationSubscriptionOrm else _make_user()
@@ -98,7 +98,8 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_called_once_with("user@example.com", 42)
-        self.mock_session.delete.assert_called_once_with(sub)
+        self.mock_session.delete.assert_not_called()
+        self.assertFalse(sub.active)
 
     def test_delete_announcement_missing_user_skips_brevo(self):
         sub = _make_sub(notification_type_id="api.announcements")
@@ -108,7 +109,8 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_not_called()
-        self.mock_session.delete.assert_called_once_with(sub)
+        self.mock_session.delete.assert_not_called()
+        self.assertFalse(sub.active)
 
     def test_delete_missing_returns_404(self):
         self.mock_session.get.return_value = None
