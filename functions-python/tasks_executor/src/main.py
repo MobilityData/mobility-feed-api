@@ -72,6 +72,7 @@ from tasks.notifications.dispatch_worker import (
 from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
 )
+from tasks.changelog.backfill_changelog import backfill_changelog_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -220,6 +221,17 @@ tasks = {
             "Parameters: run_id (required)."
         ),
         "handler": notifications_dispatch_monitor_handler,
+    },
+    "backfill_changelog": {
+        "description": (
+            "Backfills gtfs_dataset_changelog records from existing dataset history by "
+            "dispatching Cloud Tasks to the gtfs-datasets-comparer function for each "
+            "consecutive (base, new) dataset pair that has no changelog row yet. "
+            "Parameters: dry_run (default true), limit (default 100), "
+            "datasets_per_feed (default 3), stable_feed_ids (default null), "
+            "feeds_not_updated_days (default null)."
+        ),
+        "handler": backfill_changelog_handler,
     },
 }
 

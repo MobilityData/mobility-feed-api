@@ -1177,6 +1177,26 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   }
 }
 
+# Task queue to invoke gtfs_datasets_comparer function for backfill changelog tasks
+resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_backfill_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "gtfs-datasets-comparer-backfill-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # Retries span ~10 minutes: initial try + 2 retries at 120s then 240s
+    max_attempts  = 3
+    min_backoff   = "120s"
+    max_backoff   = "240s"
+    max_doublings = 1
+  }
+}
+
 
 # 14. functions/tasks_executor cloud function
 resource "google_cloudfunctions2_function" "tasks_executor" {
@@ -1207,6 +1227,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       MATERIALIZED_VIEW_QUEUE             = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME                = "${var.datasets_bucket_name}-${var.environment}"
       GBFS_SNAPSHOTS_BUCKET_NAME          = google_storage_bucket.gbfs_snapshots_bucket.name
+      GTFS_CHANGE_TRACKER_QUEUE           = google_cloud_tasks_queue.gtfs_datasets_comparer_backfill_task_queue.name
       PMTILES_BUILDER_QUEUE               = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       TASK_RUN_SYNC_QUEUE                 = google_cloud_tasks_queue.task_run_sync_queue.name
       TDG_API_TOKEN                       = var.tdg_api_token

@@ -291,3 +291,50 @@ Each **worker** returns its per-subscription stats (`emails_sent`,
 `events_claimed`, `emails_failed`, ...); the **monitor** returns the aggregated
 run summary that is also emitted as `admin.event_summary`.
 | `by_cadence` | Per-cadence breakdown of the above counters |
+
+### `backfill_changelog`
+
+Backfills `gtfs_dataset_changelog` records from the **existing** dataset history. The live pipeline (`batch_process_dataset` → `gtfs-datasets-comparer`) only produces changelogs for new datasets going forward; this task walks the stored history and, for each consecutive `(base, new)` dataset pair that has no changelog row yet, dispatches a Cloud Task to the same `gtfs-datasets-comparer` function.
+
+The task is **idempotent / restartable**: pairs that already have a changelog row are skipped (unless `force` is set), and each dispatched Cloud Task runs with `disallow_overwrite=true`. It is **rate-limited**: `limit` caps how many feeds are processed per invocation, and a dedicated Cloud Tasks queue (`GTFS_CHANGE_TRACKER_QUEUE`) throttles the actual comparer invocations. Call it repeatedly to walk the whole catalog.
+
+Only **comparable** datasets are considered: a dataset must have a `downloaded_at` timestamp and extracted GTFS files registered in the db (`gtfsfile` rows), since the comparer reads those pre-extracted files. Datasets without extracted files are skipped, and a feed needs at least two comparable datasets to produce a pair.
+
+```json
+{
+  "task": "backfill_changelog",
+  "payload": {
+    "dry_run": true,
+    "limit": 100,
+    "datasets_per_feed": 3,
+    "stable_feed_ids": null,
+    "feeds_not_updated_days": null,
+    "force": false
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Enumerate the pairs that would be dispatched without creating any Cloud Task. The response includes a `dispatched` list of the pairs |
+| `limit` | int \| null | `100` | Maximum number of feeds processed per invocation; omit or pass `null` for no limit |
+| `datasets_per_feed` | int | `3` | Number of most recent datasets considered per feed. `N` datasets produce up to `N-1` consecutive pairs (must be `>= 2`) |
+| `stable_feed_ids` | list[str] \| null | `null` | If provided, only process feeds with these stable IDs |
+| `feeds_not_updated_days` | int \| null | `null` | If provided, only process feeds whose most recent dataset is older than this many days (e.g. `30` to target feeds not updated in the last month) |
+| `force` | bool | `false` | If `true`, dispatch every pair even when a changelog row already exists, and run the comparer with `disallow_overwrite=false` so existing changelogs are regenerated (forces a full rerun) |
+
+**Required environment variables**: `GTFS_CHANGE_TRACKER_QUEUE`, `PROJECT_ID`, `GCP_REGION`, `ENVIRONMENT` (used to dispatch Cloud Tasks to the `gtfs-datasets-comparer` function).
+
+> Note: the comparer reads the pre-extracted GTFS files from the datasets bucket (`<feed>/<dataset>/extracted/`). Historical datasets whose extracted files are no longer present will surface as comparer-side errors (logged, HTTP 200); the backfill dispatch itself still succeeds.
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `feeds_processed` | Feeds that had at least one consecutive pair to consider |
+| `feeds_skipped_recent` | Feeds skipped because of `feeds_not_updated_days` |
+| `pairs_found` | Total consecutive pairs examined |
+| `pairs_already_done` | Pairs skipped because a changelog row already exists |
+| `pairs_dispatched` | Pairs dispatched (or, in `dry_run`, that would be dispatched) |
+| `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
+
