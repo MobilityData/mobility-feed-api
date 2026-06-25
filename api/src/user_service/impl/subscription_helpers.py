@@ -20,6 +20,7 @@ import logging
 from fastapi import HTTPException
 
 import sib_api_v3_sdk
+import urllib3
 from shared.common.brevo import add_contact_to_list, get_announcements_list_id, remove_contact_from_list
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ def sync_announcements(email: str, subscribe: bool, subscription_id: str | None 
             add_contact_to_list(email, get_announcements_list_id(), subscription_id)
         else:
             remove_contact_from_list(email, get_announcements_list_id())
-    except (RuntimeError, sib_api_v3_sdk.rest.ApiException) as exc:
+    except (RuntimeError, sib_api_v3_sdk.rest.ApiException, urllib3.exceptions.HTTPError, OSError) as exc:
+        # urllib3.exceptions.HTTPError / OSError cover connection failures and timeouts (e.g. Brevo
+        # unreachable), so the request fails fast with a 502 instead of hanging on retries.
         logger.error("Brevo sync failed for %s: %s", email, exc)
         raise HTTPException(status_code=502, detail="Failed to sync subscription with email provider.")

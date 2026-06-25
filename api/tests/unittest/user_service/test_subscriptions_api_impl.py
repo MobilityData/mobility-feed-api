@@ -21,7 +21,6 @@ def _make_sub(**kwargs):
         notification_type_id="feed.published",
         active=True,
         created_at=FIXED_NOW,
-        last_notified_at=None,
     )
     defaults.update(kwargs)
     return NotificationSubscriptionOrm(**defaults)
@@ -40,7 +39,6 @@ class TestPublicGetSubscription(unittest.TestCase):
         self.mock_session.get.return_value = _make_sub(
             notification_type_id="api.announcements",
             active=False,
-            last_notified_at=FIXED_NOW,
         )
 
         result = self.api.get_subscription("sub-1", db_session=self.mock_session)
@@ -50,7 +48,6 @@ class TestPublicGetSubscription(unittest.TestCase):
         self.assertEqual(result.user_id, "uid-123")
         self.assertEqual(result.notification_id, "api.announcements")
         self.assertFalse(result.active)
-        self.assertEqual(result.last_notified_at, FIXED_NOW)
         self.assertEqual(result.created_at, FIXED_NOW)
 
     def test_get_does_not_touch_brevo(self):
@@ -84,9 +81,10 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_not_called()
+        # ORM delete is used; passive_deletes lets the DB ON DELETE CASCADE remove notification_log rows.
         self.mock_session.delete.assert_called_once_with(sub)
 
-    def test_delete_announcement_removes_brevo(self):
+    def test_delete_announcement_disables_instead_of_delete(self):
         sub = _make_sub(notification_type_id="api.announcements")
         self.mock_session.get.side_effect = lambda model, key: (
             sub if model is NotificationSubscriptionOrm else _make_user()
@@ -98,9 +96,8 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_called_once_with("user@example.com", 42)
-        self.mock_session.delete.assert_called_once_with(sub)
-
-    def test_delete_announcement_missing_user_skips_brevo(self):
+        self.mock_session.delete.assert_not_called()
+        self.assertFalse(sub.active)
         sub = _make_sub(notification_type_id="api.announcements")
         self.mock_session.get.side_effect = lambda model, key: (sub if model is NotificationSubscriptionOrm else None)
 
@@ -108,7 +105,8 @@ class TestPublicDeleteSubscription(unittest.TestCase):
             self.api.delete_subscription("sub-1", db_session=self.mock_session)
 
         rem.assert_not_called()
-        self.mock_session.delete.assert_called_once_with(sub)
+        self.mock_session.delete.assert_not_called()
+        self.assertFalse(sub.active)
 
     def test_delete_missing_returns_404(self):
         self.mock_session.get.return_value = None
@@ -134,6 +132,21 @@ class TestPublicDeleteSubscription(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 502)
         self.mock_session.delete.assert_not_called()
 
+    def test_delete_announcement_brevo_connection_error_502(self):
+        import urllib3
 
-if __name__ == "__main__":
-    unittest.main()
+        sub = _make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if model is NotificationSubscriptionOrm else _make_user()
+        )
+
+        with patch.object(
+            helpers,
+            "remove_contact_from_list",
+            side_effect=urllib3.exceptions.MaxRetryError(None, "url", reason="unreachable"),
+        ), patch.object(helpers, "get_announcements_list_id", return_value=42):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.delete_subscription("sub-1", db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 502)
+        self.mock_session.delete.assert_not_called()

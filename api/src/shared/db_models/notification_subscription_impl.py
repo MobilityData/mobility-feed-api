@@ -19,6 +19,5 @@ class NotificationSubscriptionImpl(NotificationSubscription):
             user_id=sub.user_id,
             notification_id=sub.notification_type_id,
             active=sub.active,
-            last_notified_at=sub.last_notified_at,
             created_at=sub.created_at,
         )

@@ -20,8 +20,8 @@ import threading
 from contextlib import contextmanager
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker, mapper
 
 from shared.common.logging_utils import get_env_logging_level
 
@@ -115,3 +115,24 @@ def with_users_db_session(func=None, db_url: str | None = None):
 
     wrapper.__wrapped__ = func
     return wrapper
+
+
+@event.listens_for(mapper, "mapper_configured")
+def _configure_users_passive_deletes(mapper_, class_):
+    """Enable ``passive_deletes`` on ``NotificationSubscription.notification_logs``.
+
+    Deleting a subscription then relies on the database ``ON DELETE CASCADE`` to remove its
+    ``notification_log`` rows, instead of SQLAlchemy trying to NULL the NOT NULL
+    ``notification_log.subscription_id`` (which would raise a NotNullViolation).
+
+    This mirrors the ``set_cascade`` mechanism in ``shared.database.database`` but is scoped to
+    the users models, so ``users_database`` stays independent of the feeds ``database_gen``.
+
+    The mapper is matched by class name rather than by importing the model, so importing this
+    module does not require ``shared.users_database_gen`` to be present (functions that symlink
+    ``shared`` without the users models must still be able to import ``users_database``).
+    """
+    if class_.__name__ == "NotificationSubscription" and "notification_logs" in mapper_.relationships:
+        rel = mapper_.relationships["notification_logs"]
+        rel.cascade = "all, delete-orphan"
+        rel.passive_deletes = True

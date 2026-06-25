@@ -199,6 +199,8 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. This ta
 
 **Brevo subscription logic**: For each new user, `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked. If the contact is `SUBSCRIBED`, `is_registered_to_receive_api_announcements` is set to `true`; `UNSUBSCRIBED` sets it to `false`; `NOT_FOUND` leaves it at the DB default (`false`).
 
+**Announcements subscription association**: Every migrated user is associated with the `api.announcements` notification type via a row in `notification_subscription`. New users get the subscription created alongside their `app_user` row; existing users (including already-migrated ones) are **backfilled** a subscription if they don't already have one — without modifying their `app_user` row. The subscription is created enabled (`active=true`) for all users **except** those explicitly `UNSUBSCRIBED` on Brevo, who get a disabled (`active=false`) subscription. Users that are `NOT_FOUND` on Brevo (or whose Brevo check failed) are treated as "not unsubscribed" and therefore enabled. The step is idempotent (users that already have the subscription are untouched). Counts are reported as `announcements_enabled` / `announcements_disabled`.
+
 **Datastore entity lookup**: For each new user, the `web_api_users` kind is queried by the `uid` property to retrieve `fullName`, `organization`, and `registrationCompletionTime`.
 
 **Required environment variables**:

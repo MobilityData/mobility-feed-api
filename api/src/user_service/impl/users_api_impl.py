@@ -34,7 +34,10 @@ from shared.users_database_gen.sqlacodegen_models import (
     NotificationSubscription as NotificationSubscriptionOrm,
     NotificationType,
 )
-from user_service.impl.subscription_helpers import ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, sync_announcements
+from user_service.impl.subscription_helpers import (
+    ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    sync_announcements,
+)
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
     CreateNotificationSubscriptionRequest,
@@ -192,15 +195,23 @@ class UsersApiImpl(BaseUsersApi):
 
     @with_users_db_session
     def delete_user_subscription(self, id: str, db_session=None) -> None:
-        """Removes a notification subscription by ID."""
+        """Removes a notification subscription by ID.
+
+        The announcements subscription cannot be deleted; it is disabled instead.
+        """
         user_id = self._require_user_id()
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            user = db_session.get(AppUser, user_id)
-            sync_announcements(user.email, subscribe=False)
-
-        db_session.delete(sub)
+            email = db_session.get(AppUser, user_id).email
+            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
+            # or unreachable provider never holds a connection while we talk to it. The reads above
+            # took no row locks, so committing here only returns the connection to the pool.
+            db_session.commit()
+            sync_announcements(email, subscribe=False)
+            sub.active = False
+        else:
+            db_session.delete(sub)
         db_session.flush()
 
     # ── Helpers ──────────────────────────────────────────────────────────────
