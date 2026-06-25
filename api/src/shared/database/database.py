@@ -98,8 +98,8 @@ cascade_entities = {
     ],
     Gtfsdataset: [
         Gtfsdataset.gtfsfiles,
-        Gtfsdataset.gtfs_dataset_changelogs,  # current_dataset FK
-        Gtfsdataset.gtfs_dataset_changelogs_,  # previous_dataset FK
+        Gtfsdataset.gtfs_dataset_changelogs,  # base_dataset FK
+        Gtfsdataset.gtfs_dataset_changelogs_,  # new_dataset FK
     ],
 }
 

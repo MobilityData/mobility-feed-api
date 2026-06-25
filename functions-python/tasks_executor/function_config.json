@@ -6,7 +6,7 @@
   "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen", "database", "common", "feed_filters", "users_database_gen"],
+  "include_api_folders": ["database_gen", "database", "common", "feed_filters", "users_database_gen", "notifications"],
   "environment_variables": [
     {
       "key": "DATASETS_BUCKET_NAME"

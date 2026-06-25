@@ -72,6 +72,11 @@ from shared.helpers.query_helper import (
     get_feeds_query,
     get_feed_by_normalized_url,
 )
+from shared.notifications.notification_event_service import (
+    emit_feed_redirected,
+    emit_url_replaced,
+    urls_differ,
+)
 from .models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeedImpl,
 )
@@ -354,6 +359,12 @@ class OperationsApiImpl(BaseOperationsApi):
                 update_request_feed.operational_status_action is not None
                 and update_request_feed.operational_status_action != "no_change"
             ):
+                # Capture pre-mutation state for notification events (before to_orm mutates the object).
+                old_producer_url = getattr(feed_from_db, "producer_url", None)
+                old_redirect_target_ids = {
+                    r.target_id for r in getattr(feed_from_db, "redirectingids", [])
+                }
+
                 await OperationsApiImpl._populate_feed_values(
                     feed_from_db, impl_class, db_session, update_request_feed
                 )
@@ -383,6 +394,34 @@ class OperationsApiImpl(BaseOperationsApi):
                     update_request_feed.id,
                     diff.values(),
                 )
+                # Emit notification events for URL / redirect changes (best-effort, fire-and-forget).
+                feed_stable_id = update_request_feed.id
+                new_producer_url = getattr(feed_from_db, "producer_url", None)
+                if (
+                    old_producer_url
+                    and new_producer_url
+                    and urls_differ(old_producer_url, new_producer_url)
+                ):
+                    emit_url_replaced(
+                        feed_stable_id=feed_stable_id,
+                        old_url=old_producer_url,
+                        new_url=new_producer_url,
+                        source="operations_api",
+                    )
+                new_redirect_target_ids = {
+                    r.target_id for r in getattr(feed_from_db, "redirectingids", [])
+                }
+                for new_target_id in new_redirect_target_ids - old_redirect_target_ids:
+                    target_feed = db_session.get(Feed, new_target_id)
+                    emit_feed_redirected(
+                        source_stable_id=feed_stable_id,
+                        target_stable_id=getattr(
+                            target_feed, "stable_id", new_target_id
+                        ),
+                        old_url=old_producer_url,
+                        new_url=getattr(target_feed, "producer_url", None),
+                        source="operations_api",
+                    )
                 try:
                     create_web_revalidation_task([update_request_feed.id])
                 except Exception as e:

@@ -41,6 +41,15 @@ on:
         description: GCP ENVIRONMENT where DB is deployed.
         required: true
         type: string
+      USER_DB_ENVIRONMENT:
+        description: >-
+          Logical environment for the users DB (issue #1683). Determines the user DB name
+          suffix (MobilityDatabaseUsers<ENV>) used to build USERS_DATABASE_URL so the
+          populate scripts can emit notification events. Defaults to DB_ENVIRONMENT when empty.
+          For DEV (which shares QA infra), set this to 'dev' while DB_ENVIRONMENT stays 'qa'.
+        required: false
+        default: ''
+        type: string
       REGION:
         description: GCP region
         required: true
@@ -88,15 +97,24 @@ jobs:
 
     - name: Update .env file
       run: |
+        # Resolve the users DB name (MobilityDatabaseUsers<ENV>) the same way the
+        # schema workflow does, so populate scripts can emit notification events
+        # into the users DB. Defaults to DB_ENVIRONMENT when USER_DB_ENVIRONMENT is empty.
+        USER_ENV="${{ inputs.USER_DB_ENVIRONMENT }}"
+        if [ -z "${USER_ENV}" ]; then
+          USER_ENV="${{ inputs.DB_ENVIRONMENT }}"
+        fi
+        ENV_UPPER=$(echo "${USER_ENV}" | tr '[:lower:]' '[:upper:]')
+        USER_DB_NAME="MobilityDatabaseUsers${ENV_UPPER}"
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
         echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@localhost:5432/${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "USERS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@localhost:5432/${USER_DB_NAME}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=localhost" >> config/.env.local
         echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> config/.env.local
-        cat config/.env.local
 
     - name: Load secrets from 1Password
       uses: 1password/load-secrets-action@v2.0.0

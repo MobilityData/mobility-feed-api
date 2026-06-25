@@ -39,6 +39,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.helpers.pub_sub import trigger_dataset_download
+from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
     get_or_create_entity_type,
     get_or_create_feed,
@@ -417,6 +418,15 @@ def _process_feed(
             if db_rt_map.get(k) != api_rt_map.get(k)
         }
         logger.info("Diff %s sched=%s rt=%s", stable_id, diff, diff_rt)
+        if "producer_url" in diff:
+            old_url, new_url = diff["producer_url"]
+            if old_url and new_url and old_url != new_url:
+                emit_url_replaced(
+                    feed_stable_id=stable_id,
+                    old_url=old_url,
+                    new_url=new_url,
+                    source="jbda_import",
+                )
 
     # Apply schedule fields
     _update_common_feed_fields(gtfs_feed, item, dbody, producer_url)
