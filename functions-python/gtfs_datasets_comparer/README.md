@@ -9,11 +9,12 @@ The function reads pre-extracted GTFS files from a GCS-mounted bucket (uploaded 
 The function receives the following request:
 ```
 {
-  "feed_stable_id": str,                  – stable_id of the GTFS feed
-  "base_dataset_stable_id": str,          – stable_id of the base (older) dataset
-  "new_dataset_stable_id": str,           – stable_id of the new (recent) dataset
-  "disallow_overwrite": bool (optional),  – skip if changelog already exists (default: false)
-  "dry_run": bool (optional)              – compute diff but skip GCS upload and DB write (default: false)
+  "feed_stable_id": str,                       – stable_id of the GTFS feed
+  "base_dataset_stable_id": str,               – stable_id of the base (older) dataset
+  "new_dataset_stable_id": str,                – stable_id of the new (recent) dataset
+  "disallow_overwrite": bool (optional),       – skip if changelog already exists (default: false)
+  "dry_run": bool (optional),                  – compute diff but skip GCS upload and DB write (default: false)
+  "row_changes_cap_per_file": int (optional)   – max row-level changes included per file; 0 omits row-level detail entirely; omit for no cap (default: 10000)
 }
 ```
 
@@ -43,6 +44,9 @@ By default the function will overwrite an existing changelog for the same datase
 
 ### `dry_run`
 When `dry_run: true`, the diff is computed and a summary is returned in the response, but nothing is written to GCS or the database. Useful for validating that the extracted files are present and the diff engine runs correctly.
+
+### `row_changes_cap_per_file`
+Limits the number of row-level change entries included in the changelog per GTFS file. Useful for controlling output size on large feeds. Set to `0` to omit all row-level detail (only file-level stats are included). Omit the parameter (or set to `null`) for no cap. Defaults to `10000`.
 
 ## Response
 

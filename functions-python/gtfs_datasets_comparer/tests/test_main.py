@@ -100,6 +100,7 @@ class TestGtfsDatasetsComparerHandler(unittest.TestCase):
             bucket_mount="/mobilitydata-datasets",
             disallow_overwrite=False,
             dry_run=False,
+            row_changes_cap_per_file=10000,
         )
 
     @patch("main.GtfsDatasetsComparer")
@@ -127,6 +128,7 @@ class TestGtfsDatasetsComparerHandler(unittest.TestCase):
             bucket_mount="/mobilitydata-datasets",
             disallow_overwrite=True,
             dry_run=True,
+            row_changes_cap_per_file=10000,
         )
 
     @patch("main.GtfsDatasetsComparer")
@@ -147,6 +149,21 @@ class TestGtfsDatasetsComparerHandler(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["status"], "error")
         self.assertIn("something went wrong", body["error"])
+
+    def test_invalid_row_changes_cap_returns_error(self):
+        """Non-numeric row_changes_cap_per_file returns a clear validation error."""
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        status, body = self._request(
+            {
+                "feed_stable_id": "mdb-1",
+                "base_dataset_stable_id": "mdb-1-20240101",
+                "new_dataset_stable_id": "mdb-1-20240201",
+                "row_changes_cap_per_file": "not-a-number",
+            }
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertIn("row_changes_cap_per_file", body["error"])
 
 
 class TestGtfsDatasetsComparerRun(unittest.TestCase):
