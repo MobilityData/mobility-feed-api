@@ -52,6 +52,8 @@ def gtfs_datasets_comparer(request: flask.Request) -> dict:
         new_dataset_stable_id     – stable_id of the new Gtfsdataset
         disallow_overwrite        – (optional, default false) skip if changelog already exists
         dry_run                   – (optional, default false) compute diff but skip GCS upload and DB write
+        row_changes_cap_per_file  – (optional, default 10000) max row-level changes to include per file;
+                                    0 omits row-level detail entirely; null means no cap
 
     Always returns HTTP 200 — errors are reported in the response body.
     This prevents GCP from retrying failures: we cannot distinguish transient from
@@ -64,6 +66,20 @@ def gtfs_datasets_comparer(request: flask.Request) -> dict:
     new_dataset_stable_id = payload.get("new_dataset_stable_id")
     disallow_overwrite = bool(payload.get("disallow_overwrite", False))
     dry_run = bool(payload.get("dry_run", False))
+    raw_cap = payload.get("row_changes_cap_per_file", 10000)
+    if raw_cap is None:
+        row_changes_cap_per_file = None
+    else:
+        try:
+            row_changes_cap_per_file = int(raw_cap)
+        except (ValueError, TypeError):
+            return flask.make_response(
+                {
+                    "status": "error",
+                    "error": f"row_changes_cap_per_file must be an integer, got: {raw_cap!r}",
+                },
+                200,
+            )
 
     if not (feed_stable_id and base_dataset_stable_id and new_dataset_stable_id):
         return flask.make_response(
@@ -94,6 +110,7 @@ def gtfs_datasets_comparer(request: flask.Request) -> dict:
             bucket_mount=bucket_mount,
             disallow_overwrite=disallow_overwrite,
             dry_run=dry_run,
+            row_changes_cap_per_file=row_changes_cap_per_file,
         )
         result = tracker.run()
         return flask.make_response({"status": "success", **result}, 200)
@@ -139,6 +156,7 @@ class GtfsDatasetsComparer:
         bucket_mount: str,
         disallow_overwrite: bool = False,
         dry_run: bool = False,
+        row_changes_cap_per_file: int | None = 10000,
     ):
         self.feed_stable_id = feed_stable_id
         self.base_dataset_stable_id = base_dataset_stable_id
@@ -147,6 +165,7 @@ class GtfsDatasetsComparer:
         self.bucket_mount = bucket_mount
         self.disallow_overwrite = disallow_overwrite
         self.dry_run = dry_run
+        self.row_changes_cap_per_file = row_changes_cap_per_file
         self.logger = get_logger(GtfsDatasetsComparer.__name__, new_dataset_stable_id)
 
     @track_metrics(metrics=("time", "memory", "cpu"))
@@ -179,7 +198,9 @@ class GtfsDatasetsComparer:
         base_dir = self._extracted_dir(self.feed_stable_id, self.base_dataset_stable_id)
         new_dir = self._extracted_dir(self.feed_stable_id, self.new_dataset_stable_id)
 
-        diff_result = diff_feeds(base_dir, new_dir)
+        diff_result = diff_feeds(
+            base_dir, new_dir, row_changes_cap_per_file=self.row_changes_cap_per_file
+        )
 
         if self.dry_run:
             self.logger.info("Dry run — skipping GCS upload and DB write.")
