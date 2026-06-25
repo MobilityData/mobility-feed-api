@@ -40,6 +40,7 @@ api/src/feeds_gen
 api/src/user_service_gen
 database_gen
 users_database_gen
+gtfs_parquet_output
 
 # Ignore openapitools binaries
 scripts/bin
