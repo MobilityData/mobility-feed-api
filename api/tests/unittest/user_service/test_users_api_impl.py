@@ -233,7 +233,6 @@ class TestSubscriptions(unittest.TestCase):
             notification_type_id="feed.published",
             active=True,
             created_at=FIXED_NOW,
-            last_notified_at=None,
         )
         defaults.update(kwargs)
         return Orm(**defaults)
@@ -336,18 +335,8 @@ class TestSubscriptions(unittest.TestCase):
 
         rem.assert_called_once_with("user@example.com", 42)
         self.assertFalse(result.active)
-        self.assertIsNotNone(sub.last_notified_at)
 
-    def test_update_non_announcement_stamps_last_notified_at(self):
-        sub = self._make_sub(notification_type_id="feed.published", active=False, last_notified_at=None)
-        self.mock_session.get.return_value = sub
-
-        result = self.api.update_user_subscription(
-            "sub-1", UpdateNotificationSubscriptionRequest(active=True), db_session=self.mock_session
-        )
-
-        self.assertTrue(result.active)
-        self.assertIsNotNone(sub.last_notified_at)
+    def test_update_not_owned_404(self):
         other = self._make_sub(user_id="someone-else")
         self.mock_session.get.return_value = other
         with self.assertRaises(HTTPException) as ctx:
@@ -371,7 +360,6 @@ class TestSubscriptions(unittest.TestCase):
         rem.assert_called_once_with("user@example.com", 42)
         self.mock_session.delete.assert_not_called()
         self.assertFalse(sub.active)
-        self.assertIsNotNone(sub.last_notified_at)
         import urllib3
 
         sub = self._make_sub(notification_type_id="api.announcements")

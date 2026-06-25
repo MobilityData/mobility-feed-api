@@ -25,4 +25,6 @@
     <!-- Cascade-delete notification_log rows when their notification_subscription
          is deleted (fixes delete subscription endpoint). -->
     <include file="changes_user/feat_notification_log_cascade.sql" relativeToChangelogFile="true"/>
+    <!-- Drop the unused notification_subscription.last_notified_at column. -->
+    <include file="changes_user/feat_remove_last_notified_at.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -16,8 +16,6 @@
 
 from fastapi import HTTPException
 
-from datetime import datetime, timezone
-
 from shared.database.users_database import with_users_db_session
 from shared.db_models.notification_subscription_impl import NotificationSubscriptionImpl
 from shared.users_database_gen.sqlacodegen_models import (
@@ -65,7 +63,6 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
             if email is not None:
                 sync_announcements(email, subscribe=False)
             sub.active = False
-            sub.last_notified_at = datetime.now(timezone.utc)
         else:
             db_session.delete(sub)
         db_session.flush()

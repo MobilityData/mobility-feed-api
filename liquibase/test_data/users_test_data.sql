@@ -20,12 +20,12 @@ INSERT INTO app_user (id, email, full_name, legacy_org_name, registration_comple
 ON CONFLICT (id) DO NOTHING;
 
 -- Subscriptions --------------------------------------------------------------
-INSERT INTO notification_subscription (id, user_id, notification_type_id, filter_params, last_notified_at, active) VALUES
-    ('sub_0000000000000000000000000001', 'test_user_alice_000000000001', 'api.announcements', NULL,                                       now() - interval '5 days', true),
-    ('sub_0000000000000000000000000002', 'test_user_alice_000000000001', 'feed.updated',      '{"feed_ids": ["mdb-1", "mdb-42"]}'::jsonb, now() - interval '1 day',  true),
-    ('sub_0000000000000000000000000003', 'test_user_bob_00000000000002', 'feed.published',    '{"country": "CA"}'::jsonb,                 NULL,                      true),
-    ('sub_0000000000000000000000000004', 'test_user_bob_00000000000002', 'validation.failed', '{"feed_ids": ["mdb-7"]}'::jsonb,           now() - interval '3 days', false),
-    ('sub_0000000000000000000000000005', 'test_user_dan_00000000000004', 'feed.deprecated',   NULL,                                       NULL,                      true)
+INSERT INTO notification_subscription (id, user_id, notification_type_id, filter_params, active) VALUES
+    ('sub_0000000000000000000000000001', 'test_user_alice_000000000001', 'api.announcements', NULL,                                       true),
+    ('sub_0000000000000000000000000002', 'test_user_alice_000000000001', 'feed.updated',      '{"feed_ids": ["mdb-1", "mdb-42"]}'::jsonb, true),
+    ('sub_0000000000000000000000000003', 'test_user_bob_00000000000002', 'feed.published',    '{"country": "CA"}'::jsonb,                 true),
+    ('sub_0000000000000000000000000004', 'test_user_bob_00000000000002', 'validation.failed', '{"feed_ids": ["mdb-7"]}'::jsonb,           false),
+    ('sub_0000000000000000000000000005', 'test_user_dan_00000000000004', 'feed.deprecated',   NULL,                                       true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Notification log ----------------------------------------------------------

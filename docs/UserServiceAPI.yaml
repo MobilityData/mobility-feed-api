@@ -386,11 +386,6 @@ components:
           type: boolean
           description: Whether the subscription is currently active.
           default: true
-        last_notified_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: Timestamp of the last notification sent for this subscription.
         created_at:
           type: string
           format: date-time

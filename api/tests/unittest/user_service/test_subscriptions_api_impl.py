@@ -21,7 +21,6 @@ def _make_sub(**kwargs):
         notification_type_id="feed.published",
         active=True,
         created_at=FIXED_NOW,
-        last_notified_at=None,
     )
     defaults.update(kwargs)
     return NotificationSubscriptionOrm(**defaults)
@@ -40,7 +39,6 @@ class TestPublicGetSubscription(unittest.TestCase):
         self.mock_session.get.return_value = _make_sub(
             notification_type_id="api.announcements",
             active=False,
-            last_notified_at=FIXED_NOW,
         )
 
         result = self.api.get_subscription("sub-1", db_session=self.mock_session)
@@ -50,7 +48,6 @@ class TestPublicGetSubscription(unittest.TestCase):
         self.assertEqual(result.user_id, "uid-123")
         self.assertEqual(result.notification_id, "api.announcements")
         self.assertFalse(result.active)
-        self.assertEqual(result.last_notified_at, FIXED_NOW)
         self.assertEqual(result.created_at, FIXED_NOW)
 
     def test_get_does_not_touch_brevo(self):
@@ -101,7 +98,6 @@ class TestPublicDeleteSubscription(unittest.TestCase):
         rem.assert_called_once_with("user@example.com", 42)
         self.mock_session.delete.assert_not_called()
         self.assertFalse(sub.active)
-        self.assertIsNotNone(sub.last_notified_at)
         sub = _make_sub(notification_type_id="api.announcements")
         self.mock_session.get.side_effect = lambda model, key: (sub if model is NotificationSubscriptionOrm else None)
 
