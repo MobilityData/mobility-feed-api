@@ -6,7 +6,7 @@ SELECT
     f.stable_id,
     'feed_download',
     'http_headers',
-    '{"Accept": "*/*", "Referer": "https://opendata.samtrafiken.se/gtfs/vastexp/vastexp.zip", "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36", "Accept-Encoding": "gzip"}'::jsonb,
+    '{"Accept": "*/*", "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36", "Accept-Encoding": "gzip"}'::jsonb,
     now()
 FROM feed f
 WHERE f.stable_id IN (
