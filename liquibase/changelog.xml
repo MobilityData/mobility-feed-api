@@ -117,6 +117,8 @@
     <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
     <!-- Rename gtfs_dataset_changelog (previous, current) dataset columns to (base, new) (issue #1639). -->
     <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feeds mdb-3237 to mdb-3293 and mdb-2939 -->
+    <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
