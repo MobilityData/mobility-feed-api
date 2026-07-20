@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Query, Security
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select
@@ -33,6 +35,8 @@ class LocationsSearchResponse(BaseModel):
 def _normalize_search_query(search_query: str | None) -> str | None:
     if search_query is None or len(search_query.strip()) == 0:
         return None
+    if _to_prefix_tsquery(search_query) is None:
+        return None
     return search_query.strip()
 
 
@@ -55,8 +59,17 @@ def _build_locations_conditions(search_query: str | None, country_code: str | No
     return conditions, normalized_query
 
 
+def _to_prefix_tsquery(search_query: str) -> str | None:
+    # Full-text search matches whole lexemes, so turn each word into a prefix
+    # term ("mon" -> "mon:*") to support typeahead-style matching.
+    tokens = re.findall(r"\w+", search_query, flags=re.UNICODE)
+    if not tokens:
+        return None
+    return " & ".join(f"{token}:*" for token in tokens)
+
+
 def _ts_query(search_query: str):
-    return func.plainto_tsquery("english", func.unaccent(search_query))
+    return func.to_tsquery("english", func.unaccent(_to_prefix_tsquery(search_query)))
 
 
 def _location_from_row(row) -> LocationSearchResult:

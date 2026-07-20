@@ -62,7 +62,23 @@ LEFT JOIN Geopolygon country ON country.osm_id = COALESCE(GeopolygonHierarchy.co
 LEFT JOIN Geopolygon subdivision ON subdivision.osm_id = COALESCE(
     GeopolygonHierarchy.subdivision_osm_id,
     location_paths.subdivision_osm_id
-);
+)
+WHERE
+    -- Countries are always kept.
+    gp.iso_3166_1_code IS NOT NULL
+    -- Subdivisions must resolve to a country.
+    OR (
+        gp.iso_3166_1_code IS NULL
+        AND gp.iso_3166_2_code IS NOT NULL
+        AND country.osm_id IS NOT NULL
+    )
+    -- Municipalities must resolve to both a country and a subdivision.
+    OR (
+        gp.iso_3166_1_code IS NULL
+        AND gp.iso_3166_2_code IS NULL
+        AND country.osm_id IS NOT NULL
+        AND subdivision.osm_id IS NOT NULL
+    );
 
 CREATE UNIQUE INDEX idx_unique_geopolygon_location_search_osm_id ON GeopolygonLocationSearch(osm_id);
 CREATE INDEX geopolygon_location_search_document_idx ON GeopolygonLocationSearch USING GIN(document);
