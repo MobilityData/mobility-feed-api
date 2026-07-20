@@ -25,7 +25,7 @@ from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
 from feeds_gen.apis.search_api import router as SearchApiRouter
 from feeds_gen.apis.licenses_api import router as LicensesApiRouter
-from feeds.impl.locations_api_impl import router as LocationsApiRouter
+from feeds_gen.apis.locations_api import router as LocationsApiRouter
 from user_service_gen.apis.users_api import router as UsersApiRouter
 from user_service_gen.apis.notifications_api import router as NotificationsApiRouter
 from user_service_gen.apis.subscriptions_api import router as SubscriptionsApiRouter

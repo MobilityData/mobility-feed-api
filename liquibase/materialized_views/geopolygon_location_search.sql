@@ -27,7 +27,8 @@ location_paths AS (
         (array_agg(ancestor.osm_id ORDER BY hierarchy.depth DESC)
             FILTER (WHERE ancestor.iso_3166_1_code IS NOT NULL))[1] AS country_osm_id,
         (array_agg(ancestor.osm_id ORDER BY hierarchy.depth DESC)
-            FILTER (WHERE ancestor.iso_3166_2_code IS NOT NULL))[1] AS subdivision_osm_id
+            FILTER (WHERE ancestor.iso_3166_2_code IS NOT NULL
+                AND ancestor.iso_3166_1_code IS NULL))[1] AS subdivision_osm_id
     FROM hierarchy
     JOIN Geopolygon ancestor ON ancestor.osm_id = hierarchy.ancestor_osm_id
     GROUP BY hierarchy.osm_id

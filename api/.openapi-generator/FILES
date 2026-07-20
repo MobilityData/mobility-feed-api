@@ -37,7 +37,6 @@ src/feeds_gen/models/license_base.py
 src/feeds_gen/models/license_rule.py
 src/feeds_gen/models/license_with_rules.py
 src/feeds_gen/models/location.py
-src/feeds_gen/models/location_hierarchy_item.py
 src/feeds_gen/models/location_search_response.py
 src/feeds_gen/models/location_search_result.py
 src/feeds_gen/models/matching_license.py
