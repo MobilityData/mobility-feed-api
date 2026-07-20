@@ -37,6 +37,8 @@ tags:
     description: "Beta endpoints of the API."
   - name: "licenses"
     description: "Licenses of the Mobility Database"
+  - name: "locations"
+    description: "Locations in the Mobility Database"
 
 paths:
   /v1/feeds:
@@ -389,6 +391,47 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/SearchFeedItemResult"
+
+  /v1/locations:
+    get:
+      description: Search locations in the Mobility Database.
+      operationId: getLocations
+      tags:
+        - "locations"
+      parameters:
+        - name: limit
+          in: query
+          description: The number of locations to return.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 3500
+            default: 100
+        - $ref: "#/components/parameters/offset"
+        - name: search_query
+          in: query
+          description: Location search query.
+          schema:
+            type: string
+        - $ref: "#/components/parameters/country_code"
+        - name: location_type
+          in: query
+          description: Filter by location type.
+          schema:
+            type: string
+            enum:
+              - country
+              - subdivision
+              - municipality
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful search of locations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationSearchResponse"
 
   /v1/licenses:
     get:
@@ -1232,6 +1275,74 @@ components:
           description: Primary municipality in english in which the transit system is located.
           type: string
           example: Los Angeles
+
+    LocationSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: The total number of matching locations regardless of limit and offset.
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationSearchResult"
+
+    LocationSearchResult:
+      type: object
+      properties:
+        location_id:
+          type: integer
+          description: Stable location identifier.
+          example: 175905
+        parent_location_id:
+          type: integer
+          nullable: true
+          description: Stable identifier of the nearest containing location.
+          example: 161950
+        name:
+          type: string
+          nullable: true
+          example: Boston
+        alt_name:
+          type: string
+          nullable: true
+          example: City of Boston
+        location_type:
+          type: string
+          enum:
+            - country
+            - subdivision
+            - municipality
+          example: municipality
+        country_name:
+          type: string
+          nullable: true
+          example: United States
+        country_code:
+          type: string
+          nullable: true
+          example: US
+        subdivision_name:
+          type: string
+          nullable: true
+          example: Massachusetts
+        subdivision_code:
+          type: string
+          nullable: true
+          example: US-MA
+        path_names:
+          type: array
+          items:
+            type: string
+          example:
+            - United States
+            - Massachusetts
+            - Suffolk County
+            - Boston
+        display_name:
+          type: string
+          nullable: true
+          example: United States, Massachusetts, Suffolk County, Boston
 
     #    Have to put the enum inline because of a bug in openapi-generator
     #    FeedStatus:

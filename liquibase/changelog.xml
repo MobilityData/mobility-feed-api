@@ -119,7 +119,9 @@
     <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feeds mdb-3237 to mdb-3293 and mdb-2939 -->
     <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
-    <!-- Keep this at the very end to ensure all table and schema changes
-         are applied before materialized views are (re)created. -->
+    <!-- Add hierarchy table for location search materialized view. -->
+    <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
+    <!-- Keep this after all source table and schema changes so materialized views
+    are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

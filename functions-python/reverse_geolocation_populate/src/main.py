@@ -6,11 +6,16 @@ import functions_framework
 import pycountry
 from geoalchemy2 import WKTElement
 from google.cloud import bigquery
+from sqlalchemy import func, literal, select, true
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import aliased
+from sqlalchemy.schema import DDL
 
 from shared.database_gen.sqlacodegen_models import Geopolygon
 from shared.database.database import with_db_session
 from shared.helpers.logger import init_logger
 from enum import Enum
+from shared.database_gen.sqlacodegen_models import Geopolygonhierarchy
 
 # Initialize logging
 init_logger()
@@ -209,6 +214,187 @@ def save_to_database(data, db_session=None):
     db_session.commit()
 
 
+def get_saved_geopolygon_rows(data):
+    """Get rows that will be saved to the geopolygon table."""
+    rows_by_osm_id = {}
+    for row in data:
+        if row.get("osm_id") is not None and row.get("name") and row.get("geometry"):
+            rows_by_osm_id[row["osm_id"]] = row
+    return list(rows_by_osm_id.values())
+
+
+def _upsert_hierarchy_rows(db_session, rows):
+    """Upsert precomputed hierarchy edges keyed by osm_id."""
+    hierarchy_table = Geopolygonhierarchy.__table__
+    statement = insert(hierarchy_table).values(rows)
+    db_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[hierarchy_table.c.osm_id],
+            set_={
+                "parent_osm_id": statement.excluded.parent_osm_id,
+                "country_osm_id": statement.excluded.country_osm_id,
+                "subdivision_osm_id": statement.excluded.subdivision_osm_id,
+                "updated_at": func.current_timestamp(),
+            },
+        )
+    )
+
+
+def _upsert_locality_hierarchy(
+    db_session, locality_osm_ids, subdivision_osm_ids, country_osm_id
+):
+    """Match localities to their parents within the current run and upsert the edges.
+
+    ``parent_osm_id`` is the deepest lower-admin-level polygon from this run that
+    covers the locality (so nested localities keep their real parent), while
+    ``subdivision_osm_id`` records the covering subdivision for direct lookups. Each
+    locality's representative point is computed once, and containment is tested with
+    ``ST_Covers`` against the raw (spatially indexed) candidate geometry. Point-in-
+    polygon is robust to invalid polygons, so the large candidate geometries are
+    never repaired with ``ST_MakeValid`` here.
+    """
+    hierarchy_table = Geopolygonhierarchy.__table__
+    child = aliased(Geopolygon)
+    parent_candidate = aliased(Geopolygon)
+    subdivision_candidate = aliased(Geopolygon)
+    parent_candidate_ids = subdivision_osm_ids + locality_osm_ids
+
+    locality_points = (
+        select(
+            child.osm_id.label("osm_id"),
+            child.admin_level.label("admin_level"),
+            func.ST_PointOnSurface(func.ST_MakeValid(child.geometry)).label("point"),
+        )
+        .where(child.osm_id.in_(locality_osm_ids))
+        .where(child.geometry.isnot(None))
+        .cte("locality_points")
+    )
+
+    parent = (
+        select(parent_candidate.osm_id.label("parent_osm_id"))
+        .where(parent_candidate.osm_id.in_(parent_candidate_ids))
+        .where(parent_candidate.admin_level < locality_points.c.admin_level)
+        .where(parent_candidate.geometry.op("&&")(locality_points.c.point))
+        .where(func.ST_Covers(parent_candidate.geometry, locality_points.c.point))
+        .order_by(
+            parent_candidate.admin_level.desc(),
+            func.ST_Area(parent_candidate.geometry).asc(),
+        )
+        .limit(1)
+        .lateral("parent_match")
+    )
+
+    subdivision = (
+        select(subdivision_candidate.osm_id.label("subdivision_osm_id"))
+        .where(subdivision_candidate.osm_id.in_(subdivision_osm_ids))
+        .where(subdivision_candidate.geometry.op("&&")(locality_points.c.point))
+        .where(func.ST_Covers(subdivision_candidate.geometry, locality_points.c.point))
+        .order_by(func.ST_Area(subdivision_candidate.geometry).asc())
+        .limit(1)
+        .lateral("subdivision_match")
+    )
+
+    matched = select(
+        locality_points.c.osm_id.label("osm_id"),
+        func.coalesce(parent.c.parent_osm_id, literal(country_osm_id)).label(
+            "parent_osm_id"
+        ),
+        literal(country_osm_id).label("country_osm_id"),
+        subdivision.c.subdivision_osm_id.label("subdivision_osm_id"),
+        func.current_timestamp().label("updated_at"),
+    ).select_from(
+        locality_points.outerjoin(parent, true()).outerjoin(subdivision, true())
+    )
+
+    statement = insert(hierarchy_table).from_select(
+        [
+            "osm_id",
+            "parent_osm_id",
+            "country_osm_id",
+            "subdivision_osm_id",
+            "updated_at",
+        ],
+        matched,
+    )
+    db_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[hierarchy_table.c.osm_id],
+            set_={
+                "parent_osm_id": statement.excluded.parent_osm_id,
+                "country_osm_id": statement.excluded.country_osm_id,
+                "subdivision_osm_id": statement.excluded.subdivision_osm_id,
+                "updated_at": statement.excluded.updated_at,
+            },
+        )
+    )
+
+
+@with_db_session
+def update_geopolygon_hierarchy(saved_rows, db_session=None):
+    """Update hierarchy edges for the geopolygons saved in the current populate run.
+
+    Country and subdivision edges are derived directly from the ISO codes collected
+    during the run, so they require no spatial computation. Localities are the only
+    rows matched by geometry, and only against this run's subdivisions.
+    """
+    if not saved_rows:
+        logging.info("Skipping hierarchy update because no geopolygons were saved.")
+        return
+
+    logging.info("Updating hierarchy for %s geopolygons.", len(saved_rows))
+    country_rows = [row for row in saved_rows if row.get("iso3166_1")]
+    subdivision_rows = [
+        row for row in saved_rows if not row.get("iso3166_1") and row.get("iso3166_2")
+    ]
+    locality_osm_ids = [
+        row["osm_id"]
+        for row in saved_rows
+        if not row.get("iso3166_1") and not row.get("iso3166_2")
+    ]
+    country_osm_id = country_rows[0]["osm_id"] if country_rows else None
+    subdivision_osm_ids = [row["osm_id"] for row in subdivision_rows]
+
+    direct_hierarchy_rows = [
+        {
+            "osm_id": row["osm_id"],
+            "parent_osm_id": None,
+            "country_osm_id": None,
+            "subdivision_osm_id": None,
+        }
+        for row in country_rows
+    ]
+    direct_hierarchy_rows.extend(
+        {
+            "osm_id": row["osm_id"],
+            "parent_osm_id": country_osm_id,
+            "country_osm_id": country_osm_id,
+            "subdivision_osm_id": None,
+        }
+        for row in subdivision_rows
+    )
+    if direct_hierarchy_rows:
+        _upsert_hierarchy_rows(db_session, direct_hierarchy_rows)
+
+    if locality_osm_ids:
+        _upsert_locality_hierarchy(
+            db_session, locality_osm_ids, subdivision_osm_ids, country_osm_id
+        )
+
+    db_session.commit()
+    logging.info("Hierarchy update completed for %s geopolygons.", len(saved_rows))
+
+
+@with_db_session
+def refresh_location_search_view(db_session=None):
+    """Refresh the location search read model after geopolygon updates."""
+    logging.info("Refreshing GeopolygonLocationSearch materialized view.")
+    db_session.execute(
+        DDL("REFRESH MATERIALIZED VIEW CONCURRENTLY GeopolygonLocationSearch")
+    )
+    db_session.commit()
+    logging.info("GeopolygonLocationSearch materialized view refreshed.")
+
+
 @functions_framework.http
 def reverse_geolocation_populate(request):
     """
@@ -269,7 +455,10 @@ def reverse_geolocation_populate(request):
             data.extend(
                 fetch_data(level, country_code, LocationType.LOCALITY, country_name)
             )
+        saved_rows = get_saved_geopolygon_rows(data)
         save_to_database(data)
+        update_geopolygon_hierarchy(saved_rows)
+        refresh_location_search_view()
         result = f"Database initialized for {country_code}."
         logging.info(result)
         return result, 200

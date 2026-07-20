@@ -233,11 +233,21 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result, [6, 8])
 
+    def test_update_geopolygon_hierarchy_skips_empty_rows(self):
+        from main import update_geopolygon_hierarchy
+
+        db_session = MagicMock()
+        update_geopolygon_hierarchy([], db_session=db_session)
+        db_session.execute.assert_not_called()
+        db_session.commit.assert_not_called()
+
     @patch("main.bigquery")
     @patch("main.parse_request_parameters")
     @patch("main.fetch_country_admin_levels")
     @patch("main.fetch_data")
     @patch("main.save_to_database")
+    @patch("main.update_geopolygon_hierarchy")
+    @patch("main.refresh_location_search_view")
     @patch("main.fetch_subdivision_admin_levels")
     @patch.dict(
         "os.environ",
@@ -249,7 +259,9 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
     def test_reverse_geolocation_populate(
         self,
         mock_fetch_subdivision_admin_lvl,
-        __,
+        mock_refresh_location_search_view,
+        mock_update_geopolygon_hierarchy,
+        mock_save_to_database,
         mock_fetch_data,
         mock_fetch_country_admin_lvl,
         mock_parse_req,
@@ -276,3 +288,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         ]
         _, response_code = reverse_geolocation_populate(MagicMock())
         self.assertEqual(200, response_code)
+        mock_save_to_database.assert_called_once()
+        mock_update_geopolygon_hierarchy.assert_called_once_with(
+            mock_fetch_data.return_value
+        )
+        mock_refresh_location_search_view.assert_called_once()
