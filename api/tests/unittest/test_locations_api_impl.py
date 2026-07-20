@@ -1,15 +1,16 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from feeds.impl.locations_api_impl import (
     LocationsApiImpl,
     _build_locations_conditions,
-    _location_from_row,
     _normalize_location_code,
     _normalize_search_query,
     _to_prefix_tsquery,
 )
 from feeds_gen.models.location_search_response import LocationSearchResponse
 from feeds_gen.models.location_search_result import LocationSearchResult
+from shared.db_models.location_search_result_impl import LocationSearchResultImpl
 
 
 def test_to_prefix_tsquery_single_word():
@@ -65,20 +66,20 @@ def test_build_conditions_ignores_blank_search_query():
 
 
 def test_location_from_row_maps_fields():
-    row = {
-        "osm_id": 1634158,
-        "parent_osm_id": 8508277,
-        "name": "Montreal",
-        "alt_name": None,
-        "location_type": "municipality",
-        "country_name": "Canada",
-        "country_code": "CA",
-        "subdivision_name": "Quebec",
-        "subdivision_code": "CA-QC",
-        "path_names": ["Canada", "Quebec", "Montreal"],
-        "display_name": "Canada, Quebec, Montreal",
-    }
-    result = _location_from_row(row)
+    row = SimpleNamespace(
+        osm_id=1634158,
+        parent_osm_id=8508277,
+        name="Montreal",
+        alt_name=None,
+        location_type="municipality",
+        country_name="Canada",
+        country_code="CA",
+        subdivision_name="Quebec",
+        subdivision_code="CA-QC",
+        path_names=["Canada", "Quebec", "Montreal"],
+        display_name="Canada, Quebec, Montreal",
+    )
+    result = LocationSearchResultImpl.from_orm(row)
     assert isinstance(result, LocationSearchResult)
     assert result.location_id == 1634158
     assert result.parent_location_id == 8508277
@@ -88,21 +89,25 @@ def test_location_from_row_maps_fields():
 
 
 def test_location_from_row_defaults_missing_path_names_to_empty_list():
-    row = {
-        "osm_id": 1,
-        "parent_osm_id": None,
-        "name": "Canada",
-        "alt_name": None,
-        "location_type": "country",
-        "country_name": "Canada",
-        "country_code": "CA",
-        "subdivision_name": None,
-        "subdivision_code": None,
-        "path_names": None,
-        "display_name": "Canada",
-    }
-    result = _location_from_row(row)
+    row = SimpleNamespace(
+        osm_id=1,
+        parent_osm_id=None,
+        name="Canada",
+        alt_name=None,
+        location_type="country",
+        country_name="Canada",
+        country_code="CA",
+        subdivision_name=None,
+        subdivision_code=None,
+        path_names=None,
+        display_name="Canada",
+    )
+    result = LocationSearchResultImpl.from_orm(row)
     assert result.path_names == []
+
+
+def test_location_from_row_returns_none_for_none_row():
+    assert LocationSearchResultImpl.from_orm(None) is None
 
 
 def _mock_session(total, rows):
@@ -111,7 +116,7 @@ def _mock_session(total, rows):
     count_result.scalar_one.return_value = total
 
     rows_result = MagicMock()
-    rows_result.mappings.return_value.all.return_value = rows
+    rows_result.all.return_value = rows
 
     session = MagicMock()
     session.execute.side_effect = [count_result, rows_result]
@@ -120,19 +125,19 @@ def _mock_session(total, rows):
 
 def test_get_locations_returns_total_and_results():
     rows = [
-        {
-            "osm_id": 8508277,
-            "parent_osm_id": 61549,
-            "name": "Urban agglomeration of Montreal",
-            "alt_name": None,
-            "location_type": "municipality",
-            "country_name": "Canada",
-            "country_code": "CA",
-            "subdivision_name": "Quebec",
-            "subdivision_code": "CA-QC",
-            "path_names": ["Canada", "Quebec", "Urban agglomeration of Montreal"],
-            "display_name": "Canada, Quebec, Urban agglomeration of Montreal",
-        }
+        SimpleNamespace(
+            osm_id=8508277,
+            parent_osm_id=61549,
+            name="Urban agglomeration of Montreal",
+            alt_name=None,
+            location_type="municipality",
+            country_name="Canada",
+            country_code="CA",
+            subdivision_name="Quebec",
+            subdivision_code="CA-QC",
+            path_names=["Canada", "Quebec", "Urban agglomeration of Montreal"],
+            display_name="Canada, Quebec, Urban agglomeration of Montreal",
+        )
     ]
     session = _mock_session(total=17, rows=rows)
 

@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from feeds_gen.apis.locations_api_base import BaseLocationsApi
 from feeds_gen.models.location_search_response import LocationSearchResponse
-from feeds_gen.models.location_search_result import LocationSearchResult
 from shared.database.database import with_db_session
 from shared.database.sql_functions.unaccent import unaccent
 from shared.database_gen.sqlacodegen_models import t_geopolygonlocationsearch as location_search
+from shared.db_models.location_search_result_impl import LocationSearchResultImpl
 
 
 def _to_prefix_tsquery(search_query: str) -> str | None:
@@ -57,22 +57,6 @@ def _build_locations_conditions(
     if location_type is not None:
         conditions.append(location_search.c.location_type == location_type)
     return conditions, normalized_query
-
-
-def _location_from_row(row) -> LocationSearchResult:
-    return LocationSearchResult(
-        location_id=row["osm_id"],
-        parent_location_id=row["parent_osm_id"],
-        name=row["name"],
-        alt_name=row["alt_name"],
-        location_type=row["location_type"],
-        country_name=row["country_name"],
-        country_code=row["country_code"],
-        subdivision_name=row["subdivision_name"],
-        subdivision_code=row["subdivision_code"],
-        path_names=row["path_names"] or [],
-        display_name=row["display_name"],
-    )
 
 
 class LocationsApiImpl(BaseLocationsApi):
@@ -127,8 +111,8 @@ class LocationsApiImpl(BaseLocationsApi):
             )
         locations_query = locations_query.limit(limit).offset(offset)
 
-        rows = db_session.execute(locations_query).mappings().all()
+        rows = db_session.execute(locations_query).all()
         return LocationSearchResponse(
             total=total,
-            results=[_location_from_row(row) for row in rows],
+            results=[LocationSearchResultImpl.from_orm(row) for row in rows],
         )
