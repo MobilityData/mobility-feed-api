@@ -58,6 +58,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             feed_contact_email=obj.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=obj.producer_url,
+                is_producer_url_unstable=obj.is_producer_url_unstable,
                 authentication_type=(
                     None
                     if obj.authentication_type is None
@@ -107,6 +108,12 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
                 or update_request.source_info.producer_url is None
             )
             else update_request.source_info.producer_url
+        )
+        # Nullable three-state boolean: preserve False and None (unknown), so guard only on source_info.
+        entity.is_producer_url_unstable = (
+            None
+            if update_request.source_info is None
+            else update_request.source_info.is_producer_url_unstable
         )
         entity.authentication_type = (
             None
