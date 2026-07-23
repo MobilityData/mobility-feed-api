@@ -59,10 +59,18 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         "dry_run": bool,             # [optional] If True, count only — do not trigger workflows. Default: True
         "filter_after_in_days": int, # [optional] Restrict to datasets downloaded within the last N days.
                                      #   If omitted, all datasets are considered regardless of age.
+        "filter_downloaded_after": str,  # [optional] ISO date (e.g. "2026-03-01"). Restrict to datasets
+                                     #   downloaded at or after this date (inclusive).
+        "filter_downloaded_before": str, # [optional] ISO date (e.g. "2026-06-01"). Restrict to datasets
+                                     #   downloaded strictly before this date (exclusive).
         "filter_statuses": list[str],# [optional] Filter feeds by status
         "filter_op_statuses": list[str],# [optional] Filter feeds by operational status.
                                      #   Default: ["published"]
                                      #   Accepted values: "published", "unpublished", "wip"
+        "filter_validator_version_prefix": str,  # [optional] Only include datasets that do NOT already
+                                     #   have a validation report whose validator_version starts with this
+                                     #   prefix (e.g. "8." → datasets missing any 8.* report). When omitted,
+                                     #   datasets are selected by comparing against the exact target version.
         "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
         "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs).
             Default: False
@@ -76,8 +84,11 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
     (
         dry_run,
         filter_after_in_days,
+        filter_downloaded_after,
+        filter_downloaded_before,
         filter_statuses,
         filter_op_statuses,
+        filter_validator_version_prefix,
         prod_env,
         validator_endpoint,
         bypass_db_update,
@@ -91,8 +102,11 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         bypass_db_update=bypass_db_update,
         dry_run=dry_run,
         filter_after_in_days=filter_after_in_days,
+        filter_downloaded_after=filter_downloaded_after,
+        filter_downloaded_before=filter_downloaded_before,
         filter_statuses=filter_statuses,
         filter_op_statuses=filter_op_statuses,
+        filter_validator_version_prefix=filter_validator_version_prefix,
         prod_env=prod_env,
         force_update=force_update,
         limit=limit,
@@ -106,8 +120,11 @@ def rebuild_missing_validation_reports(
     bypass_db_update: bool = False,
     dry_run: bool = True,
     filter_after_in_days: Optional[int] = None,
+    filter_downloaded_after: Optional[str] = None,
+    filter_downloaded_before: Optional[str] = None,
     filter_statuses: List[str] | None = None,
     filter_op_statuses: List[str] | None = None,
+    filter_validator_version_prefix: Optional[str] = None,
     prod_env: bool = False,
     force_update: bool = False,
     limit: Optional[int] = None,
@@ -124,9 +141,17 @@ def rebuild_missing_validation_reports(
         dry_run: If True, count only — do not trigger workflows. Default: True
         filter_after_in_days: Restrict to datasets downloaded within the last N days.
             If None (default), all datasets are considered regardless of age.
+        filter_downloaded_after: ISO date (e.g. "2026-03-01"). Restrict to datasets
+            downloaded at or after this date (inclusive). If None (default), no lower bound.
+        filter_downloaded_before: ISO date (e.g. "2026-06-01"). Restrict to datasets
+            downloaded strictly before this date (exclusive). If None (default), no upper bound.
         filter_statuses: Filter feeds by status. Default: None (all)
         filter_op_statuses: Filter feeds by operational status.
             Default: ["published"]. Accepted: "published", "unpublished", "wip".
+        filter_validator_version_prefix: If set (e.g. "8."), only include datasets that do
+            NOT already have a validation report whose validator_version starts with this
+            prefix. When None (default), datasets are selected by comparing against the exact
+            target validator version.
         prod_env: True if targeting the production environment. Default: False
         force_update: Re-trigger even if a report already exists. Default: False
         limit: Max datasets to trigger per call (for end-to-end testing). Default: unlimited
@@ -146,10 +171,13 @@ def rebuild_missing_validation_reports(
         validator_version=validator_version,
         force_update=force_update,
         filter_after_in_days=filter_after_in_days,
+        filter_downloaded_after=filter_downloaded_after,
+        filter_downloaded_before=filter_downloaded_before,
         filter_statuses=filter_statuses,
         filter_op_statuses=(
             filter_op_statuses if filter_op_statuses is not None else ["published"]
         ),
+        filter_validator_version_prefix=filter_validator_version_prefix,
     )
     total_candidates = len(datasets)
     logging.info("Found %s candidate datasets", total_candidates)
@@ -227,7 +255,10 @@ def rebuild_missing_validation_reports(
             "validator_endpoint": validator_endpoint,
             "bypass_db_update": bypass_db_update,
             "filter_after_in_days": filter_after_in_days,
+            "filter_downloaded_after": filter_downloaded_after,
+            "filter_downloaded_before": filter_downloaded_before,
             "filter_statuses": filter_statuses,
+            "filter_validator_version_prefix": filter_validator_version_prefix,
             "prod_env": prod_env,
             "force_update": force_update,
             "limit": limit,
@@ -253,8 +284,11 @@ def _get_datasets_for_validation(
     validator_version: str,
     force_update: bool,
     filter_after_in_days: Optional[int],
+    filter_downloaded_after: Optional[str],
+    filter_downloaded_before: Optional[str],
     filter_statuses: Optional[List[str]],
     filter_op_statuses: Optional[List[str]],
+    filter_validator_version_prefix: Optional[str],
 ) -> List[tuple]:
     """
     Query datasets that need a (re)validation.
@@ -264,28 +298,59 @@ def _get_datasets_for_validation(
       - Have a report from a different (older) validator version, OR
       - force_update is True
 
+    When filter_validator_version_prefix is set (e.g. "8."), the exact-version
+    comparison is replaced by "the dataset does not already have any validation
+    report whose validator_version starts with the prefix". This is what lets us
+    re-validate datasets missing an 8.* report regardless of the exact patch
+    version returned by the (prod) validator endpoint.
+
     filter_after_in_days restricts to datasets downloaded within the last N days.
-    When None, all datasets are included regardless of age.
+    filter_downloaded_after / filter_downloaded_before restrict to a fixed date
+    window (inclusive lower bound, exclusive upper bound) on downloaded_at.
+    When all age filters are None, all datasets are included regardless of age.
     filter_op_statuses filters by Feed.operational_status (e.g. ["published"]).
     """
     query = (
         db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
         .select_from(Gtfsfeed)
         .join(Gtfsdataset, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
-        .outerjoin(Validationreport, Gtfsdataset.validation_reports)
-        .filter(
+    )
+
+    if filter_validator_version_prefix:
+        # Include datasets that do NOT already have a report matching the version
+        # prefix (using a correlated EXISTS over the dataset's reports).
+        has_matching_report = Gtfsdataset.validation_reports.any(
+            Validationreport.validator_version.like(
+                f"{filter_validator_version_prefix}%"
+            )
+        )
+        query = query.filter(or_(~has_matching_report, force_update))
+    else:
+        query = query.outerjoin(
+            Validationreport, Gtfsdataset.validation_reports
+        ).filter(
             or_(
                 Validationreport.id.is_(None),
                 Validationreport.validator_version != validator_version,
                 force_update,
             )
         )
-        .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
-        .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id)
+
+    query = query.distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id).order_by(
+        Gtfsdataset.stable_id, Gtfsfeed.stable_id
     )
+
     if filter_after_in_days is not None:
         filter_after = datetime.today() - timedelta(days=filter_after_in_days)
         query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
+    if filter_downloaded_after is not None:
+        query = query.filter(
+            Gtfsdataset.downloaded_at >= datetime.fromisoformat(filter_downloaded_after)
+        )
+    if filter_downloaded_before is not None:
+        query = query.filter(
+            Gtfsdataset.downloaded_at < datetime.fromisoformat(filter_downloaded_before)
+        )
     if filter_statuses:
         query = query.filter(Gtfsfeed.status.in_(filter_statuses))
     if filter_op_statuses:
@@ -333,9 +398,10 @@ def get_parameters(payload):
     Args:
         payload (dict): Task payload dict.
     Returns:
-        Tuple of (dry_run, filter_after_in_days, filter_statuses, filter_op_statuses,
-                  prod_env, validator_endpoint, bypass_db_update, force_update, limit,
-                  reports_bucket_name)
+        Tuple of (dry_run, filter_after_in_days, filter_downloaded_after,
+                  filter_downloaded_before, filter_statuses, filter_op_statuses,
+                  filter_validator_version_prefix, prod_env, validator_endpoint,
+                  bypass_db_update, force_update, limit, reports_bucket_name)
     """
     prod_env = os.getenv("ENVIRONMENT", "").lower() == "prod"
     default_endpoint = get_gtfs_validator_url(prod_env)
@@ -351,9 +417,16 @@ def get_parameters(payload):
             else int(filter_after_in_days)
         )
 
+    filter_downloaded_after = payload.get("filter_downloaded_after", None)
+    filter_downloaded_before = payload.get("filter_downloaded_before", None)
+
     filter_statuses = payload.get("filter_statuses", None)
 
     filter_op_statuses = payload.get("filter_op_statuses", None)
+
+    filter_validator_version_prefix = payload.get(
+        "filter_validator_version_prefix", None
+    )
 
     validator_endpoint = payload.get("validator_endpoint", default_endpoint)
 
@@ -380,8 +453,11 @@ def get_parameters(payload):
     return (
         dry_run,
         filter_after_in_days,
+        filter_downloaded_after,
+        filter_downloaded_before,
         filter_statuses,
         filter_op_statuses,
+        filter_validator_version_prefix,
         prod_env,
         validator_endpoint,
         bypass_db_update,

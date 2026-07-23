@@ -63,6 +63,12 @@ sequenceDiagram
 Finds GTFS datasets that are missing a validation report **or** have a report from an
 older validator version, then triggers a GCP Workflow for each one.
 
+By default "older version" means "not the exact version returned by the validator
+endpoint". Set `filter_validator_version_prefix` (e.g. `"8."`) to instead target
+datasets that lack **any** report matching that major-version prefix — useful when you
+want to re-validate everything missing an `8.*` report regardless of the exact patch
+version the endpoint reports.
+
 The task is **resumable**: if it times out mid-loop, calling it again skips datasets
 that were already triggered (tracked in `task_execution_log`).
 
@@ -74,8 +80,11 @@ that were already triggered (tracked in `task_execution_log`).
     "validator_endpoint": "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app",
     "bypass_db_update": false,
     "filter_after_in_days": 30,
+    "filter_downloaded_after": "2026-03-01",
+    "filter_downloaded_before": "2026-06-01",
     "filter_statuses": ["active"],
     "filter_op_statuses": ["published"],
+    "filter_validator_version_prefix": "8.",
     "force_update": false,
     "limit": 10,
     "reports_bucket_name": "stg-gtfs-validator-results"
@@ -88,8 +97,11 @@ that were already triggered (tracked in `task_execution_log`).
 | `validator_endpoint` | string | env-derived | Validator service URL to use and fetch version from |
 | `bypass_db_update` | bool | `false` | When `true`, results are NOT written to DB/API (use for pre-release runs) |
 | `filter_after_in_days` | int | `null` | Restrict to datasets downloaded within the last N days. Omit to include all datasets |
+| `filter_downloaded_after` | string (ISO date) | `null` | Restrict to datasets downloaded **at or after** this date (inclusive), e.g. `"2026-03-01"`. Omit for no lower bound |
+| `filter_downloaded_before` | string (ISO date) | `null` | Restrict to datasets downloaded **strictly before** this date (exclusive), e.g. `"2026-06-01"`. Omit for no upper bound |
 | `filter_statuses` | list[str] | `null` | Filter feeds by status (e.g. `["active", "inactive"]`). Omit for all statuses |
 | `filter_op_statuses` | list[str] | `["published"]` | Filter feeds by operational status. Accepted values: `"published"`, `"unpublished"`, `"wip"` |
+| `filter_validator_version_prefix` | string | `null` | When set (e.g. `"8."`), only include datasets that do **not** already have a report whose `validator_version` starts with this prefix. Overrides the default exact-version comparison |
 | `force_update` | bool | `false` | Re-trigger even when a current report already exists |
 | `limit` | int | `null` | Cap the number of workflows triggered per call — useful for end-to-end testing |
 | `reports_bucket_name` | string | env-derived | Override the GCS bucket where validator results are stored. Use when running in prod but pointing to the staging validator (e.g. `"stg-gtfs-validator-results"`) |
@@ -270,6 +282,54 @@ curl -X POST "https://ingest-data-to-big-query-gtfs-563580583640.northamerica-no
   -H "Authorization: bearer $(gcloud auth print-identity-token)" \
   -H "Content-Type: application/json"
 ```
+
+---
+
+## Re-validate a date window missing a major version (prod)
+
+Use this when a validator fix means a range of historical datasets needs a fresh report
+from the **production** validator — e.g. re-running validator `8.x` on datasets published
+between March and May 2026 that never got an `8.*` report.
+
+Run this from the **prod-deployed** function so `ENVIRONMENT=prod` makes the prod validator
+URL and results bucket the defaults.
+
+### Step 1 — Dry run (estimate scope)
+
+```json
+{
+    "task": "rebuild_missing_validation_reports",
+    "payload": {
+        "dry_run": true,
+        "filter_downloaded_after": "2026-03-01",
+        "filter_downloaded_before": "2026-06-01",
+        "filter_validator_version_prefix": "8."
+    }
+}
+```
+
+Check `total_candidates` in the response. `filter_validator_version_prefix: "8."` excludes
+datasets that already have any `8.*` report, so re-running is idempotent.
+
+### Step 2 — Full run
+
+Flip `dry_run` to `false` (optionally add `"limit": 10` first for an end-to-end test):
+
+```json
+{
+    "task": "rebuild_missing_validation_reports",
+    "payload": {
+        "dry_run": false,
+        "filter_downloaded_after": "2026-03-01",
+        "filter_downloaded_before": "2026-06-01",
+        "filter_validator_version_prefix": "8."
+    }
+}
+```
+
+`sync_task_run_status` then polls in the background until `ready_for_bigquery: true` (see
+above). Because `bypass_db_update` is omitted (defaults to `false`), the new reports are
+written to the DB/API.
 
 ---
 
