@@ -1,0 +1,970 @@
+<!doctype html>
+{#-
+  GTFS Diff Email Notification — Jinja2 Template
+  ═══════════════════════════════════════════════
+
+  REQUIRED CONTEXT VARIABLES
+  ───────────────────────────
+  notification_date : str        – Formatted date shown in the email (e.g. "June 5, 2026")
+  subscriptions_url : str        – URL to the user's subscriptions management page
+  feeds             : list[dict] – One or more feed diffs; schema per item below
+
+  PER-FEED DICT (maps to GTFS Diff v2 schema — gtfs-diff-schema.json)
+  ─────────────────────────────────────────────────────────────────────
+  feed_id             str        Feed ID used for anchor links (e.g. "mdb-2126")
+  feed_name           str        Human-readable agency/feed name
+  feed_url            str        URL to the full diff report page
+  unsubscribe_url     str        Feed-specific unsubscribe URL
+  notification_date   str        Per-feed update date, formatted (e.g. "June 5, 2026")
+  base_feed_version   str        Base feed identifier (metadata.base_feed.source)
+  new_feed_version    str        New feed identifier (metadata.new_feed.source)
+  total_changes       int        summary.total_changes
+  files_modified_count int       summary.files_modified_count
+
+  breaking_changes    list       Analytical alerts: breaking changes (omit or [] if none)
+    .type             str        Alert type label  (e.g. "REMOVED ENTITY")
+    .file             str        Affected GTFS file (e.g. "trips.txt")
+    .description      str        Human-readable description
+
+  suspicious_changes  list       Analytical alerts: suspicious changes (omit or [] if none)
+    .type             str        Alert type label  (e.g. "LARGE ENTITY COUNT DELTA")
+    .file             str        Affected GTFS file
+    .description      str        Human-readable description
+
+  diff_files          list       Per-file row-change stats (from file_diffs[*].stats)
+    .file_name        str        GTFS file name (e.g. "calendar.txt")
+    .rows_added_count    int|None  stats.rows_added_count   – None renders as "—"
+    .rows_deleted_count  int|None  stats.rows_deleted_count
+    .rows_modified_count int|None  stats.rows_modified_count
+
+  features_changed    list       GTFS feature-level changes (omit or [] if none)
+    .name             str        Feature name (e.g. "Stops Wheelchair Accessibility")
+    .change           str        "Added" | "Removed" | "Changed"
+
+  validation_changes  list       Validation report diff entries (omit or [] if none)
+    .change_type      str        "New" | "Fixed" | "Occurrences"
+    .notice_code      str        Validator notice code
+    .severity         str        "WARNING" | "ERROR" | "INFO"
+    .older_count      int|None   Count in base report; None for "New" entries
+    .latest_count     int|None   Count in new report; None for "Fixed" entries
+
+  REQUIRED CUSTOM FILTER
+  ───────────────────────
+  thousands_sep(n)  – Formats an integer with thousands separator;
+                      returns "—" for None/null.
+                      Python example:
+                        def thousands_sep(n):
+                            return "{:,}".format(int(n)) if n is not None else "—"
+                        env.filters["thousands_sep"] = thousands_sep
+-#}
+{#- ─── Macros ──────────────────────────────────────────────────────────────── #}
+
+{%- macro severity_badge(severity) -%}
+  {%- if severity == "WARNING" -%}
+    <span style="display:inline-block; font-family: Mulish,'Segoe UI',Arial,sans-serif; font-size:10px; font-weight:700; color:#e65100; border:1px solid #e65100; border-radius:3px; padding:1px 6px;">WARNING</span>
+  {%- elif severity == "ERROR" -%}
+    <span style="display:inline-block; font-family: Mulish,'Segoe UI',Arial,sans-serif; font-size:10px; font-weight:700; color:#d32f2f; border:1px solid #d32f2f; border-radius:3px; padding:1px 6px;">ERROR</span>
+  {%- elif severity == "INFO" -%}
+    <span style="display:inline-block; font-family: Mulish,'Segoe UI',Arial,sans-serif; font-size:10px; font-weight:700; color:#01579b; border:1px solid #01579b; border-radius:3px; padding:1px 6px;">INFO</span>
+  {%- else -%}
+    <span style="display:inline-block; font-family: Mulish,'Segoe UI',Arial,sans-serif; font-size:10px; font-weight:700; color:#474747; border:1px solid #474747; border-radius:3px; padding:1px 6px;">{{ severity }}</span>
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro num(value) -%}
+  {%- if value is not none and value is defined -%}{{ value | thousands_sep }}{%- else -%}—{%- endif -%}
+{%- endmacro -%}
+
+{#- Validation row: "New" and worsening "Occurrences" are red; "Fixed" and improving "Occurrences" are green #}
+{%- macro validation_row_is_bad(change) -%}
+  {%- if change.change_type == "New" -%}true
+  {%- elif change.change_type == "Fixed" -%}false
+  {%- elif change.change_type == "Occurrences" and change.latest_count is not none and change.older_count is not none and change.latest_count > change.older_count -%}true
+  {%- else -%}false
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro feature_change_color(change) -%}
+  {%- if change == "Added" -%}#2e7d32
+  {%- elif change == "Removed" -%}#d32f2f
+  {%- else -%}#ed6c02
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro feature_row_bg(change) -%}
+  {%- if change == "Added" -%}#eef6ef
+  {%- elif change == "Removed" -%}#fdeeee
+  {%- else -%}#fff3e0
+  {%- endif -%}
+{%- endmacro -%}
+
+{#- ─── Document ───────────────────────────────────────────────────────────── #}
+<html
+  lang="en"
+  xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>
+      {%- if feeds | length == 1 -%}
+        GTFS Feed Update — {{ feeds[0].feed_name }}
+      {%- else -%}
+        GTFS Feed Updates — {{ feeds | length }} feeds
+      {%- endif -%}
+    </title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+    <style>
+      /* Client resets */
+      body,
+      table,
+      td,
+      a {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table,
+      td {
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        -ms-interpolation-mode: bicubic;
+        border: 0;
+        height: auto;
+        line-height: 100%;
+        outline: none;
+        text-decoration: none;
+      }
+      table {
+        border-collapse: collapse !important;
+      }
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+      a {
+        color: #3959fa;
+      }
+      .mono {
+        font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+      }
+
+      @media screen and (max-width: 600px) {
+        .container {
+          width: 100% !important;
+        }
+        .px {
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+        .stack {
+          display: block !important;
+          width: 100% !important;
+        }
+        .summary-num {
+          font-size: 28px !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #eef0f7;
+      font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+      color: #474747;
+    "
+  >
+    <!-- Preheader (hidden) -->
+    <div
+      style="
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        mso-hide: all;
+      "
+    >
+      {%- if feeds | length == 1 -%}
+        {%- set f = feeds[0] -%}
+        {{ f.feed_name }} GTFS feed updated — {{ f.total_changes | thousands_sep }} changes across {{ f.files_modified_count }} file{{ "s" if f.files_modified_count != 1 }}{% if f.breaking_changes %}, {{ f.breaking_changes | length }} breaking change{{ "s" if f.breaking_changes | length != 1 }}{% endif %}{% if f.suspicious_changes %} and {{ f.suspicious_changes | length }} suspicious change{{ "s" if f.suspicious_changes | length != 1 }}{% endif %} detected.
+      {%- else -%}
+        {{ feeds | length }} GTFS feed updates — {% for f in feeds %}{{ f.feed_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+      {%- endif -%}
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      bgcolor="#eef0f7"
+      style="background-color: #eef0f7"
+    >
+      <tr>
+        <td align="center" style="padding: 24px 12px">
+          <!-- Container -->
+          <table
+            role="presentation"
+            class="container"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="
+              width: 600px;
+              max-width: 600px;
+              background-color: #ffffff;
+              border-radius: 10px;
+              overflow: hidden;
+              box-shadow: 0px 1px 4px 2px rgba(0, 0, 0, 0.08);
+            "
+          >
+            <!-- ============ BRAND HEADER ============ -->
+            <tr>
+              <td
+                bgcolor="#F8F5F5"
+                style="background-color: #f8f5f5; padding: 18px 32px;"
+              >
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  <tr>
+                    <td align="left" valign="middle">
+                      <table
+                        role="presentation"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                      >
+                        <tr>
+                          <td valign="middle" style="padding-right: 10px">
+                            <img
+                              src="https://mobilitydatabase.org/apple-touch-icon.png"
+                              width="32"
+                              height="32"
+                              alt="MobilityData"
+                              style="display: block; width: 32px; height: 32px"
+                            />
+                          </td>
+                          <td valign="middle">
+                            <span
+                              style="
+                                font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                                font-size: 20px;
+                                font-weight: 700;
+                                color: #3959fa;
+                                letter-spacing: 0.2px;
+                              "
+                              >Mobility Database</span
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                    <td
+                      align="right"
+                      valign="middle"
+                      style="
+                        font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                        font-size: 12px;
+                        font-weight: 500;
+                        color: rgba(71, 71, 71, 0.7);
+                        letter-spacing: 0.3px;
+                      "
+                    >
+                      Feed Update Notification
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            {# ============ TABLE OF CONTENTS (multiple feeds only) ============ #}
+            {% if feeds | length > 1 %}
+            <tr>
+              <td class="px" style="padding: 20px 32px 4px 32px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+                <p
+                  style="
+                    margin: 0 0 10px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 13px;
+                    font-weight: 800;
+                    color: #1d1717;
+                    letter-spacing: 0.2px;
+                  "
+                >
+                  {{ feeds | length }} feeds updated &middot; {{ notification_date }}
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  {% for feed in feeds %}
+                  <tr>
+                    <td style="padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.06);">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td valign="middle">
+                            <a
+                              href="#feed-{{ loop.index }}"
+                              style="
+                                font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: #3959fa;
+                                text-decoration: none;
+                              "
+                            >{{ feed.feed_name }}</a>
+                          </td>
+                          <td align="right" valign="middle">
+                            <span
+                              style="
+                                font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                                font-size: 11px;
+                                color: rgba(71, 71, 71, 0.7);
+                              "
+                            >{{ feed.total_changes | thousands_sep }} changes</span>
+                            {% if feed.breaking_changes %}
+                            &nbsp;<span
+                              style="
+                                display: inline-block;
+                                font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: #ffffff;
+                                background-color: #d32f2f;
+                                border-radius: 4px;
+                                padding: 2px 6px;
+                              "
+                            >{{ feed.breaking_changes | length }} breaking</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </table>
+                <p style="margin: 12px 0 0 0;">&nbsp;</p>
+              </td>
+            </tr>
+            {% endif %}
+
+            {# ============ FEED SECTIONS (loop) ============ #}
+            {% for feed in feeds %}
+
+            {# Inter-feed divider (not before the first feed, and not when TOC provides separation) #}
+            {% if not loop.first %}
+            <tr>
+              <td style="padding: 0 32px">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top: 1px solid rgba(0,0,0,0.08); font-size: 0; line-height: 0;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            {% endif %}
+
+            {# Anchor target for TOC links #}
+            <tr>
+              <td>
+                <a name="feed-{{ loop.index }}" id="feed-{{ loop.index }}" style="display: block; font-size: 0; line-height: 0;">&nbsp;</a>
+              </td>
+            </tr>
+
+            <!-- ============ FEED TITLE ============ -->
+            <tr>
+              <td class="px" style="padding: 28px 32px 8px 32px;">
+                {% if feeds | length > 1 %}
+                <p
+                  style="
+                    margin: 0 0 4px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: rgba(71, 71, 71, 0.5);
+                    text-transform: uppercase;
+                    letter-spacing: 0.8px;
+                  "
+                >Feed {{ loop.index }} of {{ feeds | length }}</p>
+                {% endif %}
+                <h1
+                  style="
+                    margin: 0;
+                    font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                    font-size: 22px;
+                    line-height: 1.3;
+                    font-weight: 800;
+                    color: #1d1717;
+                  "
+                >
+                  {{ feed.feed_name }}
+                </h1>
+                <p
+                  style="
+                    margin: 8px 0 0 0;
+                    font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                    font-size: 13px;
+                    color: rgba(71, 71, 71, 0.8);
+                  "
+                >
+                  {{ feed.notification_date }}
+                </p>
+                <p
+                  style="
+                    margin: 10px 0 0 0;
+                    font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                    font-size: 12px;
+                    color: rgba(71, 71, 71, 0.8);
+                  "
+                >
+                  <span
+                    class="mono"
+                    style="
+                      font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                      color: #474747;
+                    "
+                    >{{ feed.base_feed_version }}</span
+                  >
+                  &nbsp;→&nbsp;
+                  <span
+                    class="mono"
+                    style="
+                      font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                      color: #474747;
+                    "
+                    >{{ feed.new_feed_version }}</span
+                  >
+                </p>
+              </td>
+            </tr>
+
+            {# ============ BREAKING CHANGES (conditional) ============ #}
+            {% if feed.breaking_changes %}
+            <tr>
+              <td class="px" style="padding: 20px 32px 0 32px;">
+                <p
+                  style="
+                    margin: 0 0 10px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #d32f2f;
+                  "
+                >
+                    Breaking Changes
+                </p>
+                {% for change in feed.breaking_changes %}
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #F8F5F5; border-radius: 4px;{% if not loop.last %} margin-bottom: 12px;{% endif %}"
+                >
+                  <tr>
+                    <td style="padding: 14px 16px">
+                      <p style="margin: 0 0 8px 0">
+                        <span style="display: inline-block; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 10px; font-weight: 700; color: #ffffff; background-color: #d32f2f; border-radius: 4px; padding: 3px 8px; margin: 0 6px 0 0;">{{ change.type }}</span><span style="display: inline-block; font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace; font-size: 11px; color: #474747; border: 1px solid rgba(0,0,0,0.2); border-radius: 12px; padding: 2px 9px;">{{ change.file }}</span>
+                      </p>
+                      <p style="margin: 0; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #474747;">
+                        {{ change.description }}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endif %}
+
+            {# ============ SUSPICIOUS CHANGES (conditional) ============ #}
+            {% if feed.suspicious_changes %}
+            <tr>
+              <td class="px" style="padding: 20px 32px 0 32px;">
+                <p
+                  style="
+                    margin: 0 0 10px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #ed6c02;
+                  "
+                >
+                    Suspicious Changes
+                </p>
+                {% for change in feed.suspicious_changes %}
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #F8F5F5; border-radius: 4px;{% if not loop.last %} margin-bottom: 12px;{% endif %}"
+                >
+                  <tr>
+                    <td style="padding: 14px 16px">
+                      <p style="margin: 0 0 8px 0">
+                        <span style="display: inline-block; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 10px; font-weight: 700; color: #ffffff; background-color: #ed6c02; border-radius: 4px; padding: 3px 8px; margin: 0 6px 0 0;">{{ change.type }}</span><span style="display: inline-block; font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace; font-size: 11px; color: #474747; border: 1px solid rgba(0,0,0,0.2); border-radius: 12px; padding: 2px 9px;">{{ change.file }}</span>
+                      </p>
+                      <p style="margin: 0; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #474747;">
+                        {{ change.description }}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endif %}
+
+            <!-- ============ DIFF SUMMARY ============ -->
+            <tr>
+              <td class="px" style="padding: 20px 32px 0 32px;">
+                <p
+                  style="
+                    margin: 0 0 4px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #1d1717;
+                  "
+                >
+                  Diff Summary
+                </p>
+                <p
+                  style="
+                    margin: 0 0 10px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 11px;
+                    color: rgba(71, 71, 71, 0.8);
+                  "
+                >
+                  {{ feed.total_changes | thousands_sep }} total changes &middot;
+                  <strong style="color: #474747">{{ feed.files_modified_count }} file{{ "s" if feed.files_modified_count != 1 }} modified</strong>
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #ffffff; border-radius: 4px; overflow: hidden;"
+                >
+                  <thead>
+                    <tr bgcolor="#ffffff" style="background-color: #ffffff">
+                      <th
+                        align="left"
+                        style="
+                          padding: 8px 10px;
+                          font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >
+                        File
+                      </th>
+                      <th
+                        align="right"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #2e7d32;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >
+                        Added
+                      </th>
+                      <th
+                        align="right"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #d32f2f;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >
+                        Deleted
+                      </th>
+                      <th
+                        align="right"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #ed6c02;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >
+                        Modified
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    style="
+                      font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                      font-size: 11px;
+                      font-weight: 700;
+                    "
+                  >
+                    {% for file in feed.diff_files %}
+                    {%- set is_even = loop.index0 % 2 == 1 -%}
+                    {%- set has_border = not loop.last -%}
+                    <tr{% if is_even %} bgcolor="#fafafa" style="background-color: #fafafa"{% endif %}>
+                      <td align="left" style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ file.file_name }}</td>
+                      <td align="right" style="padding: 7px 10px; color: {% if file.rows_added_count %}#2e7d32{% else %}#9a9a9a{% endif %};{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ num(file.rows_added_count) }}</td>
+                      <td align="right" style="padding: 7px 10px; color: {% if file.rows_deleted_count %}#d32f2f{% else %}#9a9a9a{% endif %};{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ num(file.rows_deleted_count) }}</td>
+                      <td align="right" style="padding: 7px 10px; color: {% if file.rows_modified_count %}#ed6c02{% else %}#9a9a9a{% endif %};{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ num(file.rows_modified_count) }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            {# ============ FEATURES CHANGED (conditional) ============ #}
+            {% if feed.features_changed %}
+            <tr>
+              <td class="px" style="padding: 20px 32px 0 32px;">
+                <p
+                  style="
+                    margin: 0 0 10px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #1d1717;
+                  "
+                >
+                  Features Changed
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #ffffff; border-radius: 4px; overflow: hidden;"
+                >
+                  <thead>
+                    <tr bgcolor="#ffffff" style="background-color: #ffffff">
+                      <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Feature</th>
+                      <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody style="font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 12px;">
+                    {% for feature in feed.features_changed %}
+                    <tr bgcolor="{{ feature_row_bg(feature.change) }}" style="background-color: {{ feature_row_bg(feature.change) }}">
+                      <td style="padding: 7px 10px; color: #474747;{% if not loop.last %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ feature.name }}</td>
+                      <td style="padding: 7px 10px; font-weight: 700; color: {{ feature_change_color(feature.change) }};{% if not loop.last %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ feature.change }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            {% endif %}
+
+            {# ============ VALIDATION REPORT DIFF (conditional) ============ #}
+            {% if feed.validation_changes %}
+            <tr>
+              <td class="px" style="padding: 20px 32px 0 32px;">
+                <p
+                  style="
+                    margin: 0 0 4px 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 15px;
+                    font-weight: 800;
+                    color: #1d1717;
+                  "
+                >
+                  Validation Report Diff
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #ffffff; border-radius: 4px; overflow: hidden;"
+                >
+                  <thead>
+                    <tr bgcolor="#ffffff" style="background-color: #ffffff">
+                      <th
+                        align="left"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >Change</th>
+                      <th
+                        align="left"
+                        style="
+                          padding: 8px 10px;
+                          font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >Notice code</th>
+                      <th
+                        align="left"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >Severity</th>
+                      <th
+                        align="right"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >Older</th>
+                      <th
+                        align="right"
+                        style="
+                          padding: 8px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-size: 11px;
+                          font-weight: 700;
+                          color: #474747;
+                          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                        "
+                      >Latest</th>
+                    </tr>
+                  </thead>
+                  <tbody style="font-size: 11px">
+                    {% for change in feed.validation_changes %}
+                    {%- set is_bad = validation_row_is_bad(change) | trim == "true" -%}
+                    {%- set row_bg = "#fdeeee" if is_bad else "#eef6ef" -%}
+                    {%- set label_color = "#d32f2f" if is_bad else "#2e7d32" -%}
+                    {%- set has_border = not loop.last -%}
+                    <tr bgcolor="{{ row_bg }}" style="background-color: {{ row_bg }}">
+                      <td
+                        align="left"
+                        style="
+                          padding: 7px 10px;
+                          font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                          font-weight: 700;
+                          color: {{ label_color }};
+                          {% if has_border %}border-bottom: 1px solid rgba(0, 0, 0, 0.06);{% endif %}
+                        "
+                      >{{ change.change_type }}</td>
+                      <td
+                        align="left"
+                        class="mono"
+                        style="
+                          padding: 7px 10px;
+                          font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                          color: #474747;
+                          {% if has_border %}border-bottom: 1px solid rgba(0, 0, 0, 0.06);{% endif %}
+                        "
+                      >{{ change.notice_code }}</td>
+                      <td
+                        align="left"
+                        style="padding: 7px 10px;{% if has_border %} border-bottom: 1px solid rgba(0, 0, 0, 0.06);{% endif %}"
+                      >{{ severity_badge(change.severity) }}</td>
+                      <td
+                        align="right"
+                        style="
+                          padding: 7px 10px;
+                          font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                          color: #9a9a9a;
+                          {% if has_border %}border-bottom: 1px solid rgba(0, 0, 0, 0.06);{% endif %}
+                        "
+                      >{{ num(change.older_count) }}</td>
+                      <td
+                        align="right"
+                        style="
+                          padding: 7px 10px;
+                          font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+                          font-weight: 700;
+                          color: #474747;
+                          {% if has_border %}border-bottom: 1px solid rgba(0, 0, 0, 0.06);{% endif %}
+                        "
+                      >{{ num(change.latest_count) }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            {% endif %}
+
+            <!-- ============ CTA BUTTON (per feed) ============ -->
+            <tr>
+              <td align="center" style="padding: 28px 32px 8px 32px;">
+                <!--[if mso]>
+                  <v:roundrect
+                    xmlns:v="urn:schemas-microsoft-com:vml"
+                    xmlns:w="urn:schemas-microsoft-com:office:word"
+                    href="{{ feed.feed_url }}"
+                    style="height: 46px; v-text-anchor: middle; width: 260px"
+                    arcsize="14%"
+                    strokecolor="#002eea"
+                    fillcolor="#3959fa"
+                  >
+                    <w:anchorlock />
+                    <center
+                      style="
+                        color: #f9faff;
+                        font-family: Arial, sans-serif;
+                        font-size: 15px;
+                        font-weight: bold;
+                      "
+                    >
+                      View Full Diff Report
+                    </center>
+                  </v:roundrect>
+                <![endif]-->
+                <!--[if !mso]><!-->
+                <a
+                  href="{{ feed.feed_url }}"
+                  target="_blank"
+                  style="
+                    display: inline-flex;
+                    background-color: #3959fa;
+                    color: #f9faff;
+                    font-family: 'IBM Plex Mono', 'IBM Plex Mono Fallback', Mulish, 'Segoe UI', Arial, sans-serif;
+                    align-items: center;
+                    vertical-align: middle;
+                    font-weight: 500;
+                    font-size: 0.875rem;
+                    line-height: 1.75;
+                    min-width: 64px;
+                    padding: 6px 16px;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    border: 1px solid transparent;
+                    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+                  "
+                >
+                  View Full Diff Report
+                </a>
+                <!--<![endif]-->
+              </td>
+            </tr>
+
+            {% endfor %}{# end feeds loop #}
+
+            <!-- ============ DIVIDER ============ -->
+            <tr>
+              <td style="padding: 20px 32px 0 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top: 1px solid rgba(0, 0, 0, 0.12); font-size: 0; line-height: 0;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- ============ FOOTER ============ -->
+            <tr>
+              <td align="center" style="padding: 16px 32px 28px 32px;">
+                <p style="margin: 0 0 12px 0">
+                  <a
+                    href="{{ subscriptions_url }}"
+                    target="_blank"
+                    style="
+                      display: inline-block;
+                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                      font-size: 14px;
+                      font-weight: 700;
+                      color: #5e56f7;
+                      text-decoration: none;
+                      padding: 6px 10px;
+                      margin: 0 2px;
+                      letter-spacing: 0.2px;
+                    "
+                  >
+                    Manage subscription{{ "s" if feeds | length > 1 }}
+                  </a>
+                  {% if feeds | length == 1 %}
+                  <a
+                    href="{{ feeds[0].unsubscribe_url }}"
+                    target="_blank"
+                    style="
+                      display: inline-block;
+                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                      font-size: 14px;
+                      font-weight: 700;
+                      color: rgba(71, 71, 71, 0.7);
+                      text-decoration: none;
+                      padding: 6px 10px;
+                      margin: 0 2px;
+                      letter-spacing: 0.2px;
+                    "
+                  >
+                    Unsubscribe
+                  </a>
+                  {% endif %}
+                </p>
+                <p
+                  style="
+                    margin: 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 11px;
+                    line-height: 1.6;
+                    color: rgba(71, 71, 71, 0.6);
+                  "
+                >
+                  You're receiving this because you subscribe to updates for
+                  {% if feeds | length == 1 %}this feed{% else %}these feeds{% endif %} on the Mobility Database.<br />
+                  &copy; {{ notification_date.split(", ")[-1] }} MobilityData &nbsp;&middot;&nbsp; Montr&eacute;al, QC, Canada
+                </p>
+              </td>
+            </tr>
+          </table>
+          <!-- /Container -->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
