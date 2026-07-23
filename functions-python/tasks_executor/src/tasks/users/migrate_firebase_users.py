@@ -28,7 +28,9 @@ Field mapping:
     SUBSCRIBED   → True
     UNSUBSCRIBED → False
     NOT_FOUND    → field not set (left at DB default false for new rows, untouched for existing)
-  app_user.migrated_at           <- now() (set by this task)
+  app_user.migrated_at           <- now() (set by this task, on insert)
+  app_user.brevo_synced_at       <- now() (set by this task once the Brevo
+    contact has been written with its MDB_SUBSCRIPTION_ID; see below)
 
 Announcements subscription (notification_subscription table):
   Every migrated user is associated with the ``api.announcements`` notification
@@ -39,6 +41,25 @@ Announcements subscription (notification_subscription table):
   who get a disabled (``active=False``) subscription. Users not found on Brevo (or
   whose Brevo check failed) are treated as not unsubscribed and therefore enabled.
   This step is idempotent: users that already have the subscription are untouched.
+
+Brevo contact write-back (issue #1733):
+  For every user whose announcements subscription should be on the Brevo list,
+  the contact is (re)written via ``add_contact_to_list`` so its
+  ``MDB_SUBSCRIPTION_ID`` attribute points at the subscription id.
+  ``app_user.brevo_synced_at`` records that this write happened. It lives on
+  ``app_user`` (not ``notification_subscription``) because api.announcements is
+  the only Brevo-delivered notification type and a Brevo contact maps 1:1 to a
+  user. A NULL value means the contact has not been synced yet (its
+  ``MDB_SUBSCRIPTION_ID`` is assumed unset) and it is (re)written on the next
+  run. This is evaluated identically on every run — no notion of a "first" or
+  "last" run:
+    - brevo_synced_at IS NULL  → write the contact back and stamp brevo_synced_at
+    - brevo_synced_at IS set    → already synced, skipped (no Brevo call)
+  The write-back is skipped for users Brevo reports as UNSUBSCRIBED (we must not
+  re-add them to the list) and whenever the Brevo check fails (retried next run).
+  ``brevo_synced_at`` is stamped only after a successful write, and never in
+  dry-run mode. This is the ONE case where the task updates an existing
+  ``app_user`` row; everything else about ``app_user`` is insert-only.
 
 NOT set by migration (managed by the API layer):
   app_user.updated_at
@@ -58,6 +79,7 @@ from sqlalchemy.orm import Session
 
 from shared.common.brevo import (
     BrevoSubscriptionStatus,
+    add_contact_to_list,
     get_contact_subscription_status,
 )
 from shared.database.database import generate_unique_id
@@ -144,16 +166,22 @@ def _iter_users(user_ids: list[str] | None) -> Generator[auth.UserRecord, None, 
             page = page.get_next_page()
 
 
-def _has_announcements_subscription(db_session: Session, user_id: str) -> bool:
-    """Return True if the user already has an api.announcements subscription."""
+def _get_announcements_subscription(
+    db_session: Session, user_id: str
+) -> NotificationSubscription | None:
+    """Return the user's api.announcements subscription row, or None if absent.
+
+    The full row (not just a boolean) is needed downstream: the subscription id
+    is written to Brevo as MDB_SUBSCRIPTION_ID (app_user.brevo_synced_at drives
+    the write-back idempotency check).
+    """
     return (
-        db_session.query(NotificationSubscription.id)
+        db_session.query(NotificationSubscription)
         .filter(
             NotificationSubscription.user_id == user_id,
             NotificationSubscription.notification_type_id == API_ANNOUNCEMENTS_TYPE_ID,
         )
         .first()
-        is not None
     )
 
 
@@ -164,7 +192,8 @@ def migrate_firebase_users(
     only_not_migrated: bool = True,
     db_session: Session | None = None,
 ) -> dict:
-    """Core migration logic. Only INSERTs new users; existing rows are never modified.
+    """Core migration logic. INSERTs new users; the only field it updates on an
+    existing app_user row is brevo_synced_at (after a successful Brevo write-back).
 
     Args:
         dry_run: When True (default), reads and counts without any DB writes.
@@ -177,7 +206,8 @@ def migrate_firebase_users(
     Returns:
         Summary dict with counts: total, inserted, skipped, no_email_skipped,
         brevo_subscribed, brevo_unsubscribed, brevo_not_found, brevo_failed,
-        announcements_enabled, announcements_disabled, dry_run.
+        announcements_enabled, announcements_disabled, brevo_synced,
+        brevo_sync_failed, dry_run.
     """
     _get_firebase_app()
     ds_client = datastore.Client()
@@ -205,6 +235,8 @@ def migrate_firebase_users(
         "brevo_failed": 0,
         "announcements_enabled": 0,
         "announcements_disabled": 0,
+        "brevo_synced": 0,
+        "brevo_sync_failed": 0,
         "dry_run": dry_run,
     }
     processed = 0
@@ -232,15 +264,22 @@ def migrate_firebase_users(
         ):
             results["skipped"] += 1
 
-        # Idempotency: every user must end up with exactly one announcements
-        # subscription. New users always need one; existing users only if absent.
-        needs_announcements_sub = (
-            existing is None
-            or not _has_announcements_subscription(db_session, user_record.uid)
+        subscription = _get_announcements_subscription(db_session, user_record.uid)
+
+        # Idempotency signals, evaluated the same way on every run (no notion of
+        # a "first" vs "later" run):
+        #   - every user must have exactly one announcements subscription;
+        #   - the user's Brevo contact must carry MDB_SUBSCRIPTION_ID, which
+        #     app_user.brevo_synced_at records — NULL means it still needs
+        #     writing. A user gaining a new subscription (needs_subscription)
+        #     also needs its (new) id pushed to Brevo.
+        needs_subscription = subscription is None
+        needs_brevo_sync = (
+            existing is None or needs_subscription or existing.brevo_synced_at is None
         )
 
-        # Nothing to do for an existing user that already has the subscription.
-        if existing is not None and not needs_announcements_sub:
+        # Nothing to do for an existing, already-synced user that has a subscription.
+        if existing is not None and not needs_subscription and not needs_brevo_sync:
             continue
 
         # Datastore profile lookup is only needed when inserting a new app_user.
@@ -265,9 +304,10 @@ def migrate_firebase_users(
                     user_record.uid,
                 )
 
-        # Brevo is the source of truth for subscription status. Queried whenever
-        # we will create the announcements subscription (new user or backfill).
-        # In dry_run mode we still query Brevo so the counts are accurate.
+        # Brevo is the source of truth for subscription status. Queried whenever a
+        # subscription needs creating or its contact still needs a MDB_SUBSCRIPTION_ID
+        # write-back. Also gates the write-back so we never re-add an UNSUBSCRIBED
+        # user to the list. In dry_run mode we still query Brevo for accurate counts.
         brevo_status: BrevoSubscriptionStatus | None = None
         try:
             brevo_status = get_contact_subscription_status(
@@ -295,10 +335,21 @@ def migrate_firebase_users(
             if announcements_active
             else "announcements_disabled"
         )
+        # Write MDB_SUBSCRIPTION_ID back only onto contacts Brevo confirms are
+        # already on the list (SUBSCRIBED). This deliberately excludes:
+        #   - UNSUBSCRIBED: never re-add an opted-out contact to the list;
+        #   - NOT_FOUND: the user is not a Brevo contact, so there is nothing to
+        #     update — we do not create new contacts / grow the list here;
+        #   - a failed check (brevo_status is None): retried on the next run.
+        should_sync_brevo = (
+            brevo_status == BrevoSubscriptionStatus.SUBSCRIBED
+            and announcements_list_id is not None
+        )
 
         if not dry_run:
+            app_user_row = existing
             if existing is None:
-                new_user = AppUser(
+                app_user_row = AppUser(
                     id=user_record.uid,
                     email=user_record.email,
                     email_verified=user_record.email_verified,
@@ -318,27 +369,48 @@ def migrate_firebase_users(
                     brevo_status is not None
                     and brevo_status != BrevoSubscriptionStatus.NOT_FOUND
                 ):
-                    new_user.is_registered_to_receive_api_announcements = (
+                    app_user_row.is_registered_to_receive_api_announcements = (
                         brevo_status == BrevoSubscriptionStatus.SUBSCRIBED
                     )
-                db_session.add(new_user)
-            db_session.add(
-                NotificationSubscription(
+                db_session.add(app_user_row)
+                results["inserted"] += 1
+
+            if subscription is None:
+                subscription = NotificationSubscription(
                     id=generate_unique_id(),
                     user_id=user_record.uid,
                     notification_type_id=API_ANNOUNCEMENTS_TYPE_ID,
                     active=announcements_active,
                     created_at=datetime.now(timezone.utc),
                 )
-            )
+                db_session.add(subscription)
+                results[announcements_key] += 1
+
+            # Write MDB_SUBSCRIPTION_ID onto the Brevo contact and stamp the
+            # user's brevo_synced_at only on success, so an unsynced row is
+            # retried. This is the only update this task makes to an existing
+            # app_user row.
+            if should_sync_brevo:
+                try:
+                    add_contact_to_list(
+                        user_record.email, announcements_list_id, subscription.id
+                    )
+                    app_user_row.brevo_synced_at = datetime.now(timezone.utc)
+                    results["brevo_synced"] += 1
+                except Exception:  # noqa: BLE001
+                    logger.warning(
+                        "Brevo write-back failed for uid=%s", user_record.uid
+                    )
+                    results["brevo_sync_failed"] += 1
+
             db_session.flush()
-            if existing is None:
-                results["inserted"] += 1
-            results[announcements_key] += 1
         else:
             if existing is None:
                 results["inserted"] += 1
-            results[announcements_key] += 1
+            if subscription is None:
+                results[announcements_key] += 1
+            if should_sync_brevo:
+                results["brevo_synced"] += 1
 
         processed += 1
 

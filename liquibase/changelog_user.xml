@@ -27,4 +27,7 @@
     <include file="changes_user/feat_notification_log_cascade.sql" relativeToChangelogFile="true"/>
     <!-- Drop the unused notification_subscription.last_notified_at column. -->
     <include file="changes_user/feat_remove_last_notified_at.sql" relativeToChangelogFile="true"/>
+    <!-- Add brevo_synced_at to app_user to track Brevo MDB_SUBSCRIPTION_ID
+         write-back (issue #1733). -->
+    <include file="changes_user/feat_1733.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
