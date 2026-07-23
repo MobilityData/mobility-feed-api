@@ -71,6 +71,8 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
                                      #   have a validation report whose validator_version starts with this
                                      #   prefix (e.g. "8." → datasets missing any 8.* report). When omitted,
                                      #   datasets are selected by comparing against the exact target version.
+        "include_all_datasets": bool,# [optional] If True, consider ALL datasets of each feed, not just the
+                                     #   latest one. Use for backfilling historical windows. Default: False
         "validator_endpoint": str,   # [optional] Override validator URL (e.g. staging). Default: env-derived URL.
         "bypass_db_update": bool,    # [optional] If True, results are NOT written to the DB/API (pre-release runs).
             Default: False
@@ -89,6 +91,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         filter_statuses,
         filter_op_statuses,
         filter_validator_version_prefix,
+        include_all_datasets,
         prod_env,
         validator_endpoint,
         bypass_db_update,
@@ -107,6 +110,7 @@ def rebuild_missing_validation_reports_handler(payload) -> dict:
         filter_statuses=filter_statuses,
         filter_op_statuses=filter_op_statuses,
         filter_validator_version_prefix=filter_validator_version_prefix,
+        include_all_datasets=include_all_datasets,
         prod_env=prod_env,
         force_update=force_update,
         limit=limit,
@@ -125,6 +129,7 @@ def rebuild_missing_validation_reports(
     filter_statuses: List[str] | None = None,
     filter_op_statuses: List[str] | None = None,
     filter_validator_version_prefix: Optional[str] = None,
+    include_all_datasets: bool = False,
     prod_env: bool = False,
     force_update: bool = False,
     limit: Optional[int] = None,
@@ -152,6 +157,8 @@ def rebuild_missing_validation_reports(
             NOT already have a validation report whose validator_version starts with this
             prefix. When None (default), datasets are selected by comparing against the exact
             target validator version.
+        include_all_datasets: If True, consider ALL datasets of each feed, not just the
+            latest one. Use for backfilling a historical window. Default: False.
         prod_env: True if targeting the production environment. Default: False
         force_update: Re-trigger even if a report already exists. Default: False
         limit: Max datasets to trigger per call (for end-to-end testing). Default: unlimited
@@ -178,6 +185,7 @@ def rebuild_missing_validation_reports(
             filter_op_statuses if filter_op_statuses is not None else ["published"]
         ),
         filter_validator_version_prefix=filter_validator_version_prefix,
+        include_all_datasets=include_all_datasets,
     )
     total_candidates = len(datasets)
     logging.info("Found %s candidate datasets", total_candidates)
@@ -259,6 +267,7 @@ def rebuild_missing_validation_reports(
             "filter_downloaded_before": filter_downloaded_before,
             "filter_statuses": filter_statuses,
             "filter_validator_version_prefix": filter_validator_version_prefix,
+            "include_all_datasets": include_all_datasets,
             "prod_env": prod_env,
             "force_update": force_update,
             "limit": limit,
@@ -289,6 +298,7 @@ def _get_datasets_for_validation(
     filter_statuses: Optional[List[str]],
     filter_op_statuses: Optional[List[str]],
     filter_validator_version_prefix: Optional[str],
+    include_all_datasets: bool = False,
 ) -> List[tuple]:
     """
     Query datasets that need a (re)validation.
@@ -297,6 +307,11 @@ def _get_datasets_for_validation(
       - Have no validation report at all, OR
       - Have a report from a different (older) validator version, OR
       - force_update is True
+
+    By default only each feed's latest dataset is considered. When
+    include_all_datasets is True, every dataset of the feed is considered — use
+    this for backfilling a historical window (e.g. re-validating all datasets
+    published in a date range so the six-month reliability window is complete).
 
     When filter_validator_version_prefix is set (e.g. "8."), the exact-version
     comparison is replaced by "the dataset does not already have any validation
@@ -310,11 +325,13 @@ def _get_datasets_for_validation(
     When all age filters are None, all datasets are included regardless of age.
     filter_op_statuses filters by Feed.operational_status (e.g. ["published"]).
     """
-    query = (
-        db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
-        .select_from(Gtfsfeed)
-        .join(Gtfsdataset, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
+    query = db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id).select_from(
+        Gtfsfeed
     )
+    if include_all_datasets:
+        query = query.join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+    else:
+        query = query.join(Gtfsdataset, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
 
     if filter_validator_version_prefix:
         # Include datasets that do NOT already have a report matching the version
@@ -400,8 +417,9 @@ def get_parameters(payload):
     Returns:
         Tuple of (dry_run, filter_after_in_days, filter_downloaded_after,
                   filter_downloaded_before, filter_statuses, filter_op_statuses,
-                  filter_validator_version_prefix, prod_env, validator_endpoint,
-                  bypass_db_update, force_update, limit, reports_bucket_name)
+                  filter_validator_version_prefix, include_all_datasets, prod_env,
+                  validator_endpoint, bypass_db_update, force_update, limit,
+                  reports_bucket_name)
     """
     prod_env = os.getenv("ENVIRONMENT", "").lower() == "prod"
     default_endpoint = get_gtfs_validator_url(prod_env)
@@ -426,6 +444,13 @@ def get_parameters(payload):
 
     filter_validator_version_prefix = payload.get(
         "filter_validator_version_prefix", None
+    )
+
+    include_all_datasets = payload.get("include_all_datasets", False)
+    include_all_datasets = (
+        include_all_datasets
+        if isinstance(include_all_datasets, bool)
+        else str(include_all_datasets).lower() == "true"
     )
 
     validator_endpoint = payload.get("validator_endpoint", default_endpoint)
@@ -458,6 +483,7 @@ def get_parameters(payload):
         filter_statuses,
         filter_op_statuses,
         filter_validator_version_prefix,
+        include_all_datasets,
         prod_env,
         validator_endpoint,
         bypass_db_update,

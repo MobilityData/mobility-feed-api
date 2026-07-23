@@ -37,6 +37,7 @@ class TestGetParameters(unittest.TestCase):
             filter_statuses,
             filter_op_statuses,
             filter_validator_version_prefix,
+            include_all_datasets,
             prod_env,
             validator_endpoint,
             bypass_db_update,
@@ -51,6 +52,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertIsNone(filter_statuses)
         self.assertIsNone(filter_op_statuses)
         self.assertIsNone(filter_validator_version_prefix)
+        self.assertFalse(include_all_datasets)
         self.assertFalse(prod_env)
         self.assertEqual(validator_endpoint, GTFS_VALIDATOR_URL_STAGING)
         self.assertFalse(bypass_db_update)
@@ -67,6 +69,7 @@ class TestGetParameters(unittest.TestCase):
             "filter_statuses": ["active"],
             "filter_op_statuses": ["published", "unpublished"],
             "filter_validator_version_prefix": "8.",
+            "include_all_datasets": True,
             "validator_endpoint": "https://staging.example.com/api",
             "bypass_db_update": True,
             "force_update": True,
@@ -81,6 +84,7 @@ class TestGetParameters(unittest.TestCase):
             filter_statuses,
             filter_op_statuses,
             filter_validator_version_prefix,
+            include_all_datasets,
             prod_env,
             validator_endpoint,
             bypass_db_update,
@@ -95,6 +99,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertEqual(filter_statuses, ["active"])
         self.assertEqual(filter_op_statuses, ["published", "unpublished"])
         self.assertEqual(filter_validator_version_prefix, "8.")
+        self.assertTrue(include_all_datasets)
         self.assertEqual(validator_endpoint, "https://staging.example.com/api")
         self.assertTrue(bypass_db_update)
         self.assertTrue(force_update)
@@ -110,6 +115,7 @@ class TestGetParameters(unittest.TestCase):
         }
         (
             dry_run,
+            _,
             _,
             _,
             _,
@@ -299,6 +305,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             "filter_downloaded_after": "2026-03-01",
             "filter_downloaded_before": "2026-06-01",
             "filter_validator_version_prefix": "8.",
+            "include_all_datasets": True,
             "validator_endpoint": "https://staging.example.com/api",
             "force_update": True,
             "limit": 10,
@@ -316,6 +323,7 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
             filter_statuses=None,
             filter_op_statuses=["published", "wip"],
             filter_validator_version_prefix="8.",
+            include_all_datasets=True,
             prod_env=False,
             force_update=True,
             limit=10,
@@ -400,6 +408,49 @@ class TestRebuildMissingValidationReports(unittest.TestCase):
 
         self.assertEqual(result["params"]["filter_downloaded_after"], "2026-03-01")
         self.assertEqual(result["params"]["filter_downloaded_before"], "2026-06-01")
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="8.0.1")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_include_all_datasets_joins_on_feed_id(
+        self, tracker_cls, filter_blob_mock, version_mock
+    ):
+        """With include_all_datasets=True, the dataset join must be on feed_id
+        (all datasets of the feed), not latest_dataset_id."""
+        session = self._make_session_mock(datasets=[])
+        query_mock = session.query.return_value
+
+        result = rebuild_missing_validation_reports(
+            validator_endpoint="https://prod.example.com/api",
+            dry_run=True,
+            include_all_datasets=True,
+            db_session=session,
+        )
+
+        join_onclause = str(query_mock.join.call_args[0][1])
+        self.assertIn("feed_id", join_onclause)
+        self.assertNotIn("latest_dataset_id", join_onclause)
+        self.assertTrue(result["params"]["include_all_datasets"])
+
+    @patch(f"{_MODULE}._get_validator_version", return_value="8.0.1")
+    @patch(f"{_MODULE}._filter_out_datasets_without_blob", return_value=[])
+    @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_latest_only_joins_on_latest_dataset_id(
+        self, tracker_cls, filter_blob_mock, version_mock
+    ):
+        """By default (include_all_datasets=False), the dataset join is on
+        latest_dataset_id — only each feed's latest dataset is considered."""
+        session = self._make_session_mock(datasets=[])
+        query_mock = session.query.return_value
+
+        rebuild_missing_validation_reports(
+            validator_endpoint="https://prod.example.com/api",
+            dry_run=True,
+            db_session=session,
+        )
+
+        join_onclause = str(query_mock.join.call_args[0][1])
+        self.assertIn("latest_dataset_id", join_onclause)
 
 
 class TestFilterDatasetsWithExistingBlob(unittest.TestCase):
