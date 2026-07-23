@@ -285,14 +285,10 @@ curl -X POST "https://ingest-data-to-big-query-gtfs-563580583640.northamerica-no
 
 ---
 
-## Re-validate a date window missing a major version (prod)
+## Re-validate a date window missing a major version
 
-Use this when a validator fix means a range of historical datasets needs a fresh report
-from the **production** validator — e.g. re-running validator `8.x` on datasets published
-between March and May 2026 that never got an `8.*` report.
-
-Run this from the **prod-deployed** function so `ENVIRONMENT=prod` makes the prod validator
-URL and results bucket the defaults.
+Use this when a validator fix means a range of historical datasets needs a fresh report (e.g. re-running validator `8.x`
+on datasets published between March and May 2026 that never got an `8.*` report).
 
 ### Step 1 — Dry run (estimate scope)
 
