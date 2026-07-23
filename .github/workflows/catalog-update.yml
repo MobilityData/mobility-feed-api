@@ -18,6 +18,11 @@ on:
           - qa
           - prod
           - dev
+      CSV_FILE_NAME:
+        description: Name of the sources CSV object to load from the mdb-csv bucket (e.g. sources_test.csv). Defaults to sources.csv.
+        required: false
+        default: sources.csv
+        type: string
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
@@ -57,6 +62,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-qa.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
@@ -97,6 +104,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-prod.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
@@ -140,6 +149,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-dev.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
