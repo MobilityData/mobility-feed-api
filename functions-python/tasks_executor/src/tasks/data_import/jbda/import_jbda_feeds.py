@@ -421,11 +421,13 @@ def _process_feed(
         if "producer_url" in diff:
             old_url, new_url = diff["producer_url"]
             if old_url and new_url and old_url != new_url:
+                new_provider = item.get("organization_name")
                 emit_url_replaced(
                     feed_stable_id=stable_id,
                     old_url=old_url,
                     new_url=new_url,
                     source="jbda_import",
+                    extra_data={"provider": new_provider} if new_provider else None,
                 )
 
     # Apply schedule fields

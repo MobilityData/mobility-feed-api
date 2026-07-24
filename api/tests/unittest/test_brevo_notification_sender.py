@@ -178,7 +178,12 @@ def test_build_params_feed_url_updated():
             _feed("mdb-1", NotificationFeedRole.SUBJECT),
             _feed("mdb-2", NotificationFeedRole.TARGET),
         ],
-        payload={"old_url": "old", "new_url": "new"},
+        payload={
+            "old_url": "old",
+            "new_url": "new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
         created_at=created,
     )
     params = build_params_feed_url_updated([event], _SUBSCRIPTION)
@@ -189,6 +194,8 @@ def test_build_params_feed_url_updated():
     assert item["target_feed_stable_id"] == "mdb-2"
     assert item["old_url"] == "old"
     assert item["new_url"] == "new"
+    assert item["provider"] == "Acme Transit"
+    assert item["target_provider"] == "Acme Transit 2"
     assert item["created_at"] == created.isoformat()
 
 
@@ -199,6 +206,8 @@ def test_build_params_feed_url_updated_handles_missing_created_at_and_urls():
     assert item["new_url"] == ""
     assert item["source"] == ""
     assert item["created_at"] == ""
+    assert item["provider"] == ""
+    assert item["target_provider"] == ""
 
 
 def test_build_params_admin_event_summary_with_and_without_events():
@@ -289,6 +298,73 @@ def test_build_single_html_feed_redirected_shows_new_and_deprecated_buttons():
     assert "https://mobilitydatabase.org/feeds/mdb-1" in html  # deprecated/subject feed
     # Must NOT fall through to the plain single-button layout.
     assert "View Feed" not in html
+
+
+def test_build_single_html_shows_provider_when_present():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new", "provider": "City Transit"},
+    )
+    html = build_single_html(event)
+    assert "City Transit" in html
+    assert "mdb-9 (City Transit)" in html
+
+
+def test_build_single_html_omits_provider_when_absent():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    # No stray empty parentheses when there's no provider name.
+    assert "()" not in html
+    assert "mdb-9 (" not in html
+
+
+def test_build_single_html_feed_redirected_shows_both_providers():
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
+    )
+    html = build_single_html(event)
+    assert "mdb-1 (Acme Transit)" in html
+    assert "mdb-2 (Acme Transit 2)" in html
+
+
+def test_build_single_html_escapes_provider():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "<script>alert(1)</script>",
+        },
+    )
+    html = build_single_html(event)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_build_digest_html_shows_provider():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n", "provider": "City Transit"},
+    )
+    html = build_digest_html([event])
+    assert "mdb-9" in html
+    assert "City Transit" in html
 
 
 def test_build_single_html_admin_summary():
