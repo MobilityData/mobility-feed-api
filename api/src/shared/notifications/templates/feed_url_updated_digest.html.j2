@@ -32,9 +32,10 @@
         {%- set is_even = loop.index0 % 2 == 1 -%}
         {%- set has_border = not loop.last -%}
         {%- set action_href = row.target_feed_url if row.event_subtype == "feed_redirected" else row.feed_url -%}
-        {%- set action_label = "View New Feed" if row.event_subtype == "feed_redirected" else "View Feed" -%}
+        {%- set action_label = "Subscribe" if row.event_subtype == "feed_redirected" else "View" -%}
+        {%- set feed_label = row.provider if row.provider else row.feed_stable_id -%}
         <tr{% if is_even %} bgcolor="#fafafa" style="background-color: #fafafa"{% endif %}>
-          <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{% if row.feed_url %}<a href="{{ row.feed_url }}" target="_blank" style="color: #3959fa; font-weight: 700; text-decoration: none;">{{ row.feed_stable_id }}</a>{% else %}{{ row.feed_stable_id }}{% endif %}{% if row.provider %} ({{ row.provider }}){% endif %}</td>
+          <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{% if row.feed_url %}<a href="{{ row.feed_url }}" target="_blank" style="color: #3959fa; font-weight: 700; text-decoration: none;">{{ feed_label }}</a>{% else %}{{ feed_label }}{% endif %}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.event_subtype }}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.old_url or "-" }}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.new_url or "-" }}</td>

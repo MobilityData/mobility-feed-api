@@ -152,6 +152,19 @@ def test_build_single_subject_uses_unknown_feed_placeholder():
     assert "unknown" in build_single_subject(event)
 
 
+def test_build_single_subject_prefers_provider_over_feed_id():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"provider": "City Transit"},
+    )
+    assert build_single_subject(event) == "[Mobility Database] Feed City Transit has been updated"
+
+
+def test_build_single_subject_falls_back_to_feed_id_without_provider():
+    event = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)], payload={})
+    assert build_single_subject(event) == "[Mobility Database] Feed mdb-9 has been updated"
+
+
 def test_build_digest_subject_pluralization():
     two = [_event(), _event()]
     assert build_digest_subject(two) == "[Mobility Database] 2 feed URL updates"
@@ -357,14 +370,27 @@ def test_build_single_html_escapes_provider():
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
 
 
-def test_build_digest_html_shows_provider():
+def test_build_digest_html_shows_provider_instead_of_id():
+    """When a provider name is known, the digest table's Feed column shows it
+    in place of the stable_id — the id is still used for the link href, just
+    not displayed as the row's visible label."""
     event = _event(
         feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
         payload={"old_url": "o", "new_url": "n", "provider": "City Transit"},
     )
     html = build_digest_html([event])
-    assert "mdb-9" in html
-    assert "City Transit" in html
+    assert ">City Transit</a>" in html
+    assert ">mdb-9</a>" not in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html  # href still uses the id
+
+
+def test_build_digest_html_falls_back_to_id_when_no_provider():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    html = build_digest_html([event])
+    assert ">mdb-9</a>" in html
 
 
 def test_build_single_html_admin_summary():
@@ -441,9 +467,10 @@ def test_build_digest_html_feed_url_updates():
 
 
 def test_build_digest_html_per_row_view_feed_action():
-    """Each digest row must offer its own "view feed" action, not just a
-    clickable feed id: a plain update links to that feed's own page, while a
-    redirected row links to the NEW (target) feed, not the deprecated one."""
+    """Each digest row must offer its own per-row action, not just a clickable
+    feed id: a plain update links to that feed's own page ("View"), while a
+    redirected row links to the NEW (target) feed ("Subscribe"), not the
+    deprecated one."""
     updated = _event(
         subtype=FeedUrlUpdateType.URL_REPLACED,
         feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
@@ -459,9 +486,9 @@ def test_build_digest_html_per_row_view_feed_action():
     )
     html = build_digest_html([updated, redirected])
     assert 'href="https://mobilitydatabase.org/feeds/mdb-9"' in html
-    assert "View Feed" in html
+    assert "View &rarr;" in html
     assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html  # new/target feed
-    assert "View New Feed" in html
+    assert "Subscribe &rarr;" in html
 
 
 # ---------------------------------------------------------------------------

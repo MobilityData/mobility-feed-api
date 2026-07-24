@@ -264,7 +264,11 @@ def build_single_subject(event) -> str:
         return f"[Mobility Database] Notification for {event.notification_type_id}"
 
     if "%s" in template:
-        return template % (subject_feed(event) or "unknown")
+        # Prefer the transit provider's name (more meaningful to a subscriber
+        # than an internal stable_id); fall back to the id when no provider
+        # was captured for this event.
+        label = event_payload(event).get("provider") or subject_feed(event) or "unknown"
+        return template % label
     return template
 
 
