@@ -24,18 +24,22 @@
           <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Old URL</th>
           <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">New URL</th>
           <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Source</th>
+          <th align="right" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);"></th>
         </tr>
       </thead>
       <tbody style="font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 12px;">
         {% for row in rows %}
         {%- set is_even = loop.index0 % 2 == 1 -%}
         {%- set has_border = not loop.last -%}
+        {%- set action_href = row.target_feed_url if row.event_subtype == "feed_redirected" else row.feed_url -%}
+        {%- set action_label = "View New Feed" if row.event_subtype == "feed_redirected" else "View Feed" -%}
         <tr{% if is_even %} bgcolor="#fafafa" style="background-color: #fafafa"{% endif %}>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{% if row.feed_url %}<a href="{{ row.feed_url }}" target="_blank" style="color: #3959fa; font-weight: 700; text-decoration: none;">{{ row.feed_stable_id }}</a>{% else %}{{ row.feed_stable_id }}{% endif %}{% if row.provider %} ({{ row.provider }}){% endif %}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.event_subtype }}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.old_url or "-" }}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.new_url or "-" }}</td>
           <td style="padding: 7px 10px; color: #474747;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{{ row.source or "-" }}</td>
+          <td align="right" style="padding: 7px 10px; white-space: nowrap;{% if has_border %} border-bottom: 1px solid rgba(0,0,0,0.06);{% endif %}">{% if action_href %}<a href="{{ action_href }}" target="_blank" style="color: #3959fa; font-weight: 700; text-decoration: none; font-size: 11px;">{{ action_label }} &rarr;</a>{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

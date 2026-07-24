@@ -364,13 +364,21 @@ def build_admin_summary_html(event) -> str:
     return _jinja_env.get_template("admin_event_summary.html.j2").render(summary=event_payload(event))
 
 
+def build_admin_digest_html(events: List) -> str:
+    """Render one or more ``admin.event_summary`` events inside a single shared
+    header/footer. Unlike concatenating ``build_admin_summary_html`` per event
+    (each of which is a *full* HTML document), this renders exactly one
+    document with one summary block per event."""
+    summaries = [event_payload(e) for e in events]
+    return _jinja_env.get_template("admin_event_summary_digest.html.j2").render(summaries=summaries)
+
+
 def build_digest_html(events: List, subscription=None) -> str:
     if not events:
         return "<p>No feed URL changes in this period.</p>"
 
     if events[0].notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
-        # One run summary per event (most digests contain a single summary).
-        return "".join(build_admin_summary_html(e) for e in events)
+        return build_admin_digest_html(events)
 
     rows = [_event_row_dict(e) for e in events]
     context = {"rows": rows, **_subscription_footer_context(subscription)}

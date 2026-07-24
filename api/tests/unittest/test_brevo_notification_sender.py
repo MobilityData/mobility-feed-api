@@ -254,6 +254,43 @@ def test_build_single_html_redirected_and_replaced():
     assert "https://old" in html
 
 
+def test_build_single_html_url_replaced_shows_single_view_feed_button():
+    """A plain URL update (one feed, not deprecated) must show only the single
+    "View Feed" CTA button — not the two-button deprecated/redirected layout."""
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "View Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html
+    # Must NOT fall through to the redirected two-button layout.
+    assert "Subscribe To New Feed" not in html
+    assert "View Deprecated Feed" not in html
+
+
+def test_build_single_html_feed_redirected_shows_new_and_deprecated_buttons():
+    """A deprecation-with-redirect must show BOTH CTA buttons: one to the new
+    (target) feed and one to the deprecated (subject) feed, each linking to
+    its own feed page."""
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "Subscribe To New Feed" in html
+    assert "View Deprecated Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-2" in html  # new/target feed
+    assert "https://mobilitydatabase.org/feeds/mdb-1" in html  # deprecated/subject feed
+    # Must NOT fall through to the plain single-button layout.
+    assert "View Feed" not in html
+
+
 def test_build_single_html_admin_summary():
     event = _event(
         type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
@@ -292,6 +329,31 @@ def test_build_digest_html_admin_summary():
     assert ">1</td>" in html
 
 
+def test_build_digest_html_admin_summary_multiple_events_share_one_document():
+    """Regression test: multiple admin.event_summary events batched into one
+    digest must render as ONE HTML document (one shared header/footer), not
+    N concatenated full documents stacked on top of each other."""
+    events = [
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 5, "cadence": "daily"}
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 7, "cadence": "daily"}
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 9, "cadence": "daily"}
+        ),
+    ]
+    html = build_digest_html(events)
+    assert html.count("<html") == 1
+    assert html.count("</html>") == 1
+    assert html.count("<!doctype html>") == 1
+    assert html.count("<h1") == 3
+    assert ">5</td>" in html
+    assert ">7</td>" in html
+    assert ">9</td>" in html
+
+
 def test_build_digest_html_feed_url_updates():
     event = _event(
         feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
@@ -300,6 +362,30 @@ def test_build_digest_html_feed_url_updates():
     html = build_digest_html([event])
     assert "Feed URL Updates" in html
     assert "mdb-1" in html
+
+
+def test_build_digest_html_per_row_view_feed_action():
+    """Each digest row must offer its own "view feed" action, not just a
+    clickable feed id: a plain update links to that feed's own page, while a
+    redirected row links to the NEW (target) feed, not the deprecated one."""
+    updated = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    redirected = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_digest_html([updated, redirected])
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-9"' in html
+    assert "View Feed" in html
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html  # new/target feed
+    assert "View New Feed" in html
 
 
 # ---------------------------------------------------------------------------
