@@ -105,6 +105,7 @@ def _safe_link_filter(url: Optional[str]) -> Markup:
         return Markup(f'<a href="{escaped}">{escaped}</a>')
     return Markup(escaped)
 
+
 def _thousands_sep(n: Optional[int]) -> str:
     """Format an integer with thousands separators; ``None`` renders as an em dash."""
     return "{:,}".format(int(n)) if n is not None else "—"
