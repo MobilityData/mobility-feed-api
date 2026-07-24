@@ -269,8 +269,8 @@ def test_build_single_html_admin_summary():
     html = build_single_html(event)
     assert "Notification Dispatch Summary" in html
     assert "weekly" in html
-    assert "<td>5</td>" in html
-    assert "<td>2</td>" in html
+    assert ">5</td>" in html
+    assert ">2</td>" in html
     # Must NOT fall through to the feed url-updated layout.
     assert "has changed" not in html
     assert "Old URL" not in html
@@ -288,8 +288,8 @@ def test_build_digest_html_admin_summary():
     )
     html = build_digest_html([event])
     assert "Notification Dispatch Summary" in html
-    assert "<td>3</td>" in html
-    assert "<td>1</td>" in html
+    assert ">3</td>" in html
+    assert ">1</td>" in html
 
 
 def test_build_digest_html_feed_url_updates():
@@ -476,3 +476,60 @@ def test_build_digest_html_escapes_values():
     assert "<i>mdb</i>" not in html
     assert "&lt;i&gt;mdb&lt;/i&gt;" in html
     assert "<o>" not in html
+
+
+# ---------------------------------------------------------------------------
+# Jinja2 templates
+# ---------------------------------------------------------------------------
+
+
+def test_all_templates_resolve():
+    """Every template file referenced by the HTML builders must exist and load."""
+    for name in (
+        "feed_url_updated_single.html.j2",
+        "feed_url_updated_digest.html.j2",
+        "admin_event_summary.html.j2",
+    ):
+        assert bns._jinja_env.get_template(name) is not None
+
+
+def test_single_template_autoescapes_script_tag():
+    row = {
+        "feed_stable_id": "<script>alert(1)</script>",
+        "target_feed_stable_id": None,
+        "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+        "old_url": "",
+        "new_url": "",
+    }
+    html = bns._jinja_env.get_template("feed_url_updated_single.html.j2").render(row=row)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_digest_template_autoescapes_script_tag():
+    rows = [
+        {
+            "feed_stable_id": "<script>alert(1)</script>",
+            "target_feed_stable_id": None,
+            "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+            "old_url": "",
+            "new_url": "",
+            "source": "",
+        }
+    ]
+    html = bns._jinja_env.get_template("feed_url_updated_digest.html.j2").render(rows=rows)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_safe_link_filter_only_links_http_schemes():
+    assert bns._safe_link_filter(None) == ""
+    assert bns._safe_link_filter("") == ""
+    assert bns._safe_link_filter("javascript:alert(1)") == "javascript:alert(1)"
+    assert bns._safe_link_filter("https://example.com") == '<a href="https://example.com">https://example.com</a>'
+
+
+def test_safe_link_filter_escapes_url():
+    result = bns._safe_link_filter("https://example.com/<script>")
+    assert "<script>" not in result
+    assert "&lt;script&gt;" in result
