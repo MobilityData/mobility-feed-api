@@ -37,9 +37,7 @@ def test_add_contact_sets_only_subscription_id_by_default():
 def test_add_contact_includes_firstname_and_organization_when_provided():
     api = MagicMock()
     with patch.object(brevo, "_get_contacts_api", return_value=api):
-        brevo.add_contact_to_list(
-            "a@b.com", 42, "sub-1", first_name="Jane Doe", organization="Acme Transit"
-        )
+        brevo.add_contact_to_list("a@b.com", 42, "sub-1", first_name="Jane Doe", organization="Acme Transit")
 
     assert _sent_contact(api).attributes == {
         "MDB_SUBSCRIPTION_ID": "sub-1",
@@ -51,9 +49,7 @@ def test_add_contact_includes_firstname_and_organization_when_provided():
 def test_add_contact_omits_none_attributes():
     api = MagicMock()
     with patch.object(brevo, "_get_contacts_api", return_value=api):
-        brevo.add_contact_to_list(
-            "a@b.com", 42, "sub-1", first_name=None, organization="Acme Transit"
-        )
+        brevo.add_contact_to_list("a@b.com", 42, "sub-1", first_name=None, organization="Acme Transit")
 
     attributes = _sent_contact(api).attributes
     assert "FIRSTNAME" not in attributes  # None is omitted, not blanked

@@ -61,9 +61,7 @@ def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
     configuration.api_key["api-key"] = api_key
     api = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
     # Disable urllib3 retries so a connection failure fails fast instead of looping.
-    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = (
-        _BREVO_RETRIES
-    )
+    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = _BREVO_RETRIES
     return api
 
 
@@ -71,9 +69,7 @@ def get_announcements_list_id() -> int:
     """Return the Brevo API-announcements list id from BREVO_API_ANNOUNCEMENTS_LIST_ID."""
     raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
     if not raw:
-        raise RuntimeError(
-            "BREVO_API_ANNOUNCEMENTS_LIST_ID environment variable is not set"
-        )
+        raise RuntimeError("BREVO_API_ANNOUNCEMENTS_LIST_ID environment variable is not set")
     return int(raw)
 
 
@@ -156,10 +152,6 @@ def get_contact_subscription_status(
 
     if contact.email_blacklisted:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
-    if (
-        list_id is not None
-        and contact.list_unsubscribed
-        and list_id in contact.list_unsubscribed
-    ):
+    if list_id is not None and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
     return BrevoSubscriptionStatus.SUBSCRIBED

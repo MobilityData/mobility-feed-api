@@ -68,9 +68,7 @@ def sync_announcements(
         # urllib3.exceptions.HTTPError / OSError cover connection failures and timeouts (e.g. Brevo
         # unreachable), so the request fails fast with a 502 instead of hanging on retries.
         logger.error("Brevo sync failed for %s: %s", email, exc)
-        raise HTTPException(
-            status_code=502, detail="Failed to sync subscription with email provider."
-        )
+        raise HTTPException(status_code=502, detail="Failed to sync subscription with email provider.")
 
 
 def set_announcements_optin(
@@ -111,8 +109,7 @@ def set_announcements_optin(
             db_session.query(NotificationSubscriptionOrm)
             .filter(
                 NotificationSubscriptionOrm.user_id == user.id,
-                NotificationSubscriptionOrm.notification_type_id
-                == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+                NotificationSubscriptionOrm.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
             )
             .one_or_none()
         )
