@@ -141,7 +141,7 @@ def test_feed_accessors_when_missing():
 
 def test_build_single_subject_known_and_unknown():
     known = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)])
-    assert build_single_subject(known) == "[Mobility Database] Feed mdb-9 has been updated"
+    assert build_single_subject(known) == "Feed mdb-9 has been updated"
 
     unknown = _event(type_id="other.type")
     assert "other.type" in build_single_subject(unknown)
@@ -157,26 +157,26 @@ def test_build_single_subject_prefers_provider_over_feed_id():
         feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
         payload={"provider": "City Transit"},
     )
-    assert build_single_subject(event) == "[Mobility Database] Feed City Transit has been updated"
+    assert build_single_subject(event) == "Feed City Transit has been updated"
 
 
 def test_build_single_subject_falls_back_to_feed_id_without_provider():
     event = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)], payload={})
-    assert build_single_subject(event) == "[Mobility Database] Feed mdb-9 has been updated"
+    assert build_single_subject(event) == "Feed mdb-9 has been updated"
 
 
 def test_build_digest_subject_pluralization():
     two = [_event(), _event()]
-    assert build_digest_subject(two) == "[Mobility Database] 2 feed URL updates"
+    assert build_digest_subject(two) == "2 feed URL updates"
     one = [_event()]
-    assert build_digest_subject(one) == "[Mobility Database] 1 feed URL update"
+    assert build_digest_subject(one) == "1 feed URL update"
 
 
 def test_build_digest_subject_unknown_type_fallback():
     events = [_event(type_id="other.type"), _event(type_id="other.type")]
-    assert build_digest_subject(events) == "[Mobility Database] 2 notifications"
+    assert build_digest_subject(events) == "2 notifications"
     single = [_event(type_id="other.type")]
-    assert build_digest_subject(single) == "[Mobility Database] 1 notification"
+    assert build_digest_subject(single) == "1 notification"
 
 
 # ---------------------------------------------------------------------------

@@ -184,13 +184,13 @@ def get_brevo_rate_limiter() -> RateLimiter:
 
 
 _DIGEST_EMAIL_SUBJECT_DICTIONARY = {
-    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] %s feed URL update%s",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+    NotificationTypeId.FEED_URL_UPDATED: "%s feed URL update%s",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
 }
 
 _SINGLE_EMAIL_SUBJECT_DICTIONARY = {
-    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] Feed %s has been updated",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+    NotificationTypeId.FEED_URL_UPDATED: "Feed %s has been updated",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
 }
 
 
@@ -261,7 +261,7 @@ def event_payload(event) -> Dict[str, Any]:
 def build_single_subject(event) -> str:
     template = _SINGLE_EMAIL_SUBJECT_DICTIONARY.get(event.notification_type_id)
     if template is None:
-        return f"[Mobility Database] Notification for {event.notification_type_id}"
+        return f"Notification for {event.notification_type_id}"
 
     if "%s" in template:
         # Prefer the transit provider's name (more meaningful to a subscriber
@@ -277,7 +277,7 @@ def build_digest_subject(events: List) -> str:
     type_id = events[0].notification_type_id if events else "notification"
     template = _DIGEST_EMAIL_SUBJECT_DICTIONARY.get(type_id)
     if template is None:
-        return f"[Mobility Database] {count} notification{'s' if count != 1 else ''}"
+        return f"{count} notification{'s' if count != 1 else ''}"
 
     placeholder_count = template.count("%s")
     if placeholder_count == 2:
