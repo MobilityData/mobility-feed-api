@@ -58,6 +58,7 @@ class FeedImpl(BaseFeedImpl, Feed):
             provider=feed_dict.get("provider"),
             feed_contact_email=feed_dict.get("feed_contact_email"),
             producer_url=feed_dict.get("producer_url"),
+            is_producer_url_unstable=feed_dict.get("is_producer_url_unstable"),
             authentication_type=(
                 None if feed_dict.get("authentication_type") is None else str(feed_dict.get("authentication_type"))
             ),

@@ -64,6 +64,11 @@ on:
         required: false
         default: main
         type: string
+      CSV_FILE_NAME:
+        description: Name of the sources CSV object to download from the mdb-csv bucket. Defaults to sources.csv.
+        required: false
+        default: sources.csv
+        type: string
 
 env:
   python_version: '3.11'
@@ -150,7 +155,7 @@ jobs:
 
     - name: Download csv version of the database
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
-      run: wget -O sources.csv https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
+      run: wget -O sources.csv "https://storage.googleapis.com/storage/v1/b/mdb-csv/o/${{ inputs.CSV_FILE_NAME }}?alt=media"
 
     - name: Get full path of sources.csv
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
