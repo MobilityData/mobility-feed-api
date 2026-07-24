@@ -148,8 +148,8 @@ copy_folders_to_build() {
   fi
   for folder in $folders; do
 
-    printf "\nINFO: Including .py and .json files from folder $root_folder/$folder, excluding 'tests' and 'venv' directories\n"
-    # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
+    printf "\nINFO: Including .py, .json and .j2 files from folder $root_folder/$folder, excluding 'tests' and 'venv' directories\n"
+    # Find all .py, .json and .j2 files, excluding those in 'tests' or 'venv' directories
     if [ ! -e $root_folder/$folder ]; then
       echo "ERROR ---> Folder $root_folder/$folder does not exist"
       continue
@@ -158,7 +158,7 @@ copy_folders_to_build() {
       cd "$root_folder" &&
         find "$folder" \
           \( -type d \( -name "tests" -o -name "venv" -o -name "shared" -o -name "test_shared" \) \) -prune -o \
-          \( -name "*.py" -o -name "*.json" \) -print
+          \( -name "*.py" -o -name "*.json" -o -name "*.j2" \) -print
     ) | while read file; do
 
         if [ -d "$root_folder/$file" ]; then continue; fi
