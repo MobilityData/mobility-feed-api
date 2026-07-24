@@ -64,7 +64,14 @@ def _make_subscription(user_id, sub_id="sub-existing", active=True):
     )
 
 
-def _make_app_user(uid, email=None, migrated_at=_DEFAULT, brevo_synced_at=None):
+def _make_app_user(
+    uid,
+    email=None,
+    migrated_at=_DEFAULT,
+    brevo_synced_at=None,
+    full_name=None,
+    legacy_org_name=None,
+):
     """Build an existing app_user row. brevo_synced_at drives the write-back
     idempotency check (None = contact not yet synced)."""
     if migrated_at is _DEFAULT:
@@ -74,6 +81,8 @@ def _make_app_user(uid, email=None, migrated_at=_DEFAULT, brevo_synced_at=None):
         email=email or f"{uid}@example.com",
         migrated_at=migrated_at,
         brevo_synced_at=brevo_synced_at,
+        full_name=full_name,
+        legacy_org_name=legacy_org_name,
     )
 
 
@@ -540,7 +549,10 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
 
         sub = _added_subscription(session)
         self.assertIsNotNone(sub)
-        mock_add.assert_called_once_with("wb1@example.com", 42, sub.id)
+        # New user has no Datastore profile here, so name/org are forwarded as None.
+        mock_add.assert_called_once_with(
+            "wb1@example.com", 42, sub.id, first_name=None, organization=None
+        )
         added_user = _added_app_user(session)
         self.assertIsNotNone(added_user.brevo_synced_at)
         self.assertEqual(stats["brevo_synced"], 1)
@@ -552,7 +564,11 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         app_user row stamped in place."""
         user = _make_auth_user("uid-wb2", email="wb2@example.com")
         existing = _make_app_user(
-            "uid-wb2", email="wb2@example.com", brevo_synced_at=None
+            "uid-wb2",
+            email="wb2@example.com",
+            brevo_synced_at=None,
+            full_name="Jane Doe",
+            legacy_org_name="Acme Transit",
         )
         sub = _make_subscription("uid-wb2", sub_id="sub-wb2")
         session = _make_db_session(existing, existing_sub=sub)
@@ -566,7 +582,14 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
 
         self.assertIsNone(_added_subscription(session))  # no new subscription row
         self.assertIsNone(_added_app_user(session))  # existing row not re-inserted
-        mock_add.assert_called_once_with("wb2@example.com", 42, "sub-wb2")
+        # Full name → FIRSTNAME, legacy org → ORGANIZATION are forwarded to Brevo.
+        mock_add.assert_called_once_with(
+            "wb2@example.com",
+            42,
+            "sub-wb2",
+            first_name="Jane Doe",
+            organization="Acme Transit",
+        )
         self.assertIsNotNone(existing.brevo_synced_at)  # stamped in place
         self.assertEqual(stats["brevo_synced"], 1)
 

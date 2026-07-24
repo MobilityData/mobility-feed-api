@@ -61,7 +61,9 @@ def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
     configuration.api_key["api-key"] = api_key
     api = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
     # Disable urllib3 retries so a connection failure fails fast instead of looping.
-    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = _BREVO_RETRIES
+    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = (
+        _BREVO_RETRIES
+    )
     return api
 
 
@@ -69,21 +71,40 @@ def get_announcements_list_id() -> int:
     """Return the Brevo API-announcements list id from BREVO_API_ANNOUNCEMENTS_LIST_ID."""
     raw = os.getenv("BREVO_API_ANNOUNCEMENTS_LIST_ID")
     if not raw:
-        raise RuntimeError("BREVO_API_ANNOUNCEMENTS_LIST_ID environment variable is not set")
+        raise RuntimeError(
+            "BREVO_API_ANNOUNCEMENTS_LIST_ID environment variable is not set"
+        )
     return int(raw)
 
 
-def add_contact_to_list(email: str, list_id: int, subscription_id: str) -> None:
-    """Create/update a Brevo contact, add it to the list, and set MDB_SUBSCRIPTION_ID.
+def add_contact_to_list(
+    email: str,
+    list_id: int,
+    subscription_id: str,
+    *,
+    first_name: str | None = None,
+    organization: str | None = None,
+) -> None:
+    """Create/update a Brevo contact, add it to the list, and set its attributes.
+
+    Always sets MDB_SUBSCRIPTION_ID. When provided, also sets the standard
+    FIRSTNAME attribute (from the user's full name) and the ORGANIZATION attribute
+    (from the user's legacy organisation name). Attributes whose value is None are
+    omitted so we never overwrite an existing Brevo value with a blank.
 
     Uses create_contact with update_enabled so it works whether or not the
     contact already exists.
     """
+    attributes = {"MDB_SUBSCRIPTION_ID": subscription_id}
+    if first_name is not None:
+        attributes["FIRSTNAME"] = first_name
+    if organization is not None:
+        attributes["ORGANIZATION"] = organization
     api = _get_contacts_api()
     api.create_contact(
         sib_api_v3_sdk.CreateContact(
             email=email,
-            attributes={"MDB_SUBSCRIPTION_ID": subscription_id},
+            attributes=attributes,
             list_ids=[list_id],
             update_enabled=True,
         ),
@@ -135,6 +156,10 @@ def get_contact_subscription_status(
 
     if contact.email_blacklisted:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
-    if list_id is not None and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
+    if (
+        list_id is not None
+        and contact.list_unsubscribed
+        and list_id in contact.list_unsubscribed
+    ):
         return BrevoSubscriptionStatus.UNSUBSCRIBED
     return BrevoSubscriptionStatus.SUBSCRIBED

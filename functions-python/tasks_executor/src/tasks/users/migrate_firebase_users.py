@@ -393,7 +393,11 @@ def migrate_firebase_users(
             if should_sync_brevo:
                 try:
                     add_contact_to_list(
-                        user_record.email, announcements_list_id, subscription.id
+                        user_record.email,
+                        announcements_list_id,
+                        subscription.id,
+                        first_name=app_user_row.full_name,
+                        organization=app_user_row.legacy_org_name,
                     )
                     app_user_row.brevo_synced_at = datetime.now(timezone.utc)
                     results["brevo_synced"] += 1

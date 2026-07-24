@@ -23,7 +23,11 @@ from fastapi import HTTPException
 import sib_api_v3_sdk
 import urllib3
 from sqlalchemy.orm import Session
-from shared.common.brevo import add_contact_to_list, get_announcements_list_id, remove_contact_from_list
+from shared.common.brevo import (
+    add_contact_to_list,
+    get_announcements_list_id,
+    remove_contact_from_list,
+)
 from shared.database.database import generate_unique_id
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
@@ -35,18 +39,38 @@ logger = logging.getLogger(__name__)
 ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 
 
-def sync_announcements(email: str, subscribe: bool, subscription_id: str | None = None) -> None:
+def sync_announcements(
+    email: str,
+    subscribe: bool,
+    subscription_id: str | None = None,
+    *,
+    first_name: str | None = None,
+    organization: str | None = None,
+) -> None:
     """Sync an api.announcements subscription with Brevo, mapping provider errors to 502."""
     try:
         if subscribe:
-            add_contact_to_list(email, get_announcements_list_id(), subscription_id)
+            add_contact_to_list(
+                email,
+                get_announcements_list_id(),
+                subscription_id,
+                first_name=first_name,
+                organization=organization,
+            )
         else:
             remove_contact_from_list(email, get_announcements_list_id())
-    except (RuntimeError, sib_api_v3_sdk.rest.ApiException, urllib3.exceptions.HTTPError, OSError) as exc:
+    except (
+        RuntimeError,
+        sib_api_v3_sdk.rest.ApiException,
+        urllib3.exceptions.HTTPError,
+        OSError,
+    ) as exc:
         # urllib3.exceptions.HTTPError / OSError cover connection failures and timeouts (e.g. Brevo
         # unreachable), so the request fails fast with a 502 instead of hanging on retries.
         logger.error("Brevo sync failed for %s: %s", email, exc)
-        raise HTTPException(status_code=502, detail="Failed to sync subscription with email provider.")
+        raise HTTPException(
+            status_code=502, detail="Failed to sync subscription with email provider."
+        )
 
 
 def set_announcements_optin(
@@ -87,7 +111,8 @@ def set_announcements_optin(
             db_session.query(NotificationSubscriptionOrm)
             .filter(
                 NotificationSubscriptionOrm.user_id == user.id,
-                NotificationSubscriptionOrm.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+                NotificationSubscriptionOrm.notification_type_id
+                == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
             )
             .one_or_none()
         )
@@ -102,7 +127,13 @@ def set_announcements_optin(
         sub.active = True
         if existing is None:
             db_session.add(sub)
-        sync_announcements(user.email, subscribe=True, subscription_id=sub.id)
+        sync_announcements(
+            user.email,
+            subscribe=True,
+            subscription_id=sub.id,
+            first_name=user.full_name,
+            organization=user.legacy_org_name,
+        )
         user.is_registered_to_receive_api_announcements = True
         return sub
 
