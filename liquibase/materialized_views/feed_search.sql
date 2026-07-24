@@ -11,6 +11,7 @@ SELECT
 
     -- source
     Feed.producer_url,
+    Feed.is_producer_url_unstable,
     Feed.authentication_info_url,
     Feed.authentication_type,
     Feed.api_key_parameter_name,

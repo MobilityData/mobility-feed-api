@@ -1147,11 +1147,22 @@ components:
       properties:
         producer_url:
           description: >
-            URL where the producer is providing the dataset. 
+            URL where the producer is providing the dataset.
             Refer to the authentication information to know how to access this URL.
           type: string
           format: url
           example: https://ladotbus.com/gtfs
+        is_producer_url_unstable:
+          description: >
+            Indicates whether the `producer_url` is known to be unstable, i.e. it changes over time.
+            This may be because the URL contains a date/time, or because the transit provider has
+            communicated that it is not permanent (e.g. it is updated monthly).
+              * true - The producer URL is unstable and changes over time.
+              * false - The producer URL is stable and unchanging over time.
+              * null (default) - There is not enough information to determine the stability of the producer URL.
+          type: boolean
+          nullable: true
+          example: true
         authentication_type:
           description: >
             Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
