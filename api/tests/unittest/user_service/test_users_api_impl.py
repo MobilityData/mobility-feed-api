@@ -607,6 +607,94 @@ class TestSubscriptionGate(unittest.TestCase):
         self.mock_session.delete.assert_not_called()
 
 
+class TestAdminSummaryGate(unittest.TestCase):
+    """admin.event_summary additionally requires the isAdminSummarySubscriptionEnabled flag."""
+
+    ADMIN_TYPE = "admin.event_summary"
+
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _configure(self, *, notifications=True, admin=True, sub=None):
+        """Wire get() to resolve both gate flags (enabled per args) and, optionally, a subscription."""
+        from shared.users_database_gen.sqlacodegen_models import (
+            FeatureFlag,
+            NotificationSubscription as Orm,
+            NotificationType,
+            UserFeatureFlag,
+        )
+
+        flags = {
+            "isNotificationEnabled": FeatureFlag(
+                id="isNotificationEnabled", value_type="boolean", default_value=notifications, disabled=False
+            ),
+            "isAdminSummarySubscriptionEnabled": FeatureFlag(
+                id="isAdminSummarySubscriptionEnabled", value_type="boolean", default_value=admin, disabled=False
+            ),
+        }
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return flags.get(key)
+            if model is UserFeatureFlag:
+                return None
+            if model is NotificationType:
+                return NotificationType(id=key)
+            if model is Orm:
+                return sub
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+    def _create(self, notification_id):
+        return self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id=notification_id), db_session=self.mock_session
+        )
+
+    def test_create_admin_allowed_when_admin_flag_true(self):
+        self._configure(notifications=True, admin=True)
+        self.assertEqual(self._create(self.ADMIN_TYPE).notification_id, self.ADMIN_TYPE)
+
+    def test_create_admin_denied_when_admin_flag_false(self):
+        self._configure(notifications=True, admin=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create(self.ADMIN_TYPE)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_admin_denied_when_notifications_flag_false(self):
+        # The general gate runs first, so it fails even with the admin flag on.
+        self._configure(notifications=False, admin=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create(self.ADMIN_TYPE)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_non_admin_type_ignores_admin_flag(self):
+        # A non-admin type is unaffected by the admin flag being off.
+        self._configure(notifications=True, admin=False)
+        self.assertEqual(self._create("feed.published").notification_id, "feed.published")
+
+    def test_update_admin_denied_when_admin_flag_false(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
+
+        sub = Orm(
+            id="sub-1",
+            user_id="uid-123",
+            notification_type_id=self.ADMIN_TYPE,
+            active=True,
+            created_at=FIXED_NOW,
+        )
+        self._configure(notifications=True, admin=False, sub=sub)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 403)
+
+
 if __name__ == "__main__":
     unittest.main()
 

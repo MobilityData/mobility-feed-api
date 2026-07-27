@@ -31,6 +31,12 @@ ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 # have this boolean flag resolved to true to create (POST) or update (PATCH) subscriptions.
 NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationEnabled"
 
+# The admin dispatch-summary notification type and the additional feature flag required to
+# subscribe to (or manage a subscription for) it. This is layered on top of the general
+# NOTIFICATIONS_FEATURE_FLAG_ID gate.
+ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID = "admin.event_summary"
+ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"
+
 # Notification types that are scoped to specific feeds. A subscription to any of
 # these must carry a non-empty list of feed stable IDs (persisted in the
 # notification_subscription_feed join table); other types must not carry feeds.

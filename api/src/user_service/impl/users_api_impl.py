@@ -36,6 +36,8 @@ from shared.users_database_gen.sqlacodegen_models import (
     NotificationType,
 )
 from user_service.impl.subscription_helpers import (
+    ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID,
+    ADMIN_SUMMARY_FEATURE_FLAG_ID,
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
@@ -161,6 +163,10 @@ class UsersApiImpl(BaseUsersApi):
         if db_session.get(NotificationType, notification_id) is None:
             raise HTTPException(status_code=400, detail=f"Unknown notification type '{notification_id}'.")
 
+        # The admin dispatch-summary type is gated by an additional feature flag.
+        if notification_id == ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID:
+            self._require_admin_summary_enabled(db_session, user_id)
+
         # Feed scoping is validated in code (the OpenAPI 3.0 schema keeps feed_ids optional).
         is_feed_scoped = notification_id in FEED_SCOPED_NOTIFICATION_TYPE_IDS
         if is_feed_scoped and not feed_ids:
@@ -216,6 +222,10 @@ class UsersApiImpl(BaseUsersApi):
         self._require_notifications_enabled(db_session, user_id)
         sub = self._get_owned_subscription(db_session, id, user_id)
 
+        # Managing an admin.event_summary subscription requires the additional admin flag.
+        if sub.notification_type_id == ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID:
+            self._require_admin_summary_enabled(db_session, user_id)
+
         active = update_notification_subscription_request.active
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, user_id)
@@ -264,20 +274,33 @@ class UsersApiImpl(BaseUsersApi):
 
         Raises 403 unless the flag resolves to true for this user.
         """
-        if not cls._notifications_enabled(db_session, user_id):
+        if not cls._feature_flag_enabled(db_session, user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
             raise HTTPException(status_code=403, detail="Notifications are not enabled for this user.")
 
+    @classmethod
+    def _require_admin_summary_enabled(cls, db_session, user_id: str) -> None:
+        """Gate: the ``admin.event_summary`` type additionally requires ``isAdminSummarySubscriptionEnabled``.
+
+        Layered on top of the general notifications gate. Raises 403 unless the flag resolves to
+        true for this user.
+        """
+        if not cls._feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID):
+            raise HTTPException(
+                status_code=403,
+                detail=f"The '{ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID}' subscription is not enabled for this user.",
+            )
+
     @staticmethod
-    def _notifications_enabled(db_session, user_id: str) -> bool:
-        """Resolve the boolean ``isNotificationEnabled`` flag for a user.
+    def _feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
+        """Resolve a boolean feature flag for a user.
 
         A globally disabled or missing flag denies everyone; otherwise the user's override wins,
         falling back to the flag's default value.
         """
-        flag = db_session.get(FeatureFlag, NOTIFICATIONS_FEATURE_FLAG_ID)
+        flag = db_session.get(FeatureFlag, flag_id)
         if flag is None or flag.disabled:
             return False
-        override = db_session.get(UserFeatureFlag, (user_id, NOTIFICATIONS_FEATURE_FLAG_ID))
+        override = db_session.get(UserFeatureFlag, (user_id, flag_id))
         value = override.value if override is not None and override.value is not None else flag.default_value
         return value is True
 
