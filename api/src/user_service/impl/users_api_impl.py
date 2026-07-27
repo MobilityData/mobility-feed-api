@@ -41,6 +41,7 @@ from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
+    feature_flag_enabled,
     sync_announcements,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
@@ -274,7 +275,7 @@ class UsersApiImpl(BaseUsersApi):
 
         Raises 403 unless the flag resolves to true for this user.
         """
-        if not cls._feature_flag_enabled(db_session, user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+        if not feature_flag_enabled(db_session, user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
             raise HTTPException(status_code=403, detail="Notifications are not enabled for this user.")
 
     @classmethod
@@ -284,25 +285,11 @@ class UsersApiImpl(BaseUsersApi):
         Layered on top of the general notifications gate. Raises 403 unless the flag resolves to
         true for this user.
         """
-        if not cls._feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID):
+        if not feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID):
             raise HTTPException(
                 status_code=403,
                 detail=f"The '{ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID}' subscription is not enabled for this user.",
             )
-
-    @staticmethod
-    def _feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
-        """Resolve a boolean feature flag for a user.
-
-        A globally disabled or missing flag denies everyone; otherwise the user's override wins,
-        falling back to the flag's default value.
-        """
-        flag = db_session.get(FeatureFlag, flag_id)
-        if flag is None or flag.disabled:
-            return False
-        override = db_session.get(UserFeatureFlag, (user_id, flag_id))
-        value = override.value if override is not None and override.value is not None else flag.default_value
-        return value is True
 
     @staticmethod
     def _sync_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:

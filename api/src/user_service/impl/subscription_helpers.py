@@ -22,6 +22,7 @@ from fastapi import HTTPException
 import sib_api_v3_sdk
 import urllib3
 from shared.common.brevo import add_contact_to_list, get_announcements_list_id, remove_contact_from_list
+from shared.users_database_gen.sqlacodegen_models import FeatureFlag, UserFeatureFlag
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,20 @@ FEED_SCOPED_NOTIFICATION_TYPE_IDS = frozenset(
         "feed.coverage",
     }
 )
+
+
+def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
+    """Resolve a boolean feature flag for a user.
+
+    A globally disabled or missing flag denies everyone; otherwise the user's override wins,
+    falling back to the flag's default value.
+    """
+    flag = db_session.get(FeatureFlag, flag_id)
+    if flag is None or flag.disabled:
+        return False
+    override = db_session.get(UserFeatureFlag, (user_id, flag_id))
+    value = override.value if override is not None and override.value is not None else flag.default_value
+    return value is True
 
 
 def sync_announcements(email: str, subscribe: bool, subscription_id: str | None = None) -> None:
