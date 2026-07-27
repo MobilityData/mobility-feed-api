@@ -1,0 +1,25 @@
+{% extends "_base_email.html.j2" %}
+{% import "_admin_summary_block.html.j2" as blocks %}
+{% block title %}Mobility Database Notification Dispatch Summary{% endblock %}
+{% block header_label %}Dispatch Summary{% endblock %}
+{% block preheader %}{{ summaries | length }} notification dispatch summar{{ "ies" if summaries | length != 1 else "y" }}.{% endblock %}
+{% block content %}
+{% for summary in summaries %}
+<tr>
+  <td class="px" style="padding: 28px 32px 8px 32px;">
+    {{ blocks.summary_block(summary) }}
+  </td>
+</tr>
+{% if not loop.last %}
+<tr>
+  <td style="padding: 0 32px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="border-top: 1px solid rgba(0,0,0,0.08); font-size: 0; line-height: 0;">&nbsp;</td>
+      </tr>
+    </table>
+  </td>
+</tr>
+{% endif %}
+{% endfor %}
+{% endblock %}

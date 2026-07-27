@@ -63,6 +63,17 @@ sequenceDiagram
 Finds GTFS datasets that are missing a validation report **or** have a report from an
 older validator version, then triggers a GCP Workflow for each one.
 
+By default "older version" means "not the exact version returned by the validator
+endpoint". Set `filter_validator_version_prefix` (e.g. `"8."`) to instead target
+datasets that lack **any** report matching that major-version prefix — useful when you
+want to re-validate everything missing an `8.*` report regardless of the exact patch
+version the endpoint reports.
+
+By default the task only considers **each feed's latest dataset**. Set
+`include_all_datasets: true` to consider **every** dataset of the feed — needed when
+backfilling a historical window (e.g. so a feed's six-month reliability window is
+complete), not just its most recent dataset.
+
 The task is **resumable**: if it times out mid-loop, calling it again skips datasets
 that were already triggered (tracked in `task_execution_log`).
 
@@ -74,8 +85,11 @@ that were already triggered (tracked in `task_execution_log`).
     "validator_endpoint": "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app",
     "bypass_db_update": false,
     "filter_after_in_days": 30,
+    "filter_downloaded_after": "2026-03-01",
+    "filter_downloaded_before": "2026-06-01",
     "filter_statuses": ["active"],
     "filter_op_statuses": ["published"],
+    "filter_validator_version_prefix": "8.",
     "force_update": false,
     "limit": 10,
     "reports_bucket_name": "stg-gtfs-validator-results"
@@ -88,8 +102,12 @@ that were already triggered (tracked in `task_execution_log`).
 | `validator_endpoint` | string | env-derived | Validator service URL to use and fetch version from |
 | `bypass_db_update` | bool | `false` | When `true`, results are NOT written to DB/API (use for pre-release runs) |
 | `filter_after_in_days` | int | `null` | Restrict to datasets downloaded within the last N days. Omit to include all datasets |
+| `filter_downloaded_after` | string (ISO date) | `null` | Restrict to datasets downloaded **at or after** this date (inclusive), e.g. `"2026-03-01"`. Omit for no lower bound |
+| `filter_downloaded_before` | string (ISO date) | `null` | Restrict to datasets downloaded **strictly before** this date (exclusive), e.g. `"2026-06-01"`. Omit for no upper bound |
 | `filter_statuses` | list[str] | `null` | Filter feeds by status (e.g. `["active", "inactive"]`). Omit for all statuses |
 | `filter_op_statuses` | list[str] | `["published"]` | Filter feeds by operational status. Accepted values: `"published"`, `"unpublished"`, `"wip"` |
+| `filter_validator_version_prefix` | string | `null` | When set (e.g. `"8."`), only include datasets that do **not** already have a report whose `validator_version` starts with this prefix. Overrides the default exact-version comparison |
+| `include_all_datasets` | bool | `false` | When `true`, consider **all** datasets of each feed, not just the latest one. Use for backfilling a historical window |
 | `force_update` | bool | `false` | Re-trigger even when a current report already exists |
 | `limit` | int | `null` | Cap the number of workflows triggered per call — useful for end-to-end testing |
 | `reports_bucket_name` | string | env-derived | Override the GCS bucket where validator results are stored. Use when running in prod but pointing to the staging validator (e.g. `"stg-gtfs-validator-results"`) |

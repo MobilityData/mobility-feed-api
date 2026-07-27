@@ -205,13 +205,22 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         )
                         # Flush to avoid FK violation
                         session.flush()
+                        redirect_extra_data = {
+                            k: v
+                            for k, v in {
+                                "redirect_comment": comment,
+                                "provider": getattr(feed, "provider", None),
+                                "target_provider": getattr(target_feed, "provider", None),
+                            }.items()
+                            if v
+                        }
                         emit_feed_redirected(
                             source_stable_id=stable_id,
                             target_stable_id=target_stable_id,
                             old_url=getattr(feed, "producer_url", None),
                             new_url=getattr(target_feed, "producer_url", None),
                             source="populate_db_gtfs",
-                            extra_data={"redirect_comment": comment} if comment else None,
+                            extra_data=redirect_extra_data or None,
                         )
 
     def populate_db(self, session: "Session", fetch_url: bool = True):
@@ -264,6 +273,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
             producer_url = self.get_safe_value(row, "urls.direct_download", "")
+            new_provider = self.get_safe_value(row, "provider", "")
             if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
                 old_producer_url = feed.producer_url
                 feed.producer_url = producer_url
@@ -273,6 +283,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         old_url=old_producer_url,
                         new_url=producer_url,
                         source="populate_db_gtfs",
+                        extra_data={"provider": new_provider} if new_provider else None,
                     )
             # Three-state flag from the catalog CSV ("True"/"False"/empty). An empty cell leaves the DB
             # value untouched (same as is_official), so a re-import never wipes an operator-set value.
@@ -284,7 +295,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")
             feed.license_url = self.get_safe_value(row, "urls.license", "")
             feed.feed_contact_email = self.get_safe_value(row, "feed_contact_email", "")
-            feed.provider = self.get_safe_value(row, "provider", "")
+            feed.provider = new_provider
 
             self.populate_location(session, feed, row, stable_id)
             if data_type == "gtfs_rt":

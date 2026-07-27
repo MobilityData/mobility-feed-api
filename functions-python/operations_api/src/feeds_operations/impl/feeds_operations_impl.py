@@ -407,12 +407,25 @@ class OperationsApiImpl(BaseOperationsApi):
                         old_url=old_producer_url,
                         new_url=new_producer_url,
                         source="operations_api",
+                        extra_data=(
+                            {"provider": feed_from_db.provider}
+                            if feed_from_db.provider
+                            else None
+                        ),
                     )
                 new_redirect_target_ids = {
                     r.target_id for r in getattr(feed_from_db, "redirectingids", [])
                 }
                 for new_target_id in new_redirect_target_ids - old_redirect_target_ids:
                     target_feed = db_session.get(Feed, new_target_id)
+                    redirect_extra_data = {
+                        k: v
+                        for k, v in {
+                            "provider": feed_from_db.provider,
+                            "target_provider": getattr(target_feed, "provider", None),
+                        }.items()
+                        if v
+                    }
                     emit_feed_redirected(
                         source_stable_id=feed_stable_id,
                         target_stable_id=getattr(
@@ -421,6 +434,7 @@ class OperationsApiImpl(BaseOperationsApi):
                         old_url=old_producer_url,
                         new_url=getattr(target_feed, "producer_url", None),
                         source="operations_api",
+                        extra_data=redirect_extra_data or None,
                     )
                 try:
                     create_web_revalidation_task([update_request_feed.id])
