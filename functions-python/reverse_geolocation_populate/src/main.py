@@ -248,11 +248,12 @@ def _upsert_locality_hierarchy(
     ``parent_osm_id`` is the deepest lower-admin-level polygon from this run that
     covers the locality (so nested localities keep their real parent), while
     ``subdivision_osm_id`` records the covering subdivision for direct lookups. Each
-    locality's representative point is computed once from its own (small) geometry,
-    repairing only that geometry with ``ST_MakeValid`` before ``ST_PointOnSurface``.
+    locality's representative point is computed once with
+    ``ST_PointOnSurface(ST_MakeValid(child.geometry))`` — the ``ST_MakeValid`` guards
+    against invalid locality polygons that would otherwise break ``ST_PointOnSurface``.
     Containment is then tested with ``ST_Covers`` against the raw (spatially indexed)
-    candidate geometry. Because point-in-polygon is robust to invalid polygons, the
-    large candidate geometries are never repaired with ``ST_MakeValid`` here.
+    candidate geometry: point-in-polygon is robust to invalid polygons, so the large
+    candidate geometries are not repaired.
     """
     hierarchy_table = Geopolygonhierarchy.__table__
     child = aliased(Geopolygon)

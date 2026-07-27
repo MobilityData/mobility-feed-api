@@ -103,11 +103,13 @@ class LocationsApiImpl(BaseLocationsApi):
                 location_search.c.admin_level.asc(),
                 func.ts_rank(location_search.c.document, _ts_query(normalized_query)).desc(),
                 location_search.c.display_name.asc(),
+                location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
             )
         else:
             locations_query = locations_query.order_by(
                 location_search.c.admin_level.asc(),
                 location_search.c.display_name.asc(),
+                location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
             )
         locations_query = locations_query.limit(limit).offset(offset)
 
