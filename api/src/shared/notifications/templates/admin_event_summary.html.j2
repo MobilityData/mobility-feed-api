@@ -1,0 +1,12 @@
+{% extends "_base_email.html.j2" %}
+{% import "_admin_summary_block.html.j2" as blocks %}
+{% block title %}Mobility Database Notification Dispatch Summary{% endblock %}
+{% block header_label %}Dispatch Summary{% endblock %}
+{% block preheader %}Notification dispatch summary — {{ summary.emails_sent | default(0) }} emails sent, {{ summary.emails_failed | default(0) }} failed.{% endblock %}
+{% block content %}
+<tr>
+  <td class="px" style="padding: 28px 32px;">
+    {{ blocks.summary_block(summary) }}
+  </td>
+</tr>
+{% endblock %}

@@ -117,7 +117,11 @@ def _update_feed_redirect(
         old_url=mdb_feed.producer_url,
         new_url=tdg_feed.producer_url,
         source="tdg_redirects",
-        extra_data={"redirect_comment": "Redirecting post TDG import"},
+        extra_data={
+            "redirect_comment": "Redirecting post TDG import",
+            **({"provider": mdb_feed.provider} if mdb_feed.provider else {}),
+            **({"target_provider": tdg_feed.provider} if tdg_feed.provider else {}),
+        },
     )
     return counters
 

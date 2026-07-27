@@ -141,7 +141,7 @@ def test_feed_accessors_when_missing():
 
 def test_build_single_subject_known_and_unknown():
     known = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)])
-    assert build_single_subject(known) == "[Mobility Database] Feed mdb-9 has been updated"
+    assert build_single_subject(known) == "Feed mdb-9 has been updated"
 
     unknown = _event(type_id="other.type")
     assert "other.type" in build_single_subject(unknown)
@@ -152,18 +152,31 @@ def test_build_single_subject_uses_unknown_feed_placeholder():
     assert "unknown" in build_single_subject(event)
 
 
+def test_build_single_subject_prefers_provider_over_feed_id():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"provider": "City Transit"},
+    )
+    assert build_single_subject(event) == "Feed City Transit has been updated"
+
+
+def test_build_single_subject_falls_back_to_feed_id_without_provider():
+    event = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)], payload={})
+    assert build_single_subject(event) == "Feed mdb-9 has been updated"
+
+
 def test_build_digest_subject_pluralization():
     two = [_event(), _event()]
-    assert build_digest_subject(two) == "[Mobility Database] 2 feed URL updates"
+    assert build_digest_subject(two) == "2 feed URL updates"
     one = [_event()]
-    assert build_digest_subject(one) == "[Mobility Database] 1 feed URL update"
+    assert build_digest_subject(one) == "1 feed URL update"
 
 
 def test_build_digest_subject_unknown_type_fallback():
     events = [_event(type_id="other.type"), _event(type_id="other.type")]
-    assert build_digest_subject(events) == "[Mobility Database] 2 notifications"
+    assert build_digest_subject(events) == "2 notifications"
     single = [_event(type_id="other.type")]
-    assert build_digest_subject(single) == "[Mobility Database] 1 notification"
+    assert build_digest_subject(single) == "1 notification"
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +191,12 @@ def test_build_params_feed_url_updated():
             _feed("mdb-1", NotificationFeedRole.SUBJECT),
             _feed("mdb-2", NotificationFeedRole.TARGET),
         ],
-        payload={"old_url": "old", "new_url": "new"},
+        payload={
+            "old_url": "old",
+            "new_url": "new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
         created_at=created,
     )
     params = build_params_feed_url_updated([event], _SUBSCRIPTION)
@@ -189,6 +207,8 @@ def test_build_params_feed_url_updated():
     assert item["target_feed_stable_id"] == "mdb-2"
     assert item["old_url"] == "old"
     assert item["new_url"] == "new"
+    assert item["provider"] == "Acme Transit"
+    assert item["target_provider"] == "Acme Transit 2"
     assert item["created_at"] == created.isoformat()
 
 
@@ -199,6 +219,8 @@ def test_build_params_feed_url_updated_handles_missing_created_at_and_urls():
     assert item["new_url"] == ""
     assert item["source"] == ""
     assert item["created_at"] == ""
+    assert item["provider"] == ""
+    assert item["target_provider"] == ""
 
 
 def test_build_params_admin_event_summary_with_and_without_events():
@@ -254,6 +276,123 @@ def test_build_single_html_redirected_and_replaced():
     assert "https://old" in html
 
 
+def test_build_single_html_url_replaced_shows_single_view_feed_button():
+    """A plain URL update (one feed, not deprecated) must show only the single
+    "View Feed" CTA button — not the two-button deprecated/redirected layout."""
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "View Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html
+    # Must NOT fall through to the redirected two-button layout.
+    assert "Subscribe To New Feed" not in html
+    assert "View Deprecated Feed" not in html
+
+
+def test_build_single_html_feed_redirected_shows_new_and_deprecated_buttons():
+    """A deprecation-with-redirect must show BOTH CTA buttons: one to the new
+    (target) feed and one to the deprecated (subject) feed, each linking to
+    its own feed page."""
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "Subscribe To New Feed" in html
+    assert "View Deprecated Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-2" in html  # new/target feed
+    assert "https://mobilitydatabase.org/feeds/mdb-1" in html  # deprecated/subject feed
+    # Must NOT fall through to the plain single-button layout.
+    assert "View Feed" not in html
+
+
+def test_build_single_html_shows_provider_when_present():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new", "provider": "City Transit"},
+    )
+    html = build_single_html(event)
+    assert "City Transit" in html
+    assert "mdb-9 (City Transit)" in html
+
+
+def test_build_single_html_omits_provider_when_absent():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    # No stray empty parentheses when there's no provider name.
+    assert "()" not in html
+    assert "mdb-9 (" not in html
+
+
+def test_build_single_html_feed_redirected_shows_both_providers():
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
+    )
+    html = build_single_html(event)
+    assert "mdb-1 (Acme Transit)" in html
+    assert "mdb-2 (Acme Transit 2)" in html
+
+
+def test_build_single_html_escapes_provider():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "<script>alert(1)</script>",
+        },
+    )
+    html = build_single_html(event)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_build_digest_html_shows_provider_instead_of_id():
+    """When a provider name is known, the digest table's Feed column shows it
+    in place of the stable_id — the id is still used for the link href, just
+    not displayed as the row's visible label."""
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n", "provider": "City Transit"},
+    )
+    html = build_digest_html([event])
+    assert ">City Transit</a>" in html
+    assert ">mdb-9</a>" not in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html  # href still uses the id
+
+
+def test_build_digest_html_falls_back_to_id_when_no_provider():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    html = build_digest_html([event])
+    assert ">mdb-9</a>" in html
+
+
 def test_build_single_html_admin_summary():
     event = _event(
         type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
@@ -269,8 +408,8 @@ def test_build_single_html_admin_summary():
     html = build_single_html(event)
     assert "Notification Dispatch Summary" in html
     assert "weekly" in html
-    assert "<td>5</td>" in html
-    assert "<td>2</td>" in html
+    assert ">5</td>" in html
+    assert ">2</td>" in html
     # Must NOT fall through to the feed url-updated layout.
     assert "has changed" not in html
     assert "Old URL" not in html
@@ -288,8 +427,33 @@ def test_build_digest_html_admin_summary():
     )
     html = build_digest_html([event])
     assert "Notification Dispatch Summary" in html
-    assert "<td>3</td>" in html
-    assert "<td>1</td>" in html
+    assert ">3</td>" in html
+    assert ">1</td>" in html
+
+
+def test_build_digest_html_admin_summary_multiple_events_share_one_document():
+    """Regression test: multiple admin.event_summary events batched into one
+    digest must render as ONE HTML document (one shared header/footer), not
+    N concatenated full documents stacked on top of each other."""
+    events = [
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 5, "cadence": "daily"}
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 7, "cadence": "daily"}
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 9, "cadence": "daily"}
+        ),
+    ]
+    html = build_digest_html(events)
+    assert html.count("<html") == 1
+    assert html.count("</html>") == 1
+    assert html.count("<!doctype html>") == 1
+    assert html.count("<h1") == 3
+    assert ">5</td>" in html
+    assert ">7</td>" in html
+    assert ">9</td>" in html
 
 
 def test_build_digest_html_feed_url_updates():
@@ -300,6 +464,31 @@ def test_build_digest_html_feed_url_updates():
     html = build_digest_html([event])
     assert "Feed URL Updates" in html
     assert "mdb-1" in html
+
+
+def test_build_digest_html_per_row_view_feed_action():
+    """Each digest row must offer its own per-row action, not just a clickable
+    feed id: a plain update links to that feed's own page ("View"), while a
+    redirected row links to the NEW (target) feed ("Subscribe"), not the
+    deprecated one."""
+    updated = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    redirected = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_digest_html([updated, redirected])
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-9"' in html
+    assert "View &rarr;" in html
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html  # new/target feed
+    assert "Subscribe &rarr;" in html
 
 
 # ---------------------------------------------------------------------------
@@ -476,3 +665,60 @@ def test_build_digest_html_escapes_values():
     assert "<i>mdb</i>" not in html
     assert "&lt;i&gt;mdb&lt;/i&gt;" in html
     assert "<o>" not in html
+
+
+# ---------------------------------------------------------------------------
+# Jinja2 templates
+# ---------------------------------------------------------------------------
+
+
+def test_all_templates_resolve():
+    """Every template file referenced by the HTML builders must exist and load."""
+    for name in (
+        "feed_url_updated_single.html.j2",
+        "feed_url_updated_digest.html.j2",
+        "admin_event_summary.html.j2",
+    ):
+        assert bns._jinja_env.get_template(name) is not None
+
+
+def test_single_template_autoescapes_script_tag():
+    row = {
+        "feed_stable_id": "<script>alert(1)</script>",
+        "target_feed_stable_id": None,
+        "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+        "old_url": "",
+        "new_url": "",
+    }
+    html = bns._jinja_env.get_template("feed_url_updated_single.html.j2").render(row=row)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_digest_template_autoescapes_script_tag():
+    rows = [
+        {
+            "feed_stable_id": "<script>alert(1)</script>",
+            "target_feed_stable_id": None,
+            "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+            "old_url": "",
+            "new_url": "",
+            "source": "",
+        }
+    ]
+    html = bns._jinja_env.get_template("feed_url_updated_digest.html.j2").render(rows=rows)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_safe_link_filter_only_links_http_schemes():
+    assert bns._safe_link_filter(None) == ""
+    assert bns._safe_link_filter("") == ""
+    assert bns._safe_link_filter("javascript:alert(1)") == "javascript:alert(1)"
+    assert bns._safe_link_filter("https://example.com") == '<a href="https://example.com">https://example.com</a>'
+
+
+def test_safe_link_filter_escapes_url():
+    result = bns._safe_link_filter("https://example.com/<script>")
+    assert "<script>" not in result
+    assert "&lt;script&gt;" in result
