@@ -390,6 +390,16 @@ components:
           type: string
           format: date-time
           description: Timestamp when the subscription was created.
+        feed_ids:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: >
+            Feed stable IDs this subscription targets. Populated for the
+            feed-scoped notification types (feed.url_updated,
+            feed.url_availability, feed.coverage); empty for other types.
+          example: ["mdb-1", "mdb-42"]
 
     CreateNotificationSubscriptionRequest:
       type: object
@@ -400,6 +410,16 @@ components:
           type: string
           description: The notification type to subscribe to.
           example: "feed.published"
+        feed_ids:
+          type: array
+          items:
+            type: string
+          description: >
+            Feed stable IDs to subscribe to. Required (non-empty) for the
+            feed-scoped notification types feed.url_updated,
+            feed.url_availability and feed.coverage; must be omitted or empty
+            for other types. Validation is enforced in code, not the schema.
+          example: ["mdb-1", "mdb-42"]
 
     UpdateNotificationSubscriptionRequest:
       type: object

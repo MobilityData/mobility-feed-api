@@ -241,13 +241,16 @@ class TestSubscriptions(unittest.TestCase):
     def test_get_user_subscriptions_returns_user_subs(self):
         sub = self._make_sub()
         query = self.mock_session.query.return_value
-        query.filter.return_value.order_by.return_value.all.return_value = [sub]
+        # The list query eager-loads feeds via .options(selectinload(...)).
+        query.options.return_value.filter.return_value.order_by.return_value.all.return_value = [sub]
 
         result = self.api.get_user_subscriptions(db_session=self.mock_session)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, "sub-1")
         self.assertEqual(result[0].notification_id, "feed.published")
+        # A non feed-scoped subscription reports no feeds.
+        self.assertIsNone(result[0].feed_ids)
 
     def test_get_user_subscriptions_guest_403(self):
         _set_context(is_guest=True)
@@ -318,6 +321,97 @@ class TestSubscriptions(unittest.TestCase):
         self.assertTrue(existing.active)
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "sub-1")
+
+    # ── create: feed-scoped (issue #1778) ──
+    def test_create_feed_scoped_persists_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-2", "mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.add.assert_called_once()
+        added_sub = self.mock_session.add.call_args[0][0]
+        # Both feeds are attached to the new subscription's join collection.
+        self.assertEqual({f.feed_stable_id for f in added_sub.notification_subscription_feeds}, {"mdb-1", "mdb-2"})
+        # Response feed_ids are sorted and deduped.
+        self.assertEqual(result.feed_ids, ["mdb-1", "mdb-2"])
+
+    def test_create_feed_scoped_dedupes_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.coverage") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.coverage", feed_ids=["mdb-1", "mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual(result.feed_ids, ["mdb-1"])
+
+    def test_create_feed_scoped_requires_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_availability") if model is NotificationType else _make_user()
+        )
+
+        for req in (
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_availability"),
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_availability", feed_ids=[]),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.create_user_subscription(req, db_session=self.mock_session)
+            self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_non_scoped_rejects_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.published") if model is NotificationType else _make_user()
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.published", feed_ids=["mdb-1"]),
+                db_session=self.mock_session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_feed_scoped_replaces_existing_feeds(self):
+        from shared.users_database_gen.sqlacodegen_models import (
+            NotificationType,
+            NotificationSubscriptionFeed as FeedOrm,
+        )
+
+        existing = self._make_sub(notification_type_id="feed.url_updated", active=False)
+        existing.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-old"))
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-new"]),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.add.assert_not_called()
+        self.assertTrue(existing.active)
+        # The old feed was dropped and the new one attached (delete-orphan handles the DB side).
+        self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-new"})
+        self.assertEqual(result.feed_ids, ["mdb-new"])
 
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):

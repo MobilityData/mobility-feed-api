@@ -32,10 +32,12 @@ from shared.users_database_gen.sqlacodegen_models import (
     FeatureFlag,
     UserFeatureFlag,
     NotificationSubscription as NotificationSubscriptionOrm,
+    NotificationSubscriptionFeed as NotificationSubscriptionFeedOrm,
     NotificationType,
 )
 from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     sync_announcements,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
@@ -130,6 +132,7 @@ class UsersApiImpl(BaseUsersApi):
         user_id = self._require_user_id()
         subs = (
             db_session.query(NotificationSubscriptionOrm)
+            .options(selectinload(NotificationSubscriptionOrm.notification_subscription_feeds))
             .filter(NotificationSubscriptionOrm.user_id == user_id)
             .order_by(NotificationSubscriptionOrm.created_at)
             .all()
@@ -140,12 +143,34 @@ class UsersApiImpl(BaseUsersApi):
     def create_user_subscription(
         self, create_notification_subscription_request: CreateNotificationSubscriptionRequest, db_session=None
     ) -> NotificationSubscription:
-        """Subscribes the authenticated user to a notification type (idempotent)."""
+        """Subscribes the authenticated user to a notification type (idempotent).
+
+        For feed-scoped notification types (``feed.url_updated``, ``feed.url_availability``,
+        ``feed.coverage``) a non-empty ``feed_ids`` list is required and is persisted in the
+        ``notification_subscription_feed`` join table; the single (user, type) subscription's
+        feed set is replaced with the supplied feeds. ``feed_ids`` must not be supplied for
+        other notification types.
+        """
         user_id = self._require_user_id()
         notification_id = create_notification_subscription_request.notification_id
+        # De-duplicate while preserving order; treat null as no feeds.
+        feed_ids = list(dict.fromkeys(create_notification_subscription_request.feed_ids or []))
 
         if db_session.get(NotificationType, notification_id) is None:
             raise HTTPException(status_code=400, detail=f"Unknown notification type '{notification_id}'.")
+
+        # Feed scoping is validated in code (the OpenAPI 3.0 schema keeps feed_ids optional).
+        is_feed_scoped = notification_id in FEED_SCOPED_NOTIFICATION_TYPE_IDS
+        if is_feed_scoped and not feed_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"feed_ids is required for notification type '{notification_id}'.",
+            )
+        if not is_feed_scoped and feed_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"feed_ids is not supported for notification type '{notification_id}'.",
+            )
 
         user = db_session.get(AppUser, user_id)
         if user is None:
@@ -167,6 +192,10 @@ class UsersApiImpl(BaseUsersApi):
             created_at=datetime.now(timezone.utc),
         )
         sub.active = True
+
+        # Replace the subscription's feed set with the supplied feeds (no-op for non-scoped
+        # types, whose feed_ids is always empty here).
+        self._sync_subscription_feeds(sub, feed_ids)
 
         if notification_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             sync_announcements(user.email, subscribe=True, subscription_id=sub.id)
@@ -225,6 +254,26 @@ class UsersApiImpl(BaseUsersApi):
         if context.get("is_guest"):
             raise HTTPException(status_code=403, detail="Guest users cannot perform this action.")
         return user_id
+
+    @staticmethod
+    def _sync_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
+        """Make the subscription's feed set exactly ``feed_ids``.
+
+        Relies on the ``delete-orphan`` cascade configured on
+        ``NotificationSubscription.notification_subscription_feeds`` (see
+        ``shared.database.users_database``): removing a row from the collection deletes it and
+        appending one inserts it on flush.
+        """
+        desired = set(feed_ids)
+        current = {row.feed_stable_id: row for row in sub.notification_subscription_feeds}
+
+        for stable_id, row in current.items():
+            if stable_id not in desired:
+                sub.notification_subscription_feeds.remove(row)
+
+        for stable_id in feed_ids:
+            if stable_id not in current:
+                sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id=stable_id))
 
     @staticmethod
     def _get_owned_subscription(db_session, sub_id: str, user_id: str) -> NotificationSubscriptionOrm:

@@ -8,6 +8,7 @@ import user_service.impl.subscription_helpers as helpers
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationSubscription as NotificationSubscriptionOrm,
+    NotificationSubscriptionFeed as NotificationSubscriptionFeedOrm,
 )
 from user_service.impl.subscriptions_api_impl import SubscriptionsApiImpl
 
@@ -60,6 +61,17 @@ class TestPublicGetSubscription(unittest.TestCase):
 
         rem.assert_not_called()
         add.assert_not_called()
+
+    def test_returns_feed_ids_for_feed_scoped_subscription(self):
+        sub = _make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id="mdb-9"))
+        sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id="mdb-2"))
+        self.mock_session.get.return_value = sub
+
+        result = self.api.get_subscription("sub-1", db_session=self.mock_session)
+
+        # feed_ids come from the join table, sorted.
+        self.assertEqual(result.feed_ids, ["mdb-2", "mdb-9"])
 
     def test_missing_returns_404(self):
         self.mock_session.get.return_value = None

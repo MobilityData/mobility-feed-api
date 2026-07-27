@@ -27,6 +27,17 @@ logger = logging.getLogger(__name__)
 
 ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 
+# Notification types that are scoped to specific feeds. A subscription to any of
+# these must carry a non-empty list of feed stable IDs (persisted in the
+# notification_subscription_feed join table); other types must not carry feeds.
+FEED_SCOPED_NOTIFICATION_TYPE_IDS = frozenset(
+    {
+        "feed.url_updated",
+        "feed.url_availability",
+        "feed.coverage",
+    }
+)
+
 
 def sync_announcements(email: str, subscribe: bool, subscription_id: str | None = None) -> None:
     """Sync an api.announcements subscription with Brevo, mapping provider errors to 502."""
