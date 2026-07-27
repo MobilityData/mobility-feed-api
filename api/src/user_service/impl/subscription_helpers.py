@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 
+# Feature flag (feature_flag.id) that gates notification-subscription management: a user must
+# have this boolean flag resolved to true to create (POST) or update (PATCH) subscriptions.
+NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationEnabled"
+
 # Notification types that are scoped to specific feeds. A subscription to any of
 # these must carry a non-empty list of feed stable IDs (persisted in the
 # notification_subscription_feed join table); other types must not carry feeds.

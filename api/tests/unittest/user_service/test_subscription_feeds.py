@@ -32,9 +32,11 @@ from middleware.request_context import _request_context
 from shared.database.users_database import UsersDatabase
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
+    FeatureFlag,
     NotificationSubscription,
     NotificationSubscriptionFeed,
     NotificationType,
+    UserFeatureFlag,
 )
 from user_service.impl.users_api_impl import UsersApiImpl
 from user_service_gen.models.create_notification_subscription_request import (
@@ -69,6 +71,12 @@ def api_session(users_test_database_url):
     # The feed-scoped type may already be seeded in the test DB; only insert if absent.
     if session.get(NotificationType, FEED_SCOPED_TYPE) is None:
         session.add(NotificationType(id=FEED_SCOPED_TYPE, description="url updated"))
+    # Subscription management is gated by the isNotificationEnabled flag (default off); enable it
+    # for this user. The flag row is seeded by migration, but insert-if-absent keeps the test
+    # self-contained.
+    if session.get(FeatureFlag, "isNotificationEnabled") is None:
+        session.add(FeatureFlag(id="isNotificationEnabled", value_type="boolean", default_value=False))
+    session.add(UserFeatureFlag(user_id=user_id, feature_flag_id="isNotificationEnabled", value=True))
     session.flush()
     _request_context.set({"user_id": user_id, "user_email": f"{user_id}@test.org", "is_guest": False})
     try:

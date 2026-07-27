@@ -38,6 +38,7 @@ from shared.users_database_gen.sqlacodegen_models import (
 from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
+    NOTIFICATIONS_FEATURE_FLAG_ID,
     sync_announcements,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
@@ -152,6 +153,7 @@ class UsersApiImpl(BaseUsersApi):
         other notification types.
         """
         user_id = self._require_user_id()
+        self._require_notifications_enabled(db_session, user_id)
         notification_id = create_notification_subscription_request.notification_id
         # De-duplicate while preserving order; treat null as no feeds.
         feed_ids = list(dict.fromkeys(create_notification_subscription_request.feed_ids or []))
@@ -211,6 +213,7 @@ class UsersApiImpl(BaseUsersApi):
     ) -> NotificationSubscription:
         """Activates or deactivates a notification subscription by ID."""
         user_id = self._require_user_id()
+        self._require_notifications_enabled(db_session, user_id)
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         active = update_notification_subscription_request.active
@@ -254,6 +257,29 @@ class UsersApiImpl(BaseUsersApi):
         if context.get("is_guest"):
             raise HTTPException(status_code=403, detail="Guest users cannot perform this action.")
         return user_id
+
+    @classmethod
+    def _require_notifications_enabled(cls, db_session, user_id: str) -> None:
+        """Gate: only users with the ``isNotificationEnabled`` feature flag may manage subscriptions.
+
+        Raises 403 unless the flag resolves to true for this user.
+        """
+        if not cls._notifications_enabled(db_session, user_id):
+            raise HTTPException(status_code=403, detail="Notifications are not enabled for this user.")
+
+    @staticmethod
+    def _notifications_enabled(db_session, user_id: str) -> bool:
+        """Resolve the boolean ``isNotificationEnabled`` flag for a user.
+
+        A globally disabled or missing flag denies everyone; otherwise the user's override wins,
+        falling back to the flag's default value.
+        """
+        flag = db_session.get(FeatureFlag, NOTIFICATIONS_FEATURE_FLAG_ID)
+        if flag is None or flag.disabled:
+            return False
+        override = db_session.get(UserFeatureFlag, (user_id, NOTIFICATIONS_FEATURE_FLAG_ID))
+        value = override.value if override is not None and override.value is not None else flag.default_value
+        return value is True
 
     @staticmethod
     def _sync_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:

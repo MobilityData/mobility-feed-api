@@ -223,6 +223,10 @@ class TestSubscriptions(unittest.TestCase):
         self.api = UsersApiImpl()
         self.mock_session = MagicMock()
         _set_context()
+        # These tests exercise create/update logic, not the feature-flag gate; enable it.
+        gate_patcher = patch.object(UsersApiImpl, "_require_notifications_enabled", return_value=None)
+        gate_patcher.start()
+        self.addCleanup(gate_patcher.stop)
 
     def _make_sub(self, **kwargs):
         from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
@@ -508,6 +512,99 @@ class TestSubscriptions(unittest.TestCase):
                     db_session=self.mock_session,
                 )
         self.assertEqual(ctx.exception.status_code, 502)
+
+
+class TestSubscriptionGate(unittest.TestCase):
+    """The isNotificationEnabled feature flag gates POST/PATCH subscriptions."""
+
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _configure_gate(self, *, default=False, disabled=False, has_override=False, override_value=None):
+        from shared.users_database_gen.sqlacodegen_models import (
+            FeatureFlag,
+            NotificationType,
+            UserFeatureFlag,
+        )
+
+        flag = FeatureFlag(id="isNotificationEnabled", value_type="boolean", default_value=default, disabled=disabled)
+        override = (
+            UserFeatureFlag(user_id="uid-123", feature_flag_id="isNotificationEnabled", value=override_value)
+            if has_override
+            else None
+        )
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return flag
+            if model is UserFeatureFlag:
+                return override
+            if model is NotificationType:
+                return NotificationType(id="feed.published")
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+    def _create(self):
+        return self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+    def test_create_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_allowed_when_default_true(self):
+        self._configure_gate(default=True)
+        result = self._create()
+        self.assertEqual(result.notification_id, "feed.published")
+        self.mock_session.add.assert_called_once()
+
+    def test_create_allowed_with_user_override_true(self):
+        self._configure_gate(default=False, has_override=True, override_value=True)
+        self.assertEqual(self._create().notification_id, "feed.published")
+
+    def test_create_denied_with_user_override_false(self):
+        self._configure_gate(default=True, has_override=True, override_value=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_denied_when_flag_globally_disabled(self):
+        self._configure_gate(default=True, disabled=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_denied_when_flag_missing(self):
+        from shared.users_database_gen.sqlacodegen_models import FeatureFlag, NotificationType
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return None
+            if model is NotificationType:
+                return NotificationType(id="feed.published")
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_update_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
 
 
 if __name__ == "__main__":
