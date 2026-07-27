@@ -15,16 +15,18 @@
 #
 from typing import List
 
-from fastapi import HTTPException
-
+from shared.database.users_database import with_users_db_session
+from shared.db_models.notification_type_impl import NotificationTypeImpl
+from shared.users_database_gen.sqlacodegen_models import NotificationType as NotificationTypeOrm
 from user_service_gen.apis.notifications_api_base import BaseNotificationsApi
 from user_service_gen.models.notification_type import NotificationType
 
-_NOT_IMPLEMENTED = "Not yet implemented."
-
 
 class NotificationsApiImpl(BaseNotificationsApi):
-    """Stub implementation — scheduled for a follow-up issue."""
+    """Implementation of the User Service notifications API."""
 
-    def get_notifications(self) -> List[NotificationType]:
-        raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED)
+    @with_users_db_session
+    def get_notifications(self, db_session=None) -> List[NotificationType]:
+        """Returns all predefined notification types users can subscribe to, ordered by id."""
+        types = db_session.query(NotificationTypeOrm).order_by(NotificationTypeOrm.id).all()
+        return [NotificationTypeImpl.from_orm(t) for t in types]
