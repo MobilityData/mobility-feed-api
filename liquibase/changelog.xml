@@ -117,6 +117,8 @@
     <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
     <!-- Rename gtfs_dataset_changelog (previous, current) dataset columns to (base, new) (issue #1639). -->
     <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
+    <!-- Add missing config keys for feed_download/http_headers -->
+    <include file="changes/hotfix_missing_config_keys.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feeds mdb-3237 to mdb-3293 and mdb-2939 -->
     <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
     <!-- Add is_producer_url_unstable column to the feed table (issue #1766). -->
