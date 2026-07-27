@@ -22,6 +22,7 @@ def test_from_orm():
         note="note",
         feed_contact_email="email@example.com",
         producer_url="http://producer.url",
+        is_producer_url_unstable=True,
         authentication_type=1,
         authentication_info_url="http://auth.info.url",
         api_key_parameter_name="api_key",
@@ -38,6 +39,7 @@ def test_from_orm():
     assert result.note == "note"
     assert result.feed_contact_email == "email@example.com"
     assert result.source_info.producer_url == "http://producer.url"
+    assert result.source_info.is_producer_url_unstable is True
     assert result.source_info.authentication_type == 1
     assert result.source_info.authentication_info_url == "http://auth.info.url"
     assert result.source_info.api_key_parameter_name == "api_key"
@@ -63,6 +65,7 @@ def test_to_orm():
         feed_contact_email="email@example.com",
         source_info=SourceInfo(
             producer_url="http://producer.url",
+            is_producer_url_unstable=True,
             authentication_type=1,
             authentication_info_url="http://auth.info.url",
             api_key_parameter_name="api_key",
@@ -85,6 +88,7 @@ def test_to_orm():
     assert result.note == "note"
     assert result.feed_contact_email == "email@example.com"
     assert result.producer_url == "http://producer.url"
+    assert result.is_producer_url_unstable is True
     assert result.authentication_type == "1"
     assert result.authentication_info_url == "http://auth.info.url"
     assert result.api_key_parameter_name == "api_key"
@@ -114,6 +118,7 @@ def test_to_orm_invalid_source_info():
 
     result = UpdateRequestGtfsFeedImpl.to_orm(update_request, entity, session)
     assert result.producer_url is None
+    assert result.is_producer_url_unstable is None
     assert result.authentication_type is None
     assert result.authentication_info_url is None
     assert result.api_key_parameter_name is None

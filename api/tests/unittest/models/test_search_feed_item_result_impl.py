@@ -29,6 +29,7 @@ search_item = FeedSearchRow(
     note="note",
     feed_contact_email="feed_contact_email",
     producer_url="producer_url",
+    is_producer_url_unstable=True,
     authentication_info_url="authentication_info_url",
     authentication_type=1,
     api_key_parameter_name="api_key_parameter_name",
@@ -83,6 +84,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=item.producer_url,
+                is_producer_url_unstable=item.is_producer_url_unstable,
                 authentication_type=int(item.authentication_type) if item.authentication_type else None,
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,
@@ -129,6 +131,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=item.producer_url,
+                is_producer_url_unstable=item.is_producer_url_unstable,
                 authentication_type=int(item.authentication_type) if item.authentication_type else None,
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,

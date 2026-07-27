@@ -31,6 +31,7 @@ feed_orm = Feed(
     feed_name="feed_name",
     note="note",
     producer_url="producer_url",
+    is_producer_url_unstable=True,
     authentication_type="1",
     authentication_info_url="authentication_info_url",
     api_key_parameter_name="api_key_parameter_name",
@@ -98,6 +99,7 @@ expected_base_feed_result = FeedImpl(
     related_links=[],
     source_info=SourceInfo(
         producer_url="producer_url",
+        is_producer_url_unstable=True,
         authentication_type=1,
         authentication_info_url="authentication_info_url",
         api_key_parameter_name="api_key_parameter_name",
@@ -178,6 +180,7 @@ class TestBasicFeedImpl(unittest.TestCase):
             "provider": "Provider A",
             "feed_contact_email": "contact@example.com",
             "producer_url": "https://producer.example.com",
+            "is_producer_url_unstable": True,
             "authentication_type": 1,  # should be converted to string
             "authentication_info_url": "https://auth.example.com",
             "api_key_parameter_name": "api_key",
@@ -211,6 +214,7 @@ class TestBasicFeedImpl(unittest.TestCase):
         assert obj.provider == "Provider A"
         assert obj.feed_contact_email == "contact@example.com"
         assert obj.producer_url == "https://producer.example.com"
+        assert obj.is_producer_url_unstable is True
         # authentication_type coerced to string per implementation
         assert obj.authentication_type == "1"
         assert obj.authentication_info_url == "https://auth.example.com"

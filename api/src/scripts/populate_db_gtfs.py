@@ -274,6 +274,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         new_url=producer_url,
                         source="populate_db_gtfs",
                     )
+            # Three-state flag from the catalog CSV ("True"/"False"/empty). An empty cell leaves the DB
+            # value untouched (same as is_official), so a re-import never wipes an operator-set value.
+            is_producer_url_unstable_from_csv = self.get_safe_boolean_value(row, "is_producer_url_unstable", None)
+            if is_producer_url_unstable_from_csv is not None:
+                feed.is_producer_url_unstable = is_producer_url_unstable_from_csv
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")

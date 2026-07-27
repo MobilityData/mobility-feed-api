@@ -18,6 +18,11 @@ on:
           - qa
           - prod
           - dev
+      CSV_FILE_NAME:
+        description: Name of the sources CSV object to load from the mdb-csv bucket (e.g. sources_test.csv). Defaults to sources.csv.
+        required: false
+        default: sources.csv
+        type: string
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated, gbfs-systems-updated ]
 
@@ -26,8 +31,23 @@ env:
   liquibase_version: '4.33.0'
 
 jobs:
+  validate-inputs:
+    name: Validate inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disallow prod/all runs with a non-official CSV
+        # Security guard: a test CSV (anything other than sources.csv) must never be loaded into
+        # prod, and 'all' includes prod. Manual (workflow_dispatch) runs only; repository_dispatch
+        # always uses the official sources.csv. This job runs on every event and only fails on the
+        # disallowed combination, so all downstream jobs can safely depend on it.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.CSV_FILE_NAME != 'sources.csv' && (inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'prod') }}
+        run: |
+          echo "::error::Refusing to run: CSV_FILE_NAME='${{ inputs.CSV_FILE_NAME }}' is not the official 'sources.csv', so ENVIRONMENT='${{ inputs.ENVIRONMENT }}' (all/prod) is not allowed. Use 'qa' or 'dev' for test CSVs."
+          exit 1
+
   resolve-api-meta-qa:
     name: QA Resolve API commit/version
+    needs: [ validate-inputs ]
     if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'qa'
     runs-on: ubuntu-latest
     outputs:
@@ -57,6 +77,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-qa.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
@@ -68,6 +90,7 @@ jobs:
 
   resolve-api-meta-prod:
     name: PROD Resolve API commit/version
+    needs: [ validate-inputs ]
     if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'prod'
     runs-on: ubuntu-latest
     outputs:
@@ -97,6 +120,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-prod.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
@@ -108,6 +133,7 @@ jobs:
 
   resolve-api-meta-dev:
     name: DEV Resolve API commit/version
+    needs: [ validate-inputs ]
     if: github.event_name == 'repository_dispatch' || inputs.ENVIRONMENT == 'all' || inputs.ENVIRONMENT == 'dev'
     runs-on: ubuntu-latest
     outputs:
@@ -140,6 +166,8 @@ jobs:
       # With workflow_dispatch we take the specified values of DRY_RUN.
       DRY_RUN: ${{ (github.event_name != 'repository_dispatch' && inputs.DRY_RUN) }}
       CHECKOUT_REF: ${{ needs.resolve-api-meta-dev.outputs.CHECKOUT_REF }}
+      # repository_dispatch leaves inputs empty, so this falls back to the official sources.csv.
+      CSV_FILE_NAME: ${{ inputs.CSV_FILE_NAME || 'sources.csv' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
@@ -152,7 +180,7 @@ jobs:
 
   notify-slack-on-failure:
     # Run after all relevant jobs and notify if any failed
-    needs: [ resolve-api-meta-qa, update-content-qa, resolve-api-meta-prod, update-content-prod, resolve-api-meta-dev, update-content-dev ]
+    needs: [ validate-inputs, resolve-api-meta-qa, update-content-qa, resolve-api-meta-prod, update-content-prod, resolve-api-meta-dev, update-content-dev ]
     if: ${{ always() && contains(join(needs.*.result, ','), 'failure') }}
     runs-on: ubuntu-latest
     steps:
