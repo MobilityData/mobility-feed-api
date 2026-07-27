@@ -57,18 +57,18 @@ jobs:
     needs: []
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
       - name: Set up JDK ${{ env.java_version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
@@ -111,32 +111,32 @@ jobs:
         run: scripts/function-python-build.sh --function_name operations_api
 
       - name: Upload generated feeds_gen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
 
       - name: Upload generated database_gen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database_gen
           path: api/src/shared/database_gen/
 
       - name: Upload generated users_database_gen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: users_database_gen
           path: api/src/shared/users_database_gen/
 
       - name: Upload generated user_service_gen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
 
       - name: Upload operations API build
         if: ${{ github.event.inputs.deploy_operations_api != 'false' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: operations_api_build
           path: functions-python/operations_api/.dist/
@@ -153,7 +153,7 @@ jobs:
       service_url: ${{ steps.get_url.outputs.url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set service name and image tag
         id: names
@@ -162,22 +162,22 @@ jobs:
           echo "image_tag=developer-$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
       - name: Download generated artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: database_gen
           path: api/src/shared/database_gen/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: users_database_gen
           path: api/src/shared/users_database_gen/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
@@ -187,12 +187,12 @@ jobs:
           echo "ENVIRONMENT=dev" > config/.env.local
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Login to Artifact Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGION }}-docker.pkg.dev
           username: _json_key_base64
@@ -208,7 +208,7 @@ jobs:
             -version    "${{ steps.names.outputs.image_tag }}"
 
       - name: GCloud Setup
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy to developer Cloud Run
         # Creates/updates ONLY developer-feed-api-<suffix> — shared dev Cloud Run is untouched.
@@ -248,7 +248,7 @@ jobs:
       function_url: ${{ steps.get_url.outputs.url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set function name
         id: names
@@ -256,18 +256,18 @@ jobs:
           echo "function_name=operations-api-developer-${{ github.event.inputs.name_suffix || 'dev' }}" >> "$GITHUB_OUTPUT"
 
       - name: Download operations API build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: operations_api_build
           path: functions-python/operations_api/.dist/
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Load OPERATIONS_OAUTH2_CLIENT_ID from 1Password
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v4
         with:
           export-env: true
         env:
@@ -275,7 +275,7 @@ jobs:
           OPERATIONS_OAUTH2_CLIENT_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_RETOOL_OAUTH2_CREDS/username"
 
       - name: GCloud Setup
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy to developer Cloud Function
         # Creates/updates ONLY operations-api-developer-<suffix> — shared operations-api is untouched.
