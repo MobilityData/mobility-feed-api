@@ -1,0 +1,31 @@
+{#- Shared "one dispatch summary" block, used by both the single-event and
+    digest admin.event_summary templates so the markup exists in one place. -#}
+{%- macro summary_block(summary) -%}
+<h1 style="margin: 0 0 4px 0; font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 20px; line-height: 1.3; font-weight: 800; color: #1d1717;">Notification Dispatch Summary</h1>
+<p style="margin: 0 0 16px 0; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: rgba(71, 71, 71, 0.8);">
+  Cadence: <strong style="color: #474747;">{{ summary.cadence | default("-") }}</strong>
+</p>
+<table
+  role="presentation"
+  width="100%"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  style="background-color: #ffffff; border-radius: 4px; overflow: hidden;"
+>
+  <thead>
+    <tr bgcolor="#ffffff" style="background-color: #ffffff">
+      <th align="left" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Metric</th>
+      <th align="right" style="padding: 8px 10px; font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 700; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.12);">Count</th>
+    </tr>
+  </thead>
+  <tbody style="font-family: Mulish, 'Segoe UI', Arial, sans-serif; font-size: 12px;">
+    <tr><td style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">Subscriptions processed</td><td align="right" style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">{{ summary.subscriptions_processed | default(0) }}</td></tr>
+    <tr bgcolor="#fafafa" style="background-color: #fafafa"><td style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">Events found</td><td align="right" style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">{{ summary.events_found | default(0) }}</td></tr>
+    <tr><td style="padding: 7px 10px; color: #2e7d32; border-bottom: 1px solid rgba(0,0,0,0.06);">Emails sent</td><td align="right" style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">{{ summary.emails_sent | default(0) }}</td></tr>
+    <tr bgcolor="#fafafa" style="background-color: #fafafa"><td style="padding: 7px 10px; color: #d32f2f; border-bottom: 1px solid rgba(0,0,0,0.06);">Emails failed</td><td align="right" style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">{{ summary.emails_failed | default(0) }}</td></tr>
+    <tr><td style="padding: 7px 10px; color: #d32f2f; border-bottom: 1px solid rgba(0,0,0,0.06);">Permanently failed</td><td align="right" style="padding: 7px 10px; color: #474747; border-bottom: 1px solid rgba(0,0,0,0.06);">{{ summary.permanently_failed | default(0) }}</td></tr>
+    <tr bgcolor="#fafafa" style="background-color: #fafafa"><td style="padding: 7px 10px; color: #ed6c02;">Skipped (max retries)</td><td align="right" style="padding: 7px 10px; color: #474747;">{{ summary.skipped_max_retries | default(0) }}</td></tr>
+  </tbody>
+</table>
+{%- endmacro -%}

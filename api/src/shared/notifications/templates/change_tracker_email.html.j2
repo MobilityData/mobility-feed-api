@@ -1,4 +1,3 @@
-<!doctype html>
 {#-
   GTFS Diff Email Notification — Jinja2 Template
   ═══════════════════════════════════════════════
@@ -98,209 +97,80 @@
   {%- endif -%}
 {%- endmacro -%}
 
-{#- ─── Document ───────────────────────────────────────────────────────────── #}
-<html
-  lang="en"
-  xmlns="http://www.w3.org/1999/xhtml"
-  xmlns:v="urn:schemas-microsoft-com:vml"
-  xmlns:o="urn:schemas-microsoft-com:office:office"
->
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="color-scheme" content="light" />
-    <meta name="supported-color-schemes" content="light" />
-    <title>
-      {%- if feeds | length == 1 -%}
-        GTFS Feed Update — {{ feeds[0].feed_name }}
-      {%- else -%}
-        GTFS Feed Updates — {{ feeds | length }} feeds
-      {%- endif -%}
-    </title>
-    <!--[if mso]>
-      <noscript>
-        <xml>
-          <o:OfficeDocumentSettings>
-            <o:PixelsPerInch>96</o:PixelsPerInch>
-          </o:OfficeDocumentSettings>
-        </xml>
-      </noscript>
-    <![endif]-->
-    <style>
-      /* Client resets */
-      body,
-      table,
-      td,
-      a {
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-      }
-      table,
-      td {
-        mso-table-lspace: 0pt;
-        mso-table-rspace: 0pt;
-      }
-      img {
-        -ms-interpolation-mode: bicubic;
-        border: 0;
-        height: auto;
-        line-height: 100%;
-        outline: none;
-        text-decoration: none;
-      }
-      table {
-        border-collapse: collapse !important;
-      }
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-      }
-      a {
-        color: #3959fa;
-      }
-      .mono {
-        font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
-      }
+{% extends "_base_email.html.j2" %}
 
-      @media screen and (max-width: 600px) {
-        .container {
-          width: 100% !important;
-        }
-        .px {
-          padding-left: 16px !important;
-          padding-right: 16px !important;
-        }
-        .stack {
-          display: block !important;
-          width: 100% !important;
-        }
-        .summary-num {
-          font-size: 28px !important;
-        }
-      }
-    </style>
-  </head>
-  <body
+{% block title -%}
+  {%- if feeds | length == 1 -%}
+    GTFS Feed Update — {{ feeds[0].feed_name }}
+  {%- else -%}
+    GTFS Feed Updates — {{ feeds | length }} feeds
+  {%- endif -%}
+{%- endblock %}
+
+{% block header_label %}Feed Update Notification{% endblock %}
+
+{% block preheader -%}
+  {%- if feeds | length == 1 -%}
+    {%- set f = feeds[0] -%}
+    {{ f.feed_name }} GTFS feed updated — {{ f.total_changes | thousands_sep }} changes across {{ f.files_modified_count }} file{{ "s" if f.files_modified_count != 1 }}{% if f.breaking_changes %}, {{ f.breaking_changes | length }} breaking change{{ "s" if f.breaking_changes | length != 1 }}{% endif %}{% if f.suspicious_changes %} and {{ f.suspicious_changes | length }} suspicious change{{ "s" if f.suspicious_changes | length != 1 }}{% endif %} detected.
+  {%- else -%}
+    {{ feeds | length }} GTFS feed updates — {% for f in feeds %}{{ f.feed_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+  {%- endif -%}
+{%- endblock %}
+
+{% block subscriptions_label -%}
+  Manage subscription{{ "s" if feeds | length > 1 }}
+{%- endblock %}
+
+{% block footer_note -%}
+  You're receiving this because you subscribe to updates for
+  {% if feeds | length == 1 %}this feed{% else %}these feeds{% endif %} on the Mobility Database.
+{%- endblock %}
+
+{% block footer_links %}
+{% if subscriptions_url %}
+<p style="margin: 0 0 12px 0">
+  <a
+    href="{{ subscriptions_url }}"
+    target="_blank"
     style="
-      margin: 0;
-      padding: 0;
-      background-color: #eef0f7;
-      font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
-      color: #474747;
+      display: inline-block;
+      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #5e56f7;
+      text-decoration: none;
+      padding: 6px 10px;
+      margin: 0 2px;
+      letter-spacing: 0.2px;
     "
   >
-    <!-- Preheader (hidden) -->
-    <div
-      style="
-        display: none;
-        max-height: 0;
-        overflow: hidden;
-        opacity: 0;
-        mso-hide: all;
-      "
-    >
-      {%- if feeds | length == 1 -%}
-        {%- set f = feeds[0] -%}
-        {{ f.feed_name }} GTFS feed updated — {{ f.total_changes | thousands_sep }} changes across {{ f.files_modified_count }} file{{ "s" if f.files_modified_count != 1 }}{% if f.breaking_changes %}, {{ f.breaking_changes | length }} breaking change{{ "s" if f.breaking_changes | length != 1 }}{% endif %}{% if f.suspicious_changes %} and {{ f.suspicious_changes | length }} suspicious change{{ "s" if f.suspicious_changes | length != 1 }}{% endif %} detected.
-      {%- else -%}
-        {{ feeds | length }} GTFS feed updates — {% for f in feeds %}{{ f.feed_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
-      {%- endif -%}
-    </div>
+    {{ self.subscriptions_label() }}
+  </a>
+  {% if feeds | length == 1 and feeds[0].unsubscribe_url %}
+  <a
+    href="{{ feeds[0].unsubscribe_url }}"
+    target="_blank"
+    style="
+      display: inline-block;
+      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(71, 71, 71, 0.7);
+      text-decoration: none;
+      padding: 6px 10px;
+      margin: 0 2px;
+      letter-spacing: 0.2px;
+    "
+  >
+    Unsubscribe
+  </a>
+  {% endif %}
+</p>
+{% endif %}
+{% endblock %}
 
-    <table
-      role="presentation"
-      width="100%"
-      cellpadding="0"
-      cellspacing="0"
-      border="0"
-      bgcolor="#eef0f7"
-      style="background-color: #eef0f7"
-    >
-      <tr>
-        <td align="center" style="padding: 24px 12px">
-          <!-- Container -->
-          <table
-            role="presentation"
-            class="container"
-            width="600"
-            cellpadding="0"
-            cellspacing="0"
-            border="0"
-            style="
-              width: 600px;
-              max-width: 600px;
-              background-color: #ffffff;
-              border-radius: 10px;
-              overflow: hidden;
-              box-shadow: 0px 1px 4px 2px rgba(0, 0, 0, 0.08);
-            "
-          >
-            <!-- ============ BRAND HEADER ============ -->
-            <tr>
-              <td
-                bgcolor="#F8F5F5"
-                style="background-color: #f8f5f5; padding: 18px 32px;"
-              >
-                <table
-                  role="presentation"
-                  width="100%"
-                  cellpadding="0"
-                  cellspacing="0"
-                  border="0"
-                >
-                  <tr>
-                    <td align="left" valign="middle">
-                      <table
-                        role="presentation"
-                        cellpadding="0"
-                        cellspacing="0"
-                        border="0"
-                      >
-                        <tr>
-                          <td valign="middle" style="padding-right: 10px">
-                            <img
-                              src="https://mobilitydatabase.org/apple-touch-icon.png"
-                              width="32"
-                              height="32"
-                              alt="MobilityData"
-                              style="display: block; width: 32px; height: 32px"
-                            />
-                          </td>
-                          <td valign="middle">
-                            <span
-                              style="
-                                font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
-                                font-size: 20px;
-                                font-weight: 700;
-                                color: #3959fa;
-                                letter-spacing: 0.2px;
-                              "
-                              >Mobility Database</span
-                            >
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                    <td
-                      align="right"
-                      valign="middle"
-                      style="
-                        font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
-                        font-size: 12px;
-                        font-weight: 500;
-                        color: rgba(71, 71, 71, 0.7);
-                        letter-spacing: 0.3px;
-                      "
-                    >
-                      Feed Update Notification
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-
+{% block content %}
             {# ============ TABLE OF CONTENTS (multiple feeds only) ============ #}
             {% if feeds | length > 1 %}
             <tr>
@@ -893,78 +763,4 @@
             </tr>
 
             {% endfor %}{# end feeds loop #}
-
-            <!-- ============ DIVIDER ============ -->
-            <tr>
-              <td style="padding: 20px 32px 0 32px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="border-top: 1px solid rgba(0, 0, 0, 0.12); font-size: 0; line-height: 0;">&nbsp;</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-
-            <!-- ============ FOOTER ============ -->
-            <tr>
-              <td align="center" style="padding: 16px 32px 28px 32px;">
-                <p style="margin: 0 0 12px 0">
-                  <a
-                    href="{{ subscriptions_url }}"
-                    target="_blank"
-                    style="
-                      display: inline-block;
-                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
-                      font-size: 14px;
-                      font-weight: 700;
-                      color: #5e56f7;
-                      text-decoration: none;
-                      padding: 6px 10px;
-                      margin: 0 2px;
-                      letter-spacing: 0.2px;
-                    "
-                  >
-                    Manage subscription{{ "s" if feeds | length > 1 }}
-                  </a>
-                  {% if feeds | length == 1 %}
-                  <a
-                    href="{{ feeds[0].unsubscribe_url }}"
-                    target="_blank"
-                    style="
-                      display: inline-block;
-                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
-                      font-size: 14px;
-                      font-weight: 700;
-                      color: rgba(71, 71, 71, 0.7);
-                      text-decoration: none;
-                      padding: 6px 10px;
-                      margin: 0 2px;
-                      letter-spacing: 0.2px;
-                    "
-                  >
-                    Unsubscribe
-                  </a>
-                  {% endif %}
-                </p>
-                <p
-                  style="
-                    margin: 0;
-                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
-                    font-size: 11px;
-                    line-height: 1.6;
-                    color: rgba(71, 71, 71, 0.6);
-                  "
-                >
-                  You're receiving this because you subscribe to updates for
-                  {% if feeds | length == 1 %}this feed{% else %}these feeds{% endif %} on the Mobility Database.<br />
-                  &copy; {{ notification_date.split(", ")[-1] }} MobilityData &nbsp;&middot;&nbsp; Montr&eacute;al, QC, Canada
-                </p>
-              </td>
-            </tr>
-          </table>
-          <!-- /Container -->
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
+{% endblock %}

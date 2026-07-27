@@ -56,8 +56,12 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from html import escape as _html_escape
 from typing import Any, Dict, List, Optional
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup
 
 from shared.common.rate_limiter import RateLimiter, get_rate_limiter
 from shared.notifications.notification_constants import (
@@ -70,6 +74,73 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_SENDER_EMAIL = "noreply@mobilitydatabase.org"
 _DEFAULT_SENDER_NAME = "Mobility Database"
+
+# ---------------------------------------------------------------------------
+# Jinja2 environment (HTML-fallback templates, used when no Brevo-hosted
+# template ID is configured for a notification type — see templates/*.html.j2)
+# ---------------------------------------------------------------------------
+
+_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+_jinja_env = Environment(
+    loader=FileSystemLoader(_TEMPLATES_DIR),
+    autoescape=select_autoescape(["html", "j2"]),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
+
+
+def _safe_link_filter(url: Optional[str]) -> Markup:
+    """Render a safe ``<a>`` for a URL, escaping it and only linking http(s).
+
+    Non-http(s) (or empty) values are rendered as escaped text only, so a
+    crafted ``javascript:`` / malformed value cannot become a live link or
+    break out of the ``href`` attribute. Always returns ``Markup`` (content is
+    already escaped here) so the autoescaping Jinja environment does not
+    escape it a second time.
+    """
+    if not url:
+        return Markup("")
+    escaped = _html_escape(str(url), quote=True)
+    if str(url).strip().lower().startswith(("http://", "https://")):
+        return Markup(f'<a href="{escaped}">{escaped}</a>')
+    return Markup(escaped)
+
+
+def _thousands_sep(n: Optional[int]) -> str:
+    """Format an integer with thousands separators; ``None`` renders as an em dash."""
+    return "{:,}".format(int(n)) if n is not None else "—"
+
+
+_jinja_env.filters["safe_link"] = _safe_link_filter
+_jinja_env.filters["thousands_sep"] = _thousands_sep
+# Fallback for the shared footer's copyright year when a template doesn't pass
+# `notification_date` (see _base_email.html.j2).
+_jinja_env.globals["current_year"] = lambda: datetime.now(timezone.utc).year
+
+
+_DEFAULT_WEBSITE_URL = "https://mobilitydatabase.org"
+
+
+def _website_url() -> str:
+    return os.getenv("MOBILITY_DATABASE_WEBSITE_URL", _DEFAULT_WEBSITE_URL).rstrip("/")
+
+
+def _feed_page_url(stable_id: Optional[str]) -> Optional[str]:
+    """Link to a feed's page on the Mobility Database website, or None if unknown."""
+    return f"{_website_url()}/feeds/{stable_id}" if stable_id else None
+
+
+def _subscriptions_management_url() -> str:
+    """Link to the subscriptions management page.
+
+    Used for both the "Manage subscriptions" and "Unsubscribe" footer links —
+    there is no one-click unsubscribe endpoint yet (see docs/notifications.md
+    "Future Work"), so "Unsubscribe" currently points here too rather than to
+    a dead link.
+    TODO: implement a one-click unsubscribe endpoint and update the footer link to point there.
+    """
+    return f"{_website_url()}/account/notifications"
+
 
 # Brevo's transactional email API allows up to 1000 requests/second. Default
 # below that to leave headroom for clock skew and other API consumers.
@@ -113,13 +184,13 @@ def get_brevo_rate_limiter() -> RateLimiter:
 
 
 _DIGEST_EMAIL_SUBJECT_DICTIONARY = {
-    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] %s feed URL update%s",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+    NotificationTypeId.FEED_URL_UPDATED: "%s feed URL update%s",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
 }
 
 _SINGLE_EMAIL_SUBJECT_DICTIONARY = {
-    NotificationTypeId.FEED_URL_UPDATED: "[Mobility Database] Feed %s has been updated",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "[Mobility Database] Daily notification dispatch summary",
+    NotificationTypeId.FEED_URL_UPDATED: "Feed %s has been updated",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
 }
 
 
@@ -190,10 +261,14 @@ def event_payload(event) -> Dict[str, Any]:
 def build_single_subject(event) -> str:
     template = _SINGLE_EMAIL_SUBJECT_DICTIONARY.get(event.notification_type_id)
     if template is None:
-        return f"[Mobility Database] Notification for {event.notification_type_id}"
+        return f"Notification for {event.notification_type_id}"
 
     if "%s" in template:
-        return template % (subject_feed(event) or "unknown")
+        # Prefer the transit provider's name (more meaningful to a subscriber
+        # than an internal stable_id); fall back to the id when no provider
+        # was captured for this event.
+        label = event_payload(event).get("provider") or subject_feed(event) or "unknown"
+        return template % label
     return template
 
 
@@ -202,7 +277,7 @@ def build_digest_subject(events: List) -> str:
     type_id = events[0].notification_type_id if events else "notification"
     template = _DIGEST_EMAIL_SUBJECT_DICTIONARY.get(type_id)
     if template is None:
-        return f"[Mobility Database] {count} notification{'s' if count != 1 else ''}"
+        return f"{count} notification{'s' if count != 1 else ''}"
 
     placeholder_count = template.count("%s")
     if placeholder_count == 2:
@@ -212,23 +287,34 @@ def build_digest_subject(events: List) -> str:
     return template
 
 
+def _event_row_dict(event) -> Dict[str, Any]:
+    """Flatten a NotificationEvent into the row shape used both as Brevo
+    template params (``build_params_feed_url_updated``) and as the Jinja
+    template context for the HTML fallback (``build_single_html``/``build_digest_html``)."""
+    payload = event_payload(event)
+    subject_stable_id = subject_feed(event)
+    target_stable_id = target_feed(event)
+    return {
+        "feed_stable_id": subject_stable_id,
+        "feed_url": _feed_page_url(subject_stable_id),
+        "target_feed_stable_id": target_stable_id,
+        "target_feed_url": _feed_page_url(target_stable_id),
+        "event_subtype": event.event_subtype,
+        "old_url": payload.get("old_url") or "",
+        "new_url": payload.get("new_url") or "",
+        "provider": payload.get("provider") or "",
+        "target_provider": payload.get("target_provider") or "",
+        "source": event.source or "",
+        "created_at": event.created_at.isoformat() if event.created_at else "",
+        "payload": payload,
+    }
+
+
 def build_params_feed_url_updated(events: List, subscription):
     return {
         "event_count": len(events),
         "subscription_id": subscription.id,
-        "events": [
-            {
-                "feed_stable_id": subject_feed(e),
-                "target_feed_stable_id": target_feed(e),
-                "event_subtype": e.event_subtype,
-                "old_url": event_payload(e).get("old_url") or "",
-                "new_url": event_payload(e).get("new_url") or "",
-                "source": e.source or "",
-                "created_at": e.created_at.isoformat() if e.created_at else "",
-                "payload": event_payload(e),
-            }
-            for e in events
-        ],
+        "events": [_event_row_dict(e) for e in events],
     }
 
 
@@ -253,97 +339,54 @@ def build_params_by_notification(
             raise ValueError(f"Unsupported notification type for Brevo params: {notification_type_id}")
 
 
-def build_single_html(event) -> str:
-    payload = event_payload(event)
+def _subscription_footer_context(subscription) -> Dict[str, str]:
+    """Context vars for the shared footer's "Manage subscriptions"/"Unsubscribe"
+    links (see _base_email.html.j2). Empty when no subscription is available
+    (e.g. a template rendered outside the subscription-driven send path)."""
+    if subscription is None:
+        return {}
+    url = _subscriptions_management_url()
+    return {"subscriptions_url": url, "unsubscribe_url": url}
+
+
+def build_single_html(event, subscription=None) -> str:
+    """Render the HTML-fallback body for a single-event email via Jinja2.
+
+    Templates live in ``templates/`` alongside this module and are the single
+    source of truth for fallback markup; Brevo-hosted templates (when
+    configured) render server-side from the ``params`` dicts below instead.
+    """
     if event.notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
         return build_admin_summary_html(event)
-    if event.event_subtype == "feed_redirected":
-        return (
-            f"<p>Feed <strong>{_esc(subject_feed(event))}</strong> has been deprecated "
-            f"and now redirects to <strong>{_esc(target_feed(event))}</strong>.</p>"
-            f"<p>New URL: {_link(payload.get('new_url'))}</p>"
-        )
-    return (
-        f"<p>The URL for feed <strong>{_esc(subject_feed(event))}</strong> has changed.</p>"
-        f"<p>Old URL: {_esc(payload.get('old_url'))}</p>"
-        f"<p>New URL: {_link(payload.get('new_url'))}</p>"
-    )
+    row = _event_row_dict(event)
+    context = {"row": row, **_subscription_footer_context(subscription)}
+    return _jinja_env.get_template("feed_url_updated_single.html.j2").render(**context)
 
 
 def build_admin_summary_html(event) -> str:
     """Render the dispatch-statistics summary for an ``admin.event_summary`` event."""
-    p = event_payload(event)
-
-    def _row(label: str, key: str) -> str:
-        return f"<tr><td>{_esc(label)}</td><td>{_esc(p.get(key, 0))}</td></tr>"
-
-    rows = "".join(
-        [
-            _row("Subscriptions processed", "subscriptions_processed"),
-            _row("Events found", "events_found"),
-            _row("Emails sent", "emails_sent"),
-            _row("Emails failed", "emails_failed"),
-            _row("Permanently failed", "permanently_failed"),
-            _row("Skipped (max retries)", "skipped_max_retries"),
-        ]
-    )
-    return (
-        "<h2>Notification Dispatch Summary</h2>"
-        f"<p>Cadence: <strong>{_esc(p.get('cadence', '-'))}</strong></p>"
-        "<table border='1'><thead>"
-        "<tr><th>Metric</th><th>Count</th></tr>"
-        f"</thead><tbody>{rows}</tbody></table>"
-    )
+    return _jinja_env.get_template("admin_event_summary.html.j2").render(summary=event_payload(event))
 
 
-def build_digest_html(events: List) -> str:
+def build_admin_digest_html(events: List) -> str:
+    """Render one or more ``admin.event_summary`` events inside a single shared
+    header/footer. Unlike concatenating ``build_admin_summary_html`` per event
+    (each of which is a *full* HTML document), this renders exactly one
+    document with one summary block per event."""
+    summaries = [event_payload(e) for e in events]
+    return _jinja_env.get_template("admin_event_summary_digest.html.j2").render(summaries=summaries)
+
+
+def build_digest_html(events: List, subscription=None) -> str:
     if not events:
         return "<p>No feed URL changes in this period.</p>"
 
     if events[0].notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
-        # One run summary per event (most digests contain a single summary).
-        return "".join(build_admin_summary_html(e) for e in events)
+        return build_admin_digest_html(events)
 
-    rows = "".join(
-        f"<tr><td>{_esc(subject_feed(e))}</td><td>{_esc(e.event_subtype)}</td>"
-        f"<td>{_esc(event_payload(e).get('old_url') or '-')}</td>"
-        f"<td>{_esc(event_payload(e).get('new_url') or '-')}</td>"
-        f"<td>{_esc(e.source or '-')}</td></tr>"
-        for e in events
-    )
-    return (
-        "<h2>Feed URL Updates</h2>"
-        "<table border='1'><thead>"
-        "<tr><th>Feed</th><th>Type</th><th>Old URL</th><th>New URL</th><th>Source</th></tr>"
-        f"</thead><tbody>{rows}</tbody></table>"
-    )
-
-
-def _esc(value: Any) -> str:
-    """HTML-escape an arbitrary value for safe inline interpolation.
-
-    Feed stable_ids, URLs and ``source`` originate from provider-supplied data,
-    so every value rendered into the fallback HTML emails must be escaped to
-    prevent markup/attribute injection.
-    """
-    if value is None:
-        return ""
-    return _html_escape(str(value), quote=True)
-
-
-def _link(url: Optional[str]) -> str:
-    """Render a safe ``<a>`` for a URL, escaping it and only linking http(s).
-
-    Non-http(s) (or empty) values are rendered as escaped text only, so a
-    crafted ``javascript:`` / malformed value cannot become a live link or
-    break out of the ``href`` attribute.
-    """
-    if not url:
-        return ""
-    safe = _esc(url)
-    if str(url).strip().lower().startswith(("http://", "https://")):
-        return f'<a href="{safe}">{safe}</a>'
-    return safe
+    rows = [_event_row_dict(e) for e in events]
+    context = {"rows": rows, **_subscription_footer_context(subscription)}
+    return _jinja_env.get_template("feed_url_updated_digest.html.j2").render(**context)
 
 
 def send_single(
@@ -378,7 +421,7 @@ def send_single(
     )
     subject = build_single_subject(notification_event)
     # This is case the HTML fallback is used, so we don't need to pass html_content
-    html = build_single_html(notification_event) if template_id is None else None
+    html = build_single_html(notification_event, subscription) if template_id is None else None
 
     _send(
         recipient=recipient,
@@ -429,7 +472,7 @@ def send_digest(
         subscription,
     )
     subject = build_digest_subject(notification_events)
-    html = build_digest_html(notification_events) if template_id is None else None
+    html = build_digest_html(notification_events, subscription) if template_id is None else None
 
     _send(
         recipient=recipient,

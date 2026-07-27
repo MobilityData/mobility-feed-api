@@ -569,11 +569,15 @@ def _process_tdg_dataset(
                         db_fp.get("producer_url")
                         and db_fp["producer_url"] != api_fp["producer_url"]
                     ):
+                        new_provider = (dataset.get("publisher") or {}).get("name")
                         emit_url_replaced(
                             feed_stable_id=stable_id,
                             old_url=db_fp["producer_url"],
                             new_url=api_fp["producer_url"],
                             source="tdg_import",
+                            extra_data=(
+                                {"provider": new_provider} if new_provider else None
+                            ),
                         )
 
                 _update_common_tdg_fields(
@@ -630,11 +634,15 @@ def _process_tdg_dataset(
                         db_rt_fp.get("producer_url")
                         and db_rt_fp["producer_url"] != api_rt_fp["producer_url"]
                     ):
+                        new_provider = (dataset.get("publisher") or {}).get("name")
                         emit_url_replaced(
                             feed_stable_id=stable_id,
                             old_url=db_rt_fp["producer_url"],
                             new_url=api_rt_fp["producer_url"],
                             source="tdg_import",
+                            extra_data=(
+                                {"provider": new_provider} if new_provider else None
+                            ),
                         )
 
                 _update_common_tdg_fields(
