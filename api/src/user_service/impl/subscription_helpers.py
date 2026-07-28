@@ -47,7 +47,9 @@ def sync_announcements(
     first_name: str | None = None,
     organization: str | None = None,
 ) -> None:
-    """Sync an api.announcements subscription with Brevo, mapping provider errors to 502."""
+    """Sync an api.announcements subscription with Brevo, mapping provider errors to 502.
+    For simplicity, the Brevo `FIRSTNAME` contact field is populated with the full name.
+    """
     try:
         if subscribe:
             add_contact_to_list(

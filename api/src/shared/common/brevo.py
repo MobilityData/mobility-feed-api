@@ -85,8 +85,9 @@ def add_contact_to_list(
 
     Always sets MDB_SUBSCRIPTION_ID. When provided, also sets the standard
     FIRSTNAME attribute (from the user's full name) and the ORGANIZATION attribute
-    (from the user's legacy organisation name). Attributes whose value is None are
-    omitted so we never overwrite an existing Brevo value with a blank.
+    (from the user's legacy organization name). For simplicity, the Brevo `FIRSTNAME` contact field is populated with
+    the full name.
+    Attributes whose value is None are omitted so we never overwrite an existing Brevo value with a blank.
 
     Uses create_contact with update_enabled so it works whether or not the
     contact already exists.
