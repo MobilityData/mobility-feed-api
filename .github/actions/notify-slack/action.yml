@@ -19,7 +19,7 @@ runs:
   steps:
     - name: Load secrets from 1Password
       id: onepw_secrets
-      uses: 1password/load-secrets-action@v2.0.0
+      uses: 1password/load-secrets-action@v4
       with:
         export-env: true
       env:
@@ -78,9 +78,10 @@ runs:
         }' > slack_payload.json
 
     - name: Post notification in Slack channel
-      uses: slackapi/slack-github-action@v1.26.0
+      uses: slackapi/slack-github-action@v4
       with:
+        # slack-github-action v2+ moved the webhook URL and type from env vars
+        # (SLACK_WEBHOOK_URL / SLACK_WEBHOOK_TYPE) to these inputs.
+        webhook: ${{ env.SLACK_WEBHOOK_URL }}
+        webhook-type: incoming-webhook
         payload-file-path: ./slack_payload.json
-      env:
-        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

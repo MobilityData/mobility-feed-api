@@ -57,18 +57,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Authenticate to Google Cloud QA/PROD
-      uses: google-github-actions/auth@v2
+      uses: google-github-actions/auth@v3
       with:
         credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
 
     - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v2
+      uses: google-github-actions/setup-gcloud@v3
 
     - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v2.0.0
+      uses: 1password/load-secrets-action@v4
       with:
         export-env: true # Export loaded secrets as environment variables
       env:

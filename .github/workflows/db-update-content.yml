@@ -82,23 +82,23 @@ jobs:
     # The caller should decide when to invoke this reusable workflow.
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         ref: ${{ inputs.CHECKOUT_REF }}
         fetch-depth: 0
 
     - name: Setup python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ env.python_version }}
 
     - name: Authenticate to Google Cloud QA/PROD
-      uses: google-github-actions/auth@v2
+      uses: google-github-actions/auth@v3
       with:
         credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
 
     - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v2
+      uses: google-github-actions/setup-gcloud@v3
 
     - name: Update .env file
       run: |
@@ -122,7 +122,7 @@ jobs:
         echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> config/.env.local
 
     - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v2.0.0
+      uses: 1password/load-secrets-action@v4
       with:
         export-env: true # Export loaded secrets as environment variables
       env:
@@ -164,7 +164,7 @@ jobs:
 
     - name: GTFS - Upload sources.csv file for verification
       if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: sources-${{ inputs.ENVIRONMENT }}-verification.csv
         path: ${{ steps.getpath.outputs.GTFS_PATH }}
@@ -175,7 +175,7 @@ jobs:
 
     - name: GTFS - Upload log file for verification
       if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: populate-${{ inputs.ENVIRONMENT }}.log
         path: populate.log
@@ -191,7 +191,7 @@ jobs:
 
     - name: GBFS - Upload systems.csv file for verification
       if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: systems-${{ inputs.ENVIRONMENT }}-verification.csv
         path: ${{ steps.getsyspath.outputs.GBFS_PATH }}
@@ -202,7 +202,7 @@ jobs:
 
     - name: GBFS - Upload log file for verification
       if: ${{ always() && !inputs.DRY_RUN && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
         path: populate-gbfs.log
@@ -212,16 +212,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Load secrets from 1Password
         id: onepw_secrets
-        uses: 1password/load-secrets-action@v2.0.0
+        uses: 1password/load-secrets-action@v4
         with:
           export-env: true # Export loaded secrets as environment variables
         env:
