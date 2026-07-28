@@ -44,7 +44,7 @@ from user_service.impl.subscription_helpers import (
     NOTIFICATIONS_FEATURE_FLAG_ID,
     feature_flag_enabled,
     find_unknown_feed_ids,
-    sync_announcements,
+    set_announcements_optin,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
@@ -122,9 +122,28 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="User not found.")
 
         update_data = update_user_request.model_dump(exclude_unset=True)
+
+        # Detect a real change to the announcements opt-in so we can reconcile the
+        # subscription + Brevo membership below. Writing the boolean alone would
+        # leave the DB flag, the notification_subscription row, and Brevo out of
+        # sync (the historical bug this closes). Only act on an actual change so
+        # unrelated profile edits never make a (slow, failable) Brevo call.
+        optin_field = "is_registered_to_receive_api_announcements"
+        optin_target = None
+        if optin_field in update_data:
+            new_value = bool(update_data[optin_field])
+            if new_value != bool(user.is_registered_to_receive_api_announcements):
+                optin_target = new_value
+
         for field, value in update_data.items():
             setattr(user, field, value)
         user.updated_at = datetime.now(timezone.utc)
+
+        if optin_target is not None:
+            # Holds the DB connection through the Brevo call so the profile write
+            # and the opt-in change commit (or roll back on a 502) atomically.
+            set_announcements_optin(db_session, user, subscribe=optin_target)
+
         db_session.flush()
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
@@ -195,32 +214,33 @@ class UsersApiImpl(BaseUsersApi):
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        # Idempotent: reuse an existing subscription, reactivating if needed.
-        existing = (
-            db_session.query(NotificationSubscriptionOrm)
-            .filter(
-                NotificationSubscriptionOrm.user_id == user_id,
-                NotificationSubscriptionOrm.notification_type_id == notification_id,
-            )
-            .one_or_none()
-        )
-        sub = existing or NotificationSubscriptionOrm(
-            id=generate_unique_id(),
-            user_id=user_id,
-            notification_type_id=notification_id,
-            created_at=datetime.now(timezone.utc),
-        )
-        sub.active = True
-
-        # Replace the subscription's feed set with the supplied feeds (no-op for non-scoped
-        # types, whose feed_ids is always empty here).
-        self._sync_subscription_feeds(sub, feed_ids)
-
         if notification_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            sync_announcements(user.email, subscribe=True, subscription_id=sub.id)
+            # Reconcile the subscription row, Brevo membership and the app_user
+            # opt-in flag together so all three stay consistent.
+            sub = set_announcements_optin(db_session, user, subscribe=True)
+        else:
+            # Idempotent: reuse an existing subscription, reactivating if needed.
+            existing = (
+                db_session.query(NotificationSubscriptionOrm)
+                .filter(
+                    NotificationSubscriptionOrm.user_id == user_id,
+                    NotificationSubscriptionOrm.notification_type_id == notification_id,
+                )
+                .one_or_none()
+            )
+            sub = existing or NotificationSubscriptionOrm(
+                id=generate_unique_id(),
+                user_id=user_id,
+                notification_type_id=notification_id,
+                created_at=datetime.now(timezone.utc),
+            )
+            sub.active = True
+            # Replace the subscription's feed set with the supplied feeds (no-op for non feed-scoped
+            # types, whose feed_ids is always empty here).
+            self._sync_subscription_feeds(sub, feed_ids)
+            if existing is None:
+                db_session.add(sub)
 
-        if existing is None:
-            db_session.add(sub)
         db_session.flush()
         return NotificationSubscriptionImpl.from_orm(sub)
 
@@ -240,9 +260,9 @@ class UsersApiImpl(BaseUsersApi):
         active = update_notification_subscription_request.active
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, user_id)
-            sync_announcements(user.email, subscribe=active, subscription_id=sub.id)
-
-        sub.active = active
+            set_announcements_optin(db_session, user, subscribe=active, subscription=sub)
+        else:
+            sub.active = active
         db_session.flush()
         return NotificationSubscriptionImpl.from_orm(sub)
 
@@ -257,13 +277,17 @@ class UsersApiImpl(BaseUsersApi):
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            email = db_session.get(AppUser, user_id).email
-            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
-            # or unreachable provider never holds a connection while we talk to it. The reads above
-            # took no row locks, so committing here only returns the connection to the pool.
-            db_session.commit()
-            sync_announcements(email, subscribe=False)
-            sub.active = False
+            user = db_session.get(AppUser, user_id)
+            # release_connection_before_brevo=True: only reads happened above, so
+            # committing just returns the pooled connection before the (possibly
+            # slow) Brevo call. Also clears the app_user opt-in flag.
+            set_announcements_optin(
+                db_session,
+                user,
+                subscribe=False,
+                subscription=sub,
+                release_connection_before_brevo=True,
+            )
         else:
             db_session.delete(sub)
         db_session.flush()

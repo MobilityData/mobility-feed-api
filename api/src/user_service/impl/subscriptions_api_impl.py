@@ -29,7 +29,7 @@ from user_service.impl.subscription_helpers import (
     ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
     NOTIFICATIONS_FEATURE_FLAG_ID,
     feature_flag_enabled,
-    sync_announcements,
+    set_announcements_optin,
 )
 from user_service_gen.apis.subscriptions_api_base import BaseSubscriptionsApi
 from user_service_gen.models.notification_subscription import NotificationSubscription
@@ -74,14 +74,20 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, sub.user_id)
-            email = user.email if user is not None else None
-            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
-            # or unreachable provider never holds a connection while we talk to it. The read above
-            # took no row locks, so committing here only returns the connection to the pool.
-            db_session.commit()
-            if email is not None:
-                sync_announcements(email, subscribe=False)
-            sub.active = False
+            if user is not None:
+                # release_connection_before_brevo=True: only reads happened above,
+                # so committing just returns the pooled connection before the
+                # (possibly slow) Brevo call. Also clears the app_user opt-in flag.
+                set_announcements_optin(
+                    db_session,
+                    user,
+                    subscribe=False,
+                    subscription=sub,
+                    release_connection_before_brevo=True,
+                )
+            else:
+                # Orphaned subscription (no owning user): just disable it.
+                sub.active = False
         else:
             db_session.delete(sub)
         db_session.flush()
