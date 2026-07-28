@@ -278,6 +278,11 @@ class UsersApiImpl(BaseUsersApi):
         Raises 403 unless the flag resolves to true for this user.
         """
         if not feature_flag_enabled(db_session, user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+            logger.info(
+                "Subscription action denied for user %s: feature flag %r not enabled.",
+                user_id,
+                NOTIFICATIONS_FEATURE_FLAG_ID,
+            )
             raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
 
     @classmethod
@@ -288,6 +293,11 @@ class UsersApiImpl(BaseUsersApi):
         true for this user.
         """
         if not feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID):
+            logger.info(
+                "Subscription action denied for user %s: feature flag %r not enabled.",
+                user_id,
+                ADMIN_SUMMARY_FEATURE_FLAG_ID,
+            )
             raise HTTPException(
                 status_code=403,
                 detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,

@@ -56,15 +56,29 @@ FEED_SCOPED_NOTIFICATION_TYPE_IDS = frozenset(
 def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
     """Resolve a boolean feature flag for a user.
 
-    A globally disabled or missing flag denies everyone; otherwise the user's override wins,
-    falling back to the flag's default value.
+    The user's override wins, falling back to the flag's default value; a missing flag denies
+    (nothing to resolve). The ``disabled`` column is deliberately NOT consulted here: it only
+    controls consumer-facing *exposure* (whether the flag is surfaced in the user profile's
+    ``features`` list) — it is a backend concern and must not block a user who has been granted
+    access from subscribing. Otherwise a disabled-but-granted flag would leave no way to subscribe.
     """
     flag = db_session.get(FeatureFlag, flag_id)
-    if flag is None or flag.disabled:
+    if flag is None:
+        logger.debug("feature flag %r not found; denying user %s", flag_id, user_id)
         return False
     override = db_session.get(UserFeatureFlag, (user_id, flag_id))
     value = override.value if override is not None and override.value is not None else flag.default_value
-    return value is True
+    enabled = value is True
+    logger.debug(
+        "feature flag %r for user %s: override=%r default=%r resolved=%r enabled=%s",
+        flag_id,
+        user_id,
+        getattr(override, "value", None),
+        flag.default_value,
+        value,
+        enabled,
+    )
+    return enabled
 
 
 def sync_announcements(email: str, subscribe: bool, subscription_id: str | None = None) -> None:

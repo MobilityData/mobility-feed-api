@@ -14,6 +14,8 @@
 #  limitations under the License.
 #
 
+import logging
+
 from fastapi import HTTPException
 
 from shared.database.users_database import with_users_db_session
@@ -31,6 +33,8 @@ from user_service.impl.subscription_helpers import (
 )
 from user_service_gen.apis.subscriptions_api_base import BaseSubscriptionsApi
 from user_service_gen.models.notification_subscription import NotificationSubscription
+
+logger = logging.getLogger(__name__)
 
 
 class SubscriptionsApiImpl(BaseSubscriptionsApi):
@@ -60,6 +64,12 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         # unauthenticated; the subscription UUID is the capability, so we resolve the flag for
         # the subscription's owner rather than a request user).
         if not feature_flag_enabled(db_session, sub.user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+            logger.info(
+                "Public delete denied for subscription %s (owner %s): feature flag %r not enabled.",
+                id,
+                sub.user_id,
+                NOTIFICATIONS_FEATURE_FLAG_ID,
+            )
             raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:

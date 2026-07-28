@@ -576,11 +576,12 @@ class TestSubscriptionGate(unittest.TestCase):
             self._create()
         self.assertEqual(ctx.exception.status_code, 403)
 
-    def test_create_denied_when_flag_globally_disabled(self):
-        self._configure_gate(default=True, disabled=True)
-        with self.assertRaises(HTTPException) as ctx:
-            self._create()
-        self.assertEqual(ctx.exception.status_code, 403)
+    def test_create_allowed_when_flag_disabled_but_granted(self):
+        # `disabled` only hides the flag from the consumer profile; it must NOT block a granted
+        # user from subscribing (backend-only concern).
+        self._configure_gate(default=False, disabled=True, has_override=True, override_value=True)
+        self.assertEqual(self._create().notification_id, "feed.published")
+        self.mock_session.add.assert_called_once()
 
     def test_create_denied_when_flag_missing(self):
         from shared.users_database_gen.sqlacodegen_models import FeatureFlag, NotificationType
