@@ -60,8 +60,10 @@ def test_feed_scoped_relationship_uses_delete_orphan_and_passive_deletes():
 
 
 @pytest.fixture
-def api_session(users_test_database_url):
+def api_session(users_test_database_url, monkeypatch):
     """A real users-DB session plus seeded user/type, always rolled back."""
+    # Feed existence is checked against the separate feeds DB; treat the test feed ids as valid.
+    monkeypatch.setattr("user_service.impl.users_api_impl.find_unknown_feed_ids", lambda *a, **k: [])
     _reset_singleton()
     db = UsersDatabase()
     suffix = uuid.uuid4().hex

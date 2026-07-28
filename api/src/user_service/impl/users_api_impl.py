@@ -43,6 +43,7 @@ from user_service.impl.subscription_helpers import (
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
     feature_flag_enabled,
+    find_unknown_feed_ids,
     sync_announcements,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
@@ -180,6 +181,14 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(
                 status_code=400,
                 detail=f"feed_ids is not supported for notification type '{notification_id}'.",
+            )
+
+        # Every supplied feed must exist (feeds live in a separate DB, referenced by stable_id).
+        unknown_feed_ids = find_unknown_feed_ids(feed_ids)
+        if unknown_feed_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown feed stable IDs: {', '.join(unknown_feed_ids)}.",
             )
 
         user = db_session.get(AppUser, user_id)

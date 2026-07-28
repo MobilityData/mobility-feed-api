@@ -227,6 +227,10 @@ class TestSubscriptions(unittest.TestCase):
         gate_patcher = patch.object(UsersApiImpl, "_require_notifications_enabled", return_value=None)
         gate_patcher.start()
         self.addCleanup(gate_patcher.stop)
+        # Feed existence is checked against the (separate) feeds DB; treat all feeds as valid here.
+        feed_patcher = patch("user_service.impl.users_api_impl.find_unknown_feed_ids", return_value=[])
+        feed_patcher.start()
+        self.addCleanup(feed_patcher.stop)
 
     def _make_sub(self, **kwargs):
         from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
@@ -361,6 +365,25 @@ class TestSubscriptions(unittest.TestCase):
         )
 
         self.assertEqual(result.feed_ids, ["mdb-1"])
+
+    def test_create_feed_scoped_rejects_unknown_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with patch("user_service.impl.users_api_impl.find_unknown_feed_ids", return_value=["mdba-100"]):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.create_user_subscription(
+                    CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdba-100"]),
+                    db_session=self.mock_session,
+                )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("mdba-100", ctx.exception.detail)
+        self.mock_session.add.assert_not_called()
 
     def test_create_feed_scoped_requires_feed_ids(self):
         from shared.users_database_gen.sqlacodegen_models import NotificationType

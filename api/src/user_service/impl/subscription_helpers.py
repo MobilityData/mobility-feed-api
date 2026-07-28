@@ -22,6 +22,8 @@ from fastapi import HTTPException
 import sib_api_v3_sdk
 import urllib3
 from shared.common.brevo import add_contact_to_list, get_announcements_list_id, remove_contact_from_list
+from shared.database.database import Database
+from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import FeatureFlag, UserFeatureFlag
 
 logger = logging.getLogger(__name__)
@@ -79,6 +81,27 @@ def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
         enabled,
     )
     return enabled
+
+
+def find_unknown_feed_ids(feed_ids, feeds_db_session=None) -> list:
+    """Return the supplied feed stable IDs that do not exist as a ``Feed`` in the feeds DB.
+
+    Order is preserved and duplicates collapsed. Feeds live in a separate database from
+    subscriptions, so this opens its own feeds-DB session unless one is injected (tests).
+    """
+    unique_ids = list(dict.fromkeys(feed_ids or []))
+    if not unique_ids:
+        return []
+
+    def _missing(session) -> list:
+        rows = session.query(Feed.stable_id).filter(Feed.stable_id.in_(unique_ids)).all()
+        existing = {stable_id for (stable_id,) in rows}
+        return [feed_id for feed_id in unique_ids if feed_id not in existing]
+
+    if feeds_db_session is not None:
+        return _missing(feeds_db_session)
+    with Database().start_db_session() as session:
+        return _missing(session)
 
 
 def sync_announcements(email: str, subscribe: bool, subscription_id: str | None = None) -> None:
