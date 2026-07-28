@@ -111,8 +111,6 @@ paths:
                   $ref: "#/components/schemas/NotificationType"
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
 
   /v1/user/subscriptions:
     get:
@@ -134,8 +132,6 @@ paths:
                   $ref: "#/components/schemas/NotificationSubscription"
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
     post:
       summary: Create a notification subscription
       description: Subscribes the authenticated user to a notification type. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
@@ -161,8 +157,6 @@ paths:
           description: Invalid request.
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
 
   /v1/user/subscriptions/{id}:
     patch:
@@ -197,8 +191,6 @@ paths:
           description: Unauthorized.
         "404":
           description: Subscription not found.
-        "501":
-          description: Not yet implemented.
     delete:
       summary: Delete or disable a notification subscription
       description: >-
@@ -224,8 +216,6 @@ paths:
           description: Unauthorized.
         "404":
           description: Subscription not found.
-        "501":
-          description: Not yet implemented.
 
   /v1/subscriptions/{id}:
     get:
