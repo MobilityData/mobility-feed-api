@@ -117,7 +117,7 @@ paths:
   /v1/user/subscriptions:
     get:
       summary: List the current user's notification subscriptions
-      description: Returns all notification subscriptions for the authenticated user.
+      description: Returns all notification subscriptions for the authenticated user. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: getUserSubscriptions
       tags:
         - "users"
@@ -138,7 +138,7 @@ paths:
           description: Not yet implemented.
     post:
       summary: Create a notification subscription
-      description: Subscribes the authenticated user to a notification type.
+      description: Subscribes the authenticated user to a notification type. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: createUserSubscription
       tags:
         - "users"
@@ -167,7 +167,7 @@ paths:
   /v1/user/subscriptions/{id}:
     patch:
       summary: Toggle a notification subscription
-      description: Activates or deactivates a notification subscription by ID.
+      description: Activates or deactivates a notification subscription by ID. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: updateUserSubscription
       tags:
         - "users"
@@ -204,7 +204,7 @@ paths:
       description: >-
         Removes a notification subscription by ID. The announcements subscription
         (`api.announcements`) cannot be deleted; calling this endpoint for it
-        disables the subscription (sets it inactive) instead of removing it.
+        disables the subscription (sets it inactive) instead of removing it. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: deleteUserSubscription
       tags:
         - "users"
@@ -257,7 +257,7 @@ paths:
         Removes a notification subscription identified by its ID. The
         announcements subscription (`api.announcements`) cannot be deleted;
         calling this endpoint for it disables the subscription (sets it inactive)
-        instead of removing it.
+        instead of removing it. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: deleteSubscription
       tags:
         - "subscriptions"

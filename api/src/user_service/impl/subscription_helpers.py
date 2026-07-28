@@ -26,11 +26,14 @@ from shared.users_database_gen.sqlacodegen_models import FeatureFlag, UserFeatur
 
 logger = logging.getLogger(__name__)
 
+# Shared 403 detail returned when a user lacks the feature flag gating a subscription action.
+ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED = "This feature is not enabled for the user."
+
 ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 
 # Feature flag (feature_flag.id) that gates notification-subscription management: a user must
-# have this boolean flag resolved to true to create (POST) or update (PATCH) subscriptions.
-NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationEnabled"
+# have this boolean flag resolved to true to create, update or delete subscriptions.
+NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationsEnabled"
 
 # The admin dispatch-summary notification type and the additional feature flag required to
 # subscribe to (or manage a subscription for) it. This is layered on top of the general

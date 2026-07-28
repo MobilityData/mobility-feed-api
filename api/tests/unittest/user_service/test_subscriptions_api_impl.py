@@ -84,6 +84,21 @@ class TestPublicDeleteSubscription(unittest.TestCase):
     def setUp(self):
         self.api = SubscriptionsApiImpl()
         self.mock_session = MagicMock()
+        # Delete is gated by the owner's isNotificationsEnabled flag; enable it for these tests.
+        gate_patcher = patch("user_service.impl.subscriptions_api_impl.feature_flag_enabled", return_value=True)
+        gate_patcher.start()
+        self.addCleanup(gate_patcher.stop)
+
+    def test_delete_denied_when_flag_off(self):
+        sub = _make_sub(notification_type_id="feed.published")
+        self.mock_session.get.return_value = sub
+
+        with patch("user_service.impl.subscriptions_api_impl.feature_flag_enabled", return_value=False):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.delete_subscription("sub-1", db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
 
     def test_delete_non_announcement_no_brevo(self):
         sub = _make_sub(notification_type_id="feed.published")

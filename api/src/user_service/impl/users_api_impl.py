@@ -39,6 +39,7 @@ from user_service.impl.subscription_helpers import (
     ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID,
     ADMIN_SUMMARY_FEATURE_FLAG_ID,
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
     feature_flag_enabled,
@@ -243,6 +244,7 @@ class UsersApiImpl(BaseUsersApi):
         The announcements subscription cannot be deleted; it is disabled instead.
         """
         user_id = self._require_user_id()
+        self._require_notifications_enabled(db_session, user_id)
         sub = self._get_owned_subscription(db_session, id, user_id)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
@@ -271,12 +273,12 @@ class UsersApiImpl(BaseUsersApi):
 
     @classmethod
     def _require_notifications_enabled(cls, db_session, user_id: str) -> None:
-        """Gate: only users with the ``isNotificationEnabled`` feature flag may manage subscriptions.
+        """Gate: only users with the ``isNotificationsEnabled`` feature flag may manage subscriptions.
 
         Raises 403 unless the flag resolves to true for this user.
         """
         if not feature_flag_enabled(db_session, user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
-            raise HTTPException(status_code=403, detail="Notifications are not enabled for this user.")
+            raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
 
     @classmethod
     def _require_admin_summary_enabled(cls, db_session, user_id: str) -> None:
@@ -288,7 +290,7 @@ class UsersApiImpl(BaseUsersApi):
         if not feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID):
             raise HTTPException(
                 status_code=403,
-                detail=f"The '{ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID}' subscription is not enabled for this user.",
+                detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
             )
 
     @staticmethod

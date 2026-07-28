@@ -24,6 +24,9 @@ from shared.users_database_gen.sqlacodegen_models import (
 )
 from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
+    NOTIFICATIONS_FEATURE_FLAG_ID,
+    feature_flag_enabled,
     sync_announcements,
 )
 from user_service_gen.apis.subscriptions_api_base import BaseSubscriptionsApi
@@ -52,6 +55,12 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
+
+        # Gated by the subscription owner's isNotificationsEnabled flag (this endpoint is
+        # unauthenticated; the subscription UUID is the capability, so we resolve the flag for
+        # the subscription's owner rather than a request user).
+        if not feature_flag_enabled(db_session, sub.user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+            raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
 
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, sub.user_id)

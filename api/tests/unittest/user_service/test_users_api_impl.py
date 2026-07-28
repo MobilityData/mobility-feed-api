@@ -515,7 +515,7 @@ class TestSubscriptions(unittest.TestCase):
 
 
 class TestSubscriptionGate(unittest.TestCase):
-    """The isNotificationEnabled feature flag gates POST/PATCH subscriptions."""
+    """The isNotificationsEnabled feature flag gates POST/PATCH subscriptions."""
 
     def setUp(self):
         self.api = UsersApiImpl()
@@ -529,9 +529,9 @@ class TestSubscriptionGate(unittest.TestCase):
             UserFeatureFlag,
         )
 
-        flag = FeatureFlag(id="isNotificationEnabled", value_type="boolean", default_value=default, disabled=disabled)
+        flag = FeatureFlag(id="isNotificationsEnabled", value_type="boolean", default_value=default, disabled=disabled)
         override = (
-            UserFeatureFlag(user_id="uid-123", feature_flag_id="isNotificationEnabled", value=override_value)
+            UserFeatureFlag(user_id="uid-123", feature_flag_id="isNotificationsEnabled", value=override_value)
             if has_override
             else None
         )
@@ -606,6 +606,13 @@ class TestSubscriptionGate(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 403)
         self.mock_session.delete.assert_not_called()
 
+    def test_delete_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
+
 
 class TestAdminSummaryGate(unittest.TestCase):
     """admin.event_summary additionally requires the isAdminSummarySubscriptionEnabled flag."""
@@ -627,8 +634,8 @@ class TestAdminSummaryGate(unittest.TestCase):
         )
 
         flags = {
-            "isNotificationEnabled": FeatureFlag(
-                id="isNotificationEnabled", value_type="boolean", default_value=notifications, disabled=False
+            "isNotificationsEnabled": FeatureFlag(
+                id="isNotificationsEnabled", value_type="boolean", default_value=notifications, disabled=False
             ),
             "isAdminSummarySubscriptionEnabled": FeatureFlag(
                 id="isAdminSummarySubscriptionEnabled", value_type="boolean", default_value=admin, disabled=False
