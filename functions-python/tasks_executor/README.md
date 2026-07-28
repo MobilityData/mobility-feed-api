@@ -231,6 +231,63 @@ The write-back is **skipped** for contacts Brevo reports as `UNSUBSCRIBED` (they
 | `brevo_sync_failed` | Contacts where the Brevo write-back failed (non-fatal; retried next run) |
 | `dry_run` | Whether the task ran in dry-run mode |
 
+### `reconcile_announcements_from_brevo`
+
+Propagates Brevo-originated unsubscribes back into the users DB for the
+`api.announcements` notification. This is the **reverse** direction of the forward
+opt-in path: when a user toggles their subscription on our side (the `update_user`
+/ subscription endpoints, via `set_announcements_optin`) or `migrate_firebase_users`
+seeds it, flag + subscription + Brevo are kept consistent. But when a user clicks
+**unsubscribe inside a Brevo email**, Brevo sets `email_blacklisted` (global) or adds
+the list to `list_unsubscribed`, and nothing propagates that back — so
+`app_user.is_registered_to_receive_api_announcements` and the
+`notification_subscription.active` row stay stale-`true`. This task closes that gap.
+
+It is deliberately **turn-OFF only**. For every user with an **active**
+`api.announcements` subscription, it reads `get_contact_subscription_status(email,
+BREVO_API_ANNOUNCEMENTS_LIST_ID)`. When Brevo reports `UNSUBSCRIBED` (either the
+global `email_blacklisted` flag or the announcements list appearing in
+`list_unsubscribed`), it sets `is_registered_to_receive_api_announcements = false`
+and deactivates the subscription (`active = false`). `SUBSCRIBED` / `NOT_FOUND` are
+left untouched — this task **never** re-subscribes or adds anyone to the list.
+
+It only iterates **active** announcements subscriptions (a user already turned off
+is already consistent), which also keeps Brevo API usage down. Once a subscription
+is deactivated it drops out of the active set, so re-runs skip it: the task is
+**idempotent** and restartable.
+
+```json
+{
+  "task": "reconcile_announcements_from_brevo",
+  "payload": {
+    "dry_run": true,
+    "limit": null
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Read and count without any DB writes. Brevo is still queried so counts are accurate |
+| `limit` | int \| null | `null` | Maximum number of active announcements subscriptions to examine per run; omit or pass `null` for no limit |
+
+**Required environment variables**:
+- `BREVO_API_KEY` (secret) — Brevo API key
+- `BREVO_API_ANNOUNCEMENTS_LIST_ID` — numeric Brevo list ID for API announcements. If unset/invalid the task still runs but honors only the global `email_blacklisted` flag (list-level unsubscribes are ignored)
+- `USERS_DATABASE_URL` (secret) — PostgreSQL connection string for the users DB
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `checked` | Active announcements subscriptions whose Brevo status was read |
+| `reconciled_unsubscribed` | Users turned OFF (flag cleared + subscription deactivated) because Brevo reports them unsubscribed |
+| `still_subscribed` | Users Brevo reports as still subscribed (left untouched) |
+| `not_found` | Users not found as a Brevo contact (left untouched; never added) |
+| `brevo_failed` | Users whose Brevo check failed (non-fatal; retried next run) |
+| `skipped_no_email` | Subscriptions whose user row had no email (cannot be looked up on Brevo) |
+| `dry_run` | Whether the task ran in dry-run mode |
+
 ### `notifications_dispatch_batch` (+ `notifications_dispatch`, `notifications_dispatch_monitor`)
 
 Notification dispatch is a **Cloud Tasks fan-out** of three tasks:

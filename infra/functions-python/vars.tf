@@ -90,6 +90,12 @@ variable "notification_dispatch_daily_schedule" {
     default     = "0 8 * * *" # Daily at 08:00 UTC
 }
 
+variable "reconcile_announcements_schedule" {
+    type        = string
+    description = "Cron schedule for the Brevo announcements reconciliation job"
+    default     = "0 3 * * *" # Daily at 03:00 UTC
+}
+
 variable "notification_dispatch_weekly_weekday" {
     type        = number
     description = "Weekday the weekly digest is sent by the daily dispatcher (Monday=0 .. Sunday=6)"

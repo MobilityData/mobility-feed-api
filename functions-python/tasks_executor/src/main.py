@@ -65,6 +65,9 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
+from tasks.users.reconcile_announcements_from_brevo import (
+    reconcile_announcements_from_brevo_handler,
+)
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
     notifications_dispatch_handler,
@@ -186,6 +189,20 @@ tasks = {
             "user_ids (default null), only_not_migrated (default true)."
         ),
         "handler": migrate_firebase_users_handler,
+    },
+    "reconcile_announcements_from_brevo": {
+        "description": (
+            "Reconcile Brevo-originated unsubscribes back into the users DB for "
+            "api.announcements (reverse of the API/migration forward opt-in path). "
+            "For every user with an ACTIVE api.announcements subscription, reads the "
+            "Brevo contact status; when Brevo reports UNSUBSCRIBED (global "
+            "email_blacklisted or list-level unsubscribe), sets "
+            "app_user.is_registered_to_receive_api_announcements=false and "
+            "deactivates the subscription (active=false). Turn-OFF only: never "
+            "re-subscribes or adds anyone on SUBSCRIBED/NOT_FOUND. Idempotent. "
+            "Parameters: dry_run (default true), limit (default null)."
+        ),
+        "handler": reconcile_announcements_from_brevo_handler,
     },
     "notifications_dispatch_batch": {
         "description": (
