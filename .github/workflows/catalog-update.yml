@@ -54,7 +54,7 @@ jobs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
     steps:
       - name: Checkout repo (for scripts and local action)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve API commit/version
         id: resolve
@@ -97,7 +97,7 @@ jobs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
     steps:
       - name: Checkout repo (for scripts and local action)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve API commit/version
         id: resolve
@@ -140,7 +140,7 @@ jobs:
       CHECKOUT_REF: ${{ steps.resolve.outputs.COMMIT_SHA != '' && steps.resolve.outputs.COMMIT_SHA || 'main' }}
     steps:
       - name: Checkout repo (for scripts and local action)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve API commit/version
         id: resolve
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Notify Slack
         uses: ./.github/actions/notify-slack
         with:
