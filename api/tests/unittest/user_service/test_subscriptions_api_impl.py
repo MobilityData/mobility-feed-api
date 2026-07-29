@@ -68,10 +68,17 @@ class TestPublicGetSubscription(unittest.TestCase):
         sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id="mdb-2"))
         self.mock_session.get.return_value = sub
 
-        result = self.api.get_subscription("sub-1", db_session=self.mock_session)
+        metadata = {"mdb-9": {"data_type": "gtfs", "provider": "P9", "feed_name": "F9"}}
+        with patch("user_service.impl.subscriptions_api_impl.resolve_feed_metadata", return_value=metadata):
+            result = self.api.get_subscription("sub-1", db_session=self.mock_session)
 
-        # feed_ids come from the join table, sorted.
-        self.assertEqual(result.feed_ids, ["mdb-2", "mdb-9"])
+        # feeds come from the join table, sorted by id.
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-2", "mdb-9"])
+        # feeds carries resolved metadata per feed (null where unresolved).
+        by_id = {f.feed_id: f for f in result.feeds}
+        self.assertEqual(by_id["mdb-9"].data_type, "gtfs")
+        self.assertEqual(by_id["mdb-9"].provider, "P9")
+        self.assertIsNone(by_id["mdb-2"].data_type)
 
     def test_missing_returns_404(self):
         self.mock_session.get.return_value = None

@@ -62,8 +62,9 @@ def test_feed_scoped_relationship_uses_delete_orphan_and_passive_deletes():
 @pytest.fixture
 def api_session(users_test_database_url, monkeypatch):
     """A real users-DB session plus seeded user/type, always rolled back."""
-    # Feed existence is checked against the separate feeds DB; treat the test feed ids as valid.
+    # Feed existence + metadata are resolved against the separate feeds DB; stub both here.
     monkeypatch.setattr("user_service.impl.users_api_impl.find_unknown_feed_ids", lambda *a, **k: [])
+    monkeypatch.setattr("user_service.impl.users_api_impl.resolve_feed_metadata", lambda *a, **k: {})
     _reset_singleton()
     db = UsersDatabase()
     suffix = uuid.uuid4().hex
@@ -105,7 +106,7 @@ def test_create_persists_feed_ids(api_session):
     )
 
     assert result.notification_id == FEED_SCOPED_TYPE
-    assert result.feed_ids == ["mdb-1", "mdb-2"]  # sorted + deduped
+    assert [f.feed_id for f in result.feeds] == ["mdb-1", "mdb-2"]  # sorted + deduped
     assert _feed_rows(session, result.id) == {"mdb-1", "mdb-2"}
 
 
@@ -123,7 +124,7 @@ def test_create_replaces_feed_set_idempotently(api_session):
 
     # Same single subscription, feed set replaced.
     assert second.id == first.id
-    assert second.feed_ids == ["mdb-3"]
+    assert [f.feed_id for f in second.feeds] == ["mdb-3"]
     assert _feed_rows(session, first.id) == {"mdb-3"}
 
 

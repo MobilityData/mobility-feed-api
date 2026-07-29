@@ -28,7 +28,7 @@ from shared.common.brevo import (
     get_announcements_list_id,
     remove_contact_from_list,
 )
-from shared.database.database import Database, generate_unique_id
+from shared.database.database import generate_unique_id, with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
@@ -94,25 +94,42 @@ def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
     return enabled
 
 
-def find_unknown_feed_ids(feed_ids, feeds_db_session=None) -> list:
+@with_db_session
+def find_unknown_feed_ids(feed_ids, db_session=None) -> list:
     """Return the supplied feed stable IDs that do not exist as a ``Feed`` in the feeds DB.
 
-    Order is preserved and duplicates collapsed. Feeds live in a separate database from
-    subscriptions, so this opens its own feeds-DB session unless one is injected (tests).
+    Order is preserved and duplicates collapsed. ``db_session`` is the feeds-DB session injected
+    by ``@with_db_session`` (feeds live in a separate database from subscriptions).
     """
     unique_ids = list(dict.fromkeys(feed_ids or []))
     if not unique_ids:
         return []
+    rows = db_session.query(Feed.stable_id).filter(Feed.stable_id.in_(unique_ids)).all()
+    existing = {stable_id for (stable_id,) in rows}
+    return [feed_id for feed_id in unique_ids if feed_id not in existing]
 
-    def _missing(session) -> list:
-        rows = session.query(Feed.stable_id).filter(Feed.stable_id.in_(unique_ids)).all()
-        existing = {stable_id for (stable_id,) in rows}
-        return [feed_id for feed_id in unique_ids if feed_id not in existing]
 
-    if feeds_db_session is not None:
-        return _missing(feeds_db_session)
-    with Database().start_db_session() as session:
-        return _missing(session)
+@with_db_session
+def resolve_feed_metadata(stable_ids, db_session=None) -> dict:
+    """Resolve display metadata for feeds by stable ID from the feeds DB.
+
+    Returns ``{stable_id: {"data_type", "provider", "feed_name"}}`` for the feeds that exist.
+    Feed metadata is intentionally NOT persisted on the subscription; it is resolved at read
+    time so responses always reflect current feed data. ``db_session`` is the feeds-DB session
+    injected by ``@with_db_session``.
+    """
+    unique_ids = list(dict.fromkeys(stable_ids or []))
+    if not unique_ids:
+        return {}
+    rows = (
+        db_session.query(Feed.stable_id, Feed.data_type, Feed.provider, Feed.feed_name)
+        .filter(Feed.stable_id.in_(unique_ids))
+        .all()
+    )
+    return {
+        row.stable_id: {"data_type": row.data_type, "provider": row.provider, "feed_name": row.feed_name}
+        for row in rows
+    }
 
 
 def sync_announcements(

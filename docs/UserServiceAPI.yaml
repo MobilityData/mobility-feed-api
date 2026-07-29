@@ -380,16 +380,44 @@ components:
           type: string
           format: date-time
           description: Timestamp when the subscription was created.
-        feed_ids:
+        feeds:
           type: array
-          items:
-            type: string
           nullable: true
           description: >
-            Feed stable IDs this subscription targets. Populated for the
-            feed-scoped notification types (feed.url_updated,
-            feed.url_availability, feed.coverage); empty for other types.
-          example: ["mdb-1", "mdb-42"]
+            The feeds this subscription targets (feed-scoped notification types:
+            feed.url_updated, feed.url_availability, feed.coverage), each with
+            its resolved metadata. Resolved from the feeds database at read time
+            using the stable feed IDs — not persisted on the subscription.
+            Consumers can build a human-readable description from these fields.
+          items:
+            $ref: "#/components/schemas/SubscriptionFeed"
+
+    SubscriptionFeed:
+      type: object
+      description: >
+        Metadata for a feed targeted by a notification subscription, resolved
+        from the feed's stable ID at read time (not persisted).
+      required:
+        - feed_id
+      properties:
+        feed_id:
+          type: string
+          description: The feed's stable ID.
+          example: "mdb-1"
+        data_type:
+          type: string
+          nullable: true
+          description: The feed's data type.
+          example: "gtfs"
+        provider:
+          type: string
+          nullable: true
+          description: The transit/mobility data provider name.
+          example: "Metropolitan Transit Authority"
+        feed_name:
+          type: string
+          nullable: true
+          description: The feed's display name.
 
     CreateNotificationSubscriptionRequest:
       type: object

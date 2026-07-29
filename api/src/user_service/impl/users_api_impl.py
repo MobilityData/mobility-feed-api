@@ -44,6 +44,7 @@ from user_service.impl.subscription_helpers import (
     NOTIFICATIONS_FEATURE_FLAG_ID,
     feature_flag_enabled,
     find_unknown_feed_ids,
+    resolve_feed_metadata,
     set_announcements_optin,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
@@ -162,7 +163,11 @@ class UsersApiImpl(BaseUsersApi):
             .order_by(NotificationSubscriptionOrm.created_at)
             .all()
         )
-        return [NotificationSubscriptionImpl.from_orm(s) for s in subs]
+        # Resolve feed metadata for every targeted feed in a single feeds-DB query (skipped
+        # entirely when the user has no feed-scoped subscriptions).
+        stable_ids = [f.feed_stable_id for s in subs for f in s.notification_subscription_feeds]
+        feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
+        return [NotificationSubscriptionImpl.from_orm(s, feed_metadata) for s in subs]
 
     @with_users_db_session
     def create_user_subscription(
@@ -203,12 +208,13 @@ class UsersApiImpl(BaseUsersApi):
             )
 
         # Every supplied feed must exist (feeds live in a separate DB, referenced by stable_id).
-        unknown_feed_ids = find_unknown_feed_ids(feed_ids)
-        if unknown_feed_ids:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown feed stable IDs: {', '.join(unknown_feed_ids)}.",
-            )
+        if feed_ids:
+            unknown_feed_ids = find_unknown_feed_ids(feed_ids)
+            if unknown_feed_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown feed stable IDs: {', '.join(unknown_feed_ids)}.",
+                )
 
         user = db_session.get(AppUser, user_id)
         if user is None:
@@ -242,7 +248,9 @@ class UsersApiImpl(BaseUsersApi):
                 db_session.add(sub)
 
         db_session.flush()
-        return NotificationSubscriptionImpl.from_orm(sub)
+        stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
+        feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
+        return NotificationSubscriptionImpl.from_orm(sub, feed_metadata)
 
     @with_users_db_session
     def update_user_subscription(
@@ -264,7 +272,9 @@ class UsersApiImpl(BaseUsersApi):
         else:
             sub.active = active
         db_session.flush()
-        return NotificationSubscriptionImpl.from_orm(sub)
+        stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
+        feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
+        return NotificationSubscriptionImpl.from_orm(sub, feed_metadata)
 
     @with_users_db_session
     def delete_user_subscription(self, id: str, db_session=None) -> None:

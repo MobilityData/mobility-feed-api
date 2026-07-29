@@ -295,6 +295,10 @@ class TestSubscriptions(unittest.TestCase):
         feed_patcher = patch("user_service.impl.users_api_impl.find_unknown_feed_ids", return_value=[])
         feed_patcher.start()
         self.addCleanup(feed_patcher.stop)
+        # Feed metadata is resolved from the feeds DB; default to none resolved in these tests.
+        meta_patcher = patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value={})
+        meta_patcher.start()
+        self.addCleanup(meta_patcher.stop)
 
     def _make_sub(self, **kwargs):
         from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
@@ -322,7 +326,7 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(result[0].id, "sub-1")
         self.assertEqual(result[0].notification_id, "feed.published")
         # A non feed-scoped subscription reports no feeds.
-        self.assertIsNone(result[0].feed_ids)
+        self.assertIsNone(result[0].feeds)
 
     def test_get_user_subscriptions_guest_403(self):
         _set_context(is_guest=True)
@@ -412,8 +416,33 @@ class TestSubscriptions(unittest.TestCase):
         added_sub = self.mock_session.add.call_args[0][0]
         # Both feeds are attached to the new subscription's join collection.
         self.assertEqual({f.feed_stable_id for f in added_sub.notification_subscription_feeds}, {"mdb-1", "mdb-2"})
-        # Response feed_ids are sorted and deduped.
-        self.assertEqual(result.feed_ids, ["mdb-1", "mdb-2"])
+        # Response feeds are sorted by id and deduped.
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-1", "mdb-2"])
+
+    def test_create_feed_scoped_returns_resolved_feed_metadata(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        metadata = {"mdb-1": {"data_type": "gtfs", "provider": "MTA", "feed_name": "Subway"}}
+        with patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value=metadata):
+            result = self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-1", "mdb-2"]),
+                db_session=self.mock_session,
+            )
+
+        by_id = {f.feed_id: f for f in result.feeds}
+        self.assertEqual(set(by_id), {"mdb-1", "mdb-2"})
+        self.assertEqual(
+            (by_id["mdb-1"].data_type, by_id["mdb-1"].provider, by_id["mdb-1"].feed_name), ("gtfs", "MTA", "Subway")
+        )
+        # A feed with no resolved metadata (e.g. deleted) still appears with null fields.
+        self.assertEqual(
+            (by_id["mdb-2"].data_type, by_id["mdb-2"].provider, by_id["mdb-2"].feed_name), (None, None, None)
+        )
 
     def test_create_feed_scoped_dedupes_feed_ids(self):
         from shared.users_database_gen.sqlacodegen_models import NotificationType
@@ -428,7 +457,7 @@ class TestSubscriptions(unittest.TestCase):
             db_session=self.mock_session,
         )
 
-        self.assertEqual(result.feed_ids, ["mdb-1"])
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-1"])
 
     def test_create_feed_scoped_rejects_unknown_feed_ids(self):
         from shared.users_database_gen.sqlacodegen_models import NotificationType
@@ -502,7 +531,7 @@ class TestSubscriptions(unittest.TestCase):
         self.assertTrue(existing.active)
         # The old feed was dropped and the new one attached (delete-orphan handles the DB side).
         self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-new"})
-        self.assertEqual(result.feed_ids, ["mdb-new"])
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new"])
 
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):
