@@ -167,16 +167,80 @@ class TestUpdateUserMe(unittest.TestCase):
         self.mock_session.flush.assert_called_once()
         self.assertEqual(result.full_name, "New Name")
 
-    def test_updates_api_announcements_flag(self):
+    def test_opt_in_creates_subscription_and_syncs_brevo(self):
+        """Flipping the flag false→true creates the announcements subscription and
+        writes the contact to Brevo (the disconnect this fix closes)."""
         user = _make_user(is_registered_to_receive_api_announcements=False)
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = None  # no existing sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        self.assertTrue(user.is_registered_to_receive_api_announcements)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        add.assert_called_once()  # Brevo write-back happened
+        self.assertEqual(add.call_args[0][:2], ("user@example.com", 42))
+        self.mock_session.add.assert_called_once()  # subscription row created
+
+    def test_opt_out_deactivates_subscription_and_removes_from_brevo(self):
+        """Flipping the flag true→false removes the contact from Brevo and clears
+        the flag."""
+        user = _make_user(is_registered_to_receive_api_announcements=True)
+        user_q = _mock_query_first(self.mock_session, user)
+        existing_sub = MagicMock(active=True)
+        user_q.filter.return_value.one_or_none.return_value = existing_sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=False)
+        with patch.object(helpers, "remove_contact_from_list") as rem, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        rem.assert_called_once_with("user@example.com", 42)
+        self.assertFalse(existing_sub.active)
+        self.assertFalse(user.is_registered_to_receive_api_announcements)
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+
+    def test_flag_unchanged_does_not_touch_brevo(self):
+        """Re-sending the same flag value (or updating other fields) makes no
+        Brevo call."""
+        user = _make_user(is_registered_to_receive_api_announcements=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(is_registered_to_receive_api_announcements=True)
-        result = self.api.update_user(req, db_session=self.mock_session)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "remove_contact_from_list"
+        ) as rem:
+            self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
-        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        add.assert_not_called()
+        rem.assert_not_called()
+
+    def test_opt_in_brevo_failure_raises_502(self):
+        """A Brevo failure while flipping the flag surfaces as 502 (and, in real
+        DB use, rolls the whole update back)."""
+        import sib_api_v3_sdk
+
+        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = None
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(
+            helpers, "add_contact_to_list", side_effect=sib_api_v3_sdk.rest.ApiException(status=500)
+        ), patch.object(helpers, "get_announcements_list_id", return_value=42):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.update_user(req, db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 502)
 
     def test_partial_update_leaves_other_fields_unchanged(self):
         user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)

@@ -50,16 +50,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Set Variables
         run: |
@@ -84,7 +84,7 @@ jobs:
           docker compose --env-file ./config/.env.local up -d postgres
         working-directory: ${{ github.workspace }}
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
@@ -115,7 +115,7 @@ jobs:
           scripts/db-gen.sh
 
       - name: Upload DB models
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database_gen
           path: api/src/shared/database_gen/
@@ -125,7 +125,7 @@ jobs:
           scripts/function-python-build.sh --all
 
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false

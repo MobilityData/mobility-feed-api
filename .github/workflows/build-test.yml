@@ -28,7 +28,7 @@ jobs:
       test-matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set whether to run tests
         id: set-should-run-tests
@@ -47,17 +47,17 @@ jobs:
         run: ./scripts/extract-hash-and-version.sh
 
       - name: Set up JDK ${{ env.java_version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
       - name: Cache lint virtualenvs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             api/venv
@@ -78,7 +78,7 @@ jobs:
 
       - name: Cache Liquibase
         id: cache-liquibase
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.liquibase
           key: liquibase-${{ env.liquibase_version }}
@@ -147,35 +147,35 @@ jobs:
           echo "matrix=$(printf '%s\n%s' "$api" "$functions" | jq -sc 'add | {include: .}')" >> "$GITHUB_OUTPUT"
 
       - name: Upload DB models
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database_gen
           path: api/src/shared/database_gen/
           overwrite: true
 
       - name: Upload users DB models
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: users_database_gen
           path: api/src/shared/users_database_gen/
           overwrite: true
 
       - name: Upload API generated code
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
           overwrite: true
 
       - name: Upload User Service API generated code
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
           overwrite: true
 
       - name: Upload Operations API generated code
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
@@ -192,38 +192,38 @@ jobs:
       matrix: ${{ fromJSON(needs.setup.outputs.test-matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
       - name: Download DB models
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: database_gen
           path: api/src/shared/database_gen/
 
       - name: Download users DB models
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: users_database_gen
           path: api/src/shared/users_database_gen/
 
       - name: Download API generated code
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
 
       - name: Download User Service API generated code
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
 
       - name: Download Operations API generated code
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
@@ -234,14 +234,14 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Set up JDK ${{ env.java_version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
 
       - name: Cache Liquibase
         id: cache-liquibase
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.liquibase
           key: liquibase-${{ env.liquibase_version }}
@@ -283,7 +283,7 @@ jobs:
         run: scripts/api-tests.sh --folder ${{ matrix.folder }} --html_report
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage_report_${{ matrix.group }}
           path: scripts/coverage_reports/
