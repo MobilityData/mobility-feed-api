@@ -59,6 +59,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape as _html_escape
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
@@ -130,16 +131,29 @@ def _feed_page_url(stable_id: Optional[str]) -> Optional[str]:
     return f"{_website_url()}/feeds/{stable_id}" if stable_id else None
 
 
-def _subscriptions_management_url() -> str:
-    """Link to the subscriptions management page.
+# Website route backing the one-click unsubscribe link. It reads the subscription
+# id from the ``id`` query param and calls ``DELETE /v1/subscriptions/{id}``
+# server-side (see docs/notifications-subscription-flows.md).
+_UNSUBSCRIBE_PATH = "/notifications/unsubscribe"
 
-    Used for both the "Manage subscriptions" and "Unsubscribe" footer links —
-    there is no one-click unsubscribe endpoint yet (see docs/notifications.md
-    "Future Work"), so "Unsubscribe" currently points here too rather than to
-    a dead link.
-    TODO: implement a one-click unsubscribe endpoint and update the footer link to point there.
-    """
+
+def _subscriptions_management_url() -> str:
+    """Link to the account page where a signed-in user manages their subscriptions
+    (the "Manage subscriptions" footer link)."""
     return f"{_website_url()}/account/notifications"
+
+
+def _unsubscribe_url(subscription_id: Optional[str]) -> Optional[str]:
+    """One-click unsubscribe link for a specific subscription, keyed on its id.
+
+    The id is the subscription's own UUID (``notification_subscription.id``) — the
+    capability the unsubscribe page passes to ``DELETE /v1/subscriptions/{id}``.
+    Returns None when no id is available, so the footer omits the "Unsubscribe"
+    link rather than pointing at an incomplete URL.
+    """
+    if not subscription_id:
+        return None
+    return f"{_website_url()}{_UNSUBSCRIBE_PATH}?id={quote(str(subscription_id), safe='')}"
 
 
 # Brevo's transactional email API allows up to 1000 requests/second. Default
@@ -314,6 +328,7 @@ def build_params_feed_url_updated(events: List, subscription):
     return {
         "event_count": len(events),
         "subscription_id": subscription.id,
+        "unsubscribe_url": _unsubscribe_url(subscription.id),
         "events": [_event_row_dict(e) for e in events],
     }
 
@@ -323,6 +338,7 @@ def build_params_admin_event_summary(events: List, subscription):
     return {
         "event_count": len(events),
         "subscription_id": subscription.id,
+        "unsubscribe_url": _unsubscribe_url(subscription.id),
         "summary": event_payload(summary_event) if summary_event else {},
     }
 
@@ -345,8 +361,11 @@ def _subscription_footer_context(subscription) -> Dict[str, str]:
     (e.g. a template rendered outside the subscription-driven send path)."""
     if subscription is None:
         return {}
-    url = _subscriptions_management_url()
-    return {"subscriptions_url": url, "unsubscribe_url": url}
+    context = {"subscriptions_url": _subscriptions_management_url()}
+    unsubscribe_url = _unsubscribe_url(subscription.id)
+    if unsubscribe_url:
+        context["unsubscribe_url"] = unsubscribe_url
+    return context
 
 
 def build_single_html(event, subscription=None) -> str:

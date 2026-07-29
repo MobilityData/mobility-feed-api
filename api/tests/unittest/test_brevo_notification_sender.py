@@ -41,6 +41,7 @@ from shared.notifications.brevo_notification_sender import (
     target_feed,
     _int_env,
     _send,
+    _unsubscribe_url,
 )
 from shared.notifications.notification_constants import (
     FeedUrlUpdateType,
@@ -202,6 +203,7 @@ def test_build_params_feed_url_updated():
     params = build_params_feed_url_updated([event], _SUBSCRIPTION)
     assert params["event_count"] == 1
     assert params["subscription_id"] == "sub-1"
+    assert params["unsubscribe_url"] == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
     item = params["events"][0]
     assert item["feed_stable_id"] == "mdb-1"
     assert item["target_feed_stable_id"] == "mdb-2"
@@ -231,10 +233,30 @@ def test_build_params_admin_event_summary_with_and_without_events():
     params = build_params_admin_event_summary([event], _SUBSCRIPTION)
     assert params["event_count"] == 1
     assert params["summary"] == {"emails_sent": 5}
+    assert params["unsubscribe_url"] == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
 
     empty = build_params_admin_event_summary([], _SUBSCRIPTION)
     assert empty["event_count"] == 0
     assert empty["summary"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Unsubscribe link
+# ---------------------------------------------------------------------------
+
+
+def test_unsubscribe_url_builds_capability_link():
+    assert _unsubscribe_url("sub-1") == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
+
+
+def test_unsubscribe_url_none_when_no_id():
+    assert _unsubscribe_url(None) is None
+    assert _unsubscribe_url("") is None
+
+
+def test_unsubscribe_url_encodes_id_and_respects_website_env(monkeypatch):
+    monkeypatch.setenv("MOBILITY_DATABASE_WEBSITE_URL", "https://example.test/")
+    assert _unsubscribe_url("a/b c") == "https://example.test/notifications/unsubscribe?id=a%2Fb%20c"
 
 
 def test_build_params_by_notification_dispatch_and_unsupported():
@@ -274,6 +296,29 @@ def test_build_single_html_redirected_and_replaced():
     html = build_single_html(replaced)
     assert "has changed" in html
     assert "https://old" in html
+
+
+def test_build_single_html_footer_has_manage_and_one_click_unsubscribe_links():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_single_html(event, _SUBSCRIPTION)
+    # "Manage subscriptions" points at the account page; "Unsubscribe" is the
+    # one-click capability link keyed on the subscription id.
+    assert 'href="https://mobilitydatabase.org/account/notifications"' in html
+    assert 'href="https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"' in html
+    assert "Unsubscribe" in html
+
+
+def test_build_single_html_without_subscription_has_no_footer_links():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_single_html(event)
+    assert "/notifications/unsubscribe" not in html
+    assert "/account/notifications" not in html
+
+
+def test_build_digest_html_footer_has_one_click_unsubscribe_link():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_digest_html([event], _SUBSCRIPTION)
+    assert 'href="https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"' in html
 
 
 def test_build_single_html_url_replaced_shows_single_view_feed_button():
