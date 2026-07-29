@@ -121,13 +121,11 @@ paths:
                   $ref: "#/components/schemas/NotificationType"
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
 
   /v1/user/subscriptions:
     get:
       summary: List the current user's notification subscriptions
-      description: Returns all notification subscriptions for the authenticated user.
+      description: Returns all notification subscriptions for the authenticated user. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: getUserSubscriptions
       tags:
         - "users"
@@ -144,11 +142,9 @@ paths:
                   $ref: "#/components/schemas/NotificationSubscription"
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
     post:
       summary: Create a notification subscription
-      description: Subscribes the authenticated user to a notification type.
+      description: Subscribes the authenticated user to a notification type. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: createUserSubscription
       tags:
         - "users"
@@ -171,13 +167,11 @@ paths:
           description: Invalid request.
         "401":
           description: Unauthorized.
-        "501":
-          description: Not yet implemented.
 
   /v1/user/subscriptions/{id}:
     patch:
       summary: Toggle a notification subscription
-      description: Activates or deactivates a notification subscription by ID.
+      description: Activates or deactivates a notification subscription by ID. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: updateUserSubscription
       tags:
         - "users"
@@ -207,14 +201,12 @@ paths:
           description: Unauthorized.
         "404":
           description: Subscription not found.
-        "501":
-          description: Not yet implemented.
     delete:
       summary: Delete or disable a notification subscription
       description: >-
         Removes a notification subscription by ID. The announcements subscription
         (`api.announcements`) cannot be deleted; calling this endpoint for it
-        disables the subscription (sets it inactive) instead of removing it.
+        disables the subscription (sets it inactive) instead of removing it. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: deleteUserSubscription
       tags:
         - "users"
@@ -234,8 +226,6 @@ paths:
           description: Unauthorized.
         "404":
           description: Subscription not found.
-        "501":
-          description: Not yet implemented.
 
   /v1/subscriptions/{id}:
     get:
@@ -299,6 +289,9 @@ paths:
         deleted; `api.announcements` disabled and removed from Brevo). With
         `scope=one` (the default) only the single subscription identified by `id`
         is affected.
+
+        This feature is available to selected users. To request access or learn
+        more, contact us at api@mobilitydata.org.
       operationId: deleteSubscription
       tags:
         - "subscriptions"
@@ -443,6 +436,44 @@ components:
           type: string
           format: date-time
           description: Timestamp when the subscription was created.
+        feeds:
+          type: array
+          nullable: true
+          description: >
+            The feeds this subscription targets (feed-scoped notification types:
+            feed.url_updated, feed.url_availability, feed.coverage), each with
+            its resolved metadata. Resolved from the feeds database at read time
+            using the stable feed IDs — not persisted on the subscription.
+            Consumers can build a human-readable description from these fields.
+          items:
+            $ref: "#/components/schemas/SubscriptionFeed"
+
+    SubscriptionFeed:
+      type: object
+      description: >
+        Metadata for a feed targeted by a notification subscription, resolved
+        from the feed's stable ID at read time (not persisted).
+      required:
+        - feed_id
+      properties:
+        feed_id:
+          type: string
+          description: The feed's stable ID.
+          example: "mdb-1"
+        data_type:
+          type: string
+          nullable: true
+          description: The feed's data type.
+          example: "gtfs"
+        provider:
+          type: string
+          nullable: true
+          description: The transit/mobility data provider name.
+          example: "Metropolitan Transit Authority"
+        feed_name:
+          type: string
+          nullable: true
+          description: The feed's display name.
 
     CreateNotificationSubscriptionRequest:
       type: object
@@ -453,6 +484,16 @@ components:
           type: string
           description: The notification type to subscribe to.
           example: "feed.url_updated"
+        feed_ids:
+          type: array
+          items:
+            type: string
+          description: >
+            Feed stable IDs to subscribe to. Required (non-empty) for the
+            feed-scoped notification types feed.url_updated,
+            feed.url_availability and feed.coverage; must be omitted or empty
+            for other types. Validation is enforced in code, not the schema.
+          example: ["mdb-1", "mdb-42"]
 
     UpdateNotificationSubscriptionRequest:
       type: object

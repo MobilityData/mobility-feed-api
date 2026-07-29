@@ -119,11 +119,17 @@ def with_users_db_session(func=None, db_url: str | None = None):
 
 @event.listens_for(mapper, "mapper_configured")
 def _configure_users_passive_deletes(mapper_, class_):
-    """Enable ``passive_deletes`` on ``NotificationSubscription.notification_logs``.
+    """Enable ``delete-orphan`` + ``passive_deletes`` on ``NotificationSubscription`` children.
 
-    Deleting a subscription then relies on the database ``ON DELETE CASCADE`` to remove its
-    ``notification_log`` rows, instead of SQLAlchemy trying to NULL the NOT NULL
-    ``notification_log.subscription_id`` (which would raise a NotNullViolation).
+    Applies to both child collections:
+      * ``notification_logs`` — delivery history rows.
+      * ``notification_subscription_feeds`` — feed-scoped subscription targets (issue #1778).
+
+    Deleting a subscription then relies on the database ``ON DELETE CASCADE`` to remove these
+    rows, instead of SQLAlchemy trying to NULL the NOT NULL child foreign keys
+    (``notification_log.subscription_id`` / ``notification_subscription_feed.subscription_id``),
+    which would raise a NotNullViolation. ``delete-orphan`` additionally lets a feed be dropped
+    from a subscription simply by removing it from the in-memory collection.
 
     This mirrors the ``set_cascade`` mechanism in ``shared.database.database`` but is scoped to
     the users models, so ``users_database`` stays independent of the feeds ``database_gen``.
@@ -132,7 +138,9 @@ def _configure_users_passive_deletes(mapper_, class_):
     module does not require ``shared.users_database_gen`` to be present (functions that symlink
     ``shared`` without the users models must still be able to import ``users_database``).
     """
-    if class_.__name__ == "NotificationSubscription" and "notification_logs" in mapper_.relationships:
-        rel = mapper_.relationships["notification_logs"]
-        rel.cascade = "all, delete-orphan"
-        rel.passive_deletes = True
+    if class_.__name__ == "NotificationSubscription":
+        for rel_name in ("notification_logs", "notification_subscription_feeds"):
+            if rel_name in mapper_.relationships:
+                rel = mapper_.relationships[rel_name]
+                rel.cascade = "all, delete-orphan"
+                rel.passive_deletes = True

@@ -7,7 +7,8 @@ INSERT INTO notification_type (id, description) VALUES
     ('feed.published',     'A new feed has been published'),
     ('feed.updated',       'An existing feed has new data available'),
     ('feed.deprecated',    'A feed has been marked deprecated'),
-    ('validation.failed',  'Validation failed for a tracked feed')
+    ('validation.failed',  'Validation failed for a tracked feed'),
+    ('feed.url_updated',   'A tracked feed''s URL changed (feed-scoped)')
 ON CONFLICT (id) DO NOTHING;
 
 -- App users ------------------------------------------------------------------
@@ -25,8 +26,16 @@ INSERT INTO notification_subscription (id, user_id, notification_type_id, filter
     ('sub_0000000000000000000000000002', 'test_user_alice_000000000001', 'feed.updated',      '{"feed_ids": ["mdb-1", "mdb-42"]}'::jsonb, true),
     ('sub_0000000000000000000000000003', 'test_user_bob_00000000000002', 'feed.published',    '{"country": "CA"}'::jsonb,                 true),
     ('sub_0000000000000000000000000004', 'test_user_bob_00000000000002', 'validation.failed', '{"feed_ids": ["mdb-7"]}'::jsonb,           false),
-    ('sub_0000000000000000000000000005', 'test_user_dan_00000000000004', 'feed.deprecated',   NULL,                                       true)
+    ('sub_0000000000000000000000000005', 'test_user_dan_00000000000004', 'feed.deprecated',   NULL,                                       true),
+    ('sub_0000000000000000000000000006', 'test_user_alice_000000000001', 'feed.url_updated',  NULL,                                       true)
 ON CONFLICT (id) DO NOTHING;
+
+-- Feed-scoped subscription targets (issue #1778) ----------------------------
+-- Alice's feed.url_updated subscription targets two feeds by their stable_id.
+INSERT INTO notification_subscription_feed (subscription_id, feed_stable_id) VALUES
+    ('sub_0000000000000000000000000006', 'mdb-1'),
+    ('sub_0000000000000000000000000006', 'mdb-42')
+ON CONFLICT (subscription_id, feed_stable_id) DO NOTHING;
 
 -- Notification log ----------------------------------------------------------
 INSERT INTO notification_log (id, subscription_id, sent_at, channel, status, error_message) VALUES

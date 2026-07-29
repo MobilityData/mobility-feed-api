@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 
+import logging
 from typing import Final
 
 from fastapi import HTTPException
@@ -26,10 +27,16 @@ from shared.users_database_gen.sqlacodegen_models import (
 )
 from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
+    NOTIFICATIONS_FEATURE_FLAG_ID,
+    feature_flag_enabled,
+    resolve_feed_metadata,
     set_announcements_optin,
 )
 from user_service_gen.apis.subscriptions_api_base import BaseSubscriptionsApi
 from user_service_gen.models.notification_subscription import NotificationSubscription
+
+logger = logging.getLogger(__name__)
 
 # Values of the ?scope query parameter on DELETE /v1/subscriptions/{id}.
 SCOPE_ALL: Final = "all"
@@ -47,7 +54,9 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
-        return NotificationSubscriptionImpl.from_orm(sub)
+        stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
+        feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
+        return NotificationSubscriptionImpl.from_orm(sub, feed_metadata)
 
     @with_users_db_session
     def delete_subscription(self, id: str, scope: str = None, db_session=None) -> None:
@@ -65,6 +74,18 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
+
+        # Gated by the subscription owner's isNotificationsEnabled flag (this endpoint is
+        # unauthenticated; the subscription UUID is the capability, so we resolve the flag for
+        # the subscription's owner rather than a request user).
+        if not feature_flag_enabled(db_session, sub.user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+            logger.info(
+                "Public delete denied for subscription %s (owner %s): feature flag %r not enabled.",
+                id,
+                sub.user_id,
+                NOTIFICATIONS_FEATURE_FLAG_ID,
+            )
+            raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
 
         if scope == SCOPE_ALL:
             subscriptions = (
