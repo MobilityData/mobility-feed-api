@@ -92,9 +92,11 @@ def test_slow_brevo_delete_does_not_block_event_loop():
 
     app.dependency_overrides[get_token_Authentication] = lambda: "test-token"
     try:
-        with patch("shared.database.users_database.UsersDatabase", return_value=fake_db), patch.object(
-            helpers, "remove_contact_from_list", side_effect=_slow_remove
-        ), patch.object(helpers, "get_announcements_list_id", return_value=1):
+        with patch("shared.database.users_database.UsersDatabase", return_value=fake_db), patch(
+            "user_service.impl.subscriptions_api_impl.feature_flag_enabled", return_value=True
+        ), patch.object(helpers, "remove_contact_from_list", side_effect=_slow_remove), patch.object(
+            helpers, "get_announcements_list_id", return_value=1
+        ):
             response, ticks_during = asyncio.run(_delete_with_heartbeat(app))
     finally:
         app.dependency_overrides.pop(get_token_Authentication, None)

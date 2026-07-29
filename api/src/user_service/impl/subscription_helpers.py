@@ -28,15 +28,108 @@ from shared.common.brevo import (
     get_announcements_list_id,
     remove_contact_from_list,
 )
-from shared.database.database import generate_unique_id
+from shared.database.database import generate_unique_id, with_db_session
+from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
+    FeatureFlag,
     NotificationSubscription as NotificationSubscriptionOrm,
+    UserFeatureFlag,
 )
 
 logger = logging.getLogger(__name__)
 
+# Shared 403 detail returned when a user lacks the feature flag gating a subscription action.
+ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED = "This feature is not enabled for the user."
+
 ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
+
+# Feature flag (feature_flag.id) that gates notification-subscription management: a user must
+# have this boolean flag resolved to true to create, update or delete subscriptions.
+NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationsEnabled"
+
+# The admin dispatch-summary notification type and the additional feature flag required to
+# subscribe to (or manage a subscription for) it. This is layered on top of the general
+# NOTIFICATIONS_FEATURE_FLAG_ID gate.
+ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID = "admin.event_summary"
+ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"
+
+# Notification types that are scoped to specific feeds. A subscription to any of
+# these must carry a non-empty list of feed stable IDs (persisted in the
+# notification_subscription_feed join table); other types must not carry feeds.
+FEED_SCOPED_NOTIFICATION_TYPE_IDS = frozenset(
+    {
+        "feed.url_updated",
+        "feed.url_availability",
+        "feed.coverage",
+    }
+)
+
+
+def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
+    """Resolve a boolean feature flag for a user.
+
+    The user's override wins, falling back to the flag's default value; a missing flag denies
+    (nothing to resolve). The ``disabled`` column is deliberately NOT consulted here: it only
+    controls consumer-facing *exposure* (whether the flag is surfaced in the user profile's
+    ``features`` list) — it is a backend concern and must not block a user who has been granted
+    access from subscribing. Otherwise a disabled-but-granted flag would leave no way to subscribe.
+    """
+    flag = db_session.get(FeatureFlag, flag_id)
+    if flag is None:
+        logger.debug("feature flag %r not found; denying user %s", flag_id, user_id)
+        return False
+    override = db_session.get(UserFeatureFlag, (user_id, flag_id))
+    value = override.value if override is not None and override.value is not None else flag.default_value
+    enabled = value is True
+    logger.debug(
+        "feature flag %r for user %s: override=%r default=%r resolved=%r enabled=%s",
+        flag_id,
+        user_id,
+        getattr(override, "value", None),
+        flag.default_value,
+        value,
+        enabled,
+    )
+    return enabled
+
+
+@with_db_session
+def find_unknown_feed_ids(feed_ids, db_session=None) -> list:
+    """Return the supplied feed stable IDs that do not exist as a ``Feed`` in the feeds DB.
+
+    Order is preserved and duplicates collapsed. ``db_session`` is the feeds-DB session injected
+    by ``@with_db_session`` (feeds live in a separate database from subscriptions).
+    """
+    unique_ids = list(dict.fromkeys(feed_ids or []))
+    if not unique_ids:
+        return []
+    rows = db_session.query(Feed.stable_id).filter(Feed.stable_id.in_(unique_ids)).all()
+    existing = {stable_id for (stable_id,) in rows}
+    return [feed_id for feed_id in unique_ids if feed_id not in existing]
+
+
+@with_db_session
+def resolve_feed_metadata(stable_ids, db_session=None) -> dict:
+    """Resolve display metadata for feeds by stable ID from the feeds DB.
+
+    Returns ``{stable_id: {"data_type", "provider", "feed_name"}}`` for the feeds that exist.
+    Feed metadata is intentionally NOT persisted on the subscription; it is resolved at read
+    time so responses always reflect current feed data. ``db_session`` is the feeds-DB session
+    injected by ``@with_db_session``.
+    """
+    unique_ids = list(dict.fromkeys(stable_ids or []))
+    if not unique_ids:
+        return {}
+    rows = (
+        db_session.query(Feed.stable_id, Feed.data_type, Feed.provider, Feed.feed_name)
+        .filter(Feed.stable_id.in_(unique_ids))
+        .all()
+    )
+    return {
+        row.stable_id: {"data_type": row.data_type, "provider": row.provider, "feed_name": row.feed_name}
+        for row in rows
+    }
 
 
 def sync_announcements(

@@ -8,6 +8,7 @@ import user_service.impl.subscription_helpers as helpers
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationSubscription as NotificationSubscriptionOrm,
+    NotificationSubscriptionFeed as NotificationSubscriptionFeedOrm,
 )
 from user_service.impl.subscriptions_api_impl import SubscriptionsApiImpl
 
@@ -61,6 +62,24 @@ class TestPublicGetSubscription(unittest.TestCase):
         rem.assert_not_called()
         add.assert_not_called()
 
+    def test_returns_feed_ids_for_feed_scoped_subscription(self):
+        sub = _make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id="mdb-9"))
+        sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id="mdb-2"))
+        self.mock_session.get.return_value = sub
+
+        metadata = {"mdb-9": {"data_type": "gtfs", "provider": "P9", "feed_name": "F9"}}
+        with patch("user_service.impl.subscriptions_api_impl.resolve_feed_metadata", return_value=metadata):
+            result = self.api.get_subscription("sub-1", db_session=self.mock_session)
+
+        # feeds come from the join table, sorted by id.
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-2", "mdb-9"])
+        # feeds carries resolved metadata per feed (null where unresolved).
+        by_id = {f.feed_id: f for f in result.feeds}
+        self.assertEqual(by_id["mdb-9"].data_type, "gtfs")
+        self.assertEqual(by_id["mdb-9"].provider, "P9")
+        self.assertIsNone(by_id["mdb-2"].data_type)
+
     def test_missing_returns_404(self):
         self.mock_session.get.return_value = None
         with self.assertRaises(HTTPException) as ctx:
@@ -72,6 +91,21 @@ class TestPublicDeleteSubscription(unittest.TestCase):
     def setUp(self):
         self.api = SubscriptionsApiImpl()
         self.mock_session = MagicMock()
+        # Delete is gated by the owner's isNotificationsEnabled flag; enable it for these tests.
+        gate_patcher = patch("user_service.impl.subscriptions_api_impl.feature_flag_enabled", return_value=True)
+        gate_patcher.start()
+        self.addCleanup(gate_patcher.stop)
+
+    def test_delete_denied_when_flag_off(self):
+        sub = _make_sub(notification_type_id="feed.published")
+        self.mock_session.get.return_value = sub
+
+        with patch("user_service.impl.subscriptions_api_impl.feature_flag_enabled", return_value=False):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.delete_subscription("sub-1", db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
 
     def test_delete_non_announcement_no_brevo(self):
         sub = _make_sub(notification_type_id="feed.published")
