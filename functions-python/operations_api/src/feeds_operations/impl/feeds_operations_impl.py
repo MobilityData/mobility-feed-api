@@ -18,7 +18,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
-import os
 from datetime import datetime
 from typing import Annotated, Optional
 
@@ -89,18 +88,6 @@ from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
-from shared.helpers.transform import to_boolean
-
-
-def _external_side_effects_enabled() -> bool:
-    """Whether to invoke external GCP side-effects (Pub/Sub dataset download,
-    Cloud Tasks revalidation, notifications).
-
-    Skipped when running locally (``LOCAL_ENV=True``) so that create/update never
-    construct or call those clients outside a real deployment — this keeps local
-    runs and tests fast and free of live side-effects.
-    """
-    return not to_boolean(os.getenv("LOCAL_ENV", False))
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -407,10 +394,6 @@ class OperationsApiImpl(BaseOperationsApi):
                     update_request_feed.id,
                     diff.values(),
                 )
-                # Skip external notifications / revalidation (Pub/Sub, Cloud Tasks)
-                # when running locally so no live clients are constructed or called.
-                if not _external_side_effects_enabled():
-                    return Response(status_code=200)
                 # Emit notification events for URL / redirect changes (best-effort, fire-and-forget).
                 feed_stable_id = update_request_feed.id
                 new_producer_url = getattr(feed_from_db, "producer_url", None)
@@ -558,18 +541,17 @@ class OperationsApiImpl(BaseOperationsApi):
             else:
                 assign_license_by_url(created_feed, db_session)
             db_session.commit()
-        if _external_side_effects_enabled():
-            try:
-                trigger_dataset_download(
-                    created_feed,
-                    get_execution_id(get_request_context(), "feed-created-process"),
-                )
-            except Exception as exc:
-                logging.error(
-                    "Failed to trigger dataset download for feed ID: %s. Error: %s",
-                    created_feed.stable_id,
-                    exc,
-                )
+        try:
+            trigger_dataset_download(
+                created_feed,
+                get_execution_id(get_request_context(), "feed-created-process"),
+            )
+        except Exception as exc:
+            logging.error(
+                "Failed to trigger dataset download for feed ID: %s. Error: %s",
+                created_feed.stable_id,
+                exc,
+            )
         logging.info("Created new GTFS feed with ID: %s", new_feed.stable_id)
         refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
         logging.info("Materialized view %s refreshed: %s", t_feedsearch.name, refreshed)

@@ -119,10 +119,11 @@ if [[ -z "$BASE_URL" ]]; then
   fi
 
   # 6. Start the real Cloud Function entrypoint (functions-framework -> main).
-  #    LOCAL_ENV=True bypasses auth AND (see feeds_operations_impl) skips the
-  #    best-effort external GCP side-effects that create/update would otherwise
-  #    trigger (Pub/Sub dataset-download, Cloud Tasks revalidation, notifications),
-  #    so those clients are never constructed and requests don't block on GCP.
+  #    LOCAL_ENV=True bypasses auth. The best-effort external side-effects that
+  #    create/update trigger (Pub/Sub dataset-download, Cloud Tasks revalidation)
+  #    no-op on their own because their targets are unconfigured here
+  #    (DATASET_PROCESSING_TOPIC_NAME / WEB_REVALIDATION_QUEUE unset), so no GCP
+  #    client is constructed and requests don't block.
   # Free the port in case a previous run left a server behind (functions-framework
   # forks a worker, so a stale listener would otherwise capture our requests).
   if command -v lsof >/dev/null 2>&1; then
