@@ -123,7 +123,7 @@ def test_to_orm_invalid_source_info():
     result = UpdateRequestGtfsFeedImpl.to_orm(update_request, entity, session)
     assert result.producer_url is None
     assert result.is_producer_url_unstable is None
-    assert result.seasonal is None
+    assert result.seasonal is False
     assert result.authentication_type is None
     assert result.authentication_info_url is None
     assert result.api_key_parameter_name is None

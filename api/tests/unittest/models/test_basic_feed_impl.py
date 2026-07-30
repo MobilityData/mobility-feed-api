@@ -149,12 +149,14 @@ class TestBasicFeedImpl(unittest.TestCase):
         # Test all None values
         # No error should be raised
         # Resulting list must be empty and not None
-        empty_feed_orm = Feed()
+        # seasonal is a NOT NULL DEFAULT FALSE column, so a persisted feed always carries a boolean.
+        empty_feed_orm = Feed(seasonal=False)
         expected_empty_feed = FeedImpl(
             external_ids=[],
             redirects=[],
             source_info=SourceInfo(),
             related_links=[],
+            seasonal=False,
         )
         empty_result = FeedImpl.from_orm(empty_feed_orm)
         assert empty_result == expected_empty_feed

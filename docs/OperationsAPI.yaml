@@ -744,12 +744,10 @@ components:
               description: >
                 Indicates whether the feed is seasonal, i.e. it only provides service during recurring
                 periods of the year (for example a summer-only or winter-only service). Seasonal feeds
-                are excluded from the rolling 7-day service coverage checks.
-                  * true - The feed is seasonal.
-                  * false - The feed is not seasonal.
-                  * null (default) - There is not enough information to determine whether the feed is seasonal.
+                are excluded from the rolling 7-day service coverage checks. Defaults to false when the
+                feed has not been marked as seasonal.
               type: boolean
-              nullable: true
+              default: false
               example: true
             feed_name:
               description: >
@@ -1061,12 +1059,10 @@ components:
           description: >
             Indicates whether the feed is seasonal, i.e. it only provides service during recurring
             periods of the year (for example a summer-only or winter-only service). Seasonal feeds
-            are excluded from the rolling 7-day service coverage checks.
-              * true - The feed is seasonal.
-              * false - The feed is not seasonal.
-              * null (default) - There is not enough information to determine whether the feed is seasonal.
+            are excluded from the rolling 7-day service coverage checks. Defaults to false when the
+            feed has not been marked as seasonal.
           type: boolean
-          nullable: true
+          default: false
           example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
@@ -1907,10 +1903,10 @@ components:
           description: Whether this is an official feed.
         seasonal:
           type: boolean
-          nullable: true
+          default: false
           description: >
             Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Null when unknown.
+            the year (for example a summer-only or winter-only service). Defaults to false.
         locations:
           $ref: "#/components/schemas/Locations"
         related_links:
@@ -1974,10 +1970,10 @@ components:
           description: Whether this is an official feed.
         seasonal:
           type: boolean
-          nullable: true
+          default: false
           description: >
             Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Null when unknown.
+            the year (for example a summer-only or winter-only service). Defaults to false.
         entity_types:
           type: array
           minItems: 1
@@ -2135,10 +2131,10 @@ components:
           description: Whether this is an official feed.
         seasonal:
           type: boolean
-          nullable: true
+          default: false
           description: >
             Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Null when unknown.
+            the year (for example a summer-only or winter-only service). Defaults to false.
         propagate_license:
           type: boolean
           default: false
@@ -2196,10 +2192,10 @@ components:
           description: Whether this is an official feed.
         seasonal:
           type: boolean
-          nullable: true
+          default: false
           description: >
             Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Null when unknown.
+            the year (for example a summer-only or winter-only service). Defaults to false.
         propagate_license:
           type: boolean
           default: false

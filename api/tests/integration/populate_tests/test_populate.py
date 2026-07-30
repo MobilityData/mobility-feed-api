@@ -187,20 +187,20 @@ def test_is_seasonal_overwrite(client: TestClient, values):
     [
         {
             "feed_id": "mdb-702",
-            "assert_fail_message": "mdb-702 has an empty is_seasonal cell; must stay null, not False.",
+            "assert_fail_message": "mdb-702 has an empty is_seasonal cell; must default to False.",
         },
         {
             "feed_id": "mdb-1",
-            "assert_fail_message": "mdb-1's CSV has no is_seasonal column; must default to null.",
+            "assert_fail_message": "mdb-1's CSV has no is_seasonal column; must default to False.",
         },
     ],
     ids=[
-        "seasonal_empty_cell_stays_null",
-        "seasonal_absent_column_stays_null",
+        "seasonal_empty_cell_defaults_false",
+        "seasonal_absent_column_defaults_false",
     ],
 )
-def test_is_seasonal_defaults_null(client: TestClient, values):
-    """An empty cell or a missing column must leave seasonal as null (never coerced to False)."""
+def test_is_seasonal_defaults_false(client: TestClient, values):
+    """An empty cell or a missing column must default seasonal to False (never null)."""
     feed_id = values["feed_id"]
 
     response = client.request(
@@ -211,8 +211,7 @@ def test_is_seasonal_defaults_null(client: TestClient, values):
 
     assert response.status_code == 200
     json_response = response.json()
-    # Robust to either representation: key present with null, or key omitted.
-    assert json_response.get("seasonal") is None, values["assert_fail_message"]
+    assert json_response["seasonal"] is False, values["assert_fail_message"]
 
 
 def test_is_feed_reference_overwrite(client: TestClient):
