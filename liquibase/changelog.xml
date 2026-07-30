@@ -123,6 +123,8 @@
     <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
     <!-- Add is_producer_url_unstable column to the feed table (issue #1766). -->
     <include file="changes/feat_1766.sql" relativeToChangelogFile="true"/>
+    <!-- Add seasonal column to the feed table (issue #1774). -->
+    <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
     <!-- Keep this at the very end to ensure all table and schema changes
          are applied before materialized views are (re)created. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

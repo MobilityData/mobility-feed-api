@@ -25,6 +25,7 @@ search_item = FeedSearchRow(
     status="active",
     feed_name="feed_name",
     official=None,
+    seasonal=True,
     created_at=fake.date_time_this_month(),
     note="note",
     feed_contact_email="feed_contact_email",
@@ -80,6 +81,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             external_ids=item.external_ids,
             provider=item.provider,
             feed_name=item.feed_name,
+            seasonal=item.seasonal,
             note=item.note,
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(
@@ -127,6 +129,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             external_ids=item.external_ids,
             provider=item.provider,
             feed_name=item.feed_name,
+            seasonal=item.seasonal,
             note=item.note,
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(

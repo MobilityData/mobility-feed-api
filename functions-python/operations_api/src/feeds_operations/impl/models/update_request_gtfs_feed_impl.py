@@ -74,6 +74,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 key=lambda x: x.external_id,
             ),
             official=obj.official,
+            seasonal=obj.seasonal,
         )
 
     @classmethod
@@ -89,6 +90,8 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
         entity.note = update_request.note
         entity.feed_contact_email = update_request.feed_contact_email
         entity.official = update_request.official
+        # Nullable three-state boolean set at the top level of the feed (preserve False and None/unknown).
+        entity.seasonal = update_request.seasonal
         entity.producer_url = (
             None
             if (

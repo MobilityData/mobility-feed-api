@@ -557,6 +557,17 @@ components:
               type: string
               example: 2023-07-10T22:06:00Z
               format: date-time
+            seasonal:
+              description: >
+                Indicates whether the feed is seasonal, i.e. it only provides service during recurring
+                periods of the year (for example a summer-only or winter-only service). Seasonal feeds
+                are excluded from the rolling 7-day service coverage checks.
+                  * true - The feed is seasonal.
+                  * false - The feed is not seasonal.
+                  * null (default) - There is not enough information to determine whether the feed is seasonal.
+              type: boolean
+              nullable: true
+              example: true
             feed_name:
               description: >
                 An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
@@ -846,9 +857,20 @@ components:
           format: date-time
         official:
           description: >
-            A boolean value indicating if the feed is official or not. 
+            A boolean value indicating if the feed is official or not.
             Official feeds are provided by the transit agency or a trusted source.
           type: boolean
+          example: true
+        seasonal:
+          description: >
+            Indicates whether the feed is seasonal, i.e. it only provides service during recurring
+            periods of the year (for example a summer-only or winter-only service). Seasonal feeds
+            are excluded from the rolling 7-day service coverage checks.
+              * true - The feed is seasonal.
+              * false - The feed is not seasonal.
+              * null (default) - There is not enough information to determine whether the feed is seasonal.
+          type: boolean
+          nullable: true
           example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
