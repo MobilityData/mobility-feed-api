@@ -96,6 +96,7 @@ gtfs_feed_orm = Gtfsfeed(
     status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
+    seasonal=False,
     locations=[
         Location(
             id="id",
@@ -212,6 +213,7 @@ class TestGtfsFeedImpl(unittest.TestCase):
             status=None,
             feed_contact_email=None,
             provider=None,
+            seasonal=False,
             locations=[],
             externalids=[],
             latest_dataset=None,
