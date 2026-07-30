@@ -15,16 +15,33 @@
 #
 from typing import List
 
-from fastapi import HTTPException
-
+from middleware.request_context import get_request_context
+from shared.database.users_database import with_users_db_session
+from shared.db_models.notification_type_impl import NotificationTypeImpl
+from shared.users_database_gen.sqlacodegen_models import NotificationType as NotificationTypeOrm
+from user_service.impl.subscription_helpers import (
+    ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID,
+    ADMIN_SUMMARY_FEATURE_FLAG_ID,
+    feature_flag_enabled,
+)
 from user_service_gen.apis.notifications_api_base import BaseNotificationsApi
 from user_service_gen.models.notification_type import NotificationType
 
-_NOT_IMPLEMENTED = "Not yet implemented."
-
 
 class NotificationsApiImpl(BaseNotificationsApi):
-    """Stub implementation — scheduled for a follow-up issue."""
+    """Implementation of the User Service notifications API."""
 
-    def get_notifications(self) -> List[NotificationType]:
-        raise HTTPException(status_code=501, detail=_NOT_IMPLEMENTED)
+    @with_users_db_session
+    def get_notifications(self, db_session=None) -> List[NotificationType]:
+        """Returns the notification types the caller can subscribe to, ordered by id.
+
+        ``admin.event_summary`` is only included for users with the
+        ``isAdminSummarySubscriptionEnabled`` flag, mirroring the create/update gate.
+        """
+        types = db_session.query(NotificationTypeOrm).order_by(NotificationTypeOrm.id).all()
+
+        user_id = get_request_context().get("user_id")
+        if not (user_id and feature_flag_enabled(db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID)):
+            types = [t for t in types if t.id != ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID]
+
+        return [NotificationTypeImpl.from_orm(t) for t in types]
