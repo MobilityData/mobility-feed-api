@@ -91,7 +91,7 @@ async def test_create_gtfs_feed_success(_, mock_publish_messages, db_session):
         related_links=[],
     )
 
-    response = await api.create_gtfs_feed(request)
+    response = api.create_gtfs_feed(request)
     assert response.status_code == 201
 
     payload = json.loads(response.body)
@@ -163,7 +163,7 @@ async def test_create_gtfs_feed_duplicate_url_rejected(_):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.create_gtfs_feed(request)
+        api.create_gtfs_feed(request)
 
     assert exc_info.value.status_code == 400
     assert (
@@ -205,7 +205,7 @@ async def test_create_gtfs_rt_feed_success(_, db_session):
         entity_types=["vp", "tu"],
     )
 
-    response = await api.create_gtfs_rt_feed(request)
+    response = api.create_gtfs_rt_feed(request)
     assert response.status_code == 201
 
     payload = json.loads(response.body)
@@ -288,7 +288,7 @@ async def test_create_gtfs_feed_with_propagate_license(_, _trigger, db_session):
             propagate_license=True,
         )
 
-        response = await api.create_gtfs_feed(request)
+        response = api.create_gtfs_feed(request)
 
     payload = json.loads(response.body)
     try:
@@ -331,7 +331,7 @@ async def test_create_gtfs_rt_feed_duplicate_url_rejected(_):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.create_gtfs_rt_feed(request)
+        api.create_gtfs_rt_feed(request)
 
     assert exc_info.value.status_code == 400
     assert (

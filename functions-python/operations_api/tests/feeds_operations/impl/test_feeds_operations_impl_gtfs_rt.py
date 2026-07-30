@@ -54,7 +54,7 @@ async def test_update_gtfs_feed_field_change(
 ):
     update_request_gtfs_rt_feed.feed_name = "New feed name"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -73,7 +73,7 @@ async def test_update_gtfs_feed_static_change(
 ):
     update_request_gtfs_rt_feed.feed_references = ["mdb-400"]
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -96,7 +96,7 @@ async def test_update_gtfs_rt_feed_set_wip(
 ):
     update_request_gtfs_rt_feed.operational_status_action = "wip"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -115,7 +115,7 @@ async def test_update_gtfs_rt_feed_set_published(
 ):
     update_request_gtfs_rt_feed.operational_status_action = "published"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -134,7 +134,7 @@ async def test_update_gtfs_rt_feed_set_unpublished(
 ):
     update_request_gtfs_rt_feed.operational_status_action = "unpublished"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -153,7 +153,7 @@ async def test_update_gtfs_rt_feed_official_field(
     """Test updating the official field of a GTFS-RT feed."""
     update_request_gtfs_rt_feed.official = True
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    response: Response = api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
     assert response.status_code == 200
 
     db_feed = (
