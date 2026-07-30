@@ -740,6 +740,15 @@ components:
               type: string
               example: 2023-07-10T22:06:00Z
               format: date-time
+            seasonal:
+              description: >
+                Indicates whether the feed is seasonal, i.e. it only provides service during recurring
+                periods of the year (for example a summer-only or winter-only service). Seasonal feeds
+                are excluded from the rolling 7-day service coverage checks. Defaults to false when the
+                feed has not been marked as seasonal.
+              type: boolean
+              default: false
+              example: true
             feed_name:
               description: >
                 An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
@@ -1045,6 +1054,15 @@ components:
             A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
 
           type: boolean
+          example: true
+        seasonal:
+          description: >
+            Indicates whether the feed is seasonal, i.e. it only provides service during recurring
+            periods of the year (for example a summer-only or winter-only service). Seasonal feeds
+            are excluded from the rolling 7-day service coverage checks. Defaults to false when the
+            feed has not been marked as seasonal.
+          type: boolean
+          default: false
           example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
@@ -1883,6 +1901,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
+            the year (for example a summer-only or winter-only service). Defaults to false.
         locations:
           $ref: "#/components/schemas/Locations"
         related_links:
@@ -1944,6 +1968,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
+            the year (for example a summer-only or winter-only service). Defaults to false.
         entity_types:
           type: array
           minItems: 1
@@ -2099,6 +2129,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
+            the year (for example a summer-only or winter-only service). Defaults to false.
         propagate_license:
           type: boolean
           default: false
@@ -2154,6 +2190,12 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
+            the year (for example a summer-only or winter-only service). Defaults to false.
         propagate_license:
           type: boolean
           default: false

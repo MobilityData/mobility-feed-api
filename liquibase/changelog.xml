@@ -125,7 +125,9 @@
     <include file="changes/feat_1766.sql" relativeToChangelogFile="true"/>
     <!-- Add hierarchy table for location search materialized view. -->
     <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
+    <!-- Add seasonal column to the feed table (issue #1774). -->
+    <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
-    are recreated from the final source schema. -->
+         are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
