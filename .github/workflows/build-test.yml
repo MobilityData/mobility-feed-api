@@ -308,6 +308,21 @@ jobs:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
 
+      # The app imports the generated SQLAlchemy models via the shared symlinks
+      # (shared.database_gen / shared.users_database_gen), so those artifacts must
+      # be present for the server to start.
+      - name: Download DB models
+        uses: actions/download-artifact@v8
+        with:
+          name: database_gen
+          path: api/src/shared/database_gen/
+
+      - name: Download users DB models
+        uses: actions/download-artifact@v8
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
+
       - name: Docker Compose DB
         run: docker compose --env-file ./config/.env.local up -d postgres-test --wait
         working-directory: ${{ github.workspace }}
