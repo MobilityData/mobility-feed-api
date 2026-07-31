@@ -229,7 +229,7 @@ paths:
 
   /v1/subscriptions/{id}:
     get:
-      summary: Get a subscription by ID (public)
+      summary: Get a subscription by ID
       description: |
         Returns a single notification subscription identified by its ID.
 
@@ -259,7 +259,7 @@ paths:
         "404":
           description: Subscription not found.
     delete:
-      summary: Unsubscribe by subscription ID (public)
+      summary: Unsubscribe by subscription ID
       description: |
         Unsubscribes using the subscription UUID (`id`). This backs the email
         "unsubscribe" link — **no end-user authentication**, the UUID is the
