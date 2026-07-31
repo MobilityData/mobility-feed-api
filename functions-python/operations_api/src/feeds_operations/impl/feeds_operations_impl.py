@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 
 import logging
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated, Final, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -88,6 +88,38 @@ from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
+
+# Fields projected by `from_orm` (see UpdateRequestGtfs(Rt)FeedImpl) that are derived
+# from related rows and never written back by `to_orm`, so an update request cannot set
+# them. `license_is_spdx` is derived from the License relationship (feed.license.is_spdx);
+# comparing it would report a phantom change whenever the request omits it.
+_DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
+
+
+def _normalize_for_diff(value):
+    """Recursively coerce "absent" representations to None so change detection mirrors
+    the write path (`to_orm`), which persists empty/falsy values as None. Applied to both
+    sides of the diff for every field: an empty string or empty list is treated as "no
+    value" rather than a change, so None-vs-"" and None-vs-[] never register as edits.
+    """
+    if isinstance(value, dict):
+        return {key: _normalize_for_diff(item) for key, item in value.items()}
+    if isinstance(value, list):
+        normalized = [_normalize_for_diff(item) for item in value]
+        return None if not normalized else normalized
+    if value == "":
+        return None
+    return value
+
+
+def _strip_derived_fields(dumped: dict) -> dict:
+    """Drop read-only/derived fields from a dumped update model so they do not register
+    as changes (they are not settable through the update request)."""
+    source_info = dumped.get("source_info")
+    if isinstance(source_info, dict):
+        for field in _DERIVED_SOURCE_INFO_FIELDS:
+            source_info.pop(field, None)
+    return dumped
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -282,9 +314,15 @@ class OperationsApiImpl(BaseOperationsApi):
         copy_feed.operational_status_action = (
             update_request_feed.operational_status_action
         )
+        current_values = _strip_derived_fields(
+            _normalize_for_diff(copy_feed.model_dump())
+        )
+        requested_values = _strip_derived_fields(
+            _normalize_for_diff(update_request_feed.model_dump())
+        )
         diff = DeepDiff(
-            copy_feed.model_dump(),
-            update_request_feed.model_dump(),
+            current_values,
+            requested_values,
             ignore_order=True,
         )
         if diff.affected_paths:
