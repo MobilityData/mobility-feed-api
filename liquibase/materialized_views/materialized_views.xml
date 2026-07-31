@@ -15,4 +15,14 @@
       endDelimiter=";"/>
   </changeSet>
 
+  <changeSet id="rebuild-geopolygon-location-search-mv" author="you" runOnChange="true">
+    <sql>DROP MATERIALIZED VIEW IF EXISTS geopolygonlocationsearch;</sql>
+
+    <sqlFile
+      path="geopolygon_location_search.sql"
+      relativeToChangelogFile="true"
+      splitStatements="false"
+      endDelimiter=";"/>
+  </changeSet>
+
 </databaseChangeLog>

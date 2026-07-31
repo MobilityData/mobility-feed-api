@@ -9,4 +9,4 @@ class unaccent(ReturnTypeFromArgs):
     Be aware that this function is not available in all databases nor in all versions of PostgreSQL.
     """
 
-    pass
+    inherit_cache = True
