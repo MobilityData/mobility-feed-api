@@ -16,14 +16,16 @@
 """DB-backed tests for feed-scoped notification subscriptions (issue #1778).
 
 These exercise the full create path (validation, persistence into the
-``notification_subscription_feed`` join table, idempotent feed-set replacement) and the
-``ON DELETE CASCADE`` / ``delete-orphan`` behaviour against the real users test database.
+``notification_subscription_feed`` join table, a new subscription per call with the
+per-type feed-uniqueness rule) and the ``ON DELETE CASCADE`` / ``delete-orphan``
+behaviour against the real users test database.
 """
 
 import uuid
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import configure_mappers
 
 from middleware.request_context import _request_context
@@ -97,6 +99,10 @@ def _feed_rows(session, sub_id):
     }
 
 
+def _feed_rows_for_feed(session, feed_stable_id):
+    return session.query(NotificationSubscriptionFeed).filter_by(feed_stable_id=feed_stable_id).all()
+
+
 def test_create_persists_feed_ids(api_session):
     api, session, _ = api_session
 
@@ -110,7 +116,7 @@ def test_create_persists_feed_ids(api_session):
     assert _feed_rows(session, result.id) == {"mdb-1", "mdb-2"}
 
 
-def test_create_replaces_feed_set_idempotently(api_session):
+def test_create_makes_new_subscription_per_call(api_session):
     api, session, _ = api_session
 
     first = api.create_user_subscription(
@@ -122,10 +128,75 @@ def test_create_replaces_feed_set_idempotently(api_session):
         db_session=session,
     )
 
-    # Same single subscription, feed set replaced.
-    assert second.id == first.id
+    # A distinct subscription is created each time; earlier feeds are left untouched.
+    assert second.id != first.id
+    assert _feed_rows(session, first.id) == {"mdb-1", "mdb-2"}
+    assert _feed_rows(session, second.id) == {"mdb-3"}
     assert [f.feed_id for f in second.feeds] == ["mdb-3"]
-    assert _feed_rows(session, first.id) == {"mdb-3"}
+
+
+def test_create_rejects_feed_already_subscribed_for_same_type(api_session):
+    api, session, _ = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1", "mdb-2"]),
+        db_session=session,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        api.create_user_subscription(
+            # mdb-2 is already covered by the first subscription for this type.
+            CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-2", "mdb-9"]),
+            db_session=session,
+        )
+
+    assert exc.value.status_code == 400
+    assert "mdb-2" in exc.value.detail
+    # Nothing from the rejected call is persisted.
+    assert not _feed_rows_for_feed(session, "mdb-9")
+
+
+def test_db_enforces_feed_unique_per_type_across_subscriptions(api_session):
+    """The DB trigger is the backstop: a duplicate that bypasses the app pre-check (e.g. a
+    concurrent create) is still rejected at flush."""
+    api, session, user_id = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    # Insert a competing subscription targeting the same feed directly (no pre-check).
+    other = NotificationSubscription(
+        id=f"other-{uuid.uuid4().hex}", user_id=user_id, notification_type_id=FEED_SCOPED_TYPE
+    )
+    session.add(other)
+    session.flush()
+    session.add(NotificationSubscriptionFeed(subscription_id=other.id, feed_stable_id="mdb-1"))
+
+    with pytest.raises(IntegrityError):
+        session.flush()
+    session.rollback()
+
+
+def test_db_allows_same_feed_under_different_notification_type(api_session):
+    """The rule is scoped per notification type: the same feed may be targeted under a
+    different type without tripping the trigger."""
+    api, session, _ = api_session
+    if session.get(NotificationType, "feed.coverage") is None:
+        session.add(NotificationType(id="feed.coverage", description="coverage"))
+        session.flush()
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+    other = api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id="feed.coverage", feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    assert _feed_rows(session, other.id) == {"mdb-1"}
 
 
 def test_delete_subscription_cascades_to_feed_rows(api_session):

@@ -286,6 +286,9 @@ class TestSubscriptions(unittest.TestCase):
     def setUp(self):
         self.api = UsersApiImpl()
         self.mock_session = MagicMock()
+        # Feed-scoped create runs a per-type feed-uniqueness query
+        # (query(...).join(...).filter(...).all()); default it to "no conflicts".
+        self.mock_session.query.return_value.join.return_value.filter.return_value.all.return_value = []
         _set_context()
         # These tests exercise create/update logic, not the feature-flag gate; enable it.
         gate_patcher = patch.object(UsersApiImpl, "_require_notifications_enabled", return_value=None)
@@ -509,29 +512,81 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.mock_session.add.assert_not_called()
 
-    def test_create_feed_scoped_replaces_existing_feeds(self):
-        from shared.users_database_gen.sqlacodegen_models import (
-            NotificationType,
-            NotificationSubscriptionFeed as FeedOrm,
-        )
+    def test_create_feed_scoped_creates_new_subscription_each_call(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
 
-        existing = self._make_sub(notification_type_id="feed.url_updated", active=False)
-        existing.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-old"))
         self.mock_session.get.side_effect = lambda model, key: (
             NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
         )
-        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
 
         result = self.api.create_user_subscription(
             CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-new"]),
             db_session=self.mock_session,
         )
 
-        self.mock_session.add.assert_not_called()
-        self.assertTrue(existing.active)
-        # The old feed was dropped and the new one attached (delete-orphan handles the DB side).
-        self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-new"})
+        # A brand-new subscription is always added; no reuse of an existing (user, type) row.
+        self.mock_session.add.assert_called_once()
+        added_sub = self.mock_session.add.call_args[0][0]
+        self.assertTrue(added_sub.active)
+        self.assertEqual({f.feed_stable_id for f in added_sub.notification_subscription_feeds}, {"mdb-new"})
         self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new"])
+
+    def test_create_feed_scoped_rejects_feed_already_subscribed(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        # The uniqueness query reports mdb-1 already covered by another subscription of this type.
+        self.mock_session.query.return_value.join.return_value.filter.return_value.all.return_value = [("mdb-1",)]
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-1", "mdb-2"]),
+                db_session=self.mock_session,
+            )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("mdb-1", ctx.exception.detail)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_feed_scoped_maps_unique_violation_race_to_400(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+        from sqlalchemy.exc import IntegrityError
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        # Pre-check finds no conflict, but a concurrent create trips the DB trigger at flush.
+        self.mock_session.flush.side_effect = IntegrityError(
+            "INSERT ...",
+            {},
+            Exception("feed mdb-1 is already subscribed ... [notification_subscription_feed_unique_feed_per_type]"),
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-1"]),
+                db_session=self.mock_session,
+            )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_create_reraises_unrelated_integrity_error(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+        from sqlalchemy.exc import IntegrityError
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        # An IntegrityError from some other constraint must not be masked as a 400.
+        self.mock_session.flush.side_effect = IntegrityError("INSERT ...", {}, Exception("some_other_fkey"))
+
+        with self.assertRaises(IntegrityError):
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-1"]),
+                db_session=self.mock_session,
+            )
 
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):

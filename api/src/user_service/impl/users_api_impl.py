@@ -20,6 +20,7 @@ from typing import List
 
 from fastapi import HTTPException
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from middleware.request_context import get_request_context
@@ -59,6 +60,11 @@ from user_service_gen.models.update_user_request import UpdateUserRequest
 from user_service_gen.models.user_profile import UserProfile
 
 logger = logging.getLogger(__name__)
+
+# Marker raised by the DB trigger (see liquibase/changes_user/feat_subscription_feed_unique.sql)
+# that enforces "a feed is targeted by at most one subscription per (user, notification type)".
+# Matched in the error text to map a concurrent-create race to a 400 instead of a 500.
+FEED_UNIQUE_VIOLATION_MARKER = "notification_subscription_feed_unique_feed_per_type"
 
 
 class UsersApiImpl(BaseUsersApi):
@@ -173,13 +179,20 @@ class UsersApiImpl(BaseUsersApi):
     def create_user_subscription(
         self, create_notification_subscription_request: CreateNotificationSubscriptionRequest, db_session=None
     ) -> NotificationSubscription:
-        """Subscribes the authenticated user to a notification type (idempotent).
+        """Subscribes the authenticated user to a notification type.
 
         For feed-scoped notification types (``feed.url_updated``, ``feed.url_availability``,
-        ``feed.coverage``) a non-empty ``feed_ids`` list is required and is persisted in the
-        ``notification_subscription_feed`` join table; the single (user, type) subscription's
-        feed set is replaced with the supplied feeds. ``feed_ids`` must not be supplied for
+        ``feed.coverage``) a non-empty ``feed_ids`` list is required. Each call creates a *new*
+        subscription targeting the supplied feeds (persisted in the
+        ``notification_subscription_feed`` join table), so a user can build up several
+        subscriptions of the same type. A given feed may be covered by at most one subscription
+        per notification type: the call is rejected (400) if any supplied feed is already
+        targeted by an existing subscription of that type. ``feed_ids`` must not be supplied for
         other notification types.
+
+        Non feed-scoped types remain a single idempotent subscription per (user, type);
+        ``api.announcements`` additionally reconciles Brevo list membership and the app_user
+        opt-in flag.
         """
         user_id = self._require_user_id()
         self._require_notifications_enabled(db_session, user_id)
@@ -224,8 +237,32 @@ class UsersApiImpl(BaseUsersApi):
             # Reconcile the subscription row, Brevo membership and the app_user
             # opt-in flag together so all three stay consistent.
             sub = set_announcements_optin(db_session, user, subscribe=True)
+        elif is_feed_scoped:
+            # Feed-scoped types accumulate as independent subscriptions: every call creates a new
+            # subscription for the supplied feeds. A feed may be targeted by at most one
+            # subscription per notification type, so reject any feed already covered by one.
+            already_subscribed = self._feeds_already_subscribed(db_session, user_id, notification_id, feed_ids)
+            if already_subscribed:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Already subscribed to feed(s) {', '.join(already_subscribed)} "
+                        f"for notification type '{notification_id}'."
+                    ),
+                )
+            sub = NotificationSubscriptionOrm(
+                id=generate_unique_id(),
+                user_id=user_id,
+                notification_type_id=notification_id,
+                created_at=datetime.now(timezone.utc),
+            )
+            sub.active = True
+            for stable_id in feed_ids:
+                sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id=stable_id))
+            db_session.add(sub)
         else:
-            # Idempotent: reuse an existing subscription, reactivating if needed.
+            # Non feed-scoped types stay a single idempotent subscription per (user, type):
+            # reuse the existing row, reactivating if needed.
             existing = (
                 db_session.query(NotificationSubscriptionOrm)
                 .filter(
@@ -241,13 +278,20 @@ class UsersApiImpl(BaseUsersApi):
                 created_at=datetime.now(timezone.utc),
             )
             sub.active = True
-            # Replace the subscription's feed set with the supplied feeds (no-op for non feed-scoped
-            # types, whose feed_ids is always empty here).
-            self._sync_subscription_feeds(sub, feed_ids)
             if existing is None:
                 db_session.add(sub)
 
-        db_session.flush()
+        try:
+            db_session.flush()
+        except IntegrityError as exc:
+            # Backstop for the (rare) concurrent-create race that slips past the pre-check above:
+            # the DB trigger rejects a feed already subscribed for this type.
+            if FEED_UNIQUE_VIOLATION_MARKER in str(exc.orig):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"A supplied feed is already subscribed for notification type '{notification_id}'.",
+                ) from exc
+            raise
         stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
         feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
         return NotificationSubscriptionImpl.from_orm(sub, feed_metadata)
@@ -347,24 +391,31 @@ class UsersApiImpl(BaseUsersApi):
             )
 
     @staticmethod
-    def _sync_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
-        """Make the subscription's feed set exactly ``feed_ids``.
+    def _feeds_already_subscribed(db_session, user_id: str, notification_id: str, feed_ids: List[str]) -> List[str]:
+        """Return the supplied feed IDs already targeted by a subscription of this notification
+        type for the user, in request order.
 
-        Relies on the ``delete-orphan`` cascade configured on
-        ``NotificationSubscription.notification_subscription_feeds`` (see
-        ``shared.database.users_database``): removing a row from the collection deletes it and
-        appending one inserts it on flush.
+        Backs the create-time uniqueness rule: a feed may be covered by at most one subscription
+        per notification type. This is a read-time check, so two concurrent creates could both
+        pass it; the window is small and the effect (a duplicate feed row) is benign.
         """
-        desired = set(feed_ids)
-        current = {row.feed_stable_id: row for row in sub.notification_subscription_feeds}
-
-        for stable_id, row in current.items():
-            if stable_id not in desired:
-                sub.notification_subscription_feeds.remove(row)
-
-        for stable_id in feed_ids:
-            if stable_id not in current:
-                sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id=stable_id))
+        if not feed_ids:
+            return []
+        rows = (
+            db_session.query(NotificationSubscriptionFeedOrm.feed_stable_id)
+            .join(
+                NotificationSubscriptionOrm,
+                NotificationSubscriptionFeedOrm.subscription_id == NotificationSubscriptionOrm.id,
+            )
+            .filter(
+                NotificationSubscriptionOrm.user_id == user_id,
+                NotificationSubscriptionOrm.notification_type_id == notification_id,
+                NotificationSubscriptionFeedOrm.feed_stable_id.in_(feed_ids),
+            )
+            .all()
+        )
+        taken = {stable_id for (stable_id,) in rows}
+        return [feed_id for feed_id in feed_ids if feed_id in taken]
 
     @staticmethod
     def _get_owned_subscription(db_session, sub_id: str, user_id: str) -> NotificationSubscriptionOrm:
