@@ -8,7 +8,7 @@
 
 -- One row per feed; owns the overall seal outcome.
 CREATE TABLE IF NOT EXISTS FeedReliabilitySeal (
-    feed_id        VARCHAR(255) PRIMARY KEY REFERENCES GTFSFeed(id) ON DELETE CASCADE,
+    feed_id        VARCHAR(255) PRIMARY KEY REFERENCES Feed(id) ON DELETE CASCADE,
 
     has_seal       BOOLEAN NOT NULL DEFAULT FALSE,
     seal_earned_at TIMESTAMPTZ,
@@ -32,7 +32,7 @@ CREATE TYPE seal_criterion_name AS ENUM (
 -- grace_* columns reflect the debounced state: a failure is only confirmed after its grace period expires.
 -- The seal logic is driven exclusively by grace_* columns; raw_* columns are for monitoring and audit.
 CREATE TABLE IF NOT EXISTS SealCriterion (
-    feed_id                        VARCHAR(255) NOT NULL REFERENCES GTFSFeed(id) ON DELETE CASCADE,
+    feed_id                        VARCHAR(255) NOT NULL REFERENCES Feed(id) ON DELETE CASCADE,
     criterion                      seal_criterion_name NOT NULL,
 
     -- Current state
