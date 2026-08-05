@@ -406,3 +406,78 @@ Only **comparable** datasets are considered: a dataset must have a `downloaded_a
 | `pairs_dispatched` | Pairs dispatched (or, in `dry_run`, that would be dispatched) |
 | `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
 
+
+### update_seal_of_reliability
+
+Evaluates the implemented Seal of Reliability criteria (issue #1761) for every eligible GTFS
+feed and updates the `sealcriterion` and `feedreliabilityseal` tables. Reads the source
+tables and never modifies them.
+
+Only the **Official** criterion is implemented (issue #1783), so `has_seal` currently means
+`feed.official IS TRUE`. The remaining five criteria — Stable, Available, Compliant and the
+two Fresh checks — are tracked by #1784 and #1782; `seal_criterion_name` in the database
+already declares all six values, so adding one needs no schema change.
+
+Eligible feeds are GTFS, `operational_status = published`, and `status NOT IN (deprecated,
+development)`. `inactive` and `future` feeds are deliberately included: skipping a feed
+freezes its stored rows rather than making it neutral.
+
+```json
+{
+  "task": "update_seal_of_reliability",
+  "payload": {
+    "dry_run": true,
+    "stable_feed_ids": ["mdb-1210"]
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Evaluate every feed and return the report without writing anything |
+| `stable_feed_ids` | list[str] \| null | `null` | Evaluate only these feeds; unknown ids raise. When set, `evaluations` covers every criterion of those feeds instead of only the ones whose verdict moved |
+| `limit` | int \| null | `null` | Cap the number of feeds evaluated |
+| `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Only `official` is implemented so far; naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
+| `batch_size` | int | `200` | Feeds loaded per query batch |
+| `now` | str \| null | `null` | ISO timestamp to evaluate against, for replays and backfills. Defaults to the current UTC time |
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `total_feeds` | Feeds evaluated |
+| `criteria` | The criteria evaluated in this run |
+| `partial_run` | True when `criteria` was a subset, meaning `has_seal` was not recalculated |
+| `criterion_rows_written` | `sealcriterion` rows inserted or updated (`0` on a dry run) |
+| `not_evaluable` | Criterion evaluations skipped because an input was missing |
+| `seals_before_run` | Feeds that held the seal before this run |
+| `seals_after_run` | Feeds holding it afterwards — on a dry run, what *would* be stored |
+| `seals_granted` / `seals_revoked` | Transitions in this run. `before + granted - revoked == after` |
+| `revoked_stable_ids` | Feeds that lost the seal in this run |
+| `first_evaluations` | Criteria evaluated for the first time (no stored row yet) |
+| `evaluations` | The notable outcomes: one entry per feed and criterion whose verdict moved, with `raw_failing`, `grace_failing`, `previously_grace_failing` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
+
+> Note: no Cloud Scheduler job is defined for this task yet — invoke it manually. Once
+> scheduled it should run after the daily `check_gtfs_feed_availability` job, since the
+> Available criterion reads the availability rows recorded for the day.
+
+#### Running it locally
+
+Start Postgres and the function, then post to it:
+
+```shell
+docker compose --env-file ./config/.env.local up -d --force-recreate
+scripts/function-python-run.sh --function_name tasks_executor --no_install_venv
+```
+
+```shell
+curl -s -X POST http://localhost:8080 -H "Content-Type: application/json" \
+  -d '{"task":"update_seal_of_reliability","payload":{"dry_run":true,"stable_feed_ids":["mdb-1210"]}}' \
+  | python3 -m json.tool
+```
+
+`Accept: text/csv` returns a single summary row (the top-level report fields), not one row
+per evaluation — the converter flattens the returned dict, and `evaluations` lands in it as
+a single stringified cell. Use the JSON response for per-criterion detail.
+
+Nothing about this task needs GCP credentials — only `FEEDS_DATABASE_URL`.
