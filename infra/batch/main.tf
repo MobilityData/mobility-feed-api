@@ -332,6 +332,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
+      GTFS_FILE_DATA_EXTRACTOR_QUEUE = "gtfs-file-data-extractor-task-queue"
       GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_datasets_comparer_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
