@@ -5,6 +5,7 @@ from unittest.mock import patch, MagicMock
 
 from pipeline_tasks import (
     create_http_reverse_geolocation_processor_task,
+    create_http_gtfs_file_data_extractor_task,
     get_changed_files,
     create_pipeline_tasks,
 )
@@ -84,6 +85,113 @@ class TestPipelineTasks(unittest.TestCase):
         self.assertEqual(args[3], "my-project")
         self.assertEqual(args[4], "northamerica-northeast1")
         self.assertEqual(args[5], "rev-geo-queue")
+
+    @patch.dict(
+        os.environ,
+        {
+            "GTFS_FILE_DATA_EXTRACTOR_QUEUE": "file-data-queue",
+            "PROJECT_ID": "my-project",
+            "GCP_REGION": "northamerica-northeast1",
+        },
+        clear=False,
+    )
+    @patch("pipeline_tasks.create_http_task")
+    @patch("pipeline_tasks.tasks_v2.CloudTasksClient")
+    def test_create_http_gtfs_file_data_extractor_task(
+        self, mock_client_cls, mock_create_http_task
+    ):
+        client_instance = MagicMock()
+        mock_client_cls.return_value = client_instance
+
+        create_http_gtfs_file_data_extractor_task(
+            stable_id="feed-123",
+            dataset_stable_id="dataset-abc",
+            file_name="feed_info.txt",
+            file_url="https://example.com/feed_info.txt",
+        )
+
+        self.assertEqual(mock_create_http_task.call_count, 1)
+        args, _ = mock_create_http_task.call_args
+        self.assertIs(args[0], client_instance)
+        payload = json.loads(args[1].decode("utf-8"))
+        self.assertEqual(
+            payload,
+            {
+                "stable_id": "feed-123",
+                "dataset_id": "dataset-abc",
+                "file_name": "feed_info.txt",
+                "file_url": "https://example.com/feed_info.txt",
+            },
+        )
+        self.assertEqual(
+            args[2],
+            "https://northamerica-northeast1-my-project.cloudfunctions.net/gtfs-file-data-extractor",
+        )
+        self.assertEqual(args[5], "file-data-queue")
+
+
+class TestCreatePipelineTasksFeedInfo(unittest.TestCase):
+    """Covers the gtfs_file_data_extractor enqueue gating in create_pipeline_tasks."""
+
+    def _mock_session_no_base_dataset(self):
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
+        return mock_session
+
+    def _run(self, files, changed_files):
+        dataset = SimpleDataset(
+            feed_id=1,
+            dataset_id=10,
+            feed_stable_id="feed-A",
+            dataset_stable_id="ds-1",
+            files=files,
+        )
+        with patch(
+            "pipeline_tasks.get_changed_files", return_value=changed_files
+        ), patch(
+            "pipeline_tasks.create_http_reverse_geolocation_processor_task"
+        ), patch(
+            "pipeline_tasks.create_http_pmtiles_builder_task"
+        ), patch(
+            "pipeline_tasks.create_http_gtfs_datasets_comparer_task"
+        ), patch(
+            "pipeline_tasks.create_http_gtfs_file_data_extractor_task"
+        ) as mock_extractor_task:
+            create_pipeline_tasks(
+                dataset, db_session=self._mock_session_no_base_dataset()
+            )
+        return mock_extractor_task
+
+    def test_enqueues_when_feed_info_present_and_changed(self):
+        files = [
+            SimpleFile(
+                "feed_info.txt",
+                hosted_url="https://x.com/feed_info.txt",
+                file_hash="h1",
+            )
+        ]
+        mock_task = self._run(files, changed_files=["feed_info.txt"])
+        mock_task.assert_called_once_with(
+            "feed-A", "ds-1", "feed_info.txt", "https://x.com/feed_info.txt"
+        )
+
+    def test_skips_when_feed_info_not_changed(self):
+        files = [
+            SimpleFile(
+                "feed_info.txt",
+                hosted_url="https://x.com/feed_info.txt",
+                file_hash="h1",
+            )
+        ]
+        mock_task = self._run(files, changed_files=["stops.txt"])
+        mock_task.assert_not_called()
+
+    def test_skips_when_feed_info_absent(self):
+        files = [SimpleFile("stops.txt", hosted_url="https://x.com/stops.txt")]
+        mock_task = self._run(files, changed_files=["stops.txt"])
+        mock_task.assert_not_called()
 
 
 class TestHasFileChanged(unittest.TestCase):

@@ -14,6 +14,10 @@ from shared.helpers.utils import (
     create_http_gtfs_datasets_comparer_task,
 )
 
+# GTFS files that have a registered extractor in the gtfs_file_data_extractor
+# function. Keep in sync with that function's src/extractors/registry.py.
+EXTRACTABLE_FILES = {"feed_info.txt"}
+
 
 def create_http_reverse_geolocation_processor_task(
     stable_id: str,
@@ -39,6 +43,39 @@ def create_http_reverse_geolocation_processor_task(
         client,
         body,
         f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
+        project_id,
+        gcp_region,
+        queue_name,
+    )
+
+
+def create_http_gtfs_file_data_extractor_task(
+    stable_id: str,
+    dataset_stable_id: str,
+    file_name: str,
+    file_url: str,
+) -> None:
+    """
+    Create a task to extract structured data from a single GTFS file
+    (handled by the gtfs_file_data_extractor function).
+    """
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {
+            "stable_id": stable_id,
+            "dataset_id": dataset_stable_id,
+            "file_name": file_name,
+            "file_url": file_url,
+        }
+    ).encode()
+    queue_name = os.getenv("GTFS_FILE_DATA_EXTRACTOR_QUEUE")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+
+    create_http_task(
+        client,
+        body,
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/gtfs-file-data-extractor",
         project_id,
         gcp_region,
         queue_name,
@@ -108,6 +145,15 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
         create_http_reverse_geolocation_processor_task(
             stable_id, dataset_stable_id, stops_url
         )
+
+    # Create GTFS file data extraction tasks for changed, extractable files.
+    files_by_name = {file.file_name: file for file in gtfs_files}
+    for file_name in EXTRACTABLE_FILES:
+        gtfs_file = files_by_name.get(file_name)
+        if gtfs_file and gtfs_file.hosted_url and file_name in changed_files:
+            create_http_gtfs_file_data_extractor_task(
+                stable_id, dataset_stable_id, file_name, gtfs_file.hosted_url
+            )
 
     routes_file = next(
         (file for file in gtfs_files if file.file_name == "routes.txt"), None
