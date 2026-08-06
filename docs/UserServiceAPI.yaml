@@ -30,9 +30,19 @@ tags:
   - name: "users"
     description: "User profile management"
   - name: "notifications"
-    description: "Notification subscriptions"
+    description: "Notification catalog — the notification types a user can subscribe to."
   - name: "subscriptions"
-    description: "Public subscription management via subscription ID (e.g. email unsubscribe links)"
+    description: >-
+      Subscription management keyed on the subscription UUID, with **no end-user
+      authentication**. These endpoints perform no per-user identity check:
+      possession of the unguessable subscription `id` is the access capability,
+      which is what lets an email "unsubscribe" link work without the recipient
+      logging in. Note the transport is still authenticated — the call is made
+      server-side by an authorized IAP principal (a service account); the API is
+      not exposed to the open internet and every call must be authenticated.
+      Contrast with the per-user
+      `/v1/user/subscriptions*` endpoints (tag `users`), which additionally
+      require an end-user identity. See `docs/notifications-subscription-flows.md`.
 
 paths:
   /v1/user:
@@ -173,7 +183,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Subscription ID.
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
       requestBody:
         required: true
         content:
@@ -208,7 +218,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Subscription ID.
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
       responses:
         "204":
           description: Subscription deleted, or disabled for the announcements type.
@@ -222,6 +232,13 @@ paths:
       summary: Get a subscription by ID
       description: |
         Returns a single notification subscription identified by its ID.
+
+        **No end-user authentication** — the subscription UUID (`id`) is the
+        access capability. The call itself must still be made by an authorized IAP
+        principal (typically the website backend server-side) to render the
+        unsubscribe page, so the recipient can see which notification they are
+        about to unsubscribe from before confirming. Returns `404` for an
+        unknown/invalid ID.
       operationId: getSubscription
       tags:
         - "subscriptions"
@@ -231,7 +248,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Subscription ID.
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
       responses:
         "200":
           description: Subscription retrieved.
@@ -242,12 +259,39 @@ paths:
         "404":
           description: Subscription not found.
     delete:
-      summary: Delete or disable a subscription by ID
+      summary: Unsubscribe by subscription ID
       description: |
-        Removes a notification subscription identified by its ID. The
-        announcements subscription (`api.announcements`) cannot be deleted;
-        calling this endpoint for it disables the subscription (sets it inactive)
-        instead of removing it. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
+        Unsubscribes using the subscription UUID (`id`). This backs the email
+        "unsubscribe" link — **no end-user authentication**, the UUID is the
+        capability. The call must still be made by an authorized IAP principal
+        (the website backend server-side); the anonymous recipient never calls
+        the API directly.
+
+        Behaviour depends on the notification type:
+        - **`api.announcements`** — never deleted; the subscription is *disabled*
+          (`active=false`), the contact is removed from the Brevo announcements
+          list, and `app_user.is_registered_to_receive_api_announcements` is
+          cleared. Kept idempotent so a repeated click still succeeds.
+        - **all other types** (e.g. `feed.url_updated`) — the subscription row is
+          hard-deleted; a second call therefore returns `404`.
+
+        Returns `404` for an unknown/invalid ID, and `502` if the email provider
+        (Brevo) cannot be reached while updating an announcements subscription.
+
+        The `id` embedded in an email is the subscription's own UUID
+        (`notification_subscription.id`) — mirrored onto the Brevo contact as the
+        `MDB_SUBSCRIPTION_ID` attribute — **not** the notification-type string
+        (`api.announcements`), which is shared by all recipients and is not a
+        valid subscription ID.
+
+        With `scope=all`, the subscription ID is used only to resolve the owning
+        user, and every subscription that user holds is unsubscribed (normal types
+        deleted; `api.announcements` disabled and removed from Brevo). With
+        `scope=one` (the default) only the single subscription identified by `id`
+        is affected.
+
+        This feature is available to selected users. To request access or learn
+        more, contact us at api@mobilitydata.org.
       operationId: deleteSubscription
       tags:
         - "subscriptions"
@@ -257,7 +301,15 @@ paths:
           required: true
           schema:
             type: string
-          description: Subscription ID.
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [one, all]
+            default: one
+          description: "'one' (default) unsubscribes only the subscription identified by the path `id`. 'all' unsubscribes the owning user from every notification type, using the path `id` solely to identify that user."
       responses:
         "204":
           description: Subscription deleted, or disabled for the announcements type.
@@ -345,13 +397,13 @@ components:
       properties:
         id:
           type: string
-          description: Unique identifier for the notification type (e.g. 'feed.published').
-          example: "feed.published"
+          description: Unique identifier for the notification type (e.g. 'feed.url_updated', 'api.announcements').
+          example: "feed.url_updated"
         description:
           type: string
           nullable: true
           description: Human-readable description of the notification type.
-          example: "Notifies when a new feed is published."
+          example: "Fired when a feed URL changes in-place or a feed is deprecated and redirected."
 
     NotificationSubscription:
       type: object
@@ -364,14 +416,18 @@ components:
       properties:
         id:
           type: string
-          description: Unique subscription ID (UUID v4).
+          description: >-
+            Unique subscription ID (UUID v4). This is the **capability token** used
+            by the public `/v1/subscriptions/{id}` endpoints and by email
+            unsubscribe links; for `api.announcements` it is mirrored onto the
+            Brevo contact as the `MDB_SUBSCRIPTION_ID` attribute.
         user_id:
           type: string
           description: The ID of the subscribed user.
         notification_id:
           type: string
           description: The notification type this subscription is for.
-          example: "feed.published"
+          example: "feed.url_updated"
         active:
           type: boolean
           description: Whether the subscription is currently active.
@@ -427,7 +483,7 @@ components:
         notification_id:
           type: string
           description: The notification type to subscribe to.
-          example: "feed.published"
+          example: "feed.url_updated"
         feed_ids:
           type: array
           items:
