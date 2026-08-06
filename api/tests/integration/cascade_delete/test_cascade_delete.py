@@ -26,6 +26,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Geopolygon,
     FeedLicenseChange,
+    Sealcriterion,
 )
 
 from sqlalchemy import text
@@ -202,6 +203,56 @@ def test_delete_feed_cascadeto_feed_license_changes(test_database):
             [
                 "SELECT COUNT(*) FROM feed where id = 'f1'",
                 "SELECT COUNT(*) FROM feed_license_change where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_sealcriterion(test_database):
+    """Deleting a feed removes its per-criterion seal state (issue #1760).
+
+    This exercises the `Feed.sealcriteria` entry in `cascade_entities`: without it,
+    SQLAlchemy would try to NULL `sealcriterion.feed_id`, which is NOT NULL and part of the
+    composite primary key, instead of letting ON DELETE CASCADE do the work.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        seal_criterion = Sealcriterion(feed_id="f1", criterion="official")
+        session.add_all([feed, seal_criterion])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM sealcriterion where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_feedreliabilityseal(test_database):
+    """Deleting a feed removes its overall seal row (issue #1760).
+
+    The row is inserted with raw SQL rather than the ORM: `feedreliabilityseal.feed_id` is
+    both its primary key and a foreign key to `feed.id`, so sqlacodegen maps the table as a
+    joined-table subclass of Feed. Adding a `Feedreliabilityseal()` instance would therefore
+    try to insert a second feed row rather than a child row.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        session.add(feed)
+        session.commit()
+        session.execute(text("INSERT INTO feedreliabilityseal (feed_id) VALUES ('f1')"))
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM feedreliabilityseal where feed_id = 'f1'",
             ],
             feed,
         )

@@ -42,6 +42,11 @@ DEPRECATED = f"{PREFIX}deprecated"
 UNPUBLISHED = f"{PREFIX}unpublished"
 INACTIVE = f"{PREFIX}inactive"
 
+# The eligible feeds this module seeds. Runs that assert exact counts must be scoped to
+# these: an unnamed run also covers the fixtures seeded by conftest.pytest_sessionstart and
+# any seal rows another test left behind, so the totals would not be deterministic.
+OURS = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL, INACTIVE]
+
 
 def _seed_feed(
     db_session,
@@ -179,7 +184,7 @@ class TestUpdateSeals(SealDbTestCase):
 
     def test_dry_run_counts_are_prospective(self):
         """Nothing is held yet, so `after` describes what a real run would store."""
-        report = update_seals(dry_run=True, now=NOW)
+        report = update_seals(dry_run=True, stable_feed_ids=OURS, now=NOW)
         self.assertEqual(report["seals_before_run"], 0)
         self.assertEqual(report["seals_after_run"], 2, "the two official feeds")
         self.assertEqual(report["seals_granted"], 2)
@@ -188,12 +193,12 @@ class TestUpdateSeals(SealDbTestCase):
 
     def test_seal_counts_balance(self):
         """before + granted - revoked == after, across a grant then a revocation."""
-        first = update_seals(dry_run=False, now=NOW)
+        first = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
         self.assertEqual(first["seals_before_run"], 0)
         self.assertEqual(first["seals_after_run"], 2)
 
         self.set_official(OFFICIAL, False)
-        second = update_seals(dry_run=False, now=NOW)
+        second = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
         self.assertEqual(second["seals_before_run"], 2, "two were held going in")
         self.assertEqual(second["seals_revoked"], 1)
         self.assertEqual(second["seals_granted"], 0)
