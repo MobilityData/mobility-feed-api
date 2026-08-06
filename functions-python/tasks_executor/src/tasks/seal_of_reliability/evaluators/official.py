@@ -1,0 +1,40 @@
+#
+#   MobilityData 2026
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+"""Official criterion: the feed is flagged official."""
+
+from typing import Optional, Tuple
+
+from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
+
+
+class OfficialEvaluator(CriterionEvaluator):
+    """`feed.official IS TRUE`.
+
+    A point-in-time state check: official at the time of reviewing the dataset, with no
+    6-month check. Both the grace period and the reliability window are None, so the
+    criterion clears as soon as the feed is flagged official again.
+    """
+
+    name = SealCriterionName.OFFICIAL
+    grace_period = None
+    reliability_window = None
+
+    def _evaluate(self, ctx: FeedSealContext) -> Tuple[Optional[bool], str]:
+        if ctx.official:
+            return False, "feed is official"
+        return True, f"feed.official is {ctx.official!r}, expected True"
