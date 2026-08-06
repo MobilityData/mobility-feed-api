@@ -167,16 +167,80 @@ class TestUpdateUserMe(unittest.TestCase):
         self.mock_session.flush.assert_called_once()
         self.assertEqual(result.full_name, "New Name")
 
-    def test_updates_api_announcements_flag(self):
+    def test_opt_in_creates_subscription_and_syncs_brevo(self):
+        """Flipping the flag false→true creates the announcements subscription and
+        writes the contact to Brevo (the disconnect this fix closes)."""
         user = _make_user(is_registered_to_receive_api_announcements=False)
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = None  # no existing sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        self.assertTrue(user.is_registered_to_receive_api_announcements)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        add.assert_called_once()  # Brevo write-back happened
+        self.assertEqual(add.call_args[0][:2], ("user@example.com", 42))
+        self.mock_session.add.assert_called_once()  # subscription row created
+
+    def test_opt_out_deactivates_subscription_and_removes_from_brevo(self):
+        """Flipping the flag true→false removes the contact from Brevo and clears
+        the flag."""
+        user = _make_user(is_registered_to_receive_api_announcements=True)
+        user_q = _mock_query_first(self.mock_session, user)
+        existing_sub = MagicMock(active=True)
+        user_q.filter.return_value.one_or_none.return_value = existing_sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=False)
+        with patch.object(helpers, "remove_contact_from_list") as rem, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        rem.assert_called_once_with("user@example.com", 42)
+        self.assertFalse(existing_sub.active)
+        self.assertFalse(user.is_registered_to_receive_api_announcements)
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+
+    def test_flag_unchanged_does_not_touch_brevo(self):
+        """Re-sending the same flag value (or updating other fields) makes no
+        Brevo call."""
+        user = _make_user(is_registered_to_receive_api_announcements=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(is_registered_to_receive_api_announcements=True)
-        result = self.api.update_user(req, db_session=self.mock_session)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "remove_contact_from_list"
+        ) as rem:
+            self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
-        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        add.assert_not_called()
+        rem.assert_not_called()
+
+    def test_opt_in_brevo_failure_raises_502(self):
+        """A Brevo failure while flipping the flag surfaces as 502 (and, in real
+        DB use, rolls the whole update back)."""
+        import sib_api_v3_sdk
+
+        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = None
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(
+            helpers, "add_contact_to_list", side_effect=sib_api_v3_sdk.rest.ApiException(status=500)
+        ), patch.object(helpers, "get_announcements_list_id", return_value=42):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.update_user(req, db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 502)
 
     def test_partial_update_leaves_other_fields_unchanged(self):
         user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)
@@ -223,6 +287,18 @@ class TestSubscriptions(unittest.TestCase):
         self.api = UsersApiImpl()
         self.mock_session = MagicMock()
         _set_context()
+        # These tests exercise create/update logic, not the feature-flag gate; enable it.
+        gate_patcher = patch.object(UsersApiImpl, "_require_notifications_enabled", return_value=None)
+        gate_patcher.start()
+        self.addCleanup(gate_patcher.stop)
+        # Feed existence is checked against the (separate) feeds DB; treat all feeds as valid here.
+        feed_patcher = patch("user_service.impl.users_api_impl.find_unknown_feed_ids", return_value=[])
+        feed_patcher.start()
+        self.addCleanup(feed_patcher.stop)
+        # Feed metadata is resolved from the feeds DB; default to none resolved in these tests.
+        meta_patcher = patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value={})
+        meta_patcher.start()
+        self.addCleanup(meta_patcher.stop)
 
     def _make_sub(self, **kwargs):
         from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
@@ -241,13 +317,16 @@ class TestSubscriptions(unittest.TestCase):
     def test_get_user_subscriptions_returns_user_subs(self):
         sub = self._make_sub()
         query = self.mock_session.query.return_value
-        query.filter.return_value.order_by.return_value.all.return_value = [sub]
+        # The list query eager-loads feeds via .options(selectinload(...)).
+        query.options.return_value.filter.return_value.order_by.return_value.all.return_value = [sub]
 
         result = self.api.get_user_subscriptions(db_session=self.mock_session)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, "sub-1")
         self.assertEqual(result[0].notification_id, "feed.published")
+        # A non feed-scoped subscription reports no feeds.
+        self.assertIsNone(result[0].feeds)
 
     def test_get_user_subscriptions_guest_403(self):
         _set_context(is_guest=True)
@@ -318,6 +397,141 @@ class TestSubscriptions(unittest.TestCase):
         self.assertTrue(existing.active)
         self.mock_session.add.assert_not_called()
         self.assertEqual(result.id, "sub-1")
+
+    # ── create: feed-scoped (issue #1778) ──
+    def test_create_feed_scoped_persists_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-2", "mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.add.assert_called_once()
+        added_sub = self.mock_session.add.call_args[0][0]
+        # Both feeds are attached to the new subscription's join collection.
+        self.assertEqual({f.feed_stable_id for f in added_sub.notification_subscription_feeds}, {"mdb-1", "mdb-2"})
+        # Response feeds are sorted by id and deduped.
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-1", "mdb-2"])
+
+    def test_create_feed_scoped_returns_resolved_feed_metadata(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        metadata = {"mdb-1": {"data_type": "gtfs", "provider": "MTA", "feed_name": "Subway"}}
+        with patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value=metadata):
+            result = self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-1", "mdb-2"]),
+                db_session=self.mock_session,
+            )
+
+        by_id = {f.feed_id: f for f in result.feeds}
+        self.assertEqual(set(by_id), {"mdb-1", "mdb-2"})
+        self.assertEqual(
+            (by_id["mdb-1"].data_type, by_id["mdb-1"].provider, by_id["mdb-1"].feed_name), ("gtfs", "MTA", "Subway")
+        )
+        # A feed with no resolved metadata (e.g. deleted) still appears with null fields.
+        self.assertEqual(
+            (by_id["mdb-2"].data_type, by_id["mdb-2"].provider, by_id["mdb-2"].feed_name), (None, None, None)
+        )
+
+    def test_create_feed_scoped_dedupes_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.coverage") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.coverage", feed_ids=["mdb-1", "mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-1"])
+
+    def test_create_feed_scoped_rejects_unknown_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with patch("user_service.impl.users_api_impl.find_unknown_feed_ids", return_value=["mdba-100"]):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.create_user_subscription(
+                    CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdba-100"]),
+                    db_session=self.mock_session,
+                )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("mdba-100", ctx.exception.detail)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_feed_scoped_requires_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_availability") if model is NotificationType else _make_user()
+        )
+
+        for req in (
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_availability"),
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_availability", feed_ids=[]),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                self.api.create_user_subscription(req, db_session=self.mock_session)
+            self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_non_scoped_rejects_feed_ids(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.published") if model is NotificationType else _make_user()
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="feed.published", feed_ids=["mdb-1"]),
+                db_session=self.mock_session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_feed_scoped_replaces_existing_feeds(self):
+        from shared.users_database_gen.sqlacodegen_models import (
+            NotificationType,
+            NotificationSubscriptionFeed as FeedOrm,
+        )
+
+        existing = self._make_sub(notification_type_id="feed.url_updated", active=False)
+        existing.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-old"))
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id="feed.url_updated") if model is NotificationType else _make_user()
+        )
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.url_updated", feed_ids=["mdb-new"]),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.add.assert_not_called()
+        self.assertTrue(existing.active)
+        # The old feed was dropped and the new one attached (delete-orphan handles the DB side).
+        self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-new"})
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new"])
 
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):
@@ -414,6 +628,195 @@ class TestSubscriptions(unittest.TestCase):
                     db_session=self.mock_session,
                 )
         self.assertEqual(ctx.exception.status_code, 502)
+
+
+class TestSubscriptionGate(unittest.TestCase):
+    """The isNotificationsEnabled feature flag gates POST/PATCH subscriptions."""
+
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _configure_gate(self, *, default=False, disabled=False, has_override=False, override_value=None):
+        from shared.users_database_gen.sqlacodegen_models import (
+            FeatureFlag,
+            NotificationType,
+            UserFeatureFlag,
+        )
+
+        flag = FeatureFlag(id="isNotificationsEnabled", value_type="boolean", default_value=default, disabled=disabled)
+        override = (
+            UserFeatureFlag(user_id="uid-123", feature_flag_id="isNotificationsEnabled", value=override_value)
+            if has_override
+            else None
+        )
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return flag
+            if model is UserFeatureFlag:
+                return override
+            if model is NotificationType:
+                return NotificationType(id="feed.published")
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+    def _create(self):
+        return self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+    def test_create_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_allowed_when_default_true(self):
+        self._configure_gate(default=True)
+        result = self._create()
+        self.assertEqual(result.notification_id, "feed.published")
+        self.mock_session.add.assert_called_once()
+
+    def test_create_allowed_with_user_override_true(self):
+        self._configure_gate(default=False, has_override=True, override_value=True)
+        self.assertEqual(self._create().notification_id, "feed.published")
+
+    def test_create_denied_with_user_override_false(self):
+        self._configure_gate(default=True, has_override=True, override_value=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_allowed_when_flag_disabled_but_granted(self):
+        # `disabled` only hides the flag from the consumer profile; it must NOT block a granted
+        # user from subscribing (backend-only concern).
+        self._configure_gate(default=False, disabled=True, has_override=True, override_value=True)
+        self.assertEqual(self._create().notification_id, "feed.published")
+        self.mock_session.add.assert_called_once()
+
+    def test_create_denied_when_flag_missing(self):
+        from shared.users_database_gen.sqlacodegen_models import FeatureFlag, NotificationType
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return None
+            if model is NotificationType:
+                return NotificationType(id="feed.published")
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        with self.assertRaises(HTTPException) as ctx:
+            self._create()
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_update_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
+
+    def test_delete_denied_when_default_false(self):
+        self._configure_gate(default=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_user_subscription("sub-1", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.delete.assert_not_called()
+
+
+class TestAdminSummaryGate(unittest.TestCase):
+    """admin.event_summary additionally requires the isAdminSummarySubscriptionEnabled flag."""
+
+    ADMIN_TYPE = "admin.event_summary"
+
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _configure(self, *, notifications=True, admin=True, sub=None):
+        """Wire get() to resolve both gate flags (enabled per args) and, optionally, a subscription."""
+        from shared.users_database_gen.sqlacodegen_models import (
+            FeatureFlag,
+            NotificationSubscription as Orm,
+            NotificationType,
+            UserFeatureFlag,
+        )
+
+        flags = {
+            "isNotificationsEnabled": FeatureFlag(
+                id="isNotificationsEnabled", value_type="boolean", default_value=notifications, disabled=False
+            ),
+            "isAdminSummarySubscriptionEnabled": FeatureFlag(
+                id="isAdminSummarySubscriptionEnabled", value_type="boolean", default_value=admin, disabled=False
+            ),
+        }
+
+        def _get(model, key):
+            if model is FeatureFlag:
+                return flags.get(key)
+            if model is UserFeatureFlag:
+                return None
+            if model is NotificationType:
+                return NotificationType(id=key)
+            if model is Orm:
+                return sub
+            return _make_user()
+
+        self.mock_session.get.side_effect = _get
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+    def _create(self, notification_id):
+        return self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id=notification_id), db_session=self.mock_session
+        )
+
+    def test_create_admin_allowed_when_admin_flag_true(self):
+        self._configure(notifications=True, admin=True)
+        self.assertEqual(self._create(self.ADMIN_TYPE).notification_id, self.ADMIN_TYPE)
+
+    def test_create_admin_denied_when_admin_flag_false(self):
+        self._configure(notifications=True, admin=False)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create(self.ADMIN_TYPE)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.mock_session.add.assert_not_called()
+
+    def test_create_admin_denied_when_notifications_flag_false(self):
+        # The general gate runs first, so it fails even with the admin flag on.
+        self._configure(notifications=False, admin=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self._create(self.ADMIN_TYPE)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_non_admin_type_ignores_admin_flag(self):
+        # A non-admin type is unaffected by the admin flag being off.
+        self._configure(notifications=True, admin=False)
+        self.assertEqual(self._create("feed.published").notification_id, "feed.published")
+
+    def test_update_admin_denied_when_admin_flag_false(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
+
+        sub = Orm(
+            id="sub-1",
+            user_id="uid-123",
+            notification_type_id=self.ADMIN_TYPE,
+            active=True,
+            created_at=FIXED_NOW,
+        )
+        self._configure(notifications=True, admin=False, sub=sub)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 403)
 
 
 if __name__ == "__main__":

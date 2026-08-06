@@ -233,11 +233,104 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result, [6, 8])
 
+    def test_update_geopolygon_hierarchy_skips_empty_rows(self):
+        from main import update_geopolygon_hierarchy
+
+        db_session = MagicMock()
+        update_geopolygon_hierarchy([], db_session=db_session)
+        db_session.execute.assert_not_called()
+        db_session.commit.assert_not_called()
+
+    @patch("main._upsert_locality_hierarchy")
+    @patch("main._upsert_hierarchy_rows")
+    def test_update_geopolygon_hierarchy_classifies_rows(
+        self, mock_upsert_rows, mock_upsert_locality
+    ):
+        from main import update_geopolygon_hierarchy
+
+        saved_rows = [
+            {"osm_id": 3, "iso3166_1": "CA", "iso3166_2": None},  # country
+            {"osm_id": 2, "iso3166_1": None, "iso3166_2": "CA-QC"},  # subdivision
+            {"osm_id": 1, "iso3166_1": None, "iso3166_2": None},  # locality
+        ]
+        db_session = MagicMock()
+        update_geopolygon_hierarchy(saved_rows, db_session=db_session)
+
+        # Direct country + subdivision edges are upserted without geometry work.
+        direct_rows = mock_upsert_rows.call_args[0][1]
+        by_osm_id = {row["osm_id"]: row for row in direct_rows}
+        # Country: no parent, no country/subdivision references.
+        self.assertEqual(
+            by_osm_id[3],
+            {
+                "osm_id": 3,
+                "parent_osm_id": None,
+                "country_osm_id": None,
+                "subdivision_osm_id": None,
+            },
+        )
+        # Subdivision: parent and country point at the country in the run.
+        self.assertEqual(
+            by_osm_id[2],
+            {
+                "osm_id": 2,
+                "parent_osm_id": 3,
+                "country_osm_id": 3,
+                "subdivision_osm_id": None,
+            },
+        )
+
+        # Localities are matched by geometry against this run's subdivisions.
+        mock_upsert_locality.assert_called_once_with(db_session, [1], [2], 3)
+        db_session.commit.assert_called_once()
+
+    @patch("main._upsert_locality_hierarchy")
+    @patch("main._upsert_hierarchy_rows")
+    def test_update_geopolygon_hierarchy_country_with_both_codes_is_country(
+        self, mock_upsert_rows, mock_upsert_locality
+    ):
+        from main import update_geopolygon_hierarchy
+
+        # A country that also carries an ISO 3166-2 code must stay a country,
+        # never be treated as a subdivision.
+        saved_rows = [{"osm_id": 100, "iso3166_1": "TL", "iso3166_2": "XX-TL"}]
+        db_session = MagicMock()
+        update_geopolygon_hierarchy(saved_rows, db_session=db_session)
+
+        direct_rows = mock_upsert_rows.call_args[0][1]
+        self.assertEqual(
+            direct_rows,
+            [
+                {
+                    "osm_id": 100,
+                    "parent_osm_id": None,
+                    "country_osm_id": None,
+                    "subdivision_osm_id": None,
+                }
+            ],
+        )
+        # No localities -> geometry matching is skipped.
+        mock_upsert_locality.assert_not_called()
+
+    def test_refresh_location_search_view_executes_refresh(self):
+        from main import refresh_location_search_view
+
+        db_session = MagicMock()
+        refresh_location_search_view(db_session=db_session)
+
+        db_session.execute.assert_called_once()
+        executed = str(db_session.execute.call_args[0][0])
+        self.assertIn("REFRESH MATERIALIZED VIEW", executed.upper())
+        self.assertIn("GEOPOLYGONLOCATIONSEARCH", executed.upper())
+        db_session.commit.assert_called_once()
+
     @patch("main.bigquery")
     @patch("main.parse_request_parameters")
     @patch("main.fetch_country_admin_levels")
     @patch("main.fetch_data")
     @patch("main.save_to_database")
+    @patch("main.update_geopolygon_hierarchy")
+    @patch("main.refresh_location_search_view")
     @patch("main.fetch_subdivision_admin_levels")
     @patch.dict(
         "os.environ",
@@ -249,7 +342,9 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
     def test_reverse_geolocation_populate(
         self,
         mock_fetch_subdivision_admin_lvl,
-        __,
+        mock_refresh_location_search_view,
+        mock_update_geopolygon_hierarchy,
+        mock_save_to_database,
         mock_fetch_data,
         mock_fetch_country_admin_lvl,
         mock_parse_req,
@@ -276,3 +371,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         ]
         _, response_code = reverse_geolocation_populate(MagicMock())
         self.assertEqual(200, response_code)
+        mock_save_to_database.assert_called_once()
+        mock_update_geopolygon_hierarchy.assert_called_once_with(
+            mock_fetch_data.return_value
+        )
+        mock_refresh_location_search_view.assert_called_once()

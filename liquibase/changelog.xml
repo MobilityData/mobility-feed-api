@@ -117,9 +117,17 @@
     <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
     <!-- Rename gtfs_dataset_changelog (previous, current) dataset columns to (base, new) (issue #1639). -->
     <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
+    <!-- Add missing config keys for feed_download/http_headers -->
+    <include file="changes/hotfix_missing_config_keys.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feeds mdb-3237 to mdb-3293 and mdb-2939 -->
     <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
-    <!-- Keep this at the very end to ensure all table and schema changes
-         are applied before materialized views are (re)created. -->
+    <!-- Add is_producer_url_unstable column to the feed table (issue #1766). -->
+    <include file="changes/feat_1766.sql" relativeToChangelogFile="true"/>
+    <!-- Add hierarchy table for location search materialized view. -->
+    <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
+    <!-- Add Seal of Reliability tables: feed_reliability_seal and seal_criterion (issue #1760). -->
+    <include file="changes/feat_1760.sql" relativeToChangelogFile="true"/>
+    <!-- Keep this after all source table and schema changes so materialized views
+    are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

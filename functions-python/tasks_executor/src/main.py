@@ -65,6 +65,9 @@ from tasks.feed_availability.check_gtfs_feed_availability import (
     check_gtfs_feed_availability_handler,
 )
 from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
+from tasks.users.reconcile_announcements_from_brevo import (
+    reconcile_announcements_from_brevo_handler,
+)
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
     notifications_dispatch_handler,
@@ -177,14 +180,33 @@ tasks = {
     },
     "migrate_firebase_users": {
         "description": (
-            "Insert-only migration of Firebase Auth users into users.app_user. "
+            "Insert-only migration of Firebase Auth users into users.app_user "
+            "(the only field updated on an existing row is brevo_synced_at). "
             "Reads profile fields (fullName, organization, registrationCompletionTime) "
             "from Datastore kind 'web_api_users' (queried by uid property). "
             "Uses Brevo as the source of truth for is_registered_to_receive_api_announcements. "
+            "Ensures each user has an api.announcements notification_subscription and "
+            "writes MDB_SUBSCRIPTION_ID back onto the Brevo contact, tracking that "
+            "write via app_user.brevo_synced_at (idempotent: users already synced "
+            "are skipped). "
             "Parameters: dry_run (default true), limit (default null), "
             "user_ids (default null), only_not_migrated (default true)."
         ),
         "handler": migrate_firebase_users_handler,
+    },
+    "reconcile_announcements_from_brevo": {
+        "description": (
+            "Reconcile Brevo-originated unsubscribes back into the users DB for "
+            "api.announcements (reverse of the API/migration forward opt-in path). "
+            "For every user with an ACTIVE api.announcements subscription, reads the "
+            "Brevo contact status; when Brevo reports UNSUBSCRIBED (global "
+            "email_blacklisted or list-level unsubscribe), sets "
+            "app_user.is_registered_to_receive_api_announcements=false and "
+            "deactivates the subscription (active=false). Turn-OFF only: never "
+            "re-subscribes or adds anyone on SUBSCRIBED/NOT_FOUND. Idempotent. "
+            "Parameters: dry_run (default true), limit (default null)."
+        ),
+        "handler": reconcile_announcements_from_brevo_handler,
     },
     "notifications_dispatch_batch": {
         "description": (

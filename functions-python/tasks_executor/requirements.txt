@@ -32,6 +32,9 @@ google-cloud-datastore
 # Brevo (Sendinblue) SDK for API announcements mailing list sync
 sib-api-v3-sdk
 
+# Jinja2 templating for notification emails (shared/notifications/brevo_notification_sender.py)
+Jinja2==3.1.4
+
 # Configuration
 python-dotenv==1.2.2
 pycountry

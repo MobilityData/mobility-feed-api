@@ -627,6 +627,32 @@ resource "google_cloud_scheduler_job" "dispatch_notifications_daily_scheduler" {
 }
 
 
+# Schedule the Brevo announcements reconciliation to run daily.
+# Turn-OFF only: propagates Brevo-originated unsubscribes/blocks back into the
+# users DB for api.announcements. Runs with dry_run=false so it actually
+# reconciles. Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_scheduler" {
+  name        = "reconcile-announcements-from-brevo-${var.environment}"
+  description = "Daily reconciliation of Brevo unsubscribes into the users DB (api.announcements)"
+  time_zone   = "Etc/UTC"
+  schedule    = var.reconcile_announcements_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"reconcile_announcements_from_brevo\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
   name        = "${local.function_gbfs_validation_report_config.name}-pubsub"

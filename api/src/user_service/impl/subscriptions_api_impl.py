@@ -14,6 +14,8 @@
 #  limitations under the License.
 #
 
+import logging
+
 from fastapi import HTTPException
 
 from shared.database.users_database import with_users_db_session
@@ -24,10 +26,16 @@ from shared.users_database_gen.sqlacodegen_models import (
 )
 from user_service.impl.subscription_helpers import (
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
-    sync_announcements,
+    ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
+    NOTIFICATIONS_FEATURE_FLAG_ID,
+    feature_flag_enabled,
+    resolve_feed_metadata,
+    set_announcements_optin,
 )
 from user_service_gen.apis.subscriptions_api_base import BaseSubscriptionsApi
 from user_service_gen.models.notification_subscription import NotificationSubscription
+
+logger = logging.getLogger(__name__)
 
 
 class SubscriptionsApiImpl(BaseSubscriptionsApi):
@@ -41,7 +49,9 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
-        return NotificationSubscriptionImpl.from_orm(sub)
+        stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
+        feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
+        return NotificationSubscriptionImpl.from_orm(sub, feed_metadata)
 
     @with_users_db_session
     def delete_subscription(self, id: str, db_session=None) -> None:
@@ -53,16 +63,34 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")
 
+        # Gated by the subscription owner's isNotificationsEnabled flag (this endpoint is
+        # unauthenticated; the subscription UUID is the capability, so we resolve the flag for
+        # the subscription's owner rather than a request user).
+        if not feature_flag_enabled(db_session, sub.user_id, NOTIFICATIONS_FEATURE_FLAG_ID):
+            logger.info(
+                "Public delete denied for subscription %s (owner %s): feature flag %r not enabled.",
+                id,
+                sub.user_id,
+                NOTIFICATIONS_FEATURE_FLAG_ID,
+            )
+            raise HTTPException(status_code=403, detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED)
+
         if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
             user = db_session.get(AppUser, sub.user_id)
-            email = user.email if user is not None else None
-            # Release the pooled DB connection before the (potentially slow) Brevo call so a slow
-            # or unreachable provider never holds a connection while we talk to it. The read above
-            # took no row locks, so committing here only returns the connection to the pool.
-            db_session.commit()
-            if email is not None:
-                sync_announcements(email, subscribe=False)
-            sub.active = False
+            if user is not None:
+                # release_connection_before_brevo=True: only reads happened above,
+                # so committing just returns the pooled connection before the
+                # (possibly slow) Brevo call. Also clears the app_user opt-in flag.
+                set_announcements_optin(
+                    db_session,
+                    user,
+                    subscribe=False,
+                    subscription=sub,
+                    release_connection_before_brevo=True,
+                )
+            else:
+                # Orphaned subscription (no owning user): just disable it.
+                sub.active = False
         else:
             db_session.delete(sub)
         db_session.flush()
