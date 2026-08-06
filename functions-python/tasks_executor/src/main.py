@@ -55,7 +55,7 @@ from tasks.geojson.update_geojson_files_precision import (
     update_geojson_files_precision_handler,
 )
 from tasks.data_import.jbda.import_jbda_feeds import import_jbda_handler
-
+from tasks.data_import.odpt.import_odpt_feeds import import_odpt_handler
 
 from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
@@ -142,6 +142,10 @@ tasks = {
     "jbda_import": {
         "description": "Imports JBDA data into the system.",
         "handler": import_jbda_handler,
+    },
+    "odpt_import": {
+        "description": "Imports ODPT data into the system.",
+        "handler": import_odpt_handler,
     },
     "populate_licenses": {
         "description": "Populates licenses, license-rules and license-tags "
