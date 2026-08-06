@@ -46,9 +46,13 @@ T = TypeVar("T", bound="Feed")
 
 logger = logging.getLogger(__name__)
 
-ODPT_METADATA_API: Final[str] = "https://members-portal.odpt.org/api/v1/resources?license={}&format={}"
-PUBLIC_GTFS_ENDPOINT: Final[str] = "https://api-public.odpt.org/api/v4/files/odpt/{}/{}.zip?date={}"
-OPEN_LICENSES = ['ccby4', 'cc0']
+ODPT_METADATA_API: Final[str] = (
+    "https://members-portal.odpt.org/api/v1/resources?license={}&format={}"
+)
+PUBLIC_GTFS_ENDPOINT: Final[str] = (
+    "https://api-public.odpt.org/api/v4/files/odpt/{}/{}.zip?date={}"
+)
+OPEN_LICENSES = ["ccby4", "cc0"]
 REQUEST_TIMEOUT_S: Final[int] = 60
 
 # Maps an ODPT feed item's RT URL field to its GTFS-RT entity type code.
@@ -108,7 +112,9 @@ def _fetch_feeds(session_http: requests.Session) -> List[dict]:
     feeds: List[dict] = []
     for license_key in OPEN_LICENSES:
         metadata_url = ODPT_METADATA_API.format(license_key, "gtfs")
-        logger.debug("Fetching ODPT metadata for license=%s: %s", license_key, metadata_url)
+        logger.debug(
+            "Fetching ODPT metadata for license=%s: %s", license_key, metadata_url
+        )
         res = session_http.get(metadata_url, timeout=REQUEST_TIMEOUT_S)
         res.raise_for_status()
 
@@ -123,7 +129,9 @@ def _fetch_feeds(session_http: requests.Session) -> List[dict]:
                 dataset_name_en = dataset.get("name_en")
                 license_type = dataset.get("license_type")
 
-                gtfs_endpoint = PUBLIC_GTFS_ENDPOINT.format(org_label, dataset_label, "current")
+                gtfs_endpoint = PUBLIC_GTFS_ENDPOINT.format(
+                    org_label, dataset_label, "current"
+                )
                 vehicle_endpoint = (dataset.get("vehicle_position") or {}).get("url")
                 trip_update = (dataset.get("trip_update") or {}).get("url")
                 alert = (dataset.get("alert") or {}).get("url")
@@ -144,7 +152,9 @@ def _fetch_feeds(session_http: requests.Session) -> List[dict]:
                     }
                 )
 
-    logger.info("Fetched %d ODPT feeds across %d license(s)", len(feeds), len(OPEN_LICENSES))
+    logger.info(
+        "Fetched %d ODPT feeds across %d license(s)", len(feeds), len(OPEN_LICENSES)
+    )
     return feeds
 
 
@@ -154,7 +164,9 @@ def _get_license_url(license_type: Optional[str]) -> Optional[str]:
         return None
     url = LICENSE_URL_MAP.get(license_type)
     if not url:
-        logger.warning("Unknown ODPT license_type=%s; license_url left unset", license_type)
+        logger.warning(
+            "Unknown ODPT license_type=%s; license_url left unset", license_type
+        )
     return url
 
 
@@ -195,7 +207,9 @@ def _get_or_create_location(db_session: Session):
     ODPT feed items carry no prefecture/municipality info (unlike JBDA's feed_pref_id);
     create or get the country-level Location for Japan.
     """
-    loc = create_or_get_location(db_session, country="Japan", state_province=None, city_name=None)
+    loc = create_or_get_location(
+        db_session, country="Japan", state_province=None, city_name=None
+    )
     logger.info("Location resolved for ODPT feed -> %s", getattr(loc, "id", None))
     return loc
 
@@ -241,7 +255,9 @@ def _upsert_rt_feeds(
         url = item.get(field)
         if not url:
             logger.debug(
-                "No RT url for field=%s (dataset_label=%s)", field, item.get("dataset_label")
+                "No RT url for field=%s (dataset_label=%s)",
+                field,
+                item.get("dataset_label"),
             )
             continue
 
@@ -443,7 +459,8 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
     commit_batch_size = int(os.getenv("COMMIT_BATCH_SIZE", 5))
 
     # Aggregates
-    created_gtfs = updated_gtfs = created_gtfs_rt = updated_gtfs_rt = linked_refs = total_processed = 0
+    created_gtfs = updated_gtfs = created_gtfs_rt = updated_gtfs_rt = 0
+    linked_refs = total_processed = 0
     feeds_to_publish: List[Feed] = []
     changed_feed_stable_ids: List[str] = []
 
