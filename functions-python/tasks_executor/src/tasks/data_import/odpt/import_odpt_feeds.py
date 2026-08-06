@@ -64,8 +64,8 @@ URLS_TO_ENTITY_TYPES_MAP: Final[dict[str, str]] = {
 
 # ODPT only exposes a license_type code; map the open licenses we import to their canonical URL.
 LICENSE_URL_MAP: Final[dict[str, str]] = {
-    "ccby4": "https://creativecommons.org/licenses/by/4.0/",
-    "cc0": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "CC BY 4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "CC0": "https://creativecommons.org/publicdomain/zero/1.0/",
 }
 
 
@@ -512,6 +512,13 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
         commit_changes(
             db_session, feeds_to_publish, total_processed, changed_feed_stable_ids
         )
+    else:
+        # get_or_create_feed/get_or_create_entity_type flush new rows into the session
+        # regardless of dry_run, and @with_db_session's start_db_session() commits
+        # unconditionally whenever this function returns without raising. Without this
+        # rollback, a "dry run" silently persists everything that was staged.
+        db_session.rollback()
+        logger.info("Dry run: rolled back all staged changes, no DB writes performed.")
 
     message = (
         "Dry run: no DB writes performed."
