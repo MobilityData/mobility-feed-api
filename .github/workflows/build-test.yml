@@ -288,3 +288,92 @@ jobs:
           name: coverage_report_${{ matrix.group }}
           path: scripts/coverage_reports/
           overwrite: true
+
+  operations-api-surface:
+    needs: setup
+    if: ${{ needs.setup.outputs.should-run-tests == 'true' }}
+    runs-on: ubuntu-latest
+    name: Operations API surface
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Download Operations API generated code
+        uses: actions/download-artifact@v8
+        with:
+          name: feeds_operations_gen
+          path: functions-python/operations_api/src/feeds_gen/
+
+      # The app imports the generated SQLAlchemy models via the shared symlinks
+      # (shared.database_gen / shared.users_database_gen), so those artifacts must
+      # be present for the server to start.
+      - name: Download DB models
+        uses: actions/download-artifact@v8
+        with:
+          name: database_gen
+          path: api/src/shared/database_gen/
+
+      - name: Download users DB models
+        uses: actions/download-artifact@v8
+        with:
+          name: users_database_gen
+          path: api/src/shared/users_database_gen/
+
+      - name: Docker Compose DB
+        run: docker compose --env-file ./config/.env.local up -d postgres-test --wait
+        working-directory: ${{ github.workspace }}
+
+      - name: Set up JDK ${{ env.java_version }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.java_version }}
+          distribution: 'temurin'
+
+      - name: Cache Liquibase
+        id: cache-liquibase
+        uses: actions/cache@v6
+        with:
+          path: ~/.liquibase
+          key: liquibase-${{ env.liquibase_version }}
+
+      - name: Install Liquibase
+        if: steps.cache-liquibase.outputs.cache-hit != 'true'
+        env:
+          LIQUIBASE_VERSION: ${{ env.liquibase_version }}
+        run: |
+          curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          rm -rf liquibase-dist
+          mkdir liquibase-dist
+          tar -xzf liquibase.tar.gz -C liquibase-dist
+          mv liquibase-dist ~/.liquibase
+
+      - name: Link Liquibase
+        run: sudo ln -sf ~/.liquibase/liquibase /usr/local/bin/liquibase
+
+      - name: Run Liquibase on test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+      - name: Run Liquibase on users test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog_user.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/${POSTGRES_USER_TEST_DB:-MobilityDatabaseUsersTest}
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+      # DB is already up + migrated by the steps above, so run with --no-docker.
+      # The script provisions the venv/deps/symlinks, starts the API, and hits every endpoint.
+      - name: Run Operations API surface suite
+        shell: bash
+        run: scripts/api-operations-surface.sh --no-docker

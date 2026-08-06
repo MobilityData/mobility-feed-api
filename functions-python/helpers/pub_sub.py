@@ -77,7 +77,18 @@ def trigger_dataset_download(
     execution_id: str,
     topic_name: str = DATASET_BATCH_TOPIC,
 ) -> None:
-    """Publishes the feed to the configured Pub/Sub topic."""
+    """Publishes the feed to the configured Pub/Sub topic.
+
+    No-ops when no topic is configured (``DATASET_PROCESSING_TOPIC_NAME`` unset),
+    e.g. local development and tests, so the caller never constructs a Pub/Sub
+    client or blocks on a publish. Mirrors ``create_web_revalidation_task``.
+    """
+    if not topic_name:
+        logging.info(
+            "DATASET_PROCESSING_TOPIC_NAME not set; skipping dataset download for feed %s",
+            getattr(feed, "stable_id", None),
+        )
+        return
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(PROJECT_ID, topic_name)
     logging.info("Publishing to Pub/Sub topic: %s", topic_path)

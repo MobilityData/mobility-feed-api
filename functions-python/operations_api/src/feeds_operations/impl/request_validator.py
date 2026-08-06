@@ -29,7 +29,7 @@ def validate_request(model: BaseModel, parameter_name: str, validate_none: bool 
 
     def decorator(func):
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             func_args = inspect.getfullargspec(func).args
             print(func_args)
             index = func_args.index(parameter_name)
@@ -42,7 +42,7 @@ def validate_request(model: BaseModel, parameter_name: str, validate_none: bool 
             else:
                 if validate_none:
                     raise HTTPException(status_code=400, detail="Missing parameter")
-            return await func(*args, **kwargs)
+            return func(*args, **kwargs)
 
         return wrapper
 
