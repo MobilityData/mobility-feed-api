@@ -1191,21 +1191,6 @@ resource "google_cloudfunctions2_function" "gtfs_file_data_extractor" {
   }
 }
 
-# 17.2 gtfs_file_data_extractor task queue
-resource "google_cloud_tasks_queue" "gtfs_file_data_extractor_task_queue" {
-  location = var.gcp_region
-  name     = "gtfs-file-data-extractor-task-queue"
-  rate_limits {
-    max_concurrent_dispatches = 10
-    max_dispatches_per_second = 1
-  }
-  retry_config {
-    max_attempts = 10
-    min_backoff  = "20s"
-    max_backoff  = "60s"
-  }
-}
-
 # Grant execution permission to batchfunctions service account to the gtfs_file_data_extractor function
 resource "google_cloudfunctions2_function_iam_member" "gtfs_file_data_extractor_invoker_batch_sa" {
   project        = var.project_id
