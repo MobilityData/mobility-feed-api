@@ -125,6 +125,8 @@
     <include file="changes/feat_1766.sql" relativeToChangelogFile="true"/>
     <!-- Add hierarchy table for location search materialized view. -->
     <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
+    <!-- Add Seal of Reliability tables: feed_reliability_seal and seal_criterion (issue #1760). -->
+    <include file="changes/feat_1760.sql" relativeToChangelogFile="true"/>
     <!-- Add seasonal column to the feed table (issue #1774). -->
     <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
