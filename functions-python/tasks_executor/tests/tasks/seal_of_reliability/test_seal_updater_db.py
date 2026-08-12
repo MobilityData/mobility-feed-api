@@ -243,6 +243,20 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(report["seals_revoked"], 0)
         self.assertIsNone(self.seal_row(OFFICIAL), "still a dry run")
 
+    def test_both_seal_transitions_are_reported_by_feed(self):
+        """Counts say how many moved; these say which, for each direction."""
+        first = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
+        self.assertEqual(
+            sorted(first["granted_stable_ids"]), sorted([OFFICIAL, INACTIVE])
+        )
+        self.assertEqual(first["revoked_stable_ids"], [])
+
+        self.set_official(OFFICIAL, False)
+        later = NOW + timedelta(days=1)
+        second = update_seals(dry_run=False, stable_feed_ids=OURS, now=later)
+        self.assertEqual(second["granted_stable_ids"], [])
+        self.assertEqual(second["revoked_stable_ids"], [OFFICIAL])
+
     def test_seal_counts_balance(self):
         """before + granted - revoked == after, across a grant then a revocation."""
         first = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
@@ -408,13 +422,54 @@ class TestUpdateSeals(SealDbTestCase):
         with self.assertRaises(ValueError):
             update_seals(criteria=[SealCriterionName.STABLE.value], now=NOW)
 
-    def test_unknown_stable_feed_id_raises(self):
-        with self.assertRaises(ValueError):
+    def test_a_run_with_no_usable_feed_raises(self):
+        """Nothing was evaluated, so a report saying so would be too quiet."""
+        with self.assertRaises(ValueError) as caught:
             update_seals(stable_feed_ids=[f"{PREFIX}does_not_exist"], now=NOW)
+        self.assertIn("not found", str(caught.exception))
+
+    def test_an_ineligible_feed_says_so_rather_than_not_found(self):
+        """A filtered-out feed is in the database, so "not found" would send you hunting."""
+        with self.assertRaises(ValueError) as caught:
+            update_seals(stable_feed_ids=[DEPRECATED], now=NOW)
+        message = str(caught.exception)
+        self.assertIn("not eligible", message)
+        self.assertIn(DEPRECATED, message)
+        self.assertNotIn("not found", message)
+
+    def test_unusable_feeds_are_dropped_rather_than_costing_the_run(self):
+        """One stale id must not cost a run over the feeds that are fine."""
+        with self.assertLogs(level="WARNING") as logs:
+            report = update_seals(
+                dry_run=False,
+                stable_feed_ids=[OFFICIAL, DEPRECATED, f"{PREFIX}does_not_exist"],
+                now=NOW,
+            )
+        self.assertEqual(report["total_feeds"], 1, "the eligible feed still ran")
+        self.assertTrue(self.seal_row(OFFICIAL).has_seal)
+
+        warning = "\n".join(logs.output)
+        self.assertIn(DEPRECATED, warning)
+        self.assertIn(f"{PREFIX}does_not_exist", warning)
 
     def test_limit_caps_the_feeds_evaluated(self):
         report = update_seals(dry_run=True, limit=2, now=NOW)
         self.assertLessEqual(report["total_feeds"], 2)
+
+    def test_evaluations_are_capped_without_capping_the_run(self):
+        """The list is a sample; sealcriterion is the record."""
+        report = update_seals(
+            dry_run=False, stable_feed_ids=OURS, now=NOW, max_reported_evaluations=2
+        )
+        self.assertEqual(len(report["evaluations"]), 2)
+        self.assertEqual(report["evaluations_omitted"], 2, "4 feeds, 1 criterion each")
+        self.assertEqual(report["total_feeds"], 4, "every feed was still evaluated")
+        self.assertEqual(len(self.criterion_rows(OFFICIAL)), 1, "and still written")
+
+    def test_evaluations_omitted_is_zero_when_nothing_was_dropped(self):
+        report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertEqual(len(report["evaluations"]), 1)
+        self.assertEqual(report["evaluations_omitted"], 0)
 
 
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", WITH_PROBATION)

@@ -29,14 +29,18 @@ table directly and are unaffected.
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Feedreliabilityseal, Sealcriterion
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Feedreliabilityseal,
+    Sealcriterion,
+)
 
 from tasks.seal_of_reliability.context import (
     batched,
@@ -48,6 +52,9 @@ from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.state_machine import SealCriterionState, transition
 
 DEFAULT_BATCH_SIZE: int = 200
+
+# Limit the number of evaluation reported to so the return does not get gigantic.
+DEFAULT_MAX_REPORTED_EVALUATIONS: int = 50
 
 SEAL_TABLE = Feedreliabilityseal.__table__
 CRITERION_TABLE = Sealcriterion.__table__
@@ -65,6 +72,43 @@ def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
             f"Unknown criteria: {unknown}. Known criteria: {sorted(known)}"
         )
     return [evaluator for evaluator in EVALUATORS if evaluator.name.value in wanted]
+
+
+def _validate_requested_feed_ids(
+    db_session: Session,
+    requested: Sequence[str],
+    evaluated: Set[str],
+) -> None:
+    """Warn about requested feeds that will not be evaluated, or raise if that is all of them."""
+    unusable = sorted(set(requested) - evaluated)
+    if not unusable:
+        return  # every requested feed is being evaluated, so there is nothing to report
+
+    # One extra query, and only now that something has already been dropped.
+    existing = {
+        row.stable_id
+        for row in db_session.execute(
+            select(Feed.stable_id).where(Feed.stable_id.in_(unusable))
+        ).all()
+    }
+    unknown = sorted(set(unusable) - existing)
+
+    problems = []
+    if unknown:
+        problems.append(f"not found: {unknown}")
+    if existing:
+        problems.append(
+            f"not eligible for the seal: {sorted(existing)} (must be gtfs, "
+            "operational_status=published, and status not in (deprecated, development))"
+        )
+    summary = "; ".join(problems)
+
+    if not evaluated:
+        # The run did nothing at all, which a log line is too quiet for.
+        raise ValueError(f"no requested feed can be evaluated — {summary}")
+
+    # Only a warning, so one stale id does not cost a run over fifty feeds.
+    logging.warning("Skipping %d of the requested feed(s): %s", len(unusable), summary)
 
 
 def _load_previous_states(
@@ -241,6 +285,7 @@ def update_seals(
     criteria: Optional[Sequence[str]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
+    max_reported_evaluations: int = DEFAULT_MAX_REPORTED_EVALUATIONS,
 ) -> dict:
     """Evaluate the seal criteria for every eligible feed and store the result.
 
@@ -250,14 +295,17 @@ def update_seals(
     Args:
         db_session: SQLAlchemy session, injected by @with_db_session.
         dry_run: Evaluate and report without writing. Default True.
-        stable_feed_ids: Evaluate only these feeds. Unknown ids raise. When given,
-            `evaluations` reports every criterion of those feeds rather than only the
-            ones whose verdict moved.
+        stable_feed_ids: Evaluate only these feeds. Unknown or ineligible ids are skipped
+            with a logged warning; it raises only if none of them can be evaluated. When
+            given, `evaluations` reports every criterion of those feeds rather than only
+            the ones whose verdict moved.
         limit: Cap the number of feeds evaluated.
         criteria: Evaluate only these criteria. A partial set skips the has_seal roll-up,
             since the criteria that were not evaluated cannot be judged.
         batch_size: Feeds loaded per query batch.
         now: Evaluation timestamp. Defaults to the current UTC time.
+        max_reported_evaluations: Cap on the `evaluations` list in the report. The count dropped is
+            always returned as `evaluations_omitted`.
 
     Returns:
         A report dict.
@@ -273,9 +321,9 @@ def update_seals(
     feeds = query.all()
 
     if stable_feed_ids is not None:
-        missing = sorted(set(stable_feed_ids) - {feed.stable_id for feed in feeds})
-        if missing:
-            raise ValueError(f"stable_feed_ids not found: {missing}")
+        _validate_requested_feed_ids(
+            db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
+        )
 
     logging.info(
         "Evaluating %d criterion/criteria for %d feed(s) (dry_run=%s, now=%s).",
@@ -410,6 +458,9 @@ def update_seals(
         "seals_after_run": sum(1 for outcome in outcomes if outcome["has_seal"]),
         "seals_granted": len(granted),
         "seals_revoked": len(revoked),
+        # The two transitions in feedreliabilityseal, by feed. Counts alone cannot say
+        # which feed moved, and that is the first thing anyone asks of a run.
+        "granted_stable_ids": [outcome["stable_id"] for outcome in granted],
         "revoked_stable_ids": [outcome["stable_id"] for outcome in revoked],
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }
@@ -418,11 +469,14 @@ def update_seals(
             "Partial criteria run: has_seal was not recalculated because the criteria "
             "that were not evaluated cannot be judged."
         )
-    report["evaluations"] = evaluations
+    # A sample, not the record: sealcriterion holds every verdict. The omitted count is
+    # always present so a truncated list can never be mistaken for the whole story.
+    report["evaluations"] = evaluations[:max_reported_evaluations]
+    report["evaluations_omitted"] = max(0, len(evaluations) - max_reported_evaluations)
 
-    # Log without `evaluations`: Cloud Logging drops a LogEntry over 256 KB and an entry is
-    # ~424 bytes, so a run naming a few hundred feeds would lose the whole log entry. The
-    # counts belong in logs; `evaluations` is for the caller reading the response.
+    # Log without `evaluations`: Cloud Logging drops a LogEntry over 256 KB, so a run
+    # naming a few hundred feeds would lose the whole log entry. The counts belong in logs;
+    # `evaluations` is for the caller reading the response.
     logging.info(
         "Task completed: %s",
         {key: value for key, value in report.items() if key != "evaluations"},

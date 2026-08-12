@@ -17,7 +17,11 @@
 
 from datetime import datetime
 
-from tasks.seal_of_reliability.seal_updater import DEFAULT_BATCH_SIZE, update_seals
+from tasks.seal_of_reliability.seal_updater import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_MAX_REPORTED_EVALUATIONS,
+    update_seals,
+)
 
 
 def get_parameters(payload: dict):
@@ -30,6 +34,7 @@ def get_parameters(payload: dict):
         payload.get("criteria", None),
         payload.get("batch_size", DEFAULT_BATCH_SIZE),
         datetime.fromisoformat(now) if now else None,
+        payload.get("max_reported_evaluations", DEFAULT_MAX_REPORTED_EVALUATIONS),
     )
 
 
@@ -46,9 +51,13 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         limit (int | None): Cap the number of feeds evaluated. Default: no limit.
         criteria (list[str] | None): Evaluate only these criteria. A partial set skips the
                         has_seal roll-up. Default: None (every implemented criterion).
-        batch_size (int): Feeds loaded per query batch. Default: 200.
+        batch_size (int): Feeds loaded per query batch. Every eligible feed is still
+                        evaluated; this only sizes the queries. Default: 200.
         now (str | None): ISO timestamp to evaluate against, for replays and backfills.
                         Default: current UTC time.
+        max_reported_evaluations (int): Cap on the `evaluations` list in the response. Everything is
+                        still evaluated and written; `evaluations_omitted` reports how many
+                        entries were left out. Default: 50.
     """
     (
         dry_run,
@@ -57,6 +66,7 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         criteria,
         batch_size,
         now,
+        max_reported_evaluations,
     ) = get_parameters(payload)
     return update_seals(
         dry_run=dry_run,
@@ -65,4 +75,5 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         criteria=criteria,
         batch_size=batch_size,
         now=now,
+        max_reported_evaluations=max_reported_evaluations,
     )

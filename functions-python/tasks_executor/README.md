@@ -433,10 +433,11 @@ freezes its stored rows rather than making it neutral.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `dry_run` | bool | `true` | Evaluate every feed and return the report without writing anything |
-| `stable_feed_ids` | list[str] \| null | `null` | Evaluate only these feeds; unknown ids raise. When set, `evaluations` covers every criterion of those feeds instead of only the ones whose verdict moved |
+| `stable_feed_ids` | list[str] \| null | `null` | Evaluate only these feeds. Ids that are unknown or not eligible are skipped with a logged warning naming them; it raises only when *none* of them can be evaluated. When set, `evaluations` covers every criterion of those feeds instead of only the ones whose verdict moved |
 | `limit` | int \| null | `null` | Cap the number of feeds evaluated |
 | `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
-| `batch_size` | int | `200` | Feeds loaded per query batch |
+| `batch_size` | int | `200` | Feeds loaded per query batch. Every eligible feed is still evaluated — this only sizes the queries |
+| `max_reported_evaluations` | int | `50` | Cap on the `evaluations` list in the response. Everything is still evaluated and written; `evaluations_omitted` says how many entries were left out |
 | `now` | str \| null | `null` | ISO timestamp to evaluate against, for replays and backfills. Defaults to the current UTC time |
 
 **Response fields**:
@@ -451,9 +452,10 @@ freezes its stored rows rather than making it neutral.
 | `seals_before_run` | Feeds that held the seal before this run |
 | `seals_after_run` | Feeds holding it afterwards — on a dry run, what *would* be stored |
 | `seals_granted` / `seals_revoked` | Transitions in this run. `before + granted - revoked == after` |
-| `revoked_stable_ids` | Feeds that lost the seal in this run |
+| `granted_stable_ids` / `revoked_stable_ids` | The feeds behind `seals_granted` / `seals_revoked` — the two transitions written to `feedreliabilityseal` in this run |
 | `first_evaluations` | Criteria evaluated for the first time (no stored row yet) |
-| `evaluations` | The notable outcomes: one entry per feed and criterion whose verdict moved, with `observed_pass`, `confirmed_pass`, `previously_confirmed_pass`, `on_probation` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
+| `evaluations` | The notable outcomes, capped at `max_reported_evaluations`: one entry per feed and criterion whose verdict moved, with `observed_pass`, `confirmed_pass`, `previously_confirmed_pass`, `on_probation` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
+| `evaluations_omitted` | Entries left out of `evaluations` by the cap. `sealcriterion` holds every verdict regardless |
 
 #### Running it locally
 
