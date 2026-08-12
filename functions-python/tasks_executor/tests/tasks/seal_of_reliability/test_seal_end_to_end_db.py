@@ -123,14 +123,12 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
     @staticmethod
     def ours(report: dict) -> list:
-        """The report's evaluations for this module's feeds only.
+        """The report's feed entries for this module's feeds only.
 
         Unnamed runs also cover the conftest fixtures, so filtering keeps these assertions
         independent of what else lives in the test database.
         """
-        return [
-            row for row in report["evaluations"] if row["stable_id"].startswith(PREFIX)
-        ]
+        return [row for row in report["feeds"] if row["stable_id"].startswith(PREFIX)]
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -200,8 +198,8 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         self.assertEqual(first["seals_revoked"], 0, "nothing was held beforehand")
         self.assertEqual(
             {row["stable_id"] for row in self.ours(first)},
-            {NOT_OFFICIAL, UNKNOWN_OFFICIAL},
-            "a first evaluation is reported only when it lands on a failure",
+            {OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL},
+            "the two failures moved a criterion; the official feed gained the seal",
         )
 
         # --- inspect the database
@@ -243,10 +241,18 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
         moved = {row["stable_id"]: row for row in self.ours(second)}
         self.assertEqual(set(moved), {OFFICIAL, NOT_OFFICIAL}, "only these two moved")
-        self.assertFalse(moved[OFFICIAL]["confirmed_pass"])
-        self.assertTrue(moved[OFFICIAL]["previously_confirmed_pass"])
-        self.assertTrue(moved[NOT_OFFICIAL]["confirmed_pass"])
-        self.assertFalse(moved[NOT_OFFICIAL]["previously_confirmed_pass"])
+
+        self.assertTrue(moved[OFFICIAL]["had_seal"])
+        self.assertFalse(moved[OFFICIAL]["has_seal"])
+        self.assertFalse(moved[OFFICIAL]["criteria"][0]["confirmed_pass"])
+        self.assertTrue(moved[OFFICIAL]["criteria"][0]["previously_confirmed_pass"])
+
+        self.assertFalse(moved[NOT_OFFICIAL]["had_seal"])
+        self.assertTrue(moved[NOT_OFFICIAL]["has_seal"])
+        self.assertTrue(moved[NOT_OFFICIAL]["criteria"][0]["confirmed_pass"])
+        self.assertFalse(
+            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_pass"]
+        )
 
         # --- inspect again: both transitions are recorded, history is preserved
         self.assertEqual(

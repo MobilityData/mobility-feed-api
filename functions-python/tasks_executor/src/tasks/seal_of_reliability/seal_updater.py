@@ -53,8 +53,8 @@ from tasks.seal_of_reliability.state_machine import SealCriterionState, transiti
 
 DEFAULT_BATCH_SIZE: int = 200
 
-# Limit the number of evaluation reported to so the return does not get gigantic.
-DEFAULT_MAX_REPORTED_EVALUATIONS: int = 50
+# Limit the number of feeds reported so the return does not get gigantic.
+DEFAULT_MAX_REPORTED_FEEDS: int = 50
 
 SEAL_TABLE = Feedreliabilityseal.__table__
 CRITERION_TABLE = Sealcriterion.__table__
@@ -285,7 +285,7 @@ def update_seals(
     criteria: Optional[Sequence[str]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
-    max_reported_evaluations: int = DEFAULT_MAX_REPORTED_EVALUATIONS,
+    max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
 ) -> dict:
     """Evaluate the seal criteria for every eligible feed and store the result.
 
@@ -304,8 +304,8 @@ def update_seals(
             since the criteria that were not evaluated cannot be judged.
         batch_size: Feeds loaded per query batch.
         now: Evaluation timestamp. Defaults to the current UTC time.
-        max_reported_evaluations: Cap on the `evaluations` list in the report. The count dropped is
-            always returned as `evaluations_omitted`.
+        max_reported_feeds: Cap on the `feeds` list in the report. The count dropped is
+            always returned as `feeds_omitted`.
 
     Returns:
         A report dict.
@@ -335,9 +335,10 @@ def update_seals(
 
     all_states: List[SealCriterionState] = []
     outcomes: List[dict] = []
-    evaluations: List[dict] = []
+    feed_reports: List[dict] = []
     not_evaluable = 0
     first_evaluations = 0
+    is_feed_list_provided = stable_feed_ids is not None
 
     for batch in batched(feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
@@ -348,6 +349,8 @@ def update_seals(
         for feed in batch:
             ctx = contexts[feed.id]
             feed_states: Dict[str, SealCriterionState] = {}
+            criteria_report: List[dict] = []
+            anything_moved = False
 
             for evaluator in evaluators:
                 observation = evaluator.evaluate(ctx)
@@ -369,37 +372,34 @@ def update_seals(
                 if previous is None and state is not None:
                     first_evaluations += 1
 
-                # `evaluations` reports the notable outcomes, not one entry per
-                # evaluation: a criterion whose verdict moved, or every criterion of a feed
-                # the caller named explicitly. One entry per feed per criterion would grow
-                # with the catalogue (~424 bytes each, so megabytes for a full run) and is
-                # what the sealcriterion table is for. This matches `failures` in
-                # check_gtfs_feed_availability and `dispatched` in backfill_changelog.
-                named = stable_feed_ids is not None
-                if named or _is_notable(previous, state):
-                    evaluations.append(
-                        {
-                            "stable_id": ctx.stable_id,
-                            "criterion": evaluator.name.value,
-                            "observed_pass": observation.observed_pass,
-                            "confirmed_pass": (
-                                state.confirmed_pass if state is not None else None
-                            ),
-                            "previously_confirmed_pass": (
-                                previous.confirmed_pass
-                                if previous is not None
-                                else None
-                            ),
-                            "on_probation": (
-                                state.probation_start is not None
-                                if state is not None
-                                else None
-                            ),
-                            "reason": observation.reason,
-                        }
-                    )
+                if _is_notable(previous, state):
+                    anything_moved = True
+
+                criteria_report.append(
+                    {
+                        "criterion": evaluator.name.value,
+                        "observed_pass": observation.observed_pass,
+                        "confirmed_pass": (
+                            state.confirmed_pass if state is not None else None
+                        ),
+                        "previously_confirmed_pass": (
+                            previous.confirmed_pass if previous is not None else None
+                        ),
+                        "on_probation": (
+                            state.probation_start is not None
+                            if state is not None
+                            else None
+                        ),
+                        "reason": observation.reason,
+                    }
+                )
 
             if partial_run:
+                # No roll-up on a partial run, so there is no seal state to report.
+                if is_feed_list_provided or anything_moved:
+                    feed_reports.append(
+                        {"stable_id": ctx.stable_id, "criteria": criteria_report}
+                    )
                 continue
 
             # Merge in any stored criteria this run did not produce a new state for, so the
@@ -415,19 +415,36 @@ def update_seals(
             # grant the seal but can never withdraw one: nothing was held to lose.
             had_seal = previous_seals.get(feed.id)
             has_seal = _roll_up_has_seal(merged)
-            outcomes.append(
-                {
-                    "feed_id": feed.id,
-                    "stable_id": ctx.stable_id,
-                    "had_seal": bool(had_seal),
-                    "has_seal": has_seal,
-                    # A first evaluation is a grant if it passes, but it is not a loss if
-                    # it fails: nothing was held, so nothing was lost. Only these two
-                    # flags stamp seal_earned_at / seal_lost_at.
-                    "granted": has_seal and not had_seal,
-                    "revoked": bool(had_seal) and not has_seal,
-                }
-            )
+            outcome = {
+                "feed_id": feed.id,
+                "stable_id": ctx.stable_id,
+                "had_seal": bool(had_seal),
+                "has_seal": has_seal,
+                # A first evaluation is a grant if it passes, but it is not a loss if
+                # it fails: nothing was held, so nothing was lost. Only these two
+                # flags stamp seal_earned_at / seal_lost_at.
+                "granted": has_seal and not had_seal,
+                "revoked": bool(had_seal) and not has_seal,
+            }
+            outcomes.append(outcome)
+
+            # A feed is reported when the caller asked for it by name, when one of its
+            # criteria moved, or when its seal changed. A run over a quiet catalogue with no
+            # feed list therefore reports nothing, which keeps a nightly response small.
+            if (
+                is_feed_list_provided
+                or anything_moved
+                or outcome["granted"]
+                or outcome["revoked"]
+            ):
+                feed_reports.append(
+                    {
+                        "stable_id": ctx.stable_id,
+                        "had_seal": outcome["had_seal"],
+                        "has_seal": has_seal,
+                        "criteria": criteria_report,
+                    }
+                )
 
     revoked = [outcome for outcome in outcomes if outcome["revoked"]]
     granted = [outcome for outcome in outcomes if outcome["granted"]]
@@ -469,16 +486,16 @@ def update_seals(
             "Partial criteria run: has_seal was not recalculated because the criteria "
             "that were not evaluated cannot be judged."
         )
-    # A sample, not the record: sealcriterion holds every verdict. The omitted count is
-    # always present so a truncated list can never be mistaken for the whole story.
-    report["evaluations"] = evaluations[:max_reported_evaluations]
-    report["evaluations_omitted"] = max(0, len(evaluations) - max_reported_evaluations)
+    # A sample, not the record: the two seal tables hold every verdict. The omitted count
+    # is always present so a truncated list can never be mistaken for the whole story.
+    report["feeds"] = feed_reports[:max_reported_feeds]
+    report["feeds_omitted"] = max(0, len(feed_reports) - max_reported_feeds)
 
-    # Log without `evaluations`: Cloud Logging drops a LogEntry over 256 KB, so a run
-    # naming a few hundred feeds would lose the whole log entry. The counts belong in logs;
-    # `evaluations` is for the caller reading the response.
+    # Log without `feeds`: Cloud Logging drops a LogEntry over 256 KB, so a run naming a
+    # few hundred feeds would lose the whole log entry. The counts belong in logs; `feeds`
+    # is for the caller reading the response.
     logging.info(
         "Task completed: %s",
-        {key: value for key, value in report.items() if key != "evaluations"},
+        {key: value for key, value in report.items() if key != "feeds"},
     )
     return report

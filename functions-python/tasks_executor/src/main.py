@@ -264,7 +264,7 @@ tasks = {
             "GTFS feed and updates sealcriterion and feedreliabilityseal. "
             "Reads the source tables and never modifies them. "
             "Parameters: dry_run (default true), stable_feed_ids (default null; when set, "
-            "`evaluations` covers every criterion of those feeds), limit (default null), "
+            "`feeds` covers every one of those feeds), limit (default null), "
             "criteria (default null "
             "meaning every implemented criterion; a partial set skips the has_seal "
             "roll-up), batch_size (default 200), now (ISO timestamp, default current "

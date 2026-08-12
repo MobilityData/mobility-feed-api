@@ -19,7 +19,7 @@ from datetime import datetime
 
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
-    DEFAULT_MAX_REPORTED_EVALUATIONS,
+    DEFAULT_MAX_REPORTED_FEEDS,
     update_seals,
 )
 
@@ -34,7 +34,7 @@ def get_parameters(payload: dict):
         payload.get("criteria", None),
         payload.get("batch_size", DEFAULT_BATCH_SIZE),
         datetime.fromisoformat(now) if now else None,
-        payload.get("max_reported_evaluations", DEFAULT_MAX_REPORTED_EVALUATIONS),
+        payload.get("max_reported_feeds", DEFAULT_MAX_REPORTED_FEEDS),
     )
 
 
@@ -55,8 +55,8 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
                         evaluated; this only sizes the queries. Default: 200.
         now (str | None): ISO timestamp to evaluate against, for replays and backfills.
                         Default: current UTC time.
-        max_reported_evaluations (int): Cap on the `evaluations` list in the response. Everything is
-                        still evaluated and written; `evaluations_omitted` reports how many
+        max_reported_feeds (int): Cap on the `feeds` list in the response. Everything is
+                        still evaluated and written; `feeds_omitted` reports how many
                         entries were left out. Default: 50.
     """
     (
@@ -66,7 +66,7 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         criteria,
         batch_size,
         now,
-        max_reported_evaluations,
+        max_reported_feeds,
     ) = get_parameters(payload)
     return update_seals(
         dry_run=dry_run,
@@ -75,5 +75,5 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         criteria=criteria,
         batch_size=batch_size,
         now=now,
-        max_reported_evaluations=max_reported_evaluations,
+        max_reported_feeds=max_reported_feeds,
     )

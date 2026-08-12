@@ -276,52 +276,55 @@ class TestUpdateSeals(SealDbTestCase):
             second["seals_after_run"],
         )
 
-    def test_dry_run_reports_rows_for_a_named_feed(self):
+    def test_a_reported_feed_carries_its_seal_state_and_its_criteria(self):
         report = update_seals(dry_run=True, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+        self.assertEqual(len(report["feeds"]), 1)
+
+        feed = report["feeds"][0]
+        self.assertEqual(feed["stable_id"], NOT_OFFICIAL)
+        self.assertFalse(feed["had_seal"])
+        self.assertFalse(feed["has_seal"])
         self.assertEqual(
-            [row["criterion"] for row in report["evaluations"]],
+            [row["criterion"] for row in feed["criteria"]],
             [SealCriterionName.OFFICIAL.value],
         )
-        self.assertFalse(report["evaluations"][0]["observed_pass"])
-        self.assertTrue(report["evaluations"][0]["reason"])
-        self.assertIsNone(report["evaluations"][0]["previously_confirmed_pass"])
+        self.assertFalse(feed["criteria"][0]["observed_pass"])
+        self.assertTrue(feed["criteria"][0]["reason"])
+        self.assertIsNone(feed["criteria"][0]["previously_confirmed_pass"])
 
-    def test_named_feed_reports_a_row_even_when_nothing_moved(self):
-        """An explicit feed list is the debugging path: report all of its criteria."""
+    def test_named_feed_is_reported_even_when_nothing_moved(self):
+        """An explicit feed list is the debugging path: report it either way."""
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
         report = update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
-        self.assertEqual(len(report["evaluations"]), 1)
-        self.assertTrue(report["evaluations"][0]["confirmed_pass"])
-        self.assertTrue(report["evaluations"][0]["previously_confirmed_pass"])
 
-    def test_unnamed_run_reports_only_criteria_that_moved(self):
-        """A passing feed evaluated twice contributes no entry the second time."""
+        feed = report["feeds"][0]
+        self.assertTrue(feed["had_seal"])
+        self.assertTrue(feed["has_seal"])
+        self.assertTrue(feed["criteria"][0]["confirmed_pass"])
+        self.assertTrue(feed["criteria"][0]["previously_confirmed_pass"])
+
+    def test_unnamed_run_reports_only_feeds_that_moved(self):
         first = update_seals(dry_run=False, now=NOW)
-        self.assertTrue(
-            any(row["stable_id"] == NOT_OFFICIAL for row in first["evaluations"]),
-            "a first evaluation that lands on a failure is reported",
-        )
-        self.assertFalse(
-            any(row["stable_id"] == OFFICIAL for row in first["evaluations"]),
-            "a first evaluation that passes is covered by first_evaluations",
-        )
+        reported = {row["stable_id"] for row in first["feeds"]}
+        self.assertIn(NOT_OFFICIAL, reported, "its criterion landed on a failure")
+        self.assertIn(OFFICIAL, reported, "it was granted the seal")
         self.assertGreaterEqual(first["first_evaluations"], 2)
 
         steady = update_seals(dry_run=False, now=NOW)
-        self.assertEqual(
-            steady["evaluations"], [], "nothing moved, so nothing to report"
-        )
+        self.assertEqual(steady["feeds"], [], "nothing moved, so nothing to report")
         self.assertEqual(steady["first_evaluations"], 0)
 
-    def test_a_criterion_that_flips_is_reported_with_its_previous_value(self):
+    def test_a_feed_that_flips_is_reported_with_the_previous_verdict(self):
         update_seals(dry_run=False, now=NOW)
         self.set_official(OFFICIAL, False)
         report = update_seals(dry_run=False, now=NOW)
 
-        moved = [row for row in report["evaluations"] if row["stable_id"] == OFFICIAL]
+        moved = [row for row in report["feeds"] if row["stable_id"] == OFFICIAL]
         self.assertEqual(len(moved), 1)
-        self.assertFalse(moved[0]["confirmed_pass"])
-        self.assertTrue(moved[0]["previously_confirmed_pass"])
+        self.assertTrue(moved[0]["had_seal"])
+        self.assertFalse(moved[0]["has_seal"])
+        self.assertFalse(moved[0]["criteria"][0]["confirmed_pass"])
+        self.assertTrue(moved[0]["criteria"][0]["previously_confirmed_pass"])
 
     def test_official_feed_earns_the_seal(self):
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
@@ -456,20 +459,20 @@ class TestUpdateSeals(SealDbTestCase):
         report = update_seals(dry_run=True, limit=2, now=NOW)
         self.assertLessEqual(report["total_feeds"], 2)
 
-    def test_evaluations_are_capped_without_capping_the_run(self):
-        """The list is a sample; sealcriterion is the record."""
+    def test_the_feed_list_is_capped_without_capping_the_run(self):
+        """The list is a sample; the two seal tables are the record."""
         report = update_seals(
-            dry_run=False, stable_feed_ids=OURS, now=NOW, max_reported_evaluations=2
+            dry_run=False, stable_feed_ids=OURS, now=NOW, max_reported_feeds=2
         )
-        self.assertEqual(len(report["evaluations"]), 2)
-        self.assertEqual(report["evaluations_omitted"], 2, "4 feeds, 1 criterion each")
+        self.assertEqual(len(report["feeds"]), 2)
+        self.assertEqual(report["feeds_omitted"], 2, "4 feeds requested")
         self.assertEqual(report["total_feeds"], 4, "every feed was still evaluated")
         self.assertEqual(len(self.criterion_rows(OFFICIAL)), 1, "and still written")
 
-    def test_evaluations_omitted_is_zero_when_nothing_was_dropped(self):
+    def test_feeds_omitted_is_zero_when_nothing_was_dropped(self):
         report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
-        self.assertEqual(len(report["evaluations"]), 1)
-        self.assertEqual(report["evaluations_omitted"], 0)
+        self.assertEqual(len(report["feeds"]), 1)
+        self.assertEqual(report["feeds_omitted"], 0)
 
 
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", WITH_PROBATION)
