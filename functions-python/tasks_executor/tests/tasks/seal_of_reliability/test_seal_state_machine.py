@@ -180,6 +180,45 @@ class TestProbation(unittest.TestCase):
         state = _run(days + [(15 + PROBATION_PERIOD.days, True)])
         self.assertEqual(state.probation_start, _day(16))
 
+    def test_a_failure_the_day_before_probation_ends_restarts_the_whole_period(self):
+        """Nearly served is not served: the count goes back to zero, not to one day left."""
+        # Probation runs from D16, so it would have ended on D196.
+        served = [(0, True)] + _failing(1, 16) + [(16, True)]
+
+        state = _run(served + [(195, False), (196, True)])
+        self.assertEqual(
+            state.probation_start, _day(196), "restarted on the repair day"
+        )
+
+        self.assertIsNotNone(
+            _run(served + [(195, False), (196, True), (375, True)]).probation_start,
+            "the original D196 end date is gone",
+        )
+        self.assertIsNone(
+            _run(served + [(195, False), (196, True), (376, True)]).probation_start,
+            "it ends 180 days after the restart instead",
+        )
+
+    def test_a_failure_on_the_last_day_of_probation_restarts_it(self):
+        """Expiry is only ever checked on a passing day, so a failure that day wins."""
+        served = [(0, True)] + _failing(1, 16) + [(16, True)]
+        state = _run(served + [(196, False)])
+        self.assertEqual(state.probation_start, _day(197))
+
+    def test_two_runs_on_the_same_failing_day_stamp_the_same_start(self):
+        """The `+1 day` is stamped from the UTC day, so the hour of the run cannot shift it."""
+        state = None
+        for moment in (_day(1) + timedelta(hours=2), _day(1) + timedelta(hours=23)):
+            state = transition(
+                prev=state,
+                observation=_observation(False),
+                grace_period=None,
+                probation_period=PROBATION_PERIOD,
+                now=moment,
+                feed_id=FEED_ID,
+            )
+        self.assertEqual(state.probation_start, _day(2))
+
     def test_an_observed_failure_during_probation_restarts_it(self):
         """Confirmed or not: during probation any failure costs the whole count."""
         days = [(0, True)] + _failing(1, 16) + [(16, True), (100, False), (101, True)]

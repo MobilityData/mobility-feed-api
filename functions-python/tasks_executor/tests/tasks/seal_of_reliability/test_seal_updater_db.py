@@ -17,9 +17,11 @@
 
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from tasks.seal_of_reliability.context import build_contexts, get_seal_feeds_query
-from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.criteria import PROBATION_PERIOD, SealCriterionName
+from tasks.seal_of_reliability.evaluators import CriterionEvaluator, OfficialEvaluator
 from tasks.seal_of_reliability.seal_updater import update_seals
 from sqlalchemy import delete, select
 
@@ -46,6 +48,56 @@ INACTIVE = f"{PREFIX}inactive"
 # these: an unnamed run also covers the fixtures seeded by conftest.pytest_sessionstart and
 # any seal rows another test left behind, so the totals would not be deterministic.
 OURS = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL, INACTIVE]
+
+
+class _StandInEvaluator(CriterionEvaluator):
+    """A criterion with a grace period and probation, for the probation tests below.
+
+    Official is the only real evaluator and has neither, so without a stand-in nothing
+    exercises `probation_start` against a database: it would never be persisted, reloaded,
+    or seen by the `has_seal` roll-up with a value other than NULL.
+
+    It reads `official` so a test can drive it with the existing `set_official` helper, but
+    unlike Official it debounces failures and serves probation afterwards. It borrows the
+    `available` enum value, which has no evaluator of its own yet (#1784).
+    """
+
+    name = SealCriterionName.AVAILABLE
+    grace_period = timedelta(days=14)
+
+    def _evaluate(self, ctx):
+        return ctx.official is True, f"stand-in, feed.official is {ctx.official!r}"
+
+
+# Patched over the registry so the roll-up sees a criterion that can be on probation.
+WITH_PROBATION = [OfficialEvaluator(), _StandInEvaluator()]
+
+
+DARK_FROM = NOW + timedelta(days=2)
+
+
+class _GoesDarkEvaluator(CriterionEvaluator):
+    """A criterion that loses its upstream input partway through, standing in for #1784.
+
+    It returns no verdict from `DARK_FROM` onwards, keyed on the clock rather than on
+    `official` so that a test can drive it and Official in opposite directions at the same
+    moment. No grace period, so its verdicts land immediately and the tests are about what
+    happens once it goes quiet.
+    """
+
+    name = SealCriterionName.COMPLIANT
+    grace_period = None
+
+    def _evaluate(self, ctx):
+        if ctx.now >= DARK_FROM:
+            return None, "stand-in has no input this run"
+        return ctx.official is True, f"stand-in, feed.official is {ctx.official!r}"
+
+
+# Official is kept in the registry on purpose: it is passing by the time the stand-in goes
+# dark, so if the stand-in's frozen row were dropped from the roll-up the seal would come
+# straight back. Without it, the empty-in_service guard would mask that.
+GOES_DARK = [OfficialEvaluator(), _GoesDarkEvaluator()]
 
 
 def _seed_feed(
@@ -363,6 +415,216 @@ class TestUpdateSeals(SealDbTestCase):
     def test_limit_caps_the_feeds_evaluated(self):
         report = update_seals(dry_run=True, limit=2, now=NOW)
         self.assertLessEqual(report["total_feeds"], 2)
+
+
+@patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", WITH_PROBATION)
+class TestProbation(SealDbTestCase):
+    """Probation persisted and rolled up, driven by `_StandInEvaluator`.
+
+    Timestamps are written out rather than derived so the assertions do not restate the
+    implementation they are checking.
+    """
+
+    STREAK_STARTS = datetime(2026, 6, 2, 12, 0, tzinfo=timezone.utc)
+    CONFIRMED_AT = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)  # 14 days later
+    REPAIRED_AT = datetime(2026, 6, 17, 12, 0, tzinfo=timezone.utc)
+    PROBATION_FROM = datetime(
+        2026, 6, 17, 0, 0, tzinfo=timezone.utc
+    )  # the day of repair
+
+    def stand_in(self):
+        return self.criterion_rows(OFFICIAL)[SealCriterionName.AVAILABLE.value]
+
+    def run_at(self, moment):
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=moment)
+
+    def test_a_clean_run_puts_nothing_on_probation(self):
+        self.run_at(NOW)
+        self.assertIsNone(self.stand_in().probation_start)
+        self.assertTrue(self.seal_row(OFFICIAL).has_seal)
+
+    def test_a_failure_inside_the_grace_period_starts_no_probation(self):
+        self.run_at(NOW)
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.STREAK_STARTS)
+
+        row = self.stand_in()
+        self.assertFalse(row.observed_pass)
+        self.assertTrue(row.confirmed_pass, "still inside its grace period")
+        self.assertIsNone(row.probation_start)
+
+    def test_probation_starts_on_the_day_of_repair(self):
+        self.run_at(NOW)
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.STREAK_STARTS)
+        self.run_at(self.CONFIRMED_AT)
+
+        row = self.stand_in()
+        self.assertFalse(row.confirmed_pass, "the streak outlasted the grace period")
+        self.assertEqual(row.probation_start, self.PROBATION_FROM)
+
+    def test_probation_withholds_the_seal_while_every_criterion_passes(self):
+        self.run_at(NOW)
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.STREAK_STARTS)
+        self.run_at(self.CONFIRMED_AT)
+        self.set_official(OFFICIAL, True)
+        self.run_at(self.REPAIRED_AT)
+
+        rows = self.criterion_rows(OFFICIAL)
+        self.assertTrue(rows[SealCriterionName.OFFICIAL.value].confirmed_pass)
+        self.assertTrue(rows[SealCriterionName.AVAILABLE.value].confirmed_pass)
+        self.assertEqual(
+            rows[SealCriterionName.AVAILABLE.value].probation_start,
+            self.PROBATION_FROM,
+            "recovery clears the status but starts probation",
+        )
+        self.assertFalse(
+            self.seal_row(OFFICIAL).has_seal,
+            "both criteria pass, so only the open probation can be withholding it",
+        )
+
+    def test_the_seal_returns_once_probation_is_served(self):
+        self.run_at(NOW)
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.STREAK_STARTS)
+        self.run_at(self.CONFIRMED_AT)
+        self.set_official(OFFICIAL, True)
+        self.run_at(self.REPAIRED_AT)
+
+        served_at = self.PROBATION_FROM + PROBATION_PERIOD
+        self.run_at(served_at)
+
+        self.assertIsNone(self.stand_in().probation_start)
+        seal = self.seal_row(OFFICIAL)
+        self.assertTrue(seal.has_seal)
+        self.assertEqual(seal.seal_earned_at, served_at)
+
+
+class TestCriterionBroughtIntoServiceLate(SealDbTestCase):
+    """A criterion whose evaluator arrives after the feed already has rows.
+
+    This is the `available` case from #1761: its source only starts collecting on some date,
+    so until then it has no row at all and the roll-up has to carry on without it. Each test
+    runs once with Official alone, then again with the stand-in registered.
+    """
+
+    LATER = NOW + timedelta(days=1)
+
+    def run_at(self, moment, evaluators):
+        with patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", evaluators):
+            update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=moment)
+
+    def test_a_criterion_with_no_row_does_not_deny_the_seal(self):
+        """The waiver itself: an unevaluated criterion is skipped, not counted as failing."""
+        self.run_at(NOW, [OfficialEvaluator()])
+
+        self.assertEqual(
+            set(self.criterion_rows(OFFICIAL)),
+            {SealCriterionName.OFFICIAL.value},
+            "the stand-in has no row yet",
+        )
+        self.assertTrue(self.seal_row(OFFICIAL).has_seal)
+
+    def test_a_passing_newcomer_joins_without_disturbing_the_seal(self):
+        self.run_at(NOW, [OfficialEvaluator()])
+        earned_at = self.seal_row(OFFICIAL).seal_earned_at
+
+        self.run_at(self.LATER, WITH_PROBATION)
+
+        row = self.criterion_rows(OFFICIAL)[SealCriterionName.AVAILABLE.value]
+        self.assertTrue(row.confirmed_pass)
+        self.assertIsNone(row.probation_start, "a first verdict is not a recovery")
+        seal = self.seal_row(OFFICIAL)
+        self.assertTrue(seal.has_seal)
+        self.assertEqual(
+            seal.seal_earned_at,
+            earned_at,
+            "the seal was never withdrawn and re-granted",
+        )
+        self.assertIsNone(seal.seal_lost_at)
+
+    def test_a_newcomer_whose_first_verdict_fails_gets_no_grace_period(self):
+        """`first_evaluation` denies the grace period: nothing has been earned to hold.
+
+        The stand-in does have a 14-day grace period, and it is deliberately not applied
+        here — otherwise this feed would keep its seal for a fortnight on a criterion we
+        have never once seen pass. So the failure is a confirmed failure on day one.
+        """
+        self.run_at(NOW, [OfficialEvaluator()])
+        self.assertTrue(self.seal_row(OFFICIAL).has_seal)
+
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.LATER, WITH_PROBATION)
+
+        row = self.criterion_rows(OFFICIAL)[SealCriterionName.AVAILABLE.value]
+        self.assertFalse(row.observed_pass)
+        self.assertFalse(
+            row.confirmed_pass, "a confirmed failure on its very first verdict"
+        )
+        self.assertEqual(row.first_observed_failure_at, self.LATER)
+        self.assertEqual(row.last_confirmed_failure_at, self.LATER)
+
+        seal = self.seal_row(OFFICIAL)
+        self.assertFalse(seal.has_seal)
+        self.assertEqual(seal.seal_lost_at, self.LATER)
+
+
+@patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", GOES_DARK)
+class TestCriterionThatStopsBeingEvaluable(SealDbTestCase):
+    """A criterion that produced a verdict once and then loses its input.
+
+    The roll-up skips criteria that have *never* produced a verdict, so the safety of that
+    rule rests entirely on a criterion never falling back into that state once it has one.
+    """
+
+    FAILED_AT = NOW + timedelta(days=1)
+
+    def stand_in(self):
+        return self.criterion_rows(OFFICIAL).get(SealCriterionName.COMPLIANT.value)
+
+    def run_at(self, moment):
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=moment)
+
+    def test_going_dark_freezes_the_verdict_and_keeps_the_seal_withheld(self):
+        # Both criteria pass, then both fail and the seal goes.
+        self.run_at(NOW)
+        self.assertTrue(self.seal_row(OFFICIAL).has_seal)
+
+        self.set_official(OFFICIAL, False)
+        self.run_at(self.FAILED_AT)
+        self.assertFalse(self.seal_row(OFFICIAL).has_seal)
+
+        # Official recovers, but the stand-in has lost its input. Its stored failure must
+        # stand and keep withholding the seal.
+        self.set_official(OFFICIAL, True)
+        self.run_at(DARK_FROM)
+
+        rows = self.criterion_rows(OFFICIAL)
+        self.assertTrue(
+            rows[SealCriterionName.OFFICIAL.value].confirmed_pass,
+            "the only other criterion is passing again",
+        )
+        frozen = rows[SealCriterionName.COMPLIANT.value]
+        self.assertFalse(frozen.observed_pass, "the last verdict stands")
+        self.assertFalse(frozen.confirmed_pass)
+        self.assertEqual(
+            frozen.evaluated_at, self.FAILED_AT, "not re-stamped without a verdict"
+        )
+        self.assertFalse(
+            self.seal_row(OFFICIAL).has_seal,
+            "going dark must not hand the seal back",
+        )
+
+    def test_going_dark_before_any_verdict_writes_no_row(self):
+        """The other half: with no verdict ever, there is nothing to hold in service."""
+        self.run_at(DARK_FROM)
+
+        self.assertIsNone(self.stand_in(), "no row is written without a verdict")
+        self.assertTrue(
+            self.seal_row(OFFICIAL).has_seal,
+            "and the criterion is skipped rather than denying the seal",
+        )
 
 
 if __name__ == "__main__":
