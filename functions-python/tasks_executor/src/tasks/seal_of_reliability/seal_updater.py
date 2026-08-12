@@ -80,12 +80,13 @@ def _load_previous_states(
         (row.feed_id, row.criterion): SealCriterionState(
             feed_id=row.feed_id,
             criterion=SealCriterionName(row.criterion),
-            raw_failing=row.raw_failing,
-            grace_failing=row.grace_failing,
+            observed_pass=row.observed_pass,
+            confirmed_pass=row.confirmed_pass,
             evaluated_at=row.evaluated_at,
-            first_raw_failure_at=row.first_raw_failure_at,
-            last_raw_failure_at=row.last_raw_failure_at,
-            last_grace_failure_at=row.last_grace_failure_at,
+            first_observed_failure_at=row.first_observed_failure_at,
+            last_observed_failure_at=row.last_observed_failure_at,
+            last_confirmed_failure_at=row.last_confirmed_failure_at,
+            probation_start=row.probation_start,
         )
         for row in rows
     }
@@ -105,31 +106,33 @@ def _load_previous_seals(
     return {row.feed_id: bool(row.has_seal) for row in rows}
 
 
-def _roll_up_has_seal(
-    states: Dict[str, SealCriterionState],
-    evaluator_count: int,
-    currently_held: bool,
-) -> bool:
-    """True only when every criterion is explicitly not failing.
+def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
+    """True when every criterion in service is a confirmed pass and not on probation.
 
-    `grace_failing is False` rather than `not grace_failing`: a criterion that has never
-    been evaluated is NULL, and NULL must not be read as a pass. A feed missing a row for
-    any criterion cannot qualify either.
+    A criterion is *in service* once it has produced a verdict at any point
+    (`observed_pass is not None`). One that never has is skipped rather than counted as a
+    failure, which is what lets the seal be computed before every criterion has a data
+    source: a criterion whose source only starts collecting later sits at NULL until then
+    and simply is not part of the roll-up.
 
-    A grace period protects a seal the feed already holds; it cannot be used to earn one.
-    Without that distinction a feed being evaluated for the first time while already
-    failing would be handed the seal for the length of the grace period, which is the
-    opposite of what "14 days to fix it before disqualification" means. So granting
-    requires every criterion to pass right now, while keeping only requires that no
-    failure has been confirmed.
+    That waiver is self-limiting because `transition` never writes NULL back, so a
+    criterion can only be skipped before its first verdict ever. Once it has produced one it
+    stays in the roll-up with its last verdict, and an upstream outage freezes it rather
+    than quietly waiving it.
+
+    The non-empty guard stops the roll-up being vacuously true: "every criterion in service
+    qualifies" holds trivially for a feed nothing has ever been measured on.
+
+    `confirmed_pass is True` rather than a bare truthiness test is defensive; within the
+    in-service set it cannot be NULL, since the two booleans are always written together.
     """
-    if len(states) < evaluator_count:
+    in_service = [state for state in states.values() if state.observed_pass is not None]
+    if not in_service:
         return False
-    if not all(state.grace_failing is False for state in states.values()):
-        return False
-    if currently_held:
-        return True
-    return all(state.raw_failing is False for state in states.values())
+    return all(
+        state.confirmed_pass is True and state.probation_start is None
+        for state in in_service
+    )
 
 
 def _is_notable(
@@ -145,10 +148,10 @@ def _is_notable(
     if state is None:
         return False
     if previous is None:
-        return bool(state.raw_failing) or bool(state.grace_failing)
+        return state.observed_pass is False or state.confirmed_pass is False
     return (
-        state.raw_failing != previous.raw_failing
-        or state.grace_failing != previous.grace_failing
+        state.observed_pass != previous.observed_pass
+        or state.confirmed_pass != previous.confirmed_pass
     )
 
 
@@ -162,12 +165,13 @@ def _upsert_criteria(
         {
             "feed_id": state.feed_id,
             "criterion": state.criterion.value,
-            "raw_failing": state.raw_failing,
-            "grace_failing": state.grace_failing,
+            "observed_pass": state.observed_pass,
+            "confirmed_pass": state.confirmed_pass,
             "evaluated_at": state.evaluated_at,
-            "first_raw_failure_at": state.first_raw_failure_at,
-            "last_raw_failure_at": state.last_raw_failure_at,
-            "last_grace_failure_at": state.last_grace_failure_at,
+            "first_observed_failure_at": state.first_observed_failure_at,
+            "last_observed_failure_at": state.last_observed_failure_at,
+            "last_confirmed_failure_at": state.last_confirmed_failure_at,
+            "probation_start": state.probation_start,
             "updated_at": now,
         }
         for state in states
@@ -177,12 +181,13 @@ def _upsert_criteria(
         statement.on_conflict_do_update(
             index_elements=[CRITERION_TABLE.c.feed_id, CRITERION_TABLE.c.criterion],
             set_={
-                "raw_failing": statement.excluded.raw_failing,
-                "grace_failing": statement.excluded.grace_failing,
+                "observed_pass": statement.excluded.observed_pass,
+                "confirmed_pass": statement.excluded.confirmed_pass,
                 "evaluated_at": statement.excluded.evaluated_at,
-                "first_raw_failure_at": statement.excluded.first_raw_failure_at,
-                "last_raw_failure_at": statement.excluded.last_raw_failure_at,
-                "last_grace_failure_at": statement.excluded.last_grace_failure_at,
+                "first_observed_failure_at": statement.excluded.first_observed_failure_at,
+                "last_observed_failure_at": statement.excluded.last_observed_failure_at,
+                "last_confirmed_failure_at": statement.excluded.last_confirmed_failure_at,
+                "probation_start": statement.excluded.probation_start,
                 "updated_at": statement.excluded.updated_at,
             },
         )
@@ -191,6 +196,11 @@ def _upsert_criteria(
 
 def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) -> None:
     """Insert or update feedreliabilityseal rows.
+
+    A row is written for every evaluated feed, whether or not it qualifies. That matters
+    beyond bookkeeping: `created_at` on this row is what a criterion measuring "how long
+    have we been tracking this feed" reads, so a feed that does not qualify still needs one,
+    or such a criterion could never start counting and the feed could never come to qualify.
 
     seal_earned_at and seal_lost_at are written only when has_seal actually changes, so
     they record transitions rather than the time of the last evaluation.
@@ -292,17 +302,17 @@ def update_seals(
             feed_states: Dict[str, SealCriterionState] = {}
 
             for evaluator in evaluators:
-                raw = evaluator.evaluate(ctx)
+                observation = evaluator.evaluate(ctx)
                 previous = previous_states.get((feed.id, evaluator.name.value))
                 state = transition(
                     prev=previous,
-                    raw=raw,
+                    observation=observation,
                     grace_period=evaluator.grace_period,
-                    reliability_window=evaluator.reliability_window,
+                    probation_period=evaluator.probation_period,
                     now=now,
                     feed_id=feed.id,
                 )
-                if raw.failing is None:
+                if observation.observed_pass is None:
                     not_evaluable += 1
                 if state is not None:
                     feed_states[evaluator.name.value] = state
@@ -323,14 +333,21 @@ def update_seals(
                         {
                             "stable_id": ctx.stable_id,
                             "criterion": evaluator.name.value,
-                            "raw_failing": raw.failing,
-                            "grace_failing": (
-                                state.grace_failing if state is not None else None
+                            "observed_pass": observation.observed_pass,
+                            "confirmed_pass": (
+                                state.confirmed_pass if state is not None else None
                             ),
-                            "previously_grace_failing": (
-                                previous.grace_failing if previous is not None else None
+                            "previously_confirmed_pass": (
+                                previous.confirmed_pass
+                                if previous is not None
+                                else None
                             ),
-                            "reason": raw.reason,
+                            "on_probation": (
+                                state.probation_start is not None
+                                if state is not None
+                                else None
+                            ),
+                            "reason": observation.reason,
                         }
                     )
 
@@ -346,10 +363,10 @@ def update_seals(
             }
             merged.update(feed_states)
 
+            # A feed with no seal row yet is treated as not holding one, so a first run can
+            # grant the seal but can never withdraw one: nothing was held to lose.
             had_seal = previous_seals.get(feed.id)
-            has_seal = _roll_up_has_seal(
-                merged, len(EVALUATORS), currently_held=bool(had_seal)
-            )
+            has_seal = _roll_up_has_seal(merged)
             outcomes.append(
                 {
                     "feed_id": feed.id,

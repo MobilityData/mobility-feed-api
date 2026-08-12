@@ -216,17 +216,17 @@ class TestUpdateSeals(SealDbTestCase):
             [row["criterion"] for row in report["evaluations"]],
             [SealCriterionName.OFFICIAL.value],
         )
-        self.assertTrue(report["evaluations"][0]["raw_failing"])
+        self.assertFalse(report["evaluations"][0]["observed_pass"])
         self.assertTrue(report["evaluations"][0]["reason"])
-        self.assertIsNone(report["evaluations"][0]["previously_grace_failing"])
+        self.assertIsNone(report["evaluations"][0]["previously_confirmed_pass"])
 
     def test_named_feed_reports_a_row_even_when_nothing_moved(self):
         """An explicit feed list is the debugging path: report all of its criteria."""
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
         report = update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
         self.assertEqual(len(report["evaluations"]), 1)
-        self.assertFalse(report["evaluations"][0]["grace_failing"])
-        self.assertFalse(report["evaluations"][0]["previously_grace_failing"])
+        self.assertTrue(report["evaluations"][0]["confirmed_pass"])
+        self.assertTrue(report["evaluations"][0]["previously_confirmed_pass"])
 
     def test_unnamed_run_reports_only_criteria_that_moved(self):
         """A passing feed evaluated twice contributes no entry the second time."""
@@ -254,16 +254,17 @@ class TestUpdateSeals(SealDbTestCase):
 
         moved = [row for row in report["evaluations"] if row["stable_id"] == OFFICIAL]
         self.assertEqual(len(moved), 1)
-        self.assertTrue(moved[0]["grace_failing"])
-        self.assertFalse(moved[0]["previously_grace_failing"])
+        self.assertFalse(moved[0]["confirmed_pass"])
+        self.assertTrue(moved[0]["previously_confirmed_pass"])
 
     def test_official_feed_earns_the_seal(self):
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
         row = self.criterion_rows(OFFICIAL)[SealCriterionName.OFFICIAL.value]
-        self.assertFalse(row.raw_failing)
-        self.assertFalse(row.grace_failing)
+        self.assertTrue(row.observed_pass)
+        self.assertTrue(row.confirmed_pass)
         self.assertEqual(row.evaluated_at, NOW)
-        self.assertIsNone(row.first_raw_failure_at)
+        self.assertIsNone(row.first_observed_failure_at)
+        self.assertIsNone(row.probation_start, "a clean first run opens no probation")
 
         seal = self.seal_row(OFFICIAL)
         self.assertTrue(seal.has_seal)
@@ -274,11 +275,19 @@ class TestUpdateSeals(SealDbTestCase):
         """Official has no grace period, so one failure is confirmed at once."""
         update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
         row = self.criterion_rows(NOT_OFFICIAL)[SealCriterionName.OFFICIAL.value]
-        self.assertTrue(row.raw_failing)
-        self.assertTrue(row.grace_failing)
-        self.assertEqual(row.first_raw_failure_at, NOW)
-        self.assertEqual(row.last_grace_failure_at, NOW)
+        self.assertFalse(row.observed_pass)
+        self.assertFalse(row.confirmed_pass)
+        self.assertEqual(row.first_observed_failure_at, NOW)
+        self.assertEqual(row.last_confirmed_failure_at, NOW)
         self.assertFalse(self.seal_row(NOT_OFFICIAL).has_seal)
+
+    def test_a_feed_that_never_qualifies_still_gets_a_seal_row(self):
+        """`created_at` on that row is what a tracking-age criterion measures against."""
+        update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+        seal = self.seal_row(NOT_OFFICIAL)
+        self.assertIsNotNone(seal, "a row is written whether or not the feed qualifies")
+        self.assertFalse(seal.has_seal)
+        self.assertIsNone(seal.seal_lost_at, "nothing was held, so nothing was lost")
 
     def test_unknown_official_flag_denies_the_seal(self):
         update_seals(dry_run=False, stable_feed_ids=[UNKNOWN_OFFICIAL], now=NOW)
@@ -289,8 +298,12 @@ class TestUpdateSeals(SealDbTestCase):
         first = self.criterion_rows(NOT_OFFICIAL)[SealCriterionName.OFFICIAL.value]
         update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
         second = self.criterion_rows(NOT_OFFICIAL)[SealCriterionName.OFFICIAL.value]
-        self.assertEqual(first.first_raw_failure_at, second.first_raw_failure_at)
-        self.assertEqual(first.last_grace_failure_at, second.last_grace_failure_at)
+        self.assertEqual(
+            first.first_observed_failure_at, second.first_observed_failure_at
+        )
+        self.assertEqual(
+            first.last_confirmed_failure_at, second.last_confirmed_failure_at
+        )
 
     def test_losing_official_status_revokes_the_seal(self):
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
@@ -305,7 +318,7 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(seal.seal_earned_at, NOW, "the earlier grant is preserved")
 
     def test_regaining_official_status_clears_the_criterion(self):
-        """No reliability window, so recovery is immediate rather than 6 months later."""
+        """Official has no probation, so recovery restores the seal the same day."""
         update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
         self.assertFalse(self.seal_row(NOT_OFFICIAL).has_seal)
 
@@ -313,10 +326,11 @@ class TestUpdateSeals(SealDbTestCase):
         later = NOW + timedelta(days=1)
         update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=later)
         row = self.criterion_rows(NOT_OFFICIAL)[SealCriterionName.OFFICIAL.value]
-        self.assertFalse(row.grace_failing)
-        self.assertIsNone(row.first_raw_failure_at, "the streak is cleared")
+        self.assertTrue(row.confirmed_pass)
+        self.assertIsNone(row.first_observed_failure_at, "the streak is cleared")
+        self.assertIsNone(row.probation_start, "Official serves no probation")
         self.assertEqual(
-            row.last_grace_failure_at, NOW, "the failure is still on record"
+            row.last_confirmed_failure_at, NOW, "the failure is still on record"
         )
         seal = self.seal_row(NOT_OFFICIAL)
         self.assertTrue(seal.has_seal)

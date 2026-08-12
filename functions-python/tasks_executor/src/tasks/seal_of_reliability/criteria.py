@@ -43,7 +43,12 @@ class SealCriterionName(str, Enum):
     FRESH_CONTINUOUS = "fresh_continuous"
 
 
-# A criterion that fails past its grace period stays failing until it has gone this long
-# without another confirmed failure. It is the default for new evaluators; Official is
-# exempt because it is a point-in-time state check (see OfficialEvaluator).
-RELIABILITY_WINDOW: Final[timedelta] = timedelta(days=180)
+# A criterion that recovers from a confirmed failure is put on probation: it must then go
+# this long with no observed failure before it can contribute to the seal again. It is the
+# default for new evaluators; Official is exempt because it is a point-in-time state check
+# (see OfficialEvaluator).
+#
+# Probation is a penalty, not an entry requirement. It is opened by a recovery, and a first
+# evaluation that passes is not a recovery, so a feed that has never had a confirmed failure
+# can hold the seal from its very first evaluation.
+PROBATION_PERIOD: Final[timedelta] = timedelta(days=180)

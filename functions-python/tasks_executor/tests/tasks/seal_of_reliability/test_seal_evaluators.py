@@ -67,19 +67,23 @@ class TestBaseClass(unittest.TestCase):
 
 class TestOfficial(unittest.TestCase):
     def test_official_feed_passes(self):
-        self.assertFalse(OfficialEvaluator().evaluate(_ctx(official=True)).failing)
+        self.assertTrue(OfficialEvaluator().evaluate(_ctx(official=True)).observed_pass)
 
     def test_non_official_feed_fails(self):
-        self.assertTrue(OfficialEvaluator().evaluate(_ctx(official=False)).failing)
+        self.assertFalse(
+            OfficialEvaluator().evaluate(_ctx(official=False)).observed_pass
+        )
 
     def test_unknown_official_flag_fails(self):
         """NULL is not an endorsement: only an explicit True passes."""
-        self.assertTrue(OfficialEvaluator().evaluate(_ctx(official=None)).failing)
+        self.assertFalse(
+            OfficialEvaluator().evaluate(_ctx(official=None)).observed_pass
+        )
 
-    def test_has_no_grace_or_window(self):
+    def test_has_no_grace_or_probation(self):
         """A point-in-time check: it clears as soon as the feed is official again."""
         self.assertIsNone(OfficialEvaluator.grace_period)
-        self.assertIsNone(OfficialEvaluator.reliability_window)
+        self.assertIsNone(OfficialEvaluator.probation_period)
 
     def test_reason_names_the_offending_value(self):
         result = OfficialEvaluator().evaluate(_ctx(official=None))

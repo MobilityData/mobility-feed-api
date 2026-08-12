@@ -25,7 +25,10 @@ be added without a schema change.
 
 from typing import Final, List
 
-from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator, RawEvaluation
+from tasks.seal_of_reliability.evaluators.base import (
+    CriterionEvaluator,
+    CriterionObservation,
+)
 from tasks.seal_of_reliability.evaluators.official import OfficialEvaluator
 
 EVALUATORS: Final[List[CriterionEvaluator]] = [
@@ -35,6 +38,6 @@ EVALUATORS: Final[List[CriterionEvaluator]] = [
 __all__ = [
     "EVALUATORS",
     "CriterionEvaluator",
+    "CriterionObservation",
     "OfficialEvaluator",
-    "RawEvaluation",
 ]

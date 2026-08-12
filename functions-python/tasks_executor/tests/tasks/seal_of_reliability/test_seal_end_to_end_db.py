@@ -217,10 +217,10 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         criteria = self.criterion_state()
         self.assertNotIn(DEPRECATED, criteria)
         self.assertNotIn(UNPUBLISHED, criteria)
-        self.assertFalse(criteria[OFFICIAL].grace_failing)
-        self.assertIsNone(criteria[OFFICIAL].first_raw_failure_at)
-        self.assertTrue(criteria[NOT_OFFICIAL].grace_failing)
-        self.assertEqual(criteria[NOT_OFFICIAL].first_raw_failure_at, NOW)
+        self.assertTrue(criteria[OFFICIAL].confirmed_pass)
+        self.assertIsNone(criteria[OFFICIAL].first_observed_failure_at)
+        self.assertFalse(criteria[NOT_OFFICIAL].confirmed_pass)
+        self.assertEqual(criteria[NOT_OFFICIAL].first_observed_failure_at, NOW)
 
         # --- modify the database: revoke one, recover another
         self.set_official(OFFICIAL, False)
@@ -243,10 +243,10 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
         moved = {row["stable_id"]: row for row in self.ours(second)}
         self.assertEqual(set(moved), {OFFICIAL, NOT_OFFICIAL}, "only these two moved")
-        self.assertTrue(moved[OFFICIAL]["grace_failing"])
-        self.assertFalse(moved[OFFICIAL]["previously_grace_failing"])
-        self.assertFalse(moved[NOT_OFFICIAL]["grace_failing"])
-        self.assertTrue(moved[NOT_OFFICIAL]["previously_grace_failing"])
+        self.assertFalse(moved[OFFICIAL]["confirmed_pass"])
+        self.assertTrue(moved[OFFICIAL]["previously_confirmed_pass"])
+        self.assertTrue(moved[NOT_OFFICIAL]["confirmed_pass"])
+        self.assertFalse(moved[NOT_OFFICIAL]["previously_confirmed_pass"])
 
         # --- inspect again: both transitions are recorded, history is preserved
         self.assertEqual(
@@ -259,12 +259,12 @@ class TestSealTaskEndToEnd(unittest.TestCase):
             "the revoked feed keeps its earned_at; the recovered one gains earned_at",
         )
         criteria = self.criterion_state()
-        self.assertEqual(criteria[OFFICIAL].first_raw_failure_at, later)
+        self.assertEqual(criteria[OFFICIAL].first_observed_failure_at, later)
         self.assertIsNone(
-            criteria[NOT_OFFICIAL].first_raw_failure_at, "the streak ended"
+            criteria[NOT_OFFICIAL].first_observed_failure_at, "the streak ended"
         )
         self.assertEqual(
-            criteria[NOT_OFFICIAL].last_raw_failure_at,
+            criteria[NOT_OFFICIAL].last_observed_failure_at,
             NOW,
             "history is never cleared, so the old failure time survives recovery",
         )
@@ -283,8 +283,8 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         for stable_id, row in after.items():
             with self.subTest(stable_id=stable_id):
                 self.assertEqual(
-                    row.first_raw_failure_at,
-                    before[stable_id].first_raw_failure_at,
+                    row.first_observed_failure_at,
+                    before[stable_id].first_observed_failure_at,
                     "a re-evaluation must not restart a failure streak",
                 )
                 self.assertEqual(row.evaluated_at, later, "but it is re-evaluated")

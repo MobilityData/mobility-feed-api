@@ -422,6 +422,15 @@ Eligible feeds are GTFS, `operational_status = published`, and `status NOT IN (d
 development)`. `inactive` and `future` feeds are deliberately included: skipping a feed
 freezes its stored rows rather than making it neutral.
 
+Each criterion carries two independent pieces of state. `confirmed_pass` is the debounced
+status: an observed failure only flips it once it outlasts the criterion's grace period, and
+recovery clears it the same day. `probation_start` is the penalty served afterwards — 180
+days with no observed failure, counted from the day the criterion recovered, restarted by
+any observed failure while it is running. A feed holds the seal when every criterion that
+has ever produced a verdict is a confirmed pass and not on probation, so probation is a
+penalty rather than an entry requirement: a feed that has never had a confirmed failure can
+hold the seal from its first evaluation.
+
 ```json
 {
   "task": "update_seal_of_reliability",
@@ -455,7 +464,7 @@ freezes its stored rows rather than making it neutral.
 | `seals_granted` / `seals_revoked` | Transitions in this run. `before + granted - revoked == after` |
 | `revoked_stable_ids` | Feeds that lost the seal in this run |
 | `first_evaluations` | Criteria evaluated for the first time (no stored row yet) |
-| `evaluations` | The notable outcomes: one entry per feed and criterion whose verdict moved, with `raw_failing`, `grace_failing`, `previously_grace_failing` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
+| `evaluations` | The notable outcomes: one entry per feed and criterion whose verdict moved, with `observed_pass`, `confirmed_pass`, `previously_confirmed_pass`, `on_probation` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
 
 > Note: no Cloud Scheduler job is defined for this task yet — invoke it manually. Once
 > scheduled it should run after the daily `check_gtfs_feed_availability` job, since the

@@ -26,15 +26,16 @@ class OfficialEvaluator(CriterionEvaluator):
     """`feed.official IS TRUE`.
 
     A point-in-time state check: official at the time of reviewing the dataset, with no
-    6-month check. Both the grace period and the reliability window are None, so the
-    criterion clears as soon as the feed is flagged official again.
+    6-month check. Both the grace period and the probation period are None, so the criterion
+    fails the same day the flag is lost and clears the same day it comes back, taking the
+    seal with it in both directions.
     """
 
     name = SealCriterionName.OFFICIAL
     grace_period = None
-    reliability_window = None
+    probation_period = None
 
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[Optional[bool], str]:
         if ctx.official:
-            return False, "feed is official"
-        return True, f"feed.official is {ctx.official!r}, expected True"
+            return True, "feed is official"
+        return False, f"feed.official is {ctx.official!r}, expected True"
