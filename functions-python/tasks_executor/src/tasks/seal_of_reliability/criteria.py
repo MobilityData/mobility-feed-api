@@ -48,7 +48,7 @@ class SealCriterionName(str, Enum):
 # default for new evaluators; Official is exempt because it is a point-in-time state check
 # (see OfficialEvaluator).
 #
-# Probation is a penalty, not an entry requirement. It is opened by a recovery, and a first
-# evaluation that passes is not a recovery, so a feed that has never had a confirmed failure
-# can hold the seal from its very first evaluation.
+# Probation is opened only by a recovery. A first evaluation that passes is not a recovery,
+# so a feed that has never had a confirmed failure never serves probation at all and can
+# hold the seal from its very first evaluation.
 PROBATION_PERIOD: Final[timedelta] = timedelta(days=180)

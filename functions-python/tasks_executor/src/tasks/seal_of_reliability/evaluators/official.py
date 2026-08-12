@@ -36,6 +36,6 @@ class OfficialEvaluator(CriterionEvaluator):
     probation_period = None
 
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[Optional[bool], str]:
-        if ctx.official:
-            return True, "feed is official"
-        return False, f"feed.official is {ctx.official!r}, expected True"
+        # `is True` rather than a truthiness test: NULL is not an endorsement, and it is a
+        # verdict of "not official" rather than "not evaluable".
+        return ctx.official is True, f"feed.official is {ctx.official!r}"

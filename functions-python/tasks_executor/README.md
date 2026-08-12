@@ -413,23 +413,12 @@ Evaluates the implemented Seal of Reliability criteria (issue #1761) for every e
 feed and updates the `sealcriterion` and `feedreliabilityseal` tables. Reads the source
 tables and never modifies them.
 
-Only the **Official** criterion is implemented (issue #1783), so `has_seal` currently means
-`feed.official IS TRUE`. The remaining five criteria — Stable, Available, Compliant and the
-two Fresh checks — are tracked by #1784 and #1782; `seal_criterion_name` in the database
-already declares all six values, so adding one needs no schema change.
+`seal_criterion_name` in the database declares all six criteria, so adding an evaluator
+needs no schema change. The criteria still to be implemented are tracked by #1784 and #1782.
 
 Eligible feeds are GTFS, `operational_status = published`, and `status NOT IN (deprecated,
 development)`. `inactive` and `future` feeds are deliberately included: skipping a feed
 freezes its stored rows rather than making it neutral.
-
-Each criterion carries two independent pieces of state. `confirmed_pass` is the debounced
-status: an observed failure only flips it once it outlasts the criterion's grace period, and
-recovery clears it the same day. `probation_start` is the penalty served afterwards — 180
-days with no observed failure, counted from the day the criterion recovered, restarted by
-any observed failure while it is running. A feed holds the seal when every criterion that
-has ever produced a verdict is a confirmed pass and not on probation, so probation is a
-penalty rather than an entry requirement: a feed that has never had a confirmed failure can
-hold the seal from its first evaluation.
 
 ```json
 {
@@ -446,7 +435,7 @@ hold the seal from its first evaluation.
 | `dry_run` | bool | `true` | Evaluate every feed and return the report without writing anything |
 | `stable_feed_ids` | list[str] \| null | `null` | Evaluate only these feeds; unknown ids raise. When set, `evaluations` covers every criterion of those feeds instead of only the ones whose verdict moved |
 | `limit` | int \| null | `null` | Cap the number of feeds evaluated |
-| `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Only `official` is implemented so far; naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
+| `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
 | `batch_size` | int | `200` | Feeds loaded per query batch |
 | `now` | str \| null | `null` | ISO timestamp to evaluate against, for replays and backfills. Defaults to the current UTC time |
 
@@ -465,10 +454,6 @@ hold the seal from its first evaluation.
 | `revoked_stable_ids` | Feeds that lost the seal in this run |
 | `first_evaluations` | Criteria evaluated for the first time (no stored row yet) |
 | `evaluations` | The notable outcomes: one entry per feed and criterion whose verdict moved, with `observed_pass`, `confirmed_pass`, `previously_confirmed_pass`, `on_probation` and `reason`. A first evaluation appears only if it landed on a failure; the rest are counted by `first_evaluations`. When `stable_feed_ids` is set, every criterion of those feeds is included whether or not it moved |
-
-> Note: no Cloud Scheduler job is defined for this task yet — invoke it manually. Once
-> scheduled it should run after the daily `check_gtfs_feed_availability` job, since the
-> Available criterion reads the availability rows recorded for the day.
 
 #### Running it locally
 

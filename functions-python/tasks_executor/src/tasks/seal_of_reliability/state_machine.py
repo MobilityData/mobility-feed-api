@@ -23,7 +23,7 @@ than a call to `datetime.now()` so runs are replayable and idempotent.
 Two pieces of state are tracked per feed per criterion and they are independent:
 
 * `confirmed_pass` — does the criterion pass right now, debounced by its grace period.
-* `probation_start` — the penalty it serves after a confirmed failure.
+* `probation_start` — the stretch it must serve after recovering from a confirmed failure.
 
 The seal (step 5, in seal_updater) requires every criterion in service to be a confirmed
 pass and not on probation.
@@ -80,7 +80,7 @@ def _probation_start(
     probation_period: Optional[timedelta],
     now: datetime,
 ) -> Optional[datetime]:
-    """Step 4: probation is a penalty, not an entry requirement.
+    """Step 4: probation is only ever opened by a recovery.
 
     Two rules put a criterion on probation, and both are recoveries:
 
@@ -101,6 +101,9 @@ def _probation_start(
         # record survives the blip.
         return base.probation_start
 
+    # The check passed today. If the criterion was serving probation and the whole stretch
+    # has now gone by since it started, it has served it: clear it. Otherwise leave the start
+    # exactly where it is — a passing day never moves it, it only brings the end closer.
     if (
         base.probation_start is not None
         and now >= base.probation_start + probation_period

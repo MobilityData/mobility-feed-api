@@ -148,7 +148,7 @@ class TestGracePeriod(unittest.TestCase):
 
 class TestProbation(unittest.TestCase):
     def test_a_clean_first_evaluation_opens_no_probation(self):
-        """Probation is a penalty, not an entry requirement."""
+        """Probation is opened only by a recovery, and this is not one."""
         self.assertIsNone(_run([(0, True)]).probation_start)
         self.assertIsNone(_run([(0, True), (1, True), (2, True)]).probation_start)
 
