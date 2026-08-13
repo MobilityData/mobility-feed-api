@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -171,11 +172,21 @@ class TestImportODPT(unittest.TestCase):
         ), patch(
             "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
-            "tasks.data_import.odpt.import_odpt_feeds.trigger_dataset_download",
+            # commit_changes (and the side effects it triggers) now lives in
+            # data_import_utils, shared with jbda/tdg -- patch it there, not on
+            # this module, since that's where the name is looked up at call time.
+            "tasks.data_import.data_import_utils.trigger_dataset_download",
             mock_trigger,
         ), patch(
-            "tasks.data_import.odpt.import_odpt_feeds.create_web_revalidation_task",
+            "tasks.data_import.data_import_utils.create_web_revalidation_task",
             mock_revalidate,
+        ), patch.dict(
+            # commit_changes skips both side effects when ENVIRONMENT=local
+            # (e.g. functions-python/tasks_executor/.env.local); force a
+            # non-local value so this test actually exercises them.
+            os.environ,
+            {"ENVIRONMENT": "test"},
+            clear=False,
         ):
             result = import_odpt_handler({"dry_run": False})
 
@@ -285,10 +296,10 @@ class TestImportODPT(unittest.TestCase):
         ), patch(
             "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
-            "tasks.data_import.odpt.import_odpt_feeds.trigger_dataset_download",
+            "tasks.data_import.data_import_utils.trigger_dataset_download",
             mock_trigger,
         ), patch(
-            "tasks.data_import.odpt.import_odpt_feeds.create_web_revalidation_task",
+            "tasks.data_import.data_import_utils.create_web_revalidation_task",
             mock_revalidate,
         ):
             result = import_odpt_handler({"dry_run": True})

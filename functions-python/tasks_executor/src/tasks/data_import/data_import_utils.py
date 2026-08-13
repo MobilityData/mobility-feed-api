@@ -1,17 +1,21 @@
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Tuple, Type, TypeVar, Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from shared.common.gcp_utils import create_web_revalidation_task
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Officialstatushistory,
     Entitytype,
     License,
 )
+from shared.helpers.pub_sub import trigger_dataset_download
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="Feed")
@@ -112,3 +116,42 @@ def get_or_create_feed(
         data_type,
     )
     return feed, True
+
+
+def commit_changes(
+    db_session: Session,
+    feeds_to_publish: list[Feed],
+    total_processed: int,
+    changed_feed_stable_ids: list[str] | None = None,
+):
+    """
+    Commit DB changes, trigger dataset downloads for new feeds,
+    and trigger website cache revalidation for changed feeds.
+
+    Shared by the JBDA, ODPT and TDG import tasks -- all three call this the
+    same way: commit_changes(db_session, feeds_to_publish, total_processed,
+    changed_feed_stable_ids).
+
+    When ENVIRONMENT=local, the commit still happens but the Pub/Sub dataset
+    download trigger and the web revalidation Cloud Task are both skipped, so
+    local runs never fire real external side effects.
+    """
+    try:
+        logger.info("Commit after processing items (count=%d)", total_processed)
+        db_session.commit()
+        if os.getenv("ENVIRONMENT", "").lower() == "local":
+            logger.info(
+                "ENVIRONMENT=local; skipping dataset download trigger and web revalidation."
+            )
+            return
+        execution_id = str(uuid.uuid4())
+        for feed in feeds_to_publish:
+            trigger_dataset_download(feed, execution_id)
+        if changed_feed_stable_ids:
+            try:
+                create_web_revalidation_task(changed_feed_stable_ids)
+            except Exception as e:
+                logger.warning("Failed to enqueue revalidation tasks: %s", e)
+    except IntegrityError:
+        db_session.rollback()
+        logger.exception("Commit failed with IntegrityError; rolled back")

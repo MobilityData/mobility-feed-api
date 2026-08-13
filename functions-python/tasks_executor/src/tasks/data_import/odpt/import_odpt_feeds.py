@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from typing import Optional, Tuple, List, Final, TypeVar
 
 import requests
@@ -34,10 +33,9 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Externalid,
 )
-from shared.common.gcp_utils import create_web_revalidation_task
-from shared.helpers.pub_sub import trigger_dataset_download
 from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
+    commit_changes,
     get_or_create_entity_type,
     get_or_create_feed,
 )
@@ -545,29 +543,3 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
     }
     logger.info("Import summary: %s", summary)
     return summary
-
-
-def commit_changes(
-    db_session: Session,
-    feeds_to_publish: list[Feed],
-    total_processed: int,
-    changed_feed_stable_ids: list[str] | None = None,
-):
-    """
-    Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger website cache revalidation for changed feeds.
-    """
-    try:
-        logger.info("Commit after processing items (count=%d)", total_processed)
-        db_session.commit()
-        execution_id = str(uuid.uuid4())
-        for feed in feeds_to_publish:
-            trigger_dataset_download(feed, execution_id)
-        if changed_feed_stable_ids:
-            try:
-                create_web_revalidation_task(changed_feed_stable_ids)
-            except Exception as e:
-                logger.warning("Failed to enqueue revalidation tasks: %s", e)
-    except IntegrityError:
-        db_session.rollback()
-        logger.exception("Commit failed with IntegrityError; rolled back")
