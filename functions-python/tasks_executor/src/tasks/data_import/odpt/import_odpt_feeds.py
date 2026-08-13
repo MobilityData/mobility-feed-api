@@ -36,6 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
     commit_changes,
+    deprecate_stale_feeds,
     get_or_create_entity_type,
     get_or_create_feed,
 )
@@ -94,6 +95,7 @@ def import_odpt_handler(payload: dict | None = None) -> dict:
                 "updated_gtfs",
                 "created_gtfs_rt",
                 "updated_gtfs_rt",
+                "deprecated",
                 "linked_refs",
                 "total_processed_items",
             )
@@ -179,7 +181,10 @@ def _update_common_feed_fields(feed: Feed, item: dict, producer_url: str) -> Non
     feed.provider = item.get("org_name_ja") or item.get("org_name_en")
     feed.producer_url = producer_url
     feed.license_url = _get_license_url(item.get("license_type"))
-    feed.status = "active"
+    # In the event that the feed was previously deprecated, reactivate it. This occurs
+    # when a feed was previously swept as stale but has now reappeared in the source API.
+    if feed.status == "deprecated":
+        feed.status = "active"
     feed.operational_status = "published"
 
     # Ensure an ODPT external id exists; only append if missing.
@@ -221,17 +226,33 @@ def _extract_api_rt_map(item: dict) -> dict[str, Optional[str]]:
 
 
 def _extract_db_rt_map(
-    db_session: Session, stable_id_base: str
-) -> dict[str, Optional[str]]:
-    """Map entity_type_name -> producer_url from DB for existing RT feeds."""
+    db_session: Session,
+    stable_id_base: str,
+    api_rt_map: dict[str, Optional[str]] | None = None,
+) -> Tuple[dict[str, Optional[str]], bool]:
+    """
+    Map entity_type_name -> producer_url from DB for existing RT feeds.
+
+    Also reports whether any RT feed that the API currently advertises (per
+    api_rt_map) is sitting in the deprecated/unpublished state and therefore needs
+    reactivating. Computed from the same queries, so this costs no extra round-trips.
+
+    Returns: (producer_url_by_entity_type, needs_reactivation)
+    """
     out: dict[str, Optional[str]] = {"tu": None, "vp": None, "sa": None}
+    needs_reactivation = False
     for et in ("tu", "vp", "sa"):
         sid = f"{stable_id_base}-{et}"
         rt = db_session.scalar(
             select(Gtfsrealtimefeed).where(Gtfsrealtimefeed.stable_id == sid)
         )
         out[et] = getattr(rt, "producer_url", None) if rt else None
-    return out
+        # Only RT feeds the API still advertises are candidates for reactivation;
+        # any feeds absent from the API should stay deprecated and be swept.
+        if rt is not None and (api_rt_map or {}).get(et):
+            if rt.status == "deprecated" or rt.operational_status == "unpublished":
+                needs_reactivation = True
+    return out, needs_reactivation
 
 
 def _upsert_rt_feeds(
@@ -240,6 +261,7 @@ def _upsert_rt_feeds(
     item: dict,
     gtfs_feed: Gtfsfeed,
     location,
+    processed_stable_ids: set[str],
 ) -> Tuple[int, int, int]:
     """
     Upsert RT feeds for available URLs and link them to the schedule feed.
@@ -248,6 +270,14 @@ def _upsert_rt_feeds(
     created_rt = 0
     updated_rt = 0
     linked_refs = 0
+
+    # Mark every RT sub-feed present in this item as "seen" up front, decoupled from
+    # the processing loop below: if one entity type raises mid-loop, entity types
+    # after it would otherwise go unmarked and be wrongly swept as stale even though
+    # they are still published by the source.
+    for field, entity_type_name in URLS_TO_ENTITY_TYPES_MAP.items():
+        if item.get(field):
+            processed_stable_ids.add(f"{stable_id}-{entity_type_name}")
 
     for field, entity_type_name in URLS_TO_ENTITY_TYPES_MAP.items():
         url = item.get(field)
@@ -297,11 +327,14 @@ def _process_feed(
     session_http: requests.Session,
     item: dict,
     location,
+    processed_stable_ids: set[str],
 ) -> Tuple[dict, Optional[Feed]]:
     """
     Process a single feed list item end-to-end.
     `location` is resolved once per run by the caller (it's always Japan for ODPT)
     and just attached here, rather than re-queried/created for every feed.
+    `processed_stable_ids` is mutated in place with every stable_id seen this run
+    (schedule and RT), so the caller's stale-feed sweep knows what is still present.
     Returns:
       (deltas_dict, feed_to_publish_or_none)
     """
@@ -333,8 +366,11 @@ def _process_feed(
             "processed": 0,
         }, None
 
-    # Upsert/lookup schedule feed
+    # Upsert/lookup schedule feed.
     stable_id = f"odpt-{org_label}-{dataset_label}"
+    # Mark presence before the upsert: if get_or_create_feed's flush fails
+    # transiently, this feed is still live at the source and must not be swept.
+    processed_stable_ids.add(stable_id)
     gtfs_feed, is_new_gtfs = get_or_create_feed(db_session, Gtfsfeed, stable_id, "gtfs")
 
     # Diff detection
@@ -342,8 +378,24 @@ def _process_feed(
         api_sched_fp = _build_api_schedule_fingerprint(item, producer_url)
         api_rt_map = _extract_api_rt_map(item)
         db_sched_fp = _build_db_schedule_fingerprint(gtfs_feed)
-        db_rt_map = _extract_db_rt_map(db_session, stable_id)
-        if db_sched_fp == api_sched_fp and db_rt_map == api_rt_map:
+        db_rt_map, rt_needs_reactivation = _extract_db_rt_map(
+            db_session, stable_id, api_rt_map
+        )
+        # A feed that was previously swept as stale and has now reappeared must be
+        # reactivated even when nothing else changed -- the fingerprints deliberately
+        # cover only the fields we persist from the API, not status/operational_status,
+        # so an unchanged-but-deprecated feed would otherwise return early here and
+        # stay hidden forever.
+        needs_reactivation = (
+            gtfs_feed.status == "deprecated"
+            or gtfs_feed.operational_status == "unpublished"
+            or rt_needs_reactivation
+        )
+        if (
+            db_sched_fp == api_sched_fp
+            and db_rt_map == api_rt_map
+            and not needs_reactivation
+        ):
             logger.info("No change detected; skipping feed stable_id=%s", stable_id)
             return {
                 "created_gtfs": 0,
@@ -353,6 +405,10 @@ def _process_feed(
                 "linked_refs": 0,
                 "processed": 1,
             }, None
+        if needs_reactivation:
+            logger.info(
+                "Reactivating previously deprecated feed stable_id=%s", stable_id
+            )
         diff = {
             k: (db_sched_fp.get(k), api_sched_fp.get(k))
             for k in api_sched_fp
@@ -391,6 +447,7 @@ def _process_feed(
         item=item,
         gtfs_feed=gtfs_feed,
         location=location,
+        processed_stable_ids=processed_stable_ids,
     )
 
     return (
@@ -448,6 +505,7 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
             "updated_gtfs": 0,
             "created_gtfs_rt": 0,
             "updated_gtfs_rt": 0,
+            "deprecated": 0,
             "linked_refs": 0,
             "total_processed_items": 0,
         }
@@ -467,11 +525,12 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
     linked_refs = total_processed = 0
     feeds_to_publish: List[Feed] = []
     changed_feed_stable_ids: List[str] = []
+    processed_stable_ids: set[str] = set()
 
     for idx, item in enumerate(feeds_list, start=1):
         try:
             deltas, feed_to_publish = _process_feed(
-                db_session, session_http, item, location
+                db_session, session_http, item, location, processed_stable_ids
             )
             created_gtfs += deltas["created_gtfs"]
             updated_gtfs += deltas["updated_gtfs"]
@@ -514,6 +573,24 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
             logger.exception("Exception processing feed at index=%d: %s", idx, e)
             continue
 
+    # Deprecate feeds the source no longer advertises. Run unconditionally so a
+    # dry run can report what *would* be deprecated; the dry-run rollback below
+    # still guarantees nothing persists.
+    if feeds_list:
+        newly_deprecated = deprecate_stale_feeds(
+            db_session, "odpt-", processed_stable_ids
+        )
+        changed_feed_stable_ids.extend(newly_deprecated)
+    else:
+        # IMPORTANT: A successful-but-empty fetch from ODPT source is not evidence
+        # that every feed was withdrawn. Sweeping here would deprecate the entire
+        # odpt- catalog in one run so that is avoided by setting newly_deprecated empty
+        newly_deprecated = []
+        logger.warning(
+            "Skipping stale-feed deprecation sweep: fetch returned zero feeds; "
+            "refusing to deprecate the entire odpt- catalog."
+        )
+
     if not dry_run:
         commit_changes(
             db_session, feeds_to_publish, total_processed, changed_feed_stable_ids
@@ -537,6 +614,7 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
         "updated_gtfs": updated_gtfs,
         "created_gtfs_rt": created_gtfs_rt,
         "updated_gtfs_rt": updated_gtfs_rt,
+        "deprecated": len(newly_deprecated),
         "linked_refs": linked_refs,
         "total_processed_items": total_processed,
         "params": {"dry_run": dry_run},

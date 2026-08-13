@@ -118,6 +118,46 @@ def get_or_create_feed(
     return feed, True
 
 
+def deprecate_stale_feeds(
+    db_session: Session,
+    stable_id_prefix: str,
+    processed_stable_ids: set[str],
+) -> list[str]:
+    """
+    Deprecate feeds matching stable_id_prefix that were absent from this import run.
+
+    A feed disappearing from its source API (withdrawn, or no longer matching the
+    importer's license filter) is never visited by the main processing loop, so
+    without this sweep it would keep status='active'/operational_status='published'
+    forever.
+
+    Returns the stable_ids newly deprecated, so callers can fold them into
+    changed_feed_stable_ids and have their cached public pages revalidated.
+    """
+    stale_feeds = (
+        db_session.query(Feed)
+        .filter(Feed.stable_id.like(f"{stable_id_prefix}%"))
+        .filter(~Feed.stable_id.in_(processed_stable_ids))
+        .all()
+    )
+    logger.info(
+        "Found %d feed(s) with prefix=%s absent from this run",
+        len(stale_feeds),
+        stable_id_prefix,
+    )
+
+    newly_deprecated: list[str] = []
+    for feed in stale_feeds:
+        if feed.status != "deprecated" or feed.operational_status != "unpublished":
+            feed.status = "deprecated"
+            feed.operational_status = "unpublished"
+            newly_deprecated.append(feed.stable_id)
+            logger.info("Deprecated stale feed stable_id=%s", feed.stable_id)
+
+    logger.info("Total newly deprecated feeds: %d", len(newly_deprecated))
+    return newly_deprecated
+
+
 def commit_changes(
     db_session: Session,
     feeds_to_publish: list[Feed],
