@@ -298,9 +298,12 @@ def _process_feed(
     db_session: Session,
     session_http: requests.Session,
     item: dict,
+    location,
 ) -> Tuple[dict, Optional[Feed]]:
     """
     Process a single feed list item end-to-end.
+    `location` is resolved once per run by the caller (it's always Japan for ODPT)
+    and just attached here, rather than re-queried/created for every feed.
     Returns:
       (deltas_dict, feed_to_publish_or_none)
     """
@@ -377,7 +380,6 @@ def _process_feed(
     _update_common_feed_fields(gtfs_feed, item, producer_url)
 
     # Location (append only if empty)
-    location = _get_or_create_location(db_session)
     if location and (not gtfs_feed.locations or len(gtfs_feed.locations) == 0):
         gtfs_feed.locations.append(location)
 
@@ -458,6 +460,10 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
     )
     commit_batch_size = int(os.getenv("COMMIT_BATCH_SIZE", 5))
 
+    # ODPT feeds are always located in Japan, so resolve/create that Location once
+    # per run instead of on every feed.
+    location = _get_or_create_location(db_session) if feeds_list else None
+
     # Aggregates
     created_gtfs = updated_gtfs = created_gtfs_rt = updated_gtfs_rt = 0
     linked_refs = total_processed = 0
@@ -466,7 +472,9 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
 
     for idx, item in enumerate(feeds_list, start=1):
         try:
-            deltas, feed_to_publish = _process_feed(db_session, session_http, item)
+            deltas, feed_to_publish = _process_feed(
+                db_session, session_http, item, location
+            )
             created_gtfs += deltas["created_gtfs"]
             updated_gtfs += deltas["updated_gtfs"]
             created_gtfs_rt += deltas["created_gtfs_rt"]
