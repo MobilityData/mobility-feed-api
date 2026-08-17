@@ -1,5 +1,6 @@
+import contextlib
 import copy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, MagicMock
 import json
 
@@ -16,10 +17,14 @@ from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Gtfsfeed,
     Gtfsrealtimefeed,
+    Feedreliabilityseal,
+    Sealcriterion,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 from tests.test_utils.token import authHeaders
+
+SEAL_NOW = datetime.now(timezone.utc)
 
 target_feed = Feed(stable_id="test_target_id")
 redirect_target_id = "test_target_id"
@@ -409,3 +414,139 @@ def test_map_availability_check_failure():
     assert result.success is False
     assert result.status_code == 503
     assert result.error_type == "http_error"
+
+
+# ---- Unit tests for the Seal of Reliability endpoint ----
+
+
+@contextlib.contextmanager
+def _seal_rows(feed_stable_id: str, has_seal: bool, criteria: dict):
+    """Seed a feed's seal tables for the duration of a test, then remove them.
+
+    Writes through `__table__` rather than the mapped classes: `Feedreliabilityseal` is mapped as
+    joined-table inheritance from `Feed`, so persisting an instance would try to insert a new feed.
+    """
+    db = Database()
+    with db.start_db_session() as session:
+        feed_id = session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_stable_id).first().id
+        session.execute(
+            Feedreliabilityseal.__table__.insert().values(
+                feed_id=feed_id,
+                has_seal=has_seal,
+                seal_earned_at=SEAL_NOW - timedelta(days=200),
+                seal_lost_at=None if has_seal else SEAL_NOW - timedelta(days=20),
+            )
+        )
+        for criterion, values in criteria.items():
+            session.execute(Sealcriterion.__table__.insert().values(feed_id=feed_id, criterion=criterion, **values))
+        session.commit()
+    try:
+        yield
+    finally:
+        with db.start_db_session() as session:
+            session.execute(Sealcriterion.__table__.delete().where(Sealcriterion.__table__.c.feed_id == feed_id))
+            session.execute(
+                Feedreliabilityseal.__table__.delete().where(Feedreliabilityseal.__table__.c.feed_id == feed_id)
+            )
+            session.commit()
+
+
+def test_gtfs_feed_reliability_not_evaluated(client: TestClient):
+    """A feed the nightly job has not reached returns a full report, not a 404."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{TEST_GTFS_FEED_STABLE_IDS[0]}/reliability",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    body = response.json()
+    assert body["feed_id"] == TEST_GTFS_FEED_STABLE_IDS[0]
+    assert body["has_seal"] is False
+    assert body["on_probation"] is False
+    assert len(body["criteria"]) == 6
+    assert {criterion["status"] for criterion in body["criteria"]} == {"not_evaluated"}
+
+
+def test_gtfs_feed_reliability_with_criteria(client: TestClient):
+    """A feed with stored criteria reports each verdict, including the at-risk and probation states."""
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[1]
+    criteria = {
+        "official": {"observed_pass": True, "confirmed_pass": True, "evaluated_at": SEAL_NOW},
+        "compliant": {
+            "observed_pass": False,
+            "confirmed_pass": True,
+            "evaluated_at": SEAL_NOW,
+            "first_observed_failure_at": SEAL_NOW - timedelta(days=2),
+            "last_observed_failure_at": SEAL_NOW,
+        },
+        "available": {
+            "observed_pass": True,
+            "confirmed_pass": True,
+            "evaluated_at": SEAL_NOW,
+            "probation_start": SEAL_NOW - timedelta(days=10),
+        },
+    }
+    with _seal_rows(feed_stable_id, has_seal=False, criteria=criteria):
+        response = client.request(
+            "GET",
+            f"/v1/gtfs_feeds/{feed_stable_id}/reliability",
+            headers=authHeaders,
+        )
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    body = response.json()
+    by_name = {criterion["criterion"]: criterion for criterion in body["criteria"]}
+
+    assert body["has_seal"] is False
+    assert body["lost_at"] is not None
+    assert by_name["official"]["status"] == "pass"
+    # Failing but inside its 30-day grace window: still at-risk rather than a confirmed loss.
+    assert by_name["compliant"]["status"] == "fail"
+    assert by_name["compliant"]["in_grace_period"] is True
+    assert by_name["compliant"]["grace_period_ends_at"] is not None
+    # Passing its check yet still serving probation, which is why the feed has no seal.
+    assert by_name["available"]["status"] == "pass"
+    assert by_name["available"]["on_probation"] is True
+    assert by_name["available"]["probation_ends_at"] is not None
+    assert by_name["stable"]["status"] == "not_evaluated"
+    assert body["on_probation"] is True
+    assert body["probation_ends_at"] == by_name["available"]["probation_ends_at"]
+
+
+def test_gtfs_feed_reliability_not_found(client: TestClient):
+    """An unknown feed id is a 404."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/does-not-exist/reliability",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404, f"Response status code was {response.status_code} instead of 404"
+
+
+def test_gtfs_feed_get_embeds_reliability_seal(client: TestClient):
+    """The feed-detail response carries the seal summary, so the badge needs no second call."""
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[2]
+    criteria = {"official": {"observed_pass": True, "confirmed_pass": True, "evaluated_at": SEAL_NOW}}
+    with _seal_rows(feed_stable_id, has_seal=True, criteria=criteria):
+        response = client.request("GET", f"/v1/gtfs_feeds/{feed_stable_id}", headers=authHeaders)
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    seal = response.json()["reliability_seal"]
+    assert seal is not None
+    assert seal["has_seal"] is True
+    assert seal["on_probation"] is False
+    assert seal["evaluated_at"] is not None
+
+
+def test_gtfs_feed_get_without_seal_reports_null(client: TestClient):
+    """A feed that has never been evaluated reports a null summary rather than an empty object."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{TEST_GTFS_FEED_STABLE_IDS[0]}",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    assert response.json()["reliability_seal"] is None

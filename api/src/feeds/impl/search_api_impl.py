@@ -9,16 +9,42 @@ from shared.database_gen.sqlacodegen_models import t_feedsearch
 from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
-from middleware.request_context import is_user_email_restricted
+from feeds.impl.error_handling import raise_http_error
+from middleware.request_context import get_request_context, is_user_email_restricted
+from shared.common.error_handling import has_seal_filter_not_permitted
+from shared.common.feature_flags import feature_flag_enabled
+from shared.database.users_database import UsersDatabase
 from sqlalchemy import or_
 
 feed_search_columns = [column for column in t_feedsearch.columns if column.name != "document"]
+
+# Feature flag (feature_flag.id, users DB) that grants a user the ability to filter the catalogue by
+# Seal of Reliability status. Viewing a feed's seal is public; filtering by it is not.
+SEAL_FILTER_FEATURE_FLAG_ID = "isSealFilterEnabled"
 
 
 class SearchApiImpl(BaseSearchApi):
     """
     This class represents the implementation of the `/search` endpoints.
     """
+
+    @staticmethod
+    def _seal_filter_permitted() -> bool:
+        """Whether the caller may filter the catalogue by Seal of Reliability status.
+
+        Access is granted per user through the `isSealFilterEnabled` feature flag in the users
+        database, rather than by email domain: the flag can be handed to a named external partner
+        without giving them anything else, which is what "available to selected users" means here.
+
+        An unidentified caller is denied - there is no user to hold the flag. The users DB is a
+        different database from the one the search itself reads, hence its own short-lived session.
+        """
+        request_context = get_request_context()
+        user_id = request_context.get("user_id") if request_context else None
+        if not user_id:
+            return False
+        with UsersDatabase().start_db_session() as db_session:
+            return feature_flag_enabled(db_session, user_id, SEAL_FILTER_FEATURE_FLAG_ID)
 
     @staticmethod
     def get_parsed_search_tsquery(search_query: str) -> str:
@@ -38,6 +64,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_id,
         status,
         is_official,
+        has_seal,
         features,
         version,
         license_ids,
@@ -70,6 +97,11 @@ class SearchApiImpl(BaseSearchApi):
                 query = query.where(t_feedsearch.c.official.is_(True))
             else:
                 query = query.where(or_(t_feedsearch.c.official.is_(False), t_feedsearch.c.official.is_(None)))
+        if has_seal is not None:
+            if has_seal:
+                query = query.where(t_feedsearch.c.has_seal.is_(True))
+            else:
+                query = query.where(or_(t_feedsearch.c.has_seal.is_(False), t_feedsearch.c.has_seal.is_(None)))
         if version:
             versions_list = [v.strip().lower() for v in version.split(",") if v]
             if versions_list:
@@ -117,6 +149,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
+        has_seal: bool,
         features,
         version: str,
         search_query: str,
@@ -135,6 +168,7 @@ class SearchApiImpl(BaseSearchApi):
             feed_id,
             status,
             is_official,
+            has_seal,
             features,
             version,
             license_ids,
@@ -148,6 +182,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
+        has_seal: bool,
         search_query: str,
         features: List[str],
         version: str,
@@ -173,6 +208,7 @@ class SearchApiImpl(BaseSearchApi):
             feed_id,
             status,
             is_official,
+            has_seal,
             features,
             version,
             license_ids,
@@ -197,6 +233,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
+        has_seal: bool,
         version: str,
         search_query: str,
         feature: List[str],
@@ -206,11 +243,18 @@ class SearchApiImpl(BaseSearchApi):
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
+        # Viewing a feed's seal is public, but filtering the catalogue by it is not. Rejecting the
+        # request is deliberate: silently dropping the filter would return feeds without the seal to
+        # a caller who asked only for feeds with it, which reads as data rather than as a refusal.
+        if has_seal is not None and not self._seal_filter_permitted():
+            raise_http_error(403, has_seal_filter_not_permitted)
+
         query = self.create_search_query(
             status,
             feed_id,
             data_type,
             is_official,
+            has_seal,
             search_query,
             feature,
             version,
@@ -231,6 +275,7 @@ class SearchApiImpl(BaseSearchApi):
                 feed_id,
                 data_type,
                 is_official,
+                has_seal,
                 feature,
                 version,
                 search_query,

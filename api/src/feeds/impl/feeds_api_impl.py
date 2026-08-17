@@ -8,12 +8,14 @@ from sqlalchemy.orm.query import Query
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.feed import Feed
+from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
@@ -26,6 +28,7 @@ from shared.common.db_utils import (
     get_selectinload_options,
     add_official_filter,
     get_gbfs_feeds_query,
+    get_reliability_seals,
 )
 from shared.common.error_handling import (
     availability_from_after_to,
@@ -43,6 +46,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
+    Sealcriterion,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -133,7 +137,8 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get the specified gtfs feed from the Mobility Database."""
         feed = self._get_gtfs_feed(id, db_session)
         if feed:
-            return GtfsFeedImpl.from_orm(feed)
+            seal_row = get_reliability_seals(db_session, [feed.id]).get(feed.id)
+            return GtfsFeedImpl.from_orm(feed, seal_row)
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
@@ -230,7 +235,7 @@ class FeedsApiImpl(BaseFeedsApi):
             # that needs to be converted to HTTPException before being thrown.
             raise convert_exception(e)
 
-        return self._get_response(feed_query, GtfsFeedImpl)
+        return self._get_gtfs_feeds_response(feed_query, db_session)
 
     @with_db_session
     def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
@@ -303,6 +308,16 @@ class FeedsApiImpl(BaseFeedsApi):
         results = feed_query.all()
         return [impl_cls.from_orm(feed) for feed in results]
 
+    @staticmethod
+    def _get_gtfs_feeds_response(feed_query: Query, db_session: Session) -> List[GtfsFeed]:
+        """Get the response for a GTFS feed query, with each feed's Seal of Reliability summary.
+
+        The seals are loaded for the whole page in one query rather than per feed.
+        """
+        results = feed_query.all()
+        seal_rows = get_reliability_seals(db_session, [feed.id for feed in results])
+        return [GtfsFeedImpl.from_orm(feed, seal_rows.get(feed.id)) for feed in results]
+
     @with_db_session
     def get_gtfs_feed_gtfs_rt_feeds(self, id: str, db_session: Session) -> List[GtfsRTFeed]:
         """Get a list of GTFS Realtime related to a GTFS feed."""
@@ -311,6 +326,21 @@ class FeedsApiImpl(BaseFeedsApi):
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
+
+    @with_db_session
+    def get_gtfs_feed_reliability(self, id: str, db_session: Session) -> FeedReliabilityReport:
+        """Returns the Seal of Reliability breakdown for a GTFS feed."""
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        seal_row = get_reliability_seals(db_session, [feed.id]).get(feed.id)
+        criterion_rows = db_session.query(Sealcriterion).filter(Sealcriterion.feed_id == feed.id).all()
+
+        # No seal row means the nightly job has not reached this feed. That is reported as a feed
+        # that simply does not hold the seal, with every criterion not evaluated, rather than a 404:
+        # the feed exists, we just have nothing to say about it yet.
+        return FeedReliabilityReportImpl.from_orm(id, seal_row, criterion_rows)
 
     @with_db_session
     def get_gtfs_feed_availability(

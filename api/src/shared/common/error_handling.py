@@ -11,6 +11,10 @@ gtfs_feed_not_found: Final[str] = "GTFS feed '{}' not found"
 gtfs_rt_feed_not_found: Final[str] = "GTFS realtime Feed '{}' not found"
 gbfs_feed_not_found: Final[str] = "GBFS feed '{}' not found"
 dataset_not_found: Final[str] = "Dataset '{}' not found"
+has_seal_filter_not_permitted: Final[str] = (
+    "Filtering feeds by Seal of Reliability status is available to selected users only. "
+    "To request access or learn more, contact us at api@mobilitydata.org"
+)
 
 
 class InternalHTTPException(Exception):
