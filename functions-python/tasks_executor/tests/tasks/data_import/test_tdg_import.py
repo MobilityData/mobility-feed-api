@@ -203,7 +203,10 @@ class TestImportTDG(unittest.TestCase):
             "tasks.data_import.transportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
             0.01,
         ), patch(
-            "tasks.data_import.transportdatagouv.import_tdg_feeds.trigger_dataset_download",
+            # commit_changes (and the side effects it triggers) now lives in
+            # data_import_utils, shared with jbda/odpt -- patch it there, not on
+            # this module, since that's where the name is looked up at call time.
+            "tasks.data_import.data_import_utils.trigger_dataset_download",
             mock_trigger,
         ), patch.dict(
             os.environ,
