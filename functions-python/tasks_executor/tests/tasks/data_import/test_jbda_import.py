@@ -229,10 +229,18 @@ class TestImportJBDA(unittest.TestCase):
         ), patch(
             "tasks.data_import.jbda.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
-            "tasks.data_import.jbda.import_jbda_feeds.trigger_dataset_download",
+            # commit_changes (and the side effects it triggers) now lives in
+            # data_import_utils, shared with odpt/tdg -- patch it there, not on
+            # this module, since that's where the name is looked up at call time.
+            "tasks.data_import.data_import_utils.trigger_dataset_download",
             mock_trigger,
         ), patch.dict(
-            os.environ, {"COMMIT_BATCH_SIZE": "1"}, clear=False
+            # commit_changes skips trigger_dataset_download entirely when
+            # ENVIRONMENT=local; force a non-local value so this test actually
+            # exercises it.
+            os.environ,
+            {"COMMIT_BATCH_SIZE": "1", "ENVIRONMENT": "test"},
+            clear=False,
         ):
             result = import_jbda_handler({"dry_run": False})
 
