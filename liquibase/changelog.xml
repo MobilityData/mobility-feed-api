@@ -96,7 +96,7 @@
     <!--  Adding alt_name to the geopolygon table  -->
     <include file="changes/feat_1479.sql" relativeToChangelogFile="true"/>
     <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
-    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
+    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>
     <!-- Change gtfsfile table hosted_url column type to text to accomodate longer URLs. -->
     <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
     <!-- Add license_tag table and license_license_tags join table for tag classification of licenses. -->
@@ -127,6 +127,8 @@
     <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
     <!-- Add Seal of Reliability tables: feed_reliability_seal and seal_criterion (issue #1760). -->
     <include file="changes/feat_1760.sql" relativeToChangelogFile="true"/>
+    <!-- Drop incorrectly created ad-hoc coverage/feed-city analysis tables. -->
+    <include file="changes/fix_cleanup_coverage_tables.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
     are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
