@@ -223,7 +223,10 @@ class TestEligibilityQuery(SealDbTestCase):
     def test_excludes_deprecated_and_unpublished_but_keeps_inactive(self, db_session):
         found = {
             feed.stable_id
-            for feed in get_seal_feeds_query(db_session).all()
+            for feed in get_seal_feeds_query(
+                db_session,
+                stable_feed_ids=[OFFICIAL, INACTIVE, DEPRECATED, UNPUBLISHED],
+            ).all()
             if feed.stable_id and feed.stable_id.startswith(PREFIX)
         }
         self.assertIn(OFFICIAL, found)

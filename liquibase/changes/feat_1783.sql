@@ -1,6 +1,33 @@
--- Issue #1783: Seal of Reliability status enum and per-criterion tracking columns, on the
--- #1760 tables.
+-- Issue #1783: Seal of Reliability schema, reworked around probation and a positive
+-- per-criterion status enum.
+--
+-- This changeset fully SUPERSEDES #1760: it drops everything #1760 created and rebuilds
+-- the seal tables from scratch in their final shape, so the authoritative definition of
+-- the whole seal schema lives here in one place. #1760 remains in the changelog (it was
+-- already applied to earlier environments and must not be edited), but at runtime its
+-- objects are torn down and recreated below.
+--
+-- At this point there is no data in the seal tables because it has not been deployed to prod,
+-- so just deleting them loses nothing.
 
+-- Teardown of the #1760 objects (tables first, then the enum types they used).
+DROP TABLE IF EXISTS SealCriterion CASCADE;
+DROP TABLE IF EXISTS FeedReliabilitySeal CASCADE;
+DROP TYPE  IF EXISTS seal_criterion_status;
+DROP TYPE  IF EXISTS seal_criterion_name;
+
+-- The set of criteria that make up the seal.
+CREATE TYPE seal_criterion_name AS ENUM (
+    'official',
+    'stable',
+    'available',
+    'compliant',
+    'fresh_coverage',
+    'fresh_continuous'
+);
+
+-- Per-criterion status. pass/fail are verdicts; unknown = inputs missing;
+-- not_applicable = excluded for this feed; never_evaluated = never had a verdict.
 CREATE TYPE seal_criterion_status AS ENUM (
     'pass',
     'fail',
@@ -9,18 +36,44 @@ CREATE TYPE seal_criterion_status AS ENUM (
     'not_applicable'
 );
 
-ALTER TABLE SealCriterion
-    DROP COLUMN IF EXISTS raw_failing,
-    DROP COLUMN IF EXISTS grace_failing,
-    ADD COLUMN observed_status seal_criterion_status NOT NULL DEFAULT 'never_evaluated',
-    ADD COLUMN confirmed_status seal_criterion_status NOT NULL DEFAULT 'never_evaluated';
+-- One row per feed; owns the overall seal outcome.
+CREATE TABLE FeedReliabilitySeal (
+    feed_id        VARCHAR(255) PRIMARY KEY REFERENCES Feed(id) ON DELETE CASCADE,
 
-ALTER TABLE SealCriterion RENAME COLUMN first_raw_failure_at TO first_observed_failure_at;
-ALTER TABLE SealCriterion RENAME COLUMN last_raw_failure_at TO last_observed_failure_at;
-ALTER TABLE SealCriterion RENAME COLUMN last_grace_failure_at TO last_confirmed_failure_at;
+    has_seal       BOOLEAN NOT NULL DEFAULT FALSE,
+    seal_earned_at TIMESTAMPTZ,
+    seal_lost_at   TIMESTAMPTZ,
 
-ALTER TABLE SealCriterion ADD COLUMN IF NOT EXISTS probation_start TIMESTAMPTZ;
-ALTER TABLE SealCriterion ADD COLUMN IF NOT EXISTS last_verdict_at TIMESTAMPTZ;
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One row per feed per criterion; owns all per-criterion state.
+CREATE TABLE SealCriterion (
+    feed_id                    VARCHAR(255) NOT NULL REFERENCES Feed(id) ON DELETE CASCADE,
+    criterion                  seal_criterion_name NOT NULL,
+
+    -- Status
+    observed_status            seal_criterion_status NOT NULL DEFAULT 'never_evaluated',
+    confirmed_status           seal_criterion_status NOT NULL DEFAULT 'never_evaluated',
+
+    -- Evaluation tracking
+    evaluated_at               TIMESTAMPTZ,
+    last_verdict_at            TIMESTAMPTZ,
+
+    -- Failure tracking
+    first_observed_failure_at  TIMESTAMPTZ,
+    last_observed_failure_at   TIMESTAMPTZ,
+    last_confirmed_failure_at  TIMESTAMPTZ,
+
+    -- Probation
+    probation_start            TIMESTAMPTZ,
+
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    PRIMARY KEY (feed_id, criterion)
+);
 
 COMMENT ON COLUMN SealCriterion.observed_status IS
     'The check on this day, no debouncing. pass/fail are verdicts; unknown = inputs missing; '
