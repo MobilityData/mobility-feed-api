@@ -341,21 +341,16 @@ class TestUpdateSeals(SealDbTestCase):
             CriterionStatus.PASS.value,
         )
 
-    def test_unnamed_run_reports_only_feeds_that_moved(self):
-        first = update_seals(dry_run=False, now=NOW)
-        reported = {row["stable_id"] for row in first["feeds"]}
-        self.assertIn(NOT_OFFICIAL, reported, "its criterion landed on a failure")
-        self.assertIn(OFFICIAL, reported, "it was granted the seal")
-        self.assertGreaterEqual(first["first_evaluations"], 2)
-
-        steady = update_seals(dry_run=False, now=NOW)
-        self.assertEqual(steady["feeds"], [], "nothing moved, so nothing to report")
-        self.assertEqual(steady["first_evaluations"], 0)
+    def test_every_requested_feed_is_reported(self):
+        """There is no run-the-catalogue mode: the report covers exactly the feeds asked for."""
+        report = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
+        reported = {row["stable_id"] for row in report["feeds"]}
+        self.assertEqual(reported, set(OURS))
 
     def test_a_feed_that_flips_is_reported_with_the_previous_verdict(self):
-        update_seals(dry_run=False, now=NOW)
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
         self.set_official(OFFICIAL, False)
-        report = update_seals(dry_run=False, now=NOW)
+        report = update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
 
         moved = [row for row in report["feeds"] if row["stable_id"] == OFFICIAL]
         self.assertEqual(len(moved), 1)
@@ -460,14 +455,28 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertFalse(report["partial_run"])
         self.assertTrue(self.seal_row(OFFICIAL).has_seal)
 
+    def test_a_feed_list_is_required(self):
+        """There is no run-the-whole-catalogue mode; the list must be given and non-empty."""
+        for feeds in (None, []):
+            with self.subTest(stable_feed_ids=feeds):
+                with self.assertRaises(ValueError) as caught:
+                    update_seals(dry_run=True, stable_feed_ids=feeds, now=NOW)
+                self.assertIn("stable_feed_ids", str(caught.exception))
+
     def test_unknown_criterion_raises(self):
         with self.assertRaises(ValueError):
-            update_seals(criteria=["not_a_criterion"], now=NOW)
+            update_seals(
+                stable_feed_ids=[OFFICIAL], criteria=["not_a_criterion"], now=NOW
+            )
 
     def test_criterion_without_an_evaluator_raises(self):
         """`stable` is a valid DB enum value but has no evaluator yet (#1784)."""
         with self.assertRaises(ValueError):
-            update_seals(criteria=[SealCriterionName.STABLE.value], now=NOW)
+            update_seals(
+                stable_feed_ids=[OFFICIAL],
+                criteria=[SealCriterionName.STABLE.value],
+                now=NOW,
+            )
 
     def test_a_run_with_no_usable_feed_raises(self):
         """Nothing was evaluated, so a report saying so would be too quiet."""
@@ -500,7 +509,7 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertIn(f"{PREFIX}does_not_exist", warning)
 
     def test_limit_caps_the_feeds_evaluated(self):
-        report = update_seals(dry_run=True, limit=2, now=NOW)
+        report = update_seals(dry_run=True, stable_feed_ids=OURS, limit=2, now=NOW)
         self.assertLessEqual(report["total_feeds"], 2)
 
     def test_the_feed_list_is_capped_without_capping_the_run(self):

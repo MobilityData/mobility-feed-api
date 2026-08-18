@@ -192,27 +192,6 @@ def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
     )
 
 
-def _is_notable(
-    previous: Optional[SealCriterionState], state: SealCriterionState
-) -> bool:
-    """True when this run is worth including in the report's per-feed list.
-
-    With a stored row to compare against, it is notable when either status changed.
-
-    With no stored row (a first evaluation), only a failure is notable. A passing first
-    evaluation is not: the initial run would otherwise report every feed in the catalogue.
-    """
-    if previous is None:
-        return (
-            state.observed_status is CriterionStatus.FAIL
-            or state.confirmed_status is CriterionStatus.FAIL
-        )
-    return (
-        state.observed_status is not previous.observed_status
-        or state.confirmed_status is not previous.confirmed_status
-    )
-
-
 def _upsert_criteria(
     db_session: Session, states: Sequence[SealCriterionState], now: datetime
 ) -> None:
@@ -295,27 +274,26 @@ def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) 
 @with_db_session
 def update_seals(
     db_session: Session,
+    stable_feed_ids: Sequence[str],
     dry_run: bool = True,
-    stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
     criteria: Optional[Sequence[str]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
 ) -> dict:
-    """Evaluate the seal criteria for every eligible feed and store the result.
+    """Evaluate the seal criteria for the requested feeds and store the result.
 
-    Every feed is evaluated before anything is written, so a dry run exercises exactly the
-    same code path as a real run.
+    The task always runs against an explicit list of feeds — there is no
+    run-the-whole-catalogue mode. Every requested feed is evaluated before anything is
+    written, so a dry run exercises exactly the same code path as a real run.
 
     Args:
         db_session: SQLAlchemy session, injected by @with_db_session.
+        stable_feed_ids: The feeds to evaluate. Required and non-empty. Unknown or ineligible
+            ids are skipped with a logged warning; it raises only if none can be evaluated.
         dry_run: Evaluate and report without writing. Default True.
-        stable_feed_ids: Evaluate only these feeds. Unknown or ineligible ids are skipped
-            with a logged warning; it raises only if none of them can be evaluated. When
-            given, `evaluations` reports every criterion of those feeds rather than only
-            the ones whose verdict moved.
-        limit: Cap the number of feeds evaluated.
+        limit: Cap the number of feeds evaluated, from the requested list.
         criteria: Evaluate only these criteria. A partial set skips the has_seal roll-up,
             since the criteria that were not evaluated cannot be judged.
         batch_size: Feeds loaded per query batch.
@@ -326,6 +304,9 @@ def update_seals(
     Returns:
         A report dict.
     """
+    if not stable_feed_ids:
+        raise ValueError("stable_feed_ids is required and must be non-empty")
+
     started = time.monotonic()
     now = now or datetime.now(timezone.utc)
     evaluators = _resolve_evaluators(criteria)
@@ -336,10 +317,9 @@ def update_seals(
         query = query.limit(limit)
     feeds = query.all()
 
-    if stable_feed_ids is not None:
-        _validate_requested_feed_ids(
-            db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
-        )
+    _validate_requested_feed_ids(
+        db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
+    )
 
     logging.info(
         "Evaluating %d criterion/criteria for %d feed(s) (dry_run=%s, now=%s).",
@@ -355,7 +335,6 @@ def update_seals(
     unknown_count = 0
     not_applicable_count = 0
     first_evaluations = 0
-    is_feed_list_provided = stable_feed_ids is not None
 
     for batch in batched(feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
@@ -367,7 +346,6 @@ def update_seals(
             ctx = contexts[feed.id]
             feed_states: Dict[str, SealCriterionState] = {}
             criteria_report: List[dict] = []
-            anything_moved = False
 
             for evaluator in evaluators:
                 observation = evaluator.evaluate(ctx)
@@ -398,9 +376,6 @@ def update_seals(
                 ):
                     first_evaluations += 1
 
-                if _is_notable(previous, state):
-                    anything_moved = True
-
                 criteria_report.append(
                     {
                         "criterion": evaluator.name.value,
@@ -418,10 +393,9 @@ def update_seals(
 
             if partial_run:
                 # No roll-up on a partial run, so there is no seal state to report.
-                if is_feed_list_provided or anything_moved:
-                    feed_reports.append(
-                        {"stable_id": ctx.stable_id, "criteria": criteria_report}
-                    )
+                feed_reports.append(
+                    {"stable_id": ctx.stable_id, "criteria": criteria_report}
+                )
                 continue
 
             # Merge in any stored criteria this run did not produce a new state for, so the
@@ -450,23 +424,15 @@ def update_seals(
             }
             outcomes.append(outcome)
 
-            # A feed is reported when the caller asked for it by name, when one of its
-            # criteria moved, or when its seal changed. A run over a quiet catalogue with no
-            # feed list therefore reports nothing, which keeps a nightly response small.
-            if (
-                is_feed_list_provided
-                or anything_moved
-                or outcome["granted"]
-                or outcome["revoked"]
-            ):
-                feed_reports.append(
-                    {
-                        "stable_id": ctx.stable_id,
-                        "had_seal": outcome["had_seal"],
-                        "has_seal": has_seal,
-                        "criteria": criteria_report,
-                    }
-                )
+            # Every requested feed is reported, capped at max_reported_feeds below.
+            feed_reports.append(
+                {
+                    "stable_id": ctx.stable_id,
+                    "had_seal": outcome["had_seal"],
+                    "has_seal": has_seal,
+                    "criteria": criteria_report,
+                }
+            )
 
     revoked = [outcome for outcome in outcomes if outcome["revoked"]]
     granted = [outcome for outcome in outcomes if outcome["granted"]]

@@ -28,8 +28,8 @@ def get_parameters(payload: dict):
     """Read the task parameters from the payload, applying defaults."""
     now = payload.get("now")
     return (
+        payload.get("stable_feed_ids"),
         payload.get("dry_run", True),
-        payload.get("stable_feed_ids", None),
         payload.get("limit", None),
         payload.get("criteria", None),
         payload.get("batch_size", DEFAULT_BATCH_SIZE),
@@ -43,12 +43,13 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
     Handler for the nightly Seal of Reliability evaluation.
 
     Payload parameters:
-        dry_run (bool): Evaluate every feed and return the report without writing.
+        stable_feed_ids (list[str]): Required and non-empty. The feeds to evaluate; there is
+                        no run-the-whole-catalogue mode. Ineligible ids are skipped with a
+                        logged warning, and it raises if none can be evaluated.
+        dry_run (bool): Evaluate the feeds and return the report without writing.
                         Default: True.
-        stable_feed_ids (list[str] | None): Evaluate only these feeds. Unknown ids raise.
-                        When set, `evaluations` covers every criterion of those feeds.
-                        Default: None (all eligible feeds).
-        limit (int | None): Cap the number of feeds evaluated. Default: no limit.
+        limit (int | None): Cap the number of feeds evaluated, from the list. Default: no
+                        limit.
         criteria (list[str] | None): Evaluate only these criteria. A partial set skips the
                         has_seal roll-up. Default: None (every implemented criterion).
         batch_size (int): Feeds loaded per query batch. Every eligible feed is still
@@ -60,8 +61,8 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
                         entries were left out. Default: 50.
     """
     (
-        dry_run,
         stable_feed_ids,
+        dry_run,
         limit,
         criteria,
         batch_size,
@@ -69,8 +70,8 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds,
     ) = get_parameters(payload)
     return update_seals(
-        dry_run=dry_run,
         stable_feed_ids=stable_feed_ids,
+        dry_run=dry_run,
         limit=limit,
         criteria=criteria,
         batch_size=batch_size,

@@ -59,6 +59,9 @@ UNKNOWN_OFFICIAL = f"{PREFIX}unknown_official"
 DEPRECATED = f"{PREFIX}deprecated"
 UNPUBLISHED = f"{PREFIX}unpublished"
 
+# The task always runs against an explicit feed list. These are the eligible seeded feeds.
+REQUESTED = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL]
+
 
 def _seed(db_session, feed_id, official=True, status="active", operational="published"):
     db_session.add(
@@ -107,6 +110,9 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         FEEDS_DATABASE_URL is pointed at the test database because the handler resolves its
         own session; without this the task would run against the local development DB.
         """
+        # The task requires a feed list; default to the seeded feeds unless a test set one,
+        # so each test's payload can stay focused on the dimension it exercises.
+        payload = {"stable_feed_ids": REQUESTED, **payload}
         request = MagicMock(spec=flask.Request)
         request.get_json.return_value = {
             "task": "update_seal_of_reliability",
@@ -125,11 +131,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
     @staticmethod
     def ours(report: dict) -> list:
-        """The report's feed entries for this module's feeds only.
-
-        Unnamed runs also cover the conftest fixtures, so filtering keeps these assertions
-        independent of what else lives in the test database.
-        """
+        """The report's feed entries for this module's feeds."""
         return [row for row in report["feeds"] if row["stable_id"].startswith(PREFIX)]
 
     @staticmethod
@@ -201,7 +203,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         self.assertEqual(
             {row["stable_id"] for row in self.ours(first)},
             {OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL},
-            "the two failures moved a criterion; the official feed gained the seal",
+            "every requested eligible feed is reported",
         )
 
         # --- inspect the database
@@ -246,7 +248,12 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         )
 
         moved = {row["stable_id"]: row for row in self.ours(second)}
-        self.assertEqual(set(moved), {OFFICIAL, NOT_OFFICIAL}, "only these two moved")
+        self.assertEqual(
+            set(moved),
+            {OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL},
+            "every requested feed is reported; OFFICIAL and NOT_OFFICIAL are the ones "
+            "whose seal actually changed",
+        )
 
         self.assertTrue(moved[OFFICIAL]["had_seal"])
         self.assertFalse(moved[OFFICIAL]["has_seal"])
@@ -297,8 +304,11 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
         later = NOW + timedelta(days=2)
         report = self.run_task({"dry_run": False, "now": later.isoformat()})
-        self.assertEqual(self.ours(report), [], "none of our feeds moved")
+        # The feeds are still reported (every requested feed is), but nothing moved:
+        # no new verdicts and no seal transitions.
         self.assertEqual(report["first_evaluations"], 0)
+        self.assertEqual(report["seals_granted"], 0)
+        self.assertEqual(report["seals_revoked"], 0)
         self.assertEqual(report["seals_before_run"], report["seals_after_run"])
 
         after = self.criterion_state()
