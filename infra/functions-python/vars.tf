@@ -154,6 +154,12 @@ variable "update_feed_status_schedule" {
     default     = "0 4 * * *" # At 4am every day.
 }
 
+variable "generate_sitemap_schedule" {
+    type        = string
+    description = "Schedule the mobilitydatabase.org sitemap generation task"
+    default     = "0 8 * * *" # At 08:00 UTC every day.
+}
+
 variable "brevo_api_announcements_list_id" {
     type        = string
     description = "Brevo list ID for API announcements"

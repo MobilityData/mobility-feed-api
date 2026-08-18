@@ -687,6 +687,31 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
   attempt_deadline = "320s"
 }
 
+# Schedule the mobilitydatabase.org sitemap generation to run daily at 08:00 UTC.
+# Overwrites sitemap.xml in the sitemap bucket on every run. Disabled (paused)
+# outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "generate_sitemap_scheduler" {
+  name        = "generate-mobilitydatabase-sitemap-${var.environment}"
+  description = "Daily regeneration of the mobilitydatabase.org sitemap"
+  time_zone   = "Etc/UTC"
+  schedule    = var.generate_sitemap_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"generate_mobilitydatabase_sitemap\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "600s"
+}
+
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
   name        = "${local.function_gbfs_validation_report_config.name}-pubsub"
