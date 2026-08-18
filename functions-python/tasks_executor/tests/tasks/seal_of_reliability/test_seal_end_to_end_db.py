@@ -39,6 +39,8 @@ import flask
 from main import tasks_executor
 from sqlalchemy import delete, select
 
+from tasks.seal_of_reliability.criteria import CriterionStatus
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -215,9 +217,13 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         criteria = self.criterion_state()
         self.assertNotIn(DEPRECATED, criteria)
         self.assertNotIn(UNPUBLISHED, criteria)
-        self.assertTrue(criteria[OFFICIAL].confirmed_pass)
+        self.assertEqual(
+            criteria[OFFICIAL].confirmed_status, CriterionStatus.PASS.value
+        )
         self.assertIsNone(criteria[OFFICIAL].first_observed_failure_at)
-        self.assertFalse(criteria[NOT_OFFICIAL].confirmed_pass)
+        self.assertEqual(
+            criteria[NOT_OFFICIAL].confirmed_status, CriterionStatus.FAIL.value
+        )
         self.assertEqual(criteria[NOT_OFFICIAL].first_observed_failure_at, NOW)
 
         # --- modify the database: revoke one, recover another
@@ -244,14 +250,24 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
         self.assertTrue(moved[OFFICIAL]["had_seal"])
         self.assertFalse(moved[OFFICIAL]["has_seal"])
-        self.assertFalse(moved[OFFICIAL]["criteria"][0]["confirmed_pass"])
-        self.assertTrue(moved[OFFICIAL]["criteria"][0]["previously_confirmed_pass"])
+        self.assertEqual(
+            moved[OFFICIAL]["criteria"][0]["confirmed_status"],
+            CriterionStatus.FAIL.value,
+        )
+        self.assertEqual(
+            moved[OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            CriterionStatus.PASS.value,
+        )
 
         self.assertFalse(moved[NOT_OFFICIAL]["had_seal"])
         self.assertTrue(moved[NOT_OFFICIAL]["has_seal"])
-        self.assertTrue(moved[NOT_OFFICIAL]["criteria"][0]["confirmed_pass"])
-        self.assertFalse(
-            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_pass"]
+        self.assertEqual(
+            moved[NOT_OFFICIAL]["criteria"][0]["confirmed_status"],
+            CriterionStatus.PASS.value,
+        )
+        self.assertEqual(
+            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            CriterionStatus.FAIL.value,
         )
 
         # --- inspect again: both transitions are recorded, history is preserved

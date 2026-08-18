@@ -47,9 +47,17 @@ from tasks.seal_of_reliability.context import (
     build_contexts,
     get_seal_feeds_query,
 )
-from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.criteria import (
+    CriterionPhase,
+    CriterionStatus,
+    SealCriterionName,
+)
 from tasks.seal_of_reliability.evaluators import EVALUATORS
-from tasks.seal_of_reliability.state_machine import SealCriterionState, transition
+from tasks.seal_of_reliability.state_machine import (
+    SealCriterionState,
+    phase,
+    transition,
+)
 
 DEFAULT_BATCH_SIZE: int = 200
 
@@ -124,9 +132,10 @@ def _load_previous_states(
         (row.feed_id, row.criterion): SealCriterionState(
             feed_id=row.feed_id,
             criterion=SealCriterionName(row.criterion),
-            observed_pass=row.observed_pass,
-            confirmed_pass=row.confirmed_pass,
+            observed_status=CriterionStatus(row.observed_status),
+            confirmed_status=CriterionStatus(row.confirmed_status),
             evaluated_at=row.evaluated_at,
+            last_verdict_at=row.last_verdict_at,
             first_observed_failure_at=row.first_observed_failure_at,
             last_observed_failure_at=row.last_observed_failure_at,
             last_confirmed_failure_at=row.last_confirmed_failure_at,
@@ -153,49 +162,54 @@ def _load_previous_seals(
 def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
     """True when every criterion in service is a confirmed pass and not on probation.
 
-    A criterion is *in service* once it has produced a verdict at any point
-    (`observed_pass is not None`). One that never has is skipped rather than counted as a
-    failure, which is what lets the seal be computed before every criterion has a data
-    source: a criterion whose source only starts collecting later sits at NULL until then
-    and simply is not part of the roll-up.
+    A criterion is *in service* when its `confirmed_status` is a verdict. `confirmed_status`
+    is only ever PASS, FAIL, NEVER_EVALUATED or NOT_APPLICABLE — never UNKNOWN, since an
+    unevaluable run leaves the stored value alone rather than writing UNKNOWN into it (see
+    `transition`). So the roll-up only has to skip the two non-verdict values it can see:
 
-    That waiver is self-limiting because `transition` never writes NULL back, so a
-    criterion can only be skipped before its first verdict ever. Once it has produced one it
-    stays in the roll-up with its last verdict, and an upstream outage freezes it rather
-    than quietly waiving it.
+    * NEVER_EVALUATED — never produced a verdict, so it is skipped rather than counted as a
+      failure. This is what lets the seal be computed before every criterion has a data
+      source: one whose source starts collecting later simply is not part of the roll-up.
+    * NOT_APPLICABLE — deliberately excluded for this feed, so it is skipped too. This is why
+      a seasonal feed is not denied the seal by a criterion that is meaningless for it.
 
-    The non-empty guard stops the roll-up being vacuously true: "every criterion in service
-    qualifies" holds trivially for a feed nothing has ever been measured on.
+    An unevaluable run (UNKNOWN) does not appear here at all: `transition` has already frozen the
+    criterion at its last verdict, so it stays in the roll-up with that verdict if it had
+    one, or stays NEVER_EVALUATED and skipped if it never did.
 
-    `confirmed_pass is True` rather than a bare truthiness test is defensive; within the
-    in-service set it cannot be NULL, since the two booleans are always written together.
+    A criterion IN_GRACE_PERIOD is a confirmed pass and holds the seal.
+    One ON_PROBATION denies it.
     """
-    in_service = [state for state in states.values() if state.observed_pass is not None]
+    in_service = [
+        state for state in states.values() if state.confirmed_status.is_verdict
+    ]
     if not in_service:
         return False
     return all(
-        state.confirmed_pass is True and state.probation_start is None
+        state.confirmed_status is CriterionStatus.PASS
+        and phase(state) is not CriterionPhase.ON_PROBATION
         for state in in_service
     )
 
 
 def _is_notable(
-    previous: Optional[SealCriterionState], state: Optional[SealCriterionState]
+    previous: Optional[SealCriterionState], state: SealCriterionState
 ) -> bool:
-    """True when this evaluation moved a criterion's verdict.
+    """True when this run is worth including in the report's per-feed list.
 
-    A first evaluation is not notable on its own: the initial run over the whole catalogue
-    would otherwise report every feed, which is exactly the unbounded payload this is meant
-    to avoid. The `first_evaluations` count covers that case instead. A first evaluation
-    that lands on a failure *is* reported, since that is the actionable half.
+    With a stored row to compare against, it is notable when either status changed.
+
+    With no stored row (a first evaluation), only a failure is notable. A passing first
+    evaluation is not: the initial run would otherwise report every feed in the catalogue.
     """
-    if state is None:
-        return False
     if previous is None:
-        return state.observed_pass is False or state.confirmed_pass is False
+        return (
+            state.observed_status is CriterionStatus.FAIL
+            or state.confirmed_status is CriterionStatus.FAIL
+        )
     return (
-        state.observed_pass != previous.observed_pass
-        or state.confirmed_pass != previous.confirmed_pass
+        state.observed_status is not previous.observed_status
+        or state.confirmed_status is not previous.confirmed_status
     )
 
 
@@ -209,9 +223,10 @@ def _upsert_criteria(
         {
             "feed_id": state.feed_id,
             "criterion": state.criterion.value,
-            "observed_pass": state.observed_pass,
-            "confirmed_pass": state.confirmed_pass,
+            "observed_status": state.observed_status.value,
+            "confirmed_status": state.confirmed_status.value,
             "evaluated_at": state.evaluated_at,
+            "last_verdict_at": state.last_verdict_at,
             "first_observed_failure_at": state.first_observed_failure_at,
             "last_observed_failure_at": state.last_observed_failure_at,
             "last_confirmed_failure_at": state.last_confirmed_failure_at,
@@ -225,9 +240,10 @@ def _upsert_criteria(
         statement.on_conflict_do_update(
             index_elements=[CRITERION_TABLE.c.feed_id, CRITERION_TABLE.c.criterion],
             set_={
-                "observed_pass": statement.excluded.observed_pass,
-                "confirmed_pass": statement.excluded.confirmed_pass,
+                "observed_status": statement.excluded.observed_status,
+                "confirmed_status": statement.excluded.confirmed_status,
                 "evaluated_at": statement.excluded.evaluated_at,
+                "last_verdict_at": statement.excluded.last_verdict_at,
                 "first_observed_failure_at": statement.excluded.first_observed_failure_at,
                 "last_observed_failure_at": statement.excluded.last_observed_failure_at,
                 "last_confirmed_failure_at": statement.excluded.last_confirmed_failure_at,
@@ -336,7 +352,8 @@ def update_seals(
     all_states: List[SealCriterionState] = []
     outcomes: List[dict] = []
     feed_reports: List[dict] = []
-    not_evaluable = 0
+    unknown_count = 0
+    not_applicable_count = 0
     first_evaluations = 0
     is_feed_list_provided = stable_feed_ids is not None
 
@@ -363,13 +380,22 @@ def update_seals(
                     now=now,
                     feed_id=feed.id,
                 )
-                if observation.observed_pass is None:
-                    not_evaluable += 1
-                if state is not None:
-                    feed_states[evaluator.name.value] = state
-                    if state is not previous:
-                        all_states.append(state)
-                if previous is None and state is not None:
+                if observation.observed_status is CriterionStatus.UNKNOWN:
+                    unknown_count += 1
+                elif observation.observed_status is CriterionStatus.NOT_APPLICABLE:
+                    not_applicable_count += 1
+
+                # Every run produces a state, including the two no-verdict paths, because
+                # `evaluated_at` records the attempt. So every criterion of every evaluated
+                # feed is written, not only the ones that moved.
+                feed_states[evaluator.name.value] = state
+                all_states.append(state)
+
+                # A first *verdict*, not a first row: a criterion whose every earlier run was
+                # UNKNOWN already has a row, yet has still never been evaluated.
+                if state.last_verdict_at is not None and (
+                    previous is None or previous.last_verdict_at is None
+                ):
                     first_evaluations += 1
 
                 if _is_notable(previous, state):
@@ -378,18 +404,14 @@ def update_seals(
                 criteria_report.append(
                     {
                         "criterion": evaluator.name.value,
-                        "observed_pass": observation.observed_pass,
-                        "confirmed_pass": (
-                            state.confirmed_pass if state is not None else None
-                        ),
-                        "previously_confirmed_pass": (
-                            previous.confirmed_pass if previous is not None else None
-                        ),
-                        "on_probation": (
-                            state.probation_start is not None
-                            if state is not None
+                        "observed_status": observation.observed_status.value,
+                        "confirmed_status": state.confirmed_status.value,
+                        "previously_confirmed_status": (
+                            previous.confirmed_status.value
+                            if previous is not None
                             else None
                         ),
+                        "phase": phase(state).value,
                         "reason": observation.reason,
                     }
                 )
@@ -467,7 +489,11 @@ def update_seals(
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
         "criterion_rows_written": 0 if dry_run else len(all_states),
-        "not_evaluable": not_evaluable,
+        # Criteria whose inputs were missing this run, and criteria that do not apply to the
+        # feed at all. Both are no-verdict outcomes but they are not the same thing: the
+        # first freezes a criterion in the roll-up, the second withdraws it.
+        "unknown": unknown_count,
+        "not_applicable": not_applicable_count,
         "first_evaluations": first_evaluations,
         # seals_before_run + seals_granted - seals_revoked == seals_after_run.
         # On a dry run the "after" figure is what would be stored, not what is.
