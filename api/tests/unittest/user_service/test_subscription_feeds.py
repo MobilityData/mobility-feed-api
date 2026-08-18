@@ -16,7 +16,7 @@
 """DB-backed tests for feed-scoped notification subscriptions (issue #1778).
 
 These exercise the full create path (validation, persistence into the
-``notification_subscription_feed`` join table, idempotent feed-set replacement) and the
+``notification_subscription_feed`` join table, idempotent feed-set merging) and the
 ``ON DELETE CASCADE`` / ``delete-orphan`` behaviour against the real users test database.
 """
 
@@ -41,6 +41,9 @@ from shared.users_database_gen.sqlacodegen_models import (
 from user_service.impl.users_api_impl import UsersApiImpl
 from user_service_gen.models.create_notification_subscription_request import (
     CreateNotificationSubscriptionRequest,
+)
+from user_service_gen.models.update_notification_subscription_request import (
+    UpdateNotificationSubscriptionRequest,
 )
 
 FEED_SCOPED_TYPE = "feed.url_updated"
@@ -110,7 +113,7 @@ def test_create_persists_feed_ids(api_session):
     assert _feed_rows(session, result.id) == {"mdb-1", "mdb-2"}
 
 
-def test_create_replaces_feed_set_idempotently(api_session):
+def test_create_merges_feed_set_idempotently(api_session):
     api, session, _ = api_session
 
     first = api.create_user_subscription(
@@ -118,14 +121,54 @@ def test_create_replaces_feed_set_idempotently(api_session):
         db_session=session,
     )
     second = api.create_user_subscription(
-        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-3"]),
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-2", "mdb-3"]),
         db_session=session,
     )
 
-    # Same single subscription, feed set replaced.
+    # Same single subscription, feed set merged (union), not replaced.
     assert second.id == first.id
-    assert [f.feed_id for f in second.feeds] == ["mdb-3"]
-    assert _feed_rows(session, first.id) == {"mdb-3"}
+    assert [f.feed_id for f in second.feeds] == ["mdb-1", "mdb-2", "mdb-3"]
+    assert _feed_rows(session, first.id) == {"mdb-1", "mdb-2", "mdb-3"}
+
+
+def test_update_remove_feed_ids_removes_one_feed_and_keeps_others(api_session):
+    api, session, _ = api_session
+
+    sub = api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1", "mdb-2"]),
+        db_session=session,
+    )
+
+    result = api.update_user_subscription(
+        sub.id,
+        UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    assert [f.feed_id for f in result.feeds] == ["mdb-2"]
+    assert _feed_rows(session, sub.id) == {"mdb-2"}
+
+
+def test_update_remove_feed_ids_deletes_subscription_when_emptied(api_session):
+    api, session, _ = api_session
+
+    sub = api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    result = api.update_user_subscription(
+        sub.id,
+        UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    # A feed-scoped subscription can't exist with no feeds, so removing the last feed deletes
+    # it entirely (cascading to its feed rows) instead of leaving an empty subscription behind.
+    assert result.id == sub.id
+    assert result.feeds is None
+    assert session.get(NotificationSubscription, sub.id) is None
+    assert _feed_rows(session, sub.id) == set()
 
 
 def test_delete_subscription_cascades_to_feed_rows(api_session):

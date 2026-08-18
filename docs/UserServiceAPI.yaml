@@ -144,7 +144,12 @@ paths:
           description: Unauthorized.
     post:
       summary: Create a notification subscription
-      description: Subscribes the authenticated user to a notification type. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
+      description: >-
+        Subscribes the authenticated user to a notification type. For feed-scoped
+        types, the supplied `feed_ids` are merged into the subscription's existing
+        feed set rather than replacing it, so callers do not need to know which
+        feeds the user is already subscribed to. This feature is available to
+        selected users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: createUserSubscription
       tags:
         - "users"
@@ -170,8 +175,16 @@ paths:
 
   /v1/user/subscriptions/{id}:
     patch:
-      summary: Toggle a notification subscription
-      description: Activates or deactivates a notification subscription by ID. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
+      summary: Toggle a notification subscription, or remove specific feeds from it
+      description: >-
+        Activates or deactivates a notification subscription by ID, and/or removes
+        specific feed stable IDs from a feed-scoped subscription's feed set via
+        `remove_feed_ids`. To add feeds instead, use `POST /v1/user/subscriptions`,
+        which merges into the existing feed set. A feed-scoped subscription cannot
+        exist with no feeds, so removing the last remaining feed deletes the
+        subscription entirely; the response reflects its final state. This feature
+        is available to selected users. To request access or learn more, contact us
+        at api@mobilitydata.org.
       operationId: updateUserSubscription
       tags:
         - "users"
@@ -492,17 +505,29 @@ components:
             Feed stable IDs to subscribe to. Required (non-empty) for the
             feed-scoped notification types feed.url_updated,
             feed.url_availability and feed.coverage; must be omitted or empty
-            for other types. Validation is enforced in code, not the schema.
+            for other types. Merged into the subscription's existing feed set
+            (union), not a replacement. Validation is enforced in code, not the
+            schema.
           example: ["mdb-1", "mdb-42"]
 
     UpdateNotificationSubscriptionRequest:
       type: object
-      required:
-        - active
       properties:
         active:
           type: boolean
           description: Whether the subscription should be active.
+        remove_feed_ids:
+          type: array
+          items:
+            type: string
+          description: >
+            Feed stable IDs to remove from a feed-scoped subscription's feed set.
+            Only valid for feed-scoped notification types; removing a feed ID
+            that is not currently present is a no-op. Removing every remaining
+            feed ID deletes the subscription entirely (a feed-scoped subscription
+            cannot exist with no feeds). Validation is enforced in code, not the
+            schema.
+          example: ["mdb-1"]
 
     FeatureFlag:
       type: object

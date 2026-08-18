@@ -509,7 +509,7 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.mock_session.add.assert_not_called()
 
-    def test_create_feed_scoped_replaces_existing_feeds(self):
+    def test_create_feed_scoped_merges_into_existing_feeds(self):
         from shared.users_database_gen.sqlacodegen_models import (
             NotificationType,
             NotificationSubscriptionFeed as FeedOrm,
@@ -529,9 +529,9 @@ class TestSubscriptions(unittest.TestCase):
 
         self.mock_session.add.assert_not_called()
         self.assertTrue(existing.active)
-        # The old feed was dropped and the new one attached (delete-orphan handles the DB side).
-        self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-new"})
-        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new"])
+        # The existing feed is kept and the new one is merged in, not replaced.
+        self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-old", "mdb-new"})
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new", "mdb-old"])
 
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):
@@ -558,6 +558,70 @@ class TestSubscriptions(unittest.TestCase):
                 "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
             )
         self.assertEqual(ctx.exception.status_code, 404)
+
+    # ── update: remove_feed_ids ──
+    def test_update_remove_feed_ids_removes_specified_feed(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedOrm
+
+        sub = self._make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.extend([FeedOrm(feed_stable_id="mdb-1"), FeedOrm(feed_stable_id="mdb-2")])
+        self.mock_session.get.return_value = sub
+
+        result = self.api.update_user_subscription(
+            "sub-1",
+            UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual({f.feed_stable_id for f in sub.notification_subscription_feeds}, {"mdb-2"})
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-2"])
+
+    def test_update_remove_feed_ids_is_noop_for_id_not_present(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedOrm
+
+        sub = self._make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-1"))
+        self.mock_session.get.return_value = sub
+
+        result = self.api.update_user_subscription(
+            "sub-1",
+            UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-999"]),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual({f.feed_stable_id for f in sub.notification_subscription_feeds}, {"mdb-1"})
+        self.assertEqual([f.feed_id for f in result.feeds], ["mdb-1"])
+
+    def test_update_remove_feed_ids_rejects_non_feed_scoped_type(self):
+        sub = self._make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.return_value = sub
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1",
+                UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"]),
+                db_session=self.mock_session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_update_remove_feed_ids_deletes_subscription_when_emptied(self):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedOrm
+
+        sub = self._make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-1"))
+        self.mock_session.get.return_value = sub
+
+        result = self.api.update_user_subscription(
+            "sub-1",
+            UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"]),
+            db_session=self.mock_session,
+        )
+
+        # A feed-scoped subscription can't exist with no feeds, so removing the last feed
+        # deletes it entirely instead of leaving an empty subscription behind.
+        self.mock_session.delete.assert_called_once_with(sub)
+        self.assertEqual(result.id, "sub-1")
+        self.assertIsNone(result.feeds)
 
     # ── delete ──
     def test_delete_announcement_disables_instead_of_delete(self):
