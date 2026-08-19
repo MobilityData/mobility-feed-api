@@ -68,6 +68,9 @@ locals {
 
   function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
   function_gtfs_datasets_comparer_zip    = "${path.module}/../../functions-python/gtfs_datasets_comparer/.dist/gtfs_datasets_comparer.zip"
+
+  function_gtfs_file_data_extractor_config = jsondecode(file("${path.module}/../../functions-python/gtfs_file_data_extractor/function_config.json"))
+  function_gtfs_file_data_extractor_zip    = "${path.module}/../../functions-python/gtfs_file_data_extractor/.dist/gtfs_file_data_extractor.zip"
 }
 
 locals {
@@ -80,7 +83,8 @@ locals {
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
     local.function_pmtiles_builder_config.secret_environment_variables,
-    local.function_gtfs_datasets_comparer_config.secret_environment_variables
+    local.function_gtfs_datasets_comparer_config.secret_environment_variables,
+    local.function_gtfs_file_data_extractor_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -231,6 +235,13 @@ resource "google_storage_bucket_object" "gtfs_datasets_comparer_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "gtfs-datasets-comparer-${substr(filebase64sha256(local.function_gtfs_datasets_comparer_zip), 0, 10)}.zip"
   source = local.function_gtfs_datasets_comparer_zip
+}
+
+# 17. GTFS File Data Extractor
+resource "google_storage_bucket_object" "gtfs_file_data_extractor_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-file-data-extractor-${substr(filebase64sha256(local.function_gtfs_file_data_extractor_zip), 0, 10)}.zip"
+  source = local.function_gtfs_file_data_extractor_zip
 }
 
 # Web app revalidation secret
@@ -549,6 +560,29 @@ resource "google_cloud_scheduler_job" "jbda_import_schedule" {
       "Content-Type" = "application/json"
     }
     body = base64encode("{\"task\": \"jbda_import\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+# Schedule the ODPT import function to run monthly
+resource "google_cloud_scheduler_job" "odpt_import_schedule" {
+  name        = "odpt-import-scheduler-${var.environment}"
+  description = "Schedule the odpt import function"
+  time_zone   = "Etc/UTC"
+  schedule    = var.odpt_scheduler_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"odpt_import\", \"payload\": {\"dry_run\": false}}")
   }
   attempt_deadline = "320s"
 }
@@ -1129,6 +1163,72 @@ resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_in
   cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# 17.1 functions/gtfs_file_data_extractor cloud function
+resource "google_cloudfunctions2_function" "gtfs_file_data_extractor" {
+  name        = local.function_gtfs_file_data_extractor_config.name
+  description = local.function_gtfs_file_data_extractor_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+  ]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_file_data_extractor_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_file_data_extractor_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      ENVIRONMENT         = var.environment
+      PROJECT_ID          = var.project_id
+      GCP_REGION          = var.gcp_region
+    }
+    available_memory                 = local.function_gtfs_file_data_extractor_config.available_memory
+    timeout_seconds                  = local.function_gtfs_file_data_extractor_config.timeout
+    available_cpu                    = local.function_gtfs_file_data_extractor_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_file_data_extractor_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_file_data_extractor_config.max_instance_count
+    min_instance_count               = local.function_gtfs_file_data_extractor_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_file_data_extractor_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_file_data_extractor_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# Grant execution permission to batchfunctions service account to the gtfs_file_data_extractor function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_file_data_extractor_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_file_data_extractor_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
 # 13.3 functions/reverse_geolocation - batch cloud function

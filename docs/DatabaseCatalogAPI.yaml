@@ -37,6 +37,8 @@ tags:
     description: "Beta endpoints of the API."
   - name: "licenses"
     description: "Licenses of the Mobility Database"
+  - name: "locations"
+    description: "Locations in the Mobility Database"
 
 paths:
   /v1/feeds:
@@ -389,6 +391,69 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/SearchFeedItemResult"
+
+  /v1/locations:
+    get:
+      description: >
+        Search locations (countries, subdivisions and municipalities).
+        Results can be filtered by a free-text query and narrowed to a specific country,
+        subdivision or location type. Matches are ordered from the broadest area to the
+        most specific, and by relevance within each level.
+      operationId: getLocations
+      tags:
+        - "locations"
+      parameters:
+        - $ref: "#/components/parameters/limit_query_param_locations_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - name: search_query
+          in: query
+          description: >
+            Free-text search matched against the location name, alternate name and its
+            full hierarchy (e.g. "Canada, Quebec, Montréal"). Matching is accent-insensitive
+            and supports typeahead-style prefix matching, so "mon" matches "Montréal".
+            When several words are provided, all of them must match.
+          schema:
+            type: string
+            example: montreal
+        - name: country_code
+          in: query
+          description: >
+            Limit results to locations contained within this country, given as its
+            ISO 3166-1 alpha-2 code. Case-insensitive.
+          schema:
+            type: string
+            example: CA
+        - name: subdivision_code
+          in: query
+          description: >
+            Limit results to locations contained within this subdivision, given as its
+            ISO 3166-2 code. Case-insensitive.
+          schema:
+            type: string
+            example: CA-QC
+        - name: location_type
+          in: query
+          description: >
+            Filter by the type of location:
+              * `country` - a sovereign country, identified by an ISO 3166-1 code.
+              * `subdivision` - a first-level subdivision (e.g. state or province), identified by an ISO 3166-2 code.
+              * `municipality` - a locality below the subdivision level (e.g. a city or town).
+          schema:
+            type: string
+            enum:
+              - country
+              - subdivision
+              - municipality
+            example: municipality
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful search of locations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationSearchResponse"
 
   /v1/licenses:
     get:
@@ -1244,6 +1309,86 @@ components:
           type: string
           example: Los Angeles
 
+    LocationSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: The total number of matching locations regardless of limit and offset.
+        results:
+          type: array
+          description: The page of matching locations, ordered from the broadest area to the most specific and by relevance within each level.
+          items:
+            $ref: "#/components/schemas/LocationSearchResult"
+
+    LocationSearchResult:
+      type: object
+      properties:
+        location_id:
+          type: integer
+          description: Stable location identifier.
+          example: 175905
+        parent_location_id:
+          type: integer
+          nullable: true
+          description: Stable identifier of the nearest containing location.
+          example: 161950
+        name:
+          type: string
+          nullable: true
+          description: The primary name of the location, in English when available.
+          example: Montréal
+        alt_name:
+          type: string
+          nullable: true
+          description: An alternate or local name for the location, when available.
+          example: City of Montréal
+        location_type:
+          type: string
+          description: >
+            The type of location: `country` (has an ISO 3166-1 code), `subdivision`
+            (has an ISO 3166-2 code) or `municipality` (a locality below the subdivision level).
+          enum:
+            - country
+            - subdivision
+            - municipality
+          example: municipality
+        country_name:
+          type: string
+          nullable: true
+          description: The name of the country that contains this location.
+          example: Canada
+        country_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-1 alpha-2 code of the country that contains this location.
+          example: CA
+        subdivision_name:
+          type: string
+          nullable: true
+          description: The name of the subdivision (e.g. state or province) that contains this location, when applicable.
+          example: Quebec
+        subdivision_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-2 code of the subdivision that contains this location, when applicable.
+          example: CA-QC
+        path_names:
+          type: array
+          description: The ordered list of location names from the broadest containing area down to this location.
+          items:
+            type: string
+          example:
+            - Canada
+            - Quebec
+            - Montréal (region)
+            - Montréal
+        display_name:
+          type: string
+          nullable: true
+          description: A human-readable representation of the full location hierarchy, joined from the broadest area to this location.
+          example: Canada, Quebec, Montréal (region), Montréal
+
     #    Have to put the enum inline because of a bug in openapi-generator
     #    FeedStatus:
     #      description: >
@@ -1771,6 +1916,18 @@ components:
       schema:
         type: boolean
         default: null
+
+    limit_query_param_locations_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 100
+        example: 10
 
     limit_query_param_feeds_endpoint:
       name: limit

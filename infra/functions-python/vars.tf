@@ -78,6 +78,12 @@ variable "jbda_scheduler_schedule" {
     default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
 }
 
+variable "odpt_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the ODPT scheduler job"
+    default     = "0 0 5 * *" # At 00:00 on the 5th day of every month
+}
+
 variable "gtfs_feed_availability_check_schedule" {
     type        = string
     description = "Cron schedule for the GTFS feed availability check job"
