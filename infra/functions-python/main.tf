@@ -68,6 +68,9 @@ locals {
 
   function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
   function_gtfs_datasets_comparer_zip    = "${path.module}/../../functions-python/gtfs_datasets_comparer/.dist/gtfs_datasets_comparer.zip"
+
+  function_gtfs_file_data_extractor_config = jsondecode(file("${path.module}/../../functions-python/gtfs_file_data_extractor/function_config.json"))
+  function_gtfs_file_data_extractor_zip    = "${path.module}/../../functions-python/gtfs_file_data_extractor/.dist/gtfs_file_data_extractor.zip"
 }
 
 locals {
@@ -80,7 +83,8 @@ locals {
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
     local.function_pmtiles_builder_config.secret_environment_variables,
-    local.function_gtfs_datasets_comparer_config.secret_environment_variables
+    local.function_gtfs_datasets_comparer_config.secret_environment_variables,
+    local.function_gtfs_file_data_extractor_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -131,6 +135,27 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
     method          = ["GET"]
     response_header = ["*"]
   }
+}
+
+resource "google_storage_bucket" "sitemap_bucket" {
+  location                    = var.gcp_region
+  name                        = "mobilitydatabase-sitemap-${var.environment}"
+  uniform_bucket_level_access = true
+  cors {
+    origin          = ["*"]
+    method          = ["GET"]
+    response_header = ["*"]
+  }
+}
+
+# Public, unauthenticated read access so sitemap.xml can be fetched directly
+# (e.g. by the Next.js web app) without a GCP identity. Uniform bucket-level
+# access is on for this bucket, so per-object ACLs (blob.make_public()) don't
+# apply here — public read has to be granted at the bucket level instead.
+resource "google_storage_bucket_iam_member" "sitemap_bucket_public_read" {
+  bucket = google_storage_bucket.sitemap_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
 }
 
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
@@ -231,6 +256,13 @@ resource "google_storage_bucket_object" "gtfs_datasets_comparer_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "gtfs-datasets-comparer-${substr(filebase64sha256(local.function_gtfs_datasets_comparer_zip), 0, 10)}.zip"
   source = local.function_gtfs_datasets_comparer_zip
+}
+
+# 17. GTFS File Data Extractor
+resource "google_storage_bucket_object" "gtfs_file_data_extractor_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-file-data-extractor-${substr(filebase64sha256(local.function_gtfs_file_data_extractor_zip), 0, 10)}.zip"
+  source = local.function_gtfs_file_data_extractor_zip
 }
 
 # Web app revalidation secret
@@ -674,6 +706,31 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
     body = base64encode("{\"task\": \"reconcile_announcements_from_brevo\", \"payload\": {\"dry_run\": false}}")
   }
   attempt_deadline = "320s"
+}
+
+# Schedule the mobilitydatabase.org sitemap generation to run daily at 08:00 UTC.
+# Overwrites sitemap.xml in the sitemap bucket on every run. Disabled (paused)
+# outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "generate_sitemap_scheduler" {
+  name        = "generate-mobilitydatabase-sitemap-${var.environment}"
+  description = "Daily regeneration of the mobilitydatabase.org sitemap"
+  time_zone   = "Etc/UTC"
+  schedule    = var.generate_sitemap_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"generate_mobilitydatabase_sitemap\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "600s"
 }
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
@@ -1154,6 +1211,72 @@ resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_in
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# 17.1 functions/gtfs_file_data_extractor cloud function
+resource "google_cloudfunctions2_function" "gtfs_file_data_extractor" {
+  name        = local.function_gtfs_file_data_extractor_config.name
+  description = local.function_gtfs_file_data_extractor_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+  ]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_file_data_extractor_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_file_data_extractor_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      ENVIRONMENT         = var.environment
+      PROJECT_ID          = var.project_id
+      GCP_REGION          = var.gcp_region
+    }
+    available_memory                 = local.function_gtfs_file_data_extractor_config.available_memory
+    timeout_seconds                  = local.function_gtfs_file_data_extractor_config.timeout
+    available_cpu                    = local.function_gtfs_file_data_extractor_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_file_data_extractor_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_file_data_extractor_config.max_instance_count
+    min_instance_count               = local.function_gtfs_file_data_extractor_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_file_data_extractor_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_file_data_extractor_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# Grant execution permission to batchfunctions service account to the gtfs_file_data_extractor function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_file_data_extractor_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_file_data_extractor_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # 13.3 functions/reverse_geolocation - batch cloud function
 resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   name        = "${local.function_reverse_geolocation_config.name}-batch"
@@ -1557,8 +1680,9 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+    sitemap_bucket        = google_storage_bucket.sitemap_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.sitemap_bucket]
   bucket     = each.value
   role       = "roles/storage.objectCreator"
   members = [

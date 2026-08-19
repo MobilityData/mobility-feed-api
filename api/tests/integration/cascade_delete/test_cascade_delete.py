@@ -26,6 +26,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Geopolygon,
     FeedLicenseChange,
+    SealCriterion,
+    FeedReliabilitySeal,
 )
 
 from sqlalchemy import text
@@ -202,6 +204,54 @@ def test_delete_feed_cascadeto_feed_license_changes(test_database):
             [
                 "SELECT COUNT(*) FROM feed where id = 'f1'",
                 "SELECT COUNT(*) FROM feed_license_change where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_seal_criterion(test_database):
+    """Deleting a feed removes its per-criterion seal state (issue #1783).
+
+    This exercises the `Feed.seal_criteria` entry in `cascade_entities`: without it,
+    SQLAlchemy would try to NULL `seal_criterion.feed_id`, which is NOT NULL and part of the
+    composite primary key, instead of letting ON DELETE CASCADE do the work.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        seal_criterion = SealCriterion(feed_id="f1", criterion="official")
+        session.add_all([feed, seal_criterion])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM seal_criterion where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_feed_reliability_seal(test_database):
+    """Deleting a feed removes its overall seal row (issue #1783).
+
+    Exercises the `Feed.feed_reliability_seal` entry in `cascade_entities`. The seal row has
+    a surrogate `id` primary key and `feed_id` as a UNIQUE foreign key, so it is a plain
+    related entity (a 1:1 with Feed), not a joined-table subclass.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        seal = FeedReliabilitySeal(feed_id="f1")
+        session.add_all([feed, seal])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM feed_reliability_seal where feed_id = 'f1'",
             ],
             feed,
         )
