@@ -979,6 +979,7 @@ components:
                 example: vp
                 description: >
                   The type of realtime entry:
+
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
@@ -1095,6 +1096,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1332,21 +1334,18 @@ components:
       properties:
         producer_url:
           description: >
-            URL where the producer is providing the dataset.  Refer to the authentication information to know how to access this URL.
+            URL where the producer is providing the dataset. Refer to the authentication information to know how to access this URL.
 
           type: string
           format: url
           example: https://ladotbus.com/gtfs
         is_producer_url_unstable:
           description: >
-            Indicates whether the `producer_url` is known to be unstable, i.e. it changes over time.
-            This may be because the URL contains a date/time, or because the transit provider has
-            communicated that it is not permanent (e.g. it is updated monthly).
+            Indicates whether the `producer_url` is known to be unstable, i.e. it changes over time. This may be because the URL contains a date/time, or because the transit provider has communicated that it is not permanent (e.g. it is updated monthly).
 
               * true - The producer URL is unstable and changes over time.
               * false - The producer URL is stable and unchanging over time.
               * null (default) - There is not enough information to determine the stability of the producer URL.
-
           type: boolean
           nullable: true
           example: true
@@ -1430,6 +1429,84 @@ components:
           description: Primary municipality in english in which the transit system is located.
           type: string
           example: Los Angeles
+    LocationSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: The total number of matching locations regardless of limit and offset.
+        results:
+          type: array
+          description: The page of matching locations, ordered from the broadest area to the most specific and by relevance within each level.
+          items:
+            $ref: "#/components/schemas/LocationSearchResult"
+    LocationSearchResult:
+      type: object
+      properties:
+        location_id:
+          type: integer
+          description: Stable location identifier.
+          example: 175905
+        parent_location_id:
+          type: integer
+          nullable: true
+          description: Stable identifier of the nearest containing location.
+          example: 161950
+        name:
+          type: string
+          nullable: true
+          description: The primary name of the location, in English when available.
+          example: Montréal
+        alt_name:
+          type: string
+          nullable: true
+          description: An alternate or local name for the location, when available.
+          example: City of Montréal
+        location_type:
+          type: string
+          description: >
+            The type of location: `country` (has an ISO 3166-1 code), `subdivision` (has an ISO 3166-2 code) or `municipality` (a locality below the subdivision level).
+
+          enum:
+            - country
+            - subdivision
+            - municipality
+          example: municipality
+        country_name:
+          type: string
+          nullable: true
+          description: The name of the country that contains this location.
+          example: Canada
+        country_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-1 alpha-2 code of the country that contains this location.
+          example: CA
+        subdivision_name:
+          type: string
+          nullable: true
+          description: The name of the subdivision (e.g. state or province) that contains this location, when applicable.
+          example: Quebec
+        subdivision_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-2 code of the subdivision that contains this location, when applicable.
+          example: CA-QC
+        path_names:
+          type: array
+          description: The ordered list of location names from the broadest containing area down to this location.
+          items:
+            type: string
+          example:
+            - Canada
+            - Quebec
+            - Montréal (region)
+            - Montréal
+        display_name:
+          type: string
+          nullable: true
+          description: A human-readable representation of the full location hierarchy, joined from the broadest area to this location.
+          example: Canada, Quebec, Montréal (region), Montréal
     #    Have to put the enum inline because of a bug in openapi-generator
     #    FeedStatus:
     #      description: >
@@ -1956,6 +2033,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2080,6 +2158,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2167,6 +2246,7 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2184,6 +2264,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
