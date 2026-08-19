@@ -227,9 +227,17 @@ class TaskExecutionTracker:
             execution_ref,
         )
 
-    def mark_completed(self, entity_id: Optional[str]) -> None:
-        """Mark an entity execution as completed."""
-        self._update_entity_status(entity_id, STATUS_COMPLETED)
+    def mark_completed(
+        self, entity_id: Optional[str], metadata: Optional[dict[str, Any]] = None
+    ) -> None:
+        """Mark an entity execution as completed.
+
+        ``metadata`` is stored in the same `metadata_` column `mark_triggered` writes to,
+        so a worker can stash its own result (e.g. a batch's summary counts) for a later
+        aggregation step to read back via the `task_execution_log` rows, without a
+        dedicated results table.
+        """
+        self._update_entity_status(entity_id, STATUS_COMPLETED, metadata=metadata)
 
     def mark_failed(
         self, entity_id: Optional[str], error_message: Optional[str] = None
@@ -442,7 +450,12 @@ class TaskExecutionTracker:
             self.task_run_id = task_run.id
         return self.task_run_id
 
-    def _update_entity_status(self, entity_id: Optional[str], status: str) -> None:
+    def _update_entity_status(
+        self,
+        entity_id: Optional[str],
+        status: str,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None:
         query = self.db_session.query(TaskExecutionLog).filter(
             TaskExecutionLog.task_name == self.task_name,
             TaskExecutionLog.run_id == self.run_id,
@@ -451,8 +464,11 @@ class TaskExecutionTracker:
             query = query.filter(TaskExecutionLog.entity_id.is_(None))
         else:
             query = query.filter(TaskExecutionLog.entity_id == entity_id)
-        query.update(
-            {"status": status, "completed_at": datetime.now(timezone.utc)},
-            synchronize_session=False,
-        )
+        values = {"status": status, "completed_at": datetime.now(timezone.utc)}
+        if metadata is not None:
+            # Keyed by the mapped attribute (not a string) since the underlying DB
+            # column is named `metadata`, renamed to `metadata_` on the model because
+            # `metadata` is reserved on the declarative base.
+            values[TaskExecutionLog.metadata_] = metadata
+        query.update(values, synchronize_session=False)
         self.db_session.flush()

@@ -50,18 +50,26 @@ class FeedSealContext:
     official: Optional[bool] = None
 
 
-def get_seal_feeds_query(db_session: Session, stable_feed_ids: Sequence[str]):
-    """Return a query for the requested feeds that are eligible for the seal.
+def get_seal_feeds_query(
+    db_session: Session, stable_feed_ids: Optional[Sequence[str]] = None
+):
+    """Return a query for feeds that are eligible for the seal.
 
-    The task always runs against an explicit list of feeds. `deprecated`,
-    `development` and non-`published` feeds are dropped.
-    `inactive` and `future` feeds are deliberately kept.
+    `deprecated`, `development` and non-`published` feeds are dropped. `inactive` and
+    `future` feeds are deliberately kept.
+
+    `stable_feed_ids` restricts the query to that explicit list, which is how
+    `update_seals` always calls it — there is no run-the-whole-catalogue mode there.
+    Left as `None`, every eligible feed in the catalog is returned; this is what the
+    seal orchestrator (issue #1800) uses to enumerate the full batch to fan out.
     """
-    return db_session.query(Gtfsfeed).filter(
+    query = db_session.query(Gtfsfeed).filter(
         Feed.status.notin_(["deprecated", "development"]),
         Feed.operational_status == "published",
-        Feed.stable_id.in_(list(stable_feed_ids)),
     )
+    if stable_feed_ids is not None:
+        query = query.filter(Feed.stable_id.in_(list(stable_feed_ids)))
+    return query
 
 
 def build_contexts(

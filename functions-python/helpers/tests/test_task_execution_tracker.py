@@ -143,6 +143,32 @@ class TestTaskExecutionTrackerMarkCompleted(unittest.TestCase):
         self.assertEqual(update_args["status"], STATUS_COMPLETED)
         self.assertIn("completed_at", update_args)
 
+    def test_mark_completed_with_metadata_stores_it(self):
+        from task_execution.task_execution_tracker import TaskExecutionLog
+
+        tracker, session = _make_tracker()
+        query_mock = MagicMock()
+        session.query.return_value.filter.return_value.filter.return_value = query_mock
+
+        tracker.mark_completed("batch-0001", metadata={"seals_granted": 3})
+
+        query_mock.update.assert_called_once()
+        update_args = query_mock.update.call_args[0][0]
+        self.assertEqual(update_args["status"], STATUS_COMPLETED)
+        self.assertEqual(update_args[TaskExecutionLog.metadata_], {"seals_granted": 3})
+
+    def test_mark_completed_without_metadata_omits_it(self):
+        from task_execution.task_execution_tracker import TaskExecutionLog
+
+        tracker, session = _make_tracker()
+        query_mock = MagicMock()
+        session.query.return_value.filter.return_value.filter.return_value = query_mock
+
+        tracker.mark_completed("ds-1")
+
+        update_args = query_mock.update.call_args[0][0]
+        self.assertNotIn(TaskExecutionLog.metadata_, update_args)
+
 
 class TestTaskExecutionTrackerMarkFailed(unittest.TestCase):
     def test_mark_failed_sets_error_message(self):

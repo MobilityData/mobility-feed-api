@@ -682,6 +682,31 @@ resource "google_cloud_scheduler_job" "dispatch_notifications_daily_scheduler" {
 }
 
 
+# Schedule the seal orchestrator to run nightly across the whole catalog.
+# Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "seal_orchestrator_scheduler" {
+  name        = "seal-orchestrator-${var.environment}"
+  description = "Nightly Seal of Reliability run across every eligible GTFS feed"
+  time_zone   = "Etc/UTC"
+  schedule    = var.seal_orchestrator_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"seal_orchestrator\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+
 # Schedule the Brevo announcements reconciliation to run daily.
 # Turn-OFF only: propagates Brevo-originated unsubscribes/blocks back into the
 # users DB for api.announcements. Runs with dry_run=false so it actually
@@ -1408,6 +1433,8 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       BREVO_API_ANNOUNCEMENTS_LIST_ID     = var.brevo_api_announcements_list_id
       NOTIFICATION_DISPATCH_QUEUE         = google_cloud_tasks_queue.notifications_dispatch_queue.name
       NOTIFICATION_DISPATCH_MONITOR_QUEUE = google_cloud_tasks_queue.notifications_dispatch_monitor_queue.name
+      SEAL_ORCHESTRATOR_QUEUE             = google_cloud_tasks_queue.seal_orchestrator_queue.name
+      SEAL_ORCHESTRATOR_MONITOR_QUEUE     = google_cloud_tasks_queue.seal_orchestrator_monitor_queue.name
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1838,6 +1865,55 @@ resource "google_cloud_tasks_queue" "notifications_dispatch_monitor_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "notifications-dispatch-monitor-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = -1
+    min_backoff   = "60s"
+    max_backoff   = "60s"
+    max_doublings = 0
+  }
+}
+
+# Task queue for the per-batch seal orchestrator workers (fan-out). One task per batch
+# of ~250 feeds is enqueued by the 'seal_orchestrator' producer; each runs
+# 'update_seals' for its slice. Seal evaluation is pure DB work (no outbound HTTP), so
+# concurrency here is generous relative to the notification queue. Cloud Tasks task
+# names are DYNAMIC (run_id + batch_id), so the queue name only needs the standard
+# env/timestamp suffix to allow recreation without name-tombstone collisions.
+resource "google_cloud_tasks_queue" "seal_orchestrator_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "seal-orchestrator-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 20
+    max_dispatches_per_second = 10
+  }
+
+  retry_config {
+    max_attempts  = 5
+    min_backoff   = "30s"
+    max_backoff   = "300s"
+    max_doublings = 3
+  }
+}
+
+# Dedicated queue for the single seal-orchestrator barrier/monitor task per run. The
+# monitor returns 503 (TaskInProgressError) while batches are still in flight, relying
+# on NATIVE Cloud Tasks retry to poll at a fixed interval until the run drains or its
+# in-process deadline_seconds guard is reached — the run never polls forever because of
+# that in-handler deadline, not because of this queue's retry budget (hence the
+# effectively-unlimited max_attempts). Isolated from the worker queue so its "not
+# drained yet" non-2xx responses don't pollute worker metrics/alerts.
+resource "google_cloud_tasks_queue" "seal_orchestrator_monitor_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "seal-orchestrator-monitor-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
     max_concurrent_dispatches = 5
