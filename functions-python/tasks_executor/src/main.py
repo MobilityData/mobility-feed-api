@@ -264,7 +264,7 @@ tasks = {
             "feeds' latest dataset; GBFS its newest GBFS version date — all "
             "floored at 2026-03-05. "
             "Parameters: dry_run (default true), "
-            "bucket_name (default 'mobilitydatabase-sitemap'), "
+            "bucket_name (default 'mobilitydatabase-sitemap-{ENVIRONMENT}'), "
             "object_name (default 'sitemap.xml'), "
             "base_url (default 'https://mobilitydatabase.org'), "
             "make_public (default true), include_xml (default false)."

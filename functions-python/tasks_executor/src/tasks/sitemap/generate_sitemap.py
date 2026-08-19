@@ -22,6 +22,7 @@ is a flat 0.8 and ``changefreq`` is deliberately omitted.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Iterable, Optional
@@ -39,7 +40,9 @@ from shared.database_gen.sqlacodegen_models import (
     t_feedreference,
 )
 
-DEFAULT_BUCKET_NAME: str = "mobilitydatabase-sitemap"
+# ``ENVIRONMENT`` (dev/qa/prod) is set on the Cloud Function by Terraform, same
+# as every other environment-scoped bucket in this repo (see infra/*/main.tf).
+DEFAULT_BUCKET_NAME: str = f"mobilitydatabase-sitemap-{os.getenv('ENVIRONMENT')}"
 DEFAULT_OBJECT_NAME: str = "sitemap.xml"
 DEFAULT_BASE_URL: str = "https://mobilitydatabase.org"
 
@@ -249,7 +252,7 @@ def generate_mobilitydatabase_sitemap_handler(payload: dict) -> dict:
 
     Payload parameters:
         dry_run (bool): If True, build the sitemap but do not upload it. Default: True.
-        bucket_name (str): Destination GCS bucket. Default: 'mobilitydatabase-sitemap'.
+        bucket_name (str): Destination GCS bucket. Default: 'mobilitydatabase-sitemap-{ENVIRONMENT}'.
         object_name (str): Destination object name. Default: 'sitemap.xml'.
         base_url (str): Site origin used to build each <loc>. Default: 'https://mobilitydatabase.org'.
         make_public (bool): Set a public-read ACL on the uploaded object. Default: True.
