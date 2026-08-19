@@ -85,7 +85,8 @@ from tasks.seal_of_reliability.seal_orchestrator_worker import (
     seal_orchestrator_worker_handler,
 )
 from tasks.seal_of_reliability.seal_orchestrator_monitor import (
-    seal_orchestrator_monitor_handler)
+    seal_orchestrator_monitor_handler,
+)
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
