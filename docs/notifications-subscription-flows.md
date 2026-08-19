@@ -149,8 +149,10 @@ list and no flag — only the DB row matters, and delete is a real delete.
 ## Endpoint inventory
 
 All paths are under the User Service API (`docs/UserServiceAPI.yaml`).
-Implementations live in `api/src/user_service/impl/`. In every path, `{id}` is
-the **subscription ID** (`notification_subscription.id`, a UUID).
+Implementations live in `api/src/user_service/impl/`. In every path below,
+`{id}` is the **subscription ID** (`notification_subscription.id`, a UUID) —
+except the two `.../feeds/{id}` paths, where `{id}` is a **feed stable ID**
+(e.g. `mdb-1`).
 
 ### Authenticated — tag `users` (end-user identity required)
 
@@ -161,6 +163,8 @@ the **subscription ID** (`notification_subscription.id`, a UUID).
 | `POST /v1/user/subscriptions` | `createUserSubscription` | Subscribe the caller to a type |
 | `PATCH /v1/user/subscriptions/{id}` | `updateUserSubscription` | Toggle `active` (pause / resume) |
 | `DELETE /v1/user/subscriptions/{id}` | `deleteUserSubscription` | Unsubscribe (delete, or disable for announcements) |
+| `GET /v1/user/subscriptions/feeds` | `getUserSubscriptionFeeds` | List feeds the caller has subscriptions for, grouped by feed |
+| `GET /v1/user/subscriptions/feeds/{id}` | `getUserSubscriptionFeedById` | Get the caller's subscriptions for one feed |
 
 ### Capability endpoints — tag `subscriptions` (subscription ID is the credential)
 
