@@ -24,10 +24,9 @@ The task resolves its own session from FEEDS_DATABASE_URL rather than taking a `
 the environment is pointed at the test database for the duration of each test and the
 Database singleton is reset around it.
 
-These runs are unnamed, so they evaluate every eligible feed in the test database — which
-includes the fixtures seeded by conftest.pytest_sessionstart. Assertions are therefore
-scoped to this module's own PREFIX, and the report counts are checked as invariants and
-deltas rather than absolutes.
+Each run is given this module's own feed list (REQUESTED), so it evaluates only the seeded
+feeds. Assertions are still scoped to this module's PREFIX, and report counts are checked as
+invariants and deltas rather than absolutes.
 """
 
 import os
@@ -39,12 +38,15 @@ import flask
 from main import tasks_executor
 from sqlalchemy import delete, select
 
+from tasks.seal_of_reliability.criteria import CriterionStatus
+from tasks.seal_of_reliability.update_seal_of_reliability import get_parameters
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    Feedreliabilityseal,
+    FeedReliabilitySeal,
     Gtfsfeed,
-    Sealcriterion,
+    SealCriterion,
 )
 from test_shared.test_utils.database_utils import default_db_url, reset_database_class
 
@@ -56,6 +58,9 @@ NOT_OFFICIAL = f"{PREFIX}not_official"
 UNKNOWN_OFFICIAL = f"{PREFIX}unknown_official"
 DEPRECATED = f"{PREFIX}deprecated"
 UNPUBLISHED = f"{PREFIX}unpublished"
+
+# The task always runs against an explicit feed list. These are the eligible seeded feeds.
+REQUESTED = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL]
 
 
 def _seed(db_session, feed_id, official=True, status="active", operational="published"):
@@ -105,6 +110,9 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         FEEDS_DATABASE_URL is pointed at the test database because the handler resolves its
         own session; without this the task would run against the local development DB.
         """
+        # The task requires a feed list; default to the seeded feeds unless a test set one,
+        # so each test's payload can stay focused on the dimension it exercises.
+        payload = {"stable_feed_ids": REQUESTED, **payload}
         request = MagicMock(spec=flask.Request)
         request.get_json.return_value = {
             "task": "update_seal_of_reliability",
@@ -123,18 +131,14 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
     @staticmethod
     def ours(report: dict) -> list:
-        """The report's feed entries for this module's feeds only.
-
-        Unnamed runs also cover the conftest fixtures, so filtering keeps these assertions
-        independent of what else lives in the test database.
-        """
+        """The report's feed entries for this module's feeds."""
         return [row for row in report["feeds"] if row["stable_id"].startswith(PREFIX)]
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
     def seal_state(db_session):
         """stable_id -> (has_seal, earned_at set?, lost_at set?) for the seeded feeds."""
-        seal = Feedreliabilityseal.__table__
+        seal = FeedReliabilitySeal.__table__
         rows = db_session.execute(
             select(
                 Feed.stable_id,
@@ -158,7 +162,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def criterion_state(db_session):
         """stable_id -> the sealcriterion row, for the seeded feeds."""
-        criterion = Sealcriterion.__table__
+        criterion = SealCriterion.__table__
         rows = db_session.execute(
             select(Feed.stable_id, criterion)
             .join(criterion, criterion.c.feed_id == Feed.id)
@@ -199,7 +203,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         self.assertEqual(
             {row["stable_id"] for row in self.ours(first)},
             {OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL},
-            "the two failures moved a criterion; the official feed gained the seal",
+            "every requested eligible feed is reported",
         )
 
         # --- inspect the database
@@ -215,9 +219,13 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         criteria = self.criterion_state()
         self.assertNotIn(DEPRECATED, criteria)
         self.assertNotIn(UNPUBLISHED, criteria)
-        self.assertTrue(criteria[OFFICIAL].confirmed_pass)
+        self.assertEqual(
+            criteria[OFFICIAL].confirmed_status, CriterionStatus.PASS.value
+        )
         self.assertIsNone(criteria[OFFICIAL].first_observed_failure_at)
-        self.assertFalse(criteria[NOT_OFFICIAL].confirmed_pass)
+        self.assertEqual(
+            criteria[NOT_OFFICIAL].confirmed_status, CriterionStatus.FAIL.value
+        )
         self.assertEqual(criteria[NOT_OFFICIAL].first_observed_failure_at, NOW)
 
         # --- modify the database: revoke one, recover another
@@ -240,18 +248,33 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         )
 
         moved = {row["stable_id"]: row for row in self.ours(second)}
-        self.assertEqual(set(moved), {OFFICIAL, NOT_OFFICIAL}, "only these two moved")
+        self.assertEqual(
+            set(moved),
+            {OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL},
+            "every requested feed is reported; OFFICIAL and NOT_OFFICIAL are the ones "
+            "whose seal actually changed",
+        )
 
         self.assertTrue(moved[OFFICIAL]["had_seal"])
         self.assertFalse(moved[OFFICIAL]["has_seal"])
-        self.assertFalse(moved[OFFICIAL]["criteria"][0]["confirmed_pass"])
-        self.assertTrue(moved[OFFICIAL]["criteria"][0]["previously_confirmed_pass"])
+        self.assertEqual(
+            moved[OFFICIAL]["criteria"][0]["confirmed_status"],
+            CriterionStatus.FAIL.value,
+        )
+        self.assertEqual(
+            moved[OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            CriterionStatus.PASS.value,
+        )
 
         self.assertFalse(moved[NOT_OFFICIAL]["had_seal"])
         self.assertTrue(moved[NOT_OFFICIAL]["has_seal"])
-        self.assertTrue(moved[NOT_OFFICIAL]["criteria"][0]["confirmed_pass"])
-        self.assertFalse(
-            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_pass"]
+        self.assertEqual(
+            moved[NOT_OFFICIAL]["criteria"][0]["confirmed_status"],
+            CriterionStatus.PASS.value,
+        )
+        self.assertEqual(
+            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            CriterionStatus.FAIL.value,
         )
 
         # --- inspect again: both transitions are recorded, history is preserved
@@ -281,8 +304,11 @@ class TestSealTaskEndToEnd(unittest.TestCase):
 
         later = NOW + timedelta(days=2)
         report = self.run_task({"dry_run": False, "now": later.isoformat()})
-        self.assertEqual(self.ours(report), [], "none of our feeds moved")
+        # The feeds are still reported (every requested feed is), but nothing moved:
+        # no new verdicts and no seal transitions.
         self.assertEqual(report["first_evaluations"], 0)
+        self.assertEqual(report["seals_granted"], 0)
+        self.assertEqual(report["seals_revoked"], 0)
         self.assertEqual(report["seals_before_run"], report["seals_after_run"])
 
         after = self.criterion_state()
@@ -302,6 +328,26 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         with self.app.app_context():
             response = tasks_executor(request)
         self.assertEqual(response.status_code, 400)
+
+
+class TestNowParsing(unittest.TestCase):
+    """`now` must reach the state machine tz-aware, or comparisons against the tz-aware
+    timestamptz columns raise TypeError for any criterion with a grace or probation period.
+    """
+
+    def test_naive_now_is_treated_as_utc(self):
+        for value in ("2026-08-01", "2026-08-01T00:00:00"):
+            with self.subTest(now=value):
+                parsed = get_parameters({"now": value})[5]
+                self.assertEqual(parsed, datetime(2026, 8, 1, tzinfo=timezone.utc))
+                self.assertIsNotNone(parsed.tzinfo)
+
+    def test_offset_now_is_normalized_to_utc(self):
+        parsed = get_parameters({"now": "2026-08-01T00:00:00-05:00"})[5]
+        self.assertEqual(parsed, datetime(2026, 8, 1, 5, 0, tzinfo=timezone.utc))
+
+    def test_absent_now_is_none(self):
+        self.assertIsNone(get_parameters({})[5])
 
 
 if __name__ == "__main__":

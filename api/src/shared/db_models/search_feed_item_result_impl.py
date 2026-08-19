@@ -31,6 +31,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             provider=feed_search_row.provider,
             feed_name=feed_search_row.feed_name,
             official=feed_search_row.official,
+            seasonal=feed_search_row.seasonal,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
@@ -121,6 +122,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             provider=feed_search_row.provider,
             feed_name=feed_search_row.feed_name,
             official=feed_search_row.official,
+            seasonal=feed_search_row.seasonal,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(

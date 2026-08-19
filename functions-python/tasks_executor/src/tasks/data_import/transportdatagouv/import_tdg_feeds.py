@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
@@ -35,10 +34,9 @@ from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Location,
 )
-from shared.common.gcp_utils import create_web_revalidation_task
-from shared.helpers.pub_sub import trigger_dataset_download
 from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
+    commit_changes,
     get_or_create_feed,
     get_or_create_entity_type,
     get_license,
@@ -817,34 +815,6 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
     }
     logger.info("TDG import summary: %s", summary)
     return summary
-
-
-def commit_changes(
-    db_session: Session,
-    feeds_to_publish: List[Feed],
-    total_processed: int,
-    changed_feed_stable_ids: List[str] | None = None,
-):
-    """
-    Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger website cache revalidation for changed feeds.
-    """
-    try:
-        logger.info("Commit after processing items (count=%d)", total_processed)
-        db_session.commit()
-        execution_id = str(uuid.uuid4())
-        if os.getenv("ENVIRONMENT", "").lower() == "local":
-            return
-        for feed in feeds_to_publish:
-            trigger_dataset_download(feed, execution_id)
-        if changed_feed_stable_ids:
-            try:
-                create_web_revalidation_task(changed_feed_stable_ids)
-            except Exception as e:
-                logger.warning("Failed to enqueue revalidation tasks: %s", e)
-    except IntegrityError:
-        db_session.rollback()
-        logger.exception("Commit failed with IntegrityError; rolled back")
 
 
 def import_tdg_handler(payload: Optional[dict] = None) -> dict:

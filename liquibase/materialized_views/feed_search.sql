@@ -29,6 +29,9 @@ SELECT
     ReliabilitySealJoin.seal_evaluated_at AS seal_evaluated_at,
     ReliabilitySealJoin.seal_latest_probation_start AS seal_latest_probation_start,
 
+    -- seasonal status
+    Feed.seasonal AS seasonal,
+
     -- created_at
     Feed.created_at AS created_at,
 

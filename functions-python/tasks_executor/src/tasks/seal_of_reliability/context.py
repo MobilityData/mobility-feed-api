@@ -50,24 +50,18 @@ class FeedSealContext:
     official: Optional[bool] = None
 
 
-def get_seal_feeds_query(
-    db_session: Session, stable_feed_ids: Optional[Sequence[str]] = None
-):
-    """Return a query for the feeds the seal applies to.
+def get_seal_feeds_query(db_session: Session, stable_feed_ids: Sequence[str]):
+    """Return a query for the requested feeds that are eligible for the seal.
 
-    Eligibility is defined here and nowhere else, so a full run and a one-feed run exercise
-    the same predicate. `inactive` and `future` feeds are deliberately included: skipping a
-    feed does not make it neutral, it freezes its stored rows, and once Fresh (future
-    coverage) exists an inactive feed should fail it rather than keep displaying a seal.
+    The task always runs against an explicit list of feeds. `deprecated`,
+    `development` and non-`published` feeds are dropped.
+    `inactive` and `future` feeds are deliberately kept.
     """
-    query = db_session.query(Gtfsfeed).filter(
-        Feed.data_type == "gtfs",
+    return db_session.query(Gtfsfeed).filter(
         Feed.status.notin_(["deprecated", "development"]),
         Feed.operational_status == "published",
+        Feed.stable_id.in_(list(stable_feed_ids)),
     )
-    if stable_feed_ids is not None:
-        query = query.filter(Feed.stable_id.in_(list(stable_feed_ids)))
-    return query
 
 
 def build_contexts(

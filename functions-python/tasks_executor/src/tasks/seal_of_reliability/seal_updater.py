@@ -15,15 +15,11 @@
 #
 """Nightly Seal of Reliability evaluation (issue #1761).
 
-Reads feed, dataset, validation report and availability data; writes only sealcriterion
-and feedreliabilityseal. The raw source tables are never modified.
+Reads feed, dataset, validation report and availability data; writes only seal_criterion
+and feed_reliability_seal. The source tables are never modified.
 
-Both seal tables are written with Core statements against `__table__` rather than through
-ORM objects. `feedreliabilityseal.feed_id` is both its primary key and a foreign key to
-feed(id), which sqlacodegen maps as joined-table inheritance
-(`class Feedreliabilityseal(Feed)`, a sibling of Gtfsfeed in the polymorphic hierarchy), so
-persisting an ORM instance would try to insert a new feed. Core statements address the
-table directly and are unaffected.
+Both seal tables are written with Core `insert(...).on_conflict_do_update` statements
+against `__table__` for bulk upsert.
 """
 
 import logging
@@ -38,8 +34,8 @@ from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    Feedreliabilityseal,
-    Sealcriterion,
+    FeedReliabilitySeal,
+    SealCriterion,
 )
 
 from tasks.seal_of_reliability.context import (
@@ -47,17 +43,25 @@ from tasks.seal_of_reliability.context import (
     build_contexts,
     get_seal_feeds_query,
 )
-from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.criteria import (
+    CriterionPhase,
+    CriterionStatus,
+    SealCriterionName,
+)
 from tasks.seal_of_reliability.evaluators import EVALUATORS
-from tasks.seal_of_reliability.state_machine import SealCriterionState, transition
+from tasks.seal_of_reliability.state_machine import (
+    SealCriterionState,
+    phase,
+    transition,
+)
 
 DEFAULT_BATCH_SIZE: int = 200
 
 # Limit the number of feeds reported so the return does not get gigantic.
 DEFAULT_MAX_REPORTED_FEEDS: int = 50
 
-SEAL_TABLE = Feedreliabilityseal.__table__
-CRITERION_TABLE = Sealcriterion.__table__
+SEAL_TABLE = FeedReliabilitySeal.__table__
+CRITERION_TABLE = SealCriterion.__table__
 
 
 def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
@@ -124,9 +128,10 @@ def _load_previous_states(
         (row.feed_id, row.criterion): SealCriterionState(
             feed_id=row.feed_id,
             criterion=SealCriterionName(row.criterion),
-            observed_pass=row.observed_pass,
-            confirmed_pass=row.confirmed_pass,
+            observed_status=CriterionStatus(row.observed_status),
+            confirmed_status=CriterionStatus(row.confirmed_status),
             evaluated_at=row.evaluated_at,
+            last_verdict_at=row.last_verdict_at,
             first_observed_failure_at=row.first_observed_failure_at,
             last_observed_failure_at=row.last_observed_failure_at,
             last_confirmed_failure_at=row.last_confirmed_failure_at,
@@ -153,65 +158,50 @@ def _load_previous_seals(
 def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
     """True when every criterion in service is a confirmed pass and not on probation.
 
-    A criterion is *in service* once it has produced a verdict at any point
-    (`observed_pass is not None`). One that never has is skipped rather than counted as a
-    failure, which is what lets the seal be computed before every criterion has a data
-    source: a criterion whose source only starts collecting later sits at NULL until then
-    and simply is not part of the roll-up.
+    A criterion is *in service* when its `confirmed_status` is a verdict. `confirmed_status`
+    is only ever PASS, FAIL, NEVER_EVALUATED or NOT_APPLICABLE — never UNKNOWN, since an
+    unevaluable run leaves the stored value alone rather than writing UNKNOWN into it (see
+    `transition`). So the roll-up only has to skip the two non-verdict values it can see:
 
-    That waiver is self-limiting because `transition` never writes NULL back, so a
-    criterion can only be skipped before its first verdict ever. Once it has produced one it
-    stays in the roll-up with its last verdict, and an upstream outage freezes it rather
-    than quietly waiving it.
+    * NEVER_EVALUATED — never produced a verdict, so it is skipped rather than counted as a
+      failure. This is what lets the seal be computed before every criterion has a data
+      source: one whose source starts collecting later simply is not part of the roll-up.
+    * NOT_APPLICABLE — deliberately excluded for this feed, so it is skipped too. This is why
+      a seasonal feed is not denied the seal by a criterion that is meaningless for it.
 
-    The non-empty guard stops the roll-up being vacuously true: "every criterion in service
-    qualifies" holds trivially for a feed nothing has ever been measured on.
+    An unevaluable run (UNKNOWN) does not appear here at all: `transition` has already frozen the
+    criterion at its last verdict, so it stays in the roll-up with that verdict if it had
+    one, or stays NEVER_EVALUATED and skipped if it never did.
 
-    `confirmed_pass is True` rather than a bare truthiness test is defensive; within the
-    in-service set it cannot be NULL, since the two booleans are always written together.
+    A criterion IN_GRACE_PERIOD is a confirmed pass and holds the seal.
+    One ON_PROBATION denies it.
     """
-    in_service = [state for state in states.values() if state.observed_pass is not None]
+    in_service = [
+        state for state in states.values() if state.confirmed_status.is_verdict
+    ]
     if not in_service:
         return False
     return all(
-        state.confirmed_pass is True and state.probation_start is None
+        state.confirmed_status is CriterionStatus.PASS
+        and phase(state) is not CriterionPhase.ON_PROBATION
         for state in in_service
-    )
-
-
-def _is_notable(
-    previous: Optional[SealCriterionState], state: Optional[SealCriterionState]
-) -> bool:
-    """True when this evaluation moved a criterion's verdict.
-
-    A first evaluation is not notable on its own: the initial run over the whole catalogue
-    would otherwise report every feed, which is exactly the unbounded payload this is meant
-    to avoid. The `first_evaluations` count covers that case instead. A first evaluation
-    that lands on a failure *is* reported, since that is the actionable half.
-    """
-    if state is None:
-        return False
-    if previous is None:
-        return state.observed_pass is False or state.confirmed_pass is False
-    return (
-        state.observed_pass != previous.observed_pass
-        or state.confirmed_pass != previous.confirmed_pass
     )
 
 
 def _upsert_criteria(
     db_session: Session, states: Sequence[SealCriterionState], now: datetime
 ) -> None:
-    """Insert or update sealcriterion rows for the given states."""
+    """Insert or update seal_criterion rows for the given states."""
     if not states:
         return
     payload = [
         {
             "feed_id": state.feed_id,
             "criterion": state.criterion.value,
-            "observed_pass": state.observed_pass,
-            "confirmed_pass": state.confirmed_pass,
+            "observed_status": state.observed_status.value,
+            "confirmed_status": state.confirmed_status.value,
             "evaluated_at": state.evaluated_at,
+            "last_verdict_at": state.last_verdict_at,
             "first_observed_failure_at": state.first_observed_failure_at,
             "last_observed_failure_at": state.last_observed_failure_at,
             "last_confirmed_failure_at": state.last_confirmed_failure_at,
@@ -225,9 +215,10 @@ def _upsert_criteria(
         statement.on_conflict_do_update(
             index_elements=[CRITERION_TABLE.c.feed_id, CRITERION_TABLE.c.criterion],
             set_={
-                "observed_pass": statement.excluded.observed_pass,
-                "confirmed_pass": statement.excluded.confirmed_pass,
+                "observed_status": statement.excluded.observed_status,
+                "confirmed_status": statement.excluded.confirmed_status,
                 "evaluated_at": statement.excluded.evaluated_at,
+                "last_verdict_at": statement.excluded.last_verdict_at,
                 "first_observed_failure_at": statement.excluded.first_observed_failure_at,
                 "last_observed_failure_at": statement.excluded.last_observed_failure_at,
                 "last_confirmed_failure_at": statement.excluded.last_confirmed_failure_at,
@@ -239,7 +230,7 @@ def _upsert_criteria(
 
 
 def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) -> None:
-    """Insert or update feedreliabilityseal rows.
+    """Insert or update feed_reliability_seal rows.
 
     A row is written for every evaluated feed, whether or not it qualifies. That matters
     beyond bookkeeping: `created_at` on this row is what a criterion measuring "how long
@@ -279,27 +270,26 @@ def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) 
 @with_db_session
 def update_seals(
     db_session: Session,
+    stable_feed_ids: Sequence[str],
     dry_run: bool = True,
-    stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
     criteria: Optional[Sequence[str]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
 ) -> dict:
-    """Evaluate the seal criteria for every eligible feed and store the result.
+    """Evaluate the seal criteria for the requested feeds and store the result.
 
-    Every feed is evaluated before anything is written, so a dry run exercises exactly the
-    same code path as a real run.
+    The task always runs against an explicit list of feeds — there is no
+    run-the-whole-catalogue mode. Every requested feed is evaluated before anything is
+    written, so a dry run exercises exactly the same code path as a real run.
 
     Args:
         db_session: SQLAlchemy session, injected by @with_db_session.
+        stable_feed_ids: The feeds to evaluate. Required and non-empty. Unknown or ineligible
+            ids are skipped with a logged warning; it raises only if none can be evaluated.
         dry_run: Evaluate and report without writing. Default True.
-        stable_feed_ids: Evaluate only these feeds. Unknown or ineligible ids are skipped
-            with a logged warning; it raises only if none of them can be evaluated. When
-            given, `evaluations` reports every criterion of those feeds rather than only
-            the ones whose verdict moved.
-        limit: Cap the number of feeds evaluated.
+        limit: Cap the number of feeds evaluated, from the requested list.
         criteria: Evaluate only these criteria. A partial set skips the has_seal roll-up,
             since the criteria that were not evaluated cannot be judged.
         batch_size: Feeds loaded per query batch.
@@ -310,6 +300,9 @@ def update_seals(
     Returns:
         A report dict.
     """
+    if not stable_feed_ids:
+        raise ValueError("stable_feed_ids is required and must be non-empty")
+
     started = time.monotonic()
     now = now or datetime.now(timezone.utc)
     evaluators = _resolve_evaluators(criteria)
@@ -320,10 +313,9 @@ def update_seals(
         query = query.limit(limit)
     feeds = query.all()
 
-    if stable_feed_ids is not None:
-        _validate_requested_feed_ids(
-            db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
-        )
+    _validate_requested_feed_ids(
+        db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
+    )
 
     logging.info(
         "Evaluating %d criterion/criteria for %d feed(s) (dry_run=%s, now=%s).",
@@ -336,9 +328,9 @@ def update_seals(
     all_states: List[SealCriterionState] = []
     outcomes: List[dict] = []
     feed_reports: List[dict] = []
-    not_evaluable = 0
+    unknown_count = 0
+    not_applicable_count = 0
     first_evaluations = 0
-    is_feed_list_provided = stable_feed_ids is not None
 
     for batch in batched(feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
@@ -350,7 +342,6 @@ def update_seals(
             ctx = contexts[feed.id]
             feed_states: Dict[str, SealCriterionState] = {}
             criteria_report: List[dict] = []
-            anything_moved = False
 
             for evaluator in evaluators:
                 observation = evaluator.evaluate(ctx)
@@ -363,43 +354,44 @@ def update_seals(
                     now=now,
                     feed_id=feed.id,
                 )
-                if observation.observed_pass is None:
-                    not_evaluable += 1
-                if state is not None:
-                    feed_states[evaluator.name.value] = state
-                    if state is not previous:
-                        all_states.append(state)
-                if previous is None and state is not None:
-                    first_evaluations += 1
+                if observation.observed_status is CriterionStatus.UNKNOWN:
+                    unknown_count += 1
+                elif observation.observed_status is CriterionStatus.NOT_APPLICABLE:
+                    not_applicable_count += 1
 
-                if _is_notable(previous, state):
-                    anything_moved = True
+                # Every run produces a state, including the two no-verdict paths, because
+                # `evaluated_at` records the attempt. So every criterion of every evaluated
+                # feed is written, not only the ones that moved.
+                feed_states[evaluator.name.value] = state
+                all_states.append(state)
+
+                # A first *verdict*, not a first row: a criterion whose every earlier run was
+                # UNKNOWN already has a row, yet has still never been evaluated.
+                if state.last_verdict_at is not None and (
+                    previous is None or previous.last_verdict_at is None
+                ):
+                    first_evaluations += 1
 
                 criteria_report.append(
                     {
                         "criterion": evaluator.name.value,
-                        "observed_pass": observation.observed_pass,
-                        "confirmed_pass": (
-                            state.confirmed_pass if state is not None else None
-                        ),
-                        "previously_confirmed_pass": (
-                            previous.confirmed_pass if previous is not None else None
-                        ),
-                        "on_probation": (
-                            state.probation_start is not None
-                            if state is not None
+                        "observed_status": observation.observed_status.value,
+                        "confirmed_status": state.confirmed_status.value,
+                        "previously_confirmed_status": (
+                            previous.confirmed_status.value
+                            if previous is not None
                             else None
                         ),
+                        "phase": phase(state).value,
                         "reason": observation.reason,
                     }
                 )
 
             if partial_run:
                 # No roll-up on a partial run, so there is no seal state to report.
-                if is_feed_list_provided or anything_moved:
-                    feed_reports.append(
-                        {"stable_id": ctx.stable_id, "criteria": criteria_report}
-                    )
+                feed_reports.append(
+                    {"stable_id": ctx.stable_id, "criteria": criteria_report}
+                )
                 continue
 
             # Merge in any stored criteria this run did not produce a new state for, so the
@@ -428,23 +420,15 @@ def update_seals(
             }
             outcomes.append(outcome)
 
-            # A feed is reported when the caller asked for it by name, when one of its
-            # criteria moved, or when its seal changed. A run over a quiet catalogue with no
-            # feed list therefore reports nothing, which keeps a nightly response small.
-            if (
-                is_feed_list_provided
-                or anything_moved
-                or outcome["granted"]
-                or outcome["revoked"]
-            ):
-                feed_reports.append(
-                    {
-                        "stable_id": ctx.stable_id,
-                        "had_seal": outcome["had_seal"],
-                        "has_seal": has_seal,
-                        "criteria": criteria_report,
-                    }
-                )
+            # Every requested feed is reported, capped at max_reported_feeds below.
+            feed_reports.append(
+                {
+                    "stable_id": ctx.stable_id,
+                    "had_seal": outcome["had_seal"],
+                    "has_seal": has_seal,
+                    "criteria": criteria_report,
+                }
+            )
 
     revoked = [outcome for outcome in outcomes if outcome["revoked"]]
     granted = [outcome for outcome in outcomes if outcome["granted"]]
@@ -467,7 +451,11 @@ def update_seals(
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
         "criterion_rows_written": 0 if dry_run else len(all_states),
-        "not_evaluable": not_evaluable,
+        # Criteria whose inputs were missing this run, and criteria that do not apply to the
+        # feed at all. Both are no-verdict outcomes but they are not the same thing: the
+        # first freezes a criterion in the roll-up, the second withdraws it.
+        "unknown": unknown_count,
+        "not_applicable": not_applicable_count,
         "first_evaluations": first_evaluations,
         # seals_before_run + seals_granted - seals_revoked == seals_after_run.
         # On a dry run the "after" figure is what would be stored, not what is.
@@ -475,7 +463,7 @@ def update_seals(
         "seals_after_run": sum(1 for outcome in outcomes if outcome["has_seal"]),
         "seals_granted": len(granted),
         "seals_revoked": len(revoked),
-        # The two transitions in feedreliabilityseal, by feed. Counts alone cannot say
+        # The two transitions in feed_reliability_seal, by feed. Counts alone cannot say
         # which feed moved, and that is the first thing anyone asks of a run.
         "granted_stable_ids": [outcome["stable_id"] for outcome in granted],
         "revoked_stable_ids": [outcome["stable_id"] for outcome in revoked],

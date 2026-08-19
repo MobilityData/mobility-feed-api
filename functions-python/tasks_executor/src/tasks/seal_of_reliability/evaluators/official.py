@@ -15,10 +15,10 @@
 #
 """Official criterion: the feed is flagged official."""
 
-from typing import Optional, Tuple
+from typing import Tuple
 
 from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
@@ -35,7 +35,9 @@ class OfficialEvaluator(CriterionEvaluator):
     grace_period = None
     probation_period = None
 
-    def _evaluate(self, ctx: FeedSealContext) -> Tuple[Optional[bool], str]:
-        # `is True` rather than a truthiness test: NULL is not an endorsement, and it is a
-        # verdict of "not official" rather than "not evaluable".
-        return ctx.official is True, f"feed.official is {ctx.official!r}"
+    def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
+        # `is True` rather than a truthiness test: NULL is not an endorsement. It is a FAIL
+        # rather than an UNKNOWN because the column is always readable — absence of the flag
+        # is the answer, not a missing input.
+        status = CriterionStatus.PASS if ctx.official is True else CriterionStatus.FAIL
+        return status, f"feed.official is {ctx.official!r}"

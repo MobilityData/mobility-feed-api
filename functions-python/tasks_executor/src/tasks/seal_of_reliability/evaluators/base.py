@@ -20,23 +20,29 @@ from datetime import timedelta
 from typing import Optional, Tuple
 
 from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.criteria import PROBATION_PERIOD, SealCriterionName
+from tasks.seal_of_reliability.criteria import (
+    PROBATION_PERIOD,
+    CriterionStatus,
+    SealCriterionName,
+)
 
 
 @dataclass(frozen=True)
 class CriterionObservation:
     """One criterion's own check for one feed, with no debouncing.
 
-    `observed_pass` is tri-state: True and False are verdicts, None means the criterion
-    could not be evaluated this run (a missing availability check, a criterion that does not
-    apply to this feed) and the stored state must be left alone.
+    `observed_status` is one of four values. PASS and FAIL are verdicts. UNKNOWN means the
+    inputs the check needs were not there this run, and NOT_APPLICABLE means the criterion is
+    deliberately excluded for this feed — the two are handled differently by `transition`, so
+    an evaluator must not use one for the other. NEVER_EVALUATED is a stored state only and is
+    never an evaluator's answer.
 
     Stated positively, so an evaluator returns the same sense as the check it reads
     (`success = TRUE`, `total_error = 0`) with no inversion in between.
     """
 
     criterion: SealCriterionName
-    observed_pass: Optional[bool]
+    observed_status: CriterionStatus
     reason: str
 
 
@@ -62,11 +68,21 @@ class CriterionEvaluator:
         Labelling happens here rather than in the subclasses so an evaluator cannot
         disagree with its own `name`.
         """
-        observed_pass, reason = self._evaluate(ctx)
+        observed_status, reason = self._evaluate(ctx)
+        if observed_status is CriterionStatus.NEVER_EVALUATED:
+            # NEVER_EVALUATED is a stored DB value, not a verdict an evaluator may return.
+            raise ValueError(
+                f"{type(self).__name__} returned NEVER_EVALUATED; use UNKNOWN when the "
+                "inputs are missing or NOT_APPLICABLE when the criterion does not apply"
+            )
         return CriterionObservation(
-            criterion=self.name, observed_pass=observed_pass, reason=reason
+            criterion=self.name, observed_status=observed_status, reason=reason
         )
 
-    def _evaluate(self, ctx: FeedSealContext) -> Tuple[Optional[bool], str]:
-        """Return (observed_pass, reason) for this feed. Implemented by subclasses."""
+    def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
+        """Return (observed_status, reason) for this feed. Implemented by subclasses.
+
+        Returns PASS or FAIL for a verdict, UNKNOWN when the inputs needed are missing, or
+        NOT_APPLICABLE when the criterion is deliberately excluded for this feed.
+        """
         raise NotImplementedError("Subclasses should implement this method.")

@@ -149,6 +149,68 @@ class TestPublicDeleteSubscription(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 404)
         self.mock_session.delete.assert_not_called()
 
+    def test_delete_invalid_scope_returns_400(self):
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_subscription("sub-1", scope="All", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 400)
+        # Rejected before any lookup: a malformed scope must not fall back to 'one' silently.
+        self.mock_session.get.assert_not_called()
+        self.mock_session.delete.assert_not_called()
+
+    def test_delete_invalid_scope_takes_precedence_over_missing_id(self):
+        self.mock_session.get.return_value = None
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_subscription("missing", scope="everything", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.get.assert_not_called()
+
+    def _wire_scope_all(self, subs, user):
+        """Point the initial get() at the first sub, AppUser lookups at ``user``, and the
+        'all subscriptions for this user' query at ``subs``."""
+
+        def _get(model, key):
+            return subs[0] if model is NotificationSubscriptionOrm else user
+
+        self.mock_session.get.side_effect = _get
+        self.mock_session.query.return_value.filter.return_value.all.return_value = subs
+
+    def test_delete_all_deletes_normal_and_disables_announcement(self):
+        feed_sub = _make_sub(id="sub-feed", notification_type_id="feed.url_updated")
+        rt_sub = _make_sub(id="sub-rt", notification_type_id="gtfs_rt.feed_down")
+        ann_sub = _make_sub(id="sub-ann", notification_type_id="api.announcements")
+        self._wire_scope_all([feed_sub, rt_sub, ann_sub], _make_user())
+
+        with patch.object(helpers, "remove_contact_from_list") as rem, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            self.api.delete_subscription("sub-feed", scope="all", db_session=self.mock_session)
+
+        # Every non-announcement subscription is hard-deleted.
+        deleted = {c.args[0] for c in self.mock_session.delete.call_args_list}
+        self.assertEqual(deleted, {feed_sub, rt_sub})
+        # The announcement subscription is disabled (never deleted) and removed from Brevo.
+        self.assertNotIn(ann_sub, deleted)
+        self.assertFalse(ann_sub.active)
+        rem.assert_called_once_with("user@example.com", 42)
+
+    def test_delete_all_without_announcement_skips_brevo(self):
+        feed_sub = _make_sub(id="sub-feed", notification_type_id="feed.url_updated")
+        self._wire_scope_all([feed_sub], _make_user())
+
+        with patch.object(helpers, "remove_contact_from_list") as rem:
+            self.api.delete_subscription("sub-feed", scope="all", db_session=self.mock_session)
+
+        self.mock_session.delete.assert_called_once_with(feed_sub)
+        rem.assert_not_called()
+
+    def test_delete_all_missing_returns_404(self):
+        self.mock_session.get.return_value = None
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_subscription("missing", scope="all", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.mock_session.query.assert_not_called()
+        self.mock_session.delete.assert_not_called()
+
     def test_delete_announcement_brevo_failure_502(self):
         import sib_api_v3_sdk
 

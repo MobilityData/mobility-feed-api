@@ -55,7 +55,7 @@ from tasks.geojson.update_geojson_files_precision import (
     update_geojson_files_precision_handler,
 )
 from tasks.data_import.jbda.import_jbda_feeds import import_jbda_handler
-
+from tasks.data_import.odpt.import_odpt_feeds import import_odpt_handler
 
 from tasks.licenses.populate_licenses import (
     populate_licenses_handler,
@@ -78,6 +78,9 @@ from tasks.notifications.dispatch_monitor import (
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
+)
+from tasks.sitemap.generate_sitemap import (
+    generate_mobilitydatabase_sitemap_handler,
 )
 
 init_logger()
@@ -148,6 +151,10 @@ tasks = {
     "jbda_import": {
         "description": "Imports JBDA data into the system.",
         "handler": import_jbda_handler,
+    },
+    "odpt_import": {
+        "description": "Imports ODPT data into the system.",
+        "handler": import_odpt_handler,
     },
     "populate_licenses": {
         "description": "Populates licenses, license-rules and license-tags "
@@ -247,6 +254,23 @@ tasks = {
         ),
         "handler": notifications_dispatch_monitor_handler,
     },
+    "generate_mobilitydatabase_sitemap": {
+        "description": (
+            "Generate the mobilitydatabase.org sitemap from published, "
+            "non-deprecated feeds and upload it to GCS as sitemap.xml. "
+            "One URL per feed at /feeds/{data_type}/{stable_id}, priority 0.8, "
+            "no changefreq. lastmod: GTFS uses its latest dataset download; "
+            "GTFS-RT the latest of its created_at and its related scheduled "
+            "feeds' latest dataset; GBFS its newest GBFS version date — all "
+            "floored at 2026-03-05. "
+            "Parameters: dry_run (default true), "
+            "bucket_name (default 'mobilitydatabase-sitemap-{ENVIRONMENT}'), "
+            "object_name (default 'sitemap.xml'), "
+            "base_url (default 'https://mobilitydatabase.org'), "
+            "make_public (default true), include_xml (default false)."
+        ),
+        "handler": generate_mobilitydatabase_sitemap_handler,
+    },
     "backfill_changelog": {
         "description": (
             "Backfills gtfs_dataset_changelog records from existing dataset history by "
@@ -260,12 +284,11 @@ tasks = {
     },
     "update_seal_of_reliability": {
         "description": (
-            "Evaluates the implemented Seal of Reliability criteria for every eligible "
-            "GTFS feed and updates sealcriterion and feedreliabilityseal. "
+            "Evaluates the implemented Seal of Reliability criteria for the requested "
+            "GTFS feeds and updates seal_criterion and feed_reliability_seal. "
             "Reads the source tables and never modifies them. "
-            "Parameters: dry_run (default true), stable_feed_ids (default null; when set, "
-            "`feeds` covers every one of those feeds), limit (default null), "
-            "criteria (default null "
+            "Parameters: stable_feed_ids (required, non-empty; the feeds to evaluate), "
+            "dry_run (default true), limit (default null), criteria (default null "
             "meaning every implemented criterion; a partial set skips the has_seal "
             "roll-up), batch_size (default 200), now (ISO timestamp, default current "
             "UTC time)."
