@@ -137,6 +137,27 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   }
 }
 
+resource "google_storage_bucket" "sitemap_bucket" {
+  location                    = var.gcp_region
+  name                        = "mobilitydatabase-sitemap-${var.environment}"
+  uniform_bucket_level_access = true
+  cors {
+    origin          = ["*"]
+    method          = ["GET"]
+    response_header = ["*"]
+  }
+}
+
+# Public, unauthenticated read access so sitemap.xml can be fetched directly
+# (e.g. by the Next.js web app) without a GCP identity. Uniform bucket-level
+# access is on for this bucket, so per-object ACLs (blob.make_public()) don't
+# apply here — public read has to be granted at the bucket level instead.
+resource "google_storage_bucket_iam_member" "sitemap_bucket_public_read" {
+  bucket = google_storage_bucket.sitemap_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
   bucket = data.google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
@@ -1659,8 +1680,9 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+    sitemap_bucket        = google_storage_bucket.sitemap_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.sitemap_bucket]
   bucket     = each.value
   role       = "roles/storage.objectCreator"
   members = [
