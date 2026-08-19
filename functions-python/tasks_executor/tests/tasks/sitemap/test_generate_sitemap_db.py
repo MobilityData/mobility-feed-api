@@ -248,7 +248,8 @@ class TestFetchGtfsEntries(unittest.TestCase):
 class TestFetchGtfsRtEntries(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def setUp(self, db_session: Session = None):
-        self.entries = as_map(fetch_gtfs_rt_entries(db_session, LASTMOD_FLOOR))
+        self.entries_list = fetch_gtfs_rt_entries(db_session, LASTMOD_FLOOR)
+        self.entries = as_map(self.entries_list)
 
     def test_lastmod_comes_from_the_related_scheduled_feed(self):
         self.assertEqual(
@@ -262,8 +263,10 @@ class TestFetchGtfsRtEntries(unittest.TestCase):
         self.assertEqual(self.entries[f"{PREFIX}rt_recent"].lastmod, AFTER_FLOOR.date())
 
     def test_the_join_does_not_duplicate_a_feed_with_references(self):
-        entries = [e for e in self.entries if e == f"{PREFIX}rt_with_parent"]
-        self.assertEqual(len(entries), 1)
+        matches = [
+            e for e in self.entries_list if e.stable_id == f"{PREFIX}rt_with_parent"
+        ]
+        self.assertEqual(len(matches), 1)
 
     def test_every_entry_is_tagged_gtfs_rt(self):
         for stable_id, entry in self.entries.items():
