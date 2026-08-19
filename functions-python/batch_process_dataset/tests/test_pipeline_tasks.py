@@ -177,7 +177,10 @@ class TestCreatePipelineTasksFeedInfo(unittest.TestCase):
             "feed-A", "ds-1", "feed_info.txt", "https://x.com/feed_info.txt"
         )
 
-    def test_skips_when_feed_info_not_changed(self):
+    def test_enqueues_when_feed_info_not_changed(self):
+        # Unchanged files are still enqueued: the new dataset needs its own
+        # extracted data, and the file may never have been extracted before.
+        # The extractor decides whether to copy or download.
         files = [
             SimpleFile(
                 "feed_info.txt",
@@ -186,7 +189,9 @@ class TestCreatePipelineTasksFeedInfo(unittest.TestCase):
             )
         ]
         mock_task = self._run(files, changed_files=["stops.txt"])
-        mock_task.assert_not_called()
+        mock_task.assert_called_once_with(
+            "feed-A", "ds-1", "feed_info.txt", "https://x.com/feed_info.txt"
+        )
 
     def test_skips_when_feed_info_absent(self):
         files = [SimpleFile("stops.txt", hosted_url="https://x.com/stops.txt")]

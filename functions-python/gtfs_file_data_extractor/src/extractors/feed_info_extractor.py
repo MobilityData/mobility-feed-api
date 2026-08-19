@@ -46,12 +46,50 @@ def parse_gtfs_date(value) -> Optional[date]:
 
 
 class FeedInfoExtractor(FileDataExtractor):
-    """Extracts feed_info.txt into a Feedinfo row (one per dataset)."""
+    """
+    Extracts feed_info.txt into a Feedinfo row.
+
+    One row per distinct feed_info.txt content, referenced by every dataset whose
+    feed_info.txt has that content hash.
+    """
 
     file_name = "feed_info.txt"
 
+    @staticmethod
+    def _get_by_hash(
+        file_hash: Optional[str], db_session: Session
+    ) -> Optional[Feedinfo]:
+        if not file_hash:
+            return None
+        return (
+            db_session.query(Feedinfo)
+            .filter(Feedinfo.file_hash == file_hash)
+            .one_or_none()
+        )
+
+    def has_data(self, dataset: Gtfsdataset, db_session: Session) -> bool:
+        return dataset.feed_info_id is not None
+
+    def link_existing_data(
+        self, dataset: Gtfsdataset, file_hash: Optional[str], db_session: Session
+    ) -> bool:
+        feed_info = self._get_by_hash(file_hash, db_session)
+        if feed_info is None:
+            return False
+        dataset.feed_info = feed_info
+        logging.info(
+            "Linked dataset %s to the feed_info already extracted for hash %s.",
+            dataset.stable_id,
+            file_hash,
+        )
+        return True
+
     def extract(
-        self, df: pd.DataFrame, dataset: Gtfsdataset, db_session: Session
+        self,
+        df: pd.DataFrame,
+        dataset: Gtfsdataset,
+        file_hash: Optional[str],
+        db_session: Session,
     ) -> None:
         if df is None or df.empty:
             logging.info(
@@ -59,6 +97,13 @@ class FeedInfoExtractor(FileDataExtractor):
                 dataset.stable_id,
             )
             return
+        if not file_hash:
+            # Without a hash the row could not be matched to this file content
+            # again, and a row per dataset is what the shared table avoids.
+            raise ValueError(
+                f"Cannot extract feed_info for dataset {dataset.stable_id}: "
+                "the content hash of feed_info.txt is unknown."
+            )
 
         # feed_info.txt holds a single record.
         row = df.iloc[0]
@@ -67,18 +112,17 @@ class FeedInfoExtractor(FileDataExtractor):
         for field in DATE_FIELDS:
             values[field] = parse_gtfs_date(row.get(field))
 
-        # Upsert keyed by dataset so reprocessing updates in place.
-        feed_info = (
-            db_session.query(Feedinfo)
-            .filter(Feedinfo.gtfs_dataset_id == dataset.id)
-            .one_or_none()
-        )
+        # Upsert keyed by content hash: re-parsing the same file (for instance
+        # after this extractor learns a new column) updates the row in place, and
+        # every dataset already referencing it picks up the new values.
+        feed_info = self._get_by_hash(file_hash, db_session)
         if feed_info is None:
-            feed_info = Feedinfo(gtfs_dataset_id=dataset.id)
+            feed_info = Feedinfo(file_hash=file_hash)
             db_session.add(feed_info)
 
         for field, value in values.items():
             setattr(feed_info, field, value)
+        dataset.feed_info = feed_info
 
         logging.info(
             "Extracted feed_info for dataset %s: start=%s end=%s",
