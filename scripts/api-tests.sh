@@ -7,10 +7,17 @@
 #   api-test.sh [options]
 #
 # Options:
-#   --test_file <TEST_FILE> : Execute a specific test file. (optional)
-#   --folder <FOLDER>       : Execute tests in a specific folder. (optional)
-#   --html_report           : Generate an HTML coverage report in addition to the standard report. (optional)
-#   --help                  : Display this help content.
+#   --test_file <TEST_FILE>   : Execute a specific test file. (optional)
+#   --folder <FOLDER>         : Execute tests in a specific folder. (optional)
+#   --test_paths <TEST_PATHS> : Space-separated list of paths (relative to <FOLDER>) to pass to
+#                                pytest instead of the whole "tests" directory. Used by CI to shard
+#                                one folder's suite across several matrix jobs. (optional)
+#   --skip_coverage_gate      : Still compute and print branch coverage, but don't fail the run if
+#                                it's under the threshold. Used by CI when the folder's suite has
+#                                been sharded and the real threshold is enforced once, after
+#                                combining every shard's coverage data back together. (optional)
+#   --html_report             : Generate an HTML coverage report in addition to the standard report. (optional)
+#   --help                    : Display this help content.
 #
 # By default, without any options, the script executes all tests within the <project_folder>/tests
 # directory and generates a coverage report. If the -html_report option is used, an additional HTML
@@ -26,6 +33,9 @@
 #
 #   Execute a specific test file:
 #     ./api-test.sh --test_file <TEST_FILE>
+#
+#   Execute only two subdirectories of a folder's suite, without gating on coverage:
+#     ./api-test.sh --folder <FOLDER> --test_paths "tests/foo tests/bar" --skip_coverage_gate
 
 
 
@@ -36,6 +46,8 @@ ABS_SCRIPTPATH="$(
 )"
 TEST_FILE=""
 FOLDER=""
+TEST_PATHS=""
+SKIP_COVERAGE_GATE=false
 HTML_REPORT=false
 COVERAGE_THRESHOLD=80
 
@@ -54,6 +66,8 @@ display_usage() {
   echo "Options:"
   echo "  --test_file <TEST_FILE>   Test file name to be executed."
   echo "  --folder <FOLDER>         Folder name to be executed."
+  echo "  --test_paths <TEST_PATHS> Space-separated paths (relative to FOLDER) to test instead of 'tests'."
+  echo "  --skip_coverage_gate      Report coverage but don't fail the run if it's under the threshold."
   echo "  --html_report             Generate HTML coverage report."
   echo "  --help                    Display help content."
   exit 1
@@ -75,6 +89,15 @@ while [[ $# -gt 0 ]]; do
     FOLDER="$2"
     shift # past argument
     shift # past value
+    ;;
+  --test_paths)
+    TEST_PATHS="$2"
+    shift # past argument
+    shift # past value
+    ;;
+  --skip_coverage_gate)
+    SKIP_COVERAGE_GATE=true
+    shift # past argument
     ;;
   --html_report)
     HTML_REPORT=true
@@ -99,8 +122,10 @@ execute_tests() {
   venv/bin/python -m pip install --disable-pip-version-check coverage >/dev/null
 
 # Run tests with coverage. Add the path to the main file and the shared packages that were linked.
+  # TEST_PATHS is intentionally unquoted: when it holds several space-separated paths (a CI shard),
+  # each one must reach pytest as its own positional argument.
   PT="src:tests:$PYTHONPATH"
-  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -s -W 'ignore::DeprecationWarning' tests
+  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -s -W 'ignore::DeprecationWarning' ${TEST_PATHS:-tests}
   # Fail if tests fail
   if [ $? -ne 0 ]; then
     printf "\n${RED}Tests failed in $1${NC}\n"
@@ -114,6 +139,12 @@ execute_tests() {
   printf "\n${YELLOW}COVERAGE REPORT FOR $1:${NC}\n"
   cat $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt
 
+  # Preserve the raw coverage data file so CI can upload it as an artifact and, when this folder's
+  # suite was sharded across several matrix jobs (TEST_PATHS set), combine every shard's data back
+  # together before gating on the threshold once, holistically. Renamed off its default dotfile
+  # name (.coverage) since upload-artifact's glob matching does not pick up hidden files.
+  cp .coverage $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/coverage.dat 2>/dev/null || true
+
   # Generate HTML coverage report if requested
   if [ "$HTML_REPORT" = true ]; then
     venv/bin/coverage html -d $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/html
@@ -123,12 +154,18 @@ execute_tests() {
   coverage_percentage=$(venv/bin/coverage report | grep 'TOTAL' | awk '{print $NF}' | sed 's/%//')
   printf "Current branch coverage is $coverage_percentage%%\n"
 
-  # Fail if branch coverage is under the threshold
+  # Fail if branch coverage is under the threshold, unless this is a partial shard whose combined
+  # coverage is gated separately once every shard has run.
   if [ "$coverage_percentage" -lt "$COVERAGE_THRESHOLD" ]; then
-    printf "\n${RED}Branch coverage of $coverage_percentage%% is below the $COVERAGE_THRESHOLD%% threshold${NC}\n"
-    exit 1
+    if [ "$SKIP_COVERAGE_GATE" = true ]; then
+      printf "\n${YELLOW}Branch coverage of $coverage_percentage%% is below the $COVERAGE_THRESHOLD%% threshold (gate skipped here; combined coverage is checked separately)${NC}\n"
+    else
+      printf "\n${RED}Branch coverage of $coverage_percentage%% is below the $COVERAGE_THRESHOLD%% threshold${NC}\n"
+      exit 1
+    fi
+  else
+    printf "\n${GREEN}Branch coverage of $coverage_percentage%% is above or equal to the $COVERAGE_THRESHOLD%% threshold${NC}\n"
   fi
-  printf "\n${GREEN}Branch coverage of $coverage_percentage%% is above or equal to the $COVERAGE_THRESHOLD%% threshold${NC}\n"
 }
 
 if [[ ! -z "${TEST_FILE}" && ! -z "${FOLDER}" ]]; then
