@@ -12,12 +12,20 @@ pytest session, in one process, on one GitHub-hosted runner, reliably exhausts t
 runner's memory partway through and takes the test DB down with it (see the
 tasks_executor incident this was written for). To avoid that without hand-maintaining
 a list of "which subfolders go in which CI job", this script also auto-shards: for any
-target whose test count exceeds TARGET_TESTS_PER_SHARD, it discovers every directory
-(at any depth) under that target's tests/ that directly contains test_*.py files,
-weighs each by its number of `def test_` functions, and greedily bin-packs them
-(largest first, always onto the currently lightest shard) into balanced groups. A new
-test subdirectory added anywhere later is picked up the same way on the next run — no
-workflow change needed there either.
+target whose test count exceeds TARGET_TESTS_PER_SHARD, it discovers every test_*.py
+file (at any depth) under that target's tests/, weighs each by its number of
+`def test_` functions, and greedily bin-packs the *files* (largest first, always onto
+the currently lightest shard) into balanced groups. A new test file added anywhere
+later is picked up the same way on the next run — no workflow change needed there
+either.
+
+Sharding is done file-by-file rather than directory-by-directory on purpose: pytest
+treats any directory argument as "collect this whole subtree", so a directory that
+contains loose test files directly AND has its own test-bearing subdirectories (e.g.
+tests/tasks/ here, which holds two loose test_*.py files alongside seal_of_reliability/,
+sitemap/, etc.) cannot be used as a shard's path on its own — passing it would
+recollect every descendant bucket too, however they were split. Explicit file paths
+have no such recursive-collection hazard.
 
 Each matrix entry carries:
   folder      - the target's directory, e.g. "functions-python/tasks_executor"
@@ -52,31 +60,29 @@ def count_tests_in_file(path):
         return 0
 
 
-def discover_buckets(tests_root):
-    """Return {relative_bucket_dir: weight} for every directory (at any depth) under
-    tests_root that directly contains at least one test_*.py file. A directory's
-    weight only counts test_*.py files directly inside it — a subdirectory with its
-    own test files is always its own separate bucket, never double-counted here.
-    """
-    buckets = {}
+def discover_test_files(tests_root):
+    """Return {relative_file_path: weight} for every test_*.py file (at any depth)
+    under tests_root, weighted by its number of `def test_` functions."""
+    files = {}
     for dirpath, dirnames, filenames in os.walk(tests_root):
         dirnames[:] = [
             d for d in dirnames if d not in EXCLUDED_DIRNAMES and not d.endswith("_gen")
         ]
-        test_files = [f for f in filenames if f.startswith("test_") and f.endswith(".py")]
-        if not test_files:
-            continue
-        weight = sum(count_tests_in_file(os.path.join(dirpath, f)) for f in test_files)
-        if weight == 0:
-            continue
-        buckets[os.path.relpath(dirpath, tests_root)] = weight
-    return buckets
+        for fname in filenames:
+            if not (fname.startswith("test_") and fname.endswith(".py")):
+                continue
+            full_path = os.path.join(dirpath, fname)
+            weight = count_tests_in_file(full_path)
+            if weight == 0:
+                continue
+            files[os.path.relpath(full_path, tests_root)] = weight
+    return files
 
 
 def shard_target(name, folder):
     """Return the matrix entries for one target, sharded only if it needs to be."""
-    buckets = discover_buckets(os.path.join(folder, "tests"))
-    total = sum(buckets.values())
+    files = discover_test_files(os.path.join(folder, "tests"))
+    total = sum(files.values())
     num_shards = max(1, math.ceil(total / TARGET_TESTS_PER_SHARD)) if total else 1
 
     if num_shards == 1:
@@ -85,19 +91,17 @@ def shard_target(name, folder):
         return [{"folder": folder, "group": name, "function": name, "test_paths": "tests"}]
 
     # Greedy LPT (Longest Processing Time first) bin-packing: not optimal in general,
-    # but simple, deterministic, and plenty balanced for this many buckets/shards.
+    # but simple, deterministic, and plenty balanced for this many files/shards.
     shard_paths = [[] for _ in range(num_shards)]
     shard_weights = [0] * num_shards
-    for rel, weight in sorted(buckets.items(), key=lambda kv: kv[1], reverse=True):
+    for rel, weight in sorted(files.items(), key=lambda kv: kv[1], reverse=True):
         i = shard_weights.index(min(shard_weights))
         shard_paths[i].append(rel)
         shard_weights[i] += weight
 
     entries = []
     for i, paths in enumerate(shard_paths, start=1):
-        test_paths = " ".join(
-            "tests" if p == "." else os.path.join("tests", p) for p in sorted(paths)
-        )
+        test_paths = " ".join(os.path.join("tests", p) for p in sorted(paths))
         entries.append(
             {
                 "folder": folder,
