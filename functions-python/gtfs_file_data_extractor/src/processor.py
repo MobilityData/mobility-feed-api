@@ -23,7 +23,7 @@ def parse_request_parameters(request: flask.Request) -> Tuple[str, str, str, str
         "stable_id": "<feed stable id>",
         "dataset_id": "<dataset stable id>",
         "file_name": "feed_info.txt",
-        "file_url":"<hosted_url of the GTFS file>"
+        "file_url": "<hosted_url of the GTFS file>"
     }
     """
     request_json = request.get_json(silent=True)
