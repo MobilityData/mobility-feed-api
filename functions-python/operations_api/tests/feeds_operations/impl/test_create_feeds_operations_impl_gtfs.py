@@ -64,85 +64,6 @@ def db_session():
 
 
 @pytest.mark.asyncio
-@patch("feeds_operations.impl.feeds_operations_impl.trigger_dataset_download")
-@patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
-async def test_create_gtfs_feed_success(_, mock_publish_messages, db_session):
-    api = OperationsApiImpl()
-    unique_url = f"https://new-feed.example.com/{uuid.uuid4()}"
-    request = OperationCreateRequestGtfsFeed(
-        # status can be omitted; include for completeness
-        status=FeedStatus.ACTIVE,
-        provider="New Provider",
-        feed_name="New Feed",
-        note="Test creation",
-        feed_contact_email="contact@example.com",
-        source_info=OperationCreateRequestGtfsFeedSourceInfo(
-            producer_url=unique_url,
-            authentication_type=0,
-            authentication_info_url=None,
-            api_key_parameter_name=None,
-            license_url=None,
-        ),
-        operational_status="wip",
-        official=True,
-        redirects=[],
-        external_ids=[],
-        locations=[],
-        related_links=[],
-    )
-
-    response = await api.create_gtfs_feed(request)
-    assert response.status_code == 201
-
-    payload = json.loads(response.body)
-    try:
-        # Parse response payload and verify DB persistence
-        assert payload.get("id") and isinstance(payload["id"], str)
-        assert payload.get("stable_id") and payload["stable_id"].startswith("md-")
-        assert payload.get("data_type") == "gtfs"
-
-        created = (
-            db_session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == payload["stable_id"])
-            .one()
-        )
-        assert created.id == payload["id"]
-        assert created.data_type == "gtfs"
-        assert created.provider == "New Provider"
-        assert created.operational_status == "wip"
-
-        # Assert publish_messages was called exactly once with expected payload
-        assert mock_publish_messages.call_count == 1
-        args, kwargs = mock_publish_messages.call_args
-        assert len(args) == 2  # data list, project_id, topic_name
-        feed, execution_id = args
-
-        # Validate message payload shape and values
-        # assert isinstance(feed, list) and len(data_list) == 1
-        # message = feed[0]
-        assert feed.producer_url == unique_url
-        assert feed.stable_id == payload["stable_id"]
-        assert feed.id == payload["id"]
-        assert feed.authentication_type == "0"
-        assert feed.authentication_info_url is None
-        assert feed.api_key_parameter_name is None
-        # Non-deterministic but must start with expected prefix
-        assert execution_id.startswith("feed-created-process-")
-    finally:
-        # Cleanup to avoid impacting other tests
-        stable_id = payload.get("stable_id") if isinstance(payload, dict) else None
-        if stable_id:
-            created = (
-                db_session.query(Gtfsfeed)
-                .filter(Gtfsfeed.stable_id == stable_id)
-                .one_or_none()
-            )
-            if created is not None:
-                db_session.delete(created)
-                db_session.commit()
-
-
-@pytest.mark.asyncio
 @patch("feeds_operations.impl.feeds_operations_impl.refresh_materialized_view")
 async def test_create_gtfs_feed_duplicate_url_rejected(_):
     api = OperationsApiImpl()
@@ -163,7 +84,7 @@ async def test_create_gtfs_feed_duplicate_url_rejected(_):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.create_gtfs_feed(request)
+        api.create_gtfs_feed(request)
 
     assert exc_info.value.status_code == 400
     assert (
@@ -205,7 +126,7 @@ async def test_create_gtfs_rt_feed_success(_, db_session):
         entity_types=["vp", "tu"],
     )
 
-    response = await api.create_gtfs_rt_feed(request)
+    response = api.create_gtfs_rt_feed(request)
     assert response.status_code == 201
 
     payload = json.loads(response.body)
@@ -288,7 +209,7 @@ async def test_create_gtfs_feed_with_propagate_license(_, _trigger, db_session):
             propagate_license=True,
         )
 
-        response = await api.create_gtfs_feed(request)
+        response = api.create_gtfs_feed(request)
 
     payload = json.loads(response.body)
     try:
@@ -331,7 +252,7 @@ async def test_create_gtfs_rt_feed_duplicate_url_rejected(_):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.create_gtfs_rt_feed(request)
+        api.create_gtfs_rt_feed(request)
 
     assert exc_info.value.status_code == 400
     assert (

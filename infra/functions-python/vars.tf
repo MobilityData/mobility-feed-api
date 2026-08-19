@@ -78,6 +78,12 @@ variable "jbda_scheduler_schedule" {
     default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
 }
 
+variable "odpt_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the ODPT scheduler job"
+    default     = "0 0 5 * *" # At 00:00 on the 5th day of every month
+}
+
 variable "gtfs_feed_availability_check_schedule" {
     type        = string
     description = "Cron schedule for the GTFS feed availability check job"
@@ -146,6 +152,12 @@ variable "update_feed_status_schedule" {
     type        = string
     description = "Schedule the update_feed_status function"
     default     = "0 4 * * *" # At 4am every day.
+}
+
+variable "generate_sitemap_schedule" {
+    type        = string
+    description = "Schedule the mobilitydatabase.org sitemap generation task"
+    default     = "0 8 * * *" # At 08:00 UTC every day.
 }
 
 variable "brevo_api_announcements_list_id" {

@@ -294,6 +294,25 @@ resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_task_queue" {
   }
 }
 
+# Task queue to invoke gtfs_file_data_extractor function
+# The function itself is deployed by the infra/functions-python stack.
+resource "google_cloud_tasks_queue" "gtfs_file_data_extractor_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "gtfs-file-data-extractor-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts = 10
+    min_backoff  = "20s"
+    max_backoff  = "60s"
+  }
+}
+
 
 # Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
@@ -332,6 +351,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
+      GTFS_FILE_DATA_EXTRACTOR_QUEUE = google_cloud_tasks_queue.gtfs_file_data_extractor_task_queue.name
       GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_datasets_comparer_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }

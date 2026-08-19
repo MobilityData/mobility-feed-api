@@ -177,9 +177,11 @@ class UsersApiImpl(BaseUsersApi):
 
         For feed-scoped notification types (``feed.url_updated``, ``feed.url_availability``,
         ``feed.coverage``) a non-empty ``feed_ids`` list is required and is persisted in the
-        ``notification_subscription_feed`` join table; the single (user, type) subscription's
-        feed set is replaced with the supplied feeds. ``feed_ids`` must not be supplied for
-        other notification types.
+        ``notification_subscription_feed`` join table; the supplied feeds are merged into the
+        single (user, type) subscription's existing feed set (union), not a replacement, so
+        callers don't need to know which feeds the user is already subscribed to. ``feed_ids``
+        must not be supplied for other notification types. To remove specific feeds, use
+        ``update_user_subscription``'s ``remove_feed_ids``.
         """
         user_id = self._require_user_id()
         self._require_notifications_enabled(db_session, user_id)
@@ -241,9 +243,9 @@ class UsersApiImpl(BaseUsersApi):
                 created_at=datetime.now(timezone.utc),
             )
             sub.active = True
-            # Replace the subscription's feed set with the supplied feeds (no-op for non feed-scoped
-            # types, whose feed_ids is always empty here).
-            self._sync_subscription_feeds(sub, feed_ids)
+            # Merge the supplied feeds into the subscription's existing feed set (no-op for
+            # non feed-scoped types, whose feed_ids is always empty here).
+            self._add_subscription_feeds(sub, feed_ids)
             if existing is None:
                 db_session.add(sub)
 
@@ -256,7 +258,14 @@ class UsersApiImpl(BaseUsersApi):
     def update_user_subscription(
         self, id: str, update_notification_subscription_request: UpdateNotificationSubscriptionRequest, db_session=None
     ) -> NotificationSubscription:
-        """Activates or deactivates a notification subscription by ID."""
+        """Activates or deactivates a notification subscription by ID, and/or removes specific
+        feeds from a feed-scoped subscription via ``remove_feed_ids``.
+
+        To add feeds instead, call ``create_user_subscription`` (POST), which merges into the
+        existing feed set. A feed-scoped subscription can't exist with no feeds, so removing
+        the last remaining feed deletes the subscription entirely (same as
+        ``delete_user_subscription``); the response reflects the subscription's final state.
+        """
         user_id = self._require_user_id()
         self._require_notifications_enabled(db_session, user_id)
         sub = self._get_owned_subscription(db_session, id, user_id)
@@ -265,12 +274,27 @@ class UsersApiImpl(BaseUsersApi):
         if sub.notification_type_id == ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID:
             self._require_admin_summary_enabled(db_session, user_id)
 
+        remove_feed_ids = list(dict.fromkeys(update_notification_subscription_request.remove_feed_ids or []))
+        if remove_feed_ids:
+            if sub.notification_type_id not in FEED_SCOPED_NOTIFICATION_TYPE_IDS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"remove_feed_ids is not supported for notification type '{sub.notification_type_id}'.",
+                )
+            self._remove_subscription_feeds(sub, remove_feed_ids)
+            if not sub.notification_subscription_feeds:
+                result = NotificationSubscriptionImpl.from_orm(sub, {})
+                db_session.delete(sub)
+                db_session.flush()
+                return result
+
         active = update_notification_subscription_request.active
-        if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            user = db_session.get(AppUser, user_id)
-            set_announcements_optin(db_session, user, subscribe=active, subscription=sub)
-        else:
-            sub.active = active
+        if active is not None:
+            if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
+                user = db_session.get(AppUser, user_id)
+                set_announcements_optin(db_session, user, subscribe=active, subscription=sub)
+            else:
+                sub.active = active
         db_session.flush()
         stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
         feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
@@ -347,24 +371,29 @@ class UsersApiImpl(BaseUsersApi):
             )
 
     @staticmethod
-    def _sync_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
-        """Make the subscription's feed set exactly ``feed_ids``.
+    def _add_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
+        """Merge ``feed_ids`` into the subscription's feed set (union; no-op for IDs already present).
 
-        Relies on the ``delete-orphan`` cascade configured on
-        ``NotificationSubscription.notification_subscription_feeds`` (see
-        ``shared.database.users_database``): removing a row from the collection deletes it and
-        appending one inserts it on flush.
+        Appending to ``NotificationSubscription.notification_subscription_feeds`` (see
+        ``shared.database.users_database``) inserts the row on flush.
         """
-        desired = set(feed_ids)
-        current = {row.feed_stable_id: row for row in sub.notification_subscription_feeds}
-
-        for stable_id, row in current.items():
-            if stable_id not in desired:
-                sub.notification_subscription_feeds.remove(row)
-
+        current = {row.feed_stable_id for row in sub.notification_subscription_feeds}
         for stable_id in feed_ids:
             if stable_id not in current:
                 sub.notification_subscription_feeds.append(NotificationSubscriptionFeedOrm(feed_stable_id=stable_id))
+
+    @staticmethod
+    def _remove_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
+        """Remove ``feed_ids`` from the subscription's feed set (no-op for IDs not present).
+
+        Relies on the ``delete-orphan`` cascade configured on
+        ``NotificationSubscription.notification_subscription_feeds`` (see
+        ``shared.database.users_database``): removing a row from the collection deletes it on flush.
+        """
+        to_remove = set(feed_ids)
+        for row in list(sub.notification_subscription_feeds):
+            if row.feed_stable_id in to_remove:
+                sub.notification_subscription_feeds.remove(row)
 
     @staticmethod
     def _get_owned_subscription(db_session, sub_id: str, user_id: str) -> NotificationSubscriptionOrm:

@@ -9,7 +9,8 @@
 5. [Retry Strategy](#retry-strategy)
 6. [Email Delivery — Brevo](#email-delivery--brevo)
 7. [Admin Event Summary](#admin-event-summary)
-8. [Future Work](#future-work)
+8. [Subscription Management (subscribe / unsubscribe)](#subscription-management-subscribe--unsubscribe)
+9. [Future Work](#future-work)
 
 ---
 
@@ -228,9 +229,39 @@ monitor redelivery sees the run already `completed` and is a no-op.
 Admin users subscribe with `notification_type_id='admin.event_summary'` and
 `cadence='daily'` to receive these as a daily digest.
 
+## Subscription Management (subscribe / unsubscribe)
+
+Everything above is about **delivery** (turning events into emails). *Who is
+subscribed to what*, and how users subscribe and unsubscribe, is documented
+end-to-end — the logged-in account-screen flow, the email-link unsubscribe flow
+(single and all), and the trust model — in a dedicated guide:
+
+**[Subscription & Unsubscribe Flows — End to End](./notifications-subscription-flows.md)**
+
+Quick orientation:
+
+- **Two endpoint sets.** Authenticated, per-user CRUD under
+  `/v1/user/subscriptions*` (tag `users`); and capability endpoints
+  `/v1/subscriptions/{id}` (tag `subscriptions`), where the subscription ID
+  (`notification_subscription.id`, a UUID) is the access capability used by email
+  unsubscribe links. "No end-user login" still means the call is made server-side
+  by an authorized IAP principal — the API has no open-internet endpoints; every
+  call must be authenticated. See
+  [`docs/UserServiceAPI.yaml`](./UserServiceAPI.yaml).
+- **`api.announcements` is special.** As noted above it is delivered via Brevo,
+  not this dispatcher. An opt-in is kept in sync across **three**
+  representations — the `notification_subscription` row, Brevo list membership,
+  and `app_user.is_registered_to_receive_api_announcements` — by
+  `set_announcements_optin()` in
+  `api/src/user_service/impl/subscription_helpers.py`. Announcements
+  subscriptions are **disabled, never deleted**.
+- **The Brevo/DB link.** Each announcements contact carries the contact attribute
+  `MDB_SUBSCRIPTION_ID` = its `notification_subscription.id`. That subscription ID
+  (not the type string `api.announcements`) is what an unsubscribe link embeds,
+  e.g. `…/notifications/unsubscribe?id={{ contact.MDB_SUBSCRIPTION_ID }}`.
+
 ## Future Work
 
 - **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
 - **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
-- **Unsubscribe link**: Pass `subscription_id` in Brevo template params; build a one-click unsubscribe endpoint that sets `notification_subscription.active = false`.
