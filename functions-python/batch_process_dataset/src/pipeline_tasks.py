@@ -147,11 +147,7 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
         )
 
     # Create GTFS file data extraction tasks for every extractable file present in
-    # the dataset, whether or not it changed: each dataset needs its own reference
-    # to the extracted data, and an unchanged file may never have been extracted
-    # before. Extracted data is shared by file content hash, so for an unchanged
-    # file the extractor just links the dataset to the existing data instead of
-    # downloading the file again.
+    # the dataset, whether it changed or not
     files_by_name = {file.file_name: file for file in gtfs_files}
     for file_name in EXTRACTABLE_FILES:
         gtfs_file = files_by_name.get(file_name)
