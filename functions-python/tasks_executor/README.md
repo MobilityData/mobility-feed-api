@@ -406,3 +406,77 @@ Only **comparable** datasets are considered: a dataset must have a `downloaded_a
 | `pairs_dispatched` | Pairs dispatched (or, in `dry_run`, that would be dispatched) |
 | `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
 
+
+### update_seal_of_reliability
+
+Evaluates the implemented Seal of Reliability criteria (issue #1761) for a given list of GTFS
+feeds and updates the `sealcriterion` and `feedreliabilityseal` tables. Reads the source
+tables and never modifies them.
+
+The task always runs against an explicit `stable_feed_ids` list — there is no
+run-the-whole-catalogue mode. Eligibility is applied on top of the list: a requested feed is
+evaluated only if it is GTFS, `operational_status = published`, and `status NOT IN
+(deprecated, development)`. `inactive` and `future` feeds are kept: skipping a feed freezes
+its stored rows rather than making it neutral.
+
+`seal_criterion_name` in the database declares all six criteria, so adding an evaluator
+needs no schema change. The criteria still to be implemented are tracked by #1784 and #1782.
+
+```json
+{
+  "task": "update_seal_of_reliability",
+  "payload": {
+    "dry_run": true,
+    "stable_feed_ids": ["mdb-1210"]
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `stable_feed_ids` | list[str] | **required** | The feeds to evaluate; must be non-empty. Ids that are unknown or not eligible are skipped with a logged warning naming them; it raises only when *none* of them can be evaluated. `feeds` in the response covers every requested feed |
+| `dry_run` | bool | `true` | Evaluate the feeds and return the report without writing anything |
+| `limit` | int \| null | `null` | Cap the number of feeds evaluated, from the list |
+| `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
+| `batch_size` | int | `200` | Feeds loaded per query batch. Every eligible feed is still evaluated — this only sizes the queries |
+| `max_reported_feeds` | int | `50` | Cap on the `feeds` list in the response. Everything is still evaluated and written; `feeds_omitted` says how many entries were left out |
+| `now` | str \| null | `null` | ISO timestamp to evaluate against. Defaults to the current UTC time. A value with no offset is treated as UTC; any offset is normalized to UTC. Shifts the clock used for grace-period and probation arithmetic, but the source tables are still read at their current state, so this is not a full past-day replay |
+
+**Response fields**:
+
+| Field | Description |
+|---|---|
+| `total_feeds` | Feeds evaluated |
+| `criteria` | The criteria evaluated in this run |
+| `partial_run` | True when `criteria` was a subset, meaning `has_seal` was not recalculated |
+| `criterion_rows_written` | `sealcriterion` rows inserted or updated (`0` on a dry run) |
+| `unknown` | Criterion evaluations whose inputs were missing this run. The stored confirmed status is left standing, so the criterion stays in the roll-up — an outage freezes a criterion, it does not waive it |
+| `not_applicable` | Criterion evaluations that do not apply to the feed (e.g. a seasonal feed for a coverage criterion). The criterion is withdrawn from the `has_seal` roll-up |
+| `seals_before_run` | Feeds that held the seal before this run |
+| `seals_after_run` | Feeds holding it afterwards — on a dry run, what *would* be stored |
+| `seals_granted` / `seals_revoked` | Transitions in this run. `before + granted - revoked == after` |
+| `granted_stable_ids` / `revoked_stable_ids` | The feeds behind `seals_granted` / `seals_revoked` — the two transitions written to `feedreliabilityseal` in this run |
+| `first_evaluations` | Criteria that produced their first verdict this run (no prior `pass`/`fail`; a row of earlier `unknown` attempts still counts as a first verdict) |
+| `feeds` | One entry per requested feed (every one is reported), capped at `max_reported_feeds`: `stable_id`, its `feedreliabilityseal` state (`had_seal`, `has_seal`), and a nested `criteria` list holding every criterion of that feed with `observed_status`, `confirmed_status`, `previously_confirmed_status`, `phase` (`steady`, `in_grace_period` or `on_probation`) and `reason` |
+| `feeds_omitted` | Feeds left out of `feeds` by the cap. `sealcriterion` and `feedreliabilityseal` hold everything regardless |
+
+#### Running it locally
+
+Start Postgres and the function, then post to it:
+
+```shell
+docker compose --env-file ./config/.env.local up -d --force-recreate
+scripts/function-python-run.sh --function_name tasks_executor --no_install_venv
+```
+
+```shell
+curl -s -X POST http://localhost:8080 -H "Content-Type: application/json" \
+  -d '{"task":"update_seal_of_reliability","payload":{"dry_run":true,"stable_feed_ids":["mdb-1210"]}}' \
+  | python3 -m json.tool
+```
+
+`Accept: text/csv` returns a single summary row (the top-level report fields), not one row
+per feed — the converter flattens the returned dict, and `feeds` lands in it as a single
+stringified cell. Use the JSON response for per-feed and per-criterion detail.
+
+Nothing about this task needs GCP credentials — only `FEEDS_DATABASE_URL`.
