@@ -99,12 +99,12 @@ def resolve_lastmod(
 def published_feed_filters() -> list:
     """Filters shared by all three data types.
 
-    ``status`` is nullable, so ``IS DISTINCT FROM`` is used instead of ``!=`` —
-    the latter would silently drop feeds with a NULL status.
+    ``status`` must be one of the non-deprecated, non-null values; a NULL
+    status (or ``deprecated``) excludes the feed from the sitemap.
     """
     return [
         Feed.operational_status == "published",
-        Feed.status.is_distinct_from("deprecated"),
+        Feed.status.in_(["future", "inactive", "active"]),
         Feed.stable_id.isnot(None),
     ]
 

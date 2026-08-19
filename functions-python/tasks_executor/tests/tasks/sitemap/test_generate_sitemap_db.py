@@ -22,7 +22,7 @@ afterwards, so it neither depends on nor disturbs the shared conftest fixtures.
 import unittest
 from datetime import date, datetime, timezone
 
-from sqlalchemy import or_
+from sqlalchemy import null, or_
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
@@ -69,7 +69,10 @@ def seed(db_session: Session = None):
     gtfs_old = Gtfsfeed(**_feed_kwargs("gtfs_old", data_type="gtfs"))
     gtfs_no_dataset = Gtfsfeed(**_feed_kwargs("gtfs_no_dataset", data_type="gtfs"))
     gtfs_null_status = Gtfsfeed(
-        **_feed_kwargs("gtfs_null_status", data_type="gtfs", status=None)
+        # `status` has a server_default, so a plain `status=None` is treated by
+        # the ORM as "unset" and the default fires instead; `null()` forces an
+        # actual NULL to be inserted.
+        **_feed_kwargs("gtfs_null_status", data_type="gtfs", status=null())
     )
     gtfs_deprecated = Gtfsfeed(
         **_feed_kwargs("gtfs_deprecated", data_type="gtfs", status="deprecated")
@@ -222,9 +225,8 @@ class TestFetchGtfsEntries(unittest.TestCase):
             self.entries[f"{PREFIX}gtfs_no_dataset"].lastmod, LASTMOD_FLOOR
         )
 
-    def test_null_status_feed_is_included(self):
-        """`status != 'deprecated'` would drop these; `IS DISTINCT FROM` keeps them."""
-        self.assertIn(f"{PREFIX}gtfs_null_status", self.entries)
+    def test_null_status_feed_is_excluded(self):
+        self.assertNotIn(f"{PREFIX}gtfs_null_status", self.entries)
 
     def test_deprecated_feed_is_excluded(self):
         self.assertNotIn(f"{PREFIX}gtfs_deprecated", self.entries)
