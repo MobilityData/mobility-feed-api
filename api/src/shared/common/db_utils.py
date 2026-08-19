@@ -25,8 +25,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfsversion,
     Gbfsvalidationreport,
-    Feedreliabilityseal,
-    Sealcriterion,
+    FeedReliabilitySeal,
+    SealCriterion,
 )
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
@@ -467,10 +467,9 @@ def get_reliability_seals(db_session: Session, feed_ids: List[str]) -> Dict[str,
     been evaluated.
 
     One query regardless of how many feeds are asked for, so embedding the summary in a page of
-    feeds does not turn into an N+1. This deliberately reads through `__table__` rather than the
-    mapped `Feedreliabilityseal` class: that table's primary key is also its foreign key to `feed`,
-    which sqlacodegen maps as joined-table inheritance from `Feed`, so querying the class drags in
-    the whole feed row and warns about the two `created_at` columns colliding.
+    feeds does not turn into an N+1. This reads through `__table__` (a Core select) rather than the
+    mapped classes so the roll-up stays a set of plain columns - it never loads the `Feed`
+    relationship or the per-criterion rows as objects, only aggregates them.
 
     Probation is rolled up over the criteria that actually serve it - `official` and `stable` are
     point-in-time state checks and exempt - so a stray `probation_start` on one of them cannot make
@@ -480,8 +479,8 @@ def get_reliability_seals(db_session: Session, feed_ids: List[str]) -> Dict[str,
     if not feed_ids:
         return {}
 
-    seal_table = Feedreliabilityseal.__table__
-    criterion_table = Sealcriterion.__table__
+    seal_table = FeedReliabilitySeal.__table__
+    criterion_table = SealCriterion.__table__
     probation_exempt = [name.value for name, period in PROBATION_PERIODS.items() if period is None]
 
     grouped_columns = [

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from shared.common.seal_criteria import PROBATION_PERIOD, SealCriterionName
-from shared.database_gen.sqlacodegen_models import Sealcriterion
+from shared.database_gen.sqlacodegen_models import SealCriterion
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.reliability_criterion_impl import STATUS_FAIL, STATUS_NOT_EVALUATED, STATUS_PASS
 
@@ -14,8 +14,8 @@ def make_criterion_row(criterion, **overrides):
     values = {
         "feed_id": "feed_id",
         "criterion": criterion.value,
-        "observed_pass": True,
-        "confirmed_pass": True,
+        "observed_status": "pass",
+        "confirmed_status": "pass",
         "evaluated_at": NOW,
         "first_observed_failure_at": None,
         "last_observed_failure_at": None,
@@ -23,7 +23,7 @@ def make_criterion_row(criterion, **overrides):
         "probation_start": None,
     }
     values.update(overrides)
-    return Sealcriterion(**values)
+    return SealCriterion(**values)
 
 
 def make_seal_row(**overrides):
@@ -73,15 +73,15 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
             make_criterion_row(SealCriterionName.OFFICIAL),
             make_criterion_row(
                 SealCriterionName.AVAILABLE,
-                observed_pass=False,
-                confirmed_pass=False,
+                observed_status="fail",
+                confirmed_status="fail",
                 first_observed_failure_at=NOW - timedelta(days=60),
                 last_observed_failure_at=NOW,
             ),
             make_criterion_row(
                 SealCriterionName.COMPLIANT,
-                observed_pass=False,
-                confirmed_pass=True,
+                observed_status="fail",
+                confirmed_status="pass",
                 first_observed_failure_at=NOW - timedelta(days=5),
                 last_observed_failure_at=NOW,
             ),

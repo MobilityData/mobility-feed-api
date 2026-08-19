@@ -46,7 +46,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
-    Sealcriterion,
+    SealCriterion,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -335,7 +335,7 @@ class FeedsApiImpl(BaseFeedsApi):
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
         seal_row = get_reliability_seals(db_session, [feed.id]).get(feed.id)
-        criterion_rows = db_session.query(Sealcriterion).filter(Sealcriterion.feed_id == feed.id).all()
+        criterion_rows = db_session.query(SealCriterion).filter(SealCriterion.feed_id == feed.id).all()
 
         # No seal row means the nightly job has not reached this feed. That is reported as a feed
         # that simply does not hold the seal, with every criterion not evaluated, rather than a 404:

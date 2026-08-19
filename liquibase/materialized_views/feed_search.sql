@@ -128,8 +128,8 @@ LEFT JOIN (
         MAX(SealCriterion.probation_start) FILTER (
             WHERE SealCriterion.criterion NOT IN ('official', 'stable')
         ) AS seal_latest_probation_start
-    FROM FeedReliabilitySeal
-    LEFT JOIN SealCriterion ON SealCriterion.feed_id = FeedReliabilitySeal.feed_id
+    FROM feed_reliability_seal AS FeedReliabilitySeal
+    LEFT JOIN seal_criterion AS SealCriterion ON SealCriterion.feed_id = FeedReliabilitySeal.feed_id
     GROUP BY
         FeedReliabilitySeal.feed_id,
         FeedReliabilitySeal.has_seal,

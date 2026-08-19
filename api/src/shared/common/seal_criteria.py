@@ -6,7 +6,7 @@ review, tests and a deploy.
 
 This module is under `shared/` so the nightly evaluation job
 (`functions-python/tasks_executor`, which symlinks `api/src/shared/*`) and the read API
-share one definition. The job owns the writing of `sealcriterion`; the API only reads it
+share one definition. The job owns the writing of `seal_criterion`; the API only reads it
 back and derives the two countdowns from these windows.
 
 See #1761 for the algorithm and #1760 for the tables.

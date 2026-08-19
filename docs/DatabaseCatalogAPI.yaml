@@ -1199,13 +1199,19 @@ components:
               * `fail` - the check failed. The seal is only withdrawn once the failure outlasts
                 the criterion's grace period, so check `in_grace_period` before presenting this
                 as a loss.
+              * `unknown` - the criterion was evaluated but its inputs were missing, so no verdict
+                could be reached this time. It is skipped when deciding the seal rather than counted
+                as a failure.
+              * `not_applicable` - the criterion does not apply to this feed (for example a
+                coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
               * `not_evaluated` - the criterion has produced no verdict for this feed yet. It is
-                skipped when deciding the seal rather than counted as a failure. A criterion that
-                does not apply to a feed also reads as `not_evaluated`.
+                skipped when deciding the seal rather than counted as a failure.
           type: string
           enum:
             - pass
             - fail
+            - unknown
+            - not_applicable
             - not_evaluated
           example: fail
         in_grace_period:

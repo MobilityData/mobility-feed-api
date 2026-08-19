@@ -3,7 +3,7 @@ from typing import Any, Iterable, Optional
 
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from shared.common.seal_criteria import SealCriterionName, resolve_criterion
-from shared.database_gen.sqlacodegen_models import Sealcriterion as SealcriterionOrm
+from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
 from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 
 
@@ -11,7 +11,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
     """Implementation of the `FeedReliabilityReport` model.
 
     Assembles the full Seal of Reliability breakdown for one feed from its seal roll-up row and its
-    `sealcriterion` rows.
+    `seal_criterion` rows.
     """
 
     class Config:
@@ -25,7 +25,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
         cls,
         feed_stable_id: str,
         seal_row: Any | None,
-        criterion_rows: Iterable[SealcriterionOrm],
+        criterion_rows: Iterable[SealCriterionOrm],
         now: Optional[datetime] = None,
     ) -> FeedReliabilityReport:
         """Create a model instance for one feed.

@@ -9,9 +9,9 @@ from sqlalchemy import text
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response  # noqa: F401
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
-    Feedreliabilityseal,
+    FeedReliabilitySeal,
     Gtfsfeed,
-    Sealcriterion,
+    SealCriterion,
     t_feedsearch,
 )
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
@@ -657,23 +657,23 @@ def _feed_with_seal(feed_stable_id: str):
 
     Search reads the `feedsearch` materialized view, so the view has to be rebuilt for the seal to
     be visible - and rebuilt again on the way out so the rest of the package sees the original data.
-    Writes go through `__table__` because `Feedreliabilityseal` is mapped as joined-table inheritance
-    from `Feed`.
+    Writes go through `__table__` (a Core insert) so the seal row's surrogate `id` falls back to its
+    `gen_random_uuid()` default.
     """
     db = Database()
     with db.start_db_session() as session:
         feed_id = session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_stable_id).first().id
         session.execute(
-            Feedreliabilityseal.__table__.insert().values(
+            FeedReliabilitySeal.__table__.insert().values(
                 feed_id=feed_id, has_seal=True, seal_earned_at=datetime.now(timezone.utc)
             )
         )
         session.execute(
-            Sealcriterion.__table__.insert().values(
+            SealCriterion.__table__.insert().values(
                 feed_id=feed_id,
                 criterion="official",
-                observed_pass=True,
-                confirmed_pass=True,
+                observed_status="pass",
+                confirmed_status="pass",
                 evaluated_at=datetime.now(timezone.utc),
             )
         )
@@ -684,9 +684,9 @@ def _feed_with_seal(feed_stable_id: str):
         yield
     finally:
         with db.start_db_session() as session:
-            session.execute(Sealcriterion.__table__.delete().where(Sealcriterion.__table__.c.feed_id == feed_id))
+            session.execute(SealCriterion.__table__.delete().where(SealCriterion.__table__.c.feed_id == feed_id))
             session.execute(
-                Feedreliabilityseal.__table__.delete().where(Feedreliabilityseal.__table__.c.feed_id == feed_id)
+                FeedReliabilitySeal.__table__.delete().where(FeedReliabilitySeal.__table__.c.feed_id == feed_id)
             )
             session.commit()
             session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))

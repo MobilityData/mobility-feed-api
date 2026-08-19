@@ -17,8 +17,8 @@ from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Gtfsfeed,
     Gtfsrealtimefeed,
-    Feedreliabilityseal,
-    Sealcriterion,
+    FeedReliabilitySeal,
+    SealCriterion,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
@@ -424,14 +424,14 @@ def test_map_availability_check_failure():
 def _seal_rows(feed_stable_id: str, has_seal: bool, criteria: dict):
     """Seed a feed's seal tables for the duration of a test, then remove them.
 
-    Writes through `__table__` rather than the mapped classes: `Feedreliabilityseal` is mapped as
-    joined-table inheritance from `Feed`, so persisting an instance would try to insert a new feed.
+    Writes through `__table__` (a Core insert) so the seal row's surrogate `id` falls back to its
+    `gen_random_uuid()` default and the per-criterion rows go in without instantiating mapped objects.
     """
     db = Database()
     with db.start_db_session() as session:
         feed_id = session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_stable_id).first().id
         session.execute(
-            Feedreliabilityseal.__table__.insert().values(
+            FeedReliabilitySeal.__table__.insert().values(
                 feed_id=feed_id,
                 has_seal=has_seal,
                 seal_earned_at=SEAL_NOW - timedelta(days=200),
@@ -439,15 +439,15 @@ def _seal_rows(feed_stable_id: str, has_seal: bool, criteria: dict):
             )
         )
         for criterion, values in criteria.items():
-            session.execute(Sealcriterion.__table__.insert().values(feed_id=feed_id, criterion=criterion, **values))
+            session.execute(SealCriterion.__table__.insert().values(feed_id=feed_id, criterion=criterion, **values))
         session.commit()
     try:
         yield
     finally:
         with db.start_db_session() as session:
-            session.execute(Sealcriterion.__table__.delete().where(Sealcriterion.__table__.c.feed_id == feed_id))
+            session.execute(SealCriterion.__table__.delete().where(SealCriterion.__table__.c.feed_id == feed_id))
             session.execute(
-                Feedreliabilityseal.__table__.delete().where(Feedreliabilityseal.__table__.c.feed_id == feed_id)
+                FeedReliabilitySeal.__table__.delete().where(FeedReliabilitySeal.__table__.c.feed_id == feed_id)
             )
             session.commit()
 
@@ -473,17 +473,17 @@ def test_gtfs_feed_reliability_with_criteria(client: TestClient):
     """A feed with stored criteria reports each verdict, including the at-risk and probation states."""
     feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[1]
     criteria = {
-        "official": {"observed_pass": True, "confirmed_pass": True, "evaluated_at": SEAL_NOW},
+        "official": {"observed_status": "pass", "confirmed_status": "pass", "evaluated_at": SEAL_NOW},
         "compliant": {
-            "observed_pass": False,
-            "confirmed_pass": True,
+            "observed_status": "fail",
+            "confirmed_status": "pass",
             "evaluated_at": SEAL_NOW,
             "first_observed_failure_at": SEAL_NOW - timedelta(days=2),
             "last_observed_failure_at": SEAL_NOW,
         },
         "available": {
-            "observed_pass": True,
-            "confirmed_pass": True,
+            "observed_status": "pass",
+            "confirmed_status": "pass",
             "evaluated_at": SEAL_NOW,
             "probation_start": SEAL_NOW - timedelta(days=10),
         },
@@ -529,7 +529,7 @@ def test_gtfs_feed_reliability_not_found(client: TestClient):
 def test_gtfs_feed_get_embeds_reliability_seal(client: TestClient):
     """The feed-detail response carries the seal summary, so the badge needs no second call."""
     feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[2]
-    criteria = {"official": {"observed_pass": True, "confirmed_pass": True, "evaluated_at": SEAL_NOW}}
+    criteria = {"official": {"observed_status": "pass", "confirmed_status": "pass", "evaluated_at": SEAL_NOW}}
     with _seal_rows(feed_stable_id, has_seal=True, criteria=criteria):
         response = client.request("GET", f"/v1/gtfs_feeds/{feed_stable_id}", headers=authHeaders)
 
