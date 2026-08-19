@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 
 import logging
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated, Final, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -88,6 +88,38 @@ from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
+
+# Fields projected by `from_orm` (see UpdateRequestGtfs(Rt)FeedImpl) that are derived
+# from related rows and never written back by `to_orm`, so an update request cannot set
+# them. `license_is_spdx` is derived from the License relationship (feed.license.is_spdx);
+# comparing it would report a phantom change whenever the request omits it.
+_DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
+
+
+def _normalize_for_diff(value):
+    """Recursively coerce "absent" representations to None so change detection mirrors
+    the write path (`to_orm`), which persists empty/falsy values as None. Applied to both
+    sides of the diff for every field: an empty string or empty list is treated as "no
+    value" rather than a change, so None-vs-"" and None-vs-[] never register as edits.
+    """
+    if isinstance(value, dict):
+        return {key: _normalize_for_diff(item) for key, item in value.items()}
+    if isinstance(value, list):
+        normalized = [_normalize_for_diff(item) for item in value]
+        return None if not normalized else normalized
+    if value == "":
+        return None
+    return value
+
+
+def _strip_derived_fields(dumped: dict) -> dict:
+    """Drop read-only/derived fields from a dumped update model so they do not register
+    as changes (they are not settable through the update request)."""
+    source_info = dumped.get("source_info")
+    if isinstance(source_info, dict):
+        for field in _DERIVED_SOURCE_INFO_FIELDS:
+            source_info.pop(field, None)
+    return dumped
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -282,9 +314,15 @@ class OperationsApiImpl(BaseOperationsApi):
         copy_feed.operational_status_action = (
             update_request_feed.operational_status_action
         )
+        current_values = _strip_derived_fields(
+            _normalize_for_diff(copy_feed.model_dump())
+        )
+        requested_values = _strip_derived_fields(
+            _normalize_for_diff(update_request_feed.model_dump())
+        )
         diff = DeepDiff(
-            copy_feed.model_dump(),
-            update_request_feed.model_dump(),
+            current_values,
+            requested_values,
             ignore_order=True,
         )
         if diff.affected_paths:
@@ -296,7 +334,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return diff
 
     @validate_request(UpdateRequestGtfsFeed, "update_request_gtfs_feed")
-    async def update_gtfs_feed(
+    def update_gtfs_feed(
         self,
         update_request_gtfs_feed: Annotated[
             UpdateRequestGtfsFeed,
@@ -310,10 +348,10 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return await self._update_feed(update_request_gtfs_feed, DataType.GTFS)
+        return self._update_feed(update_request_gtfs_feed, DataType.GTFS)
 
     @validate_request(UpdateRequestGtfsRtFeed, "update_request_gtfs_rt_feed")
-    async def update_gtfs_rt_feed(
+    def update_gtfs_rt_feed(
         self,
         update_request_gtfs_rt_feed: Annotated[
             UpdateRequestGtfsRtFeed,
@@ -327,10 +365,10 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return await self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
+        return self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
 
     @with_db_session
-    async def _update_feed(
+    def _update_feed(
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
@@ -340,7 +378,7 @@ class OperationsApiImpl(BaseOperationsApi):
         Update the specified feed in the Mobility Database
         """
         try:
-            feed_from_db = await OperationsApiImpl.fetch_feed(
+            feed_from_db = OperationsApiImpl.fetch_feed(
                 data_type, db_session, update_request_feed
             )
 
@@ -365,7 +403,7 @@ class OperationsApiImpl(BaseOperationsApi):
                     r.target_id for r in getattr(feed_from_db, "redirectingids", [])
                 }
 
-                await OperationsApiImpl._populate_feed_values(
+                OperationsApiImpl._populate_feed_values(
                     feed_from_db, impl_class, db_session, update_request_feed
                 )
                 if getattr(update_request_feed, "propagate_license", False):
@@ -459,7 +497,7 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
     @staticmethod
-    async def _populate_feed_values(feed, impl_class, session, update_request_feed):
+    def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
         action = update_request_feed.operational_status_action
         # This is a temporary solution as the operational_status is not visible in the diff
@@ -473,7 +511,7 @@ class OperationsApiImpl(BaseOperationsApi):
         session.add(feed)
 
     @staticmethod
-    async def fetch_feed(data_type, session, update_request_feed):
+    def fetch_feed(data_type, session, update_request_feed):
         """Fetch a feed by its stable ID with eager loading.
 
         Args:
@@ -499,7 +537,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return feed
 
     @with_db_session
-    async def create_gtfs_feed(
+    def create_gtfs_feed(
         self,
         operation_create_request_gtfs_feed: Annotated[
             OperationCreateRequestGtfsFeed,
@@ -559,7 +597,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
 
     @with_db_session
-    async def create_gtfs_rt_feed(
+    def create_gtfs_rt_feed(
         self,
         operation_create_request_gtfs_rt_feed: Annotated[
             OperationCreateRequestGtfsRtFeed,

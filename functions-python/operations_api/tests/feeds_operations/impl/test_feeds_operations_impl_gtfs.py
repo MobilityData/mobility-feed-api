@@ -52,7 +52,7 @@ def db_session():
 @patch("feeds_operations.impl.feeds_operations_impl.create_web_revalidation_task")
 async def test_update_gtfs_feed_no_changes(mock_revalidation, update_request_gtfs_feed):
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
 
 
@@ -70,7 +70,7 @@ async def test_update_gtfs_feed_field_change(
         )
     ]
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -89,7 +89,7 @@ async def test_update_gtfs_feed_set_wip(
 ):
     update_request_gtfs_feed.operational_status_action = "wip"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -105,7 +105,7 @@ async def test_update_gtfs_feed_set_wip(
 async def test_update_gtfs_feed_set_wip_nochange(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "no_change"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 204
 
     db_feed = (
@@ -124,7 +124,7 @@ async def test_update_gtfs_feed_set_published(
 ):
     update_request_gtfs_feed.operational_status_action = "published"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -143,7 +143,7 @@ async def test_update_gtfs_feed_set_unpublished(
 ):
     update_request_gtfs_feed.operational_status_action = "unpublished"
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
 
     db_feed = (
@@ -159,7 +159,7 @@ async def test_update_gtfs_feed_invalid_feed(update_request_gtfs_feed):
     update_request_gtfs_feed.id = "invalid"
     api = OperationsApiImpl()
     with pytest.raises(HTTPException) as exc_info:
-        await api.update_gtfs_feed(update_request_gtfs_feed)
+        api.update_gtfs_feed(update_request_gtfs_feed)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "Feed ID not found: invalid"
 
@@ -169,7 +169,7 @@ async def test_update_gtfs_feed_official_field(update_request_gtfs_feed, db_sess
     """Test updating the official field of a GTFS feed."""
     update_request_gtfs_feed.official = True
     api = OperationsApiImpl()
-    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    response: Response = api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 204
 
     db_feed = (
