@@ -137,6 +137,27 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   }
 }
 
+resource "google_storage_bucket" "sitemap_bucket" {
+  location                    = var.gcp_region
+  name                        = "mobilitydatabase-sitemap-${var.environment}"
+  uniform_bucket_level_access = true
+  cors {
+    origin          = ["*"]
+    method          = ["GET"]
+    response_header = ["*"]
+  }
+}
+
+# Public, unauthenticated read access so sitemap.xml can be fetched directly
+# (e.g. by the Next.js web app) without a GCP identity. Uniform bucket-level
+# access is on for this bucket, so per-object ACLs (blob.make_public()) don't
+# apply here — public read has to be granted at the bucket level instead.
+resource "google_storage_bucket_iam_member" "sitemap_bucket_public_read" {
+  bucket = google_storage_bucket.sitemap_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
   bucket = data.google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
@@ -685,6 +706,31 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
     body = base64encode("{\"task\": \"reconcile_announcements_from_brevo\", \"payload\": {\"dry_run\": false}}")
   }
   attempt_deadline = "320s"
+}
+
+# Schedule the mobilitydatabase.org sitemap generation to run daily at 08:00 UTC.
+# Overwrites sitemap.xml in the sitemap bucket on every run. Disabled (paused)
+# outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "generate_sitemap_scheduler" {
+  name        = "generate-mobilitydatabase-sitemap-${var.environment}"
+  description = "Daily regeneration of the mobilitydatabase.org sitemap"
+  time_zone   = "Etc/UTC"
+  schedule    = var.generate_sitemap_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"generate_mobilitydatabase_sitemap\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "600s"
 }
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
@@ -1634,8 +1680,9 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+    sitemap_bucket        = google_storage_bucket.sitemap_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.sitemap_bucket]
   bucket     = each.value
   role       = "roles/storage.objectCreator"
   members = [

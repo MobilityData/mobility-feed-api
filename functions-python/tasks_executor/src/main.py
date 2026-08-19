@@ -79,6 +79,9 @@ from tasks.changelog.backfill_changelog import backfill_changelog_handler
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
+from tasks.sitemap.generate_sitemap import (
+    generate_mobilitydatabase_sitemap_handler,
+)
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -250,6 +253,23 @@ tasks = {
             "Parameters: run_id (required)."
         ),
         "handler": notifications_dispatch_monitor_handler,
+    },
+    "generate_mobilitydatabase_sitemap": {
+        "description": (
+            "Generate the mobilitydatabase.org sitemap from published, "
+            "non-deprecated feeds and upload it to GCS as sitemap.xml. "
+            "One URL per feed at /feeds/{data_type}/{stable_id}, priority 0.8, "
+            "no changefreq. lastmod: GTFS uses its latest dataset download; "
+            "GTFS-RT the latest of its created_at and its related scheduled "
+            "feeds' latest dataset; GBFS its newest GBFS version date — all "
+            "floored at 2026-03-05. "
+            "Parameters: dry_run (default true), "
+            "bucket_name (default 'mobilitydatabase-sitemap-{ENVIRONMENT}'), "
+            "object_name (default 'sitemap.xml'), "
+            "base_url (default 'https://mobilitydatabase.org'), "
+            "make_public (default true), include_xml (default false)."
+        ),
+        "handler": generate_mobilitydatabase_sitemap_handler,
     },
     "backfill_changelog": {
         "description": (
