@@ -36,21 +36,19 @@ _PLAN = "tasks.seal_of_reliability.seal_orchestrator"
 
 
 class TestSealOrchestratorHandler(unittest.TestCase):
-    def _feeds(self, *stable_ids):
-        return [MagicMock(stable_id=stable_id) for stable_id in stable_ids]
-
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)
-    @patch(f"{_PLAN}.get_seal_feeds_query")
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=5)
     def test_enqueues_worker_per_batch_plus_monitor(
-        self, query_mock, enqueue_mock, start_run_mock
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
         from tasks.seal_of_reliability.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
-        query_mock.return_value.order_by.return_value.all.return_value = self._feeds(
-            "mdb-1", "mdb-2", "mdb-3", "mdb-4", "mdb-5"
+        iter_mock.return_value = iter(
+            [["mdb-1", "mdb-2"], ["mdb-3", "mdb-4"], ["mdb-5"]]
         )
 
         result = seal_orchestrator_handler({"dry_run": False, "batch_size": 2})
@@ -68,17 +66,16 @@ class TestSealOrchestratorHandler(unittest.TestCase):
 
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)
-    @patch(f"{_PLAN}.get_seal_feeds_query")
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=1)
     def test_dynamic_task_names_use_prefix(
-        self, query_mock, enqueue_mock, start_run_mock
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
         from tasks.seal_of_reliability.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
-        query_mock.return_value.order_by.return_value.all.return_value = self._feeds(
-            "mdb-1"
-        )
+        iter_mock.return_value = iter([["mdb-1"]])
         seal_orchestrator_handler({"dry_run": False, "batch_size": 250})
 
         names = [c.kwargs["task_name"] for c in enqueue_mock.call_args_list]
@@ -87,54 +84,55 @@ class TestSealOrchestratorHandler(unittest.TestCase):
 
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)
-    @patch(f"{_PLAN}.get_seal_feeds_query")
-    def test_dry_run_enqueues_nothing(self, query_mock, enqueue_mock, start_run_mock):
-        from tasks.seal_of_reliability.seal_orchestrator import (
-            seal_orchestrator_handler,
-        )
-
-        query_mock.return_value.order_by.return_value.all.return_value = self._feeds(
-            "mdb-1", "mdb-2"
-        )
-        result = seal_orchestrator_handler({"dry_run": True, "batch_size": 1})
-
-        enqueue_mock.assert_not_called()
-        start_run_mock.assert_not_called()
-        self.assertEqual(result["enqueued"], 0)
-        self.assertEqual(result["batches"], 2)
-
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
-    @patch(f"{_PLAN}.get_seal_feeds_query")
-    def test_no_eligible_feeds_enqueues_nothing(
-        self, query_mock, enqueue_mock, start_run_mock
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
+    def test_dry_run_enqueues_nothing(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
         from tasks.seal_of_reliability.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
-        query_mock.return_value.order_by.return_value.all.return_value = []
+        result = seal_orchestrator_handler({"dry_run": True, "batch_size": 1})
+
+        enqueue_mock.assert_not_called()
+        start_run_mock.assert_not_called()
+        iter_mock.assert_not_called()  # dry_run never needs the actual ids
+        self.assertEqual(result["enqueued"], 0)
+        self.assertEqual(result["batches"], 2)
+
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=0)
+    def test_no_eligible_feeds_enqueues_nothing(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
+    ):
+        from tasks.seal_of_reliability.seal_orchestrator import (
+            seal_orchestrator_handler,
+        )
+
         result = seal_orchestrator_handler({"dry_run": False})
 
         enqueue_mock.assert_not_called()
         start_run_mock.assert_not_called()
+        iter_mock.assert_not_called()
         self.assertEqual(result["enqueued"], 0)
         self.assertEqual(result["batches"], 0)
 
     @patch(f"{_PLAN}._mark_enqueue_failed")
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue")
-    @patch(f"{_PLAN}.get_seal_feeds_query")
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=1)
     def test_failed_enqueue_marks_batch_failed_immediately(
-        self, query_mock, enqueue_mock, start_run_mock, mark_failed_mock
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock, mark_failed_mock
     ):
         from tasks.seal_of_reliability.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
-        query_mock.return_value.order_by.return_value.all.return_value = self._feeds(
-            "mdb-1"
-        )
+        iter_mock.return_value = iter([["mdb-1"]])
         enqueue_mock.side_effect = [False, True]
 
         seal_orchestrator_handler({"dry_run": False, "batch_size": 1})

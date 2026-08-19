@@ -23,7 +23,7 @@ in one invocation would eventually hit `tasks_executor`'s own timeout as the cat
 grows. This producer is what enumerates the catalog and chunks it:
 
   1. resolves every seal-eligible GTFS feed (same eligibility predicate `update_seals`
-     itself applies — see `context.get_seal_feeds_query`);
+     itself applies via `context.is_seal_eligible` — see `context.iter_eligible_stable_ids`);
   2. splits the stable_ids into batches of `batch_size`;
   3. registers the run + one entry per batch in TaskExecutionTracker and enqueues one
      `seal_orchestrator_worker` Cloud Task per batch;
@@ -51,16 +51,19 @@ Payload (all optional)::
 
 import json
 import logging
+import math
 import os
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 
-from tasks.seal_of_reliability.context import batched, get_seal_feeds_query
+from tasks.seal_of_reliability.context import (
+    count_eligible_feeds,
+    iter_eligible_stable_ids,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,32 +115,28 @@ def _plan_run(
     db_session=None,
 ) -> Dict[str, Any]:
     """Resolve eligible feeds, chunk them, and (unless dry_run) fan the run out."""
-    query = get_seal_feeds_query(db_session, stable_feed_ids=stable_feed_ids).order_by(
-        Feed.stable_id
+    total_feeds = count_eligible_feeds(
+        db_session, stable_feed_ids=stable_feed_ids, limit=limit
     )
-    if limit is not None:
-        query = query.limit(limit)
-    eligible_ids = [feed.stable_id for feed in query.all()]
-
-    batches = list(batched(eligible_ids, batch_size))
+    num_batches = math.ceil(total_feeds / batch_size) if total_feeds else 0
     run_started_at = datetime.now(timezone.utc)
     run_id = f"seal-{run_started_at.strftime('%Y%m%dT%H%M%S')}"
 
     logger.info(
         "seal_orchestrator: run=%s total_feeds=%d batch_size=%d batches=%d dry_run=%s",
         run_id,
-        len(eligible_ids),
+        total_feeds,
         batch_size,
-        len(batches),
+        num_batches,
         dry_run,
     )
 
-    if dry_run or not batches:
+    if dry_run or not num_batches:
         return {
             "run_id": run_id,
-            "total_feeds": len(eligible_ids),
+            "total_feeds": total_feeds,
             "batch_size": batch_size,
-            "batches": len(batches),
+            "batches": num_batches,
             "enqueued": 0,
             "dry_run": dry_run,
         }
@@ -150,11 +149,14 @@ def _plan_run(
         "run_started_at": run_started_at.isoformat(),
         "deadline_seconds": deadline_seconds,
     }
-    batch_ids = [f"batch-{index:04d}" for index in range(len(batches))]
+    batch_ids = [f"batch-{index:04d}" for index in range(num_batches)]
     _start_run(run_id, batch_ids, run_params)
 
     enqueued = 0
-    for batch_id, batch_stable_ids in zip(batch_ids, batches):
+    stable_id_batches = iter_eligible_stable_ids(
+        db_session, batch_size, stable_feed_ids=stable_feed_ids, limit=limit
+    )
+    for batch_id, batch_stable_ids in zip(batch_ids, stable_id_batches):
         worker_payload = {
             "run_id": run_id,
             "batch_id": batch_id,
@@ -186,9 +188,9 @@ def _plan_run(
 
     return {
         "run_id": run_id,
-        "total_feeds": len(eligible_ids),
+        "total_feeds": total_feeds,
         "batch_size": batch_size,
-        "batches": len(batches),
+        "batches": num_batches,
         "enqueued": enqueued,
         "dry_run": False,
     }

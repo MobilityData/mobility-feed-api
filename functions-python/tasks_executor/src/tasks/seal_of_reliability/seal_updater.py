@@ -33,15 +33,15 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
-    Feed,
     FeedReliabilitySeal,
+    Gtfsfeed,
     SealCriterion,
 )
 
 from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
-    get_seal_feeds_query,
+    is_seal_eligible,
 )
 from tasks.seal_of_reliability.criteria import (
     CriterionPhase,
@@ -79,8 +79,8 @@ def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
 
 
 def _validate_requested_feed_ids(
-    db_session: Session,
     requested: Sequence[str],
+    found: Set[str],
     evaluated: Set[str],
 ) -> None:
     """Warn about requested feeds that will not be evaluated, or raise if that is all of them."""
@@ -88,21 +88,17 @@ def _validate_requested_feed_ids(
     if not unusable:
         return  # every requested feed is being evaluated, so there is nothing to report
 
-    # One extra query, and only now that something has already been dropped.
-    existing = {
-        row.stable_id
-        for row in db_session.execute(
-            select(Feed.stable_id).where(Feed.stable_id.in_(unusable))
-        ).all()
-    }
-    unknown = sorted(set(unusable) - existing)
+    # `found` already came from the by-id load, so telling "not found" apart from
+    # "found but ineligible" costs nothing extra here.
+    unknown = sorted(set(unusable) - found)
+    ineligible = sorted(set(unusable) & found)
 
     problems = []
     if unknown:
         problems.append(f"not found: {unknown}")
-    if existing:
+    if ineligible:
         problems.append(
-            f"not eligible for the seal: {sorted(existing)} (must be gtfs, "
+            f"not eligible for the seal: {ineligible} (must be gtfs, "
             "operational_status=published, and status not in (deprecated, development))"
         )
     summary = "; ".join(problems)
@@ -308,19 +304,26 @@ def update_seals(
     evaluators = _resolve_evaluators(criteria)
     partial_run = len(evaluators) < len(EVALUATORS)
 
-    query = get_seal_feeds_query(db_session, stable_feed_ids=stable_feed_ids)
+    # Plain by-id load: no eligibility predicate here, since these ids were already
+    # explicitly requested. Eligibility is checked in Python below, on the loaded rows.
+    query = db_session.query(Gtfsfeed).filter(
+        Gtfsfeed.stable_id.in_(list(stable_feed_ids))
+    )
     if limit is not None:
         query = query.limit(limit)
     feeds = query.all()
+    eligible_feeds = [feed for feed in feeds if is_seal_eligible(feed)]
 
     _validate_requested_feed_ids(
-        db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
+        stable_feed_ids,
+        found={feed.stable_id for feed in feeds},
+        evaluated={feed.stable_id for feed in eligible_feeds},
     )
 
     logging.info(
         "Evaluating %d criterion/criteria for %d feed(s) (dry_run=%s, now=%s).",
         len(evaluators),
-        len(feeds),
+        len(eligible_feeds),
         dry_run,
         now.isoformat(),
     )
@@ -332,7 +335,7 @@ def update_seals(
     not_applicable_count = 0
     first_evaluations = 0
 
-    for batch in batched(feeds, batch_size):
+    for batch in batched(eligible_feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
         contexts = build_contexts(db_session, batch, now)
         previous_states = _load_previous_states(db_session, batch_ids)
@@ -442,12 +445,12 @@ def update_seals(
 
     report = {
         "message": (
-            f"{'Dry run: evaluated' if dry_run else 'Updated'} {len(feeds)} feed(s) "
-            f"across {len(evaluators)} criterion/criteria."
+            f"{'Dry run: evaluated' if dry_run else 'Updated'} {len(eligible_feeds)} "
+            f"feed(s) across {len(evaluators)} criterion/criteria."
         ),
         "dry_run": dry_run,
         "evaluated_at": now.isoformat(),
-        "total_feeds": len(feeds),
+        "total_feeds": len(eligible_feeds),
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
         "criterion_rows_written": 0 if dry_run else len(all_states),
