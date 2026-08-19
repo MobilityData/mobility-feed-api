@@ -48,7 +48,7 @@ from tasks.seal_of_reliability.evaluators.base import CriterionObservation
 
 @dataclass(frozen=True)
 class SealCriterionState:
-    """One row of the sealcriterion table.
+    """One row of the seal_criterion table.
 
     Both statuses are stated positively: PASS means the criterion passed. `observed_status`
     is the instantaneous check, `confirmed_status` the debounced status that drives the seal.

@@ -264,12 +264,11 @@ tasks = {
     },
     "update_seal_of_reliability": {
         "description": (
-            "Evaluates the implemented Seal of Reliability criteria for every eligible "
-            "GTFS feed and updates sealcriterion and feedreliabilityseal. "
+            "Evaluates the implemented Seal of Reliability criteria for the requested "
+            "GTFS feeds and updates seal_criterion and feed_reliability_seal. "
             "Reads the source tables and never modifies them. "
-            "Parameters: dry_run (default true), stable_feed_ids (default null; when set, "
-            "`feeds` covers every one of those feeds), limit (default null), "
-            "criteria (default null "
+            "Parameters: stable_feed_ids (required, non-empty; the feeds to evaluate), "
+            "dry_run (default true), limit (default null), criteria (default null "
             "meaning every implemented criterion; a partial set skips the has_seal "
             "roll-up), batch_size (default 200), now (ISO timestamp, default current "
             "UTC time)."

@@ -440,7 +440,7 @@ needs no schema change. The criteria still to be implemented are tracked by #178
 | `criteria` | list[str] \| null | `null` | Evaluate only these criteria. Naming a criterion that has no evaluator yet raises. A subset of the implemented criteria skips the `has_seal` roll-up, since the ones not evaluated cannot be judged |
 | `batch_size` | int | `200` | Feeds loaded per query batch. Every eligible feed is still evaluated — this only sizes the queries |
 | `max_reported_feeds` | int | `50` | Cap on the `feeds` list in the response. Everything is still evaluated and written; `feeds_omitted` says how many entries were left out |
-| `now` | str \| null | `null` | ISO timestamp to evaluate against. Defaults to the current UTC time. Shifts the clock used for grace-period and probation arithmetic, but the source tables are still read at their current state, so this is not a full past-day replay — see #1761 for the retroactive-recalculation design |
+| `now` | str \| null | `null` | ISO timestamp to evaluate against. Defaults to the current UTC time. A value with no offset is treated as UTC; any offset is normalized to UTC. Shifts the clock used for grace-period and probation arithmetic, but the source tables are still read at their current state, so this is not a full past-day replay |
 
 **Response fields**:
 

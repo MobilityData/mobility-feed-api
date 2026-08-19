@@ -58,7 +58,6 @@ def get_seal_feeds_query(db_session: Session, stable_feed_ids: Sequence[str]):
     `inactive` and `future` feeds are deliberately kept.
     """
     return db_session.query(Gtfsfeed).filter(
-        Feed.data_type == "gtfs",
         Feed.status.notin_(["deprecated", "development"]),
         Feed.operational_status == "published",
         Feed.stable_id.in_(list(stable_feed_ids)),

@@ -15,13 +15,28 @@
 #
 """Task entry point for the nightly Seal of Reliability evaluation (issue #1761)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_REPORTED_FEEDS,
     update_seals,
 )
+
+
+def _parse_now(now: str) -> datetime:
+    """Parse the `now` payload string to a UTC-aware datetime.
+
+    An operator may pass a date or a naive timestamp (`2026-08-01`,
+    `2026-08-01T00:00:00`); `fromisoformat` would return a naive value. The state machine
+    compares `now` against tz-aware `timestamptz` columns, so a naive value raises
+    `TypeError: can't subtract offset-naive and offset-aware datetimes`. Assume UTC when no
+    offset is given, and normalize any offset to UTC otherwise.
+    """
+    parsed = datetime.fromisoformat(now)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def get_parameters(payload: dict):
@@ -33,7 +48,7 @@ def get_parameters(payload: dict):
         payload.get("limit", None),
         payload.get("criteria", None),
         payload.get("batch_size", DEFAULT_BATCH_SIZE),
-        datetime.fromisoformat(now) if now else None,
+        _parse_now(now) if now else None,
         payload.get("max_reported_feeds", DEFAULT_MAX_REPORTED_FEEDS),
     )
 

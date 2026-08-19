@@ -39,6 +39,7 @@ from main import tasks_executor
 from sqlalchemy import delete, select
 
 from tasks.seal_of_reliability.criteria import CriterionStatus
+from tasks.seal_of_reliability.update_seal_of_reliability import get_parameters
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
@@ -327,6 +328,26 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         with self.app.app_context():
             response = tasks_executor(request)
         self.assertEqual(response.status_code, 400)
+
+
+class TestNowParsing(unittest.TestCase):
+    """`now` must reach the state machine tz-aware, or comparisons against the tz-aware
+    timestamptz columns raise TypeError for any criterion with a grace or probation period.
+    """
+
+    def test_naive_now_is_treated_as_utc(self):
+        for value in ("2026-08-01", "2026-08-01T00:00:00"):
+            with self.subTest(now=value):
+                parsed = get_parameters({"now": value})[5]
+                self.assertEqual(parsed, datetime(2026, 8, 1, tzinfo=timezone.utc))
+                self.assertIsNotNone(parsed.tzinfo)
+
+    def test_offset_now_is_normalized_to_utc(self):
+        parsed = get_parameters({"now": "2026-08-01T00:00:00-05:00"})[5]
+        self.assertEqual(parsed, datetime(2026, 8, 1, 5, 0, tzinfo=timezone.utc))
+
+    def test_absent_now_is_none(self):
+        self.assertIsNone(get_parameters({})[5])
 
 
 if __name__ == "__main__":

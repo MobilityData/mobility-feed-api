@@ -191,7 +191,7 @@ def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
 def _upsert_criteria(
     db_session: Session, states: Sequence[SealCriterionState], now: datetime
 ) -> None:
-    """Insert or update sealcriterion rows for the given states."""
+    """Insert or update seal_criterion rows for the given states."""
     if not states:
         return
     payload = [
@@ -230,7 +230,7 @@ def _upsert_criteria(
 
 
 def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) -> None:
-    """Insert or update feedreliabilityseal rows.
+    """Insert or update feed_reliability_seal rows.
 
     A row is written for every evaluated feed, whether or not it qualifies. That matters
     beyond bookkeeping: `created_at` on this row is what a criterion measuring "how long
@@ -463,7 +463,7 @@ def update_seals(
         "seals_after_run": sum(1 for outcome in outcomes if outcome["has_seal"]),
         "seals_granted": len(granted),
         "seals_revoked": len(revoked),
-        # The two transitions in feedreliabilityseal, by feed. Counts alone cannot say
+        # The two transitions in feed_reliability_seal, by feed. Counts alone cannot say
         # which feed moved, and that is the first thing anyone asks of a run.
         "granted_stable_ids": [outcome["stable_id"] for outcome in granted],
         "revoked_stable_ids": [outcome["stable_id"] for outcome in revoked],
