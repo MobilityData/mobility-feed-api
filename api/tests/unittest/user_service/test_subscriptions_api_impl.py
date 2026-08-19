@@ -149,6 +149,21 @@ class TestPublicDeleteSubscription(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 404)
         self.mock_session.delete.assert_not_called()
 
+    def test_delete_invalid_scope_returns_400(self):
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_subscription("sub-1", scope="All", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 400)
+        # Rejected before any lookup: a malformed scope must not fall back to 'one' silently.
+        self.mock_session.get.assert_not_called()
+        self.mock_session.delete.assert_not_called()
+
+    def test_delete_invalid_scope_takes_precedence_over_missing_id(self):
+        self.mock_session.get.return_value = None
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.delete_subscription("missing", scope="everything", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.mock_session.get.assert_not_called()
+
     def _wire_scope_all(self, subs, user):
         """Point the initial get() at the first sub, AppUser lookups at ``user``, and the
         'all subscriptions for this user' query at ``subs``."""

@@ -39,6 +39,7 @@ from user_service_gen.models.notification_subscription import NotificationSubscr
 logger = logging.getLogger(__name__)
 
 # Values of the ?scope query parameter on DELETE /v1/subscriptions/{id}.
+SCOPE_ONE: Final = "one"
 SCOPE_ALL: Final = "all"
 
 
@@ -63,14 +64,22 @@ class SubscriptionsApiImpl(BaseSubscriptionsApi):
         """Unsubscribe by subscription ID.
 
         ``scope='all'`` uses ``id`` only to resolve the owning user and
-        unsubscribes that user from every notification type they hold. Any other
-        value (the default ``'one'``) affects just the subscription identified by
-        ``id``.
+        unsubscribes that user from every notification type they hold.
+        ``scope='one'`` (the default) affects just the subscription identified by
+        ``id``. Any other value is rejected with a 400 rather than silently
+        falling back to ``'one'``, since a typo here changes the blast radius of
+        an unauthenticated delete.
 
         In both cases the ``api.announcements`` subscription is never deleted, only
         disabled (and its Brevo contact + opt-in flag are cleared); every other
         type is hard-deleted.
         """
+        if scope is not None and scope not in (SCOPE_ONE, SCOPE_ALL):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid scope '{scope}'; must be '{SCOPE_ONE}' or '{SCOPE_ALL}'.",
+            )
+
         sub = db_session.get(NotificationSubscriptionOrm, id)
         if sub is None:
             raise HTTPException(status_code=404, detail="Subscription not found.")

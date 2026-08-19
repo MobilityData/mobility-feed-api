@@ -326,6 +326,8 @@ paths:
       responses:
         "204":
           description: Subscription deleted, or disabled for the announcements type.
+        "400":
+          description: Invalid `scope` value (must be `one` or `all`).
         "404":
           description: Subscription not found.
 
