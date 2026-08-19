@@ -15,15 +15,11 @@
 #
 """Nightly Seal of Reliability evaluation (issue #1761).
 
-Reads feed, dataset, validation report and availability data; writes only sealcriterion
-and feedreliabilityseal. The raw source tables are never modified.
+Reads feed, dataset, validation report and availability data; writes only seal_criterion
+and feed_reliability_seal. The source tables are never modified.
 
-Both seal tables are written with Core statements against `__table__` rather than through
-ORM objects. `feedreliabilityseal.feed_id` is both its primary key and a foreign key to
-feed(id), which sqlacodegen maps as joined-table inheritance
-(`class Feedreliabilityseal(Feed)`, a sibling of Gtfsfeed in the polymorphic hierarchy), so
-persisting an ORM instance would try to insert a new feed. Core statements address the
-table directly and are unaffected.
+Both seal tables are written with Core `insert(...).on_conflict_do_update` statements
+against `__table__` for bulk upsert.
 """
 
 import logging
@@ -38,8 +34,8 @@ from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    Feedreliabilityseal,
-    Sealcriterion,
+    FeedReliabilitySeal,
+    SealCriterion,
 )
 
 from tasks.seal_of_reliability.context import (
@@ -64,8 +60,8 @@ DEFAULT_BATCH_SIZE: int = 200
 # Limit the number of feeds reported so the return does not get gigantic.
 DEFAULT_MAX_REPORTED_FEEDS: int = 50
 
-SEAL_TABLE = Feedreliabilityseal.__table__
-CRITERION_TABLE = Sealcriterion.__table__
+SEAL_TABLE = FeedReliabilitySeal.__table__
+CRITERION_TABLE = SealCriterion.__table__
 
 
 def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:

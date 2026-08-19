@@ -32,9 +32,9 @@ from sqlalchemy import delete, select
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    Feedreliabilityseal,
+    FeedReliabilitySeal,
     Gtfsfeed,
-    Sealcriterion,
+    SealCriterion,
 )
 from test_shared.test_utils.database_utils import default_db_url
 
@@ -196,7 +196,7 @@ class SealDbTestCase(unittest.TestCase):
     @staticmethod
     @with_db_session(db_url=default_db_url)
     def criterion_rows(feed_id, db_session):
-        table = Sealcriterion.__table__
+        table = SealCriterion.__table__
         return {
             row.criterion: row
             for row in db_session.execute(
@@ -207,7 +207,7 @@ class SealDbTestCase(unittest.TestCase):
     @staticmethod
     @with_db_session(db_url=default_db_url)
     def seal_row(feed_id, db_session):
-        table = Feedreliabilityseal.__table__
+        table = FeedReliabilitySeal.__table__
         return db_session.execute(
             select(table).where(table.c.feed_id == feed_id)
         ).first()

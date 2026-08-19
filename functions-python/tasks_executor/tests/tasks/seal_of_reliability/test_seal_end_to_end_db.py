@@ -24,10 +24,9 @@ The task resolves its own session from FEEDS_DATABASE_URL rather than taking a `
 the environment is pointed at the test database for the duration of each test and the
 Database singleton is reset around it.
 
-These runs are unnamed, so they evaluate every eligible feed in the test database — which
-includes the fixtures seeded by conftest.pytest_sessionstart. Assertions are therefore
-scoped to this module's own PREFIX, and the report counts are checked as invariants and
-deltas rather than absolutes.
+Each run is given this module's own feed list (REQUESTED), so it evaluates only the seeded
+feeds. Assertions are still scoped to this module's PREFIX, and report counts are checked as
+invariants and deltas rather than absolutes.
 """
 
 import os
@@ -44,9 +43,9 @@ from tasks.seal_of_reliability.criteria import CriterionStatus
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    Feedreliabilityseal,
+    FeedReliabilitySeal,
     Gtfsfeed,
-    Sealcriterion,
+    SealCriterion,
 )
 from test_shared.test_utils.database_utils import default_db_url, reset_database_class
 
@@ -138,7 +137,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def seal_state(db_session):
         """stable_id -> (has_seal, earned_at set?, lost_at set?) for the seeded feeds."""
-        seal = Feedreliabilityseal.__table__
+        seal = FeedReliabilitySeal.__table__
         rows = db_session.execute(
             select(
                 Feed.stable_id,
@@ -162,7 +161,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def criterion_state(db_session):
         """stable_id -> the sealcriterion row, for the seeded feeds."""
-        criterion = Sealcriterion.__table__
+        criterion = SealCriterion.__table__
         rows = db_session.execute(
             select(Feed.stable_id, criterion)
             .join(criterion, criterion.c.feed_id == Feed.id)

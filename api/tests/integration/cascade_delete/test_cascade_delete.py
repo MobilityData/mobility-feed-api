@@ -26,7 +26,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Geopolygon,
     FeedLicenseChange,
-    Sealcriterion,
+    SealCriterion,
+    FeedReliabilitySeal,
 )
 
 from sqlalchemy import text
@@ -208,17 +209,17 @@ def test_delete_feed_cascadeto_feed_license_changes(test_database):
         )
 
 
-def test_delete_feed_cascadeto_sealcriterion(test_database):
-    """Deleting a feed removes its per-criterion seal state (issue #1760).
+def test_delete_feed_cascadeto_seal_criterion(test_database):
+    """Deleting a feed removes its per-criterion seal state (issue #1783).
 
-    This exercises the `Feed.sealcriteria` entry in `cascade_entities`: without it,
-    SQLAlchemy would try to NULL `sealcriterion.feed_id`, which is NOT NULL and part of the
+    This exercises the `Feed.seal_criteria` entry in `cascade_entities`: without it,
+    SQLAlchemy would try to NULL `seal_criterion.feed_id`, which is NOT NULL and part of the
     composite primary key, instead of letting ON DELETE CASCADE do the work.
     """
 
     with test_database.start_db_session() as session:
         feed = Feed(id="f1")
-        seal_criterion = Sealcriterion(feed_id="f1", criterion="official")
+        seal_criterion = SealCriterion(feed_id="f1", criterion="official")
         session.add_all([feed, seal_criterion])
         session.commit()
 
@@ -226,33 +227,31 @@ def test_delete_feed_cascadeto_sealcriterion(test_database):
             session,
             [
                 "SELECT COUNT(*) FROM feed where id = 'f1'",
-                "SELECT COUNT(*) FROM sealcriterion where feed_id = 'f1'",
+                "SELECT COUNT(*) FROM seal_criterion where feed_id = 'f1'",
             ],
             feed,
         )
 
 
-def test_delete_feed_cascadeto_feedreliabilityseal(test_database):
-    """Deleting a feed removes its overall seal row (issue #1760).
+def test_delete_feed_cascadeto_feed_reliability_seal(test_database):
+    """Deleting a feed removes its overall seal row (issue #1783).
 
-    The row is inserted with raw SQL rather than the ORM: `feedreliabilityseal.feed_id` is
-    both its primary key and a foreign key to `feed.id`, so sqlacodegen maps the table as a
-    joined-table subclass of Feed. Adding a `Feedreliabilityseal()` instance would therefore
-    try to insert a second feed row rather than a child row.
+    Exercises the `Feed.feed_reliability_seal` entry in `cascade_entities`. The seal row has
+    a surrogate `id` primary key and `feed_id` as a UNIQUE foreign key, so it is a plain
+    related entity (a 1:1 with Feed), not a joined-table subclass.
     """
 
     with test_database.start_db_session() as session:
         feed = Feed(id="f1")
-        session.add(feed)
-        session.commit()
-        session.execute(text("INSERT INTO feedreliabilityseal (feed_id) VALUES ('f1')"))
+        seal = FeedReliabilitySeal(feed_id="f1")
+        session.add_all([feed, seal])
         session.commit()
 
         delete_and_assert(
             session,
             [
                 "SELECT COUNT(*) FROM feed where id = 'f1'",
-                "SELECT COUNT(*) FROM feedreliabilityseal where feed_id = 'f1'",
+                "SELECT COUNT(*) FROM feed_reliability_seal where feed_id = 'f1'",
             ],
             feed,
         )

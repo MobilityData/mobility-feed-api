@@ -37,8 +37,12 @@ CREATE TYPE seal_criterion_status AS ENUM (
 );
 
 -- One row per feed; owns the overall seal outcome.
-CREATE TABLE FeedReliabilitySeal (
-    feed_id        VARCHAR(255) PRIMARY KEY REFERENCES Feed(id) ON DELETE CASCADE,
+-- A surrogate id keeps feed_id a plain UNIQUE foreign key rather than the primary key: the
+-- PK-is-also-FK shape reads as joined-table inheritance to sqlacodegen, which would make the
+-- model a subclass of Feed. UNIQUE still enforces one row per feed.
+CREATE TABLE feed_reliability_seal (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    feed_id        VARCHAR(255) NOT NULL UNIQUE REFERENCES Feed(id) ON DELETE CASCADE,
 
     has_seal       BOOLEAN NOT NULL DEFAULT FALSE,
     seal_earned_at TIMESTAMPTZ,
@@ -49,7 +53,7 @@ CREATE TABLE FeedReliabilitySeal (
 );
 
 -- One row per feed per criterion; owns all per-criterion state.
-CREATE TABLE SealCriterion (
+CREATE TABLE seal_criterion (
     feed_id                    VARCHAR(255) NOT NULL REFERENCES Feed(id) ON DELETE CASCADE,
     criterion                  seal_criterion_name NOT NULL,
 
@@ -75,12 +79,12 @@ CREATE TABLE SealCriterion (
     PRIMARY KEY (feed_id, criterion)
 );
 
-COMMENT ON COLUMN SealCriterion.observed_status IS
+COMMENT ON COLUMN seal_criterion.observed_status IS
     'The check on this day, no debouncing. pass/fail are verdicts; unknown = inputs missing; '
     'not_applicable = excluded for this feed; never_evaluated = never had a verdict.';
-COMMENT ON COLUMN SealCriterion.confirmed_status IS
+COMMENT ON COLUMN seal_criterion.confirmed_status IS
     'Debounced status. Never unknown; not_applicable withdraws the criterion from has_seal.';
-COMMENT ON COLUMN SealCriterion.evaluated_at IS 'Last attempt, any outcome. Not read by the algorithm.';
-COMMENT ON COLUMN SealCriterion.last_verdict_at IS 'Last pass or fail. NULL = never evaluated.';
-COMMENT ON COLUMN SealCriterion.probation_start IS
+COMMENT ON COLUMN seal_criterion.evaluated_at IS 'Last attempt, any outcome. Not read by the algorithm.';
+COMMENT ON COLUMN seal_criterion.last_verdict_at IS 'Last pass or fail. NULL = never evaluated.';
+COMMENT ON COLUMN seal_criterion.probation_start IS
     'Start of the 180-day probation. NULL = not on probation. May be a future date mid-streak.';
