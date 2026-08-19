@@ -76,6 +76,9 @@ from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
 )
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
+from tasks.seal_of_reliability.update_seal_of_reliability import (
+    update_seal_of_reliability_handler,
+)
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -258,6 +261,19 @@ tasks = {
             "feeds_not_updated_days (default null)."
         ),
         "handler": backfill_changelog_handler,
+    },
+    "update_seal_of_reliability": {
+        "description": (
+            "Evaluates the implemented Seal of Reliability criteria for the requested "
+            "GTFS feeds and updates seal_criterion and feed_reliability_seal. "
+            "Reads the source tables and never modifies them. "
+            "Parameters: stable_feed_ids (required, non-empty; the feeds to evaluate), "
+            "dry_run (default true), limit (default null), criteria (default null "
+            "meaning every implemented criterion; a partial set skips the has_seal "
+            "roll-up), batch_size (default 200), now (ISO timestamp, default current "
+            "UTC time)."
+        ),
+        "handler": update_seal_of_reliability_handler,
     },
 }
 
