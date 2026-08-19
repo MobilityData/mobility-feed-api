@@ -22,6 +22,9 @@ SELECT
     -- official status
     Feed.official AS official,
 
+    -- seasonal status
+    Feed.seasonal AS seasonal,
+
     -- created_at
     Feed.created_at AS created_at,
 

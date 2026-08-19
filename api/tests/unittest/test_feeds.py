@@ -30,6 +30,7 @@ mock_feed = Feed(
     stable_id="test_id",
     data_type="gtfs",
     status="active",
+    seasonal=False,
     provider="test_provider",
     feed_name="test_feed_name",
     created_at=datetime.fromisoformat("2023-07-10T22:06:00+00:00"),

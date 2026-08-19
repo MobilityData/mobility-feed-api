@@ -127,6 +127,8 @@
     <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
     <!-- Add Seal of Reliability tables: feed_reliability_seal and seal_criterion (issue #1760). -->
     <include file="changes/feat_1760.sql" relativeToChangelogFile="true"/>
+    <!-- Add seasonal column to the feed table (issue #1774). -->
+    <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
     <!-- Drop incorrectly created ad-hoc coverage/feed-city analysis tables. -->
     <include file="changes/fix_cleanup_coverage_tables.sql" relativeToChangelogFile="true"/>
       <!-- Add feedinfo table storing parsed feed_info.txt fields (issue #1775). -->
@@ -134,6 +136,6 @@
     <!-- Seal of Reliability: positive status columns and probation_start (issue #1783). -->
     <include file="changes/feat_1783.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
-    are recreated from the final source schema. -->
+         are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
