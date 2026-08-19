@@ -32,6 +32,7 @@ feed_orm = Feed(
     note="note",
     producer_url="producer_url",
     is_producer_url_unstable=True,
+    seasonal=True,
     authentication_type="1",
     authentication_info_url="authentication_info_url",
     api_key_parameter_name="api_key_parameter_name",
@@ -105,6 +106,7 @@ expected_base_feed_result = FeedImpl(
         api_key_parameter_name="api_key_parameter_name",
         license_url="license_url",
     ),
+    seasonal=True,
     redirects=[
         RedirectImpl(
             target_id="target_id",
@@ -147,12 +149,14 @@ class TestBasicFeedImpl(unittest.TestCase):
         # Test all None values
         # No error should be raised
         # Resulting list must be empty and not None
-        empty_feed_orm = Feed()
+        # seasonal is a NOT NULL DEFAULT FALSE column, so a persisted feed always carries a boolean.
+        empty_feed_orm = Feed(seasonal=False)
         expected_empty_feed = FeedImpl(
             external_ids=[],
             redirects=[],
             source_info=SourceInfo(),
             related_links=[],
+            seasonal=False,
         )
         empty_result = FeedImpl.from_orm(empty_feed_orm)
         assert empty_result == expected_empty_feed
@@ -181,6 +185,7 @@ class TestBasicFeedImpl(unittest.TestCase):
             "feed_contact_email": "contact@example.com",
             "producer_url": "https://producer.example.com",
             "is_producer_url_unstable": True,
+            "seasonal": True,
             "authentication_type": 1,  # should be converted to string
             "authentication_info_url": "https://auth.example.com",
             "api_key_parameter_name": "api_key",
@@ -215,6 +220,7 @@ class TestBasicFeedImpl(unittest.TestCase):
         assert obj.feed_contact_email == "contact@example.com"
         assert obj.producer_url == "https://producer.example.com"
         assert obj.is_producer_url_unstable is True
+        assert obj.seasonal is True
         # authentication_type coerced to string per implementation
         assert obj.authentication_type == "1"
         assert obj.authentication_info_url == "https://auth.example.com"
