@@ -328,6 +328,7 @@ def generate_mobilitydatabase_sitemap(
         "url_count": len(entries),
         "counts_by_data_type": counts,
         "size_bytes": size_bytes,
+        "exceeds_limits": len(entries) > MAX_URLS_PER_SITEMAP or size_bytes > MAX_SITEMAP_BYTES,
     }
     if include_xml:
         result["xml"] = xml
