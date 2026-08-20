@@ -201,7 +201,8 @@ paths:
                   $ref: "#/components/schemas/SubscriptionFeedGroup"
         "401":
           description: Unauthorized.
-
+        "403":
+          description: Forbidden — guest users cannot perform this action.
   /v1/user/subscriptions/feeds/{id}:
     get:
       summary: Get the current user's subscriptions for a specific feed
@@ -209,8 +210,9 @@ paths:
         Returns the feed identified by its stable ID, with the authenticated
         user's notification subscriptions that target it. Subscriptions of any
         `active` state are included (same as `GET /v1/user/subscriptions`).
-        Returns `404` if the feed does not exist, or if the user has no
-        subscription targeting it. This feature is available to selected
+        Returns `404` if the user has no subscription targeting the feed. If the
+        feed no longer exists in the feeds database, the group is still returned
+        with its metadata fields null.
         users. To request access or learn more, contact us at api@mobilitydata.org.
       operationId: getUserSubscriptionFeedById
       tags:
