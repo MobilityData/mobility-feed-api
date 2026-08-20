@@ -115,11 +115,13 @@ def _plan_run(
     db_session=None,
 ) -> Dict[str, Any]:
     """Resolve eligible feeds, chunk them, and (unless dry_run) fan the run out."""
+    if batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
+
     total_feeds = count_eligible_feeds(
         db_session, stable_feed_ids=stable_feed_ids, limit=limit
     )
     num_batches = math.ceil(total_feeds / batch_size) if total_feeds else 0
-    run_started_at = datetime.now(timezone.utc)
     run_id = f"seal-{run_started_at.strftime('%Y%m%dT%H%M%S')}"
 
     logger.info(
