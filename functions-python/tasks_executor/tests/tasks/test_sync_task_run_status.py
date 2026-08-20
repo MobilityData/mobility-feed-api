@@ -142,6 +142,35 @@ class TestSyncTaskRunStatus(unittest.TestCase):
 
     @patch(f"{_MODULE}._sync_workflow_statuses")
     @patch(f"{_MODULE}.TaskExecutionTracker")
+    def test_raises_value_error_when_run_not_found(self, tracker_cls, sync_mock):
+        """A typo'd or never-registered (task_name, run_id) must error, not be treated as a
+        trivially-settled run (0 triggered/failed/pending look identical to "already done").
+        """
+        from tasks.sync_task_run_status import sync_task_run_status
+
+        tracker = self._make_tracker_mock(
+            {
+                "run_status": None,
+                "total_count": None,
+                "pending": 0,
+                "triggered": 0,
+                "completed": 0,
+                "failed": 0,
+                "params": None,
+            }
+        )
+        tracker_cls.return_value = tracker
+        session = self._make_session_mock()
+
+        with self.assertRaises(ValueError):
+            sync_task_run_status(
+                task_name="gtfs_validation", run_id="9.9.9", db_session=session
+            )
+
+        tracker.finish_run.assert_not_called()
+
+    @patch(f"{_MODULE}._sync_workflow_statuses")
+    @patch(f"{_MODULE}.TaskExecutionTracker")
     def test_raises_task_in_progress_when_failures_exist(self, tracker_cls, sync_mock):
         from tasks.sync_task_run_status import sync_task_run_status
 

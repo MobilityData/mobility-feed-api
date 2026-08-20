@@ -17,9 +17,14 @@
 
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from tasks.seal_of_reliability.context import build_contexts, get_seal_feeds_query
+from tasks.seal_of_reliability.context import (
+    build_contexts,
+    count_eligible_feeds,
+    is_seal_eligible,
+    iter_eligible_stable_ids,
+)
 from tasks.seal_of_reliability.criteria import (
     PROBATION_PERIOD,
     CriterionStatus,
@@ -218,16 +223,27 @@ class SealDbTestCase(unittest.TestCase):
         _set_official(db_session, feed_id, official)
 
 
+def _feeds_by_stable_id(db_session, *stable_ids):
+    """Plain by-id load — mirrors what `update_seals` does before checking eligibility."""
+    feeds = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id.in_(list(stable_ids)))
+        .all()
+    )
+    return {feed.stable_id: feed for feed in feeds}
+
+
 class TestEligibilityQuery(SealDbTestCase):
     @with_db_session(db_url=default_db_url)
     def test_excludes_deprecated_and_unpublished_but_keeps_inactive(self, db_session):
         found = {
-            feed.stable_id
-            for feed in get_seal_feeds_query(
+            stable_id
+            for batch in iter_eligible_stable_ids(
                 db_session,
+                batch_size=10,
                 stable_feed_ids=[OFFICIAL, INACTIVE, DEPRECATED, UNPUBLISHED],
-            ).all()
-            if feed.stable_id and feed.stable_id.startswith(PREFIX)
+            )
+            for stable_id in batch
         }
         self.assertIn(OFFICIAL, found)
         self.assertIn(INACTIVE, found, "inactive feeds must be evaluated, not frozen")
@@ -236,14 +252,46 @@ class TestEligibilityQuery(SealDbTestCase):
 
     @with_db_session(db_url=default_db_url)
     def test_stable_feed_ids_narrows_the_same_query(self, db_session):
-        feeds = get_seal_feeds_query(db_session, stable_feed_ids=[OFFICIAL]).all()
-        self.assertEqual([feed.stable_id for feed in feeds], [OFFICIAL])
+        self.assertEqual(
+            count_eligible_feeds(db_session, stable_feed_ids=[OFFICIAL]), 1
+        )
+        batches = list(
+            iter_eligible_stable_ids(
+                db_session, batch_size=10, stable_feed_ids=[OFFICIAL]
+            )
+        )
+        self.assertEqual(batches, [[OFFICIAL]])
+
+    def test_batch_size_must_be_positive(self):
+        """The raise happens before any DB access, so a MagicMock db_session suffices.
+
+        iter_eligible_stable_ids is a generator, so the call itself doesn't raise until
+        iterated — hence the list(...) wrapper here.
+        """
+        with self.assertRaises(ValueError):
+            list(iter_eligible_stable_ids(MagicMock(), batch_size=0))
+        with self.assertRaises(ValueError):
+            list(iter_eligible_stable_ids(MagicMock(), batch_size=-5))
+
+
+class TestIsSealEligible(SealDbTestCase):
+    @with_db_session(db_url=default_db_url)
+    def test_matches_the_db_level_predicate(self, db_session):
+        feeds = _feeds_by_stable_id(
+            db_session, OFFICIAL, INACTIVE, DEPRECATED, UNPUBLISHED
+        )
+        self.assertTrue(is_seal_eligible(feeds[OFFICIAL]))
+        self.assertTrue(
+            is_seal_eligible(feeds[INACTIVE]), "inactive feeds must stay eligible"
+        )
+        self.assertFalse(is_seal_eligible(feeds[DEPRECATED]))
+        self.assertFalse(is_seal_eligible(feeds[UNPUBLISHED]))
 
 
 class TestBuildContexts(SealDbTestCase):
     @with_db_session(db_url=default_db_url)
     def test_loads_the_fields_the_evaluators_need(self, db_session):
-        feeds = get_seal_feeds_query(db_session, stable_feed_ids=[OFFICIAL]).all()
+        feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
         self.assertEqual(ctx.stable_id, OFFICIAL)
         self.assertTrue(ctx.official)
@@ -251,9 +299,7 @@ class TestBuildContexts(SealDbTestCase):
 
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
-        feeds = get_seal_feeds_query(
-            db_session, stable_feed_ids=[OFFICIAL, NOT_OFFICIAL]
-        ).all()
+        feeds = list(_feeds_by_stable_id(db_session, OFFICIAL, NOT_OFFICIAL).values())
         contexts = build_contexts(db_session, feeds, NOW)
         self.assertEqual(len(contexts), 2)
         self.assertEqual({ctx.official for ctx in contexts.values()}, {True, False})

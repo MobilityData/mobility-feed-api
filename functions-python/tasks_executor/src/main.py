@@ -79,8 +79,13 @@ from tasks.changelog.backfill_changelog import backfill_changelog_handler
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
-from tasks.sitemap.generate_sitemap import (
-    generate_mobilitydatabase_sitemap_handler,
+from tasks.sitemap.generate_sitemap import generate_mobilitydatabase_sitemap_handler
+from tasks.seal_of_reliability.seal_orchestrator import seal_orchestrator_handler
+from tasks.seal_of_reliability.seal_orchestrator_worker import (
+    seal_orchestrator_worker_handler,
+)
+from tasks.seal_of_reliability.seal_orchestrator_monitor import (
+    seal_orchestrator_monitor_handler,
 )
 
 init_logger()
@@ -294,6 +299,42 @@ tasks = {
             "UTC time)."
         ),
         "handler": update_seal_of_reliability_handler,
+    },
+    "seal_orchestrator": {
+        "description": (
+            "Cloud Tasks producer for the nightly Seal of Reliability run across the "
+            "whole catalog. Resolves every seal-eligible GTFS feed, chunks it into "
+            "batches, registers a run in TaskExecutionTracker (feeds DB), and enqueues "
+            "one 'seal_orchestrator_worker' task per batch plus a single "
+            "'seal_orchestrator_monitor' barrier task. "
+            "Parameters: dry_run (default true), batch_size (default 250), criteria "
+            "(default null meaning every implemented criterion), now (ISO timestamp, "
+            "default current UTC time), limit (cap total eligible feeds, default "
+            "null), stable_feed_ids (restrict eligibility to these ids, default "
+            "null), deadline_seconds (default 3600), monitor_delay_seconds "
+            "(default 60)."
+        ),
+        "handler": seal_orchestrator_handler,
+    },
+    "seal_orchestrator_worker": {
+        "description": (
+            "Cloud Tasks worker: evaluate one batch's worth of feeds for the seal "
+            "orchestrator run and report completion/failure to TaskExecutionTracker. "
+            "Parameters: run_id (required), batch_id (required), stable_feed_ids "
+            "(required, non-empty), criteria (default null), now (default null)."
+        ),
+        "handler": seal_orchestrator_worker_handler,
+    },
+    "seal_orchestrator_monitor": {
+        "description": (
+            "Cloud Tasks barrier/monitor: polls TaskExecutionTracker until every "
+            "batch of a seal orchestrator run has reported, or the run's "
+            "deadline_seconds passes, then aggregates each batch's report and marks "
+            "the run completed (every batch succeeded) or failed (any batch failed, "
+            "or the deadline was reached with batches still unaccounted for). "
+            "Parameters: run_id (required)."
+        ),
+        "handler": seal_orchestrator_monitor_handler,
     },
 }
 

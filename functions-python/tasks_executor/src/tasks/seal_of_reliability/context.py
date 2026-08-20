@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Feed eligibility query and bulk loading of everything the evaluators need.
+"""Seal eligibility (query + Python predicate) and bulk loading of evaluator inputs.
 
 The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
 feeds happens here, in a fixed number of queries regardless of batch size.
@@ -24,9 +24,10 @@ dataset for Compliant and Fresh, the day's availability rows for Available, the 
 dataset coverage history for Fresh continuous coverage.
 """
 
+import itertools
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional, Sequence
+from typing import Dict, Iterator, List, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -50,18 +51,83 @@ class FeedSealContext:
     official: Optional[bool] = None
 
 
-def get_seal_feeds_query(db_session: Session, stable_feed_ids: Sequence[str]):
-    """Return a query for the requested feeds that are eligible for the seal.
+# Feeds in these statuses, or not published, are never eligible for the seal.
+# `inactive` and `future` feeds are deliberately kept eligible.
+INELIGIBLE_STATUSES = ("deprecated", "development")
+ELIGIBLE_OPERATIONAL_STATUS = "published"
 
-    The task always runs against an explicit list of feeds. `deprecated`,
-    `development` and non-`published` feeds are dropped.
-    `inactive` and `future` feeds are deliberately kept.
+
+def is_seal_eligible(feed) -> bool:
+    """Whether an already-loaded feed row is eligible for the seal.
+
+    Same predicate as the DB-level filter in `_eligible_stable_ids_query`, applied in
+    Python to a row already loaded by id. Used by `update_seals`, which is always given
+    explicit ids and needs to tell a feed that does not exist apart from one that exists
+    but is no longer eligible, without a second query.
     """
-    return db_session.query(Gtfsfeed).filter(
-        Feed.status.notin_(["deprecated", "development"]),
-        Feed.operational_status == "published",
-        Feed.stable_id.in_(list(stable_feed_ids)),
+    return (
+        feed.status not in INELIGIBLE_STATUSES
+        and feed.operational_status == ELIGIBLE_OPERATIONAL_STATUS
     )
+
+
+def _eligible_stable_ids_query(
+    db_session: Session, stable_feed_ids: Optional[Sequence[str]] = None
+):
+    """Base query: `stable_id` of every seal-eligible GTFS feed.
+
+    `stable_feed_ids`, if given, narrows the candidate set without changing the
+    predicate. Left as `None`, every eligible feed in the catalog is returned; this is
+    what the seal orchestrator (issue #1800) uses to enumerate the full batch to fan out.
+    """
+    query = db_session.query(Gtfsfeed.stable_id).filter(
+        Feed.status.notin_(INELIGIBLE_STATUSES),
+        Feed.operational_status == ELIGIBLE_OPERATIONAL_STATUS,
+    )
+    if stable_feed_ids is not None:
+        query = query.filter(Feed.stable_id.in_(list(stable_feed_ids)))
+    return query
+
+
+def count_eligible_feeds(
+    db_session: Session,
+    stable_feed_ids: Optional[Sequence[str]] = None,
+    limit: Optional[int] = None,
+) -> int:
+    """Cheap `COUNT(*)` of eligible feeds — no rows loaded."""
+    query = _eligible_stable_ids_query(db_session, stable_feed_ids=stable_feed_ids)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.count()
+
+
+def iter_eligible_stable_ids(
+    db_session: Session,
+    batch_size: int,
+    stable_feed_ids: Optional[Sequence[str]] = None,
+    limit: Optional[int] = None,
+) -> Iterator[List[str]]:
+    """Stream eligible feeds' `stable_id`s in chunks of at most `batch_size`.
+
+    Selects only `stable_id` and uses a server-side cursor (`stream_results=True`) so
+    rows are pulled from Postgres as each chunk is consumed, instead of materializing the
+    whole eligible-id list up front.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
+    query = (
+        _eligible_stable_ids_query(db_session, stable_feed_ids=stable_feed_ids)
+        .order_by(Gtfsfeed.stable_id)
+        .execution_options(stream_results=True)
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    rows = iter(query.yield_per(batch_size))
+    while True:
+        chunk = [row.stable_id for row in itertools.islice(rows, batch_size)]
+        if not chunk:
+            return
+        yield chunk
 
 
 def build_contexts(
@@ -73,7 +139,8 @@ def build_contexts(
         db_session: SQLAlchemy session. Unused while Official is the only criterion, since
             everything it needs is already on the feed row, but kept in the signature
             because every further criterion needs it.
-        feeds: The batch of feeds to load, from `get_seal_feeds_query`.
+        feeds: The batch of feeds to load, already loaded (and eligibility-checked via
+            `is_seal_eligible`) by the caller — `update_seals`.
         now: The evaluation timestamp.
 
     Returns:
