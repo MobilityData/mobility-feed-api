@@ -1,11 +1,9 @@
-from typing import Any
-
 from shared.db_models.bounding_box_impl import BoundingBoxImpl
 from shared.db_models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
-from shared.db_models.feed_reliability_summary_impl import FeedReliabilitySummaryImpl
 from shared.db_models.latest_dataset_impl import LatestDatasetImpl
 from shared.db_models.location_impl import LocationImpl
+from feeds_gen.models.feed_reliability_summary import FeedReliabilitySummary
 from feeds_gen.models.gtfs_feed import GtfsFeed
 
 
@@ -21,13 +19,14 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, feed: GtfsfeedOrm | None, seal_row: Any | None = None) -> GtfsFeed | None:
+    def from_orm(
+        cls, feed: GtfsfeedOrm | None, reliability_seal: FeedReliabilitySummary | None = None
+    ) -> GtfsFeed | None:
         """Convert a GTFS feed row to a Pydantic model.
 
-        `seal_row` is the feed's Seal of Reliability roll-up, pre-loaded in bulk by the caller via
-        `shared.common.db_utils.get_reliability_seals`. It is optional so that call sites which do
-        not surface the seal keep working, and so a page of feeds costs one seal query rather than
-        one per feed.
+        `reliability_seal` is the feed's Seal of Reliability summary, built by the caller via
+        `FeedReliabilitySummaryImpl.from_feed`. It is optional so that call sites which do not
+        surface the seal (e.g. the operations API) keep working without it.
         """
         gtfs_feed: GtfsFeed = super().from_orm(feed)
         if not gtfs_feed:
@@ -38,5 +37,5 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
         gtfs_feed.visualization_dataset_id = (
             feed.visualization_dataset.stable_id if feed.visualization_dataset else None
         )
-        gtfs_feed.reliability_seal = FeedReliabilitySummaryImpl.from_orm(seal_row)
+        gtfs_feed.reliability_seal = reliability_seal
         return gtfs_feed

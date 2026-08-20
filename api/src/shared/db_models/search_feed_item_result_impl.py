@@ -75,9 +75,9 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 if feed_search_row.latest_dataset_id
                 else None
             ),
-            # The view carries the same seal roll-up columns as get_reliability_seals, so the badge
-            # renders from a search result without a second call. GTFS only - the other two
-            # from_orm_* variants have no seal to report.
+            # The view carries the same seal roll-up columns FeedReliabilitySummaryImpl.from_orm
+            # reads, so the badge renders from a search result without a second call. GTFS only -
+            # the other two from_orm_* variants have no seal to report.
             reliability_seal=FeedReliabilitySummaryImpl.from_orm(feed_search_row),
         )
 

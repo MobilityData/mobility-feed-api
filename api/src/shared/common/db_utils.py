@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from typing import Any, Iterator, List, Dict, Optional
+from typing import Iterator, List, Dict, Optional
 
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
@@ -25,15 +25,12 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfsversion,
     Gbfsvalidationreport,
-    FeedReliabilitySeal,
-    SealCriterion,
 )
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from .entity_type_enum import EntityType
 from .error_handling import raise_internal_http_validation_error, invalid_bounding_coordinates, invalid_bounding_method
 from .iter_utils import batched
-from .seal_criteria import PROBATION_PERIODS
 from shared.feed_filters.gbfs_feed_filter import GbfsFeedFilter, GbfsVersionFilter
 
 
@@ -453,55 +450,11 @@ def get_selectinload_options(include_extracted_location_entities: bool = False) 
             selectinload(Feed.feedrelatedlinks),
             selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
             selectinload(Feed.officialstatushistories),
+            selectinload(Feed.feed_reliability_seal),
+            selectinload(Feed.seal_criteria),
         ]
     )
     return loaders
-
-
-def get_reliability_seals(db_session: Session, feed_ids: List[str]) -> Dict[str, Any]:
-    """Load the Seal of Reliability summary for several feeds at once.
-
-    Returns a mapping of internal feed id to a row carrying the stored seal outcome plus the two
-    values rolled up from the feed's criteria: when it was last evaluated, and the latest probation
-    still being served. Feeds with no seal row are simply absent from the mapping - they have never
-    been evaluated.
-
-    One query regardless of how many feeds are asked for, so embedding the summary in a page of
-    feeds does not turn into an N+1. This reads through `__table__` (a Core select) rather than the
-    mapped classes so the roll-up stays a set of plain columns - it never loads the `Feed`
-    relationship or the per-criterion rows as objects, only aggregates them.
-
-    Probation is rolled up over the criteria that actually serve it - `official` and `stable` are
-    point-in-time state checks and exempt - so a stray `probation_start` on one of them cannot make
-    a feed look like it is waiting out six months. This matches the equivalent roll-up in
-    `liquibase/materialized_views/feed_search.sql`, which search results read instead.
-    """
-    if not feed_ids:
-        return {}
-
-    seal_table = FeedReliabilitySeal.__table__
-    criterion_table = SealCriterion.__table__
-    probation_exempt = [name.value for name, period in PROBATION_PERIODS.items() if period is None]
-
-    grouped_columns = [
-        seal_table.c.feed_id,
-        seal_table.c.has_seal,
-        seal_table.c.seal_earned_at,
-        seal_table.c.seal_lost_at,
-    ]
-    statement = (
-        select(
-            *grouped_columns,
-            func.max(criterion_table.c.evaluated_at).label("seal_evaluated_at"),
-            func.max(criterion_table.c.probation_start)
-            .filter(criterion_table.c.criterion.notin_(probation_exempt))
-            .label("seal_latest_probation_start"),
-        )
-        .select_from(seal_table.outerjoin(criterion_table, criterion_table.c.feed_id == seal_table.c.feed_id))
-        .where(seal_table.c.feed_id.in_(feed_ids))
-        .group_by(*grouped_columns)
-    )
-    return {row.feed_id: row for row in db_session.execute(statement)}
 
 
 def get_gbfs_feeds_query(

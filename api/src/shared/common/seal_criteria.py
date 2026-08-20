@@ -59,6 +59,12 @@ PROBATION_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
     SealCriterionName.FRESH_CONTINUOUS: PROBATION_PERIOD,
 }
 
+# The criteria that never serve probation, as the raw values stored in `seal_criterion.criterion`.
+# A stray `probation_start` on one of these must not roll up into the feed-level probation.
+PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
+    name.value for name, period in PROBATION_PERIODS.items() if period is None
+)
+
 
 def resolve_criterion(criterion: str | SealCriterionName) -> Optional[SealCriterionName]:
     """Coerce a stored criterion value to a `SealCriterionName`, or None if unknown.

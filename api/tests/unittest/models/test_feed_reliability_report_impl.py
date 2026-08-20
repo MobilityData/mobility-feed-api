@@ -1,9 +1,8 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
 
 from shared.common.seal_criteria import PROBATION_PERIOD, SealCriterionName
-from shared.database_gen.sqlacodegen_models import SealCriterion
+from shared.database_gen.sqlacodegen_models import FeedReliabilitySeal, SealCriterion
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.reliability_criterion_impl import STATUS_FAIL, STATUS_NOT_EVALUATED, STATUS_PASS
 
@@ -27,15 +26,16 @@ def make_criterion_row(criterion, **overrides):
 
 
 def make_seal_row(**overrides):
+    """A `feed_reliability_seal` ORM row - the report reads only the stored outcome from it and
+    rolls `evaluated_at` up from the criteria itself."""
     values = {
+        "feed_id": "feed_id",
         "has_seal": True,
         "seal_earned_at": NOW - timedelta(days=200),
         "seal_lost_at": None,
-        "seal_evaluated_at": NOW,
-        "seal_latest_probation_start": None,
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    return FeedReliabilitySeal(**values)
 
 
 def by_criterion(report):

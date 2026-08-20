@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional
 
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from shared.common.seal_criteria import SealCriterionName, resolve_criterion
+from shared.database_gen.sqlacodegen_models import FeedReliabilitySeal as FeedReliabilitySealOrm
 from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
 from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 
@@ -10,8 +11,8 @@ from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 class FeedReliabilityReportImpl(FeedReliabilityReport):
     """Implementation of the `FeedReliabilityReport` model.
 
-    Assembles the full Seal of Reliability breakdown for one feed from its seal roll-up row and its
-    `seal_criterion` rows.
+    Assembles the full Seal of Reliability breakdown for one feed from its `feed_reliability_seal`
+    row and its `seal_criterion` rows.
     """
 
     class Config:
@@ -24,7 +25,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
     def from_orm(
         cls,
         feed_stable_id: str,
-        seal_row: Any | None,
+        seal: FeedReliabilitySealOrm | None,
         criterion_rows: Iterable[SealCriterionOrm],
         now: Optional[datetime] = None,
     ) -> FeedReliabilityReport:
@@ -36,6 +37,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
         error: the nightly job has not gotten to it yet.
         """
         now = now or datetime.now(timezone.utc)
+        criterion_rows = list(criterion_rows)
 
         rows_by_criterion = {}
         for row in criterion_rows:
@@ -54,12 +56,16 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
         # so it cannot disagree with them - unlike reading the roll-up row separately.
         probation_ends = [criterion.probation_ends_at for criterion in criteria if criterion.probation_ends_at]
 
+        # `evaluated_at` is the most recent evaluation across the feed's criteria: the seal row
+        # stores no evaluation time of its own.
+        evaluated_ats = [row.evaluated_at for row in criterion_rows if row.evaluated_at is not None]
+
         return cls(
             feed_id=feed_stable_id,
-            has_seal=bool(seal_row.has_seal) if seal_row is not None else False,
-            earned_at=seal_row.seal_earned_at if seal_row is not None else None,
-            lost_at=seal_row.seal_lost_at if seal_row is not None else None,
-            evaluated_at=seal_row.seal_evaluated_at if seal_row is not None else None,
+            has_seal=bool(seal.has_seal) if seal is not None else False,
+            earned_at=seal.seal_earned_at if seal is not None else None,
+            lost_at=seal.seal_lost_at if seal is not None else None,
+            evaluated_at=max(evaluated_ats) if evaluated_ats else None,
             on_probation=any(criterion.on_probation for criterion in criteria),
             probation_ends_at=max(probation_ends) if probation_ends else None,
             criteria=criteria,
