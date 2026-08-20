@@ -118,6 +118,7 @@ def _plan_run(
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
 
+    run_started_at = datetime.now(timezone.utc)
     total_feeds = count_eligible_feeds(
         db_session, stable_feed_ids=stable_feed_ids, limit=limit
     )
@@ -155,10 +156,12 @@ def _plan_run(
     _start_run(run_id, batch_ids, run_params)
 
     enqueued = 0
+    consumed = 0
     stable_id_batches = iter_eligible_stable_ids(
         db_session, batch_size, stable_feed_ids=stable_feed_ids, limit=limit
     )
     for batch_id, batch_stable_ids in zip(batch_ids, stable_id_batches):
+        consumed += 1
         worker_payload = {
             "run_id": run_id,
             "batch_id": batch_id,
@@ -177,6 +180,50 @@ def _plan_run(
             # Dead on arrival: don't leave this batch as `triggered` for the monitor
             # to only notice once the deadline passes.
             _mark_enqueue_failed(run_id, batch_id)
+
+    if consumed < len(batch_ids):
+        # The eligible-feed stream (a separately executed query) yielded fewer chunks
+        # than count_eligible_feeds implied at plan time — eligibility narrowed in the
+        # gap between the two queries. The leftover batch_ids are already `triggered`
+        # (via _start_run) but would otherwise never be enqueued or reported, sitting
+        # stuck until deadline_seconds forces the whole run to `failed`. Fail them
+        # immediately and visibly instead.
+        missing = batch_ids[consumed:]
+        logger.error(
+            "seal_orchestrator: run=%s eligible-feed stream yielded %d batch(es), "
+            "expected %d from the plan-time count — marking %d batch(es) failed: %s",
+            run_id,
+            consumed,
+            len(batch_ids),
+            len(missing),
+            missing,
+        )
+        for batch_id in missing:
+            _mark_enqueue_failed(
+                run_id,
+                batch_id,
+                error_message="no eligible-feed data for this batch (count/stream mismatch)",
+            )
+    else:
+        # zip() with batch_ids (a plain list) first never calls next() on
+        # stable_id_batches for a final round once batch_ids is exhausted, so this
+        # reliably reflects whatever the stream still has left, with no off-by-one.
+        extra_chunk = next(stable_id_batches, None)
+        if extra_chunk is not None:
+            # Opposite direction: more chunks than the plan-time count implied (feeds
+            # became newly eligible in the gap). Log-only: making this self-healing
+            # would mean mutating TaskExecutionTracker's total_count after _start_run
+            # already fixed it, for a narrow race window whose only consequence is one
+            # feed waiting until the next nightly run.
+            logger.error(
+                "seal_orchestrator: run=%s eligible-feed stream had more batches than "
+                "the plan-time count of %d expected (>=%d additional feed(s) seen) — "
+                "some newly-eligible feeds were not evaluated this run; the next "
+                "scheduled run will pick them up",
+                run_id,
+                len(batch_ids),
+                len(extra_chunk),
+            )
 
     # Single barrier/summary task; polls until the run drains, then reports.
     # Delayed slightly so it doesn't fire before any worker has had a chance to run.
@@ -218,13 +265,18 @@ def _start_run(
 
 
 @with_db_session
-def _mark_enqueue_failed(run_id: str, batch_id: str, db_session=None) -> None:
+def _mark_enqueue_failed(
+    run_id: str,
+    batch_id: str,
+    error_message: str = "enqueue failed",
+    db_session=None,
+) -> None:
     tracker = TaskExecutionTracker(
         task_name=SEAL_ORCHESTRATOR_TASK_NAME,
         run_id=run_id,
         db_session=db_session,
     )
-    tracker.mark_failed(batch_id, error_message="enqueue failed")
+    tracker.mark_failed(batch_id, error_message=error_message)
     db_session.commit()
 
 

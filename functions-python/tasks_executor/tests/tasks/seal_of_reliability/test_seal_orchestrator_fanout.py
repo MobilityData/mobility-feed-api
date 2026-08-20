@@ -142,6 +142,86 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         self.assertTrue(call_args[0].startswith("seal-"))
         self.assertEqual(call_args[1], "batch-0000")
 
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue")
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds")
+    def test_non_positive_batch_size_raises(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
+    ):
+        from tasks.seal_of_reliability.seal_orchestrator import (
+            seal_orchestrator_handler,
+        )
+
+        with self.assertRaises(ValueError):
+            seal_orchestrator_handler({"dry_run": False, "batch_size": 0})
+        with self.assertRaises(ValueError):
+            seal_orchestrator_handler({"dry_run": False, "batch_size": -1})
+
+        count_mock.assert_not_called()
+        iter_mock.assert_not_called()
+        enqueue_mock.assert_not_called()
+        start_run_mock.assert_not_called()
+
+    @patch(f"{_PLAN}._mark_enqueue_failed")
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=6)
+    def test_stream_yields_fewer_batches_than_planned_marks_leftover_failed(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock, mark_failed_mock
+    ):
+        """The COUNT-derived batch count and the separately-streamed query can
+        disagree (eligibility narrowing in the gap between the two queries). The
+        leftover pre-registered batch_id must be failed immediately, not left
+        `triggered` for the monitor's deadline to eventually notice."""
+        from tasks.seal_of_reliability.seal_orchestrator import (
+            seal_orchestrator_handler,
+        )
+
+        # 6 feeds / batch_size 2 => 3 batches planned, but the stream only yields 2
+        # chunks.
+        iter_mock.return_value = iter([["mdb-1", "mdb-2"], ["mdb-3", "mdb-4"]])
+
+        seal_orchestrator_handler({"dry_run": False, "batch_size": 2})
+
+        mark_failed_mock.assert_called_once()
+        call_args, call_kwargs = mark_failed_mock.call_args
+        self.assertTrue(call_args[0].startswith("seal-"))
+        self.assertEqual(call_args[1], "batch-0002")
+        self.assertEqual(
+            call_kwargs["error_message"],
+            "no eligible-feed data for this batch (count/stream mismatch)",
+        )
+
+    @patch(f"{_PLAN}._mark_enqueue_failed")
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
+    def test_stream_yields_more_batches_than_planned_logs_and_does_not_mark_failed(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock, mark_failed_mock
+    ):
+        """The opposite direction (feeds became newly eligible in the gap) is
+        log-only: nothing is left dangling in the tracker, so there's nothing to
+        fail — just visibility that some feeds were skipped this run."""
+        from tasks.seal_of_reliability.seal_orchestrator import (
+            seal_orchestrator_handler,
+        )
+
+        # 2 feeds / batch_size 1 => 2 batches planned, but the stream yields a 3rd
+        # chunk.
+        iter_mock.return_value = iter([["mdb-1"], ["mdb-2"], ["mdb-3"]])
+
+        with self.assertLogs(
+            "tasks.seal_of_reliability.seal_orchestrator", level="ERROR"
+        ) as log_ctx:
+            result = seal_orchestrator_handler({"dry_run": False, "batch_size": 1})
+
+        mark_failed_mock.assert_not_called()
+        self.assertTrue(any("newly-eligible" in msg for msg in log_ctx.output))
+        self.assertEqual(result["enqueued"], 2)
+
 
 # ---------------------------------------------------------------------------
 # seal_orchestrator_worker
@@ -439,7 +519,7 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
 
         agg_mock.assert_called_once()
         tracker.finish_run.assert_not_called()
-        self.assertEqual(result["status"], "already_complete")
+        self.assertEqual(result["status"], "already_failed")
         self.assertEqual(result["batches_failed"], 1)
 
     @patch(f"{_MONITOR}._aggregate_batches")

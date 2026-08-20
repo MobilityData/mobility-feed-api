@@ -90,7 +90,11 @@ def _monitor(run_id: str, db_session=None) -> dict:
         aggregated = _aggregate_batches(db_session, run_id)
         return {
             "run_id": run_id,
-            "status": "already_complete",
+            "status": (
+                "already_complete"
+                if summary["run_status"] == STATUS_COMPLETED
+                else "already_failed"
+            ),
             "batches_total": summary["total_count"],
             "batches_completed": summary["completed"],
             "batches_failed": summary["failed"],

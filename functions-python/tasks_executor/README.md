@@ -547,10 +547,10 @@ the single-invocation timeout ceiling entirely.
 
 | Field | Description |
 |---|---|
-| `status` | `complete`, `failed`, `already_complete` (redelivery after settling) or `unknown` (no such run) |
+| `status` | `complete`, `failed`, `already_complete` (redelivery after a completed run), `already_failed` (redelivery after a failed run), or `unknown` (no such run) |
 | `batches_total` / `batches_completed` / `batches_failed` / `batches_incomplete` | `batches_incomplete` is `> 0` only when the deadline was reached before every batch reported |
 | `total_feeds_evaluated` / `criterion_rows_written` / `seals_granted` / `seals_revoked` | Summed across every batch's stored `update_seals` report |
-| `granted_stable_ids` / `revoked_stable_ids` | Concatenated across batches, capped at 200 combined; `ids_omitted` says how many were left out. `sealcriterion` and `feedreliabilityseal` hold every transition regardless |
+| `granted_stable_ids` / `revoked_stable_ids` | Concatenated across batches; each list is independently capped at 200 (so up to 400 total across both). `ids_omitted` says how many were left out, combined across both lists. `sealcriterion` and `feedreliabilityseal` hold every transition regardless |
 
 Use `get_task_run_status` (payload `{"task_name": "seal_orchestrator_run", "run_id":
 "..."}`) to inspect a run at any point without driving it forward.

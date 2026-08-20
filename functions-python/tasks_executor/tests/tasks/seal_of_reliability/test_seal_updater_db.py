@@ -17,7 +17,7 @@
 
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from tasks.seal_of_reliability.context import (
     build_contexts,
@@ -261,6 +261,17 @@ class TestEligibilityQuery(SealDbTestCase):
             )
         )
         self.assertEqual(batches, [[OFFICIAL]])
+
+    def test_batch_size_must_be_positive(self):
+        """The raise happens before any DB access, so a MagicMock db_session suffices.
+
+        iter_eligible_stable_ids is a generator, so the call itself doesn't raise until
+        iterated — hence the list(...) wrapper here.
+        """
+        with self.assertRaises(ValueError):
+            list(iter_eligible_stable_ids(MagicMock(), batch_size=0))
+        with self.assertRaises(ValueError):
+            list(iter_eligible_stable_ids(MagicMock(), batch_size=-5))
 
 
 class TestIsSealEligible(SealDbTestCase):
