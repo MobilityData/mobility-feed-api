@@ -87,6 +87,9 @@ def sync_task_run_status(
 
     Raises TaskInProgressError if the run is not yet complete so the Cloud Tasks
     queue retries this task after the configured backoff (default: 10 minutes).
+
+    Raises ValueError if no task_run exists for (task_name, run_id) — a typo'd or
+    never-registered pair must not be treated as a trivially-settled, already-complete run.
     """
     tracker = TaskExecutionTracker(
         task_name=task_name,
@@ -98,6 +101,10 @@ def sync_task_run_status(
     db_session.commit()
 
     summary = tracker.get_summary()
+    if summary["run_status"] is None:
+        raise ValueError(
+            f"No task_run found for task_name={task_name!r}, run_id={run_id!r}"
+        )
     summary["dispatch_complete"] = summary["pending"] == 0
 
     run_params = summary.get("params") or {}

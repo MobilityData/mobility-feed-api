@@ -119,7 +119,9 @@ class TestGetTaskRunStatus(unittest.TestCase):
         tracker.schedule_status_sync.assert_not_called()
 
     @patch(f"{_MODULE}.TaskExecutionTracker")
-    def test_returns_none_run_status_when_not_found(self, tracker_cls):
+    def test_raises_when_run_not_found(self, tracker_cls):
+        """A typo'd or never-registered (task_name, run_id) must error, not silently look
+        like a real run that happened to settle with 0 triggered/failed/pending."""
         from tasks.get_task_run_status import get_task_run_status
 
         tracker = MagicMock()
@@ -138,12 +140,10 @@ class TestGetTaskRunStatus(unittest.TestCase):
         tracker_cls.return_value = tracker
         session = self._make_session_mock()
 
-        result = get_task_run_status(
-            task_name="gtfs_validation", run_id="9.9.9", db_session=session
-        )
-
-        self.assertIsNone(result["run_status"])
-        self.assertTrue(result["dispatch_complete"])
+        with self.assertRaises(ValueError):
+            get_task_run_status(
+                task_name="gtfs_validation", run_id="9.9.9", db_session=session
+            )
 
 
 if __name__ == "__main__":

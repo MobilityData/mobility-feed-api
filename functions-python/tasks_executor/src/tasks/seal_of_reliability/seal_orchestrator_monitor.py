@@ -83,9 +83,20 @@ def _monitor(run_id: str, db_session=None) -> dict:
         )
         return {"run_id": run_id, "status": "unknown"}
 
-    # Already finalised — a redelivery must not re-aggregate or re-finish the run.
+    # Already finalised — a redelivery must not re-finish the run, but it should still
+    # report the same aggregate (read-only, no mutation) rather than a bare status string:
+    # this is the only way to see a settled run's feed-processing totals after the fact.
     if summary["run_status"] in _SETTLED_STATUSES:
-        return {"run_id": run_id, "status": "already_complete"}
+        aggregated = _aggregate_batches(db_session, run_id)
+        return {
+            "run_id": run_id,
+            "status": "already_complete",
+            "batches_total": summary["total_count"],
+            "batches_completed": summary["completed"],
+            "batches_failed": summary["failed"],
+            "batches_incomplete": summary["triggered"],
+            **aggregated,
+        }
 
     params = summary.get("params") or {}
     run_started_at = _parse_iso(params.get("run_started_at"))

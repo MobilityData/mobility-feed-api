@@ -384,35 +384,63 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
 
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
-    def test_already_complete_is_noop(self, tracker_cls, agg_mock):
+    def test_already_complete_reports_the_aggregate_without_refinishing(
+        self, tracker_cls, agg_mock
+    ):
+        """Redelivery must not re-finish the run, but should still report the same
+        aggregate — this is the only way to see a settled run's totals after the fact.
+        """
         from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
 
         tracker = self._tracker(
             self._summary(triggered=0, completed=3, run_status="completed")
         )
         tracker_cls.return_value = tracker
+        agg_mock.return_value = {
+            "total_feeds_evaluated": 750,
+            "criterion_rows_written": 750,
+            "seals_granted": 5,
+            "seals_revoked": 1,
+            "granted_stable_ids": ["mdb-1"],
+            "revoked_stable_ids": ["mdb-2"],
+            "ids_omitted": 0,
+        }
 
         result = _monitor("seal-x", db_session=MagicMock())
 
-        agg_mock.assert_not_called()
+        agg_mock.assert_called_once()
         tracker.finish_run.assert_not_called()
         self.assertEqual(result["status"], "already_complete")
+        self.assertEqual(result["batches_completed"], 3)
+        self.assertEqual(result["seals_granted"], 5)
 
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
-    def test_already_failed_is_noop(self, tracker_cls, agg_mock):
+    def test_already_failed_reports_the_aggregate_without_refinishing(
+        self, tracker_cls, agg_mock
+    ):
         from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
 
         tracker = self._tracker(
             self._summary(triggered=0, completed=2, failed=1, run_status="failed")
         )
         tracker_cls.return_value = tracker
+        agg_mock.return_value = {
+            "total_feeds_evaluated": 500,
+            "criterion_rows_written": 500,
+            "seals_granted": 0,
+            "seals_revoked": 0,
+            "granted_stable_ids": [],
+            "revoked_stable_ids": [],
+            "ids_omitted": 0,
+        }
 
         result = _monitor("seal-x", db_session=MagicMock())
 
-        agg_mock.assert_not_called()
+        agg_mock.assert_called_once()
         tracker.finish_run.assert_not_called()
         self.assertEqual(result["status"], "already_complete")
+        self.assertEqual(result["batches_failed"], 1)
 
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
