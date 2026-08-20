@@ -113,6 +113,8 @@ def iter_eligible_stable_ids(
     rows are pulled from Postgres as each chunk is consumed, instead of materializing the
     whole eligible-id list up front.
     """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
     query = (
         _eligible_stable_ids_query(db_session, stable_feed_ids=stable_feed_ids)
         .order_by(Gtfsfeed.stable_id)
