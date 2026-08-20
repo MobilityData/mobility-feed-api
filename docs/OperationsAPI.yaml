@@ -742,10 +742,8 @@ components:
               format: date-time
             seasonal:
               description: >
-                Indicates whether the feed is seasonal, i.e. it only provides service during recurring
-                periods of the year (for example a summer-only or winter-only service). Seasonal feeds
-                are excluded from the rolling 7-day service coverage checks. Defaults to false when the
-                feed has not been marked as seasonal.
+                Indicates whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Seasonal feeds are excluded from the rolling 7-day service coverage checks. Defaults to false when the feed has not been marked as seasonal.
+
               type: boolean
               default: false
               example: true
@@ -1052,16 +1050,14 @@ components:
           format: date-time
         official:
           description: >
-            A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+            A boolean value indicating if the feed is official or not. Official feeds are provided by the transit agency or a trusted source.
 
           type: boolean
           example: true
         seasonal:
           description: >
-            Indicates whether the feed is seasonal, i.e. it only provides service during recurring
-            periods of the year (for example a summer-only or winter-only service). Seasonal feeds
-            are excluded from the rolling 7-day service coverage checks. Defaults to false when the
-            feed has not been marked as seasonal.
+            Indicates whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Seasonal feeds are excluded from the rolling 7-day service coverage checks. Defaults to false when the feed has not been marked as seasonal.
+
           type: boolean
           default: false
           example: true
@@ -1982,8 +1978,8 @@ components:
           type: boolean
           default: false
           description: >
-            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Defaults to false.
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
+
         locations:
           $ref: "#/components/schemas/Locations"
         related_links:
@@ -2049,8 +2045,8 @@ components:
           type: boolean
           default: false
           description: >
-            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Defaults to false.
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
+
         entity_types:
           type: array
           minItems: 1
@@ -2063,6 +2059,7 @@ components:
             example: vp
             description: >
               The type of realtime entry:
+
 
                 * vp - vehicle positions
                 * tu - trip updates
@@ -2189,6 +2186,7 @@ components:
             description: >
               The type of realtime entry:
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2212,8 +2210,8 @@ components:
           type: boolean
           default: false
           description: >
-            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Defaults to false.
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
+
         propagate_license:
           type: boolean
           default: false
@@ -2273,8 +2271,8 @@ components:
           type: boolean
           default: false
           description: >
-            Whether the feed is seasonal, i.e. it only provides service during recurring periods of
-            the year (for example a summer-only or winter-only service). Defaults to false.
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
+
         propagate_license:
           type: boolean
           default: false
@@ -2288,6 +2286,7 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
 
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
@@ -2306,6 +2305,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
