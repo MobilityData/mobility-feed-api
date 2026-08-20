@@ -84,6 +84,10 @@ def get_task_run_status(
         dispatch_complete — True when pending == 0 (all entities have been dispatched)
         created_at      — when the task_run was first created
         params          — params dict stored at start_run() time
+        metadata_summary — generic aggregate over every entity's mark_completed(metadata=...):
+            numeric fields summed, list fields concatenated (capped), across every entity.
+            No task-specific code needed here — this is what lets a single status check
+            answer "how many X were processed" for any task, not just "how far along".
 
     Raises:
         ValueError: no task_run exists for (task_name, run_id). Without this, a typo'd or

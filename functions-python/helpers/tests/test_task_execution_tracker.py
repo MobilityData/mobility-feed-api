@@ -227,3 +227,107 @@ class TestTaskExecutionTrackerGetSummary(unittest.TestCase):
         self.assertEqual(summary["completed"], 1)
         self.assertEqual(summary["failed"], 1)
         self.assertEqual(summary["pending"], 1)  # 5 total - 4 processed
+
+    def test_includes_metadata_summary_aggregated_across_entities(self):
+        tracker, session = _make_tracker()
+        task_run = self._make_task_run(total_count=2)
+        rows = [
+            MagicMock(
+                status=STATUS_COMPLETED, metadata_={"seals_granted": 3, "ids": ["a"]}
+            ),
+            MagicMock(
+                status=STATUS_COMPLETED, metadata_={"seals_granted": 2, "ids": ["b"]}
+            ),
+        ]
+
+        def query_side_effect(*args):
+            m = MagicMock()
+            m.filter.return_value.first.return_value = task_run
+            m.filter.return_value.all.return_value = rows
+            return m
+
+        session.query.side_effect = query_side_effect
+
+        summary = tracker.get_summary()
+
+        self.assertEqual(summary["metadata_summary"]["seals_granted"], 5)
+        self.assertEqual(summary["metadata_summary"]["ids"], ["a", "b"])
+
+    def test_no_run_found_has_empty_metadata_summary(self):
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.first.return_value = None
+
+        summary = tracker.get_summary()
+
+        self.assertEqual(summary["metadata_summary"], {})
+
+
+class TestAggregateMetadata(unittest.TestCase):
+    """Direct tests of the generic per-entity metadata aggregation."""
+
+    def test_sums_numbers_and_concatenates_lists(self):
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [
+                {"total": 10, "ids": ["a", "b"]},
+                {"total": 5, "ids": ["c"]},
+            ],
+            list_cap=200,
+        )
+        self.assertEqual(result["total"], 15)
+        self.assertEqual(result["ids"], ["a", "b", "c"])
+
+    def test_caps_concatenated_lists_and_reports_omitted(self):
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [{"ids": ["a", "b", "c"]}], list_cap=2
+        )
+        self.assertEqual(result["ids"], ["a", "b"])
+        self.assertEqual(result["ids_omitted"], 1)
+
+    def test_skips_non_dict_and_none_metadata(self):
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [None, {"total": 4}, MagicMock()], list_cap=200
+        )
+        self.assertEqual(result, {"total": 4})
+
+    def test_drops_dict_and_list_of_dict_fields(self):
+        """Non-scalar fields (a nested dict, or a list of dicts) aren't summable or
+        concatenable in a generic way, so they're left out rather than guessed at."""
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [
+                {
+                    "total": 1,
+                    "nested": {"a": 1},
+                    "feeds": [{"stable_id": "mdb-1"}],
+                }
+            ],
+            list_cap=200,
+        )
+        self.assertEqual(result, {"total": 1})
+
+    def test_drops_bool_fields(self):
+        """bool is an int subclass; summing True/False as a count would be misleading."""
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [{"dry_run": False, "total": 1}], list_cap=200
+        )
+        self.assertEqual(result, {"total": 1})
+
+    def test_drops_key_seen_with_inconsistent_types(self):
+        """A key that's a number in one entity and a list in another is ambiguous —
+        dropped entirely rather than silently aggregating only part of it."""
+        from task_execution.task_execution_tracker import TaskExecutionTracker
+
+        result = TaskExecutionTracker._aggregate_metadata(
+            [{"x": 1}, {"x": ["a"]}, {"total": 9}], list_cap=200
+        )
+        self.assertNotIn("x", result)
+        self.assertEqual(result["total"], 9)

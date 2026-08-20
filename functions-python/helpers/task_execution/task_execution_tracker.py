@@ -58,6 +58,10 @@ STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
 STATUS_TRIGGERED = "triggered"
 
+# Cap on concatenated list fields in get_summary()'s metadata_summary. The two tables
+# hold every entity's own metadata regardless; this only bounds the summary's size.
+DEFAULT_METADATA_LIST_CAP = 200
+
 
 class TaskInProgressError(Exception):
     """
@@ -265,7 +269,7 @@ class TaskExecutionTracker:
     # Reporting
     # ------------------------------------------------------------------
 
-    def get_summary(self) -> dict:
+    def get_summary(self, metadata_list_cap: int = DEFAULT_METADATA_LIST_CAP) -> dict:
         """
         Return a summary of the run from both task_run and task_execution_log.
 
@@ -281,7 +285,14 @@ class TaskExecutionTracker:
                 "completed": int,
                 "failed": int,
                 "pending": int,   # > 0 means dispatch loop didn't complete; call rebuild again
+                "metadata_summary": dict,  # see _aggregate_metadata
             }
+
+        `metadata_summary` is what makes this a single place to ask "what happened",
+        not just "how far along": any task can attach a per-entity result via
+        `mark_completed(entity_id, metadata={...})`, and this generically sums numeric
+        fields and concatenates (capped) list fields across every entity's metadata —
+        no task-specific aggregation code needed to see it here.
         """
         task_run = (
             self.db_session.query(TaskRun)
@@ -303,6 +314,7 @@ class TaskExecutionTracker:
                 "completed": 0,
                 "failed": 0,
                 "pending": 0,
+                "metadata_summary": {},
             }
 
         counts: dict[str, int] = {
@@ -314,6 +326,7 @@ class TaskExecutionTracker:
             self.db_session.query(
                 TaskExecutionLog.status,
                 TaskExecutionLog.id,
+                TaskExecutionLog.metadata_,
             )
             .filter(
                 TaskExecutionLog.task_name == self.task_name,
@@ -342,7 +355,63 @@ class TaskExecutionTracker:
             "completed": counts[STATUS_COMPLETED],
             "failed": counts[STATUS_FAILED],
             "pending": pending,
+            "metadata_summary": self._aggregate_metadata(
+                (row.metadata_ for row in rows), metadata_list_cap
+            ),
         }
+
+    @staticmethod
+    def _aggregate_metadata(metadata_values, list_cap: int) -> dict:
+        """Generic aggregate over a run's stored per-entity metadata.
+
+        Numeric fields (int/float, not bool) are summed; list fields whose every element
+        is a scalar (str/int/float/bool) are concatenated and capped at `list_cap`, with
+        a `<key>_omitted` count added when anything was dropped. A key is left out
+        entirely once it's seen with an unsupported or inconsistent type (a dict, a list
+        of dicts, or both a number and a list across different entities) — silently
+        dropping an ambiguous field is safer than guessing which entity's shape is
+        canonical.
+        """
+        numeric_totals: dict[str, float] = {}
+        list_totals: dict[str, list] = {}
+        skipped_keys: set[str] = set()
+
+        for metadata in metadata_values:
+            if not isinstance(metadata, dict):
+                continue
+            for key, value in metadata.items():
+                if key in skipped_keys:
+                    continue
+                if isinstance(value, bool):
+                    skipped_keys.add(key)
+                    numeric_totals.pop(key, None)
+                    list_totals.pop(key, None)
+                elif isinstance(value, (int, float)):
+                    if key in list_totals:
+                        skipped_keys.add(key)
+                        list_totals.pop(key, None)
+                        continue
+                    numeric_totals[key] = numeric_totals.get(key, 0) + value
+                elif isinstance(value, list) and all(
+                    isinstance(item, (str, int, float, bool)) for item in value
+                ):
+                    if key in numeric_totals:
+                        skipped_keys.add(key)
+                        numeric_totals.pop(key, None)
+                        continue
+                    list_totals.setdefault(key, []).extend(value)
+                else:
+                    skipped_keys.add(key)
+                    numeric_totals.pop(key, None)
+                    list_totals.pop(key, None)
+
+        summary: dict = dict(numeric_totals)
+        for key, items in list_totals.items():
+            summary[key] = items[:list_cap]
+            omitted = len(items) - list_cap
+            if omitted > 0:
+                summary[f"{key}_omitted"] = omitted
+        return summary
 
     def schedule_status_sync(self, delay_seconds: int = 0) -> None:
         """

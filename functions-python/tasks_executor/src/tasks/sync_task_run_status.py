@@ -31,6 +31,12 @@ intervals). This task handler:
 
 No self-scheduling logic — the Cloud Tasks queue manages the retry loop.
 
+The returned summary includes `metadata_summary`: TaskExecutionTracker.get_summary()'s
+generic aggregate over every entity's mark_completed(metadata=...) — numeric fields
+summed, list fields concatenated (capped). No task-specific code needed here, so this
+is a single place to check "what happened" (e.g. how many rows a batch task actually
+processed), not just "how far along" a run is.
+
 Payload:
     {
         "task_name": str,   # required — e.g. "gtfs_validation"
