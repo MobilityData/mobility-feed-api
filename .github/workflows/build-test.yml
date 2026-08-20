@@ -135,7 +135,16 @@ jobs:
 
       - name: Set test matrix
         id: set-matrix
-        run: python3 scripts/generate_test_matrix.py
+        run: |
+          # Discover functions that are runnable: have a tests/ dir and a requirements.txt.
+          # This automatically excludes test_utils (no tests/) and stubs like dataset_service (no requirements.txt).
+          functions=$(find functions-python -maxdepth 1 -mindepth 1 -type d | while read dir; do
+            if [ -d "$dir/tests" ] && [ -f "$dir/requirements.txt" ]; then
+              basename "$dir"
+            fi
+          done | sort | jq -Rnc '[inputs | {folder: ("functions-python/" + .), group: .}]')
+          api='[{"folder":"api","group":"api"}]'
+          echo "matrix=$(printf '%s\n%s' "$api" "$functions" | jq -sc 'add | {include: .}')" >> "$GITHUB_OUTPUT"
 
       - name: Upload DB models
         uses: actions/upload-artifact@v7
@@ -271,9 +280,7 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: >
-          scripts/api-tests.sh --folder ${{ matrix.folder }}
-          --test_paths "${{ matrix.test_paths }}" --skip_coverage_gate --html_report
+        run: scripts/api-tests.sh --folder ${{ matrix.folder }} --html_report
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -281,47 +288,6 @@ jobs:
           name: coverage_report_${{ matrix.group }}
           path: scripts/coverage_reports/
           overwrite: true
-
-      # Raw coverage data (not the human-readable report above), uploaded separately so the
-      # coverage-gate job below can find every shard's data via the coverage_data_* name
-      # pattern and combine them back into one report per target before enforcing the
-      # threshold. --skip_coverage_gate above means this job never fails on coverage alone;
-      # the combined figure, checked once per target, is what's authoritative.
-      - name: Upload coverage data
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage_data_${{ matrix.group }}
-          path: scripts/coverage_reports/*/coverage.dat
-          overwrite: true
-
-  coverage-gate:
-    needs: [setup, test]
-    if: ${{ needs.setup.outputs.should-run-tests == 'true' }}
-    runs-on: ubuntu-latest
-    name: Coverage gate
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: ${{ env.python_version }}
-
-      # One subdirectory per artifact (the default), so every shard's identically-named
-      # coverage.dat lands at coverage_data/coverage_data_<group>/coverage.dat instead of
-      # clobbering its siblings.
-      - name: Download coverage data
-        uses: actions/download-artifact@v8
-        with:
-          pattern: coverage_data_*
-          path: coverage_data
-          merge-multiple: false
-
-      - name: Combine shards and check threshold per target
-        env:
-          MATRIX_JSON: ${{ needs.setup.outputs.test-matrix }}
-          COVERAGE_DOWNLOAD_DIR: coverage_data
-        run: python3 scripts/check_combined_coverage.py
 
   operations-api-surface:
     needs: setup
