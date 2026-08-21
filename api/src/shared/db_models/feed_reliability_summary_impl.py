@@ -9,10 +9,9 @@ from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
 class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
     """Implementation of the `FeedReliabilitySummary` model.
 
-    Builds the Seal of Reliability roll-up a feed carries on its detail/list response and in search
-    results, from two interchangeable sources:
-      - `from_feed`: a feed's `feed_reliability_seal` / `seal_criteria` ORM relationships, and
-      - `from_orm`: a `feedsearch` materialized-view row, which precomputes the same values.
+    Converts a feed's Seal of Reliability roll-up to a Pydantic model. `from_orm` reads it off the
+    feed's `feed_reliability_seal` / `seal_criteria` relationships; `from_orm_search_row` reads the
+    equivalent precomputed columns from the `feedsearch` materialized view.
     """
 
     class Config:
@@ -24,7 +23,6 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
     @classmethod
     def _build(
         cls,
-        *,
         has_seal: bool,
         earned_at: Optional[datetime],
         lost_at: Optional[datetime],
@@ -47,8 +45,8 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
         )
 
     @classmethod
-    def from_feed(cls, feed: FeedOrm | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
-        """Roll a feed's Seal of Reliability relationships up into the summary.
+    def from_orm(cls, feed: FeedOrm | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
+        """Convert a feed's Seal of Reliability relationships to a Pydantic model.
 
         Returns None when the feed has no seal row: it has never been evaluated and the badge has
         nothing to show. Reads `feed.feed_reliability_seal` and `feed.seal_criteria`, which callers
@@ -57,7 +55,7 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
 
         Probation rolls up only over the criteria that actually serve it (`official` and `stable`
         are point-in-time state checks and exempt), matching the equivalent roll-up in
-        `liquibase/materialized_views/feed_search.sql` that search reads through `from_orm` instead.
+        `liquibase/materialized_views/feed_search.sql` that search reads instead.
         """
         seal = feed.feed_reliability_seal if feed is not None else None
         if seal is None:
@@ -79,13 +77,13 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
         )
 
     @classmethod
-    def from_orm(cls, seal_row: Any | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
-        """Create a model instance from a `feedsearch` materialized-view row.
+    def from_orm_search_row(cls, seal_row: Any | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
+        """Convert a `feedsearch` materialized-view row to a Pydantic model.
 
         The view exposes the roll-up as flat columns (`has_seal`, `seal_earned_at`, ...), already
         aggregated, so search results carry the badge without touching the seal tables. Returns None
         when there is no row, or when the row carries no seal at all: both mean the feed has never
-        been evaluated. `now` is a parameter so the future-clamping is testable.
+        been evaluated.
         """
         if seal_row is None or getattr(seal_row, "has_seal", None) is None:
             return None

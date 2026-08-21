@@ -9,7 +9,6 @@ from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
-from shared.db_models.feed_reliability_summary_impl import FeedReliabilitySummaryImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
@@ -136,7 +135,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get the specified gtfs feed from the Mobility Database."""
         feed = self._get_gtfs_feed(id, db_session)
         if feed:
-            return GtfsFeedImpl.from_orm(feed, FeedReliabilitySummaryImpl.from_feed(feed))
+            return GtfsFeedImpl.from_orm(feed)
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
@@ -233,7 +232,7 @@ class FeedsApiImpl(BaseFeedsApi):
             # that needs to be converted to HTTPException before being thrown.
             raise convert_exception(e)
 
-        return self._get_gtfs_feeds_response(feed_query)
+        return self._get_response(feed_query, GtfsFeedImpl)
 
     @with_db_session
     def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
@@ -305,17 +304,6 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get the response for the feed query."""
         results = feed_query.all()
         return [impl_cls.from_orm(feed) for feed in results]
-
-    @staticmethod
-    def _get_gtfs_feeds_response(feed_query: Query) -> List[GtfsFeed]:
-        """Get the response for a GTFS feed query, with each feed's Seal of Reliability summary.
-
-        The query eager-loads each feed's seal relationships (see get_selectinload_options), so the
-        per-feed roll-up below is a pure in-memory reduction - the whole page costs two extra
-        queries total, not one per feed.
-        """
-        results = feed_query.all()
-        return [GtfsFeedImpl.from_orm(feed, FeedReliabilitySummaryImpl.from_feed(feed)) for feed in results]
 
     @with_db_session
     def get_gtfs_feed_gtfs_rt_feeds(self, id: str, db_session: Session) -> List[GtfsRTFeed]:
