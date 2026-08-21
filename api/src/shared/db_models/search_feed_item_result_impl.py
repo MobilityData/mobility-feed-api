@@ -5,6 +5,7 @@ from feeds_gen.models.source_info import SourceInfo
 import pycountry
 
 from shared.database_gen.sqlacodegen_models import t_feedsearch
+from shared.db_models.feed_reliability_summary_impl import FeedReliabilitySummaryImpl
 
 
 class SearchFeedItemResultImpl(SearchFeedItemResult):
@@ -74,6 +75,10 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 if feed_search_row.latest_dataset_id
                 else None
             ),
+            # The view precomputes the same seal roll-up the feed relationships give, so the badge
+            # renders from a search result without a second call. GTFS only - the other two
+            # from_orm_* variants have no seal to report.
+            reliability_seal=FeedReliabilitySummaryImpl.from_orm_search_row(feed_search_row),
         )
 
     @classmethod

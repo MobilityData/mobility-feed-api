@@ -21,6 +21,8 @@ src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feed.py
 src/feeds_gen/models/feed_related_link.py
+src/feeds_gen/models/feed_reliability_report.py
+src/feeds_gen/models/feed_reliability_summary.py
 src/feeds_gen/models/gbfs_endpoint.py
 src/feeds_gen/models/gbfs_feed.py
 src/feeds_gen/models/gbfs_validation_report.py
@@ -42,6 +44,7 @@ src/feeds_gen/models/location_search_result.py
 src/feeds_gen/models/matching_license.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/redirect.py
+src/feeds_gen/models/reliability_criterion.py
 src/feeds_gen/models/search_feed_item_result.py
 src/feeds_gen/models/search_feeds200_response.py
 src/feeds_gen/models/source_info.py
