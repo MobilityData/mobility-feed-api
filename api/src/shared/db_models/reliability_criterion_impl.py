@@ -1,35 +1,22 @@
 from datetime import datetime, timezone
-from typing import Optional
 
 from feeds_gen.models.reliability_criterion import ReliabilityCriterion
 from shared.common.seal_criteria import (
     GRACE_PERIODS,
     PROBATION_PERIODS,
     SealCriterionName,
+    resolve_criterion,
     window_end,
 )
 from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
 
+# The API `status` values are the `seal_criterion_status` DB enum verbatim, so a stored status is
+# served as-is with no translation.
 STATUS_PASS = "pass"
 STATUS_FAIL = "fail"
 STATUS_UNKNOWN = "unknown"
-STATUS_NOT_EVALUATED = "not_evaluated"
+STATUS_NEVER_EVALUATED = "never_evaluated"
 STATUS_NOT_APPLICABLE = "not_applicable"
-
-# The debounced status that means "confirmed passing", i.e. the failure has not (yet) outlasted grace.
-CONFIRMED_PASS = "pass"
-
-# Maps the `seal_criterion_status` DB enum to the API `status`. The only rename is
-# `never_evaluated` -> `not_evaluated`, keeping the API's existing term for "no verdict yet"; the
-# other four values pass through unchanged. An unknown DB value degrades to `not_evaluated` rather
-# than failing the response, matching `resolve_criterion`.
-_DB_STATUS_TO_API = {
-    "pass": STATUS_PASS,
-    "fail": STATUS_FAIL,
-    "unknown": STATUS_UNKNOWN,
-    "never_evaluated": STATUS_NOT_EVALUATED,
-    "not_applicable": STATUS_NOT_APPLICABLE,
-}
 
 
 class ReliabilityCriterionImpl(ReliabilityCriterion):
@@ -47,7 +34,7 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         from_attributes = True
 
     @classmethod
-    def not_evaluated(cls, criterion: SealCriterionName) -> ReliabilityCriterion:
+    def never_evaluated(cls, criterion: SealCriterionName) -> ReliabilityCriterion:
         """The entry for a criterion the nightly job has never produced a verdict for.
 
         The job skips such a criterion when deciding the seal rather than counting it as a failure,
@@ -55,34 +42,30 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         """
         return cls(
             criterion=criterion.value,
-            status=STATUS_NOT_EVALUATED,
+            status=STATUS_NEVER_EVALUATED,
             in_grace_period=False,
             on_probation=False,
         )
 
     @classmethod
-    def from_orm(
-        cls,
-        criterion_row: SealCriterionOrm | None,
-        criterion: SealCriterionName,
-        now: Optional[datetime] = None,
-    ) -> ReliabilityCriterion:
-        """Create a model instance from a `seal_criterion` row.
+    def from_orm(cls, criterion_row: SealCriterionOrm | None) -> ReliabilityCriterion | None:
+        """Convert a `seal_criterion` row to a Pydantic model.
 
-        `criterion` is passed in rather than read off the row so a caller can ask for an entry for a
-        criterion that has no row yet - which is how the report always returns all six.
-        `now` is a parameter so the future-clamping is testable.
+        Returns None when there is no row; callers that need an entry for a criterion with no row
+        use `never_evaluated` instead - that is how the report always returns all six. A stored
+        criterion this build does not know about raises (see `resolve_criterion`).
         """
         if criterion_row is None:
-            return cls.not_evaluated(criterion)
+            return None
 
-        now = now or datetime.now(timezone.utc)
-        status = _DB_STATUS_TO_API.get(criterion_row.observed_status, STATUS_NOT_EVALUATED)
+        criterion = resolve_criterion(criterion_row.criterion)
+        now = datetime.now(timezone.utc)
+        status = criterion_row.observed_status
 
-        # `not_applicable` (withdrawn for this feed) and `not_evaluated` (no verdict ever) do not
+        # `not_applicable` (withdrawn for this feed) and `never_evaluated` (no verdict ever) do not
         # participate in the seal, so they carry no grace period, no probation and no windows - just
-        # the flat status, mirroring the row-less `not_evaluated` entry.
-        if status in (STATUS_NOT_EVALUATED, STATUS_NOT_APPLICABLE):
+        # the flat status, mirroring the row-less `never_evaluated` entry.
+        if status in (STATUS_NEVER_EVALUATED, STATUS_NOT_APPLICABLE):
             return cls(
                 criterion=criterion.value,
                 status=status,
@@ -100,9 +83,7 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         # daily check reads `fail` but the debounced status is still `pass`. Grace does not apply
         # during probation: a failure then restarts the probation clock outright, so there is
         # nothing left for grace to protect.
-        in_grace_period = (
-            status == STATUS_FAIL and criterion_row.confirmed_status == CONFIRMED_PASS and not on_probation
-        )
+        in_grace_period = status == STATUS_FAIL and criterion_row.confirmed_status == STATUS_PASS and not on_probation
 
         return cls(
             criterion=criterion.value,

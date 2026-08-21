@@ -7,7 +7,9 @@ import json
 from fastapi.testclient import TestClient
 
 from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck as DbAvailabilityCheck
+from shared.common.error_handling import InternalHTTPException, unknown_seal_criterion
 from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
@@ -452,7 +454,7 @@ def _seal_rows(feed_stable_id: str, has_seal: bool, criteria: dict):
             session.commit()
 
 
-def test_gtfs_feed_reliability_not_evaluated(client: TestClient):
+def test_gtfs_feed_reliability_never_evaluated(client: TestClient):
     """A feed the nightly job has not reached returns a full report, not a 404."""
     response = client.request(
         "GET",
@@ -466,7 +468,7 @@ def test_gtfs_feed_reliability_not_evaluated(client: TestClient):
     assert body["has_seal"] is False
     assert body["on_probation"] is False
     assert len(body["criteria"]) == 6
-    assert {criterion["status"] for criterion in body["criteria"]} == {"not_evaluated"}
+    assert {criterion["status"] for criterion in body["criteria"]} == {"never_evaluated"}
 
 
 def test_gtfs_feed_reliability_with_criteria(client: TestClient):
@@ -510,7 +512,7 @@ def test_gtfs_feed_reliability_with_criteria(client: TestClient):
     assert by_name["available"]["status"] == "pass"
     assert by_name["available"]["on_probation"] is True
     assert by_name["available"]["probation_ends_at"] is not None
-    assert by_name["stable"]["status"] == "not_evaluated"
+    assert by_name["stable"]["status"] == "never_evaluated"
     assert body["on_probation"] is True
     assert body["probation_ends_at"] == by_name["available"]["probation_ends_at"]
 
@@ -524,6 +526,29 @@ def test_gtfs_feed_reliability_not_found(client: TestClient):
     )
 
     assert response.status_code == 404, f"Response status code was {response.status_code} instead of 404"
+
+
+def test_gtfs_feed_reliability_unknown_criterion_is_reported(client: TestClient, mocker):
+    """A criterion this build does not know about surfaces as a 500 carrying the reason.
+
+    The `seal_criterion_name` DB enum makes the value unstorable, so this is mocked at the impl:
+    what is under test is that the InternalHTTPException raised under `shared/` is converted to an
+    HTTPException instead of escaping as an opaque error.
+    """
+    mocker.patch.object(
+        FeedReliabilityReportImpl,
+        "from_orm",
+        side_effect=InternalHTTPException(status_code=500, detail=unknown_seal_criterion.format("future_criterion")),
+    )
+
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{TEST_GTFS_FEED_STABLE_IDS[0]}/reliability",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 500, f"Response status code was {response.status_code} instead of 500"
+    assert "future_criterion" in response.json()["detail"]
 
 
 def test_gtfs_feed_get_embeds_reliability_seal(client: TestClient):

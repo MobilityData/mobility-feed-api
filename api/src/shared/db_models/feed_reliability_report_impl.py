@@ -1,10 +1,6 @@
-from datetime import datetime, timezone
-from typing import Iterable, Optional
-
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from shared.common.seal_criteria import SealCriterionName, resolve_criterion
-from shared.database_gen.sqlacodegen_models import FeedReliabilitySeal as FeedReliabilitySealOrm
-from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
+from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
 from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 
 
@@ -12,7 +8,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
     """Implementation of the `FeedReliabilityReport` model.
 
     Assembles the full Seal of Reliability breakdown for one feed from its `feed_reliability_seal`
-    row and its `seal_criterion` rows.
+    and `seal_criteria` relationships.
     """
 
     class Config:
@@ -22,46 +18,45 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
         from_attributes = True
 
     @classmethod
-    def from_orm(
-        cls,
-        feed_stable_id: str,
-        seal: FeedReliabilitySealOrm | None,
-        criterion_rows: Iterable[SealCriterionOrm],
-        now: Optional[datetime] = None,
-    ) -> FeedReliabilityReport:
-        """Create a model instance for one feed.
+    def from_orm(cls, feed: GtfsfeedOrm | None) -> FeedReliabilityReport | None:
+        """Convert a feed's Seal of Reliability relationships to a Pydantic model.
 
         All six criteria are always returned, in enum order, with any the job has not reached filled
-        in as `not_evaluated` - so a client can render six cards without checking which are present.
+        in as `never_evaluated` - so a client can render six cards without checking which are present.
         A feed with no seal row at all is reported as simply not holding the seal, rather than as an
         error: the nightly job has not gotten to it yet.
         """
-        now = now or datetime.now(timezone.utc)
-        criterion_rows = list(criterion_rows)
+        if feed is None:
+            return None
 
-        rows_by_criterion = {}
-        for row in criterion_rows:
-            criterion = resolve_criterion(row.criterion)
-            # An unrecognised criterion means the DB enum has grown past this build. Skipping it
-            # degrades the report to "not evaluated" for that entry instead of failing the request.
-            if criterion is not None:
-                rows_by_criterion[criterion] = row
+        seal = feed.feed_reliability_seal
+        criterion_rows = list(feed.seal_criteria)
 
+        # `resolve_criterion` raises on a stored criterion this build does not know about, so a
+        # seal_criterion_name/SealCriterionName mismatch surfaces as an error instead of a report
+        # that quietly omits a criterion.
+        rows_by_criterion = {resolve_criterion(row.criterion): row for row in criterion_rows}
+
+        # Every criterion gets an entry: the stored row when there is one, `never_evaluated`
+        # otherwise - so a client can render six cards without checking which are present.
         criteria = [
-            ReliabilityCriterionImpl.from_orm(rows_by_criterion.get(criterion), criterion, now)
+            ReliabilityCriterionImpl.from_orm(rows_by_criterion.get(criterion))
+            or ReliabilityCriterionImpl.never_evaluated(criterion)
             for criterion in SealCriterionName
         ]
 
         # The feed-level probation roll-up is derived from the criteria that were actually returned,
         # so it cannot disagree with them - unlike reading the roll-up row separately.
-        probation_ends = [criterion.probation_ends_at for criterion in criteria if criterion.probation_ends_at]
+        probation_ends = [
+            criterion.probation_ends_at for criterion in criteria if criterion.probation_ends_at is not None
+        ]
 
         # `evaluated_at` is the most recent evaluation across the feed's criteria: the seal row
         # stores no evaluation time of its own.
         evaluated_ats = [row.evaluated_at for row in criterion_rows if row.evaluated_at is not None]
 
         return cls(
-            feed_id=feed_stable_id,
+            feed_id=feed.stable_id,
             has_seal=bool(seal.has_seal) if seal is not None else False,
             earned_at=seal.seal_earned_at if seal is not None else None,
             lost_at=seal.seal_lost_at if seal is not None else None,

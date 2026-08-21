@@ -33,11 +33,7 @@ class SearchApiImpl(BaseSearchApi):
         """Whether the caller may filter the catalogue by Seal of Reliability status.
 
         Access is granted per user through the `isSealFilterEnabled` feature flag in the users
-        database, rather than by email domain: the flag can be handed to a named external partner
-        without giving them anything else, which is what "available to selected users" means here.
-
-        An unidentified caller is denied - there is no user to hold the flag. The users DB is a
-        different database from the one the search itself reads, hence its own short-lived session.
+        database.
         """
         request_context = get_request_context()
         user_id = request_context.get("user_id") if request_context else None

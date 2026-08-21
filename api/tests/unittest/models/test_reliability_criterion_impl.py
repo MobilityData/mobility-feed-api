@@ -1,18 +1,21 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
+from shared.common.error_handling import InternalHTTPException
 from shared.common.seal_criteria import GRACE_PERIODS, PROBATION_PERIOD, SealCriterionName
 from shared.database_gen.sqlacodegen_models import SealCriterion
 from shared.db_models.reliability_criterion_impl import (
     STATUS_FAIL,
+    STATUS_NEVER_EVALUATED,
     STATUS_NOT_APPLICABLE,
-    STATUS_NOT_EVALUATED,
     STATUS_PASS,
     STATUS_UNKNOWN,
     ReliabilityCriterionImpl,
 )
 
-NOW = datetime(2026, 8, 17, 12, 0, 0, tzinfo=timezone.utc)
+# Anchored to the real clock because the countdowns are derived against `datetime.now`. Every window
+# below is at least a day clear of its boundary, so the assertions do not race the wall clock.
+NOW = datetime.now(timezone.utc)
 
 
 def make_row(criterion=SealCriterionName.COMPLIANT, **overrides):
@@ -37,7 +40,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
 
     def test_passing_criterion(self):
         """A criterion whose check passed reports `pass`, with neither window open."""
-        result = ReliabilityCriterionImpl.from_orm(make_row(), SealCriterionName.COMPLIANT, NOW)
+        result = ReliabilityCriterionImpl.from_orm(make_row())
 
         assert result.criterion == "compliant"
         assert result.status == STATUS_PASS
@@ -47,28 +50,46 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.probation_ends_at is None
         assert result.evaluated_at == NOW
 
-    def test_no_row_is_not_evaluated(self):
-        """A criterion with no stored row has produced no verdict."""
-        result = ReliabilityCriterionImpl.from_orm(None, SealCriterionName.AVAILABLE, NOW)
+    def test_no_row_returns_none(self):
+        """There is nothing to convert without a row - the report fills the gap instead."""
+        assert ReliabilityCriterionImpl.from_orm(None) is None
+
+    def test_unknown_criterion_raises(self):
+        """A criterion this build does not know about is a schema/code mismatch, not a skip.
+
+        Dropping it would serve an incomplete report and hide the incompatibility.
+        """
+        row = make_row()
+        row.criterion = "some_future_criterion"
+
+        with self.assertRaises(InternalHTTPException) as context:
+            ReliabilityCriterionImpl.from_orm(row)
+
+        assert context.exception.status_code == 500
+        assert "some_future_criterion" in context.exception.detail
+
+    def test_never_evaluated_factory(self):
+        """`never_evaluated` is the entry for a criterion with no row at all."""
+        result = ReliabilityCriterionImpl.never_evaluated(SealCriterionName.AVAILABLE)
 
         assert result.criterion == "available"
-        assert result.status == STATUS_NOT_EVALUATED
+        assert result.status == STATUS_NEVER_EVALUATED
         assert result.in_grace_period is False
         assert result.on_probation is False
 
-    def test_never_evaluated_status_is_not_evaluated(self):
-        """`observed_status = 'never_evaluated'` means the nightly job has produced no verdict yet."""
+    def test_never_evaluated_status_passes_through(self):
+        """A stored `never_evaluated` is served as-is, with no windows."""
         row = make_row(observed_status="never_evaluated", confirmed_status="never_evaluated")
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.COMPLIANT, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_NOT_EVALUATED
+        assert result.status == STATUS_NEVER_EVALUATED
         assert result.in_grace_period is False
         assert result.on_probation is False
 
     def test_unknown_status_passes_through(self):
         """`unknown` (inputs missing this evaluation) is reported as its own status, not a failure."""
-        row = make_row(observed_status="unknown", confirmed_status="pass")
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.AVAILABLE, NOW)
+        row = make_row(criterion=SealCriterionName.AVAILABLE, observed_status="unknown", confirmed_status="pass")
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_UNKNOWN
         assert result.in_grace_period is False
@@ -84,7 +105,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
             confirmed_status="not_applicable",
             probation_start=NOW - timedelta(days=1),
         )
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.FRESH_COVERAGE, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_NOT_APPLICABLE
         assert result.in_grace_period is False
@@ -103,7 +124,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
             first_observed_failure_at=first_failure,
             last_observed_failure_at=NOW,
         )
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.COMPLIANT, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_FAIL
         assert result.in_grace_period is True
@@ -120,7 +141,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
             last_observed_failure_at=NOW,
             last_confirmed_failure_at=NOW,
         )
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.COMPLIANT, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_FAIL
         assert result.in_grace_period is False
@@ -132,8 +153,8 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         This is the case the probation fields exist for: every criterion green, no seal.
         """
         probation_start = NOW - timedelta(days=30)
-        row = make_row(probation_start=probation_start)
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.AVAILABLE, NOW)
+        row = make_row(criterion=SealCriterionName.AVAILABLE, probation_start=probation_start)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_PASS
         assert result.on_probation is True
@@ -142,13 +163,14 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
     def test_grace_does_not_apply_during_probation(self):
         """A failure during probation restarts probation, so grace has nothing to protect."""
         row = make_row(
+            criterion=SealCriterionName.AVAILABLE,
             observed_status="fail",
             confirmed_status="pass",
             first_observed_failure_at=NOW - timedelta(days=2),
             last_observed_failure_at=NOW,
             probation_start=NOW - timedelta(days=1),
         )
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.AVAILABLE, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == STATUS_FAIL
         assert result.on_probation is True
@@ -160,7 +182,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         for criterion in (SealCriterionName.OFFICIAL, SealCriterionName.STABLE):
             with self.subTest(criterion=criterion):
                 row = make_row(criterion=criterion, probation_start=NOW - timedelta(days=1))
-                result = ReliabilityCriterionImpl.from_orm(row, criterion, NOW)
+                result = ReliabilityCriterionImpl.from_orm(row)
 
                 assert result.on_probation is False
                 assert result.probation_ends_at is None
@@ -175,7 +197,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
                     confirmed_status="fail",
                     first_observed_failure_at=NOW - timedelta(days=1),
                 )
-                result = ReliabilityCriterionImpl.from_orm(row, criterion, NOW)
+                result = ReliabilityCriterionImpl.from_orm(row)
 
                 assert result.status == STATUS_FAIL
                 assert result.in_grace_period is False
@@ -187,8 +209,11 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         `on_probation` stays true because that stored state is what produced `has_seal`; the null
         end date is the signal that the nightly job has not caught up.
         """
-        row = make_row(probation_start=NOW - PROBATION_PERIOD - timedelta(days=1))
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.AVAILABLE, NOW)
+        row = make_row(
+            criterion=SealCriterionName.AVAILABLE,
+            probation_start=NOW - PROBATION_PERIOD - timedelta(days=1),
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.on_probation is True
         assert result.probation_ends_at is None
@@ -201,7 +226,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
             first_observed_failure_at=NOW - timedelta(days=31),
             last_observed_failure_at=NOW,
         )
-        result = ReliabilityCriterionImpl.from_orm(row, SealCriterionName.COMPLIANT, NOW)
+        result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.in_grace_period is True
         assert result.grace_period_ends_at is None

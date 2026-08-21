@@ -28,13 +28,9 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
         lost_at: Optional[datetime],
         evaluated_at: Optional[datetime],
         latest_probation_start: Optional[datetime],
-        now: Optional[datetime] = None,
     ) -> FeedReliabilitySummary:
-        """Assemble the model from the flat roll-up values, deriving the probation countdown.
-
-        `now` is a parameter so the future-clamping in `window_end` is testable.
-        """
-        now = now or datetime.now(timezone.utc)
+        """Assemble the model from the flat roll-up values, deriving the probation countdown."""
+        now = datetime.now(timezone.utc)
         return cls(
             has_seal=bool(has_seal),
             earned_at=earned_at,
@@ -45,7 +41,7 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
         )
 
     @classmethod
-    def from_orm(cls, feed: FeedOrm | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
+    def from_orm(cls, feed: FeedOrm | None) -> FeedReliabilitySummary | None:
         """Convert a feed's Seal of Reliability relationships to a Pydantic model.
 
         Returns None when the feed has no seal row: it has never been evaluated and the badge has
@@ -73,11 +69,10 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
             lost_at=seal.seal_lost_at,
             evaluated_at=max(evaluated_ats) if evaluated_ats else None,
             latest_probation_start=max(probation_starts) if probation_starts else None,
-            now=now,
         )
 
     @classmethod
-    def from_orm_search_row(cls, seal_row: Any | None, now: Optional[datetime] = None) -> FeedReliabilitySummary | None:
+    def from_orm_search_row(cls, seal_row: Any | None) -> FeedReliabilitySummary | None:
         """Convert a `feedsearch` materialized-view row to a Pydantic model.
 
         The view exposes the roll-up as flat columns (`has_seal`, `seal_earned_at`, ...), already
@@ -94,5 +89,4 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
             lost_at=seal_row.seal_lost_at,
             evaluated_at=seal_row.seal_evaluated_at,
             latest_probation_start=seal_row.seal_latest_probation_start,
-            now=now,
         )

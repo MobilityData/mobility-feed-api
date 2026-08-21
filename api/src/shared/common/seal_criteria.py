@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, Final, Optional
 
+from shared.common.error_handling import raise_internal_http_error, unknown_seal_criterion
+
 
 class SealCriterionName(str, Enum):
     """The six seal criteria. Values match the `seal_criterion_name` DB enum."""
@@ -66,19 +68,20 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 )
 
 
-def resolve_criterion(criterion: str | SealCriterionName) -> Optional[SealCriterionName]:
-    """Coerce a stored criterion value to a `SealCriterionName`, or None if unknown.
+def resolve_criterion(criterion: str | SealCriterionName) -> SealCriterionName:
+    """Coerce a stored criterion value to a `SealCriterionName`.
 
-    The DB enum and this enum are kept in step, so an unknown value means the DB has a
-    criterion this build does not know about. Returning None lets callers skip it rather
-    than fail the whole response.
+    The DB enum and this enum are kept in step, so an unknown value means `seal_criterion_name`
+    has grown past this build. That is a schema/code mismatch we want to hear about rather than
+    paper over, so it raises instead of silently dropping the criterion: serving a report that
+    quietly omits a criterion would hide the incompatibility until someone noticed the gap.
     """
     if isinstance(criterion, SealCriterionName):
         return criterion
     try:
         return SealCriterionName(criterion)
     except ValueError:
-        return None
+        raise_internal_http_error(500, unknown_seal_criterion.format(criterion))
 
 
 def window_end(start: Optional[datetime], window: Optional[timedelta], now: datetime) -> Optional[datetime]:

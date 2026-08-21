@@ -309,10 +309,6 @@ paths:
       description: >
         Returns the Seal of Reliability breakdown for a GTFS feed: whether the feed currently holds
         the seal, and the verdict for each of the six criteria.
-
-        The values are computed by a nightly job and read as stored - nothing is recomputed at
-        request time. A feed that has never been evaluated returns a 200 with `has_seal` false and
-        every criterion `not_evaluated`, rather than a 404.
       tags:
         - "feeds"
       operationId: getGtfsFeedReliability
@@ -1204,7 +1200,7 @@ components:
                 as a failure.
               * `not_applicable` - the criterion does not apply to this feed (for example a
                 coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
-              * `not_evaluated` - the criterion has produced no verdict for this feed yet. It is
+              * `never_evaluated` - the criterion has produced no verdict for this feed yet. It is
                 skipped when deciding the seal rather than counted as a failure.
           type: string
           enum:
@@ -1212,7 +1208,7 @@ components:
             - fail
             - unknown
             - not_applicable
-            - not_evaluated
+            - never_evaluated
           example: fail
         in_grace_period:
           description: >

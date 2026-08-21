@@ -322,9 +322,14 @@ class FeedsApiImpl(BaseFeedsApi):
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
         # No seal row means the nightly job has not reached this feed. That is reported as a feed
-        # that simply does not hold the seal, with every criterion not evaluated, rather than a 404:
-        # the feed exists, we just have nothing to say about it yet.
-        return FeedReliabilityReportImpl.from_orm(id, feed.feed_reliability_seal, feed.seal_criteria)
+        # that simply does not hold the seal, with every criterion never evaluated, rather than a
+        # 404: the feed exists, we just have nothing to say about it yet.
+        try:
+            return FeedReliabilityReportImpl.from_orm(feed)
+        except InternalHTTPException as e:
+            # A stored criterion this build does not know about. The impl lives under shared/ and
+            # cannot depend on fastapi, so it raises InternalHTTPException for conversion here.
+            raise convert_exception(e)
 
     @with_db_session
     def get_gtfs_feed_availability(
