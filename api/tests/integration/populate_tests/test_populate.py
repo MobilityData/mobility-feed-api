@@ -232,3 +232,91 @@ def test_is_feed_reference_overwrite(client: TestClient):
     )
     json_response = response.json()
     assert json_response["feed_references"] == ["mdb-50"]
+
+
+def test_new_gtfs_rt_feed_inherits_existing_static_feed_location(client: TestClient):
+    """
+    Regression test for mobility-database-catalogs #1567.
+
+    A newly imported GTFS-RT feed with no location fields of its own should not
+    remain locationless when its static_reference points to a GTFS feed that
+    already has location metadata.
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-99991",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    feed = response.json()
+
+    # First prove that static_reference was resolved successfully.
+    assert feed["feed_references"] == ["mdb-50"]
+
+    # mdb-50 already has CA / Ontario / Barrie in the layered populate fixture.
+    # The suspected bug is that this location is not synchronized when the
+    # GTFS-RT -> GTFS relationship is subsequently established.
+    assert len(feed["locations"]) == 1
+    assert feed["locations"][0]["country_code"] == "CA"
+    assert feed["locations"][0]["subdivision_name"] == "Ontario"
+    assert feed["locations"][0]["municipality"] == "Barrie"
+
+def test_gtfs_rt_feed_with_existing_location_is_not_overwritten(client: TestClient):
+    """
+    A GTFS-RT location explicitly present in the catalogue must not be replaced
+    by the location of its referenced static GTFS feed.
+    """
+    expected_locations = {
+        "mdb-1562": ("CA", "BC", "Vancouver"),
+        "mdb-1563": ("US", "SomeState", "SomeCity"),
+    }
+
+    for feed_id, expected in expected_locations.items():
+        response = client.request(
+            "GET",
+            f"/v1/gtfs_rt_feeds/{feed_id}",
+            headers=authHeaders,
+        )
+
+        assert response.status_code == 200
+        feed = response.json()
+
+        assert feed["feed_references"] == ["mdb-50"]
+        assert len(feed["locations"]) == 1
+        assert feed["locations"][0]["country_code"] == expected[0]
+        assert feed["locations"][0]["subdivision_name"] == expected[1]
+        assert feed["locations"][0]["municipality"] == expected[2]
+
+
+def test_locationless_gtfs_rt_feed_inherits_union_of_static_feed_locations(
+    client: TestClient,
+):
+    """
+    Multiple static references contribute a deduplicated union of locations to
+    a locationless GTFS-RT feed.
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-99992",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    feed = response.json()
+
+    assert set(feed["feed_references"]) == {"mdb-40", "mdb-50"}
+
+    locations = {
+        (
+            location["country_code"],
+            location["subdivision_name"],
+            location["municipality"],
+        )
+        for location in feed["locations"]
+    }
+
+    assert locations == {
+        ("CA", "Ontario", "London"),
+        ("CA", "Ontario", "Barrie"),
+    }
