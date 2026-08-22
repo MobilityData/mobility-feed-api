@@ -15,16 +15,22 @@
 #
 """Nightly Seal of Reliability evaluation (issue #1761).
 
-Reads feed, dataset, validation report and availability data; writes only seal_criterion
-and feed_reliability_seal. The source tables are never modified.
+Reads feed, dataset, validation report and availability data; writes only seal_criterion,
+seal_criterion_snapshot and feed_reliability_seal. The source tables are never modified.
 
-Both seal tables are written with Core `insert(...).on_conflict_do_update` statements
+The seal tables are written with Core `insert(...).on_conflict_do_update` statements
 against `__table__` for bulk upsert.
+
+seal_criterion holds the current state, one row per feed and criterion. seal_criterion_snapshot
+records the same state under the day it was evaluated (issue #1809), one row per feed,
+criterion and day, so past values survive and a correction can resume from a day rather than
+cold-start the window. The job takes the snapshots but never reads them: the state it needs is the
+current one.
 """
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from sqlalchemy import select
@@ -36,6 +42,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
     SealCriterion,
+    SealCriterionSnapshot,
 )
 
 from tasks.seal_of_reliability.context import (
@@ -62,6 +69,17 @@ DEFAULT_MAX_REPORTED_FEEDS: int = 50
 
 SEAL_TABLE = FeedReliabilitySeal.__table__
 CRITERION_TABLE = SealCriterion.__table__
+SNAPSHOT_TABLE = SealCriterionSnapshot.__table__
+
+# The state columns of a snapshot row: everything but its key. Taken from the table rather than
+# listed here, so a column added to seal_criterion_snapshot is written without touching this file
+# — and, if it has no matching field on SealCriterionState, fails loudly on the first run
+# instead of being silently left NULL.
+SNAPSHOT_STATE_COLUMNS: Tuple[str, ...] = tuple(
+    column.name
+    for column in SNAPSHOT_TABLE.columns
+    if column.name not in ("feed_id", "criterion", "snapshot_date")
+)
 
 
 def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
@@ -224,6 +242,65 @@ def _upsert_criteria(
                 "last_confirmed_failure_at": statement.excluded.last_confirmed_failure_at,
                 "probation_start": statement.excluded.probation_start,
                 "updated_at": statement.excluded.updated_at,
+            },
+        )
+    )
+
+
+def snapshot_date_of(now: datetime) -> date:
+    """The UTC day a run evaluating at `now` takes its snapshots under.
+
+    Naive values are read as UTC rather than rejected: the entry point normalizes what an
+    operator passes, but `update_seals` is also called directly.
+    """
+    if now.tzinfo is None:
+        return now.date()
+    return now.astimezone(timezone.utc).date()
+
+
+def _snapshot_row(state: SealCriterionState, snapshot_date: date) -> dict:
+    """One seal_criterion_snapshot row: the key, then the state columns read off by name.
+
+    The column names and the SealCriterionState field names are deliberately the same, which
+    is what lets the state columns be taken from the table instead of listed here.
+    """
+    row = {
+        "feed_id": state.feed_id,
+        "criterion": state.criterion.value,
+        "snapshot_date": snapshot_date,
+    }
+    for column in SNAPSHOT_STATE_COLUMNS:
+        value = getattr(state, column)
+        row[column] = value.value if isinstance(value, CriterionStatus) else value
+    return row
+
+
+def _upsert_criterion_snapshot(
+    db_session: Session, states: Sequence[SealCriterionState], snapshot_date: date
+) -> None:
+    """Record the states under `snapshot_date` in seal_criterion_snapshot.
+
+    Same states and same transaction as `_upsert_criteria`, so the two tables cannot
+    disagree: a criterion's latest snapshot is its current state.
+
+    The day is the key, so a rerun or a replay of the same day overwrites its row instead of
+    adding one — the number of runs in a day leaves no trace. Earlier days are never touched
+    by a run evaluating a later one; they are the record.
+    """
+    if not states:
+        return
+    payload = [_snapshot_row(state, snapshot_date) for state in states]
+    statement = insert(SNAPSHOT_TABLE).values(payload)
+    db_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[
+                SNAPSHOT_TABLE.c.feed_id,
+                SNAPSHOT_TABLE.c.criterion,
+                SNAPSHOT_TABLE.c.snapshot_date,
+            ],
+            set_={
+                column: getattr(statement.excluded, column)
+                for column in SNAPSHOT_STATE_COLUMNS
             },
         )
     )
@@ -433,8 +510,10 @@ def update_seals(
     revoked = [outcome for outcome in outcomes if outcome["revoked"]]
     granted = [outcome for outcome in outcomes if outcome["granted"]]
     if not dry_run:
+        snapshot_date = snapshot_date_of(now)
         for state_batch in batched(all_states, batch_size):
             _upsert_criteria(db_session, state_batch, now)
+            _upsert_criterion_snapshot(db_session, state_batch, snapshot_date)
             db_session.commit()
         for outcome_batch in batched(outcomes, batch_size):
             _upsert_seals(db_session, outcome_batch, now)
@@ -447,6 +526,9 @@ def update_seals(
         ),
         "dry_run": dry_run,
         "evaluated_at": now.isoformat(),
+        # The day the snapshots were taken under, which is the day a replay would name to
+        # overwrite them.
+        "snapshot_date": snapshot_date_of(now).isoformat(),
         "total_feeds": len(feeds),
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
