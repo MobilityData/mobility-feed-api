@@ -19,3 +19,10 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 # Also change is_producer_url_unstable from base TRUE to FALSE: should change to False.
 # Also change is_seasonal from base TRUE to FALSE: should change to False.
 1563,gtfs-rt,tu,US,SomeState,SomeCity,SomeCity Bus,FALSE,RT,,,mdb-50,http://bar.com,0,,,,,,,,,,inactive,,10,,FALSE,FALSE
+
+# Regression fixture for #1567: a new GTFS-RT feed with no location fields references an existing static feed that already has location metadata.
+99991,gtfs-rt,tu,,,,Location Lifecycle Test,TRUE,Locationless RT,,,50,https://example.com/gtfs-rt,0,,,,,,,,,,active,,,,,
+
+
+# Multi-parent regression fixture for #1567: inherit the union of locations from referenced static GTFS feeds.
+99992,gtfs-rt,tu,,,,Location Lifecycle Test,TRUE,Multi-parent Locationless RT,,,40|50,https://example.com/gtfs-rt-multi,0,,,,,,,,,,active,,,,,

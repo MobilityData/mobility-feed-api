@@ -122,6 +122,31 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
             feed.entitytypes.clear()
 
+    def inherit_static_feed_locations(self, gtfs_rt_feed, matched_feeds):
+        """
+        Inherit locations from referenced static GTFS feeds when the GTFS-RT
+        feed has no location metadata of its own.
+
+        Existing GTFS-RT locations are preserved. When multiple static feeds
+        are referenced, their locations are combined and deduplicated by
+        location ID.
+        """
+        if gtfs_rt_feed.locations:
+            return
+
+        inherited_locations = []
+        seen_location_ids = set()
+
+        for gtfs_feed in matched_feeds:
+            for location in gtfs_feed.locations:
+                if location.id in seen_location_ids:
+                    continue
+                seen_location_ids.add(location.id)
+                inherited_locations.append(location)
+
+        if inherited_locations:
+            gtfs_rt_feed.locations = inherited_locations
+
     def process_feed_references(self, session: "Session"):
         """
         Process the feed references
@@ -155,6 +180,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     matched_feeds.append(gtfs_feed)
 
                 gtfs_rt_feed.gtfs_feeds = matched_feeds
+                self.inherit_static_feed_locations(gtfs_rt_feed, matched_feeds)
                 session.add(gtfs_rt_feed)
                 session.flush()
                 self.logger.info(
