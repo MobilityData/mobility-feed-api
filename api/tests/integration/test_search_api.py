@@ -1,8 +1,19 @@
 # coding: utf-8
+import contextlib
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response  # noqa: F401
+from shared.database.database import Database
+from shared.database_gen.sqlacodegen_models import (
+    FeedReliabilitySeal,
+    Gtfsfeed,
+    SealCriterion,
+    t_feedsearch,
+)
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 
 
@@ -633,3 +644,119 @@ def test_search_result_contains_license_tags(client: TestClient):
     assert result.source_info.license_tags is not None
     assert "family:ODC" in result.source_info.license_tags[0]
     assert "license:open-data-commons" in result.source_info.license_tags[1]
+
+
+# ---- Seal of Reliability filter ----
+
+SEARCH_HEADERS = {"Authentication": "special-key"}
+
+
+@contextlib.contextmanager
+def _feed_with_seal(feed_stable_id: str):
+    """Give one feed the seal for the duration of a test, refreshing the search view either way.
+
+    Search reads the `feedsearch` materialized view, so the view has to be rebuilt for the seal to
+    be visible - and rebuilt again on the way out so the rest of the package sees the original data.
+    Writes go through `__table__` (a Core insert) so the seal row's surrogate `id` falls back to its
+    `gen_random_uuid()` default.
+    """
+    db = Database()
+    with db.start_db_session() as session:
+        feed_id = session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == feed_stable_id).first().id
+        session.execute(
+            FeedReliabilitySeal.__table__.insert().values(
+                feed_id=feed_id, has_seal=True, seal_earned_at=datetime.now(timezone.utc)
+            )
+        )
+        session.execute(
+            SealCriterion.__table__.insert().values(
+                feed_id=feed_id,
+                criterion="official",
+                observed_status="pass",
+                confirmed_status="pass",
+                evaluated_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+        session.commit()
+    try:
+        yield
+    finally:
+        with db.start_db_session() as session:
+            session.execute(SealCriterion.__table__.delete().where(SealCriterion.__table__.c.feed_id == feed_id))
+            session.execute(
+                FeedReliabilitySeal.__table__.delete().where(FeedReliabilitySeal.__table__.c.feed_id == feed_id)
+            )
+            session.commit()
+            session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+            session.commit()
+
+
+def _search(client: TestClient, params):
+    return client.request("GET", "/v1/search", headers=SEARCH_HEADERS, params=params)
+
+
+def _grant_seal_filter(mocker):
+    """Give the caller the `isSealFilterEnabled` flag, without seeding the users DB."""
+    mocker.patch("feeds.impl.search_api_impl.get_request_context", return_value={"user_id": "some-user-uuid"})
+    mocker.patch("feeds.impl.search_api_impl.feature_flag_enabled", return_value=True)
+
+
+def test_search_has_seal_requires_permission(client: TestClient):
+    """Filtering by seal status is gated, and refused rather than silently ignored.
+
+    Silently dropping the filter would answer "feeds with the seal" with feeds that lack it. The
+    caller here has no user id, so there is nobody to hold the flag.
+    """
+    response = _search(client, [("has_seal", "true")])
+
+    assert response.status_code == 403
+    assert "selected users" in response.json()["detail"]
+
+
+def test_search_has_seal_denied_without_the_feature_flag(client: TestClient, mocker):
+    """An identified user without `isSealFilterEnabled` is still refused."""
+    mocker.patch("feeds.impl.search_api_impl.get_request_context", return_value={"user_id": "some-user-uuid"})
+    mocker.patch("feeds.impl.search_api_impl.feature_flag_enabled", return_value=False)
+
+    response = _search(client, [("has_seal", "true")])
+
+    assert response.status_code == 403
+
+
+def test_search_without_has_seal_needs_no_permission(client: TestClient):
+    """The gate only applies when the parameter is supplied - ordinary search is unaffected."""
+    response = _search(client, [("limit", 1)])
+
+    assert response.status_code == 200
+
+
+def test_search_has_seal_true(client: TestClient, mocker):
+    """`has_seal=true` returns only the feed holding the seal."""
+    _grant_seal_filter(mocker)
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
+
+    with _feed_with_seal(feed_stable_id):
+        response = _search(client, [("limit", 100), ("has_seal", "true")])
+
+        assert response.status_code == 200
+        response_body = SearchFeeds200Response.parse_obj(response.json())
+        assert [result.id for result in response_body.results] == [feed_stable_id]
+        assert response_body.results[0].reliability_seal.has_seal is True
+        assert response_body.results[0].reliability_seal.on_probation is False
+
+
+def test_search_has_seal_false_excludes_sealed_feed(client: TestClient, mocker):
+    """`has_seal=false` covers feeds without a seal row as well as those explicitly without it."""
+    _grant_seal_filter(mocker)
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
+
+    with _feed_with_seal(feed_stable_id):
+        unfiltered = SearchFeeds200Response.parse_obj(_search(client, [("limit", 100)]).json())
+        response = _search(client, [("limit", 100), ("has_seal", "false")])
+
+        assert response.status_code == 200
+        response_body = SearchFeeds200Response.parse_obj(response.json())
+        assert response_body.total == unfiltered.total - 1
+        assert feed_stable_id not in [result.id for result in response_body.results]
