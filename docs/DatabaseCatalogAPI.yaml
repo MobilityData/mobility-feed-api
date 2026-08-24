@@ -311,6 +311,7 @@ paths:
         the seal, and the verdict for each of the six criteria.
       tags:
         - "feeds"
+        - "beta"
       operationId: getGtfsFeedReliability
       security:
         - Authentication: []
