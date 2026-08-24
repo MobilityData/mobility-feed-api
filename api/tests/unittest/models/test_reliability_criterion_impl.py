@@ -132,6 +132,25 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.first_failure_at == first_failure
         assert result.last_failure_at == NOW
 
+    def test_grace_exempt_criterion_is_never_in_grace(self):
+        """A criterion with no grace period reports the failure straight away.
+
+        `fresh_continuous` has no grace period, so even a row whose `confirmed_status` still reads
+        `pass` must not be served as being under grace - there would be no end date to report.
+        """
+        row = make_row(
+            criterion=SealCriterionName.FRESH_CONTINUOUS,
+            observed_status="fail",
+            confirmed_status="pass",
+            first_observed_failure_at=NOW - timedelta(days=1),
+            last_observed_failure_at=NOW,
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
+
+        assert result.status == STATUS_FAIL
+        assert result.in_grace_period is False
+        assert result.grace_period_ends_at is None
+
     def test_failing_beyond_grace_period(self):
         """Once the failure is confirmed, the criterion reports `fail` with no grace left."""
         row = make_row(

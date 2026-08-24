@@ -73,8 +73,10 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
                 on_probation=False,
             )
 
-        # `official` and `stable` are exempt from both windows, so their stored values are ignored
-        # rather than trusted - the policy maps are the authority on which criteria serve them.
+        # Criteria exempt from a window (`official` and `stable` from both, `fresh_continuous` from
+        # grace) have their stored values ignored rather than trusted - the policy maps are the
+        # authority on which criteria serve them.
+        grace_period = GRACE_PERIODS.get(criterion)
         probation_period = PROBATION_PERIODS.get(criterion)
         probation_start = criterion_row.probation_start if probation_period else None
         on_probation = probation_start is not None
@@ -83,16 +85,19 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         # daily check reads `fail` but the debounced status is still `pass`. Grace does not apply
         # during probation: a failure then restarts the probation clock outright, so there is
         # nothing left for grace to protect.
-        in_grace_period = status == STATUS_FAIL and criterion_row.confirmed_status == STATUS_PASS and not on_probation
+        in_grace_period = (
+            grace_period is not None
+            and status == STATUS_FAIL
+            and criterion_row.confirmed_status == STATUS_PASS
+            and not on_probation
+        )
 
         return cls(
             criterion=criterion.value,
             status=status,
             in_grace_period=in_grace_period,
             grace_period_ends_at=(
-                window_end(criterion_row.first_observed_failure_at, GRACE_PERIODS.get(criterion), now)
-                if in_grace_period
-                else None
+                window_end(criterion_row.first_observed_failure_at, grace_period, now) if in_grace_period else None
             ),
             on_probation=on_probation,
             probation_ends_at=window_end(probation_start, probation_period, now),

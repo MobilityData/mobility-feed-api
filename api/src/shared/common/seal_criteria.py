@@ -32,17 +32,13 @@ class SealCriterionName(str, Enum):
 
 # How long a criterion may keep failing its own check before the failure is confirmed and
 # the seal is withdrawn. None means the status flips on the first failing day.
-#
-# `official` and `stable` have no grace period: they are point-in-time state checks on data
-# we already hold, not observations of a fetched artifact, so there is no transient failure
-# to debounce.
 GRACE_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
     SealCriterionName.OFFICIAL: None,
     SealCriterionName.STABLE: None,
     SealCriterionName.AVAILABLE: timedelta(days=14),
     SealCriterionName.COMPLIANT: timedelta(days=30),
-    SealCriterionName.FRESH_COVERAGE: timedelta(days=7),
-    SealCriterionName.FRESH_CONTINUOUS: timedelta(days=7),
+    SealCriterionName.FRESH_COVERAGE: timedelta(days=14),
+    SealCriterionName.FRESH_CONTINUOUS: None,
 }
 
 # A criterion that recovers from a confirmed failure is put on probation: it must then go
@@ -50,8 +46,7 @@ GRACE_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
 # "six clean months" rule - losing the seal is not undone by a single good day.
 PROBATION_PERIOD: Final[timedelta] = timedelta(days=180)
 
-# `official` and `stable` are exempt for the same reason they have no grace period. A feed
-# that is marked official again is official again; there is no track record to rebuild.
+# `official` and `stable` are exempt
 PROBATION_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
     SealCriterionName.OFFICIAL: None,
     SealCriterionName.STABLE: None,
