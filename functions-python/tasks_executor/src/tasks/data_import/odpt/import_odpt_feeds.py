@@ -67,6 +67,48 @@ LICENSE_URL_MAP: Final[dict[str, str]] = {
     "CC0": "https://creativecommons.org/publicdomain/zero/1.0/",
 }
 
+# Feeds that ODPT serves from api-public.odpt.org but never advertises through
+# ODPT_METADATA_API: they are published via ODPT's token-gated developer catalog
+# instead, under a different path namespace (/api/v4/files/<org>/data/<file>.zip)
+# that PUBLIC_GTFS_ENDPOINT cannot express -- note the absent "odpt" segment and
+# "date" parameter. They carry an explicit "gtfs_endpoint" for that reason.
+#
+# These are declared as ordinary feed items, rather than seeded straight into the DB,
+# so they flow through the same per-item processing as portal feeds -- in particular
+# so their stable_ids reach processed_stable_ids and survive the stale sweep.
+STATIC_FEEDS: Final[List[dict]] = [
+    {
+        "org_label": "Toei",
+        "dataset_label": "ToeiBus",
+        "org_name_ja": "東京都交通局",
+        "org_name_en": "Tokyo Metropolitan Bureau of Transportation",
+        "dataset_name_ja": "都営バス",
+        "dataset_name_en": "Toei Bus",
+        "license_type": "CC BY 4.0",
+        "gtfs_endpoint": (
+            "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip"
+        ),
+        "vehicle_endpoint": "https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus",
+        "trip_update": None,
+        "alert": None,
+    },
+    {
+        "org_label": "Toei",
+        "dataset_label": "ToeiTrain",
+        "org_name_ja": "東京都交通局",
+        "org_name_en": "Tokyo Metropolitan Bureau of Transportation",
+        "dataset_name_ja": "都営地下鉄・日暮里舎人ライナー・都電荒川線",
+        "dataset_name_en": "Toei Subway, Nippori-Toneri Liner and Toden Arakawa Line",
+        "license_type": "CC BY 4.0",
+        "gtfs_endpoint": (
+            "https://api-public.odpt.org/api/v4/files/Toei/data/Toei-Train-GTFS.zip"
+        ),
+        "vehicle_endpoint": "https://api-public.odpt.org/api/v4/gtfs/realtime/toei_odpt_train_vehicle",
+        "trip_update": "https://api-public.odpt.org/api/v4/gtfs/realtime/toei_odpt_train_trip_update",
+        "alert": "https://api-public.odpt.org/api/v4/gtfs/realtime/toei_odpt_train_alert",
+    },
+]
+
 
 def import_odpt_handler(payload: dict | None = None) -> dict:
     """
@@ -494,7 +536,7 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
 
     # Fetch list
     try:
-        feeds_list = _fetch_feeds(session_http)
+        portal_feeds = _fetch_feeds(session_http)
     except Exception as e:
         logger.exception("Exception during ODPT_METADATA_API request")
         return {
@@ -509,6 +551,20 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
             "linked_refs": 0,
             "total_processed_items": 0,
         }
+
+    # Appended here rather than inside _fetch_feeds so that `portal_feeds` remains a
+    # faithful record of what the source actually returned. The stale sweep below keys
+    # off that, and must not read a list made up solely of our own static entries as
+    # evidence that the portal answered.
+    # Copied so a feed item mutated downstream can't corrupt the module-level constant
+    # for the next invocation -- Cloud Function instances are reused between runs.
+    feeds_list = portal_feeds + [dict(feed) for feed in STATIC_FEEDS]
+    logger.info(
+        "Feed list assembled: %d from portal + %d static = %d total",
+        len(portal_feeds),
+        len(STATIC_FEEDS),
+        len(feeds_list),
+    )
 
     logger.info(
         "Commit batch size (env COMMIT_BATCH_SIZE)=%s",
@@ -576,7 +632,7 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
     # Deprecate feeds the source no longer advertises. Run unconditionally so a
     # dry run can report what *would* be deprecated; the dry-run rollback below
     # still guarantees nothing persists.
-    if feeds_list:
+    if portal_feeds:
         newly_deprecated = deprecate_stale_feeds(
             db_session, "odpt-", processed_stable_ids
         )
@@ -587,7 +643,7 @@ def _import_odpt(db_session: Session, dry_run: bool = True) -> dict:
         # odpt- catalog in one run so that is avoided by setting newly_deprecated empty
         newly_deprecated = []
         logger.warning(
-            "Skipping stale-feed deprecation sweep: fetch returned zero feeds; "
+            "Skipping stale-feed deprecation sweep: the portal returned zero feeds; "
             "refusing to deprecate the entire odpt- catalog."
         )
 

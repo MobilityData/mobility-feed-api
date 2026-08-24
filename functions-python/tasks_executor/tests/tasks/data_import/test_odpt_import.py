@@ -28,7 +28,20 @@ from tasks.data_import.data_import_utils import deprecate_stale_feeds
 from tasks.data_import.odpt.import_odpt_feeds import (
     import_odpt_handler,
     _get_license_url,
+    STATIC_FEEDS,
+    URLS_TO_ENTITY_TYPES_MAP,
 )
+
+
+def _static_rt_entries():
+    """(stable_id_base, entity_type, url) for every RT endpoint STATIC_FEEDS declares."""
+    return [
+        (f"odpt-{feed['org_label']}-{feed['dataset_label']}", entity_type, feed[field])
+        for feed in STATIC_FEEDS
+        for field, entity_type in URLS_TO_ENTITY_TYPES_MAP.items()
+        if feed.get(field)
+    ]
+
 
 GTFS_ENDPOINT_TMPL = (
     "https://api-public.odpt.org/api/v4/files/odpt/{}/{}.zip?date=current"
@@ -314,6 +327,11 @@ class TestImportODPT(unittest.TestCase):
         ), patch(
             "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
         ), patch(
+            # This test is about the portal payload; keep the static feeds out of its
+            # counts. TestStaticFeeds below covers them directly.
+            "tasks.data_import.odpt.import_odpt_feeds.STATIC_FEEDS",
+            [],
+        ), patch(
             # commit_changes (and the side effects it triggers) now lives in
             # data_import_utils, shared with jbda/tdg -- patch it there, not on
             # this module, since that's where the name is looked up at call time.
@@ -459,6 +477,11 @@ class TestImportODPT(unittest.TestCase):
             ), patch(
                 "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
             ), patch(
+                # This test is about the portal payload; keep the static feeds out of
+                # its counts. TestStaticFeeds below covers them directly.
+                "tasks.data_import.odpt.import_odpt_feeds.STATIC_FEEDS",
+                [],
+            ), patch(
                 "tasks.data_import.data_import_utils.trigger_dataset_download",
                 mock_trigger,
             ), patch(
@@ -545,6 +568,11 @@ class TestImportODPT(unittest.TestCase):
             ), patch(
                 "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
             ), patch(
+                # This test is about the portal payload; keep the static feeds out of
+                # its counts. TestStaticFeeds below covers them directly.
+                "tasks.data_import.odpt.import_odpt_feeds.STATIC_FEEDS",
+                [],
+            ), patch(
                 # Not a sweep test; keep it off other tests' rows.
                 "tasks.data_import.odpt.import_odpt_feeds.deprecate_stale_feeds",
                 MagicMock(return_value=[]),
@@ -621,6 +649,11 @@ class TestImportODPT(unittest.TestCase):
             ), patch(
                 "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
             ), patch(
+                # This test is about the portal payload; keep the static feeds out of
+                # its counts. TestStaticFeeds below covers them directly.
+                "tasks.data_import.odpt.import_odpt_feeds.STATIC_FEEDS",
+                [],
+            ), patch(
                 "tasks.data_import.data_import_utils.trigger_dataset_download",
                 MagicMock(),
             ), patch(
@@ -681,6 +714,11 @@ class TestImportODPT(unittest.TestCase):
             ), patch(
                 "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
             ), patch(
+                # This test is about the portal payload; keep the static feeds out of
+                # its counts. TestStaticFeeds below covers them directly.
+                "tasks.data_import.odpt.import_odpt_feeds.STATIC_FEEDS",
+                [],
+            ), patch(
                 "tasks.data_import.data_import_utils.trigger_dataset_download",
                 MagicMock(),
             ), patch(
@@ -720,6 +758,215 @@ class TestImportODPT(unittest.TestCase):
         self.assertEqual(out["deprecated"], 0)
         self.assertEqual(out["linked_refs"], 0)
         self.assertEqual(out["total_processed_items"], 0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Static (non-portal) feed tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestStaticFeeds(unittest.TestCase):
+    """
+    STATIC_FEEDS covers feeds ODPT hosts but never lists in ODPT_METADATA_API, so
+    they cannot be discovered and their URLs cannot be derived from
+    PUBLIC_GTFS_ENDPOINT. Every test here drives the real constant rather than a
+    fixture: the point is that the shipped entries behave correctly.
+    """
+
+    def test_static_feeds_are_well_formed(self):
+        """
+        Guards the contract _process_feed relies on: a literal gtfs_endpoint (there is
+        no template that can build these paths), a license_type _get_license_url can
+        resolve, and a unique org/dataset pair, since that pair becomes the stable_id.
+        """
+        self.assertTrue(STATIC_FEEDS)
+        seen = set()
+        for feed in STATIC_FEEDS:
+            with self.subTest(feed=feed.get("dataset_label")):
+                self.assertTrue(feed["org_label"])
+                self.assertTrue(feed["dataset_label"])
+                self.assertTrue(feed["gtfs_endpoint"].startswith("https://"))
+                self.assertIsNotNone(_get_license_url(feed["license_type"]))
+                # RT fields are optional, but a declared one must be a real URL --
+                # a stray falsy-but-present value would silently skip the sub-feed.
+                for field in URLS_TO_ENTITY_TYPES_MAP:
+                    url = feed[field]
+                    if url is not None:
+                        self.assertTrue(url.startswith("https://"))
+                key = (feed["org_label"], feed["dataset_label"])
+                self.assertNotIn(key, seen)
+                seen.add(key)
+
+    @with_db_session(db_url=default_db_url)
+    def test_static_feeds_are_imported_with_their_literal_urls(
+        self, db_session: Session
+    ):
+        """
+        Driven with an empty portal response so the only feeds processed are the static
+        ones -- if these rows exist afterwards, they came from STATIC_FEEDS alone.
+        """
+        try:
+            with patch(
+                "tasks.data_import.odpt.import_odpt_feeds.requests.Session",
+                return_value=_FakeSessionEmpty(),
+            ), patch(
+                "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
+            ), patch(
+                "tasks.data_import.data_import_utils.trigger_dataset_download",
+                MagicMock(),
+            ), patch(
+                "tasks.data_import.data_import_utils.create_web_revalidation_task",
+                MagicMock(),
+            ), patch.dict(
+                os.environ, {"ENVIRONMENT": "test"}, clear=False
+            ):
+                result = import_odpt_handler({"dry_run": False})
+
+            rt_entries = _static_rt_entries()
+            self.assertEqual(result["total_processed_items"], len(STATIC_FEEDS))
+            self.assertEqual(result["created_gtfs"], len(STATIC_FEEDS))
+            # Derived from the constant rather than hardcoded, so adding or removing
+            # an RT endpoint doesn't silently invalidate this test.
+            self.assertEqual(result["created_gtfs_rt"], len(rt_entries))
+            self.assertEqual(result["linked_refs"], len(rt_entries))
+
+            db_session.expire_all()
+            for feed in STATIC_FEEDS:
+                stable_id = f"odpt-{feed['org_label']}-{feed['dataset_label']}"
+                with self.subTest(stable_id=stable_id):
+                    row = (
+                        db_session.query(Gtfsfeed)
+                        .filter(Gtfsfeed.stable_id == stable_id)
+                        .one()
+                    )
+                    row = db_session.merge(row)
+                    # The literal URL must survive untouched: the whole reason these
+                    # entries exist is that PUBLIC_GTFS_ENDPOINT cannot express them.
+                    self.assertEqual(row.producer_url, feed["gtfs_endpoint"])
+                    self.assertNotIn("/files/odpt/", row.producer_url)
+                    self.assertEqual(row.feed_name, feed["dataset_name_ja"])
+                    self.assertEqual(row.provider, feed["org_name_ja"])
+                    self.assertEqual(
+                        row.license_url, _get_license_url(feed["license_type"])
+                    )
+                    self.assertEqual(row.status, "active")
+                    self.assertEqual(row.operational_status, "published")
+
+                    externalids = list(row.externalids)
+                    self.assertEqual(len(externalids), 1)
+                    self.assertEqual(externalids[0].source, "odpt")
+                    self.assertEqual(
+                        externalids[0].associated_id,
+                        f"{feed['org_label']}-{feed['dataset_label']}",
+                    )
+
+                    locations = list(row.locations)
+                    self.assertEqual(len(locations), 1)
+                    self.assertEqual(locations[0].country, "Japan")
+
+            for stable_id_base, entity_type, url in _static_rt_entries():
+                rt_stable_id = f"{stable_id_base}-{entity_type}"
+                with self.subTest(stable_id=rt_stable_id):
+                    rt = (
+                        db_session.query(Gtfsrealtimefeed)
+                        .filter(Gtfsrealtimefeed.stable_id == rt_stable_id)
+                        .one()
+                    )
+                    rt = db_session.merge(rt)
+                    self.assertEqual(rt.producer_url, url)
+                    self.assertEqual([et.name for et in rt.entitytypes], [entity_type])
+                    # Must be linked back to its schedule feed, otherwise the RT feed
+                    # is orphaned in the catalog.
+                    self.assertEqual(
+                        [sched.stable_id for sched in rt.gtfs_feeds], [stable_id_base]
+                    )
+        finally:
+            _delete_feeds_like(db_session, "odpt-Toei-%")
+
+    @with_db_session(db_url=default_db_url)
+    def test_static_feeds_are_marked_as_seen_for_the_stale_sweep(
+        self, db_session: Session
+    ):
+        """
+        The static feeds are absent from the portal by definition, so unless they are
+        registered as processed the sweep would deprecate them on every single run.
+        """
+        mock_sweep = MagicMock(return_value=[])
+        with patch(
+            "tasks.data_import.odpt.import_odpt_feeds.requests.Session",
+            return_value=_FakeSessionOK(),
+        ), patch(
+            "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
+        ), patch(
+            "tasks.data_import.odpt.import_odpt_feeds.deprecate_stale_feeds",
+            mock_sweep,
+        ):
+            import_odpt_handler({"dry_run": True})
+
+        mock_sweep.assert_called_once()
+        processed_stable_ids = mock_sweep.call_args.args[2]
+        for feed in STATIC_FEEDS:
+            self.assertIn(
+                f"odpt-{feed['org_label']}-{feed['dataset_label']}",
+                processed_stable_ids,
+            )
+        # The RT sub-feeds are swept by the same prefix match, so they need marking
+        # just as much as the schedule feeds do.
+        for stable_id_base, entity_type, _url in _static_rt_entries():
+            self.assertIn(f"{stable_id_base}-{entity_type}", processed_stable_ids)
+
+    @with_db_session(db_url=default_db_url)
+    def test_static_feeds_do_not_defeat_the_empty_fetch_guard(
+        self, db_session: Session
+    ):
+        """
+        Regression guard. STATIC_FEEDS makes the merged feed list permanently
+        non-empty, so gating the sweep on it -- rather than on the portal response --
+        would silently re-open the catastrophic case the guard exists to prevent: an
+        empty-but-successful portal response deprecating every odpt-* feed except the
+        static ones.
+        """
+        stable_id = "odpt-EmptyFetchStaticOrg-survivor_dataset"
+        try:
+            _seed_feed(
+                db_session,
+                Gtfsfeed,
+                stable_id,
+                "gtfs",
+                status="active",
+                operational_status="published",
+            )
+            db_session.commit()
+
+            with patch(
+                "tasks.data_import.odpt.import_odpt_feeds.requests.Session",
+                return_value=_FakeSessionEmpty(),
+            ), patch(
+                "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
+            ), patch(
+                "tasks.data_import.data_import_utils.trigger_dataset_download",
+                MagicMock(),
+            ), patch(
+                "tasks.data_import.data_import_utils.create_web_revalidation_task",
+                MagicMock(),
+            ), patch.dict(
+                os.environ, {"ENVIRONMENT": "test"}, clear=False
+            ):
+                result = import_odpt_handler({"dry_run": False})
+
+            # The static feeds were processed...
+            self.assertEqual(result["total_processed_items"], len(STATIC_FEEDS))
+            # ...but the portal said nothing, so nothing may be swept.
+            self.assertEqual(result["deprecated"], 0)
+
+            db_session.expire_all()
+            survivor = db_session.query(Feed).filter(Feed.stable_id == stable_id).one()
+            self.assertEqual(
+                (survivor.status, survivor.operational_status), ("active", "published")
+            )
+        finally:
+            _delete_feeds_like(db_session, "odpt-EmptyFetchStaticOrg-%")
+            _delete_feeds_like(db_session, "odpt-Toei-%")
 
 
 if __name__ == "__main__":
