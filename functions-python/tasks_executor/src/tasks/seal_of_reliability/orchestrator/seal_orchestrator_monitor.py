@@ -49,7 +49,9 @@ from shared.helpers.task_execution.task_execution_tracker import (
     TaskInProgressError,
 )
 
-from tasks.seal_of_reliability.seal_orchestrator import SEAL_ORCHESTRATOR_TASK_NAME
+from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
+    SEAL_ORCHESTRATOR_TASK_NAME,
+)
 
 logger = logging.getLogger(__name__)
 

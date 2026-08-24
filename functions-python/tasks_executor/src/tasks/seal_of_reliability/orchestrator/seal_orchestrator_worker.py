@@ -41,7 +41,9 @@ from typing import Optional
 from shared.database.database import with_db_session
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 
-from tasks.seal_of_reliability.seal_orchestrator import SEAL_ORCHESTRATOR_TASK_NAME
+from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
+    SEAL_ORCHESTRATOR_TASK_NAME,
+)
 from tasks.seal_of_reliability.seal_updater import update_seals
 
 logger = logging.getLogger(__name__)

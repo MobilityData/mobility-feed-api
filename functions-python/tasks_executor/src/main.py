@@ -80,11 +80,13 @@ from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
 from tasks.sitemap.generate_sitemap import generate_mobilitydatabase_sitemap_handler
-from tasks.seal_of_reliability.seal_orchestrator import seal_orchestrator_handler
-from tasks.seal_of_reliability.seal_orchestrator_worker import (
+from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
+    seal_orchestrator_handler,
+)
+from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
     seal_orchestrator_worker_handler,
 )
-from tasks.seal_of_reliability.seal_orchestrator_monitor import (
+from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
     seal_orchestrator_monitor_handler,
 )
 

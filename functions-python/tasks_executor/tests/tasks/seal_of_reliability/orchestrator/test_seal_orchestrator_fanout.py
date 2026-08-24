@@ -32,7 +32,7 @@ from shared.helpers.task_execution.task_execution_tracker import TaskInProgressE
 # seal_orchestrator (producer)
 # ---------------------------------------------------------------------------
 
-_PLAN = "tasks.seal_of_reliability.seal_orchestrator"
+_PLAN = "tasks.seal_of_reliability.orchestrator.seal_orchestrator"
 
 
 class TestSealOrchestratorHandler(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_enqueues_worker_per_batch_plus_monitor(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -71,7 +71,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_dynamic_task_names_use_prefix(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -89,7 +89,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_dry_run_enqueues_nothing(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -108,7 +108,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_no_eligible_feeds_enqueues_nothing(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -128,7 +128,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_failed_enqueue_marks_batch_failed_immediately(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock, mark_failed_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -149,7 +149,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
     def test_non_positive_batch_size_raises(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -175,7 +175,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         disagree (eligibility narrowing in the gap between the two queries). The
         leftover pre-registered batch_id must be failed immediately, not left
         `triggered` for the monitor's deadline to eventually notice."""
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -205,7 +205,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         """The opposite direction (feeds became newly eligible in the gap) is
         log-only: nothing is left dangling in the tracker, so there's nothing to
         fail — just visibility that some feeds were skipped this run."""
-        from tasks.seal_of_reliability.seal_orchestrator import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
             seal_orchestrator_handler,
         )
 
@@ -214,7 +214,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         iter_mock.return_value = iter([["mdb-1"], ["mdb-2"], ["mdb-3"]])
 
         with self.assertLogs(
-            "tasks.seal_of_reliability.seal_orchestrator", level="ERROR"
+            "tasks.seal_of_reliability.orchestrator.seal_orchestrator", level="ERROR"
         ) as log_ctx:
             result = seal_orchestrator_handler({"dry_run": False, "batch_size": 1})
 
@@ -227,12 +227,12 @@ class TestSealOrchestratorHandler(unittest.TestCase):
 # seal_orchestrator_worker
 # ---------------------------------------------------------------------------
 
-_WORKER = "tasks.seal_of_reliability.seal_orchestrator_worker"
+_WORKER = "tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker"
 
 
 class TestSealOrchestratorWorkerHandler(unittest.TestCase):
     def test_requires_run_id_and_batch_id(self):
-        from tasks.seal_of_reliability.seal_orchestrator_worker import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
@@ -246,7 +246,7 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
             )
 
     def test_requires_non_empty_stable_feed_ids(self):
-        from tasks.seal_of_reliability.seal_orchestrator_worker import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
@@ -260,7 +260,7 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
     def test_marks_completed_with_result_metadata_on_success(
         self, update_mock, mark_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator_worker import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
@@ -287,7 +287,7 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.update_seals")
     def test_infra_error_marks_failed_and_reraises(self, update_mock, mark_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_worker import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
@@ -302,7 +302,7 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.update_seals")
     def test_now_and_criteria_are_forwarded(self, update_mock, mark_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_worker import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
@@ -326,7 +326,7 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
 # seal_orchestrator_monitor (barrier / summary)
 # ---------------------------------------------------------------------------
 
-_MONITOR = "tasks.seal_of_reliability.seal_orchestrator_monitor"
+_MONITOR = "tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor"
 
 
 class TestSealOrchestratorMonitorHandler(unittest.TestCase):
@@ -359,7 +359,7 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
         }
 
     def test_requires_run_id(self):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import (
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
             seal_orchestrator_monitor_handler,
         )
 
@@ -369,7 +369,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
     def test_settled_success_marks_completed(self, tracker_cls, agg_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         tracker = self._tracker(self._summary(triggered=0, completed=3))
         tracker_cls.return_value = tracker
@@ -393,7 +395,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
     def test_in_flight_raises_task_in_progress(self, tracker_cls, agg_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         tracker = self._tracker(self._summary(triggered=2, completed=1))
         tracker_cls.return_value = tracker
@@ -407,7 +411,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
     def test_any_failed_batch_marks_run_failed(self, tracker_cls, agg_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         # drained (triggered=0) but one batch failed
         tracker = self._tracker(self._summary(triggered=0, completed=2, failed=1))
@@ -433,7 +439,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     def test_past_deadline_settles_as_failed_with_incomplete_count(
         self, tracker_cls, agg_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         # still 2 in flight, but started long ago beyond the deadline — this is the
         # scenario a dead worker must not be able to hang the monitor forever on.
@@ -470,7 +478,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
         """Redelivery must not re-finish the run, but should still report the same
         aggregate — this is the only way to see a settled run's totals after the fact.
         """
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         tracker = self._tracker(
             self._summary(triggered=0, completed=3, run_status="completed")
@@ -499,7 +509,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     def test_already_failed_reports_the_aggregate_without_refinishing(
         self, tracker_cls, agg_mock
     ):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         tracker = self._tracker(
             self._summary(triggered=0, completed=2, failed=1, run_status="failed")
@@ -525,7 +537,9 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
     @patch(f"{_MONITOR}._aggregate_batches")
     @patch(f"{_MONITOR}.TaskExecutionTracker")
     def test_unknown_run_is_noop(self, tracker_cls, agg_mock):
-        from tasks.seal_of_reliability.seal_orchestrator_monitor import _monitor
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
 
         tracker = self._tracker(
             {
