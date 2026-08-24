@@ -480,3 +480,77 @@ per feed — the converter flattens the returned dict, and `feeds` lands in it a
 stringified cell. Use the JSON response for per-feed and per-criterion detail.
 
 Nothing about this task needs GCP credentials — only `FEEDS_DATABASE_URL`.
+
+### `seal_orchestrator` (+ `seal_orchestrator_worker`, `seal_orchestrator_monitor`)
+
+The nightly, whole-catalog run of `update_seal_of_reliability` (issue #1800). That task
+only ever evaluates an explicit `stable_feed_ids` list — there is no
+run-the-whole-catalogue mode there, and evaluating the whole catalog in one invocation
+would eventually hit `tasks_executor`'s own timeout as the catalog grows. This is a
+**Cloud Tasks fan-out** of three tasks, the same shape as `notifications_dispatch_batch`:
+
+- **`seal_orchestrator`** (producer) — resolves every seal-eligible GTFS feed (same
+  eligibility predicate `update_seals` itself applies: GTFS, `operational_status =
+  published`, `status NOT IN (deprecated, development)`), splits the stable_ids into
+  batches, registers a run in `TaskExecutionTracker`, and enqueues one
+  `seal_orchestrator_worker` task per batch plus a single `seal_orchestrator_monitor`
+  task. Triggered by the nightly Cloud Scheduler job (disabled in dev/qa) or manually.
+- **`seal_orchestrator_worker`** (worker, one per batch) — calls `update_seals` for its
+  slice of stable_ids and reports completion/failure to the tracker, storing its
+  `update_seals` report as that batch's tracked metadata.
+- **`seal_orchestrator_monitor`** (barrier, one per run) — returns 503 (Cloud Tasks
+  native retry) while batches are in flight, then settles the run: `completed` if every
+  batch succeeded, `failed` if any batch failed or the run's `deadline_seconds` was
+  reached with batches still unaccounted for. The deadline is what keeps this from
+  polling forever if a worker crashes without ever reporting back — Cloud Tasks queue
+  retries alone don't bound that, since a redelivered worker that keeps failing (or a
+  queue that gives up on it) would otherwise leave that batch `triggered` indefinitely.
+
+Batches, not feeds, are the tracked unit: seal evaluation is pure DB work with no
+per-feed side effect requiring isolation (unlike notification dispatch, where each
+subscription needs an independent send + claim), so one Cloud Task per ~250 feeds keeps
+the daily invocation count low (~16 workers for the current catalog size) while removing
+the single-invocation timeout ceiling entirely.
+
+```json
+{
+  "task": "seal_orchestrator",
+  "payload": {
+    "dry_run": false,
+    "batch_size": 250
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Resolve and count eligible feeds without registering a run or enqueuing anything |
+| `batch_size` | int | `250` | Feeds per `seal_orchestrator_worker` task |
+| `criteria` | list[str] \| null | `null` | Forwarded to every batch's `update_seals` call. A subset skips the `has_seal` roll-up, same as `update_seal_of_reliability` |
+| `now` | str \| null | `null` | ISO timestamp forwarded to every batch. Defaults to the current UTC time |
+| `limit` | int \| null | `null` | Cap the total number of eligible feeds considered, before chunking (mainly for manual/testing runs) |
+| `stable_feed_ids` | list[str] \| null | `null` | Restrict eligibility to these ids instead of the whole catalog (mainly for manual/testing runs) |
+| `deadline_seconds` | int | `3600` | Wall-clock cap on the run, from `run_started_at`. Past this, the monitor settles the run as `failed` regardless of what is still `triggered` |
+| `monitor_delay_seconds` | int | `60` | Delay before the monitor's first poll |
+
+**Producer response**:
+
+| Field | Description |
+|---|---|
+| `run_id` | The `TaskExecutionTracker` run id (`seal-<YYYYMMDDThhmmss>`) |
+| `total_feeds` | Eligible feeds resolved |
+| `batch_size` / `batches` | The chunking applied |
+| `enqueued` | `seal_orchestrator_worker` tasks enqueued (`0` on a dry run) |
+| `dry_run` | Whether the run was a dry run |
+
+**Monitor response** (once settled):
+
+| Field | Description |
+|---|---|
+| `status` | `complete`, `failed`, `already_complete` (redelivery after a completed run), `already_failed` (redelivery after a failed run), or `unknown` (no such run) |
+| `batches_total` / `batches_completed` / `batches_failed` / `batches_incomplete` | `batches_incomplete` is `> 0` only when the deadline was reached before every batch reported |
+| `total_feeds_evaluated` / `criterion_rows_written` / `seals_granted` / `seals_revoked` | Summed across every batch's stored `update_seals` report |
+| `granted_stable_ids` / `revoked_stable_ids` | Concatenated across batches; each list is independently capped at 200 (so up to 400 total across both). `ids_omitted` says how many were left out, combined across both lists. `sealcriterion` and `feedreliabilityseal` hold every transition regardless |
+
+Use `get_task_run_status` (payload `{"task_name": "seal_orchestrator_run", "run_id":
+"..."}`) to inspect a run at any point without driving it forward.
