@@ -16,6 +16,7 @@
 """Integration tests for the seal context loader and orchestrator, against the test DB."""
 
 import unittest
+from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -32,6 +33,7 @@ from tasks.seal_of_reliability.criteria import (
 )
 from tasks.seal_of_reliability.evaluators import CriterionEvaluator, OfficialEvaluator
 from tasks.seal_of_reliability.seal_updater import update_seals
+from tasks.seal_of_reliability.state_machine import SealCriterionState
 from sqlalchemy import delete, select
 
 from shared.database.database import with_db_session
@@ -40,6 +42,7 @@ from shared.database_gen.sqlacodegen_models import (
     FeedReliabilitySeal,
     Gtfsfeed,
     SealCriterion,
+    SealCriterionSnapshot,
 )
 from test_shared.test_utils.database_utils import default_db_url
 
@@ -208,6 +211,17 @@ class SealDbTestCase(unittest.TestCase):
                 select(table).where(table.c.feed_id == feed_id)
             ).all()
         }
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def snapshot_rows(feed_id, criterion, db_session):
+        """Every recorded day of one criterion, oldest first (issue #1809)."""
+        table = SealCriterionSnapshot.__table__
+        return db_session.execute(
+            select(table)
+            .where(table.c.feed_id == feed_id, table.c.criterion == criterion)
+            .order_by(table.c.snapshot_date)
+        ).all()
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -575,6 +589,110 @@ class TestUpdateSeals(SealDbTestCase):
         report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
         self.assertEqual(len(report["feeds"]), 1)
         self.assertEqual(report["feeds_omitted"], 0)
+
+
+class TestCriterionSnapshot(SealDbTestCase):
+    """seal_criterion_snapshot, the per-day record of each criterion (issue #1809).
+
+    Official is enough to drive all of this: what is under test is which day a run records,
+    what it leaves alone, and that the record matches the state — not the verdict itself.
+    """
+
+    CRITERION = SealCriterionName.OFFICIAL.value
+
+    def snapshots(self):
+        return self.snapshot_rows(OFFICIAL, self.CRITERION)
+
+    def test_a_run_records_the_day_it_evaluated(self):
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+        rows = self.snapshots()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].snapshot_date, NOW.date())
+        self.assertEqual(rows[0].observed_status, CriterionStatus.PASS.value)
+
+    def test_the_report_names_the_day_recorded(self):
+        report = update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertEqual(report["snapshot_date"], NOW.date().isoformat())
+
+    def test_a_dry_run_records_nothing(self):
+        update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertEqual(self.snapshots(), [])
+
+    def test_each_run_records_its_own_day(self):
+        days = [NOW, NOW + timedelta(days=1), NOW + timedelta(days=2)]
+        for moment in days:
+            update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=moment)
+
+        self.assertEqual(
+            [row.snapshot_date for row in self.snapshots()],
+            [moment.date() for moment in days],
+        )
+
+    def test_rerunning_a_day_overwrites_its_row(self):
+        """The day is the key, so how many times the job ran that day leaves no trace."""
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.set_official(OFFICIAL, False)
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+
+        rows = self.snapshots()
+        self.assertEqual(len(rows), 1, "one row for the day, not one per run")
+        self.assertEqual(
+            rows[0].observed_status,
+            CriterionStatus.FAIL.value,
+            "and it holds what the last run of that day wrote",
+        )
+
+    def test_a_later_run_leaves_earlier_days_alone(self):
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.set_official(OFFICIAL, False)
+        update_seals(
+            dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW + timedelta(days=1)
+        )
+
+        first, second = self.snapshots()
+        self.assertEqual(first.snapshot_date, NOW.date())
+        self.assertEqual(
+            first.confirmed_status,
+            CriterionStatus.PASS.value,
+            "day one still records the pass it saw; the record is not restated",
+        )
+        self.assertEqual(second.confirmed_status, CriterionStatus.FAIL.value)
+
+    def test_the_latest_row_matches_the_current_state(self):
+        """Both tables are written from the same state, so they cannot disagree."""
+        update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+
+        current = self.criterion_rows(NOT_OFFICIAL)[self.CRITERION]
+        recorded = self.snapshot_rows(NOT_OFFICIAL, self.CRITERION)[-1]
+        for column in (
+            "observed_status",
+            "confirmed_status",
+            "last_verdict_at",
+            "first_observed_failure_at",
+            "last_observed_failure_at",
+            "last_confirmed_failure_at",
+            "probation_start",
+        ):
+            self.assertEqual(
+                getattr(recorded, column),
+                getattr(current, column),
+                f"{column} differs between seal_criterion and seal_criterion_snapshot",
+            )
+
+    def test_the_log_covers_every_field_the_state_carries(self):
+        """A field added to the state machine must be recorded, or a replay cannot resume.
+
+        Guards the derivation in `SNAPSHOT_STATE_COLUMNS`: it is built from the table, so a new
+        state field that nobody added a column for would be dropped silently.
+        """
+        recorded = {column.name for column in SealCriterionSnapshot.__table__.columns}
+        carried = {
+            field.name
+            for field in fields(SealCriterionState)
+            # The key, and the one field the state machine writes but never reads back.
+            if field.name not in ("feed_id", "criterion", "evaluated_at")
+        }
+        self.assertEqual(carried - recorded, set())
 
 
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", WITH_PROBATION)
