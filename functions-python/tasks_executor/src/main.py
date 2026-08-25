@@ -76,6 +76,10 @@ from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
 )
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
+from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
+    backfill_seal_of_reliability_handler,
+)
+
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
@@ -301,6 +305,24 @@ tasks = {
             "UTC time)."
         ),
         "handler": update_seal_of_reliability_handler,
+    },
+    "backfill_seal_of_reliability": {
+        "description": (
+            "Establishes a starting Seal of Reliability state for feeds that have none "
+            "(issue #1763), by cold-starting each feed 12 months back and replaying the "
+            "nightly evaluation forward one day at a time to end_date, writing only the "
+            "final day. NOT YET IMPLEMENTED: the day march raises, so dry_run=true is "
+            "the only mode that returns — it resolves and reports the plan. "
+            "Parameters: stable_feed_ids (required, non-empty), start_date (ISO date, "
+            "default end_date minus days_back; clamped up to each feed's created_at), "
+            "end_date (ISO date, default yesterday UTC), days_back (default 365), "
+            "dry_run (default true), limit (default null), criteria (default null "
+            "meaning every implemented criterion), batch_size (default 200), "
+            "only_missing (default true; skips feeds that already have seal state), "
+            "snapshot_mode (final|all|none, default final), resume_from_snapshot "
+            "(default false; the #1803 hook), max_reported_feeds (default 50)."
+        ),
+        "handler": backfill_seal_of_reliability_handler,
     },
     "seal_orchestrator": {
         "description": (
