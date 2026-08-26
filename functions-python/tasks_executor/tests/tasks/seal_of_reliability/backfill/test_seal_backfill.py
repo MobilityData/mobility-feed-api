@@ -52,7 +52,7 @@ from tasks.seal_of_reliability.backfill.seal_backfill import (
 )
 from tasks.seal_of_reliability.criteria import SealCriterionName
 from tasks.seal_of_reliability.seal_updater import update_seals
-from test_scripted_compliant import ComplianceScript, ScriptedCompliantEvaluator
+from test_scripted_evaluator import Script, ScriptedEvaluator
 from test_shared.test_utils.database_utils import default_db_url
 
 PREFIX = "seal_bf_"
@@ -327,12 +327,17 @@ class TestBackfillValidation(BackfillDbTestCase):
 MARCHED = f"{PREFIX}marched"
 REPLAYED = f"{PREFIX}replayed"
 
+# The march tests below run with EVALUATORS patched to a single ScriptedEvaluator. It files
+# its rows under the `official` criterion but carries a 30-day grace period and the standard
+# 180-day probation, for the duration of each test only — the real OfficialEvaluator has
+# neither. Those two mechanisms are what a backfill has to reconstruct, and no implemented
+# criterion has them yet; see test_scripted_evaluator.py.
+#
 # A short window, so the equivalence test replays a tractable number of days through the
-# database. The failing run is long enough to outlast the stand-in's 30-day grace period,
-# so the comparison covers a confirmed failure and the probation that follows it.
+# database. The failing run is long enough to outlast that 30-day grace period, so the
+# comparison covers a confirmed failure and the probation that follows it.
 MARCH_START = date(2026, 1, 1)
 MARCH_END = date(2026, 3, 15)
-FAILING = ComplianceScript.failing_between(10, 45)
 
 STATE_COLUMNS = (
     "observed_status",
@@ -347,16 +352,8 @@ STATE_COLUMNS = (
 
 
 def _script_for(offsets_from_march_start):
-    """A ComplianceScript whose failing days are offsets from MARCH_START.
-
-    `ComplianceScript` counts from its own day zero, so the offsets are rebased here rather
-    than the fixture being reconfigured.
-    """
-    return ComplianceScript(
-        failing=frozenset(
-            MARCH_START + timedelta(days=offset) for offset in offsets_from_march_start
-        )
-    )
+    """A Script whose failing days are offsets from MARCH_START."""
+    return Script.from_offsets(MARCH_START, failing=offsets_from_march_start)
 
 
 @with_db_session(db_url=default_db_url)
@@ -407,7 +404,7 @@ class MarchTestCase(unittest.TestCase):
         """Patch the registry `_resolve_evaluators` reads, which is the one both paths use."""
         return patch(
             "tasks.seal_of_reliability.seal_updater.EVALUATORS",
-            [ScriptedCompliantEvaluator(script)],
+            [ScriptedEvaluator(script)],
         )
 
     @staticmethod
@@ -435,7 +432,7 @@ class MarchTestCase(unittest.TestCase):
                 )
 
     def state_of(self, stable_id):
-        row = criterion_rows(stable_id)[SealCriterionName.COMPLIANT.value]
+        row = criterion_rows(stable_id)[SealCriterionName.OFFICIAL.value]
         return {column: getattr(row, column) for column in STATE_COLUMNS}
 
 
