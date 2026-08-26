@@ -16,9 +16,9 @@
 """Unit tests for the seal criterion evaluators. No database."""
 
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.context import FeedSealContext, collect_inputs
 from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.evaluators import (
     EVALUATORS,
@@ -139,6 +139,60 @@ class TestOfficial(unittest.TestCase):
     def test_reason_names_the_offending_value(self):
         result = OfficialEvaluator().evaluate(_ctx(official=None))
         self.assertIn("None", result.reason)
+
+
+class TestLoadInputs(unittest.TestCase):
+    """The `load_inputs` hook, and how what it loads reaches `_evaluate`."""
+
+    def test_default_loader_loads_nothing(self):
+        """A criterion reading only day-invariant context fields has nothing to load.
+
+        None here means "nothing to load", not "the load failed" — Official reads
+        `feed.official` off the context and never needs a query.
+        """
+        for evaluator in EVALUATORS:
+            with self.subTest(criterion=evaluator.name):
+                self.assertIsNone(evaluator.load_inputs(object(), [], [NOW.date()]))
+
+    def test_each_criterion_is_asked_once_for_the_whole_batch(self):
+        """One call per criterion, carrying every feed and every day.
+
+        This is the property the backfill depends on: a criterion loading per day instead
+        would turn a year's march into several thousand queries.
+        """
+        calls = []
+
+        class Recording(CriterionEvaluator):
+            name = SealCriterionName.AVAILABLE
+
+            def load_inputs(self, db_session, feeds, days):
+                calls.append((tuple(feeds), tuple(days)))
+                return {"loaded": True}
+
+            def _evaluate(self, ctx):
+                return CriterionStatus.PASS, "recorded"
+
+        feeds = ["feed-1", "feed-2"]
+        days = [date(2026, 5, 30), date(2026, 5, 31), NOW.date()]
+        inputs = collect_inputs(object(), feeds, days, [Recording()])
+
+        self.assertEqual(calls, [(("feed-1", "feed-2"), tuple(days))])
+        self.assertEqual(inputs, {SealCriterionName.AVAILABLE: {"loaded": True}})
+
+    def test_a_criterion_reaches_only_its_own_inputs(self):
+        ctx = _ctx(
+            inputs={
+                SealCriterionName.AVAILABLE: "available-inputs",
+                SealCriterionName.COMPLIANT: "compliant-inputs",
+            }
+        )
+        self.assertEqual(
+            ctx.inputs_for(SealCriterionName.AVAILABLE), "available-inputs"
+        )
+        self.assertIsNone(ctx.inputs_for(SealCriterionName.OFFICIAL))
+
+    def test_context_defaults_to_no_inputs(self):
+        self.assertIsNone(_ctx().inputs_for(SealCriterionName.AVAILABLE))
 
 
 if __name__ == "__main__":

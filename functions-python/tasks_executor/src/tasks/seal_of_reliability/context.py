@@ -18,25 +18,33 @@
 The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
 feeds happens here, in a fixed number of queries regardless of batch size.
 
-Only Official is implemented, so the context currently carries just the feed row. Each new
-criterion adds the fields it needs here plus one bulk query to populate them: the latest
-dataset for Compliant and Fresh, the day's availability rows for Available, the full
-dataset coverage history for Fresh continuous coverage.
+A criterion's inputs reach it one of two ways, and the split is deliberate:
+
+* Day-invariant feed facts — `official`, and later `seasonal`, `is_producer_unstable`,
+  `created_at` — are fields on `FeedSealContext`, read straight off the feed row the caller
+  has already loaded. They cost no query and they have no history to read: the same value
+  answers every day of a backfill.
+* Anything that varies by day is loaded by the criterion itself, through
+  `CriterionEvaluator.load_inputs`. Only the criterion knows what its own inputs look like,
+  and keeping that knowledge there is what stops this module from having to grow a field
+  and a query for every criterion added.
 """
 
 import itertools
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, Iterator, List, Optional, Sequence
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
 
+from tasks.seal_of_reliability.criteria import SealCriterionName
+
 
 @dataclass
 class FeedSealContext:
-    """Everything the evaluators need for one feed.
+    """Everything the evaluators need for one feed on one day.
 
     Built by `build_contexts`. Evaluators read from this and never query.
     """
@@ -49,6 +57,23 @@ class FeedSealContext:
 
     # Feed-level flags
     official: Optional[bool] = None
+
+    # Each criterion's own bulk-loaded inputs, keyed by criterion name — see
+    # `collect_inputs`. Opaque here: this module never looks inside a criterion's payload,
+    # and an evaluator reaches only its own through `inputs_for(self.name)`.
+    #
+    # The whole batch's inputs are shared by reference across every context, rather than
+    # sliced per feed and per day. Slicing would force every criterion into one storage
+    # shape, and it would copy a year of history once per (feed, day) during a backfill.
+    inputs: Mapping[SealCriterionName, Any] = field(default_factory=dict)
+
+    def inputs_for(self, criterion: SealCriterionName) -> Any:
+        """This criterion's loaded inputs, or None if its loader returned nothing.
+
+        None is the normal answer for a criterion whose inputs are day-invariant fields on
+        this context, so it means "nothing to load", not "the load failed".
+        """
+        return self.inputs.get(criterion)
 
 
 # Feeds in these statuses, or not published, are never eligible for the seal.
@@ -130,48 +155,91 @@ def iter_eligible_stable_ids(
         yield chunk
 
 
-def build_contexts(
-    db_session: Session, feeds: Sequence[Gtfsfeed], now: datetime
-) -> Dict[str, FeedSealContext]:
-    """Load everything the evaluators need for `feeds`, in a fixed number of queries.
+def snapshot_date_of(now: datetime) -> date:
+    """The UTC day a run evaluating at `now` belongs to.
+
+    The day a run's snapshots are keyed under, and the day its criteria are evaluated
+    against. Naive values are read as UTC rather than rejected: the task entry points
+    normalize what an operator passes, but `update_seals` is also called directly.
+    """
+    if now.tzinfo is None:
+        return now.date()
+    return now.astimezone(timezone.utc).date()
+
+
+def collect_inputs(
+    db_session: Session,
+    feeds: Sequence[Gtfsfeed],
+    days: Sequence[date],
+    evaluators: Sequence,
+) -> Dict[SealCriterionName, Any]:
+    """Ask each evaluator to bulk-load its own day-varying inputs for the whole batch.
+
+    Called once per batch whatever the number of days: a criterion loads its full history
+    for `days` in one go and answers each day from memory afterwards. That is what holds the
+    query count proportional to the number of criteria rather than to feeds x days — the
+    difference between a handful of queries and several thousand once a backfill marches a
+    year (#1763).
 
     Args:
-        db_session: SQLAlchemy session. Unused while Official is the only criterion, since
-            everything it needs is already on the feed row, but kept in the signature
-            because every further criterion needs it.
-        feeds: The batch of feeds to load, already loaded (and eligibility-checked via
+        db_session: SQLAlchemy session.
+        feeds: The batch of feeds, already loaded and eligibility-checked by the caller.
+        days: Every UTC day that will be evaluated, ascending. One entry for a nightly run.
+        evaluators: The `CriterionEvaluator` instances this run will apply. Not annotated as
+            such because `evaluators.base` imports this module for `FeedSealContext`.
+
+    Returns:
+        criterion name -> whatever that criterion's loader returned. Opaque to this module;
+        an evaluator reaches its own with `ctx.inputs_for(self.name)`.
+    """
+    return {
+        evaluator.name: evaluator.load_inputs(db_session, feeds, days)
+        for evaluator in evaluators
+    }
+
+
+def build_contexts(
+    db_session: Session,
+    feeds: Sequence[Gtfsfeed],
+    now: datetime,
+    evaluators: Sequence,
+) -> Dict[str, FeedSealContext]:
+    """Build one context per feed for a single day — the nightly run's case.
+
+    This is `collect_inputs` over a one-day range, plus the day-invariant feed fields. A
+    backfill marching a year calls `collect_inputs` once for the whole range and then builds
+    its contexts per day from that same result, so both paths load a criterion's inputs
+    through the criterion itself and there is only ever one place they come from.
+
+    Args:
+        db_session: SQLAlchemy session, passed on to the evaluators' loaders.
+        feeds: The batch of feeds to build for, already loaded (and eligibility-checked via
             `is_seal_eligible`) by the caller — `update_seals`.
         now: The evaluation timestamp.
+        evaluators: The evaluators this run will apply. Required rather than defaulted: an
+            omitted list would leave every criterion with no inputs and quietly turn its
+            verdicts into UNKNOWN.
 
     Returns:
         feed_id -> FeedSealContext.
 
-    How to add a criterion's data. Two kinds:
+    Adding a criterion's data. Two kinds:
 
     1. Already on the selected feed row (`official`, `created_at`, `seasonal`,
-       `is_producer_url_unstable`). Add the field to FeedSealContext and read it off `feed`
-       below. No query, no cost.
+       `is_producer_url_unstable`). Add the field to `FeedSealContext` and read it off `feed`
+       below. No query, no cost, and it answers for any day.
 
-    2. Needs its own query. Add the field, then a module-level `_load_*` helper that takes
-       the whole batch and returns a dict keyed by feed_id, and call it once here. Keeping
-       the query per batch rather than per feed is what holds the query count proportional
-       to the number of criteria instead of the number of feeds. For example, Available
-       (issue #1784) would add:
-
-           def _load_availability_today(db_session, feed_ids, day_start) -> Dict[str, bool]:
-               '''feed_id -> whether any availability check succeeded since day_start.
-               Feeds absent from the result had no check at all, which the criterion reads
-               as "not evaluable" rather than "failing".'''
-
-       called once as `availability = _load_availability_today(...)` and consumed per feed
-       as `availability_success_today=availability.get(feed.id, False)`.
+    2. Varies by day. Nothing changes here: override `load_inputs` on the criterion's own
+       evaluator and read it back in `_evaluate` with `ctx.inputs_for(self.name)`.
     """
+    inputs = collect_inputs(db_session, feeds, [snapshot_date_of(now)], evaluators)
     return {
         feed.id: FeedSealContext(
             feed_id=feed.id,
             now=now,
             stable_id=feed.stable_id,
             official=feed.official,
+            inputs=inputs,
         )
         for feed in feeds
     }

@@ -17,7 +17,9 @@
 
 `EVALUATORS` is the registry the job iterates. Only Official is implemented so far
 (issue #1783); the remaining criteria are tracked by #1784 and #1782. Adding one means a
-new subclass, an entry here, and whatever fields it needs on `FeedSealContext`.
+new subclass and an entry here, plus — for whatever inputs it needs — either a
+day-invariant field on `FeedSealContext`, or its own `load_inputs` override when the
+inputs vary by day.
 
 `seal_criterion_name` in the database already declares all six values, so a criterion can
 be added without a schema change.

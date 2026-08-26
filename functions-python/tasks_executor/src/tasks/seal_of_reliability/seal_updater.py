@@ -49,6 +49,7 @@ from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
     is_seal_eligible,
+    snapshot_date_of,
 )
 from tasks.seal_of_reliability.criteria import (
     CriterionPhase,
@@ -243,17 +244,6 @@ def _upsert_criteria(
     )
 
 
-def snapshot_date_of(now: datetime) -> date:
-    """The UTC day a run evaluating at `now` takes its snapshots under.
-
-    Naive values are read as UTC rather than rejected: the entry point normalizes what an
-    operator passes, but `update_seals` is also called directly.
-    """
-    if now.tzinfo is None:
-        return now.date()
-    return now.astimezone(timezone.utc).date()
-
-
 def _snapshot_row(state: SealCriterionState, snapshot_date: date) -> dict:
     """One seal_criterion_snapshot row: the key, then the state columns read off by name.
 
@@ -414,7 +404,7 @@ def update_seals(
 
     for batch in batched(eligible_feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
-        contexts = build_contexts(db_session, batch, now)
+        contexts = build_contexts(db_session, batch, now, evaluators)
         previous_states = _load_previous_states(db_session, batch_ids)
         previous_seals = _load_previous_seals(db_session, batch_ids)
 

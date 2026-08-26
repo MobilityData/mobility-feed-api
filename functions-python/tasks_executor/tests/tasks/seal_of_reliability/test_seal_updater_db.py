@@ -31,7 +31,11 @@ from tasks.seal_of_reliability.criteria import (
     CriterionStatus,
     SealCriterionName,
 )
-from tasks.seal_of_reliability.evaluators import CriterionEvaluator, OfficialEvaluator
+from tasks.seal_of_reliability.evaluators import (
+    EVALUATORS,
+    CriterionEvaluator,
+    OfficialEvaluator,
+)
 from tasks.seal_of_reliability.seal_updater import update_seals
 from tasks.seal_of_reliability.state_machine import SealCriterionState
 from sqlalchemy import delete, select
@@ -306,7 +310,7 @@ class TestBuildContexts(SealDbTestCase):
     @with_db_session(db_url=default_db_url)
     def test_loads_the_fields_the_evaluators_need(self, db_session):
         feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
-        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        ctx = build_contexts(db_session, feeds, NOW, EVALUATORS)[feeds[0].id]
         self.assertEqual(ctx.stable_id, OFFICIAL)
         self.assertTrue(ctx.official)
         self.assertEqual(ctx.now, NOW)
@@ -314,9 +318,36 @@ class TestBuildContexts(SealDbTestCase):
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
         feeds = list(_feeds_by_stable_id(db_session, OFFICIAL, NOT_OFFICIAL).values())
-        contexts = build_contexts(db_session, feeds, NOW)
+        contexts = build_contexts(db_session, feeds, NOW, EVALUATORS)
         self.assertEqual(len(contexts), 2)
         self.assertEqual({ctx.official for ctx in contexts.values()}, {True, False})
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_criterion_inputs_reach_every_context_in_the_batch(self, db_session):
+        """The nightly run is the one-day case: the loader is asked for `now`'s day only.
+
+        The payload is shared by reference across the batch's contexts, so a criterion
+        indexes it by feed itself rather than the builder slicing it per feed.
+        """
+        seen_days = []
+
+        class Loading(CriterionEvaluator):
+            name = SealCriterionName.AVAILABLE
+
+            def load_inputs(self, db_session, feeds, days):
+                seen_days.append(list(days))
+                return {feed.id: feed.stable_id for feed in feeds}
+
+            def _evaluate(self, ctx):
+                return CriterionStatus.PASS, "loaded"
+
+        feeds = list(_feeds_by_stable_id(db_session, OFFICIAL, NOT_OFFICIAL).values())
+        contexts = build_contexts(db_session, feeds, NOW, [Loading()])
+
+        self.assertEqual(seen_days, [[NOW.date()]])
+        for feed in feeds:
+            inputs = contexts[feed.id].inputs_for(SealCriterionName.AVAILABLE)
+            self.assertEqual(inputs[feed.id], feed.stable_id)
 
 
 class TestUpdateSeals(SealDbTestCase):
