@@ -15,18 +15,12 @@
 #
 """Cloud Tasks worker: march one batch of the Seal of Reliability backfill (#1763).
 
-One `seal_backfill_worker` task is enqueued per batch by `seal_backfill_orchestrator`. It
-calls `backfill_seals` for its slice of stable_ids and reports the outcome to the shared
-`TaskExecutionTracker` so the monitor knows when the run has drained.
+One task per batch, enqueued by `seal_backfill_orchestrator`. Calls `backfill_seals` for its
+slice and reports to the shared `TaskExecutionTracker`.
 
-`backfill_seals` writes via upsert, so a Cloud Tasks redelivery of the same batch — a
-timeout on the response after the write already committed, say — is safe to reprocess: the
-same window over the same source data produces the same final state. `created_at` on
-`feed_reliability_seal` is insert-only, so even a redelivery cannot move a feed's tracking
-start.
-
-`start_date` and `end_date` both arrive explicit. A worker never defaults them: the run's
-window belongs to the run, not to the moment a particular batch happened to execute.
+Redelivery is safe: `backfill_seals` upserts, the same window over the same sources gives the
+same final state, and `created_at` is insert-only. Both dates arrive explicit — the window
+belongs to the run, not to when a batch happened to execute.
 
 Payload::
 
@@ -75,8 +69,7 @@ def seal_backfill_worker_handler(payload: dict) -> dict:
     start_date = _parse_day(payload.get("start_date"), "start_date")
     end_date = _parse_day(payload.get("end_date"), "end_date")
     if start_date is None or end_date is None:
-        # The producer resolves the window for the whole run. A worker that defaulted it
-        # could march to a different final day than its siblings.
+        # Defaulting here could march to a different final day than a sibling batch.
         raise ValueError("start_date and end_date are required")
 
     try:
@@ -111,11 +104,10 @@ def _mark_entry(
     error: Optional[str] = None,
     db_session=None,
 ) -> None:
-    """Record this batch's completion in the run's TaskExecutionTracker.
+    """Record this batch in the run's tracker.
 
-    The stored metadata is what `seal_orchestrator_monitor` aggregates into the run-level
-    report, so the keys it reads — total_feeds, criterion_rows_written, seals_granted /
-    seals_revoked and their stable_id lists — must survive here.
+    The stored metadata is what `seal_orchestrator_monitor` aggregates, so its keys must
+    survive here.
     """
     tracker = TaskExecutionTracker(
         task_name=SEAL_BACKFILL_TASK_NAME,

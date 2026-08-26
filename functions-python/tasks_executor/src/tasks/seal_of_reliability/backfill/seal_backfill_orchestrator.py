@@ -15,28 +15,16 @@
 #
 """Cloud Tasks producer: fan the Seal of Reliability backfill out across the catalog (#1763).
 
-`backfill_seal_of_reliability` only ever marches an explicit `stable_feed_ids` list. This
-producer is what enumerates the catalog and chunks it, the same shape as the nightly
-`seal_orchestrator`:
+Enumerates the catalog and chunks it for `backfill_seal_of_reliability`, which only marches
+an explicit list — the same shape as the nightly `seal_orchestrator`: resolve the eligible
+feeds, batch them, register the run in TaskExecutionTracker, enqueue one worker per batch
+plus one `seal_orchestrator_monitor` carrying this run's `task_name`.
 
-  1. resolves every seal-eligible GTFS feed that has no seal state yet;
-  2. splits the stable_ids into batches of `batch_size`;
-  3. registers the run + one entry per batch in TaskExecutionTracker and enqueues one
-     `seal_backfill_worker` Cloud Task per batch;
-  4. enqueues a single `seal_orchestrator_monitor` barrier task, carrying this run's
-     `task_name` so the shared monitor settles the right tracker.
-
-Three things differ from the nightly producer, and all three follow from a march being
-long where a nightly evaluation is a single day:
-
-* **`end_date` is resolved here, once**, and passed to every worker. Left to each worker to
-  default, two workers of the same run started either side of midnight would march to
-  different final days and write states that do not correspond to the same moment.
-* **Batches are smaller** and the **deadline is longer**. A batch marches a year for each of
-  its feeds, not one day.
-* **`only_missing` is the eligibility predicate, not a filter the worker applies.** A feed
-  the nightly job already owns has real accumulated history, and must not have a simulation
-  written over it.
+Three differences from the nightly producer, all because a march is long where a nightly
+evaluation is one day: `end_date` is resolved here once and passed to every worker (or two
+workers either side of midnight would end on different days); batches are smaller and the
+deadline longer; and `only_missing` is the eligibility predicate rather than a worker-side
+filter, so a feed the nightly job owns never has a simulation written over it.
 
 Payload (all optional)::
 
@@ -83,12 +71,10 @@ from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
 
 logger = logging.getLogger(__name__)
 
-# TaskExecutionTracker task_name for a backfill run. Distinct from the nightly run's, so
-# the two never share a tracker and the monitor aggregates only its own batches.
+# Distinct from the nightly run's, so the two never share a tracker.
 SEAL_BACKFILL_TASK_NAME = "seal_backfill_run"
 
-# Smaller than the nightly default of 250: a batch marches every one of its feeds across the
-# whole window, so the per-batch cost scales with days as well as feeds.
+# Smaller than the nightly 250: per-batch cost scales with days as well as feeds.
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_DEADLINE_SECONDS = 2 * 60 * 60  # 2h wall-clock cap for a run
 DEFAULT_MONITOR_DELAY_SECONDS = 300
@@ -103,8 +89,7 @@ def seal_backfill_orchestrator_handler(payload: dict) -> dict:
             f"Unknown snapshot_mode {snapshot_mode!r}. Known modes: {list(SNAPSHOT_MODES)}"
         )
 
-    # Validated and resolved here rather than in the workers, so a bad date fails the run at
-    # the producer instead of once per batch.
+    # Resolved here, so a bad date fails once at the producer rather than once per batch.
     window_start, window_end = resolve_window(
         _parse_day(payload.get("start_date"), "start_date"),
         _parse_day(payload.get("end_date"), "end_date"),
@@ -218,7 +203,6 @@ def _plan_run(
             "batch_id": batch_id,
             "stable_feed_ids": batch_stable_ids,
             "criteria": criteria,
-            # Both ends are explicit, so a worker never re-derives the window.
             "start_date": window_start.isoformat(),
             "end_date": window_end.isoformat(),
             "only_missing": only_missing,
@@ -233,14 +217,12 @@ def _plan_run(
         ):
             enqueued += 1
         else:
-            # Dead on arrival: don't leave this batch as `triggered` for the monitor to
-            # only notice once the deadline passes.
+            # Dead on arrival: don't leave it `triggered` until the deadline.
             _mark_enqueue_failed(run_id, batch_id)
 
     if consumed < len(batch_ids):
-        # The eligible-feed stream yielded fewer chunks than the plan-time count implied —
-        # eligibility narrowed in the gap between the two queries. Fail the leftovers
-        # immediately rather than leaving them `triggered` until the deadline.
+        # Eligibility narrowed between the count and the stream. Fail the leftovers now
+        # rather than leaving them `triggered` until the deadline.
         missing = batch_ids[consumed:]
         logger.error(
             "seal_backfill_orchestrator: run=%s stream yielded %d batch(es), expected %d "
@@ -260,8 +242,7 @@ def _plan_run(
     else:
         extra_chunk = next(stable_id_batches, None)
         if extra_chunk is not None:
-            # More chunks than planned: feeds became newly eligible in the gap. Log-only —
-            # a backfill is operator-triggered, so the fix is to run it again.
+            # Feeds became newly eligible in the gap. Log-only: re-run to pick them up.
             logger.error(
                 "seal_backfill_orchestrator: run=%s stream had more batches than the "
                 "plan-time count of %d expected (>=%d additional feed(s)) — those feeds "

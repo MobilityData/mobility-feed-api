@@ -30,12 +30,10 @@ from tasks.seal_of_reliability.seal_updater import (
 
 
 def _parse_day(value: Optional[str], field: str) -> Optional[date]:
-    """Parse a payload date string to a `date`, or None when it is absent.
+    """Parse a payload date string to a `date`, or None when absent.
 
-    A plain date is what the window is expressed in, but an operator copying a value from a
-    log or from the nightly task's `now` will paste a full timestamp. Accept both rather than
-    failing on a value whose meaning is unambiguous; the time of day is dropped either way,
-    since the march is day-granular.
+    Accepts a full timestamp too — an operator pasting the nightly task's `now` should not
+    hit a parse error. The march is day-granular, so the time is dropped either way.
     """
     if value is None:
         return None
@@ -71,38 +69,23 @@ def get_parameters(payload: dict):
 
 
 def backfill_seal_of_reliability_handler(payload: dict) -> dict:
-    """
-    Handler for the Seal of Reliability backfill.
+    """Handler for the Seal of Reliability backfill. A dry run returns the plan only.
 
-    A dry run returns the resolved plan without marching or writing.
-
-    Payload parameters:
-        stable_feed_ids (list[str]): Required and non-empty. The feeds to backfill; there is
-                        no run-the-whole-catalogue mode. Ineligible ids are skipped with a
-                        logged warning, and it raises if none can be used.
-        start_date (str | None): First day of the window, ISO date. Clamped up to each feed's
-                        own created_at. Default: end_date minus days_back.
-        end_date (str | None): Last day simulated, and the day the written state belongs to.
-                        Resolved once for the whole run. Default: yesterday UTC.
-        days_back (int): Window length used when start_date is absent. Default: 365 — the
-                        "12 months" of #1763, a cost/coverage default rather than a
-                        correctness threshold.
-        dry_run (bool): Resolve and return the plan without marching or writing.
-                        Default: True.
-        limit (int | None): Cap the number of feeds, from the list. Default: no limit.
-        criteria (list[str] | None): Backfill only these criteria. Default: None, meaning
-                        every implemented criterion.
-        batch_size (int): Feeds loaded and marched per batch. Default: 200.
-        only_missing (bool): Skip feeds that already have seal state, which is #1763's stated
-                        scope. False re-backfills them, overwriting what is stored.
-                        Default: True.
-        snapshot_mode (str): "final" (only the last day, per #1763), "all" (every simulated
-                        day — millions of rows over a year, but what would let #1803 resume
-                        inside the backfilled window), or "none". Default: "final".
-        resume_from_snapshot (bool): Seed each criterion from its snapshot at march_start - 1
-                        rather than cold-starting empty. The #1803 hook. Default: False.
-        max_reported_feeds (int): Cap on the `feeds` list in the response; `feeds_omitted`
-                        reports how many entries were left out. Default: 50.
+    Payload, all optional but `stable_feed_ids`:
+        stable_feed_ids  required, non-empty; there is no run-the-whole-catalogue mode
+        start_date       ISO date, clamped up to each feed's created_at. Default: end_date
+                         minus days_back
+        end_date         ISO date, last day simulated. Default: yesterday UTC
+        days_back        window length when start_date is absent. Default: 365
+        dry_run          Default: True
+        limit            cap the number of feeds. Default: no limit
+        criteria         restrict to these criteria. Default: every implemented one
+        batch_size       Default: 200
+        only_missing     skip feeds that already have seal state. Default: True
+        snapshot_mode    final | all | none. Default: final
+        resume_from_snapshot  seed from the snapshot before march_start (#1803).
+                         Default: False
+        max_reported_feeds    cap on the `feeds` list in the response. Default: 50
     """
     (
         stable_feed_ids,
