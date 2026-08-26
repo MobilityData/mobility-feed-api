@@ -24,11 +24,18 @@ import unittest
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from unittest.mock import patch
 
-from sqlalchemy import delete, insert
+from sqlalchemy import delete, insert, select
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, SealCriterion
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    FeedReliabilitySeal,
+    Gtfsfeed,
+    SealCriterion,
+    SealCriterionSnapshot,
+)
 from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
     _parse_day,
     backfill_seal_of_reliability_handler,
@@ -37,10 +44,15 @@ from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
 from tasks.seal_of_reliability.backfill.seal_backfill import (
     DEFAULT_DAYS_BACK,
     backfill_seals,
+    day_start,
+    days_between,
     march_start_for,
     resolve_window,
     yesterday_utc,
 )
+from tasks.seal_of_reliability.criteria import SealCriterionName
+from tasks.seal_of_reliability.seal_updater import update_seals
+from test_scripted_compliant import ComplianceScript, ScriptedCompliantEvaluator
 from test_shared.test_utils.database_utils import default_db_url
 
 PREFIX = "seal_bf_"
@@ -214,7 +226,7 @@ class TestBackfillPlan(BackfillDbTestCase):
             stable_feed_ids=[OLD], start_date=START, end_date=END, dry_run=True
         )
         self.assertTrue(report["dry_run"])
-        self.assertFalse(report["implemented"])
+        self.assertEqual(report["criterion_rows_written"], 0)
         self.assertEqual(report["start_date"], START.isoformat())
         self.assertEqual(report["end_date"], END.isoformat())
         self.assertEqual(report["days"], (END - START).days + 1)
@@ -274,14 +286,6 @@ class TestBackfillPlan(BackfillDbTestCase):
 
 
 class TestBackfillValidation(BackfillDbTestCase):
-    def test_a_real_run_refuses_rather_than_writing_nothing(self):
-        """Until the march exists, reporting success would be worse than failing."""
-        with self.assertRaises(NotImplementedError) as caught:
-            backfill_seals(
-                stable_feed_ids=[OLD], start_date=START, end_date=END, dry_run=False
-            )
-        self.assertIn("#1763", str(caught.exception))
-
     def test_empty_feed_list_is_rejected(self):
         with self.assertRaises(ValueError):
             backfill_seals(stable_feed_ids=[], dry_run=True)
@@ -298,6 +302,13 @@ class TestBackfillValidation(BackfillDbTestCase):
             backfill_seals(stable_feed_ids=[OLD], dry_run=True, criteria=["punctual"])
         self.assertIn("punctual", str(caught.exception))
 
+    def test_dry_run_writes_nothing(self):
+        backfill_seals(
+            stable_feed_ids=[OLD], start_date=START, end_date=END, dry_run=True
+        )
+        self.assertEqual(criterion_rows(OLD), {})
+        self.assertIsNone(seal_row(OLD))
+
     def test_handler_threads_the_payload_through(self):
         report = backfill_seal_of_reliability_handler(
             {
@@ -311,6 +322,252 @@ class TestBackfillValidation(BackfillDbTestCase):
         self.assertEqual(report["snapshot_mode"], "all")
         self.assertTrue(report["resume_from_snapshot"])
         self.assertEqual(report["start_date"], START.isoformat())
+
+
+MARCHED = f"{PREFIX}marched"
+REPLAYED = f"{PREFIX}replayed"
+
+# A short window, so the equivalence test replays a tractable number of days through the
+# database. The failing run is long enough to outlast the stand-in's 30-day grace period,
+# so the comparison covers a confirmed failure and the probation that follows it.
+MARCH_START = date(2026, 1, 1)
+MARCH_END = date(2026, 3, 15)
+FAILING = ComplianceScript.failing_between(10, 45)
+
+STATE_COLUMNS = (
+    "observed_status",
+    "confirmed_status",
+    "evaluated_at",
+    "last_verdict_at",
+    "first_observed_failure_at",
+    "last_observed_failure_at",
+    "last_confirmed_failure_at",
+    "probation_start",
+)
+
+
+def _script_for(offsets_from_march_start):
+    """A ComplianceScript whose failing days are offsets from MARCH_START.
+
+    `ComplianceScript` counts from its own day zero, so the offsets are rebased here rather
+    than the fixture being reconfigured.
+    """
+    return ComplianceScript(
+        failing=frozenset(
+            MARCH_START + timedelta(days=offset) for offset in offsets_from_march_start
+        )
+    )
+
+
+@with_db_session(db_url=default_db_url)
+def criterion_rows(stable_id, db_session=None):
+    rows = db_session.execute(
+        select(SealCriterion.__table__).where(
+            SealCriterion.__table__.c.feed_id == stable_id
+        )
+    ).all()
+    return {row.criterion: row for row in rows}
+
+
+@with_db_session(db_url=default_db_url)
+def seal_row(stable_id, db_session=None):
+    return db_session.execute(
+        select(FeedReliabilitySeal.__table__).where(
+            FeedReliabilitySeal.__table__.c.feed_id == stable_id
+        )
+    ).one_or_none()
+
+
+@with_db_session(db_url=default_db_url)
+def snapshot_days(stable_id, db_session=None):
+    rows = db_session.execute(
+        select(SealCriterionSnapshot.__table__.c.snapshot_date).where(
+            SealCriterionSnapshot.__table__.c.feed_id == stable_id
+        )
+    ).all()
+    return sorted({row.snapshot_date for row in rows})
+
+
+class MarchTestCase(unittest.TestCase):
+    """Two identically-aged feeds: one marched in memory, one replayed through the database."""
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        _cleanup(db_session)
+        _seed_feed(db_session, MARCHED, OLD_CREATED)
+        _seed_feed(db_session, REPLAYED, OLD_CREATED)
+        db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def tearDown(self, db_session):
+        _cleanup(db_session)
+
+    @staticmethod
+    def registry(script):
+        """Patch the registry `_resolve_evaluators` reads, which is the one both paths use."""
+        return patch(
+            "tasks.seal_of_reliability.seal_updater.EVALUATORS",
+            [ScriptedCompliantEvaluator(script)],
+        )
+
+    @staticmethod
+    def march(stable_id, script, **kwargs):
+        with MarchTestCase.registry(script):
+            return backfill_seals(
+                stable_feed_ids=[stable_id],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+                **kwargs,
+            )
+
+    @staticmethod
+    def replay_through_db(stable_id, script):
+        """The same days, evaluated one `update_seals` call at a time.
+
+        Uses the same midnight-UTC timestamps the march uses, so any difference in the final
+        state is the march's doing and not a difference in `now`.
+        """
+        with MarchTestCase.registry(script):
+            for day in days_between(MARCH_START, MARCH_END):
+                update_seals(
+                    stable_feed_ids=[stable_id], dry_run=False, now=day_start(day)
+                )
+
+    def state_of(self, stable_id):
+        row = criterion_rows(stable_id)[SealCriterionName.COMPLIANT.value]
+        return {column: getattr(row, column) for column in STATE_COLUMNS}
+
+
+class TestMarchMatchesTheDatabaseReplay(MarchTestCase):
+    def test_a_clean_run_agrees(self):
+        script = _script_for([])
+        self.march(MARCHED, script)
+        self.replay_through_db(REPLAYED, script)
+        self.assertEqual(self.state_of(MARCHED), self.state_of(REPLAYED))
+
+    def test_a_confirmed_failure_and_its_probation_agree(self):
+        """The case the backfill exists for: state that depends on the whole path."""
+        script = _script_for(range(10, 46))
+        self.march(MARCHED, script)
+        self.replay_through_db(REPLAYED, script)
+
+        marched = self.state_of(MARCHED)
+        self.assertEqual(marched, self.state_of(REPLAYED))
+        self.assertIsNotNone(
+            marched["last_confirmed_failure_at"],
+            "the 36-day streak must have outlasted the 30-day grace period",
+        )
+        self.assertIsNotNone(
+            marched["probation_start"], "and recovery must have opened probation"
+        )
+
+    def test_an_absorbed_blip_agrees(self):
+        script = _script_for([20])
+        self.march(MARCHED, script)
+        self.replay_through_db(REPLAYED, script)
+
+        marched = self.state_of(MARCHED)
+        self.assertEqual(marched, self.state_of(REPLAYED))
+        self.assertIsNone(
+            marched["last_confirmed_failure_at"],
+            "one day is well inside the grace period",
+        )
+
+
+class TestMarchWrites(MarchTestCase):
+    def test_only_the_final_day_is_snapshotted_by_default(self):
+        self.march(MARCHED, _script_for([20]))
+        self.assertEqual(snapshot_days(MARCHED), [MARCH_END])
+
+    def test_snapshot_mode_all_records_every_day(self):
+        self.march(MARCHED, _script_for([20]), snapshot_mode="all")
+        self.assertEqual(snapshot_days(MARCHED), days_between(MARCH_START, MARCH_END))
+
+    def test_snapshot_mode_none_records_nothing(self):
+        self.march(MARCHED, _script_for([20]), snapshot_mode="none")
+        self.assertEqual(snapshot_days(MARCHED), [])
+
+    def test_the_seal_row_created_at_is_the_march_start(self):
+        """Left at its DEFAULT now(), Stable would fail on every simulated day."""
+        self.march(MARCHED, _script_for([]))
+        self.assertEqual(
+            seal_row(MARCHED).created_at.astimezone(timezone.utc).date(), MARCH_START
+        )
+
+    def test_created_at_survives_a_re_backfill(self):
+        """Insert-only: a re-run must not reset a countdown already running."""
+        self.march(MARCHED, _script_for([]))
+        first = seal_row(MARCHED).created_at
+
+        with self.registry(_script_for([])):
+            backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START + timedelta(days=30),
+                end_date=MARCH_END,
+                dry_run=False,
+                only_missing=False,
+            )
+        self.assertEqual(seal_row(MARCHED).created_at, first)
+
+    def test_seal_earned_at_is_the_end_of_the_window(self):
+        report = self.march(MARCHED, _script_for([]))
+        self.assertEqual(report["seals_granted"], 1)
+        self.assertEqual(
+            seal_row(MARCHED).seal_earned_at.astimezone(timezone.utc).date(), MARCH_END
+        )
+
+    def test_the_report_counts_what_was_written(self):
+        report = self.march(MARCHED, _script_for([20]))
+        self.assertEqual(report["criterion_rows_written"], 1)
+        self.assertEqual(report["snapshot_rows_written"], 1)
+        self.assertEqual(report["granted_stable_ids"], [MARCHED])
+        self.assertFalse(report["dry_run"])
+
+
+class TestResumeFromSnapshot(MarchTestCase):
+    def test_a_resume_starts_from_the_stored_snapshot(self):
+        """Seeded from the day before, the march inherits an open probation.
+
+        Without the seed the same window is a clean cold start, so the difference is
+        entirely the snapshot's doing.
+        """
+        # A first march that ends on probation, snapshotting every day.
+        self.march(MARCHED, _script_for(range(10, 46)), snapshot_mode="all")
+        self.assertIsNotNone(self.state_of(MARCHED)["probation_start"])
+
+        # Resume the tail of the window, with no failures in it at all.
+        with self.registry(_script_for([])):
+            backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START + timedelta(days=60),
+                end_date=MARCH_END,
+                dry_run=False,
+                only_missing=False,
+                resume_from_snapshot=True,
+            )
+
+        self.assertIsNotNone(
+            self.state_of(MARCHED)["probation_start"],
+            "the probation carried over from the seeded snapshot",
+        )
+
+    def test_without_the_flag_the_same_window_cold_starts(self):
+        self.march(MARCHED, _script_for(range(10, 46)), snapshot_mode="all")
+
+        with self.registry(_script_for([])):
+            backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START + timedelta(days=60),
+                end_date=MARCH_END,
+                dry_run=False,
+                only_missing=False,
+            )
+
+        self.assertIsNone(
+            self.state_of(MARCHED)["probation_start"],
+            "a cold start carries no probation forward",
+        )
 
 
 if __name__ == "__main__":

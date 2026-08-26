@@ -21,9 +21,8 @@ evaluation forward one day at a time to `end_date`, and writes only the final da
 intermediate days are held in memory and discarded — marching forward is what builds up the
 path-dependent state (grace-period streaks, probation) that makes the final state right.
 
-STATUS: the invocation is complete and validated; **the day march itself is not implemented**.
-A dry run resolves and returns the full plan — which feeds, which window per feed, how many
-days — and a non-dry run raises rather than silently writing nothing. See `_march` below.
+A dry run resolves and returns the plan — which feeds, which window per feed, how many days —
+without marching or writing anything.
 
 Per-feed window
 ---------------
@@ -51,22 +50,39 @@ cost/coverage default, not a correctness guarantee.
 """
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+import time as clock
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, SealCriterion
 
-from tasks.seal_of_reliability.context import is_seal_eligible
+from tasks.seal_of_reliability.context import (
+    FeedSealContext,
+    batched,
+    collect_inputs,
+    is_seal_eligible,
+)
+from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_REPORTED_FEEDS,
+    SEAL_TABLE,
+    SNAPSHOT_STATE_COLUMNS,
+    SNAPSHOT_TABLE,
+    _load_previous_seals,
     _resolve_evaluators,
+    _roll_up_has_seal,
+    _upsert_criteria,
+    _upsert_criterion_snapshot,
     _validate_requested_feed_ids,
+    is_partial_run,
 )
+from tasks.seal_of_reliability.state_machine import SealCriterionState, transition
 
 logger = logging.getLogger(__name__)
 
@@ -156,43 +172,269 @@ def _feeds_with_seal_state(db_session: Session, feed_ids: Sequence[str]) -> Set[
     return {row.feed_id for row in rows}
 
 
+def day_start(day: date) -> datetime:
+    """The `now` a simulated day is evaluated at: midnight UTC.
+
+    A fixed time of day, so that `snapshot_date_of(now)` is the day itself and
+    `_next_day_start(now)` — which probation uses — lands on the following midnight with no
+    rounding to reason about. The nightly job's own `now` is whatever time it ran; the march
+    only has to be consistent with itself and day-aligned.
+    """
+    return datetime.combine(day, time.min, tzinfo=timezone.utc)
+
+
+def days_between(first: date, last: date) -> List[date]:
+    """Every day from `first` to `last`, ascending, both ends included."""
+    return [first + timedelta(days=offset) for offset in range((last - first).days + 1)]
+
+
+def _state_from_snapshot(row) -> SealCriterionState:
+    """Rebuild a `SealCriterionState` from one seal_criterion_snapshot row.
+
+    The state columns are taken from the table rather than listed, the mirror of
+    `seal_updater._snapshot_row` which writes them: a column added to the snapshot table is
+    read back without touching this function, and fails loudly here if `SealCriterionState`
+    has no field for it rather than being silently dropped.
+    """
+    values = {}
+    for column in SNAPSHOT_STATE_COLUMNS:
+        value = getattr(row, column)
+        if column in ("observed_status", "confirmed_status"):
+            value = CriterionStatus(value)
+        values[column] = value
+    return SealCriterionState(
+        feed_id=row.feed_id,
+        criterion=SealCriterionName(row.criterion),
+        **values,
+    )
+
+
+def _seed_states(
+    db_session: Session,
+    feeds: Sequence[Gtfsfeed],
+    windows: Dict[str, Tuple[date, date]],
+    resume_from_snapshot: bool,
+) -> Dict[Tuple[str, str], SealCriterionState]:
+    """The state each (feed, criterion) enters its first simulated day with.
+
+    Empty unless `resume_from_snapshot`, in which case each pair is seeded from its latest
+    snapshot strictly before that feed's march start — a complete state, which is what turns
+    a cold start into a resume (#1803).
+
+    Pairs with no snapshot are simply absent from the result, and `transition` builds them
+    from nothing on their first day, exactly as a cold start would. A resume that reaches
+    further back than the snapshots go therefore degrades to a cold start for those criteria
+    rather than failing.
+    """
+    if not resume_from_snapshot or not feeds:
+        return {}
+
+    # One query for the batch. Each feed has its own cut-off, so the conditions are OR-ed
+    # rather than sharing a single date; DISTINCT ON keeps the latest row per pair.
+    cutoffs = [
+        and_(
+            SNAPSHOT_TABLE.c.feed_id == feed.id,
+            SNAPSHOT_TABLE.c.snapshot_date < windows[feed.id][0],
+        )
+        for feed in feeds
+        if feed.id in windows
+    ]
+    if not cutoffs:
+        return {}
+
+    rows = db_session.execute(
+        select(SNAPSHOT_TABLE)
+        .where(or_(*cutoffs))
+        .distinct(SNAPSHOT_TABLE.c.feed_id, SNAPSHOT_TABLE.c.criterion)
+        .order_by(
+            SNAPSHOT_TABLE.c.feed_id,
+            SNAPSHOT_TABLE.c.criterion,
+            SNAPSHOT_TABLE.c.snapshot_date.desc(),
+        )
+    ).all()
+    return {(row.feed_id, row.criterion): _state_from_snapshot(row) for row in rows}
+
+
+def _upsert_seals_from_backfill(
+    db_session: Session,
+    outcomes: Sequence[dict],
+    now: datetime,
+) -> None:
+    """Write feed_reliability_seal for the marched feeds.
+
+    Two things differ from the nightly job's `_upsert_seals`, and both are about
+    `created_at`:
+
+    * It is written explicitly, as the feed's march start rather than the write time. That
+      column is what the Stable criterion counts its 180 days from, so left at its
+      `DEFAULT now()` every backfilled feed would fail Stable on every simulated day and the
+      backfill would grant no seals at all.
+    * It is **insert-only**, absent from the conflict clause. A re-backfill of a feed the
+      nightly job already owns must not reset a countdown that has been running for real.
+
+    `seal_earned_at` is stamped with `now` — the run's end_date — for a feed the backfill
+    grants. The march does know the day the roll-up flipped, but under a cold start that day
+    is often the very first simulated one, which would claim a feed earned its seal a year
+    ago on the strength of a single simulated day. `end_date` says only that the seal record
+    begins here, which is exactly what a backfill establishes.
+    """
+    for outcome in outcomes:
+        row = {
+            "feed_id": outcome["feed_id"],
+            "has_seal": outcome["has_seal"],
+            "created_at": day_start(outcome["tracking_start"]),
+            "updated_at": now,
+        }
+        if outcome["granted"]:
+            row["seal_earned_at"] = now
+        elif outcome["revoked"]:
+            row["seal_lost_at"] = now
+
+        statement = insert(SEAL_TABLE).values(**row)
+        update_set = {
+            "has_seal": statement.excluded.has_seal,
+            "updated_at": statement.excluded.updated_at,
+        }
+        # created_at is deliberately not in update_set — see the docstring.
+        if "seal_earned_at" in row:
+            update_set["seal_earned_at"] = statement.excluded.seal_earned_at
+        if "seal_lost_at" in row:
+            update_set["seal_lost_at"] = statement.excluded.seal_lost_at
+        db_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[SEAL_TABLE.c.feed_id], set_=update_set
+            )
+        )
+
+
 def _march(
     db_session: Session,
     feeds: Sequence[Gtfsfeed],
     windows: Dict[str, Tuple[date, date]],
     evaluators: Sequence,
+    end_date: date,
     snapshot_mode: str,
     resume_from_snapshot: bool,
-) -> List[dict]:
-    """Replay the nightly evaluation day by day and write the final state. NOT IMPLEMENTED.
+    partial_run: bool,
+) -> dict:
+    """Replay the nightly evaluation day by day for one batch, and write the final day.
 
-    What this has to do, once built:
+    The evaluation itself is the nightly job's, unmodified: `transition` is called once per
+    feed, criterion and day with `now` set to that day. What this adds is that the returned
+    state is threaded into the next day in memory instead of being written, so a year's march
+    costs one write per feed rather than three hundred and sixty-five.
 
-    1. Ask each criterion to bulk-load its inputs for the whole day range at once — one load
-       per criterion per batch, never one per day. A year marched with per-day queries turns
-       a handful of queries into several thousand.
-    2. Seed each (feed, criterion) with an empty `SealCriterionState`, or with the state read
-       from `seal_criterion_snapshot` at `march_start - 1` when `resume_from_snapshot` is set
-       (#1803).
-    3. For each day in order, evaluate every criterion and apply `state_machine.transition`,
-       threading the returned state into the next day in memory. Nothing is written per day.
-    4. Roll up `has_seal` on the final day and upsert `seal_criterion` and
-       `feed_reliability_seal`, plus `seal_criterion_snapshot` per `snapshot_mode`.
-    5. Write `feed_reliability_seal.created_at = march_start` on insert only, so Stable counts
-       from the right day and a re-backfill cannot reset a countdown already running.
-
-    Two behaviours are still undecided and must be settled before this is built:
-
-    * `seal_earned_at` — as `_upsert_seals` stands it would be stamped with the write time,
-      so every backfilled feed would look like it earned its seal on backfill day. The march
-      knows the day the roll-up actually flipped and could stamp that instead.
-    * Whether the evaluators can answer for a past day at all. They currently read the
-      current feed row only; each criterion needs to own its own historical lookup first.
+    Ascending day order is not a convenience, it is the algorithm — each day's state is the
+    input to the next.
     """
-    raise NotImplementedError(
-        "The Seal of Reliability day march is not implemented yet (#1763). Run with "
-        "dry_run=true to resolve and inspect the plan."
-    )
+    if not feeds:
+        return {"feeds": 0, "criterion_rows": 0, "snapshot_rows": 0, "outcomes": []}
+
+    marched_days = days_between(min(start for start, _ in windows.values()), end_date)
+
+    # One load per criterion for the whole batch and the whole range. A criterion querying
+    # per day would turn this into several thousand queries; see `CriterionEvaluator.load_inputs`.
+    inputs = collect_inputs(db_session, feeds, marched_days, evaluators)
+
+    states = _seed_states(db_session, feeds, windows, resume_from_snapshot)
+    snapshot_rows = 0
+
+    for today in marched_days:
+        now = day_start(today)
+        # A feed whose march starts later is simply not evaluated yet: its window was
+        # clamped to its own created_at, and days before that have nothing to say about it.
+        active = [feed for feed in feeds if windows[feed.id][0] <= today]
+        if not active:
+            continue
+
+        days_states: List[SealCriterionState] = []
+        for feed in active:
+            ctx = FeedSealContext(
+                feed_id=feed.id,
+                now=now,
+                stable_id=feed.stable_id,
+                official=feed.official,
+                inputs=inputs,
+            )
+            for evaluator in evaluators:
+                key = (feed.id, evaluator.name.value)
+                states[key] = transition(
+                    prev=states.get(key),
+                    observation=evaluator.evaluate(ctx),
+                    grace_period=evaluator.grace_period,
+                    probation_period=evaluator.probation_period,
+                    now=now,
+                    feed_id=feed.id,
+                )
+                days_states.append(states[key])
+
+        if snapshot_mode == "all":
+            # The expensive mode, and the only one that writes inside the loop. Flushed per
+            # day rather than accumulated so a year's march does not hold every day's state
+            # in memory at once.
+            _upsert_criterion_snapshot(db_session, days_states, today)
+            snapshot_rows += len(days_states)
+            db_session.commit()
+
+    final_states = list(states.values())
+    outcomes = _final_outcomes(db_session, feeds, windows, states, partial_run)
+
+    _upsert_criteria(db_session, final_states, day_start(end_date))
+    if snapshot_mode == "final":
+        _upsert_criterion_snapshot(db_session, final_states, end_date)
+        snapshot_rows += len(final_states)
+    if outcomes:
+        _upsert_seals_from_backfill(db_session, outcomes, day_start(end_date))
+    db_session.commit()
+
+    return {
+        "feeds": len(feeds),
+        "criterion_rows": len(final_states),
+        "snapshot_rows": snapshot_rows,
+        "outcomes": outcomes,
+    }
+
+
+def _final_outcomes(
+    db_session: Session,
+    feeds: Sequence[Gtfsfeed],
+    windows: Dict[str, Tuple[date, date]],
+    states: Dict[Tuple[str, str], SealCriterionState],
+    partial_run: bool,
+) -> List[dict]:
+    """Roll `has_seal` up from the final day's state, one entry per marched feed.
+
+    Skipped entirely on a partial criteria run, mirroring `update_seals`: criteria that were
+    not evaluated cannot be judged, so the roll-up would be answering a question it has only
+    part of the evidence for.
+    """
+    if partial_run:
+        return []
+
+    previous = _load_previous_seals(db_session, [feed.id for feed in feeds])
+    outcomes = []
+    for feed in feeds:
+        feed_states = {
+            criterion: state
+            for (owner_id, criterion), state in states.items()
+            if owner_id == feed.id
+        }
+        had_seal = bool(previous.get(feed.id))
+        has_seal = _roll_up_has_seal(feed_states)
+        outcomes.append(
+            {
+                "feed_id": feed.id,
+                "stable_id": feed.stable_id,
+                "tracking_start": windows[feed.id][0],
+                "had_seal": had_seal,
+                "has_seal": has_seal,
+                # A first evaluation is a grant if it passes, but not a loss if it fails:
+                # nothing was held, so nothing was lost.
+                "granted": has_seal and not had_seal,
+                "revoked": had_seal and not has_seal,
+            }
+        )
+    return outcomes
 
 
 @with_db_session
@@ -211,7 +453,7 @@ def backfill_seals(
     resume_from_snapshot: bool = False,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
 ) -> dict:
-    """Plan and (once `_march` exists) run the backfill for the requested feeds.
+    """Plan and run the backfill for the requested feeds.
 
     Like `update_seals`, this always runs against an explicit list of feeds — enumerating the
     catalogue is a producer's job, not this function's.
@@ -238,9 +480,10 @@ def backfill_seals(
         max_reported_feeds: Cap on the `feeds` list in the report.
 
     Returns:
-        A plan report. `days` is the longest march in the run; feeds clamped to their own
+        A report. `days` is the longest march in the run; feeds clamped to their own
         `created_at` march fewer.
     """
+    started = clock.monotonic()
     if not stable_feed_ids:
         raise ValueError("stable_feed_ids is required and must be non-empty")
     if snapshot_mode not in SNAPSHOT_MODES:
@@ -297,43 +540,73 @@ def backfill_seals(
         for feed in selected
     ]
 
+    partial_run = is_partial_run(evaluators)
+
     report = {
         "message": (
-            f"Planned a backfill of {len(selected)} feed(s) across "
-            f"{len(evaluators)} criterion/criteria, ending {window_end.isoformat()}."
+            f"{'Planned' if dry_run else 'Ran'} a backfill of {len(selected)} feed(s) "
+            f"across {len(evaluators)} criterion/criteria, ending "
+            f"{window_end.isoformat()}."
         ),
         "dry_run": dry_run,
-        "implemented": False,
         "start_date": window_start.isoformat(),
         "end_date": window_end.isoformat(),
         "days": longest_march,
         "total_feeds": len(selected),
         "skipped_already_backfilled": len(already_backfilled),
         "criteria": [evaluator.name.value for evaluator in evaluators],
+        "partial_run": partial_run,
         "only_missing": only_missing,
         "snapshot_mode": snapshot_mode,
         "resume_from_snapshot": resume_from_snapshot,
         "batch_size": batch_size,
+        "criterion_rows_written": 0,
+        "snapshot_rows_written": 0,
+        "seals_granted": 0,
+        "seals_after_run": 0,
+        "granted_stable_ids": [],
     }
+
+    if not dry_run:
+        outcomes: List[dict] = []
+        for batch in batched(selected, batch_size):
+            result = _march(
+                db_session,
+                batch,
+                windows,
+                evaluators,
+                window_end,
+                snapshot_mode,
+                resume_from_snapshot,
+                partial_run,
+            )
+            report["criterion_rows_written"] += result["criterion_rows"]
+            report["snapshot_rows_written"] += result["snapshot_rows"]
+            outcomes.extend(result["outcomes"])
+
+        granted = [outcome for outcome in outcomes if outcome["granted"]]
+        report["seals_granted"] = len(granted)
+        report["seals_after_run"] = sum(
+            1 for outcome in outcomes if outcome["has_seal"]
+        )
+        report["granted_stable_ids"] = [outcome["stable_id"] for outcome in granted]
+
+    if partial_run:
+        report["note"] = (
+            "Partial criteria run: has_seal was not recalculated because the criteria "
+            "that were not evaluated cannot be judged."
+        )
+
+    report["elapsed_seconds"] = round(clock.monotonic() - started, 2)
     report["feeds"] = feed_plans[:max_reported_feeds]
     report["feeds_omitted"] = max(0, len(feed_plans) - max_reported_feeds)
 
+    # Logged without `feeds`: Cloud Logging drops a LogEntry over 256 KB, so a run naming a
+    # few hundred feeds would lose the whole entry.
     logger.info(
-        "Backfill plan: %s",
+        "Backfill %s: %s",
+        "plan" if dry_run else "complete",
         {key: value for key, value in report.items() if key != "feeds"},
     )
-
-    if not dry_run:
-        # Raise rather than return a report that looks like a completed run. Until `_march`
-        # exists there is nothing to write, and reporting success for that would be worse
-        # than failing.
-        _march(
-            db_session,
-            selected,
-            windows,
-            evaluators,
-            snapshot_mode,
-            resume_from_snapshot,
-        )
 
     return report

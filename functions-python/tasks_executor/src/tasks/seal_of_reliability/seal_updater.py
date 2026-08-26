@@ -97,6 +97,16 @@ def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
     return [evaluator for evaluator in EVALUATORS if evaluator.name.value in wanted]
 
 
+def is_partial_run(evaluators: Sequence) -> bool:
+    """Whether `evaluators` is only part of the registry, so has_seal cannot be rolled up.
+
+    Kept here, next to the registry it compares against, so that both the nightly job and
+    the backfill answer the question the same way — and so a test patching `EVALUATORS` in
+    this module alone moves both.
+    """
+    return len(evaluators) < len(EVALUATORS)
+
+
 def _validate_requested_feed_ids(
     requested: Sequence[str],
     found: Set[str],
@@ -369,7 +379,7 @@ def update_seals(
     started = time.monotonic()
     now = now or datetime.now(timezone.utc)
     evaluators = _resolve_evaluators(criteria)
-    partial_run = len(evaluators) < len(EVALUATORS)
+    partial_run = is_partial_run(evaluators)
 
     # Plain by-id load: no eligibility predicate here, since these ids were already
     # explicitly requested. Eligibility is checked in Python below, on the loaded rows.

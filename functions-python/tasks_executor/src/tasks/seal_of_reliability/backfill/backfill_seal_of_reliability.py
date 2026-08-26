@@ -74,8 +74,7 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
     """
     Handler for the Seal of Reliability backfill.
 
-    The day march is not implemented yet: a dry run returns the resolved plan, and a non-dry
-    run raises rather than reporting a success that wrote nothing.
+    A dry run returns the resolved plan without marching or writing.
 
     Payload parameters:
         stable_feed_ids (list[str]): Required and non-empty. The feeds to backfill; there is
