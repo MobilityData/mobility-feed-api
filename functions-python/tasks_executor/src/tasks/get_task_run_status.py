@@ -26,6 +26,9 @@ inspect a run at any point — before, during, or after it completes.
 For active status syncing (polling GCP Workflows and driving run completion)
 use sync_task_run_status instead.
 
+Raises if no task_run exists for the given (task_name, run_id) — a typo'd or
+never-registered pair must not look identical to a real, trivially-settled run.
+
 Payload:
     {
         "task_name": str,   # required — e.g. "gtfs_validation"
@@ -72,7 +75,7 @@ def get_task_run_status(
     Response fields:
         task_name       — the task name
         run_id          — the run identifier
-        run_status      — task_run.status (in_progress / completed / failed / None if not found)
+        run_status      — task_run.status (in_progress / completed / failed)
         total_count     — number of entities registered at dispatch time
         triggered       — count with status=triggered (workflows still running)
         completed       — count with status=completed
@@ -81,6 +84,15 @@ def get_task_run_status(
         dispatch_complete — True when pending == 0 (all entities have been dispatched)
         created_at      — when the task_run was first created
         params          — params dict stored at start_run() time
+        metadata_summary — generic aggregate over every entity's mark_completed(metadata=...):
+            numeric fields summed, list fields concatenated (capped), across every entity.
+            No task-specific code needed here — this is what lets a single status check
+            answer "how many X were processed" for any task, not just "how far along".
+
+    Raises:
+        ValueError: no task_run exists for (task_name, run_id). Without this, a typo'd or
+            never-registered pair would return the same "0 triggered, 0 failed, 0 pending"
+            shape as a real run that settled instantly, which reports as fully dispatched.
     """
     tracker = TaskExecutionTracker(
         task_name=task_name,
@@ -88,5 +100,9 @@ def get_task_run_status(
         db_session=db_session,
     )
     summary = tracker.get_summary()
+    if summary["run_status"] is None:
+        raise ValueError(
+            f"No task_run found for task_name={task_name!r}, run_id={run_id!r}"
+        )
     summary["dispatch_complete"] = summary["pending"] == 0
     return summary

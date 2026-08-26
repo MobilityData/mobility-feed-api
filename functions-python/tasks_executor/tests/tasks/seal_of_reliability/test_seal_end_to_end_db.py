@@ -20,19 +20,24 @@ function the way Cloud Scheduler does: a JSON payload posted to `tasks_executor`
 by name through the registry in main.py. That covers the layers the direct tests skip —
 payload parsing, defaults, and the task being reachable by its registered name.
 
-The task resolves its own session from FEEDS_DATABASE_URL rather than taking a `db_url`, so
-the environment is pointed at the test database for the duration of each test and the
-Database singleton is reset around it.
+The task resolves its own session from FEEDS_DATABASE_URL rather than taking a `db_url`. That
+works unpatched: `Database` is a process-wide singleton, and conftest.py's
+`pytest_sessionstart` already locks it onto the test database (via `clean_testing_db`'s
+`db_url=default_db_url`) before any test runs, for the whole session. Resetting the
+singleton per test and repatching the env around each call — an earlier version of this file
+did that — is not only unnecessary but actively dangerous: `Database.__init__` silently
+no-ops once `initialized` is set, so a reset that isn't immediately followed by a correct
+re-init leaves whichever *unrelated* test happens to touch the database next to lock the
+whole rest of the process onto the real `FEEDS_DATABASE_URL` instead.
 
 Each run is given this module's own feed list (REQUESTED), so it evaluates only the seeded
 feeds. Assertions are still scoped to this module's PREFIX, and report counts are checked as
 invariants and deltas rather than absolutes.
 """
 
-import os
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import flask
 from main import tasks_executor
@@ -48,7 +53,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     SealCriterion,
 )
-from test_shared.test_utils.database_utils import default_db_url, reset_database_class
+from test_shared.test_utils.database_utils import default_db_url
 
 NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
 PREFIX = "seal_e2e_"
@@ -102,13 +107,12 @@ class TestSealTaskEndToEnd(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def tearDown(self, db_session):
         _cleanup(db_session)
-        reset_database_class()
 
     def run_task(self, payload: dict) -> dict:
         """Invoke tasks_executor with a hand-built request, as Cloud Scheduler would.
 
-        FEEDS_DATABASE_URL is pointed at the test database because the handler resolves its
-        own session; without this the task would run against the local development DB.
+        No env patching or singleton reset needed: the Database singleton is already locked
+        onto the test database for the whole session (see the module docstring).
         """
         # The task requires a feed list; default to the seeded feeds unless a test set one,
         # so each test's payload can stay focused on the dimension it exercises.
@@ -120,11 +124,8 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         }
         request.headers = {}
 
-        reset_database_class()
-        with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):
-            with self.app.app_context():
-                response = tasks_executor(request)
-        reset_database_class()
+        with self.app.app_context():
+            response = tasks_executor(request)
 
         self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
         return response.get_json()
