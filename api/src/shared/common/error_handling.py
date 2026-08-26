@@ -4,6 +4,9 @@ invalid_date_message: Final[str] = (
     "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
 )
 availability_from_after_to: Final[str] = "'from' timestamp must be before 'to' timestamp"
+continuous_coverage_downloaded_after_before: Final[str] = (
+    "'downloaded_after' timestamp must be before 'downloaded_before' timestamp"
+)
 invalid_bounding_coordinates: Final[str] = "Invalid bounding coordinates {} {}"
 invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
 feed_not_found: Final[str] = "Feed '{}' not found"

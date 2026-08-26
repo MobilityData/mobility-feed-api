@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Union, TypeVar, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, desc, nullslast
 from sqlalchemy.orm import contains_eager, selectinload, Session
 from sqlalchemy.orm.query import Query
 
@@ -11,6 +11,7 @@ from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
+from shared.db_models.gtfs_feed_continuous_coverage_impl import GtfsFeedContinuousCoverageImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -20,6 +21,7 @@ from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
+from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedContinuousCoverageResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
 from shared.common.db_utils import (
@@ -31,6 +33,7 @@ from shared.common.db_utils import (
 )
 from shared.common.error_handling import (
     availability_from_after_to,
+    continuous_coverage_downloaded_after_before,
     invalid_date_message,
     feed_not_found,
     gtfs_feed_not_found,
@@ -376,6 +379,100 @@ class FeedsApiImpl(BaseFeedsApi):
             offset=offset,
             limit=limit,
             checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def get_gtfs_feed_continuous_coverage(
+        self,
+        id: str,
+        downloaded_after: str,
+        downloaded_before: str,
+        limit: int,
+        offset: int,
+        db_session: Session,
+    ) -> GtfsFeedContinuousCoverageResponse:
+        """Returns the continuous coverage history for a GTFS feed."""
+        if downloaded_after and not valid_iso_date(downloaded_after):
+            raise_http_validation_error(invalid_date_message.format("downloaded_after"))
+        if downloaded_before and not valid_iso_date(downloaded_before):
+            raise_http_validation_error(invalid_date_message.format("downloaded_before"))
+
+        # Replace Z with +00:00 to make the datetime object timezone aware
+        # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
+        after_dt = datetime.fromisoformat(downloaded_after.replace("Z", "+00:00")) if downloaded_after else None
+        before_dt = datetime.fromisoformat(downloaded_before.replace("Z", "+00:00")) if downloaded_before else None
+
+        if after_dt and before_dt and after_dt > before_dt:
+            raise_http_validation_error(continuous_coverage_downloaded_after_before)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        # Kept separate from the filtered query: the dataset immediately older than the page is
+        # looked up here, and it may well be one the date filters excluded.
+        feed_datasets = db_session.query(Gtfsdataset).filter(Gtfsdataset.feed_id == feed.id)
+
+        query = feed_datasets
+        if after_dt:
+            query = query.filter(Gtfsdataset.downloaded_at >= after_dt)
+        if before_dt:
+            query = query.filter(Gtfsdataset.downloaded_at <= before_dt)
+
+        total = query.count()
+        page = (
+            query.order_by(*self._continuous_coverage_order())
+            .offset(offset)
+            .limit(limit)
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .all()
+        )
+
+        # Each item's overlap is measured against the dataset downloaded just before it. Within the
+        # page that is simply the next item, but the oldest item's neighbour lies outside the page,
+        # so it is fetched from the feed's unfiltered datasets - otherwise every page would report a
+        # missing overlap at its bottom edge and look like a gap.
+        predecessors = page[1:] + [self._previous_dataset(feed_datasets, page[-1]) if page else None]
+
+        return GtfsFeedContinuousCoverageResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            items=[
+                GtfsFeedContinuousCoverageImpl.from_orm(
+                    dataset,
+                    previous_dataset=previous,
+                    is_latest=dataset.id == feed.latest_dataset_id,
+                )
+                for dataset, previous in zip(page, predecessors)
+            ],
+        )
+
+    @staticmethod
+    def _continuous_coverage_order() -> tuple:
+        """Newest dataset first, with a deterministic tiebreak.
+
+        `downloaded_at` is nullable, and a dataset with no download timestamp cannot be placed in a
+        chronological chain at all, so those sort last rather than ahead of everything. `stable_id`
+        breaks ties so that paging over datasets sharing a timestamp cannot repeat or skip a row.
+        """
+        return nullslast(desc(Gtfsdataset.downloaded_at)), desc(Gtfsdataset.stable_id)
+
+    @staticmethod
+    def _previous_dataset(feed_datasets: Query, dataset: Gtfsdataset) -> Optional[Gtfsdataset]:
+        """The feed's dataset downloaded immediately before `dataset`, ignoring any date filter.
+
+        Returns None for a dataset with no download timestamp: there is no "before" to look for, and
+        ordering it against timestamped datasets would invent a neighbour.
+        """
+        if dataset.downloaded_at is None:
+            return None
+        return (
+            feed_datasets.filter(Gtfsdataset.downloaded_at < dataset.downloaded_at)
+            .order_by(*FeedsApiImpl._continuous_coverage_order())
+            .options(selectinload(Gtfsdataset.feed_info))
+            .first()
         )
 
     @with_db_session
