@@ -563,8 +563,10 @@ def backfill_seals(
         "criterion_rows_written": 0,
         "snapshot_rows_written": 0,
         "seals_granted": 0,
+        "seals_revoked": 0,
         "seals_after_run": 0,
         "granted_stable_ids": [],
+        "revoked_stable_ids": [],
     }
 
     if not dry_run:
@@ -585,11 +587,17 @@ def backfill_seals(
             outcomes.extend(result["outcomes"])
 
         granted = [outcome for outcome in outcomes if outcome["granted"]]
+        # A backfill can only revoke when only_missing is False, since a feed with no
+        # stored seal held nothing to lose. Reported anyway so the run-level aggregate in
+        # `seal_orchestrator_monitor` reads the same keys from both fan-outs.
+        revoked = [outcome for outcome in outcomes if outcome["revoked"]]
         report["seals_granted"] = len(granted)
+        report["seals_revoked"] = len(revoked)
         report["seals_after_run"] = sum(
             1 for outcome in outcomes if outcome["has_seal"]
         )
         report["granted_stable_ids"] = [outcome["stable_id"] for outcome in granted]
+        report["revoked_stable_ids"] = [outcome["stable_id"] for outcome in revoked]
 
     if partial_run:
         report["note"] = (

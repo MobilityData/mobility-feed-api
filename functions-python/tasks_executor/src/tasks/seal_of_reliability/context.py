@@ -35,9 +35,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, SealCriterion
 
 from tasks.seal_of_reliability.criteria import SealCriterionName
 
@@ -97,13 +98,20 @@ def is_seal_eligible(feed) -> bool:
 
 
 def _eligible_stable_ids_query(
-    db_session: Session, stable_feed_ids: Optional[Sequence[str]] = None
+    db_session: Session,
+    stable_feed_ids: Optional[Sequence[str]] = None,
+    exclude_backfilled: bool = False,
 ):
     """Base query: `stable_id` of every seal-eligible GTFS feed.
 
     `stable_feed_ids`, if given, narrows the candidate set without changing the
     predicate. Left as `None`, every eligible feed in the catalog is returned; this is
     what the seal orchestrator (issue #1800) uses to enumerate the full batch to fan out.
+
+    `exclude_backfilled` drops feeds that already have seal state, which is the backfill
+    producer's candidate set (#1763): a feed the nightly job already owns has real history
+    to carry forward and must not have a simulation written over it. It lives here rather
+    than in the producer so both the count and the stream apply one predicate.
     """
     query = db_session.query(Gtfsfeed.stable_id).filter(
         Feed.status.notin_(INELIGIBLE_STATUSES),
@@ -111,6 +119,11 @@ def _eligible_stable_ids_query(
     )
     if stable_feed_ids is not None:
         query = query.filter(Feed.stable_id.in_(list(stable_feed_ids)))
+    if exclude_backfilled:
+        has_state = select(SealCriterion.__table__.c.feed_id).where(
+            SealCriterion.__table__.c.feed_id == Feed.id
+        )
+        query = query.filter(~has_state.exists())
     return query
 
 
@@ -118,9 +131,14 @@ def count_eligible_feeds(
     db_session: Session,
     stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
+    exclude_backfilled: bool = False,
 ) -> int:
     """Cheap `COUNT(*)` of eligible feeds — no rows loaded."""
-    query = _eligible_stable_ids_query(db_session, stable_feed_ids=stable_feed_ids)
+    query = _eligible_stable_ids_query(
+        db_session,
+        stable_feed_ids=stable_feed_ids,
+        exclude_backfilled=exclude_backfilled,
+    )
     if limit is not None:
         query = query.limit(limit)
     return query.count()
@@ -131,6 +149,7 @@ def iter_eligible_stable_ids(
     batch_size: int,
     stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
+    exclude_backfilled: bool = False,
 ) -> Iterator[List[str]]:
     """Stream eligible feeds' `stable_id`s in chunks of at most `batch_size`.
 
@@ -141,7 +160,11 @@ def iter_eligible_stable_ids(
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
     query = (
-        _eligible_stable_ids_query(db_session, stable_feed_ids=stable_feed_ids)
+        _eligible_stable_ids_query(
+            db_session,
+            stable_feed_ids=stable_feed_ids,
+            exclude_backfilled=exclude_backfilled,
+        )
         .order_by(Gtfsfeed.stable_id)
         .execution_options(stream_results=True)
     )

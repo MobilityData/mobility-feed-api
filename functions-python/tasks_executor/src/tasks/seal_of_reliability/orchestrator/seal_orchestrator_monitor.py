@@ -31,9 +31,15 @@ useful even with some workers unaccounted for), an incomplete seal run should su
 a clear failure: the whole point of tracking start/end is to know when a nightly run did
 NOT fully update the seal for every feed.
 
+The same monitor settles the backfill fan-out (#1763). Everything it does — poll, honour
+the deadline, aggregate each batch's stored report — is identical for both; only the
+TaskExecutionTracker `task_name` differs, so it is a payload parameter rather than a second
+copy of this file.
+
 Payload::
 
-    { "run_id": str }   # required
+    { "run_id": str,          # required
+      "task_name": str }      # optional, defaults to the nightly run's task name
 """
 
 import logging
@@ -64,16 +70,19 @@ _SETTLED_STATUSES = (STATUS_COMPLETED, STATUS_FAILED)
 
 def seal_orchestrator_monitor_handler(payload: dict) -> dict:
     """Entry point for the `seal_orchestrator_monitor` task."""
-    run_id = (payload or {}).get("run_id")
+    payload = payload or {}
+    run_id = payload.get("run_id")
     if not run_id:
         raise ValueError("run_id is required")
-    return _monitor(run_id)
+    return _monitor(run_id, payload.get("task_name") or SEAL_ORCHESTRATOR_TASK_NAME)
 
 
 @with_db_session
-def _monitor(run_id: str, db_session=None) -> dict:
+def _monitor(
+    run_id: str, task_name: str = SEAL_ORCHESTRATOR_TASK_NAME, db_session=None
+) -> dict:
     tracker = TaskExecutionTracker(
-        task_name=SEAL_ORCHESTRATOR_TASK_NAME,
+        task_name=task_name,
         run_id=run_id,
         db_session=db_session,
     )
@@ -89,7 +98,7 @@ def _monitor(run_id: str, db_session=None) -> dict:
     # report the same aggregate (read-only, no mutation) rather than a bare status string:
     # this is the only way to see a settled run's feed-processing totals after the fact.
     if summary["run_status"] in _SETTLED_STATUSES:
-        aggregated = _aggregate_batches(db_session, run_id)
+        aggregated = _aggregate_batches(db_session, run_id, task_name)
         return {
             "run_id": run_id,
             "status": (
@@ -121,7 +130,7 @@ def _monitor(run_id: str, db_session=None) -> dict:
             f"run {run_id} still in progress: {summary['triggered']} batch(es) pending"
         )
 
-    aggregated = _aggregate_batches(db_session, run_id)
+    aggregated = _aggregate_batches(db_session, run_id, task_name)
     incomplete = summary["triggered"]  # > 0 only if the deadline was reached first
     final_status = (
         STATUS_FAILED if summary["failed"] > 0 or incomplete > 0 else STATUS_COMPLETED
@@ -152,12 +161,12 @@ def _monitor(run_id: str, db_session=None) -> dict:
     return result
 
 
-def _aggregate_batches(db_session, run_id: str) -> Dict[str, Any]:
+def _aggregate_batches(db_session, run_id: str, task_name: str) -> Dict[str, Any]:
     """Sum each completed batch's stored `update_seals` report into one run-level report."""
     rows = (
         db_session.query(TaskExecutionLog.metadata_)
         .filter(
-            TaskExecutionLog.task_name == SEAL_ORCHESTRATOR_TASK_NAME,
+            TaskExecutionLog.task_name == task_name,
             TaskExecutionLog.run_id == run_id,
             TaskExecutionLog.metadata_.isnot(None),
         )
