@@ -31,20 +31,7 @@ class FreshCoverageEvaluator(CriterionEvaluator):
 
     This is the only implemented criterion that can return NOT_APPLICABLE. A seasonal feed
     is expected to have coverage that runs out between seasons, so the question "does this
-    feed cover the next week" has no meaningful answer for it — and withdrawing the
-    criterion is not the same as failing it: the feed keeps its seal on the strength of the
-    criteria that do apply, and its accumulated state here is frozen in case it stops being
-    seasonal later.
-
-    The two UNKNOWN cases are both missing inputs rather than verdicts. A feed we have never
-    fetched a dataset for, or one whose service date range was never extracted from its
-    validation report, tells us nothing about its freshness; reading either as a failure
-    would deny the seal on evidence we do not have, and would put the criterion on probation
-    for it.
-
-    Its grace period — long enough for a producer to notice and publish a fresh dataset —
-    comes from the policy map. Coverage lapses are the routine kind of failure a grace period
-    exists to absorb: a publishing pipeline that skips a day should not cost a feed its seal.
+    feed cover the next week" has no meaningful answer for it.
     """
 
     name = SealCriterionName.FRESH_COVERAGE

@@ -9,13 +9,6 @@ This module is under `shared/` so the nightly evaluation job
 share one definition. The job owns the writing of `seal_criterion`; the API only reads it
 back and derives the two countdowns from these windows.
 
-Every policy value the seal depends on belongs here and nowhere else: the criterion names,
-the two status/phase vocabularies, each criterion's grace and probation windows, and the
-windows that are part of a criterion's own check (Stable's tracking period, Fresh's coverage
-horizon). Nothing downstream may restate one - a job evaluator asks
-`grace_period_for(name)` rather than declaring its own, so changing a window here changes it
-for the job, the API and the materialized view roll-up at once.
-
 See #1761 for the algorithm and #1760 for the tables.
 """
 
@@ -118,16 +111,11 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 )
 
 
-# Windows that are part of a criterion's own check rather than of the debouncing machinery,
-# so they are applied by the evaluator instead of by the state machine.
-
 # Stable: how long we must have been tracking a feed - measured from its
 # `feed_reliability_seal.created_at` - before it can be called stable.
 TRACKING_PERIOD: Final[timedelta] = timedelta(days=180)
 
-# Fresh / future coverage: how far ahead the latest dataset's service coverage must reach. A
-# feed whose coverage ends inside this window is about to go stale, so the criterion fails
-# before riders are affected rather than on the day the data runs out.
+# Fresh / future coverage: how far ahead the latest dataset's service coverage must reach
 FUTURE_COVERAGE_HORIZON: Final[timedelta] = timedelta(days=7)
 
 
