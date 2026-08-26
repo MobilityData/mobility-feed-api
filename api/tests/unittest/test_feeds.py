@@ -1,16 +1,22 @@
 import contextlib
 import copy
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import Mock, MagicMock
 import json
 
 from fastapi.testclient import TestClient
 
+from feeds.impl.feeds_api_impl import FeedsApiImpl
+from feeds_gen.models.gtfs_feed_continuous_coverage import GtfsFeedContinuousCoverage
+from feeds_gen.models.gtfs_feed_continuous_coverage_file import GtfsFeedContinuousCoverageFile
+from feeds_gen.models.service_date_window import ServiceDateWindow
+from shared.common.continuous_coverage import COVERAGE_FILES
 from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck as DbAvailabilityCheck
 from shared.common.error_handling import InternalHTTPException, unknown_seal_criterion
 from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
+from shared.db_models.gtfs_feed_continuous_coverage_impl import GtfsFeedContinuousCoverageImpl
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -576,3 +582,111 @@ def test_gtfs_feed_get_without_seal_reports_null(client: TestClient):
 
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     assert response.json()["reliability_seal"] is None
+
+
+# ---- Unit tests for the continuous coverage endpoint's `latest_*` root fields ----
+
+
+def test_latest_continuous_coverage_no_latest_dataset():
+    """A feed with no `latest_dataset_id` has no latest dataset to summarize."""
+    feed = Gtfsfeed(latest_dataset_id=None)
+    assert FeedsApiImpl._latest_continuous_coverage(feed, MagicMock()) is None
+
+
+def test_latest_continuous_coverage_dataset_not_found():
+    """`latest_dataset_id` pointing at a row the query can't find is treated as no latest dataset."""
+    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value.options.return_value.first.return_value = None
+
+    assert FeedsApiImpl._latest_continuous_coverage(feed, feed_datasets) is None
+
+
+def test_latest_continuous_coverage_delegates_to_the_model_impl(mocker):
+    """The snapshot is computed the same way as an `items[]` entry - `is_latest=True`, and measured
+    against its own predecessor rather than whichever dataset happens to lead the requested page."""
+    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
+    latest_dataset = Gtfsdataset(id="dataset-latest", stable_id="dataset-latest")
+    previous_dataset = Gtfsdataset(id="dataset-previous", stable_id="dataset-previous")
+
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value.options.return_value.first.return_value = latest_dataset
+    mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=previous_dataset)
+    from_orm = mocker.patch.object(GtfsFeedContinuousCoverageImpl, "from_orm")
+
+    result = FeedsApiImpl._latest_continuous_coverage(feed, feed_datasets)
+
+    feed_datasets.filter.assert_called_once()
+    from_orm.assert_called_once_with(latest_dataset, previous_dataset=previous_dataset, is_latest=True)
+    assert result is from_orm.return_value
+
+
+def test_get_gtfs_feed_continuous_coverage_maps_latest_fields(mocker):
+    """The response's root `latest_*` fields are the `_latest_continuous_coverage` snapshot, not the
+    first item of whatever page was requested."""
+    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    latest_coverage = GtfsFeedContinuousCoverage(
+        dataset_id="dataset-latest",
+        is_latest=True,
+        coverage_window=ServiceDateWindow(start=date(2026, 9, 16), end=date(2027, 7, 28), days=316),
+        coverage_window_source="service_dates",
+        within_max_coverage_window=True,
+        service_window=ServiceDateWindow(start=date(2026, 9, 16), end=date(2027, 7, 28), days=316),
+        feed_info_window=None,
+        feed_info_matches=None,
+        overlap_days=15,
+        gap_days=None,
+        files=[GtfsFeedContinuousCoverageFile(name=name, present=True) for name in COVERAGE_FILES],
+    )
+    mocker.patch.object(FeedsApiImpl, "_latest_continuous_coverage", return_value=latest_coverage)
+
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.count.return_value = 0
+    empty_page = db_session.query.return_value.filter.return_value.order_by.return_value
+    empty_page.offset.return_value.limit.return_value.options.return_value.all.return_value = []
+
+    response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+        id="mdb-1",
+        downloaded_after=None,
+        downloaded_before=None,
+        limit=20,
+        offset=0,
+        db_session=db_session,
+    )
+
+    assert response.latest_coverage_window.start == date(2026, 9, 16)
+    assert response.latest_coverage_window_source == "service_dates"
+    assert response.latest_within_max_coverage_window is True
+    assert response.latest_service_window.end == date(2027, 7, 28)
+    assert response.latest_feed_info_window is None
+    assert response.latest_feed_info_matches is None
+    assert response.latest_overlap_days == 15
+    assert response.latest_gap_days is None
+    assert [f.present for f in response.latest_files] == [True] * len(COVERAGE_FILES)
+
+
+def test_get_gtfs_feed_continuous_coverage_no_latest_dataset(mocker):
+    """A feed with no datasets still returns the required `latest_files` list, with every file
+    reported absent rather than the field being omitted."""
+    feed = Gtfsfeed(latest_dataset_id=None)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.count.return_value = 0
+    empty_page = db_session.query.return_value.filter.return_value.order_by.return_value
+    empty_page.offset.return_value.limit.return_value.options.return_value.all.return_value = []
+
+    response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+        id="mdb-1",
+        downloaded_after=None,
+        downloaded_before=None,
+        limit=20,
+        offset=0,
+        db_session=db_session,
+    )
+
+    assert response.latest_coverage_window is None
+    assert [f.name for f in response.latest_files] == list(COVERAGE_FILES)
+    assert [f.present for f in response.latest_files] == [False] * len(COVERAGE_FILES)
