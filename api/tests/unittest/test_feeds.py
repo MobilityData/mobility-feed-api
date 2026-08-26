@@ -6,6 +6,7 @@ import json
 
 from fastapi.testclient import TestClient
 
+from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from feeds_gen.models.gtfs_feed_continuous_coverage import GtfsFeedContinuousCoverage
 from feeds_gen.models.gtfs_feed_continuous_coverage_file import GtfsFeedContinuousCoverageFile
@@ -690,3 +691,89 @@ def test_get_gtfs_feed_continuous_coverage_no_latest_dataset(mocker):
     assert response.latest_coverage_window is None
     assert [f.name for f in response.latest_files] == list(COVERAGE_FILES)
     assert [f.present for f in response.latest_files] == [False] * len(COVERAGE_FILES)
+
+
+# ---- Regression tests: `datetime.fromisoformat` parses `Z`-suffixed dates directly on Python
+# 3.11+ (https://github.com/python/cpython/issues/80010), so `downloaded_after`/`downloaded_before`/
+# `_from`/`to` no longer need a `Z` -> `+00:00` rewrite before parsing. ----
+
+
+def test_get_gtfs_feed_continuous_coverage_accepts_z_suffixed_dates(mocker):
+    """A `Z`-suffixed `downloaded_after`/`downloaded_before` - what GTFS timestamps actually look
+    like - must parse without raising, now that the manual rewrite is gone."""
+    feed = Gtfsfeed(latest_dataset_id=None)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value = feed_datasets  # chained `.filter()` calls stay on one mock
+    feed_datasets.count.return_value = 0
+    feed_datasets.order_by.return_value.offset.return_value.limit.return_value.options.return_value.all.return_value = (
+        []
+    )
+
+    db_session = MagicMock()
+    db_session.query.return_value = feed_datasets
+
+    response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+        id="mdb-1",
+        downloaded_after="2024-01-01T00:00:00Z",
+        downloaded_before="2024-06-01T00:00:00Z",
+        limit=20,
+        offset=0,
+        db_session=db_session,
+    )
+
+    assert response.total == 0
+    assert response.items == []
+
+
+def test_get_gtfs_feed_availability_accepts_z_suffixed_dates(mocker):
+    """Same guarantee for the availability endpoint's `_from`/`to` parameters."""
+    feed = Gtfsfeed(id=1)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    query = MagicMock()
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
+
+    db_session = MagicMock()
+    db_session.query.return_value = query
+
+    response = FeedsApiImpl().get_gtfs_feed_availability(
+        id="mdb-1",
+        _from="2024-01-01T00:00:00Z",
+        to="2024-06-01T00:00:00Z",
+        limit=20,
+        offset=0,
+        sort="desc",
+        db_session=db_session,
+    )
+
+    assert response.total == 0
+    assert response.checks == []
+
+
+def test_get_gtfs_feed_datasets_accepts_z_suffixed_dates(mocker):
+    """Same guarantee for the datasets endpoint, checked precisely: the `Z` suffix must resolve to
+    UTC, not be silently dropped as a naive datetime."""
+    feed = Gtfsfeed(id=1)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+    mocker.patch.object(DatasetsApiImpl, "create_dataset_query", return_value=MagicMock())
+    mocker.patch.object(DatasetsApiImpl, "get_datasets_gtfs", return_value=[])
+    filter_cls = mocker.patch("feeds.impl.feeds_api_impl.GtfsDatasetFilter")
+
+    result = FeedsApiImpl().get_gtfs_feed_datasets(
+        gtfs_feed_id="mdb-1",
+        latest=False,
+        limit=20,
+        offset=0,
+        downloaded_after="2024-01-01T00:00:00Z",
+        downloaded_before="2024-06-01T00:00:00Z",
+        db_session=MagicMock(),
+    )
+
+    assert result == []
+    _, kwargs = filter_cls.call_args
+    assert kwargs["downloaded_at__gte"] == datetime(2024, 1, 1, tzinfo=timezone.utc)
+    assert kwargs["downloaded_at__lte"] == datetime(2024, 6, 1, tzinfo=timezone.utc)

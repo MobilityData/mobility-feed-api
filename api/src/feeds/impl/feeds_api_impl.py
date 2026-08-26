@@ -183,15 +183,9 @@ class FeedsApiImpl(BaseFeedsApi):
         if not feed:
             raise_http_error(404, f"FeedOrm with id {gtfs_feed_id} not found")
 
-        # Replace Z with +00:00 to make the datetime object timezone aware
-        # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
         query = GtfsDatasetFilter(
-            downloaded_at__lte=(
-                datetime.fromisoformat(downloaded_before.replace("Z", "+00:00")) if downloaded_before else None
-            ),
-            downloaded_at__gte=(
-                datetime.fromisoformat(downloaded_after.replace("Z", "+00:00")) if downloaded_after else None
-            ),
+            downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,
+            downloaded_at__gte=datetime.fromisoformat(downloaded_after) if downloaded_after else None,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(FeedOrm.stable_id == gtfs_feed_id))
 
         if latest:
@@ -354,8 +348,8 @@ class FeedsApiImpl(BaseFeedsApi):
         if to and not valid_iso_date(to):
             raise_http_validation_error(invalid_date_message.format("to"))
 
-        from_dt = datetime.fromisoformat(_from.replace("Z", "+00:00")) if _from else None
-        to_dt = datetime.fromisoformat(to.replace("Z", "+00:00")) if to else None
+        from_dt = datetime.fromisoformat(_from) if _from else None
+        to_dt = datetime.fromisoformat(to) if to else None
 
         if from_dt and to_dt and from_dt > to_dt:
             raise_http_validation_error(availability_from_after_to)
@@ -400,10 +394,8 @@ class FeedsApiImpl(BaseFeedsApi):
         if downloaded_before and not valid_iso_date(downloaded_before):
             raise_http_validation_error(invalid_date_message.format("downloaded_before"))
 
-        # Replace Z with +00:00 to make the datetime object timezone aware
-        # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
-        after_dt = datetime.fromisoformat(downloaded_after.replace("Z", "+00:00")) if downloaded_after else None
-        before_dt = datetime.fromisoformat(downloaded_before.replace("Z", "+00:00")) if downloaded_before else None
+        after_dt = datetime.fromisoformat(downloaded_after) if downloaded_after else None
+        before_dt = datetime.fromisoformat(downloaded_before) if downloaded_before else None
 
         if after_dt and before_dt and after_dt > before_dt:
             raise_http_validation_error(continuous_coverage_downloaded_after_before)
