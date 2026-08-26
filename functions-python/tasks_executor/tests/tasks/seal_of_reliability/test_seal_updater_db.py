@@ -20,18 +20,22 @@ from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from shared.common.seal_criteria import (
+    PROBATION_PERIOD,
+    CriterionStatus,
+    SealCriterionName,
+)
 from tasks.seal_of_reliability.context import (
     build_contexts,
     count_eligible_feeds,
     is_seal_eligible,
     iter_eligible_stable_ids,
 )
-from tasks.seal_of_reliability.criteria import (
-    PROBATION_PERIOD,
-    CriterionStatus,
-    SealCriterionName,
+from tasks.seal_of_reliability.evaluators import (
+    EVALUATORS,
+    CriterionEvaluator,
+    OfficialEvaluator,
 )
-from tasks.seal_of_reliability.evaluators import CriterionEvaluator, OfficialEvaluator
 from tasks.seal_of_reliability.seal_updater import update_seals
 from tasks.seal_of_reliability.state_machine import SealCriterionState
 from sqlalchemy import delete, select
@@ -40,6 +44,7 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
+    Gtfsdataset,
     Gtfsfeed,
     SealCriterion,
     SealCriterionSnapshot,
@@ -55,6 +60,9 @@ UNKNOWN_OFFICIAL = f"{PREFIX}unknown_official"
 DEPRECATED = f"{PREFIX}deprecated"
 UNPUBLISHED = f"{PREFIX}unpublished"
 INACTIVE = f"{PREFIX}inactive"
+# An official feed old enough in the database for Stable to pass (every seeded feed is
+# backdated 400 days), used by the tests that run the real registry rather than a patched one.
+TRACKED = f"{PREFIX}tracked"
 
 # The eligible feeds this module seeds. Runs that assert exact counts must be scoped to
 # these: an unnamed run also covers the fixtures seeded by conftest.pytest_sessionstart and
@@ -84,6 +92,13 @@ class _StandInEvaluator(CriterionEvaluator):
 
 # Patched over the registry so the roll-up sees a criterion that can be on probation.
 WITH_PROBATION = [OfficialEvaluator(), _StandInEvaluator()]
+
+# Official on its own. The classes below that assert seal outcomes are about the roll-up,
+# the report and the snapshot table rather than about any particular criterion, and Official
+# is the one that reaches a verdict from nothing but the feed row. Stable and Fresh need a
+# seal row and a dataset to say anything, and both are exercised against real data in
+# TestFullRegistry.
+ONLY_OFFICIAL = [OfficialEvaluator()]
 
 
 DARK_FROM = NOW + timedelta(days=2)
@@ -120,13 +135,17 @@ EXCLUDED_FROM = NOW + timedelta(days=2)
 class _StopsApplyingEvaluator(CriterionEvaluator):
     """A criterion that stops applying to the feed partway through, standing in for #1782.
 
-    Fresh (future coverage) does not apply to a seasonal feed, and a feed can be marked
+    Fresh / continuous coverage does not apply to a seasonal feed, and a feed can be marked
     seasonal at any time. Keyed on the clock rather than on `official` so a test can drive it
     and Official in opposite directions at the same moment. No grace period, so its verdicts
     land immediately and the tests are about what happens once it withdraws.
+
+    It borrows `fresh_continuous`, which has no evaluator of its own yet, rather than
+    `fresh_coverage`, whose real evaluator now covers the same seasonal case against real
+    data in `TestFullRegistry`.
     """
 
-    name = SealCriterionName.FRESH_COVERAGE
+    name = SealCriterionName.FRESH_CONTINUOUS
     grace_period = None
 
     def _evaluate(self, ctx):
@@ -145,6 +164,8 @@ def _seed_feed(
     official=True,
     status="active",
     operational_status="published",
+    seasonal=False,
+    is_producer_url_unstable=None,
 ):
     """Insert one GTFS feed."""
     db_session.add(
@@ -155,11 +176,52 @@ def _seed_feed(
             status=status,
             operational_status=operational_status,
             official=official,
+            seasonal=seasonal,
+            is_producer_url_unstable=is_producer_url_unstable,
             created_at=NOW - timedelta(days=400),
             producer_url=f"https://example.com/{feed_id}.zip",
         )
     )
     db_session.flush()
+
+
+def _seed_dataset(
+    db_session, feed_id: str, coverage_end, downloaded_at=None, suffix=""
+):
+    """Give the feed a dataset covering up to `coverage_end` (None = never extracted).
+
+    `latest_dataset_id` is pointed at it too, so a test that only seeds one dataset matches
+    what the catalog looks like. The criterion resolves the latest dataset from
+    `downloaded_at` rather than from that pointer, which is what the two-dataset tests below
+    exercise.
+    """
+    dataset_id = f"{feed_id}_dataset{suffix}"
+    db_session.add(
+        Gtfsdataset(
+            id=dataset_id,
+            feed_id=feed_id,
+            stable_id=dataset_id,
+            downloaded_at=downloaded_at or NOW - timedelta(days=1),
+            service_date_range_start=NOW - timedelta(days=30),
+            service_date_range_end=coverage_end,
+        )
+    )
+    db_session.flush()
+    db_session.execute(
+        Gtfsfeed.__table__.update()
+        .where(Gtfsfeed.__table__.c.id == feed_id)
+        .values(latest_dataset_id=dataset_id)
+    )
+    db_session.commit()
+
+
+def _set_seasonal(db_session, feed_id: str, seasonal):
+    db_session.execute(
+        Feed.__table__.update()
+        .where(Feed.__table__.c.id == feed_id)
+        .values(seasonal=seasonal)
+    )
+    db_session.commit()
 
 
 def _set_official(db_session, feed_id: str, official):
@@ -195,6 +257,7 @@ class SealDbTestCase(unittest.TestCase):
         _seed_feed(db_session, DEPRECATED, status="deprecated")
         _seed_feed(db_session, UNPUBLISHED, operational_status="unpublished")
         _seed_feed(db_session, INACTIVE, status="inactive")
+        _seed_feed(db_session, TRACKED)
         db_session.commit()
 
     @with_db_session(db_url=default_db_url)
@@ -235,6 +298,38 @@ class SealDbTestCase(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def set_official(feed_id, official, db_session):
         _set_official(db_session, feed_id, official)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def set_seasonal(feed_id, seasonal, db_session):
+        _set_seasonal(db_session, feed_id, seasonal)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def set_producer_url_unstable(feed_id, unstable, db_session):
+        db_session.execute(
+            Feed.__table__.update()
+            .where(Feed.__table__.c.id == feed_id)
+            .values(is_producer_url_unstable=unstable)
+        )
+        db_session.commit()
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def seed_dataset(
+        feed_id, coverage_end, downloaded_at=None, suffix="", db_session=None
+    ):
+        _seed_dataset(db_session, feed_id, coverage_end, downloaded_at, suffix)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def set_feed_created_at(feed_id, created_at, db_session):
+        db_session.execute(
+            Feed.__table__.update()
+            .where(Feed.__table__.c.id == feed_id)
+            .values(created_at=created_at)
+        )
+        db_session.commit()
 
 
 def _feeds_by_stable_id(db_session, *stable_ids):
@@ -310,6 +405,95 @@ class TestBuildContexts(SealDbTestCase):
         self.assertEqual(ctx.stable_id, OFFICIAL)
         self.assertTrue(ctx.official)
         self.assertEqual(ctx.now, NOW)
+        self.assertFalse(ctx.seasonal)
+        self.assertIsNone(ctx.is_producer_url_unstable)
+
+    @with_db_session(db_url=default_db_url)
+    def test_stables_clock_is_the_feed_row_and_needs_no_query(self, db_session):
+        feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertEqual(ctx.feed_created_at, NOW - timedelta(days=400))
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_feed_with_no_dataset_says_so(self, db_session):
+        """The bulk load misses, and the context says so rather than guessing a value."""
+        feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNone(ctx.latest_dataset)
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_latest_dataset_coverage_is_loaded(self, db_session):
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertEqual(ctx.latest_dataset.dataset_id, f"{TRACKED}_dataset")
+        self.assertEqual(
+            ctx.latest_dataset.service_date_range_end, NOW + timedelta(days=90)
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_dataset_with_no_coverage_end_is_not_a_missing_dataset(self, db_session):
+        """The two UNKNOWN cases must stay distinguishable at the context layer."""
+        _seed_dataset(db_session, TRACKED, coverage_end=None)
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNotNone(ctx.latest_dataset, "the dataset is there ...")
+        self.assertIsNone(
+            ctx.latest_dataset.service_date_range_end, "... its coverage end is not"
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_latest_dataset_is_resolved_as_of_now(self, db_session):
+        """A replay must not see a dataset published after the day it is evaluating.
+
+        `gtfsfeed.latest_dataset_id` points at the newest dataset that exists today, so
+        reading it would report the feed as fresh on a day when the data covering that day
+        had not been published yet.
+        """
+        _seed_dataset(
+            db_session,
+            TRACKED,
+            coverage_end=NOW + timedelta(days=5),
+            downloaded_at=NOW - timedelta(days=10),
+            suffix="_old",
+        )
+        _seed_dataset(
+            db_session,
+            TRACKED,
+            coverage_end=NOW + timedelta(days=400),
+            downloaded_at=NOW + timedelta(days=10),
+            suffix="_new",
+        )
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+
+        as_of_now = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertEqual(
+            as_of_now.latest_dataset.service_date_range_end,
+            NOW + timedelta(days=5),
+            "the newer dataset had not been downloaded yet",
+        )
+
+        later = NOW + timedelta(days=20)
+        as_of_later = build_contexts(db_session, feeds, later)[feeds[0].id]
+        self.assertEqual(
+            as_of_later.latest_dataset.service_date_range_end,
+            NOW + timedelta(days=400),
+            "by then it had",
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_dataset_with_no_downloaded_at_cannot_be_placed_in_time(self, db_session):
+        """It is excluded rather than guessed at: we cannot say whether it existed yet."""
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        db_session.execute(
+            Gtfsdataset.__table__.update()
+            .where(Gtfsdataset.__table__.c.feed_id == TRACKED)
+            .values(downloaded_at=None)
+        )
+        db_session.commit()
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNone(ctx.latest_dataset)
 
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
@@ -319,7 +503,10 @@ class TestBuildContexts(SealDbTestCase):
         self.assertEqual({ctx.official for ctx in contexts.values()}, {True, False})
 
 
+@patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
 class TestUpdateSeals(SealDbTestCase):
+    """The report, the roll-up and the two seal transitions, driven by Official alone."""
+
     def test_dry_run_writes_nothing(self):
         report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
         self.assertTrue(report["dry_run"])
@@ -508,7 +695,11 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(seal.seal_earned_at, later)
 
     def test_partial_criteria_run_skips_the_roll_up(self):
-        """Named explicitly, `official` is still the whole registry, so not partial."""
+        """Naming every criterion in the registry is not a partial run.
+
+        Under this class's patch the registry is Official alone; `TestCriteriaSelection`
+        covers the same distinction against the real, larger registry.
+        """
         report = update_seals(
             dry_run=False,
             stable_feed_ids=[OFFICIAL],
@@ -525,21 +716,6 @@ class TestUpdateSeals(SealDbTestCase):
                 with self.assertRaises(ValueError) as caught:
                     update_seals(dry_run=True, stable_feed_ids=feeds, now=NOW)
                 self.assertIn("stable_feed_ids", str(caught.exception))
-
-    def test_unknown_criterion_raises(self):
-        with self.assertRaises(ValueError):
-            update_seals(
-                stable_feed_ids=[OFFICIAL], criteria=["not_a_criterion"], now=NOW
-            )
-
-    def test_criterion_without_an_evaluator_raises(self):
-        """`stable` is a valid DB enum value but has no evaluator yet (#1784)."""
-        with self.assertRaises(ValueError):
-            update_seals(
-                stable_feed_ids=[OFFICIAL],
-                criteria=[SealCriterionName.STABLE.value],
-                now=NOW,
-            )
 
     def test_a_run_with_no_usable_feed_raises(self):
         """Nothing was evaluated, so a report saying so would be too quiet."""
@@ -591,6 +767,7 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(report["feeds_omitted"], 0)
 
 
+@patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
 class TestCriterionSnapshot(SealDbTestCase):
     """seal_criterion_snapshot, the per-day record of each criterion (issue #1809).
 
@@ -693,6 +870,259 @@ class TestCriterionSnapshot(SealDbTestCase):
             if field.name not in ("feed_id", "criterion", "evaluated_at")
         }
         self.assertEqual(carried - recorded, set())
+
+
+class TestFullRegistry(SealDbTestCase):
+    """Official, Stable and Fresh together, against real rows and the real registry.
+
+    The classes above patch the registry down to Official because they are about the
+    report, the roll-up and the snapshot table rather than about any one criterion. These
+    tests are the other half: the three implemented criteria, driven by the columns they
+    actually read.
+    """
+
+    FAR_FUTURE = NOW + timedelta(days=90)
+
+    def criteria_of(self, feed_id=TRACKED):
+        return {
+            criterion: row.confirmed_status
+            for criterion, row in self.criterion_rows(feed_id).items()
+        }
+
+    def test_every_criterion_is_written_for_every_feed(self):
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertEqual(
+            set(self.criterion_rows(TRACKED)),
+            {evaluator.name.value for evaluator in EVALUATORS},
+        )
+
+    def test_a_feed_meeting_all_three_earns_the_seal(self):
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        self.assertEqual(
+            self.criteria_of(),
+            {
+                SealCriterionName.OFFICIAL.value: CriterionStatus.PASS.value,
+                SealCriterionName.STABLE.value: CriterionStatus.PASS.value,
+                SealCriterionName.FRESH_COVERAGE.value: CriterionStatus.PASS.value,
+            },
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_a_feed_new_to_the_database_cannot_hold_the_seal_yet(self):
+        """Stable reads the feed's own age, so a freshly added feed fails it."""
+        self.set_feed_created_at(TRACKED, NOW - timedelta(days=30))
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        self.assertEqual(
+            self.criteria_of()[SealCriterionName.STABLE.value],
+            CriterionStatus.FAIL.value,
+        )
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+    def test_the_seal_arrives_once_the_feed_is_old_enough(self):
+        """The same feed, evaluated the day it was added and 181 days later.
+
+        Stable's clock is `feed.created_at`, which does not move when the job runs, so the
+        second run is a plain replay at a later `now` rather than something the first run
+        had to set up.
+        """
+        self.set_feed_created_at(TRACKED, NOW)
+        self.seed_dataset(TRACKED, NOW + timedelta(days=400))
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertFalse(
+            self.seal_row(TRACKED).has_seal, "in the database for zero days"
+        )
+
+        later = NOW + timedelta(days=181)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.STABLE.value]
+        self.assertEqual(row.confirmed_status, CriterionStatus.PASS.value)
+        self.assertIsNone(row.probation_start, "Stable serves no probation")
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_an_old_feed_qualifies_on_its_very_first_run(self):
+        """The point of reading `feed.created_at`: no six-month wait after deployment for a
+        feed that has already been in the catalog for years."""
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        self.assertEqual(
+            self.criteria_of()[SealCriterionName.STABLE.value],
+            CriterionStatus.PASS.value,
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_an_unstable_producer_url_denies_the_seal_immediately(self):
+        """Stable has no grace period, so the flag costs the seal the day it is set."""
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+        self.set_producer_url_unstable(TRACKED, True)
+        later = NOW + timedelta(days=1)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        self.assertEqual(
+            self.criteria_of()[SealCriterionName.STABLE.value],
+            CriterionStatus.FAIL.value,
+        )
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+    def test_a_feed_with_no_dataset_leaves_fresh_out_of_the_roll_up(self):
+        """UNKNOWN is not a failure: the other two criteria still decide the seal."""
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.NEVER_EVALUATED.value,
+            "no verdict was ever produced, so the criterion is out of service",
+        )
+        self.assertIsNone(row.last_verdict_at)
+        self.assertTrue(
+            self.seal_row(TRACKED).has_seal,
+            "Official and Stable carry it while Fresh has nothing to say",
+        )
+
+    def test_lapsed_coverage_is_confirmed_at_once_on_a_first_evaluation(self):
+        """Fresh has a 14-day grace period, but a criterion that has never passed has not
+        earned it, so its first verdict lands as a confirmed failure the same day."""
+        self.seed_dataset(TRACKED, NOW + timedelta(days=2))
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.FAIL.value)
+        self.assertEqual(row.confirmed_status, CriterionStatus.FAIL.value)
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+    def test_the_grace_period_absorbs_a_lapse_on_a_feed_that_was_passing(self):
+        self.seed_dataset(TRACKED, NOW + timedelta(days=10))
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+        # Five days on, the same dataset now covers only five more days: inside the horizon.
+        within_grace = NOW + timedelta(days=5)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=within_grace)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.FAIL.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.PASS.value,
+            "the grace period holds the verdict while the producer catches up",
+        )
+        self.assertEqual(row.first_observed_failure_at, within_grace)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_a_lapse_outlasting_the_grace_period_costs_the_seal(self):
+        self.seed_dataset(TRACKED, NOW + timedelta(days=10))
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        first_failure = NOW + timedelta(days=5)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=first_failure)
+
+        outlasted = first_failure + timedelta(days=15)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=outlasted)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.confirmed_status, CriterionStatus.FAIL.value)
+        self.assertEqual(
+            row.first_observed_failure_at,
+            first_failure,
+            "the streak is measured from its start, not from this run",
+        )
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+    def test_a_seasonal_feed_is_not_denied_by_fresh(self):
+        """NOT_APPLICABLE withdraws the criterion instead of failing it, which is the whole
+        point of the value: a seasonal feed keeps the seal on the criteria that do apply.
+        """
+        self.set_seasonal(TRACKED, True)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.NOT_APPLICABLE.value)
+        self.assertEqual(row.confirmed_status, CriterionStatus.NOT_APPLICABLE.value)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_becoming_seasonal_freezes_a_failing_fresh_rather_than_carrying_it(self):
+        """A feed marked seasonal after a confirmed Fresh failure stops being judged on it."""
+        self.seed_dataset(TRACKED, NOW - timedelta(days=1))
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+        self.set_seasonal(TRACKED, True)
+        later = NOW + timedelta(days=1)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.FRESH_COVERAGE.value]
+        self.assertEqual(row.confirmed_status, CriterionStatus.NOT_APPLICABLE.value)
+        self.assertEqual(
+            row.last_confirmed_failure_at, NOW, "the failure stays on record"
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_a_run_reports_all_three_criteria_with_their_reasons(self):
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        report = update_seals(dry_run=True, stable_feed_ids=[TRACKED], now=NOW)
+
+        criteria = report["feeds"][0]["criteria"]
+        self.assertEqual(
+            [row["criterion"] for row in criteria],
+            [evaluator.name.value for evaluator in EVALUATORS],
+        )
+        for row in criteria:
+            with self.subTest(criterion=row["criterion"]):
+                self.assertTrue(row["reason"])
+
+
+class TestCriteriaSelection(SealDbTestCase):
+    """The `criteria` filter, against the real registry rather than a patched one."""
+
+    def test_unknown_criterion_raises(self):
+        with self.assertRaises(ValueError):
+            update_seals(
+                stable_feed_ids=[OFFICIAL], criteria=["not_a_criterion"], now=NOW
+            )
+
+    def test_criterion_without_an_evaluator_raises(self):
+        """`fresh_continuous` is a valid DB enum value but has no evaluator yet (#1782)."""
+        with self.assertRaises(ValueError):
+            update_seals(
+                stable_feed_ids=[OFFICIAL],
+                criteria=[SealCriterionName.FRESH_CONTINUOUS.value],
+                now=NOW,
+            )
+
+    def test_naming_every_implemented_criterion_is_not_a_partial_run(self):
+        report = update_seals(
+            dry_run=True,
+            stable_feed_ids=[OFFICIAL],
+            criteria=[evaluator.name.value for evaluator in EVALUATORS],
+            now=NOW,
+        )
+        self.assertFalse(report["partial_run"])
+
+    def test_naming_a_subset_is_a_partial_run(self):
+        """More than one criterion is implemented now, so a subset is genuinely partial."""
+        report = update_seals(
+            dry_run=True,
+            stable_feed_ids=[OFFICIAL],
+            criteria=[SealCriterionName.OFFICIAL.value],
+            now=NOW,
+        )
+        self.assertTrue(report["partial_run"])
+        self.assertIn("note", report)
 
 
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", WITH_PROBATION)
@@ -1003,7 +1433,9 @@ class TestCriterionThatStopsApplying(SealDbTestCase):
     FAILED_AT = NOW + timedelta(days=1)
 
     def stand_in(self):
-        return self.criterion_rows(OFFICIAL).get(SealCriterionName.FRESH_COVERAGE.value)
+        return self.criterion_rows(OFFICIAL).get(
+            SealCriterionName.FRESH_CONTINUOUS.value
+        )
 
     def run_at(self, moment):
         update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=moment)

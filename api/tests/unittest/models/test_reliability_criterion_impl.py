@@ -2,16 +2,14 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from shared.common.error_handling import InternalHTTPException
-from shared.common.seal_criteria import GRACE_PERIODS, PROBATION_PERIOD, SealCriterionName
-from shared.database_gen.sqlacodegen_models import SealCriterion
-from shared.db_models.reliability_criterion_impl import (
-    STATUS_FAIL,
-    STATUS_NEVER_EVALUATED,
-    STATUS_NOT_APPLICABLE,
-    STATUS_PASS,
-    STATUS_UNKNOWN,
-    ReliabilityCriterionImpl,
+from shared.common.seal_criteria import (
+    GRACE_PERIODS,
+    PROBATION_PERIOD,
+    CriterionStatus,
+    SealCriterionName,
 )
+from shared.database_gen.sqlacodegen_models import SealCriterion
+from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 
 # Anchored to the real clock because the countdowns are derived against `datetime.now`. Every window
 # below is at least a day clear of its boundary, so the assertions do not race the wall clock.
@@ -43,7 +41,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         result = ReliabilityCriterionImpl.from_orm(make_row())
 
         assert result.criterion == "compliant"
-        assert result.status == STATUS_PASS
+        assert result.status == CriterionStatus.PASS.value
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
         assert result.on_probation is False
@@ -73,7 +71,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         result = ReliabilityCriterionImpl.never_evaluated(SealCriterionName.AVAILABLE)
 
         assert result.criterion == "available"
-        assert result.status == STATUS_NEVER_EVALUATED
+        assert result.status == CriterionStatus.NEVER_EVALUATED.value
         assert result.in_grace_period is False
         assert result.on_probation is False
 
@@ -82,7 +80,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         row = make_row(observed_status="never_evaluated", confirmed_status="never_evaluated")
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_NEVER_EVALUATED
+        assert result.status == CriterionStatus.NEVER_EVALUATED.value
         assert result.in_grace_period is False
         assert result.on_probation is False
 
@@ -91,7 +89,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         row = make_row(criterion=SealCriterionName.AVAILABLE, observed_status="unknown", confirmed_status="pass")
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_UNKNOWN
+        assert result.status == CriterionStatus.UNKNOWN.value
         assert result.in_grace_period is False
 
     def test_not_applicable_status_is_withdrawn(self):
@@ -107,7 +105,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_NOT_APPLICABLE
+        assert result.status == CriterionStatus.NOT_APPLICABLE.value
         assert result.in_grace_period is False
         assert result.on_probation is False
         assert result.probation_ends_at is None
@@ -126,7 +124,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_FAIL
+        assert result.status == CriterionStatus.FAIL.value
         assert result.in_grace_period is True
         assert result.grace_period_ends_at == first_failure + GRACE_PERIODS[SealCriterionName.COMPLIANT]
         assert result.first_failure_at == first_failure
@@ -147,7 +145,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_FAIL
+        assert result.status == CriterionStatus.FAIL.value
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
 
@@ -162,7 +160,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_FAIL
+        assert result.status == CriterionStatus.FAIL.value
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
 
@@ -175,7 +173,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         row = make_row(criterion=SealCriterionName.AVAILABLE, probation_start=probation_start)
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_PASS
+        assert result.status == CriterionStatus.PASS.value
         assert result.on_probation is True
         assert result.probation_ends_at == probation_start + PROBATION_PERIOD
 
@@ -191,7 +189,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == STATUS_FAIL
+        assert result.status == CriterionStatus.FAIL.value
         assert result.on_probation is True
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
@@ -218,7 +216,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
                 )
                 result = ReliabilityCriterionImpl.from_orm(row)
 
-                assert result.status == STATUS_FAIL
+                assert result.status == CriterionStatus.FAIL.value
                 assert result.in_grace_period is False
                 assert result.grace_period_ends_at is None
 

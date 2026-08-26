@@ -11,8 +11,9 @@ the Liquibase changelog, so this checks the real schema without a live DB. The n
 mirror of these tests over its own enums, in
 `functions-python/tasks_executor/tests/tasks/seal_of_reliability/test_seal_enum_contract.py`.
 
-Adding a criterion or status means updating, in lockstep: the Liquibase enum, `SealCriterionName`
-and the status constants here, `docs/DatabaseCatalogAPI.yaml` (plus a stub regen), and the job enums.
+Adding a criterion or status means updating, in lockstep: the Liquibase enum, the enums in
+`shared.common.seal_criteria` (which the API and the nightly job both read), and
+`docs/DatabaseCatalogAPI.yaml` plus a stub regen.
 """
 
 import unittest
@@ -21,24 +22,12 @@ from feeds_gen.models.reliability_criterion import ReliabilityCriterion
 from shared.common.seal_criteria import (
     GRACE_PERIODS,
     PROBATION_PERIODS,
+    CriterionStatus,
     SealCriterionName,
 )
 from shared.database_gen.sqlacodegen_models import SealCriterion
-from shared.db_models.reliability_criterion_impl import (
-    STATUS_FAIL,
-    STATUS_NEVER_EVALUATED,
-    STATUS_NOT_APPLICABLE,
-    STATUS_PASS,
-    STATUS_UNKNOWN,
-)
 
-API_STATUSES = {
-    STATUS_PASS,
-    STATUS_FAIL,
-    STATUS_UNKNOWN,
-    STATUS_NEVER_EVALUATED,
-    STATUS_NOT_APPLICABLE,
-}
+API_STATUSES = {status.value for status in CriterionStatus}
 
 
 def db_enum_values(column_name: str) -> set:
@@ -53,12 +42,18 @@ class TestSealEnumContract(unittest.TestCase):
         """`SealCriterionName` is the full `seal_criterion_name` type, no more and no less."""
         assert {criterion.value for criterion in SealCriterionName} == db_enum_values("criterion")
 
-    def test_status_constants_match_db_enum(self):
-        """The API `status` values are the `seal_criterion_status` type verbatim.
+    def test_status_values_match_db_enum(self):
+        """`CriterionStatus` is the `seal_criterion_status` type verbatim.
 
         There is no DB-to-API translation left, so any divergence would be served raw to clients.
+        The nightly job writes these same values from the same enum, so one assertion pins both
+        sides to the schema.
         """
         assert API_STATUSES == db_enum_values("observed_status")
+
+    def test_confirmed_status_shares_the_same_type(self):
+        """Both status columns are the one enum; a check that only covered one could drift."""
+        assert db_enum_values("confirmed_status") == db_enum_values("observed_status")
 
     def test_every_db_status_passes_response_validation(self):
         """Every status the job can store must be accepted by the generated response model.
@@ -84,8 +79,9 @@ class TestSealEnumContract(unittest.TestCase):
     def test_policy_maps_cover_every_criterion(self):
         """Every criterion needs a grace and probation entry, even if the window is None.
 
-        `GRACE_PERIODS.get()` would silently return None for a criterion missing from the map,
-        turning it into a no-grace criterion by accident rather than by decision.
+        The maps are the single source for both the API's countdowns and the job's debouncing
+        (`grace_period_for` / `probation_period_for`), so a criterion missing from one would raise
+        on lookup rather than quietly becoming a no-grace criterion.
         """
         assert set(GRACE_PERIODS) == set(SealCriterionName)
         assert set(PROBATION_PERIODS) == set(SealCriterionName)

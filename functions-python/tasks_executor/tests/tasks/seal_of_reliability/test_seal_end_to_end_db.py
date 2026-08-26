@@ -43,13 +43,15 @@ import flask
 from main import tasks_executor
 from sqlalchemy import delete, select
 
-from tasks.seal_of_reliability.criteria import CriterionStatus
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName
+from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.update_seal_of_reliability import get_parameters
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
+    Gtfsdataset,
     Gtfsfeed,
     SealCriterion,
 )
@@ -67,6 +69,11 @@ UNPUBLISHED = f"{PREFIX}unpublished"
 # The task always runs against an explicit feed list. These are the eligible seeded feeds.
 REQUESTED = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL]
 
+# Every seeded feed gets a dataset covering the next 400 days, so Fresh passes and `official`
+# stays the only criterion that separates the feeds. Stable needs nothing seeded: it reads
+# `feed.created_at`, which `_seed` already backdates by 400 days.
+COVERAGE_END = NOW + timedelta(days=400)
+
 
 def _seed(db_session, feed_id, official=True, status="active", operational="published"):
     db_session.add(
@@ -79,7 +86,29 @@ def _seed(db_session, feed_id, official=True, status="active", operational="publ
             official=official,
             created_at=NOW - timedelta(days=400),
             producer_url=f"https://example.com/{feed_id}.zip",
+            seasonal=False,
         )
+    )
+    db_session.flush()
+
+    # Fresh's input. Seeded rather than produced by the run so the criterion passes and
+    # `official` stays the only variable.
+    dataset_id = f"{feed_id}_dataset"
+    db_session.add(
+        Gtfsdataset(
+            id=dataset_id,
+            feed_id=feed_id,
+            stable_id=dataset_id,
+            downloaded_at=NOW - timedelta(days=1),
+            service_date_range_start=NOW - timedelta(days=30),
+            service_date_range_end=COVERAGE_END,
+        )
+    )
+    db_session.flush()
+    db_session.execute(
+        Gtfsfeed.__table__.update()
+        .where(Gtfsfeed.__table__.c.id == feed_id)
+        .values(latest_dataset_id=dataset_id)
     )
     db_session.flush()
 
@@ -162,14 +191,36 @@ class TestSealTaskEndToEnd(unittest.TestCase):
     @staticmethod
     @with_db_session(db_url=default_db_url)
     def criterion_state(db_session):
-        """stable_id -> the sealcriterion row, for the seeded feeds."""
+        """(stable_id, criterion) -> the seal_criterion row, for the seeded feeds.
+
+        Keyed by the criterion too, not just the feed: the registry holds several
+        evaluators, so a feed has one row per criterion.
+        """
         criterion = SealCriterion.__table__
         rows = db_session.execute(
             select(Feed.stable_id, criterion)
             .join(criterion, criterion.c.feed_id == Feed.id)
             .where(Feed.stable_id.like(f"{PREFIX}%"))
         ).all()
-        return {row.stable_id: row for row in rows}
+        return {(row.stable_id, row.criterion): row for row in rows}
+
+    @classmethod
+    def official_state(cls):
+        """stable_id -> the `official` seal_criterion row, the one these tests drive."""
+        return {
+            stable_id: row
+            for (stable_id, criterion), row in cls.criterion_state().items()
+            if criterion == SealCriterionName.OFFICIAL.value
+        }
+
+    @staticmethod
+    def official_criterion(feed_report: dict) -> dict:
+        """The `official` entry of a report's per-feed criteria list."""
+        return next(
+            row
+            for row in feed_report["criteria"]
+            if row["criterion"] == SealCriterionName.OFFICIAL.value
+        )
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -199,7 +250,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         # --- first run: writes the initial state
         first = self.run_task({"dry_run": False, "now": NOW.isoformat()})
         self.assertFalse(first["dry_run"])
-        self.assertGreaterEqual(first["criterion_rows_written"], 3)
+        self.assertGreaterEqual(first["criterion_rows_written"], 3 * len(EVALUATORS))
         self.assertEqual(first["seals_revoked"], 0, "nothing was held beforehand")
         self.assertEqual(
             {row["stable_id"] for row in self.ours(first)},
@@ -217,8 +268,8 @@ class TestSealTaskEndToEnd(unittest.TestCase):
             },
             "only the official feed earned it; the others were never granted or lost",
         )
-        criteria = self.criterion_state()
-        self.assertNotIn(DEPRECATED, criteria)
+        criteria = self.official_state()
+        self.assertNotIn(DEPRECATED, criteria, "ineligible feeds are never evaluated")
         self.assertNotIn(UNPUBLISHED, criteria)
         self.assertEqual(
             criteria[OFFICIAL].confirmed_status, CriterionStatus.PASS.value
@@ -259,22 +310,22 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         self.assertTrue(moved[OFFICIAL]["had_seal"])
         self.assertFalse(moved[OFFICIAL]["has_seal"])
         self.assertEqual(
-            moved[OFFICIAL]["criteria"][0]["confirmed_status"],
+            self.official_criterion(moved[OFFICIAL])["confirmed_status"],
             CriterionStatus.FAIL.value,
         )
         self.assertEqual(
-            moved[OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            self.official_criterion(moved[OFFICIAL])["previously_confirmed_status"],
             CriterionStatus.PASS.value,
         )
 
         self.assertFalse(moved[NOT_OFFICIAL]["had_seal"])
         self.assertTrue(moved[NOT_OFFICIAL]["has_seal"])
         self.assertEqual(
-            moved[NOT_OFFICIAL]["criteria"][0]["confirmed_status"],
+            self.official_criterion(moved[NOT_OFFICIAL])["confirmed_status"],
             CriterionStatus.PASS.value,
         )
         self.assertEqual(
-            moved[NOT_OFFICIAL]["criteria"][0]["previously_confirmed_status"],
+            self.official_criterion(moved[NOT_OFFICIAL])["previously_confirmed_status"],
             CriterionStatus.FAIL.value,
         )
 
@@ -288,7 +339,7 @@ class TestSealTaskEndToEnd(unittest.TestCase):
             },
             "the revoked feed keeps its earned_at; the recovered one gains earned_at",
         )
-        criteria = self.criterion_state()
+        criteria = self.official_state()
         self.assertEqual(criteria[OFFICIAL].first_observed_failure_at, later)
         self.assertIsNone(
             criteria[NOT_OFFICIAL].first_observed_failure_at, "the streak ended"
@@ -313,11 +364,11 @@ class TestSealTaskEndToEnd(unittest.TestCase):
         self.assertEqual(report["seals_before_run"], report["seals_after_run"])
 
         after = self.criterion_state()
-        for stable_id, row in after.items():
-            with self.subTest(stable_id=stable_id):
+        for (stable_id, criterion), row in after.items():
+            with self.subTest(stable_id=stable_id, criterion=criterion):
                 self.assertEqual(
                     row.first_observed_failure_at,
-                    before[stable_id].first_observed_failure_at,
+                    before[(stable_id, criterion)].first_observed_failure_at,
                     "a re-evaluation must not restart a failure streak",
                 )
                 self.assertEqual(row.evaluated_at, later, "but it is re-evaluated")
