@@ -25,6 +25,7 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
+_FANOUT = "tasks.seal_of_reliability.fanout"
 _PLAN = "tasks.seal_of_reliability.backfill.seal_backfill_orchestrator"
 _WORKER = "tasks.seal_of_reliability.backfill.seal_backfill_worker"
 
@@ -33,8 +34,8 @@ END = date(2026, 6, 1)
 
 
 class TestBackfillOrchestrator(unittest.TestCase):
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=5)
     def test_enqueues_worker_per_batch_plus_monitor(
@@ -65,8 +66,8 @@ class TestBackfillOrchestrator(unittest.TestCase):
         self.assertEqual(result["batches"], 3)
         self.assertEqual(result["enqueued"], 3)
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
     def test_every_worker_gets_the_same_explicit_window(
@@ -98,8 +99,8 @@ class TestBackfillOrchestrator(unittest.TestCase):
         ]
         self.assertEqual(windows, [(START.isoformat(), END.isoformat())] * 2)
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=1)
     def test_the_monitor_is_told_which_tracker_to_settle(
@@ -125,8 +126,8 @@ class TestBackfillOrchestrator(unittest.TestCase):
             monitor.kwargs["payload"]["task_name"], SEAL_BACKFILL_TASK_NAME
         )
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=3)
     def test_only_missing_narrows_the_candidate_set(
@@ -145,8 +146,8 @@ class TestBackfillOrchestrator(unittest.TestCase):
         self.assertTrue(count_mock.call_args.kwargs["exclude_backfilled"])
         self.assertTrue(iter_mock.call_args.kwargs["exclude_backfilled"])
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=3)
     def test_only_missing_false_widens_it(
@@ -163,8 +164,8 @@ class TestBackfillOrchestrator(unittest.TestCase):
 
         self.assertFalse(count_mock.call_args.kwargs["exclude_backfilled"])
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task")
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=4)
     def test_dry_run_enqueues_nothing(
@@ -182,9 +183,9 @@ class TestBackfillOrchestrator(unittest.TestCase):
         self.assertEqual(result["enqueued"], 0)
         self.assertEqual(result["total_feeds"], 4)
 
-    @patch(f"{_PLAN}._mark_enqueue_failed")
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=False)
+    @patch(f"{_FANOUT}.mark_enqueue_failed")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=False)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
     def test_a_failed_enqueue_fails_its_batch_immediately(

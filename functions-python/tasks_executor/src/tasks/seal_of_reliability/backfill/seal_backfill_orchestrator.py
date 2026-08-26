@@ -16,11 +16,9 @@
 """Cloud Tasks producer: fan the Seal of Reliability backfill out across the catalog (#1763).
 
 Enumerates the catalog and chunks it for `backfill_seal_of_reliability`, which only marches
-an explicit list — the same shape as the nightly `seal_orchestrator`: resolve the eligible
-feeds, batch them, register the run in TaskExecutionTracker, enqueue one worker per batch
-plus one `seal_orchestrator_monitor` carrying this run's `task_name`.
+an explicit list. The mechanism is `fanout.plan_fanout`, shared with the nightly producer.
 
-Three differences from the nightly producer, all because a march is long where a nightly
+Three differences from the nightly run, all because a march is long where a nightly
 evaluation is one day: `end_date` is resolved here once and passed to every worker (or two
 workers either side of midnight would end on different days); batches are smaller and the
 deadline longer; and `only_missing` is the eligibility predicate rather than a worker-side
@@ -46,12 +44,9 @@ Payload (all optional)::
 """
 
 import logging
-import math
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from shared.database.database import with_db_session
-from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 
 from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import _parse_day
 from tasks.seal_of_reliability.backfill.seal_backfill import (
@@ -64,10 +59,7 @@ from tasks.seal_of_reliability.context import (
     count_eligible_feeds,
     iter_eligible_stable_ids,
 )
-from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
-    _enqueue,
-    _safe_task_name,
-)
+from tasks.seal_of_reliability.fanout import FanoutSpec, plan_fanout
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +70,16 @@ SEAL_BACKFILL_TASK_NAME = "seal_backfill_run"
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_DEADLINE_SECONDS = 2 * 60 * 60  # 2h wall-clock cap for a run
 DEFAULT_MONITOR_DELAY_SECONDS = 300
+
+# The monitor is shared with the nightly run, so it has to be told which tracker to settle.
+SPEC = FanoutSpec(
+    task_name=SEAL_BACKFILL_TASK_NAME,
+    worker_task="seal_backfill_worker",
+    run_id_prefix="seal-backfill",
+    task_prefix="seal-backfill",
+    log_name="seal_backfill_orchestrator",
+    monitor_extra={"task_name": SEAL_BACKFILL_TASK_NAME},
+)
 
 
 def seal_backfill_orchestrator_handler(payload: dict) -> dict:
@@ -131,169 +133,52 @@ def _plan_run(
     db_session=None,
 ) -> Dict[str, Any]:
     """Resolve the feeds to backfill, chunk them, and (unless dry_run) fan the run out."""
-    if batch_size <= 0:
-        raise ValueError("batch_size must be a positive integer")
-
-    run_started_at = datetime.now(timezone.utc)
-    total_feeds = count_eligible_feeds(
-        db_session,
-        stable_feed_ids=stable_feed_ids,
-        limit=limit,
-        exclude_backfilled=only_missing,
-    )
-    num_batches = math.ceil(total_feeds / batch_size) if total_feeds else 0
-    run_id = f"seal-backfill-{run_started_at.strftime('%Y%m%dT%H%M%S')}"
-
-    logger.info(
-        "seal_backfill_orchestrator: run=%s total_feeds=%d batch_size=%d batches=%d "
-        "window=%s..%s dry_run=%s",
-        run_id,
-        total_feeds,
-        batch_size,
-        num_batches,
-        window_start.isoformat(),
-        window_end.isoformat(),
-        dry_run,
-    )
-
-    plan = {
-        "run_id": run_id,
-        "total_feeds": total_feeds,
-        "batch_size": batch_size,
-        "batches": num_batches,
+    window = {
         "start_date": window_start.isoformat(),
         "end_date": window_end.isoformat(),
+    }
+    settings = {
         "only_missing": only_missing,
         "snapshot_mode": snapshot_mode,
         "resume_from_snapshot": resume_from_snapshot,
-        "enqueued": 0,
-        "dry_run": dry_run,
     }
-    if dry_run or not num_batches:
-        return plan
 
-    run_params = {
-        "dry_run": False,
-        "batch_size": batch_size,
-        "criteria": criteria,
-        "start_date": window_start.isoformat(),
-        "end_date": window_end.isoformat(),
-        "only_missing": only_missing,
-        "snapshot_mode": snapshot_mode,
-        "resume_from_snapshot": resume_from_snapshot,
-        "run_started_at": run_started_at.isoformat(),
-        "deadline_seconds": deadline_seconds,
-    }
-    batch_ids = [f"batch-{index:04d}" for index in range(num_batches)]
-    _start_run(run_id, batch_ids, run_params)
-
-    enqueued = 0
-    consumed = 0
-    stable_id_batches = iter_eligible_stable_ids(
+    plan = plan_fanout(
         db_session,
-        batch_size,
-        stable_feed_ids=stable_feed_ids,
-        limit=limit,
-        exclude_backfilled=only_missing,
-    )
-    for batch_id, batch_stable_ids in zip(batch_ids, stable_id_batches):
-        consumed += 1
-        worker_payload = {
+        SPEC,
+        count_feeds=lambda session: count_eligible_feeds(
+            session,
+            stable_feed_ids=stable_feed_ids,
+            limit=limit,
+            exclude_backfilled=only_missing,
+        ),
+        iter_batches=lambda session, size: iter_eligible_stable_ids(
+            session,
+            size,
+            stable_feed_ids=stable_feed_ids,
+            limit=limit,
+            exclude_backfilled=only_missing,
+        ),
+        build_worker_payload=lambda run_id, batch_id, ids: {
             "run_id": run_id,
             "batch_id": batch_id,
-            "stable_feed_ids": batch_stable_ids,
+            "stable_feed_ids": ids,
             "criteria": criteria,
-            "start_date": window_start.isoformat(),
-            "end_date": window_end.isoformat(),
-            "only_missing": only_missing,
-            "snapshot_mode": snapshot_mode,
-            "resume_from_snapshot": resume_from_snapshot,
-        }
-        if _enqueue(
-            in_body_task="seal_backfill_worker",
-            payload=worker_payload,
-            queue_env="SEAL_ORCHESTRATOR_QUEUE",
-            task_name=_safe_task_name(f"seal-backfill-{run_id}-{batch_id}"),
-        ):
-            enqueued += 1
-        else:
-            # Dead on arrival: don't leave it `triggered` until the deadline.
-            _mark_enqueue_failed(run_id, batch_id)
-
-    if consumed < len(batch_ids):
-        # Eligibility narrowed between the count and the stream. Fail the leftovers now
-        # rather than leaving them `triggered` until the deadline.
-        missing = batch_ids[consumed:]
-        logger.error(
-            "seal_backfill_orchestrator: run=%s stream yielded %d batch(es), expected %d "
-            "— marking %d failed: %s",
-            run_id,
-            consumed,
-            len(batch_ids),
-            len(missing),
-            missing,
-        )
-        for batch_id in missing:
-            _mark_enqueue_failed(
-                run_id,
-                batch_id,
-                error_message="no eligible-feed data for this batch (count/stream mismatch)",
-            )
-    else:
-        extra_chunk = next(stable_id_batches, None)
-        if extra_chunk is not None:
-            # Feeds became newly eligible in the gap. Log-only: re-run to pick them up.
-            logger.error(
-                "seal_backfill_orchestrator: run=%s stream had more batches than the "
-                "plan-time count of %d expected (>=%d additional feed(s)) — those feeds "
-                "were not backfilled; re-run to pick them up",
-                run_id,
-                len(batch_ids),
-                len(extra_chunk),
-            )
-
-    _enqueue(
-        in_body_task="seal_orchestrator_monitor",
-        payload={"run_id": run_id, "task_name": SEAL_BACKFILL_TASK_NAME},
-        queue_env="SEAL_ORCHESTRATOR_MONITOR_QUEUE",
-        task_name=_safe_task_name(f"seal-backfill-monitor-{run_id}"),
-        schedule_seconds=monitor_delay_seconds,
+            **window,
+            **settings,
+        },
+        run_params=lambda run_started_at: {
+            "dry_run": False,
+            "batch_size": batch_size,
+            "criteria": criteria,
+            **window,
+            **settings,
+            "run_started_at": run_started_at,
+            "deadline_seconds": deadline_seconds,
+        },
+        batch_size=batch_size,
+        dry_run=dry_run,
+        monitor_delay_seconds=monitor_delay_seconds,
     )
-
-    plan["enqueued"] = enqueued
-    return plan
-
-
-@with_db_session
-def _start_run(
-    run_id: str,
-    batch_ids: List[str],
-    run_params: dict,
-    db_session=None,
-) -> None:
-    """Register the run and one tracked entry per batch."""
-    tracker = TaskExecutionTracker(
-        task_name=SEAL_BACKFILL_TASK_NAME,
-        run_id=run_id,
-        db_session=db_session,
-    )
-    tracker.start_run(total_count=len(batch_ids), params=run_params)
-    for batch_id in batch_ids:
-        tracker.mark_triggered(batch_id)
-    db_session.commit()
-
-
-@with_db_session
-def _mark_enqueue_failed(
-    run_id: str,
-    batch_id: str,
-    error_message: str = "enqueue failed",
-    db_session=None,
-) -> None:
-    tracker = TaskExecutionTracker(
-        task_name=SEAL_BACKFILL_TASK_NAME,
-        run_id=run_id,
-        db_session=db_session,
-    )
-    tracker.mark_failed(batch_id, error_message=error_message)
-    db_session.commit()
+    # Echoed back so an operator can see what a dry run resolved to.
+    return {**plan, **window, **settings}
