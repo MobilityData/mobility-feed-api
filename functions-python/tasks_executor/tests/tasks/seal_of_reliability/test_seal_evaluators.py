@@ -16,14 +16,22 @@
 """Unit tests for the seal criterion evaluators. No database."""
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
+from shared.common.seal_criteria import (
+    FUTURE_COVERAGE_HORIZON,
+    PROBATION_PERIOD,
+    TRACKING_PERIOD,
+    CriterionStatus,
+    SealCriterionName,
+)
+from tasks.seal_of_reliability.context import FeedSealContext, LatestDataset
 from tasks.seal_of_reliability.evaluators import (
     EVALUATORS,
     CriterionEvaluator,
+    FreshCoverageEvaluator,
     OfficialEvaluator,
+    StableEvaluator,
 )
 
 NOW = datetime(2026, 6, 1, tzinfo=timezone.utc)
@@ -133,12 +141,195 @@ class TestOfficial(unittest.TestCase):
 
     def test_has_no_grace_or_probation(self):
         """A point-in-time check: it clears as soon as the feed is official again."""
-        self.assertIsNone(OfficialEvaluator.grace_period)
-        self.assertIsNone(OfficialEvaluator.probation_period)
+        self.assertIsNone(OfficialEvaluator().grace_period)
+        self.assertIsNone(OfficialEvaluator().probation_period)
 
     def test_reason_names_the_offending_value(self):
         result = OfficialEvaluator().evaluate(_ctx(official=None))
         self.assertIn("None", result.reason)
+
+
+class TestStable(unittest.TestCase):
+    """`feed.created_at <= now - 180 days` and the producer URL is not flagged unstable."""
+
+    def _stable_ctx(self, **overrides):
+        defaults = {"feed_created_at": NOW - TRACKING_PERIOD - timedelta(days=1)}
+        defaults.update(overrides)
+        return _ctx(**defaults)
+
+    def test_an_old_feed_with_a_stable_url_passes(self):
+        self.assertIs(
+            StableEvaluator().evaluate(self._stable_ctx()).observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_an_unstable_producer_url_fails(self):
+        result = StableEvaluator().evaluate(
+            self._stable_ctx(is_producer_url_unstable=True)
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("is_producer_url_unstable", result.reason)
+
+    def test_a_null_unstable_flag_is_not_a_claim_of_instability(self):
+        """The SQL predicate is `IS NOT TRUE`, so NULL and False both leave the check open."""
+        for flag in (None, False):
+            with self.subTest(is_producer_url_unstable=flag):
+                self.assertIs(
+                    StableEvaluator()
+                    .evaluate(self._stable_ctx(is_producer_url_unstable=flag))
+                    .observed_status,
+                    CriterionStatus.PASS,
+                )
+
+    def test_a_young_feed_fails(self):
+        result = StableEvaluator().evaluate(
+            self._stable_ctx(feed_created_at=NOW - timedelta(days=179))
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("179", result.reason)
+
+    def test_a_feed_created_today_fails(self):
+        result = StableEvaluator().evaluate(self._stable_ctx(feed_created_at=NOW))
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("0 day(s)", result.reason)
+
+    def test_the_boundary_day_passes(self):
+        """Exactly 180 days in the database is enough; the check is `<= now - 180 days`."""
+        self.assertIs(
+            StableEvaluator()
+            .evaluate(self._stable_ctx(feed_created_at=NOW - TRACKING_PERIOD))
+            .observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_a_missing_creation_date_fails_rather_than_withholding(self):
+        """feed.created_at is NOT NULL, so this is unreachable from the database.
+
+        It is still a verdict: an UNKNOWN would freeze the criterion at whatever it last
+        said, and reporting a feed as not yet stable beats holding a seal on a value nobody
+        supplied.
+        """
+        result = StableEvaluator().evaluate(self._stable_ctx(feed_created_at=None))
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("created_at", result.reason)
+
+    def test_the_unstable_flag_is_checked_before_the_feed_age(self):
+        """Both fail, but the reason has to name the one an operator can act on."""
+        result = StableEvaluator().evaluate(
+            _ctx(feed_created_at=NOW, is_producer_url_unstable=True)
+        )
+        self.assertIn("is_producer_url_unstable", result.reason)
+
+    def test_never_returns_a_no_verdict_status(self):
+        """Both inputs are on the feed row, so Stable can never withhold a verdict."""
+        for created_at in (None, NOW, NOW - timedelta(days=400)):
+            for flag in (None, False, True):
+                with self.subTest(feed_created_at=created_at, unstable=flag):
+                    status = (
+                        StableEvaluator()
+                        .evaluate(
+                            _ctx(
+                                feed_created_at=created_at,
+                                is_producer_url_unstable=flag,
+                            )
+                        )
+                        .observed_status
+                    )
+                    self.assertTrue(status.is_verdict)
+
+    def test_has_no_grace_or_probation(self):
+        """A point-in-time check, like Official: neither input flickers."""
+        self.assertIsNone(StableEvaluator().grace_period)
+        self.assertIsNone(StableEvaluator().probation_period)
+
+
+class TestFreshCoverage(unittest.TestCase):
+    """`latest dataset.service_date_range_end >= now + 7 days`."""
+
+    @staticmethod
+    def _dataset(coverage_end):
+        return LatestDataset(
+            dataset_id="mdb-1-202606010000",
+            downloaded_at=NOW - timedelta(days=1),
+            service_date_range_end=coverage_end,
+        )
+
+    def _fresh_ctx(self, coverage_end=NOW + timedelta(days=90), **overrides):
+        defaults = {"latest_dataset": self._dataset(coverage_end)}
+        defaults.update(overrides)
+        return _ctx(**defaults)
+
+    def test_coverage_beyond_the_horizon_passes(self):
+        self.assertIs(
+            FreshCoverageEvaluator().evaluate(self._fresh_ctx()).observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_coverage_inside_the_horizon_fails(self):
+        """It fails before the data runs out, not on the day it does."""
+        result = FreshCoverageEvaluator().evaluate(
+            self._fresh_ctx(NOW + timedelta(days=3))
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("before the", result.reason)
+
+    def test_the_horizon_itself_passes(self):
+        self.assertIs(
+            FreshCoverageEvaluator()
+            .evaluate(self._fresh_ctx(NOW + FUTURE_COVERAGE_HORIZON))
+            .observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_expired_coverage_fails(self):
+        self.assertIs(
+            FreshCoverageEvaluator()
+            .evaluate(self._fresh_ctx(NOW - timedelta(days=1)))
+            .observed_status,
+            CriterionStatus.FAIL,
+        )
+
+    def test_a_seasonal_feed_is_not_applicable(self):
+        """Withdrawn from the roll-up rather than failed: the question is meaningless."""
+        result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(seasonal=True))
+        self.assertIs(result.observed_status, CriterionStatus.NOT_APPLICABLE)
+        self.assertIn("seasonal", result.reason)
+
+    def test_a_seasonal_feed_is_not_applicable_even_with_no_dataset(self):
+        """Applicability is a property of the feed, so it is settled before the inputs."""
+        self.assertIs(
+            FreshCoverageEvaluator()
+            .evaluate(self._fresh_ctx(seasonal=True, latest_dataset=None))
+            .observed_status,
+            CriterionStatus.NOT_APPLICABLE,
+        )
+
+    def test_a_non_seasonal_feed_is_evaluated(self):
+        for seasonal in (None, False):
+            with self.subTest(seasonal=seasonal):
+                self.assertIs(
+                    FreshCoverageEvaluator()
+                    .evaluate(self._fresh_ctx(seasonal=seasonal))
+                    .observed_status,
+                    CriterionStatus.PASS,
+                )
+
+    def test_no_latest_dataset_is_unknown(self):
+        """Not a failure: a feed we have never fetched says nothing about its freshness."""
+        result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(latest_dataset=None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no latest dataset", result.reason)
+
+    def test_a_dataset_with_no_coverage_end_is_unknown(self):
+        """The other missing input, and the reason has to tell the two apart."""
+        result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("service_date_range_end", result.reason)
+
+    def test_has_a_grace_period_and_serves_probation(self):
+        """Coverage lapses are the routine failure the grace period exists to absorb."""
+        self.assertEqual(FreshCoverageEvaluator().grace_period, timedelta(days=14))
+        self.assertEqual(FreshCoverageEvaluator().probation_period, PROBATION_PERIOD)
 
 
 if __name__ == "__main__":

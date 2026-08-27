@@ -8,12 +8,14 @@ from sqlalchemy.orm.query import Query
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.feed import Feed
+from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
@@ -311,6 +313,23 @@ class FeedsApiImpl(BaseFeedsApi):
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
+
+    @with_db_session
+    def get_gtfs_feed_reliability(self, id: str, db_session: Session) -> FeedReliabilityReport:
+        """Returns the Seal of Reliability breakdown for a GTFS feed."""
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        # No seal row means the nightly job has not reached this feed. That is reported as a feed
+        # that simply does not hold the seal, with every criterion never evaluated, rather than a
+        # 404: the feed exists, we just have nothing to say about it yet.
+        try:
+            return FeedReliabilityReportImpl.from_orm(feed)
+        except InternalHTTPException as e:
+            # A stored criterion this build does not know about. The impl lives under shared/ and
+            # cannot depend on fastapi, so it raises InternalHTTPException for conversion here.
+            raise convert_exception(e)
 
     @with_db_session
     def get_gtfs_feed_availability(

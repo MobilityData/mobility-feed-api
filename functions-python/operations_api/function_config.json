@@ -10,6 +10,9 @@
   "environment_variables": [
     {
       "key": "GOOGLE_CLIENT_ID"
+    },
+    {
+      "key": "CORS_ALLOWED_ORIGINS"
     }
   ],
   "secret_environment_variables": [

@@ -131,10 +131,12 @@
     <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
     <!-- Drop incorrectly created ad-hoc coverage/feed-city analysis tables. -->
     <include file="changes/fix_cleanup_coverage_tables.sql" relativeToChangelogFile="true"/>
-      <!-- Add feedinfo table storing parsed feed_info.txt fields (issue #1775). -->
+    <!-- Add feedinfo table storing parsed feed_info.txt fields (issue #1775). -->
     <include file="changes/feat_1775.sql" relativeToChangelogFile="true"/>
     <!-- Seal of Reliability: positive status columns and probation_start (issue #1783). -->
     <include file="changes/feat_1783.sql" relativeToChangelogFile="true"/>
+    <!-- Seal of Reliability: seal_criterion_snapshot, the per-day record of each criterion (issue #1809). -->
+    <include file="changes/feat_1809.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

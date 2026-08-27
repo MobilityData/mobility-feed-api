@@ -17,6 +17,8 @@ src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feature_flag_assignment.py
 src/feeds_gen/models/feed.py
 src/feeds_gen/models/feed_related_link.py
+src/feeds_gen/models/feed_reliability_report.py
+src/feeds_gen/models/feed_reliability_summary.py
 src/feeds_gen/models/feed_status.py
 src/feeds_gen/models/gbfs_endpoint.py
 src/feeds_gen/models/gbfs_feed.py
@@ -53,6 +55,7 @@ src/feeds_gen/models/propagate_license_request.py
 src/feeds_gen/models/propagate_license_response.py
 src/feeds_gen/models/put_user_feature_flags_request.py
 src/feeds_gen/models/redirect.py
+src/feeds_gen/models/reliability_criterion.py
 src/feeds_gen/models/search_feed_item_result.py
 src/feeds_gen/models/source_info.py
 src/feeds_gen/models/update_feature_flag_request.py

@@ -816,6 +816,8 @@ components:
 
               type: string
               example: mdb-1210-202402121801
+            reliability_seal:
+              $ref: "#/components/schemas/FeedReliabilitySummary"
     GbfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
@@ -1128,6 +1130,8 @@ components:
           items:
             type: string
             example: "mdb-20"
+        reliability_seal:
+          $ref: "#/components/schemas/FeedReliabilitySummary"
     Feeds:
       type: array
       items:
@@ -1140,6 +1144,211 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/GtfsRTFeed"
+    FeedReliabilitySummary:
+      description: >
+        A summary of the feed's Seal of Reliability. `null` when the feed has never been evaluated.  Use `GET /v1/gtfs_feeds/{id}/reliability` for the per-criterion breakdown.
+
+      type: object
+      nullable: true
+      required:
+        - has_seal
+        - on_probation
+      properties:
+        has_seal:
+          description: >
+            Whether the feed currently holds the Seal of Reliability.
+
+          type: boolean
+          example: true
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: >
+            Whether at least one criterion is serving probation - the six clean months a criterion must go through, with no failure, after a confirmed failure before it can count towards the seal again. While this is true the feed cannot hold the seal even if every criterion currently passes.
+
+          type: boolean
+          example: true
+        probation_ends_at:
+          description: >
+            The earliest date the feed could regain the seal, in ISO 8601 date-time format: the end of the longest-running probation across its criteria. `null` when no criterion is on probation, and also when the stored probation has already elapsed without the nightly job clearing it - a stale countdown is not served.
+
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+    FeedReliabilityReport:
+      description: >
+        The full Seal of Reliability breakdown for a GTFS feed: the same summary as the embedded `reliability_seal` object, plus one entry per criterion. All six criteria are always returned, in a stable order, so a client can render them unconditionally.
+
+      type: object
+      required:
+        - feed_id
+        - has_seal
+        - on_probation
+        - criteria
+      properties:
+        feed_id:
+          description: Unique identifier of the GTFS feed.
+          type: string
+          example: mdb-1210
+        has_seal:
+          description: Whether the feed currently holds the Seal of Reliability.
+          type: boolean
+          example: false
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: Whether at least one criterion is serving probation. See `FeedReliabilitySummary`.
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: The earliest date the feed could regain the seal. See `FeedReliabilitySummary`.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        criteria:
+          description: One entry per criterion, always all six, in a stable order.
+          type: array
+          items:
+            $ref: "#/components/schemas/ReliabilityCriterion"
+    ReliabilityCriterion:
+      description: >
+        One criterion's contribution to the Seal of Reliability.
+
+        `status` is the criterion's own check at the last evaluation, undebounced, so a criterion can read `fail` while the feed still holds the seal - that is the at-risk state, and `in_grace_period` distinguishes it from a confirmed failure. Conversely a criterion can read `pass` while `on_probation` is true, in which case it still does not count towards the seal. The three states a client renders are therefore: healthy (`pass`), at risk (`fail` with `in_grace_period`), and failing (`fail` without it) - with `on_probation` as an independent flag on top.
+
+      type: object
+      required:
+        - criterion
+        - status
+        - in_grace_period
+        - on_probation
+      properties:
+        criterion:
+          description: >
+            Which criterion this entry describes.
+
+              * `official` - the feed is provided by the agency or a trusted source.
+              * `stable` - the feed has a stable producer URL and a long enough track record.
+              * `available` - the feed URL responds to scheduled availability checks.
+              * `compliant` - the latest dataset validates with no errors.
+              * `fresh_coverage` - the latest dataset's service period extends far enough ahead.
+              * `fresh_continuous` - successive datasets cover service without gaps.
+          type: string
+          enum:
+            - official
+            - stable
+            - available
+            - compliant
+            - fresh_coverage
+            - fresh_continuous
+          example: compliant
+        status:
+          description: >
+            The criterion's verdict at the last evaluation, with no grace period applied.
+
+              * `pass` - the check passed.
+              * `fail` - the check failed. The seal is only withdrawn once the failure outlasts
+                the criterion's grace period, so check `in_grace_period` before presenting this
+                as a loss.
+              * `unknown` - the criterion was evaluated but its inputs were missing, so no verdict
+                could be reached this time. It is skipped when deciding the seal rather than counted
+                as a failure.
+              * `not_applicable` - the criterion does not apply to this feed (for example a
+                coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
+              * `never_evaluated` - the criterion has produced no verdict for this feed yet. It is
+                skipped when deciding the seal rather than counted as a failure.
+          type: string
+          enum:
+            - pass
+            - fail
+            - unknown
+            - not_applicable
+            - never_evaluated
+          example: fail
+        in_grace_period:
+          description: >
+            Whether a failing check is still inside the criterion's grace period, and so is not yet counting against the seal. Can only be true while `status` is `fail`, and is always false while `on_probation` is true, since a failure during probation restarts probation outright rather than being absorbed.
+
+          type: boolean
+          example: true
+        grace_period_ends_at:
+          description: >
+            When the grace period expires and the failure starts counting against the seal, in ISO 8601 date-time format. `null` unless `in_grace_period` is true, and also when the window has already elapsed without the nightly job acting on it.
+
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-08-24T04:00:00Z
+        on_probation:
+          description: >
+            Whether this criterion is serving the six clean months required after a confirmed failure. While true, the criterion does not count towards the seal whatever its `status`. Never true for `official` or `stable`, which are point-in-time state checks with no track record to rebuild.
+
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: >
+            When this criterion finishes probation, in ISO 8601 date-time format. `null` when it is not on probation, and also when the window has already elapsed without the nightly job clearing it.
+
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        evaluated_at:
+          description: When this criterion was last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        first_failure_at:
+          description: >
+            Start of the current run of failing checks, in ISO 8601 date-time format. `null` once the criterion passes again. This is what the grace period is measured from.
+
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-25T04:00:00Z
+        last_failure_at:
+          description: >
+            The most recent failing check, in ISO 8601 date-time format. Kept as history and never cleared, so it can be set on a criterion that currently passes.
+
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
     GtfsFeedAvailabilityResponse:
       type: object
       required:
