@@ -130,9 +130,9 @@ def roll_up_seal_status(
 ) -> SealStatus:
     """The feed-level seal outcome from its criteria.
     * every criterion NEVER_EVALUATED -> seal NEVER_EVALUATED.
-    * any criterion NEVER_EVALUATED -> seal UNKNOWN.
-    * otherwise every criterion is a confirmed verdict: GRANTED when they all pass and none is on
-      probation, NOT_GRANTED otherwise.
+    * any criterion failing or on probation -> seal NOT_GRANTED, whatever the rest say.
+    * any remaining criterion NEVER_EVALUATED -> seal UNKNOWN.
+    * otherwise every criterion is a confirmed pass and none is on probation -> seal GRANTED.
     """
     in_scope = [
         (status, on_probation) for status, on_probation in criteria if status is not CriterionStatus.NOT_APPLICABLE
@@ -145,12 +145,20 @@ def roll_up_seal_status(
     if unjudged == len(in_scope):
         # Every criterion that isn't NOT_APPLICABLE is NEVER_EVALUATED
         return SealStatus.NEVER_EVALUATED
+
+    # One criterion is enough to deny the seal, so this is decidable even with the rest unjudged.
+    # A pass on probation denies it too: probation withholds the criterion whatever its status.
+    denied = any(
+        status is CriterionStatus.FAIL or (status is CriterionStatus.PASS and on_probation)
+        for status, on_probation in in_scope
+    )
+    if denied:
+        return SealStatus.NOT_GRANTED
     if unjudged:
-        # At least one criterion is NEVER_EVALUATED
+        # Nothing denies the seal, but not everything has been judged: it cannot be granted yet.
         return SealStatus.UNKNOWN
 
-    granted = all(status is CriterionStatus.PASS and not on_probation for status, on_probation in in_scope)
-    return SealStatus.GRANTED if granted else SealStatus.NOT_GRANTED
+    return SealStatus.GRANTED
 
 
 # Stable: how long we must have been tracking a feed - measured from its

@@ -12,12 +12,7 @@ from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
 
 
 def _seal_status_of(criterion_rows: list[SealCriterionOrm]) -> str:
-    """The feed-level seal status derived from a feed's `seal_criterion` rows.
-
-    Not stored: the rule lives in `shared.common.seal_criteria` and is shared with the nightly job,
-    so the status served and the one `has_seal` was decided by cannot drift apart. Probation is read
-    only for the criteria that serve it, matching `on_probation` below.
-    """
+    """The feed-level seal status derived from a feed's `seal_criterion` rows."""
     return roll_up_seal_status(
         (
             CriterionStatus(row.confirmed_status),

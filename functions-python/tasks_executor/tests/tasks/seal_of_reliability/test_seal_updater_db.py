@@ -1134,13 +1134,14 @@ class TestSealStatusRollUp(SealDbTestCase):
     @patch(
         "tasks.seal_of_reliability.seal_updater.EVALUATORS", OFFICIAL_AND_NEVER_ANSWERS
     )
-    def test_an_unjudged_criterion_outranks_a_failing_one(self):
-        """A feed failing Official is still UNKNOWN, not NOT_GRANTED, while a criterion has
-        never been judged.
+    def test_a_failing_criterion_decides_the_seal_even_with_another_unjudged(self):
+        """A feed failing Official is NOT_GRANTED, not UNKNOWN, though a criterion has never
+        been judged.
 
-        Deliberate: the roll-up reports whether the feed could be judged before it reports
-        the verdict, so `unknown` always means the same thing - the evaluation is incomplete -
-        rather than meaning it only when nothing else had an opinion.
+        One failure is enough to deny the seal, so the outcome is decidable however little we
+        know about the rest: no verdict the missing criterion could produce would grant it.
+        UNKNOWN is reserved for the case where nothing is failing and the evaluation is simply
+        incomplete.
         """
         update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
 
@@ -1149,9 +1150,14 @@ class TestSealStatusRollUp(SealDbTestCase):
             rows[SealCriterionName.OFFICIAL.value].confirmed_status,
             CriterionStatus.FAIL.value,
         )
+        self.assertEqual(
+            rows[SealCriterionName.AVAILABLE.value].confirmed_status,
+            CriterionStatus.NEVER_EVALUATED.value,
+            "the other criterion has no verdict at all",
+        )
         seal = self.seal_row(NOT_OFFICIAL)
         self.assertEqual(
-            self.derived_seal_status(NOT_OFFICIAL), SealStatus.UNKNOWN.value
+            self.derived_seal_status(NOT_OFFICIAL), SealStatus.NOT_GRANTED.value
         )
         self.assertFalse(seal.has_seal)
 

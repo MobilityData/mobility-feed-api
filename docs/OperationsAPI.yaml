@@ -1213,16 +1213,7 @@ components:
           example: false
         seal_status:
           description: >
-            Why the feed does or does not hold the seal. `has_seal` is true exactly when this is `granted`; the other three values are all `has_seal: false` and are not the same thing:
-
-
-              * `granted` - every criterion in scope is a confirmed pass and none is on probation.
-              * `not_granted` - every criterion was judged and the feed did not qualify.
-              * `unknown` - at least one criterion has never produced a verdict, so whether the
-                feed qualifies cannot be decided yet. The others may all pass.
-              * `never_evaluated` - no criterion has ever produced a verdict for this feed.
-
-            Derived from the `criteria` below, so it never disagrees with them. It is not on the embedded `FeedReliabilitySummary`, which is served without the per-criterion rows in search results - a field that could only ever be filled in on some responses would be worse than not having one.
+            Descriptive status of the feed's seal. `has_seal` is true only when this is `granted`. `not_granted`: at least one criterion is failing. `unknown`: none is failing, but not every criterion has been evaluated yet. `never_evaluated`: none of the criteria has  been evaluated yet.
 
           type: string
           enum:
@@ -2291,6 +2282,10 @@ components:
 
 
 
+
+
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2418,6 +2413,10 @@ components:
 
 
 
+
+
+
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2520,6 +2519,10 @@ components:
 
 
 
+
+
+
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2537,6 +2540,10 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
+
+
+
 
 
 
