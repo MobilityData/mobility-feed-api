@@ -196,3 +196,94 @@ def test_create_requires_feed_ids_for_feed_scoped_type(api_session):
             db_session=session,
         )
     assert exc.value.status_code == 400
+
+
+# ── GET /v1/user/subscriptions/feeds and /feeds/{id} (issue #212) ──────────
+
+
+def test_get_user_subscription_feeds_empty_when_no_feed_scoped_subscriptions(api_session):
+    api, session, _ = api_session
+
+    result = api.get_user_subscription_feeds(db_session=session)
+
+    assert result == []
+
+
+def test_get_user_subscription_feeds_groups_across_feeds(api_session):
+    api, session, _ = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-2", "mdb-1"]),
+        db_session=session,
+    )
+
+    result = api.get_user_subscription_feeds(db_session=session)
+
+    assert [g.feed_id for g in result] == ["mdb-1", "mdb-2"]
+    assert all(len(g.subscriptions) == 1 for g in result)
+
+
+def test_get_user_subscription_feeds_isolated_per_user(api_session):
+    api, session, _ = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    # A different user's subscription to the same feed must not leak into this user's view.
+    other_user_id = f"other-{uuid.uuid4().hex}"
+    session.add(AppUser(id=other_user_id, email=f"{other_user_id}@test.org"))
+    other_sub = NotificationSubscription(
+        id=str(uuid.uuid4()), user_id=other_user_id, notification_type_id=FEED_SCOPED_TYPE, active=True
+    )
+    other_sub.notification_subscription_feeds.append(NotificationSubscriptionFeed(feed_stable_id="mdb-1"))
+    session.add(other_sub)
+    session.flush()
+
+    result = api.get_user_subscription_feeds(db_session=session)
+
+    assert len(result) == 1
+    assert result[0].feed_id == "mdb-1"
+    assert [s.id for s in result[0].subscriptions] != [other_sub.id]
+
+
+def test_get_user_subscription_feed_by_id_returns_matching_feed(api_session):
+    api, session, _ = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1", "mdb-2"]),
+        db_session=session,
+    )
+
+    result = api.get_user_subscription_feed_by_id("mdb-2", db_session=session)
+
+    assert result.feed_id == "mdb-2"
+    assert len(result.subscriptions) == 1
+
+
+def test_get_user_subscription_feed_by_id_404_for_unknown_feed(api_session):
+    api, session, _ = api_session
+
+    with pytest.raises(HTTPException) as exc:
+        api.get_user_subscription_feed_by_id("mdb-999", db_session=session)
+    assert exc.value.status_code == 404
+
+
+def test_get_user_subscription_feed_by_id_null_metadata_when_unresolved(api_session):
+    """resolve_feed_metadata is stubbed to {} by api_session (no feeds DB here), simulating a
+    feed no longer present in the feeds DB. The group must still be returned, not 404, with
+    null metadata fields."""
+    api, session, _ = api_session
+
+    api.create_user_subscription(
+        CreateNotificationSubscriptionRequest(notification_id=FEED_SCOPED_TYPE, feed_ids=["mdb-1"]),
+        db_session=session,
+    )
+
+    result = api.get_user_subscription_feed_by_id("mdb-1", db_session=session)
+
+    assert result.feed_id == "mdb-1"
+    assert result.data_type is None
+    assert result.provider is None
+    assert result.feed_name is None

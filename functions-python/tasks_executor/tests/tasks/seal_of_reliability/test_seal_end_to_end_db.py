@@ -74,9 +74,9 @@ REQUESTED = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL]
 
 # Every seeded feed gets a dataset covering the next 400 days, a successful availability check
 # and a clean validation report of that dataset, so Fresh, Available and Compliant all pass and
-# `official` stays the only criterion that separates the feeds. Feeding all four matters beyond
-# tidiness: a criterion with no verdict at all makes the whole seal `unknown`, so a feed missing
-# one of these inputs would never be granted or revoked. Stable needs nothing seeded: it reads
+# `official` stays the only criterion that separates the feeds. A criterion with no verdict at
+# all makes the whole seal `unknown`, so a feed missing one of these inputs would never be
+# granted or revoked. Stable needs nothing seeded: it reads
 # `feed.created_at`, which `_seed` already backdates by 400 days.
 COVERAGE_END = NOW + timedelta(days=400)
 

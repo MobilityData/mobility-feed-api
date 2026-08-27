@@ -15,8 +15,9 @@
 #
 """The seal criterion evaluators.
 
-`EVALUATORS` is the registry the job iterates. All criteria are implemented except Fresh / continuous
-coverage, which is tracked by #1782. Adding one means a new subclass,
+`EVALUATORS` is the registry the job iterates. Official (issue #1783), Stable, Available,
+Compliant and Fresh / future coverage (issue #1784) are implemented; Fresh / continuous
+coverage is tracked by #1782. Adding one means a new subclass,
 an entry here, and whatever fields it needs on `FeedSealContext`. Its windows are not declared
 on the subclass: they come from the policy maps in `shared.common.seal_criteria`, which the
 read API reads too.
