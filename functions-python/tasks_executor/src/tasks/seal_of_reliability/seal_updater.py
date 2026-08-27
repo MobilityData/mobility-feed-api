@@ -41,6 +41,8 @@ from shared.common.seal_criteria import (
     CriterionPhase,
     CriterionStatus,
     SealCriterionName,
+    SealStatus,
+    roll_up_seal_status,
 )
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
@@ -169,36 +171,15 @@ def _load_previous_seals(
     return {row.feed_id: bool(row.has_seal) for row in rows}
 
 
-def _roll_up_has_seal(states: Dict[str, SealCriterionState]) -> bool:
-    """True when every criterion in service is a confirmed pass and not on probation.
+def _roll_up_seal_status(states: Dict[str, SealCriterionState]) -> SealStatus:
+    """The feed-level seal outcome from its criteria.
 
-    A criterion is *in service* when its `confirmed_status` is a verdict. `confirmed_status`
-    is only ever PASS, FAIL, NEVER_EVALUATED or NOT_APPLICABLE — never UNKNOWN, since an
-    unevaluable run leaves the stored value alone rather than writing UNKNOWN into it (see
-    `transition`). So the roll-up only has to skip the two non-verdict values it can see:
-
-    * NEVER_EVALUATED — never produced a verdict, so it is skipped rather than counted as a
-      failure. This is what lets the seal be computed before every criterion has a data
-      source: one whose source starts collecting later simply is not part of the roll-up.
-    * NOT_APPLICABLE — deliberately excluded for this feed, so it is skipped too. This is why
-      a seasonal feed is not denied the seal by a criterion that is meaningless for it.
-
-    An unevaluable run (UNKNOWN) does not appear here at all: `transition` has already frozen the
-    criterion at its last verdict, so it stays in the roll-up with that verdict if it had
-    one, or stays NEVER_EVALUATED and skipped if it never did.
-
-    A criterion IN_GRACE_PERIOD is a confirmed pass and holds the seal.
-    One ON_PROBATION denies it.
+    A thin adapter over `roll_up_seal_status`, which owns the rule and is shared with the read API.
+    All this adds is reading `on_probation` off the state the way the job derives it, via `phase`.
     """
-    in_service = [
-        state for state in states.values() if state.confirmed_status.is_verdict
-    ]
-    if not in_service:
-        return False
-    return all(
-        state.confirmed_status is CriterionStatus.PASS
-        and phase(state) is not CriterionPhase.ON_PROBATION
-        for state in in_service
+    return roll_up_seal_status(
+        (state.confirmed_status, phase(state) is CriterionPhase.ON_PROBATION)
+        for state in states.values()
     )
 
 
@@ -452,6 +433,18 @@ def update_seals(
                 ):
                     first_evaluations += 1
 
+                logging.info(
+                    "Seal criterion evaluated: feed=%s criterion=%s observed=%s "
+                    "confirmed=%s (was %s) phase=%s reason=%s",
+                    ctx.stable_id,
+                    evaluator.name.value,
+                    observation.observed_status.value,
+                    state.confirmed_status.value,
+                    previous.confirmed_status.value if previous is not None else None,
+                    phase(state).value,
+                    observation.reason,
+                )
+
                 criteria_report.append(
                     {
                         "criterion": evaluator.name.value,
@@ -486,12 +479,20 @@ def update_seals(
             # A feed with no seal row yet is treated as not holding one, so a first run can
             # grant the seal but can never withdraw one: nothing was held to lose.
             had_seal = previous_seals.get(feed.id)
-            has_seal = _roll_up_has_seal(merged)
+            # Not stored: `seal_status` is derived from the same seal_criterion rows the read
+            # API derives it from (see `roll_up_seal_status`), so a column would be a second copy
+            # to keep in step. The job computes it to report and log the outcome, and to answer
+            # the one question feed_reliability_seal does store.
+            seal_status = _roll_up_seal_status(merged)
+            # The boolean stays the narrow question it always was: only GRANTED holds the seal,
+            # so unknown and never-evaluated read as `false` to everything already consuming it.
+            has_seal = seal_status is SealStatus.GRANTED
             outcome = {
                 "feed_id": feed.id,
                 "stable_id": ctx.stable_id,
                 "had_seal": bool(had_seal),
                 "has_seal": has_seal,
+                "seal_status": seal_status,
                 # A first evaluation is a grant if it passes, but it is not a loss if
                 # it fails: nothing was held, so nothing was lost. Only these two
                 # flags stamp seal_earned_at / seal_lost_at.
@@ -501,11 +502,20 @@ def update_seals(
             outcomes.append(outcome)
 
             # Every requested feed is reported, capped at max_reported_feeds below.
+            logging.info(
+                "Seal rolled up: feed=%s status=%s has_seal=%s (had_seal=%s)",
+                ctx.stable_id,
+                seal_status.value,
+                has_seal,
+                outcome["had_seal"],
+            )
+
             feed_reports.append(
                 {
                     "stable_id": ctx.stable_id,
                     "had_seal": outcome["had_seal"],
                     "has_seal": has_seal,
+                    "seal_status": seal_status.value,
                     "criteria": criteria_report,
                 }
             )
@@ -548,6 +558,14 @@ def update_seals(
         "seals_after_run": sum(1 for outcome in outcomes if outcome["has_seal"]),
         "seals_granted": len(granted),
         "seals_revoked": len(revoked),
+        # The four-way outcome behind `seals_after_run`: which feeds were judged and did not
+        # qualify, and which could not be judged because a criterion has never had a verdict.
+        "seal_status_counts": {
+            status.value: sum(
+                1 for outcome in outcomes if outcome["seal_status"] is status
+            )
+            for status in SealStatus
+        },
         # The two transitions in feed_reliability_seal, by feed. Counts alone cannot say
         # which feed moved, and that is the first thing anyone asks of a run.
         "granted_stable_ids": [outcome["stable_id"] for outcome in granted],

@@ -1119,6 +1119,28 @@ components:
           description: Whether the feed currently holds the Seal of Reliability.
           type: boolean
           example: false
+        seal_status:
+          description: >
+            Why the feed does or does not hold the seal. `has_seal` is true exactly when this is
+            `granted`; the other three values are all `has_seal: false` and are not the same thing:
+
+              * `granted` - every criterion in scope is a confirmed pass and none is on probation.
+              * `not_granted` - every criterion was judged and the feed did not qualify.
+              * `unknown` - at least one criterion has never produced a verdict, so whether the
+                feed qualifies cannot be decided yet. The others may all pass.
+              * `never_evaluated` - no criterion has ever produced a verdict for this feed.
+
+            Derived from the `criteria` below, so it never disagrees with them. It is not on the
+            embedded `FeedReliabilitySummary`, which is served without the per-criterion rows in
+            search results - a field that could only ever be filled in on some responses would be
+            worse than not having one.
+          type: string
+          enum:
+            - granted
+            - not_granted
+            - unknown
+            - never_evaluated
+          example: granted
         earned_at:
           description: When the feed most recently earned the seal, in ISO 8601 date-time format.
           type: string

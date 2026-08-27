@@ -25,9 +25,16 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
 )
-from tasks.seal_of_reliability.context import FeedSealContext, LatestDataset
+from tasks.seal_of_reliability.context import (
+    AvailabilityCheck,
+    FeedSealContext,
+    LatestDataset,
+    ValidationReport,
+)
 from tasks.seal_of_reliability.evaluators import (
     EVALUATORS,
+    AvailableEvaluator,
+    CompliantEvaluator,
     CriterionEvaluator,
     FreshCoverageEvaluator,
     OfficialEvaluator,
@@ -330,6 +337,142 @@ class TestFreshCoverage(unittest.TestCase):
         """Coverage lapses are the routine failure the grace period exists to absorb."""
         self.assertEqual(FreshCoverageEvaluator().grace_period, timedelta(days=14))
         self.assertEqual(FreshCoverageEvaluator().probation_period, PROBATION_PERIOD)
+
+
+class TestAvailable(unittest.TestCase):
+    """The latest availability check in the window since the previous evaluation."""
+
+    @staticmethod
+    def _check(success, checked_at=None):
+        return AvailabilityCheck(checked_at=checked_at or NOW, success=success)
+
+    def test_a_successful_check_passes(self):
+        self.assertIs(
+            AvailableEvaluator()
+            .evaluate(_ctx(availability_check=self._check(True)))
+            .observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_a_failed_check_fails(self):
+        result = AvailableEvaluator().evaluate(
+            _ctx(availability_check=self._check(False))
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("failed", result.reason)
+
+    def test_no_check_in_the_window_is_unknown_not_a_failure(self):
+        """A window the availability job did not cover says nothing about the producer."""
+        result = AvailableEvaluator().evaluate(_ctx(availability_check=None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no availability check since", result.reason)
+
+    def test_the_reason_names_the_check_it_read(self):
+        """The window makes "which check decided this" a real question, so answer it."""
+        checked_at = NOW - timedelta(hours=3)
+        result = AvailableEvaluator().evaluate(
+            _ctx(availability_check=self._check(False, checked_at))
+        )
+        self.assertIn(checked_at.isoformat(), result.reason)
+
+    def test_is_never_not_applicable(self):
+        """Availability applies to every feed, seasonal ones included."""
+        for check in (self._check(True), self._check(False), None):
+            with self.subTest(check=check):
+                self.assertIsNot(
+                    AvailableEvaluator()
+                    .evaluate(_ctx(availability_check=check, seasonal=True))
+                    .observed_status,
+                    CriterionStatus.NOT_APPLICABLE,
+                )
+
+    def test_has_a_grace_period_and_serves_probation(self):
+        self.assertEqual(AvailableEvaluator().grace_period, timedelta(days=14))
+        self.assertEqual(AvailableEvaluator().probation_period, PROBATION_PERIOD)
+
+
+class TestCompliant(unittest.TestCase):
+    """`total_error = 0` on the latest validation report of the feed's latest dataset."""
+
+    DATASET_ID = "mdb-1-202605280000"
+
+    def _compliant_ctx(
+        self, total_error=0, with_report=True, with_dataset=True, **overrides
+    ):
+        report = (
+            ValidationReport(
+                report_id="report-1",
+                dataset_id=self.DATASET_ID,
+                validated_at=NOW - timedelta(hours=1),
+                total_error=total_error,
+            )
+            if with_report
+            else None
+        )
+        dataset = (
+            LatestDataset(
+                dataset_id=self.DATASET_ID,
+                downloaded_at=NOW - timedelta(hours=2),
+            )
+            if with_dataset
+            else None
+        )
+        defaults = {"latest_validation_report": report, "latest_dataset": dataset}
+        defaults.update(overrides)
+        return _ctx(**defaults)
+
+    def test_a_clean_report_passes(self):
+        self.assertIs(
+            CompliantEvaluator().evaluate(self._compliant_ctx(0)).observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_any_error_fails(self):
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(1))
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("1 error(s)", result.reason)
+
+    def test_a_feed_with_no_dataset_is_unknown(self):
+        """Nothing published means nothing to validate, not a failure."""
+        result = CompliantEvaluator().evaluate(
+            self._compliant_ctx(with_report=False, with_dataset=False)
+        )
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no dataset", result.reason)
+
+    def test_an_unvalidated_latest_dataset_is_unknown(self):
+        """The case that keeps a never-validated feed off a confirmed failure.
+
+        Validation lags publication, so a feed publishing faster than the validator sits at
+        UNKNOWN and keeps whatever verdict it last earned.
+        """
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(with_report=False))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no validation report", result.reason)
+        self.assertIn(self.DATASET_ID, result.reason)
+
+    def test_the_reason_names_the_dataset_that_was_validated(self):
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(3))
+        self.assertIn(self.DATASET_ID, result.reason)
+
+    def test_a_report_with_no_error_count_is_unknown_not_a_pass(self):
+        """total_error is nullable, and a missing count must not read as zero errors."""
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no total_error", result.reason)
+
+    def test_is_never_not_applicable(self):
+        """Compliance applies to every feed, seasonal ones included."""
+        self.assertIsNot(
+            CompliantEvaluator()
+            .evaluate(self._compliant_ctx(0, seasonal=True))
+            .observed_status,
+            CriterionStatus.NOT_APPLICABLE,
+        )
+
+    def test_has_a_grace_period_and_serves_probation(self):
+        self.assertEqual(CompliantEvaluator().grace_period, timedelta(days=30))
+        self.assertEqual(CompliantEvaluator().probation_period, PROBATION_PERIOD)
 
 
 if __name__ == "__main__":

@@ -34,7 +34,33 @@ from typing import Dict, Iterator, List, Optional, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset, Gtfsfeed
+from shared.common.seal_criteria import AVAILABILITY_LOOKBACK
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
+    Gtfsfeed,
+    Validationreport,
+    t_validationreportgtfsdataset,
+)
+
+
+@dataclass(frozen=True)
+class AvailabilityCheck:
+    """The latest availability check for a feed within the run's window."""
+
+    checked_at: datetime
+    success: bool
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+    """The latest validation report of the feed's latest dataset, as of the run's `now`."""
+
+    report_id: str
+    dataset_id: str
+    validated_at: datetime
+    total_error: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +97,12 @@ class FeedSealContext:
 
     # The feed's latest dataset as of `now` - resolved by `downloaded_at` vs `now`
     latest_dataset: Optional[LatestDataset] = None
+
+    # Available: the latest availability check in the window this run covers.
+    availability_check: Optional[AvailabilityCheck] = None
+
+    # Compliant: the latest validation report of the dataset in `latest_dataset`.
+    latest_validation_report: Optional[ValidationReport] = None
 
 
 # Feeds in these statuses, or not published, are never eligible for the seal.
@@ -195,6 +227,94 @@ def _load_latest_datasets(
     }
 
 
+def _load_validation_reports(
+    db_session: Session,
+    latest_datasets: Dict[str, LatestDataset],
+    now: datetime,
+) -> Dict[str, ValidationReport]:
+    """feed_id -> the latest validation report of that feed's latest dataset, as of `now`.
+
+    Scoped to the latest dataset, not the feed: a verdict on a superseded dataset does not describe
+    what is being served. A feed whose latest dataset is not validated yet is left out, which the
+    evaluator reads as UNKNOWN. One dataset can have several reports (a re-validation); the most
+    recently validated wins, and ones with no `validated_at` are excluded.
+    """
+    if not latest_datasets:
+        return {}
+    feed_id_by_dataset = {
+        dataset.dataset_id: feed_id for feed_id, dataset in latest_datasets.items()
+    }
+    join_table = t_validationreportgtfsdataset
+    rows = db_session.execute(
+        select(
+            join_table.c.dataset_id,
+            Validationreport.id,
+            Validationreport.validated_at,
+            Validationreport.total_error,
+        )
+        .select_from(join_table)
+        .join(
+            Validationreport,
+            Validationreport.id == join_table.c.validation_report_id,
+        )
+        .where(
+            join_table.c.dataset_id.in_(list(feed_id_by_dataset)),
+            Validationreport.validated_at.is_not(None),
+            Validationreport.validated_at <= now,
+        )
+        .distinct(join_table.c.dataset_id)
+        .order_by(
+            join_table.c.dataset_id,
+            Validationreport.validated_at.desc(),
+            Validationreport.id.desc(),
+        )
+    ).all()
+    return {
+        feed_id_by_dataset[row.dataset_id]: ValidationReport(
+            report_id=row.id,
+            dataset_id=row.dataset_id,
+            validated_at=row.validated_at,
+            total_error=row.total_error,
+        )
+        for row in rows
+    }
+
+
+def _load_availability(
+    db_session: Session, feed_ids: Sequence[str], now: datetime
+) -> Dict[str, AvailabilityCheck]:
+    """feed_id -> its latest availability check in the 24 hours up to `now`.
+
+    A rolling window rather than the UTC day of `now`, so a check still counts when the
+    availability job (02:00 UTC) and the seal run (04:00 UTC) drift apart or one of them runs
+    late.
+    """
+    if not feed_ids:
+        return {}
+    rows = db_session.execute(
+        select(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at,
+            GtfsFeedAvailabilityCheck.success,
+        )
+        .where(
+            GtfsFeedAvailabilityCheck.feed_id.in_(list(feed_ids)),
+            GtfsFeedAvailabilityCheck.checked_at > now - AVAILABILITY_LOOKBACK,
+            GtfsFeedAvailabilityCheck.checked_at <= now,
+        )
+        .distinct(GtfsFeedAvailabilityCheck.feed_id)
+        .order_by(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at.desc(),
+            GtfsFeedAvailabilityCheck.id.desc(),
+        )
+    ).all()
+    return {
+        row.feed_id: AvailabilityCheck(checked_at=row.checked_at, success=row.success)
+        for row in rows
+    }
+
+
 def build_contexts(
     db_session: Session, feeds: Sequence[Gtfsfeed], now: datetime
 ) -> Dict[str, FeedSealContext]:
@@ -229,9 +349,10 @@ def build_contexts(
        called once as `availability = _load_availability_today(...)` and consumed per feed
        as `availability_success_today=availability.get(feed.id, False)`.
     """
-    latest_datasets = _load_latest_datasets(
-        db_session, [feed.id for feed in feeds], now
-    )
+    feed_ids = [feed.id for feed in feeds]
+    latest_datasets = _load_latest_datasets(db_session, feed_ids, now)
+    availability = _load_availability(db_session, feed_ids, now)
+    validation_reports = _load_validation_reports(db_session, latest_datasets, now)
 
     return {
         feed.id: FeedSealContext(
@@ -243,6 +364,8 @@ def build_contexts(
             seasonal=feed.seasonal,
             feed_created_at=feed.created_at,
             latest_dataset=latest_datasets.get(feed.id),
+            availability_check=availability.get(feed.id),
+            latest_validation_report=validation_reports.get(feed.id),
         )
         for feed in feeds
     }

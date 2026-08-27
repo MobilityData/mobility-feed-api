@@ -1,7 +1,30 @@
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
-from shared.common.seal_criteria import SealCriterionName, resolve_criterion
+from shared.common.seal_criteria import (
+    PROBATION_EXEMPT_CRITERIA,
+    CriterionStatus,
+    SealCriterionName,
+    resolve_criterion,
+    roll_up_seal_status,
+)
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
+from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
 from shared.db_models.reliability_criterion_impl import ReliabilityCriterionImpl
+
+
+def _seal_status_of(criterion_rows: list[SealCriterionOrm]) -> str:
+    """The feed-level seal status derived from a feed's `seal_criterion` rows.
+
+    Not stored: the rule lives in `shared.common.seal_criteria` and is shared with the nightly job,
+    so the status served and the one `has_seal` was decided by cannot drift apart. Probation is read
+    only for the criteria that serve it, matching `on_probation` below.
+    """
+    return roll_up_seal_status(
+        (
+            CriterionStatus(row.confirmed_status),
+            row.probation_start is not None and row.criterion not in PROBATION_EXEMPT_CRITERIA,
+        )
+        for row in criterion_rows
+    ).value
 
 
 class FeedReliabilityReportImpl(FeedReliabilityReport):
@@ -58,6 +81,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
         return cls(
             feed_id=feed.stable_id,
             has_seal=bool(seal.has_seal) if seal is not None else False,
+            seal_status=_seal_status_of(criterion_rows),
             earned_at=seal.seal_earned_at if seal is not None else None,
             lost_at=seal.seal_lost_at if seal is not None else None,
             evaluated_at=max(evaluated_ats) if evaluated_ats else None,
