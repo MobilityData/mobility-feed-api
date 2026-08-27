@@ -51,6 +51,7 @@ from tasks.seal_of_reliability.context import (
 from tasks.seal_of_reliability.backfill.simulation import (
     MAX_TRACE_ROWS,
     check_simulation_fits,
+    collapse_runs,
     observe,
     parse_simulation,
     policy_for,
@@ -356,9 +357,7 @@ def _march(
                 days_states.append(states[key])
                 if trace and len(trace_rows) < MAX_TRACE_ROWS:
                     trace_rows.append(
-                        trace_row(
-                            feed, evaluator, today, offset, observation, states[key]
-                        )
+                        trace_row(feed, evaluator, offset, observation, states[key])
                     )
 
         if write and snapshot_mode == "all":
@@ -454,8 +453,9 @@ def backfill_seals(
     `backfill_seal_of_reliability` for the parameters as an operator passes them.
 
     `simulate` forces observed statuses on named days, and `trace` returns the state each
-    day left behind. Both are inspection tools and neither may write: see the dry_run check
-    below.
+    day left behind, always collapsed to one entry per unchanged stretch — a year of days is
+    mostly repetition, and no caller wanted it row by row. Both are inspection tools and
+    neither may write: see the dry_run check below.
 
     Returns a report; `days` is the longest march in the run, since feeds clamped to their
     own `created_at` march fewer.
@@ -579,7 +579,9 @@ def backfill_seals(
             outcomes.extend(result["outcomes"])
             trace_rows.extend(result["trace"])
         if trace:
-            report["trace"] = trace_rows
+            report["trace"] = collapse_runs(trace_rows)
+            # Counted on the marched days, not on the collapsed entries: the cap is what the
+            # march stopped recording, and collapsing happens after.
             report["trace_truncated"] = len(trace_rows) >= MAX_TRACE_ROWS
         if simulation:
             report["simulated"] = {

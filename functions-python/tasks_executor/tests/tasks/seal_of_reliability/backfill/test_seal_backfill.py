@@ -20,6 +20,7 @@ resolves to, which feeds are selected, and that a non-dry run refuses rather tha
 a success that wrote nothing.
 """
 
+import json
 import unittest
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -389,6 +390,28 @@ def snapshot_days(stable_id, db_session=None):
     return sorted({row.snapshot_date for row in rows})
 
 
+def trace_day(report, day):
+    """The marched day `day`, found inside the collapsed trace.
+
+    A trace reports one entry per unchanged stretch, so a day in the middle of one is
+    represented by that stretch's `first` row — every field asserted on here is part of the
+    signature the stretch collapsed on, and so is identical across it. The closing day carries
+    its own row, returned as `last`.
+    """
+    for entry in report["trace"]:
+        first = entry["first"]
+        last = entry.get("last", first)
+        if first["day"] <= day <= last["day"]:
+            return last if day == last["day"] else first
+    raise AssertionError(f"day {day} is not in the trace")
+
+
+def trace_last(report):
+    """The final marched day of the trace."""
+    entry = report["trace"][-1]
+    return entry.get("last", entry["first"])
+
+
 class MarchTestCase(unittest.TestCase):
     """Two identically-aged feeds: one marched in memory, one replayed through the database."""
 
@@ -609,7 +632,7 @@ class TestSimulateAndTrace(MarchTestCase):
         report = self.simulate(
             MARCHED, simulate={"official": {"fail": [0]}}, trace=True
         )
-        day_zero = next(row for row in report["trace"] if row["day"] == 0)
+        day_zero = trace_day(report, 0)
         self.assertEqual(day_zero["observed_status"], "fail")
         self.assertEqual(day_zero["confirmed_status"], "fail")
         self.assertTrue(day_zero["simulated"])
@@ -619,7 +642,7 @@ class TestSimulateAndTrace(MarchTestCase):
         report = self.simulate(
             MARCHED, simulate={"official": {"fail": [0]}}, trace=True
         )
-        day_one = next(row for row in report["trace"] if row["day"] == 1)
+        day_one = trace_day(report, 1)
         self.assertEqual(day_one["observed_status"], "pass")
         self.assertFalse(day_one["simulated"])
 
@@ -635,31 +658,89 @@ class TestSimulateAndTrace(MarchTestCase):
             simulate={"official": {"fail": list(range(1, 40))}},
             trace=True,
         )
-        by_day = {row["day"]: row for row in report["trace"]}
+        self.assertEqual(
+            trace_day(report, 30)["confirmed_status"], "pass", "last day of grace"
+        )
+        self.assertEqual(
+            trace_day(report, 31)["confirmed_status"], "fail", "grace outlasted"
+        )
 
-        self.assertEqual(by_day[30]["confirmed_status"], "pass", "last day of grace")
-        self.assertEqual(by_day[31]["confirmed_status"], "fail", "grace outlasted")
-
-        last = report["trace"][-1]
+        last = trace_last(report)
         self.assertEqual(last["observed_status"], "pass")
         self.assertEqual(last["confirmed_status"], "pass", "recovered")
         self.assertEqual(last["phase"], "on_probation")
         self.assertIsNotNone(last["probation_start"])
 
-    def test_the_trace_covers_every_marched_day(self):
-        report = self.simulate(MARCHED, trace=True)
-        days = [row["day"] for row in report["trace"]]
-        self.assertEqual(days, list(range(len(days))))
-        self.assertEqual(
-            len(days), (MARCH_END - MARCH_START).days + 1, "one row per day"
+    def test_a_trace_row_carries_every_seal_criterion_field(self):
+        """The trace is the stored row plus provenance, not a summary of it.
+
+        Derived from SealCriterionState, so a field added there appears here without anyone
+        remembering to widen the trace — and this fails if it ever stops being derived.
+        """
+        from dataclasses import fields as dataclass_fields
+
+        from tasks.seal_of_reliability.state_machine import SealCriterionState
+
+        report = self.simulate(
+            MARCHED, simulate={"official": {"fail": [1]}}, trace=True
         )
+        row = trace_day(report, 0)
+
+        expected = {f.name for f in dataclass_fields(SealCriterionState)} - {
+            "feed_id",
+            "criterion",
+        }
+        self.assertTrue(
+            expected.issubset(row),
+            f"trace is missing state fields: {sorted(expected - set(row))}",
+        )
+        for name in ("day", "phase", "simulated", "reason", "criterion"):
+            self.assertIn(name, row)
+        self.assertNotIn(
+            "date", row, "dropped: evaluated_at is the same day by construction"
+        )
+
+    def test_the_carried_state_tracks_the_streak(self):
+        """first_observed_failure_at is set while failing and cleared on recovery."""
+        report = self.simulate(
+            MARCHED, simulate={"official": {"fail": [1, 2]}}, trace=True
+        )
+        days = {day: trace_day(report, day) for day in (0, 1, 2, 3)}
+
+        self.assertIsNone(days[0]["first_observed_failure_at"])
+        self.assertEqual(days[1]["first_observed_failure_at"], days[1]["evaluated_at"])
+        self.assertEqual(
+            days[2]["first_observed_failure_at"],
+            days[1]["evaluated_at"],
+            "the streak keeps its start",
+        )
+        self.assertIsNone(days[3]["first_observed_failure_at"], "cleared on recovery")
+        self.assertEqual(
+            days[3]["last_observed_failure_at"],
+            days[2]["evaluated_at"],
+            "but the history is never cleared",
+        )
+
+    def test_the_trace_accounts_for_every_marched_day(self):
+        """Collapsed stretches tile the march: contiguous, in order, none missing."""
+        report = self.simulate(MARCHED, trace=True)
+        marched = (MARCH_END - MARCH_START).days + 1
+
+        next_expected = 0
+        for entry in report["trace"]:
+            first = entry["first"]
+            last = entry.get("last", first)
+            self.assertEqual(first["day"], next_expected, "stretches are contiguous")
+            self.assertEqual(entry["days"], last["day"] - first["day"] + 1)
+            next_expected = last["day"] + 1
+        self.assertEqual(next_expected, marched, "every marched day is accounted for")
 
     def test_the_trace_is_offset_from_the_feed_own_march_start(self):
         """Day 0 is the feed's first evaluated day, not the window start."""
         report = self.simulate(MARCHED, trace=True)
-        first = report["trace"][0]
+        first = trace_day(report, 0)
         self.assertEqual(first["day"], 0)
-        self.assertEqual(first["date"], MARCH_START.isoformat())
+        self.assertEqual(first["evaluated_at"], MARCH_START.isoformat())
 
     def test_an_unknown_criterion_is_rejected(self):
         with self.assertRaises(ValueError) as caught:
@@ -686,7 +767,9 @@ class TestSimulateAndTrace(MarchTestCase):
         report = self.simulate(
             MARCHED, simulate={"official": {"fail": [2], "unknown": [4]}}
         )
-        self.assertEqual(report["simulated"]["official"], {2: "fail", 4: "unknown"})
+        # String keys: the echo shares its dict with grace_days/probation_days, and jsonify
+        # sorts keys, which raises on a dict mixing str and int.
+        self.assertEqual(report["simulated"]["official"], {"2": "fail", "4": "unknown"})
 
     def test_a_plain_dry_run_still_stops_at_the_plan(self):
         """Only simulate or trace makes a dry run pay for the march."""
@@ -715,7 +798,7 @@ class TestSimulatedPolicy(MarchTestCase):
 
     @staticmethod
     def _day(report, day):
-        return next(row for row in report["trace"] if row["day"] == day)
+        return trace_day(report, day)
 
     def test_a_lent_grace_period_absorbs_a_failure(self):
         """Without an override this criterion confirms on day 1; with 14 days it holds."""
@@ -795,7 +878,10 @@ class TestSimulatedPolicy(MarchTestCase):
         echoed = report["simulated"]["official"]
         self.assertEqual(echoed["grace_days"], 14)
         self.assertEqual(echoed["probation_days"], 180)
-        self.assertEqual(echoed[1], "fail")
+        self.assertEqual(echoed["1"], "fail")
+        # This echo is the shape that used to 500: offsets and policy keys in one dict, which
+        # only fails once Flask serializes it, so assert it survives that too.
+        self.assertEqual(json.loads(json.dumps(echoed, sort_keys=True)), echoed)
 
     def test_a_negative_period_is_rejected(self):
         with self.assertRaises(ValueError) as caught:
@@ -818,6 +904,61 @@ class TestSimulatedPolicy(MarchTestCase):
                     dry_run=False,
                     simulate={"official": {"grace_days": 14}},
                 )
+
+
+class TestSimulatedBaseline(MarchTestCase):
+    """`default` is what every unnamed day observes; named days are exceptions on top.
+
+    Without it, unnamed days fall through to the evaluator — which says nothing useful for a
+    criterion whose source data is absent, as `fresh_coverage` is on a local database.
+    """
+
+    def simulate(self, **kwargs):
+        # The stand-in passes every day, so a `fail` baseline can only come from the payload.
+        with self.registry(_script_for([])):
+            return backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=True,
+                trace=True,
+                **kwargs,
+            )
+
+    def test_a_baseline_replaces_the_evaluator_on_every_unnamed_day(self):
+        report = self.simulate(simulate={"official": {"default": "fail"}})
+        for day in (0, 1, 5):
+            row = trace_day(report, day)
+            self.assertEqual(row["observed_status"], "fail", f"day {day}")
+            self.assertTrue(row["simulated"])
+            self.assertIn("by default", row["reason"])
+
+    def test_a_named_day_overrides_the_baseline(self):
+        report = self.simulate(simulate={"official": {"default": "fail", "pass": [2]}})
+        self.assertEqual(trace_day(report, 1)["observed_status"], "fail")
+        day_two = trace_day(report, 2)
+        self.assertEqual(day_two["observed_status"], "pass", "the exception wins")
+        self.assertIn("on day 2", day_two["reason"])
+
+    def test_without_a_baseline_unnamed_days_still_fall_through(self):
+        report = self.simulate(simulate={"official": {"fail": [2]}})
+        self.assertFalse(trace_day(report, 1)["simulated"], "the evaluator answered")
+
+    def test_the_report_echoes_the_baseline(self):
+        report = self.simulate(simulate={"official": {"default": "fail", "pass": [2]}})
+        echoed = report["simulated"]["official"]
+        self.assertEqual(echoed["default"], "fail")
+        self.assertEqual(echoed["2"], "pass")
+
+    def test_an_unknown_baseline_status_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(simulate={"official": {"default": "excellent"}})
+        self.assertIn("default", str(caught.exception))
+
+    def test_a_baseline_alone_is_enough_to_march(self):
+        """No named day, so nothing to range-check — the baseline still forces the march."""
+        report = self.simulate(simulate={"official": {"default": "unknown"}})
+        self.assertEqual(trace_day(report, 0)["observed_status"], "unknown")
 
 
 if __name__ == "__main__":

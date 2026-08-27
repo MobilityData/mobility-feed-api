@@ -88,12 +88,13 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         resume_from_snapshot  seed from the snapshot before march_start (#1803).
                          Default: False
         max_reported_feeds    cap on the `feeds` list in the response. Default: 50
-        simulate         force observed statuses on given days, counted from each feed's
-                         march start: {"official": {"fail": [3, 4], "unknown": [8]}}.
-                         Requires dry_run — a forced verdict must never be written, since
-                         the stored row carries no mark saying it was simulated
-        trace            return one row per feed, criterion and day: observed, confirmed,
-                         phase and probation. Marches without writing when dry_run
+        simulate         force statuses per criterion, on days counted from each feed's
+                         march start: {"fresh_coverage": {"default": "pass", "fail": [3]}}.
+                         Requires dry_run; see `parse_simulation` for the full shape
+        trace            return the march day by day: every seal_criterion field, plus where
+                         it came from. Marches without writing when dry_run. Consecutive days
+                         in which nothing changed are always collapsed into one entry — its
+                         first day, its last, and the count between
     """
     (
         stable_feed_ids,
