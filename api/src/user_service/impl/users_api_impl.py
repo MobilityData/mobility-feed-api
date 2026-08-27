@@ -27,6 +27,7 @@ from shared.database.database import generate_unique_id
 from shared.database.users_database import with_users_db_session
 from shared.db_models.app_user_impl import AppUserImpl
 from shared.db_models.notification_subscription_impl import NotificationSubscriptionImpl
+from shared.db_models.subscription_feed_group_impl import SubscriptionFeedGroupImpl
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     FeatureFlag,
@@ -52,6 +53,7 @@ from user_service_gen.models.create_notification_subscription_request import (
     CreateNotificationSubscriptionRequest,
 )
 from user_service_gen.models.notification_subscription import NotificationSubscription
+from user_service_gen.models.subscription_feed_group import SubscriptionFeedGroup
 from user_service_gen.models.update_notification_subscription_request import (
     UpdateNotificationSubscriptionRequest,
 )
@@ -168,6 +170,54 @@ class UsersApiImpl(BaseUsersApi):
         stable_ids = [f.feed_stable_id for s in subs for f in s.notification_subscription_feeds]
         feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}
         return [NotificationSubscriptionImpl.from_orm(s, feed_metadata) for s in subs]
+
+    @with_users_db_session
+    def get_user_subscription_feeds(self, db_session=None) -> List[SubscriptionFeedGroup]:
+        """Returns the feeds the authenticated user has at least one subscription targeting,
+        each with the subscriptions that target it."""
+        user_id = self._require_user_id()
+        return self._query_subscription_feed_groups(db_session, user_id)
+
+    @with_users_db_session
+    def get_user_subscription_feed_by_id(self, id: str, db_session=None) -> SubscriptionFeedGroup:
+        """Returns the authenticated user's subscriptions targeting a single feed stable ID.
+
+        404 collapses "feed doesn't exist" and "user has no subscription targeting it" into one
+        condition (no matching join rows), so no separate feeds-DB existence check is needed.
+        """
+        user_id = self._require_user_id()
+        groups = self._query_subscription_feed_groups(db_session, user_id, feed_stable_id=id)
+        if not groups:
+            raise HTTPException(status_code=404, detail="Feed not found, or no subscription targets it.")
+        return groups[0]
+
+    @staticmethod
+    def _query_subscription_feed_groups(
+        db_session, user_id: str, feed_stable_id: str = None
+    ) -> List[SubscriptionFeedGroup]:
+        query = (
+            db_session.query(NotificationSubscriptionFeedOrm, NotificationSubscriptionOrm)
+            .join(
+                NotificationSubscriptionOrm,
+                NotificationSubscriptionFeedOrm.subscription_id == NotificationSubscriptionOrm.id,
+            )
+            .filter(NotificationSubscriptionOrm.user_id == user_id)
+        )
+        if feed_stable_id is not None:
+            query = query.filter(NotificationSubscriptionFeedOrm.feed_stable_id == feed_stable_id)
+        rows = query.order_by(
+            NotificationSubscriptionFeedOrm.feed_stable_id, NotificationSubscriptionOrm.created_at
+        ).all()
+
+        grouped: dict[str, list[NotificationSubscriptionOrm]] = {}
+        for feed_row, sub in rows:
+            grouped.setdefault(feed_row.feed_stable_id, []).append(sub)
+
+        feed_metadata = resolve_feed_metadata(list(grouped.keys())) if grouped else {}
+        return [
+            SubscriptionFeedGroupImpl.from_subscriptions(stable_id, subs, feed_metadata)
+            for stable_id, subs in grouped.items()
+        ]
 
     @with_users_db_session
     def create_user_subscription(
