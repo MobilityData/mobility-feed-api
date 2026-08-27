@@ -65,6 +65,8 @@ def get_parameters(payload: dict):
         payload.get("snapshot_mode", DEFAULT_SNAPSHOT_MODE),
         payload.get("resume_from_snapshot", False),
         payload.get("max_reported_feeds", DEFAULT_MAX_REPORTED_FEEDS),
+        payload.get("simulate", None),
+        payload.get("trace", False),
     )
 
 
@@ -86,6 +88,12 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         resume_from_snapshot  seed from the snapshot before march_start (#1803).
                          Default: False
         max_reported_feeds    cap on the `feeds` list in the response. Default: 50
+        simulate         force observed statuses on given days, counted from each feed's
+                         march start: {"official": {"fail": [3, 4], "unknown": [8]}}.
+                         Requires dry_run — a forced verdict must never be written, since
+                         the stored row carries no mark saying it was simulated
+        trace            return one row per feed, criterion and day: observed, confirmed,
+                         phase and probation. Marches without writing when dry_run
     """
     (
         stable_feed_ids,
@@ -100,6 +108,8 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         snapshot_mode,
         resume_from_snapshot,
         max_reported_feeds,
+        simulate,
+        trace,
     ) = get_parameters(payload)
     return backfill_seals(
         stable_feed_ids=stable_feed_ids,
@@ -114,4 +124,6 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         snapshot_mode=snapshot_mode,
         resume_from_snapshot=resume_from_snapshot,
         max_reported_feeds=max_reported_feeds,
+        simulate=simulate,
+        trace=trace,
     )

@@ -1,0 +1,260 @@
+#
+#   MobilityData 2026
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+"""Forced per-day statuses and the day-by-day trace, for inspecting a backfill march.
+
+Neither may write. A simulated verdict in `seal_criterion` would be indistinguishable from
+an earned one — the row carries no provenance — so `backfill_seals` refuses to combine
+`simulate` with a real run, and a traced dry run marches with writing suppressed.
+
+Day offsets are counted from each feed's own march start, so day 0 is that feed's first
+evaluated day: the one denied a grace period. Anchoring to the run's `start_date` instead
+would point at days a younger feed never marched.
+"""
+
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from typing import Any, Dict, Mapping, Optional, Sequence
+
+from tasks.seal_of_reliability.criteria import CriterionStatus
+from tasks.seal_of_reliability.evaluators.base import CriterionObservation
+from tasks.seal_of_reliability.state_machine import phase
+
+# Cap on the trace a single call returns. A year x a batch of feeds x six criteria would be
+# a response no one can read and Cloud Logging would drop; a simulation is a small thing.
+MAX_TRACE_ROWS: int = 2000
+
+# Payload keys inside a criterion that set policy rather than name days. Status names are a
+# closed set, so there is no collision.
+GRACE_KEY = "grace_days"
+PROBATION_KEY = "probation_days"
+_POLICY_KEYS = (GRACE_KEY, PROBATION_KEY)
+
+# Distinguishes "not given" — use the evaluator's own value — from an explicit null, which
+# means the criterion has no such period.
+_UNSET = object()
+
+
+@dataclass(frozen=True)
+class CriterionSimulation:
+    """What a payload forces for one criterion: its days, and optionally its policy.
+
+    Overriding the periods is what makes a simulation informative for a criterion that has
+    none. Official is a point-in-time check with no grace and no probation, so a forced
+    failure confirms the same day and the trace shows nothing about debouncing. Given
+    `grace_days: 14` it behaves like the criteria still to be written, and the march can be
+    watched doing the thing a backfill exists to reconstruct.
+
+    Only ever applied to a dry run, so no fabricated policy can reach the seal tables.
+    """
+
+    days: Mapping[int, CriterionStatus] = field(default_factory=dict)
+    grace_period: Optional[timedelta] = None
+    probation_period: Optional[timedelta] = None
+    grace_overridden: bool = False
+    probation_overridden: bool = False
+
+    def grace_for(self, evaluator) -> Optional[timedelta]:
+        return self.grace_period if self.grace_overridden else evaluator.grace_period
+
+    def probation_for(self, evaluator) -> Optional[timedelta]:
+        return (
+            self.probation_period
+            if self.probation_overridden
+            else evaluator.probation_period
+        )
+
+    def as_reported(self) -> dict:
+        """The echo returned in the report, so a run states what it was told to pretend."""
+        echo: Dict[str, Any] = {
+            offset: status.value for offset, status in sorted(self.days.items())
+        }
+        if self.grace_overridden:
+            echo[GRACE_KEY] = (
+                self.grace_period.days if self.grace_period is not None else None
+            )
+        if self.probation_overridden:
+            echo[PROBATION_KEY] = (
+                self.probation_period.days
+                if self.probation_period is not None
+                else None
+            )
+        return echo
+
+
+def policy_for(evaluator, simulation) -> tuple:
+    """The (grace, probation) this run applies to `evaluator` — its own unless overridden."""
+    forced = (simulation or {}).get(evaluator.name.value)
+    if forced is None:
+        return evaluator.grace_period, evaluator.probation_period
+    return forced.grace_for(evaluator), forced.probation_for(evaluator)
+
+
+def _parse_period(value, criterion: str, key: str) -> Optional[timedelta]:
+    """A whole number of days, or null meaning the criterion has no such period."""
+    if value is None:
+        return None
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{key} for {criterion!r} must be a whole number of days or null, got {value!r}"
+        )
+    if days < 0:
+        raise ValueError(
+            f"{key} for {criterion!r} cannot be negative; got {days}. Use null to mean the "
+            f"criterion has no such period."
+        )
+    return timedelta(days=days)
+
+
+def parse_simulation(
+    simulate: Optional[dict], evaluators: Sequence
+) -> Dict[str, CriterionSimulation]:
+    """Turn the `simulate` payload into criterion -> CriterionSimulation.
+
+    Shape, offsets counted from each feed's own march start::
+
+        {"official": {"grace_days": 14, "probation_days": 180, "fail": [3, 4], "unknown": [8]}}
+
+    Offsets rather than dates because a scenario is about the shape of a history — "it fails
+    on day 3" — not about a calendar. Anchoring per feed rather than to the window start is
+    what makes day 0 the feed's first evaluation, the one denied a grace period.
+
+    `grace_days` and `probation_days` are optional and override the criterion's own values
+    for the run. Omit either to keep the evaluator's; pass null to mean it has none.
+    """
+    if not simulate:
+        return {}
+
+    known = {evaluator.name.value for evaluator in evaluators}
+    forced_statuses = {
+        status.value for status in CriterionStatus if status.is_verdict
+    } | {
+        CriterionStatus.UNKNOWN.value,
+        CriterionStatus.NOT_APPLICABLE.value,
+    }
+
+    parsed: Dict[str, CriterionSimulation] = {}
+    for criterion, by_status in simulate.items():
+        if criterion not in known:
+            raise ValueError(
+                f"Cannot simulate unknown criterion {criterion!r}. This run evaluates: "
+                f"{sorted(known)}"
+            )
+        by_status = dict(by_status or {})
+        grace = by_status.pop(GRACE_KEY, _UNSET)
+        probation = by_status.pop(PROBATION_KEY, _UNSET)
+
+        days: Dict[int, CriterionStatus] = {}
+        for status, offsets in by_status.items():
+            if status not in forced_statuses:
+                raise ValueError(
+                    f"Cannot simulate status {status!r} for {criterion!r}. Valid: "
+                    f"{sorted(forced_statuses)} — plus {list(_POLICY_KEYS)}"
+                )
+            for offset in offsets or []:
+                offset = int(offset)
+                if offset < 0:
+                    raise ValueError(
+                        f"Simulated day offsets are counted from the march start and cannot "
+                        f"be negative; got {offset} for {criterion!r}"
+                    )
+                if offset in days and days[offset].value != status:
+                    raise ValueError(
+                        f"Day {offset} of {criterion!r} is simulated twice, as "
+                        f"{days[offset].value!r} and {status!r}"
+                    )
+                days[offset] = CriterionStatus(status)
+
+        parsed[criterion] = CriterionSimulation(
+            days=days,
+            grace_period=(
+                None if grace is _UNSET else _parse_period(grace, criterion, GRACE_KEY)
+            ),
+            probation_period=(
+                None
+                if probation is _UNSET
+                else _parse_period(probation, criterion, PROBATION_KEY)
+            ),
+            grace_overridden=grace is not _UNSET,
+            probation_overridden=probation is not _UNSET,
+        )
+    return parsed
+
+
+def check_simulation_fits(
+    simulation: Dict[str, Dict[int, CriterionStatus]],
+    longest_march: int,
+) -> None:
+    """Reject offsets no march reaches, rather than letting them silently do nothing.
+
+    A typo like day 400 in an eight-day window would otherwise look like it worked.
+    """
+    if not longest_march:
+        # Nothing was selected, so blaming the offsets would send the reader to the wrong
+        # parameter entirely. `only_missing` excluding an already-backfilled feed is the
+        # usual cause.
+        raise ValueError(
+            "Nothing to simulate: no feed was selected for this run. If the feeds already "
+            "have seal state, only_missing (default true) excludes them — pass "
+            "only_missing=false to march them again."
+        )
+    for criterion, forced in simulation.items():
+        beyond = sorted(offset for offset in forced.days if offset >= longest_march)
+        if beyond:
+            raise ValueError(
+                f"Simulated day(s) {beyond} for {criterion!r} are past the end of every "
+                f"feed's march; the longest here is {longest_march} day(s), so valid "
+                f"offsets are 0..{max(longest_march - 1, 0)}"
+            )
+
+
+def observe(evaluator, ctx, simulation, offset: int) -> CriterionObservation:
+    """The criterion's own verdict, unless this day is simulated.
+
+    Days the payload does not name fall through to the real evaluator, so a simulation is
+    real data with per-day overrides rather than a wholly synthetic run.
+    """
+    entry = simulation.get(evaluator.name.value)
+    forced = entry.days.get(offset) if entry else None
+    if forced is None:
+        return evaluator.evaluate(ctx)
+    return CriterionObservation(
+        criterion=evaluator.name,
+        observed_status=forced,
+        reason=f"simulated: {forced.value} on day {offset}",
+    )
+
+
+def trace_row(feed, evaluator, today: date, offset: int, observation, state) -> dict:
+    """One day of one criterion, as the state machine left it.
+
+    Flask's jsonify sorts keys, so this order is for reading the source, not the response.
+    """
+    return {
+        "stable_id": feed.stable_id,
+        "criterion": evaluator.name.value,
+        "day": offset,
+        "date": today.isoformat(),
+        "observed_status": observation.observed_status.value,
+        "confirmed_status": state.confirmed_status.value,
+        "phase": phase(state).value,
+        "probation_start": (
+            state.probation_start.date().isoformat() if state.probation_start else None
+        ),
+        "simulated": observation.reason.startswith("simulated:"),
+        "reason": observation.reason,
+    }

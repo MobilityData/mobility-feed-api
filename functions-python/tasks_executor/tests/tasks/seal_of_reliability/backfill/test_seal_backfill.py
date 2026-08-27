@@ -113,6 +113,8 @@ class TestGetParameters(unittest.TestCase):
             snapshot_mode,
             resume_from_snapshot,
             max_reported_feeds,
+            simulate,
+            trace,
         ) = get_parameters({"stable_feed_ids": ["a"]})
 
         self.assertEqual(stable_feed_ids, ["a"])
@@ -127,6 +129,8 @@ class TestGetParameters(unittest.TestCase):
         self.assertEqual(snapshot_mode, "final")
         self.assertFalse(resume_from_snapshot)
         self.assertEqual(max_reported_feeds, 50)
+        self.assertIsNone(simulate)
+        self.assertFalse(trace, "a run must not pay for a trace unless asked")
 
     def test_empty_payload_does_not_raise_here(self):
         """Validation belongs to the engine, so the parser stays a plain reader."""
@@ -565,6 +569,255 @@ class TestResumeFromSnapshot(MarchTestCase):
             self.state_of(MARCHED)["probation_start"],
             "a cold start carries no probation forward",
         )
+
+
+class TestSimulateAndTrace(MarchTestCase):
+    """Forced per-day statuses, and the day-by-day trace they are there to make visible."""
+
+    def simulate(self, stable_id, **kwargs):
+        with self.registry(_script_for([])):
+            return backfill_seals(
+                stable_feed_ids=[stable_id],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=True,
+                **kwargs,
+            )
+
+    def test_a_simulated_run_never_writes(self):
+        """The reason simulate forces dry_run: a forced verdict in seal_criterion would be
+        indistinguishable from an earned one."""
+        report = self.simulate(MARCHED, simulate={"official": {"fail": [0, 1]}})
+        self.assertEqual(criterion_rows(MARCHED), {})
+        self.assertIsNone(seal_row(MARCHED))
+        self.assertEqual(report["criterion_rows_written"], 0)
+
+    def test_writing_with_a_simulation_is_refused(self):
+        with self.assertRaises(ValueError) as caught:
+            with self.registry(_script_for([])):
+                backfill_seals(
+                    stable_feed_ids=[MARCHED],
+                    start_date=MARCH_START,
+                    end_date=MARCH_END,
+                    dry_run=False,
+                    simulate={"official": {"fail": [0]}},
+                )
+        self.assertIn("dry_run", str(caught.exception))
+
+    def test_a_forced_failure_reaches_the_state_machine(self):
+        """Day 0 is the first evaluation, so it gets no grace and confirms immediately."""
+        report = self.simulate(
+            MARCHED, simulate={"official": {"fail": [0]}}, trace=True
+        )
+        day_zero = next(row for row in report["trace"] if row["day"] == 0)
+        self.assertEqual(day_zero["observed_status"], "fail")
+        self.assertEqual(day_zero["confirmed_status"], "fail")
+        self.assertTrue(day_zero["simulated"])
+
+    def test_unnamed_days_fall_through_to_the_real_evaluator(self):
+        """A simulation is real data with overrides, not a synthetic run."""
+        report = self.simulate(
+            MARCHED, simulate={"official": {"fail": [0]}}, trace=True
+        )
+        day_one = next(row for row in report["trace"] if row["day"] == 1)
+        self.assertEqual(day_one["observed_status"], "pass")
+        self.assertFalse(day_one["simulated"])
+
+    def test_a_streak_past_the_grace_period_confirms_then_serves_probation(self):
+        """Days 1-39 fail, then the feed recovers — the whole arc in one trace.
+
+        The stand-in's grace period is 30 days and the streak starts on day 1, so day 31 is
+        the first confirmed failure. Recovery on day 40 clears the status but opens
+        probation, which 34 remaining days cannot serve.
+        """
+        report = self.simulate(
+            MARCHED,
+            simulate={"official": {"fail": list(range(1, 40))}},
+            trace=True,
+        )
+        by_day = {row["day"]: row for row in report["trace"]}
+
+        self.assertEqual(by_day[30]["confirmed_status"], "pass", "last day of grace")
+        self.assertEqual(by_day[31]["confirmed_status"], "fail", "grace outlasted")
+
+        last = report["trace"][-1]
+        self.assertEqual(last["observed_status"], "pass")
+        self.assertEqual(last["confirmed_status"], "pass", "recovered")
+        self.assertEqual(last["phase"], "on_probation")
+        self.assertIsNotNone(last["probation_start"])
+
+    def test_the_trace_covers_every_marched_day(self):
+        report = self.simulate(MARCHED, trace=True)
+        days = [row["day"] for row in report["trace"]]
+        self.assertEqual(days, list(range(len(days))))
+        self.assertEqual(
+            len(days), (MARCH_END - MARCH_START).days + 1, "one row per day"
+        )
+
+    def test_the_trace_is_offset_from_the_feed_own_march_start(self):
+        """Day 0 is the feed's first evaluated day, not the window start."""
+        report = self.simulate(MARCHED, trace=True)
+        first = report["trace"][0]
+        self.assertEqual(first["day"], 0)
+        self.assertEqual(first["date"], MARCH_START.isoformat())
+
+    def test_an_unknown_criterion_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(MARCHED, simulate={"punctual": {"fail": [0]}})
+        self.assertIn("punctual", str(caught.exception))
+
+    def test_an_unknown_status_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(MARCHED, simulate={"official": {"broken": [0]}})
+        self.assertIn("broken", str(caught.exception))
+
+    def test_a_negative_offset_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(MARCHED, simulate={"official": {"fail": [-1]}})
+        self.assertIn("negative", str(caught.exception))
+
+    def test_an_offset_past_the_march_is_rejected(self):
+        """A typo like day 400 in a short window would otherwise silently do nothing."""
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(MARCHED, simulate={"official": {"fail": [9999]}})
+        self.assertIn("9999", str(caught.exception))
+
+    def test_the_report_echoes_what_was_simulated(self):
+        report = self.simulate(
+            MARCHED, simulate={"official": {"fail": [2], "unknown": [4]}}
+        )
+        self.assertEqual(report["simulated"]["official"], {2: "fail", 4: "unknown"})
+
+    def test_a_plain_dry_run_still_stops_at_the_plan(self):
+        """Only simulate or trace makes a dry run pay for the march."""
+        report = self.simulate(MARCHED)
+        self.assertNotIn("trace", report)
+
+
+class TestSimulatedPolicy(MarchTestCase):
+    """Lending a criterion a grace period and probation it does not have.
+
+    The stand-in already has both, so these use `grace_days`/`probation_days` to *remove*
+    and to *change* them — the same mechanism that lets Official, which has neither, show
+    debouncing in a simulation.
+    """
+
+    def simulate(self, **kwargs):
+        with self.registry(_script_for([])):
+            return backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=True,
+                trace=True,
+                **kwargs,
+            )
+
+    @staticmethod
+    def _day(report, day):
+        return next(row for row in report["trace"] if row["day"] == day)
+
+    def test_a_lent_grace_period_absorbs_a_failure(self):
+        """Without an override this criterion confirms on day 1; with 14 days it holds."""
+        report = self.simulate(simulate={"official": {"grace_days": 14, "fail": [1]}})
+        day_one = self._day(report, 1)
+        self.assertEqual(day_one["observed_status"], "fail")
+        self.assertEqual(day_one["confirmed_status"], "pass", "held by the lent grace")
+        self.assertEqual(day_one["phase"], "in_grace_period")
+
+    def test_a_removed_grace_period_confirms_immediately(self):
+        """null means the criterion has none, which is Official's real behaviour."""
+        report = self.simulate(simulate={"official": {"grace_days": None, "fail": [1]}})
+        self.assertEqual(self._day(report, 1)["confirmed_status"], "fail")
+
+    def test_the_lent_grace_period_expires_on_schedule(self):
+        report = self.simulate(
+            simulate={"official": {"grace_days": 14, "fail": list(range(1, 20))}}
+        )
+        self.assertEqual(
+            self._day(report, 14)["confirmed_status"], "pass", "last day inside grace"
+        )
+        self.assertEqual(
+            self._day(report, 15)["confirmed_status"], "fail", "grace outlasted"
+        )
+
+    def test_a_lent_probation_opens_on_recovery(self):
+        report = self.simulate(
+            simulate={
+                "official": {
+                    "grace_days": None,
+                    "probation_days": 180,
+                    "fail": [1],
+                }
+            }
+        )
+        recovered = self._day(report, 2)
+        self.assertEqual(recovered["confirmed_status"], "pass")
+        self.assertEqual(recovered["phase"], "on_probation")
+
+    def test_a_removed_probation_never_opens_one(self):
+        report = self.simulate(
+            simulate={
+                "official": {
+                    "grace_days": None,
+                    "probation_days": None,
+                    "fail": [1],
+                }
+            }
+        )
+        recovered = self._day(report, 2)
+        self.assertEqual(recovered["confirmed_status"], "pass")
+        self.assertEqual(recovered["phase"], "steady")
+        self.assertIsNone(recovered["probation_start"])
+
+    def test_a_shorter_probation_is_served_sooner(self):
+        report = self.simulate(
+            simulate={
+                "official": {"grace_days": None, "probation_days": 5, "fail": [1]}
+            }
+        )
+        # Probation opens on day 2 and clears once five days have passed.
+        self.assertEqual(self._day(report, 6)["phase"], "on_probation")
+        self.assertEqual(self._day(report, 7)["phase"], "steady")
+
+    def test_omitting_the_keys_keeps_the_criterion_own_policy(self):
+        """The stand-in's own 30-day grace, untouched — a streak from day 1 confirms on 31."""
+        report = self.simulate(simulate={"official": {"fail": list(range(1, 40))}})
+        self.assertEqual(self._day(report, 30)["confirmed_status"], "pass")
+        self.assertEqual(self._day(report, 31)["confirmed_status"], "fail")
+
+    def test_the_report_echoes_the_lent_policy(self):
+        report = self.simulate(
+            simulate={
+                "official": {"grace_days": 14, "probation_days": 180, "fail": [1]}
+            }
+        )
+        echoed = report["simulated"]["official"]
+        self.assertEqual(echoed["grace_days"], 14)
+        self.assertEqual(echoed["probation_days"], 180)
+        self.assertEqual(echoed[1], "fail")
+
+    def test_a_negative_period_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(simulate={"official": {"grace_days": -1}})
+        self.assertIn("negative", str(caught.exception))
+
+    def test_a_non_numeric_period_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            self.simulate(simulate={"official": {"probation_days": "a fortnight"}})
+        self.assertIn("probation_days", str(caught.exception))
+
+    def test_a_lent_policy_never_writes(self):
+        """Same rule as forced verdicts: a fabricated policy must not reach the tables."""
+        with self.assertRaises(ValueError):
+            with self.registry(_script_for([])):
+                backfill_seals(
+                    stable_feed_ids=[MARCHED],
+                    start_date=MARCH_START,
+                    end_date=MARCH_END,
+                    dry_run=False,
+                    simulate={"official": {"grace_days": 14}},
+                )
 
 
 if __name__ == "__main__":

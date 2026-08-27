@@ -48,6 +48,14 @@ from tasks.seal_of_reliability.context import (
     collect_inputs,
     is_seal_eligible,
 )
+from tasks.seal_of_reliability.backfill.simulation import (
+    MAX_TRACE_ROWS,
+    check_simulation_fits,
+    observe,
+    parse_simulation,
+    policy_for,
+    trace_row,
+)
 from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
@@ -257,6 +265,16 @@ def _upsert_seals_from_backfill(
         )
 
 
+def _longest_march(windows: Dict[str, Tuple[date, date]]) -> int:
+    """Days in the longest window of the run, both ends included.
+
+    Feeds clamped to their own `created_at` march fewer, so this is an upper bound rather
+    than a length they all share. It is the report's `days`, and the range a simulated day
+    offset has to fall inside. Zero when nothing was selected.
+    """
+    return max(((end - start).days + 1 for start, end in windows.values()), default=0)
+
+
 def _march(
     db_session: Session,
     feeds: Sequence[Gtfsfeed],
@@ -266,6 +284,9 @@ def _march(
     snapshot_mode: str,
     resume_from_snapshot: bool,
     partial_run: bool,
+    simulation: Optional[Dict[str, Dict[int, CriterionStatus]]] = None,
+    trace: bool = False,
+    write: bool = True,
 ) -> dict:
     """Replay the nightly evaluation day by day for one batch, and write the final day.
 
@@ -274,7 +295,13 @@ def _march(
     Ascending order is the algorithm, not a convenience: each day feeds the next.
     """
     if not feeds:
-        return {"feeds": 0, "criterion_rows": 0, "snapshot_rows": 0, "outcomes": []}
+        return {
+            "feeds": 0,
+            "criterion_rows": 0,
+            "snapshot_rows": 0,
+            "outcomes": [],
+            "trace": [],
+        }
 
     marched_days = days_between(min(start for start, _ in windows.values()), end_date)
 
@@ -282,7 +309,9 @@ def _march(
     inputs = collect_inputs(db_session, feeds, marched_days, evaluators)
 
     states = _seed_states(db_session, feeds, windows, resume_from_snapshot)
+    simulation = simulation or {}
     snapshot_rows = 0
+    trace_rows: List[dict] = []
 
     for today in marched_days:
         now = day_start(today)
@@ -301,19 +330,30 @@ def _march(
                 official=feed.official,
                 inputs=inputs,
             )
+            offset = (today - windows[feed.id][0]).days
             for evaluator in evaluators:
                 key = (feed.id, evaluator.name.value)
+                observation = observe(evaluator, ctx, simulation, offset)
+                # A simulation may lend a criterion a grace period or probation it does not
+                # have, which is the only way Official shows any debouncing at all.
+                grace, probation = policy_for(evaluator, simulation)
                 states[key] = transition(
                     prev=states.get(key),
-                    observation=evaluator.evaluate(ctx),
-                    grace_period=evaluator.grace_period,
-                    probation_period=evaluator.probation_period,
+                    observation=observation,
+                    grace_period=grace,
+                    probation_period=probation,
                     now=now,
                     feed_id=feed.id,
                 )
                 days_states.append(states[key])
+                if trace and len(trace_rows) < MAX_TRACE_ROWS:
+                    trace_rows.append(
+                        trace_row(
+                            feed, evaluator, today, offset, observation, states[key]
+                        )
+                    )
 
-        if snapshot_mode == "all":
+        if write and snapshot_mode == "all":
             # The only mode that writes inside the loop, flushed per day so a year's march
             # does not hold every day in memory.
             _upsert_criterion_snapshot(db_session, days_states, today)
@@ -323,19 +363,21 @@ def _march(
     final_states = list(states.values())
     outcomes = _final_outcomes(db_session, feeds, windows, states, partial_run)
 
-    _upsert_criteria(db_session, final_states, day_start(end_date))
-    if snapshot_mode == "final":
-        _upsert_criterion_snapshot(db_session, final_states, end_date)
-        snapshot_rows += len(final_states)
-    if outcomes:
-        _upsert_seals_from_backfill(db_session, outcomes, day_start(end_date))
-    db_session.commit()
+    if write:
+        _upsert_criteria(db_session, final_states, day_start(end_date))
+        if snapshot_mode == "final":
+            _upsert_criterion_snapshot(db_session, final_states, end_date)
+            snapshot_rows += len(final_states)
+        if outcomes:
+            _upsert_seals_from_backfill(db_session, outcomes, day_start(end_date))
+        db_session.commit()
 
     return {
         "feeds": len(feeds),
         "criterion_rows": len(final_states),
         "snapshot_rows": snapshot_rows,
         "outcomes": outcomes,
+        "trace": trace_rows,
     }
 
 
@@ -394,6 +436,8 @@ def backfill_seals(
     snapshot_mode: str = DEFAULT_SNAPSHOT_MODE,
     resume_from_snapshot: bool = False,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
+    simulate: Optional[dict] = None,
+    trace: bool = False,
 ) -> dict:
     """Plan and run the backfill for an explicit list of feeds.
 
@@ -401,12 +445,24 @@ def backfill_seals(
     ineligible ids are skipped with a warning; it raises only if none can be used. See
     `backfill_seal_of_reliability` for the parameters as an operator passes them.
 
+    `simulate` forces observed statuses on named days, and `trace` returns the state each
+    day left behind. Both are inspection tools and neither may write: see the dry_run check
+    below.
+
     Returns a report; `days` is the longest march in the run, since feeds clamped to their
     own `created_at` march fewer.
     """
     started = clock.monotonic()
     if not stable_feed_ids:
         raise ValueError("stable_feed_ids is required and must be non-empty")
+    if simulate and not dry_run:
+        # A simulated verdict written to seal_criterion is indistinguishable from an earned
+        # one — the row carries no provenance. Refuse rather than quietly downgrade, so an
+        # operator cannot believe a real run happened.
+        raise ValueError(
+            "simulate requires dry_run: forced verdicts must never be written to the seal "
+            "tables, where nothing would mark them as simulated"
+        )
     if snapshot_mode not in SNAPSHOT_MODES:
         raise ValueError(
             f"Unknown snapshot_mode {snapshot_mode!r}. Known modes: {list(SNAPSHOT_MODES)}"
@@ -416,6 +472,7 @@ def backfill_seals(
 
     window_start, window_end = resolve_window(start_date, end_date, days_back)
     evaluators = _resolve_evaluators(criteria)
+    simulation = parse_simulation(simulate, evaluators)
 
     # By-id load then eligibility in Python, as `update_seals` does: tells "not found" from
     # "found but ineligible" without a second query.
@@ -443,9 +500,9 @@ def backfill_seals(
     windows = {
         feed.id: (march_start_for(feed, window_start), window_end) for feed in selected
     }
-    longest_march = (
-        max((end - start).days + 1 for start, end in windows.values()) if windows else 0
-    )
+    longest_march = _longest_march(windows)
+    if simulation:
+        check_simulation_fits(simulation, longest_march)
 
     feed_plans = [
         {
@@ -488,8 +545,12 @@ def backfill_seals(
         "revoked_stable_ids": [],
     }
 
-    if not dry_run:
+    # A plain dry run stops at the plan. One asked to simulate or trace has to march —
+    # that is the whole point — so it marches with writing suppressed.
+    inspecting = bool(simulation) or trace
+    if not dry_run or inspecting:
         outcomes: List[dict] = []
+        trace_rows: List[dict] = []
         for batch in batched(selected, batch_size):
             result = _march(
                 db_session,
@@ -497,13 +558,26 @@ def backfill_seals(
                 windows,
                 evaluators,
                 window_end,
-                snapshot_mode,
+                "none" if dry_run else snapshot_mode,
                 resume_from_snapshot,
                 partial_run,
+                simulation=simulation,
+                trace=trace,
+                write=not dry_run,
             )
-            report["criterion_rows_written"] += result["criterion_rows"]
-            report["snapshot_rows_written"] += result["snapshot_rows"]
+            if not dry_run:
+                report["criterion_rows_written"] += result["criterion_rows"]
+                report["snapshot_rows_written"] += result["snapshot_rows"]
             outcomes.extend(result["outcomes"])
+            trace_rows.extend(result["trace"])
+        if trace:
+            report["trace"] = trace_rows
+            report["trace_truncated"] = len(trace_rows) >= MAX_TRACE_ROWS
+        if simulation:
+            report["simulated"] = {
+                criterion: forced.as_reported()
+                for criterion, forced in simulation.items()
+            }
 
         granted = [outcome for outcome in outcomes if outcome["granted"]]
         # Only reachable with only_missing=False, but reported anyway so the monitor's
