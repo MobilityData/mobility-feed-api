@@ -37,6 +37,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from shared.common.seal_criteria import (
+    CriterionPhase,
+    CriterionStatus,
+    SealCriterionName,
+)
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     FeedReliabilitySeal,
@@ -49,11 +54,6 @@ from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
     is_seal_eligible,
-)
-from tasks.seal_of_reliability.criteria import (
-    CriterionPhase,
-    CriterionStatus,
-    SealCriterionName,
 )
 from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.state_machine import (

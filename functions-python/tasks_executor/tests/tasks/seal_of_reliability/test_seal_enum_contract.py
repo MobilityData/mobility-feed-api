@@ -13,24 +13,29 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Contract tests pinning the job's seal enums to the database types. No database connection.
+"""Contract tests pinning the seal enums to the database types, from the job's tree.
 
-The job writes `seal_criterion.criterion`, `observed_status` and `confirmed_status` from its own
-`SealCriterionName` / `CriterionStatus` enums, and the read API serves those stored values straight
-through to clients (the API `status` enum is the DB enum verbatim). So a value added here that the
-database type does not have, or vice versa, breaks either the write or the read - and the read API
-raises on a criterion it does not recognise rather than hiding it.
+The job writes `seal_criterion.criterion`, `observed_status` and `confirmed_status` from
+`SealCriterionName` / `CriterionStatus`, and the read API serves those stored values straight
+through to clients. So a value the enum has that the database type does not, or vice versa,
+breaks either the write or the read.
 
-These tests compare against the SQLAlchemy Enum types in the generated models, which are generated
-from the Liquibase changelog, so the assertion is against the real schema and needs no live DB.
-Adding a criterion or status means updating, in lockstep: the Liquibase enum, the API's
-`SealCriterionName` and status constants, `docs/DatabaseCatalogAPI.yaml`, and the enums here.
+Both sides now import those enums from one module, `shared.common.seal_criteria`, so this file
+asserts the same contract as `api/tests/unittest/models/test_seal_enum_contract.py` rather than a
+mirror of it. It is kept because it runs from the function's own tree and venv: it is what catches
+the enums failing to resolve at all through the `include_api_folders` symlink, which the API-side
+test cannot see.
+
+The assertions compare against the SQLAlchemy Enum types in the generated models, which come from
+the Liquibase changelog, so this checks the real schema with no live DB. Adding a criterion or
+status means updating, in lockstep: the Liquibase enum, `shared.common.seal_criteria`, and
+`docs/DatabaseCatalogAPI.yaml` plus a stub regen.
 """
 
 import unittest
 
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName
 from shared.database_gen.sqlacodegen_models import SealCriterion
-from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 
 
 def db_enum_values(column_name: str) -> set:
