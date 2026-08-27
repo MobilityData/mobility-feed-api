@@ -112,7 +112,7 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 
 
 # Stable: how long we must have been tracking a feed - measured from its
-# `feed_reliability_seal.created_at` - before it can be called stable.
+# `feed..created_at` - before it can be called stable.
 TRACKING_PERIOD: Final[timedelta] = timedelta(days=180)
 
 # Fresh / future coverage: how far ahead the latest dataset's service coverage must reach
