@@ -30,6 +30,54 @@ class SealCriterionName(str, Enum):
     FRESH_CONTINUOUS = "fresh_continuous"
 
 
+class CriterionStatus(str, Enum):
+    """A criterion's status. Values match the `seal_criterion_status` DB enum.
+
+    Only PASS and FAIL are verdicts. The other three say why there is no verdict, and they
+    are not interchangeable - the job's roll-up sends them in three different directions:
+
+    * UNKNOWN - we could not look; the inputs the check needs were not there. A property of
+      the run, not of the feed. The criterion keeps its last confirmed verdict and stays in
+      the roll-up, so an upstream outage freezes a criterion rather than waiving it.
+    * NOT_APPLICABLE - there is no question to ask; the criterion is deliberately excluded
+      for this feed (Fresh / future coverage on a seasonal feed). A property of the feed.
+      The criterion leaves the roll-up entirely.
+    * NEVER_EVALUATED - never had a verdict, since the feed first appeared. The initial
+      value, and the only one the job never writes back once a criterion has left it.
+
+    UNKNOWN is never written to `confirmed_status`: a run that could not look does not
+    change the answer, it leaves the previous one standing.
+    """
+
+    PASS = "pass"
+    FAIL = "fail"
+    UNKNOWN = "unknown"
+    NEVER_EVALUATED = "never_evaluated"
+    NOT_APPLICABLE = "not_applicable"
+
+    @property
+    def is_verdict(self) -> bool:
+        """True for PASS and FAIL - the two values that mean the check actually answered."""
+        return self in (CriterionStatus.PASS, CriterionStatus.FAIL)
+
+
+class CriterionPhase(str, Enum):
+    """Which of the two debouncing mechanisms is currently acting on a criterion.
+
+    Derived from the stored row rather than stored itself (see the job's
+    `state_machine.phase`): it is a pure function of `probation_start`, `confirmed_status`
+    and `first_observed_failure_at`, all of which are already on the row, so a stored copy
+    would be a second thing to keep in step for no gain.
+
+    The three values are mutually exclusive: probation suspends the grace period, so a
+    criterion can never be serving a penalty and holding a failure under grace at once.
+    """
+
+    STEADY = "steady"
+    IN_GRACE_PERIOD = "in_grace_period"
+    ON_PROBATION = "on_probation"
+
+
 # How long a criterion may keep failing its own check before the failure is confirmed and
 # the seal is withdrawn. None means the status flips on the first failing day.
 GRACE_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
@@ -61,6 +109,33 @@ PROBATION_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
 PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
     name.value for name, period in PROBATION_PERIODS.items() if period is None
 )
+
+
+# Stable: how long we must have been tracking a feed - measured from its
+# `feed.created_at` - before it can be called stable.
+TRACKING_PERIOD: Final[timedelta] = timedelta(days=180)
+
+# Fresh / future coverage: how far ahead the latest dataset's service coverage must reach
+FUTURE_COVERAGE_HORIZON: Final[timedelta] = timedelta(days=7)
+
+
+def grace_period_for(criterion: str | SealCriterionName) -> Optional[timedelta]:
+    """How long an observed failure of `criterion` may run before it is confirmed.
+
+    None means the criterion has no grace period and its status flips on the first failing
+    day. Callers ask for the window rather than declaring their own, so `GRACE_PERIODS`
+    stays the only place a value can change.
+    """
+    return GRACE_PERIODS[resolve_criterion(criterion)]
+
+
+def probation_period_for(criterion: str | SealCriterionName) -> Optional[timedelta]:
+    """How long `criterion` must go with no observed failure after a confirmed failure.
+
+    None means the criterion never serves probation (`official` and `stable`, which are
+    point-in-time state checks).
+    """
+    return PROBATION_PERIODS[resolve_criterion(criterion)]
 
 
 def resolve_criterion(criterion: str | SealCriterionName) -> SealCriterionName:

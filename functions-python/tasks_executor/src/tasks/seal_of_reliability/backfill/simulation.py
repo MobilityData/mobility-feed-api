@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Dict, Mapping, Optional, Sequence
 
-from tasks.seal_of_reliability.criteria import CriterionStatus
+from shared.common.seal_criteria import CriterionStatus
 from tasks.seal_of_reliability.evaluators.base import CriterionObservation
 from tasks.seal_of_reliability.state_machine import phase
 

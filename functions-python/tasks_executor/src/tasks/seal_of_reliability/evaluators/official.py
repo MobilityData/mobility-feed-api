@@ -17,8 +17,8 @@
 
 from typing import Tuple
 
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
@@ -26,14 +26,12 @@ class OfficialEvaluator(CriterionEvaluator):
     """`feed.official IS TRUE`.
 
     A point-in-time state check: official at the time of reviewing the dataset, with no
-    6-month check. Both the grace period and the probation period are None, so the criterion
-    fails the same day the flag is lost and clears the same day it comes back, taking the
-    seal with it in both directions.
+    6-month check. The policy maps give it neither a grace period nor a probation period, so
+    the criterion fails the same day the flag is lost and clears the same day it comes back,
+    taking the seal with it in both directions.
     """
 
     name = SealCriterionName.OFFICIAL
-    grace_period = None
-    probation_period = None
 
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
         # `is True` rather than a truthiness test: NULL is not an endorsement. It is a FAIL

@@ -44,7 +44,7 @@ from sqlalchemy import delete, select
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, SealCriterion
-from tasks.seal_of_reliability.criteria import (
+from shared.common.seal_criteria import (
     PROBATION_PERIOD,
     CriterionStatus,
     SealCriterionName,
@@ -127,7 +127,13 @@ class ScriptedEvaluator(CriterionEvaluator):
     """
 
     name = SealCriterionName.OFFICIAL
+    # Both windows are declared here, not inherited. `CriterionEvaluator` resolves them from
+    # the policy maps by `name`, and `official` is exempt from both — so a stand-in borrowing
+    # that name gets None for anything it does not state. Declaring them also keeps them
+    # plain class attributes, which is what lets `__init__` shadow them per instance: the
+    # base class's versions are read-only properties and cannot be assigned to.
     grace_period = TEST_GRACE
+    probation_period = PROBATION_PERIOD
 
     def __init__(
         self,
@@ -290,8 +296,10 @@ class TestScriptDrivesTheEvaluator(unittest.TestCase):
         built on this fixture depends on the stand-in having both — so if Official were ever
         given a grace period for real, this fails and says which assumption moved.
         """
-        self.assertIsNone(OfficialEvaluator.grace_period)
-        self.assertIsNone(OfficialEvaluator.probation_period)
+        # Instances, not the classes: both windows are properties resolving `name` against
+        # the policy maps, so reading them off the class returns the property object.
+        self.assertIsNone(OfficialEvaluator().grace_period)
+        self.assertIsNone(OfficialEvaluator().probation_period)
 
         stand_in = ScriptedEvaluator(Script())
         self.assertIs(stand_in.name, OfficialEvaluator.name)

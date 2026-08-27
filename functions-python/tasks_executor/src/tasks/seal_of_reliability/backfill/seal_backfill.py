@@ -56,7 +56,7 @@ from tasks.seal_of_reliability.backfill.simulation import (
     policy_for,
     trace_row,
 )
-from tasks.seal_of_reliability.criteria import CriterionStatus, SealCriterionName
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_REPORTED_FEEDS,
@@ -323,11 +323,19 @@ def _march(
 
         days_states: List[SealCriterionState] = []
         for feed in active:
+            # Every day-invariant field on the context is set here, not just the ones the
+            # criteria implemented today read: one left out defaults to None and the
+            # criterion reading it degrades to a silent UNKNOWN or a wrong FAIL rather than
+            # an error. `latest_dataset` and anything else that varies by day arrives
+            # through `inputs` instead.
             ctx = FeedSealContext(
                 feed_id=feed.id,
                 now=now,
                 stable_id=feed.stable_id,
                 official=feed.official,
+                is_producer_url_unstable=feed.is_producer_url_unstable,
+                seasonal=feed.seasonal,
+                feed_created_at=feed.created_at,
                 inputs=inputs,
             )
             offset = (today - windows[feed.id][0]).days

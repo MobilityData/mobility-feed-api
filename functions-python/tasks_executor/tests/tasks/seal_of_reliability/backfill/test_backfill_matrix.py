@@ -45,7 +45,7 @@ from unittest.mock import patch
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import FeedReliabilitySeal, SealCriterion
 from tasks.seal_of_reliability.backfill.seal_backfill import backfill_seals
-from tasks.seal_of_reliability.criteria import (
+from shared.common.seal_criteria import (
     PROBATION_PERIOD,
     CriterionStatus,
     SealCriterionName,

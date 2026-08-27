@@ -20,14 +20,20 @@ feeds happens here, in a fixed number of queries regardless of batch size.
 
 A criterion's inputs reach it one of two ways, and the split is deliberate:
 
-* Day-invariant feed facts — `official`, and later `seasonal`, `is_producer_unstable`,
+* Day-invariant feed facts — `official`, `seasonal`, `is_producer_url_unstable`,
   `created_at` — are fields on `FeedSealContext`, read straight off the feed row the caller
   has already loaded. They cost no query and they have no history to read: the same value
-  answers every day of a backfill.
+  answers every day of a backfill. Official and Stable need nothing else.
 * Anything that varies by day is loaded by the criterion itself, through
   `CriterionEvaluator.load_inputs`. Only the criterion knows what its own inputs look like,
   and keeping that knowledge there is what stops this module from having to grow a field
-  and a query for every criterion added.
+  and a query for every criterion added. Fresh (future coverage) is the first of these — the
+  feed's latest dataset is a different row on each day a march evaluates — and the day's
+  availability rows for Available, the latest validation report for Compliant and the full
+  coverage history for Fresh continuous coverage all belong there too.
+
+Official, Stable and Fresh (future coverage) are implemented; Available and Compliant are
+the rest of #1784, and Fresh / continuous coverage is tracked by #1782.
 """
 
 import itertools
@@ -38,9 +44,8 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from shared.common.seal_criteria import SealCriterionName
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, SealCriterion
-
-from tasks.seal_of_reliability.criteria import SealCriterionName
 
 
 @dataclass
@@ -58,6 +63,11 @@ class FeedSealContext:
 
     # Feed-level flags
     official: Optional[bool] = None
+    is_producer_url_unstable: Optional[bool] = None
+    seasonal: Optional[bool] = None
+
+    # Stable: when the feed was first added to the database.
+    feed_created_at: Optional[datetime] = None
 
     # Each criterion's own bulk-loaded inputs, keyed by criterion name — see
     # `collect_inputs`. Opaque here: this module never looks inside a criterion's payload,
@@ -262,6 +272,9 @@ def build_contexts(
             now=now,
             stable_id=feed.stable_id,
             official=feed.official,
+            is_producer_url_unstable=feed.is_producer_url_unstable,
+            seasonal=feed.seasonal,
+            feed_created_at=feed.created_at,
             inputs=inputs,
         )
         for feed in feeds

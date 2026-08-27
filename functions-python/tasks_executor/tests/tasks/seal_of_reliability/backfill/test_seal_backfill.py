@@ -50,7 +50,7 @@ from tasks.seal_of_reliability.backfill.seal_backfill import (
     resolve_window,
     yesterday_utc,
 )
-from tasks.seal_of_reliability.criteria import SealCriterionName
+from shared.common.seal_criteria import SealCriterionName
 from tasks.seal_of_reliability.seal_updater import update_seals
 from test_scripted_evaluator import Script, ScriptedEvaluator
 from test_shared.test_utils.database_utils import default_db_url

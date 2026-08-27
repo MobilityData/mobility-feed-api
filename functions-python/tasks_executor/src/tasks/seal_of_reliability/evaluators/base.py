@@ -21,12 +21,13 @@ from typing import Any, Optional, Sequence, Tuple
 
 from sqlalchemy.orm import Session
 
-from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.criteria import (
-    PROBATION_PERIOD,
+from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
+    grace_period_for,
+    probation_period_for,
 )
+from tasks.seal_of_reliability.context import FeedSealContext
 
 
 @dataclass(frozen=True)
@@ -51,22 +52,37 @@ class CriterionObservation:
 class CriterionEvaluator:
     """Evaluates one criterion against a pre-loaded feed context.
 
-    Subclasses set `name` and, where they differ from the defaults, `grace_period` and
-    `probation_period`, then implement `_evaluate`. They never touch the database at
-    evaluation time: everything they need is already on the context, either as a
-    day-invariant feed field or as the inputs their own `load_inputs` bulk-loaded.
+    A subclass sets `name` and implements `_evaluate`. It does not declare its own windows:
+    both are resolved from `name` against the policy maps in `shared.common.seal_criteria`,
+    which the read API reads too, so a criterion cannot debounce one way for the job and
+    another way for the API. To change a window, change the map.
+
+    Evaluators never touch the database at evaluation time: everything they need is already
+    on the context, either as a day-invariant feed field or as the inputs their own
+    `load_inputs` bulk-loaded.
 
     A criterion that has to look backwards owns that lookup itself, rather than the context
     builder growing a field and a query per criterion. `load_inputs` is where it goes.
-
-    `grace_period` holds a passing status while an observed failure is still young.
-    `probation_period` is how long the criterion must go with no observed failure after
-    recovering from a confirmed failure. None on either means the criterion does not use it.
     """
 
     name: SealCriterionName = None
-    grace_period: Optional[timedelta] = None
-    probation_period: Optional[timedelta] = PROBATION_PERIOD
+
+    @property
+    def grace_period(self) -> Optional[timedelta]:
+        """How long an observed failure may run before it is confirmed, per the policy map.
+
+        None means the criterion has no grace period and its status flips on the first
+        failing day.
+        """
+        return grace_period_for(self.name)
+
+    @property
+    def probation_period(self) -> Optional[timedelta]:
+        """How long this criterion serves after recovering, per the policy map.
+
+        None means it never serves probation.
+        """
+        return probation_period_for(self.name)
 
     def load_inputs(
         self,

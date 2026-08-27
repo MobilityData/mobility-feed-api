@@ -3,10 +3,9 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from shared.common.error_handling import InternalHTTPException
-from shared.common.seal_criteria import PROBATION_PERIOD, SealCriterionName
+from shared.common.seal_criteria import PROBATION_PERIOD, CriterionStatus, SealCriterionName
 from shared.database_gen.sqlacodegen_models import FeedReliabilitySeal, SealCriterion
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
-from shared.db_models.reliability_criterion_impl import STATUS_FAIL, STATUS_NEVER_EVALUATED, STATUS_PASS
 
 # Anchored to the real clock because the countdowns are derived against `datetime.now`. Every window
 # below is at least a day clear of its boundary, so the assertions do not race the wall clock.
@@ -68,7 +67,7 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
         assert report.evaluated_at is None
         assert report.on_probation is False
         assert len(report.criteria) == 6
-        assert all(criterion.status == STATUS_NEVER_EVALUATED for criterion in report.criteria)
+        assert all(criterion.status == CriterionStatus.NEVER_EVALUATED.value for criterion in report.criteria)
 
     def test_all_six_criteria_always_returned_in_order(self):
         """Criteria with no row are filled in, so a client can render six cards unconditionally."""
@@ -77,8 +76,8 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
 
         assert [criterion.criterion for criterion in report.criteria] == [name.value for name in SealCriterionName]
         criteria = by_criterion(report)
-        assert criteria["official"].status == STATUS_PASS
-        assert criteria["compliant"].status == STATUS_NEVER_EVALUATED
+        assert criteria["official"].status == CriterionStatus.PASS.value
+        assert criteria["compliant"].status == CriterionStatus.NEVER_EVALUATED.value
 
     def test_mixed_criteria(self):
         """The report carries each criterion's own verdict alongside the stored seal outcome."""
@@ -106,10 +105,10 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
 
         criteria = by_criterion(report)
         assert report.has_seal is False
-        assert criteria["official"].status == STATUS_PASS
-        assert criteria["available"].status == STATUS_FAIL
+        assert criteria["official"].status == CriterionStatus.PASS.value
+        assert criteria["available"].status == CriterionStatus.FAIL.value
         assert criteria["available"].in_grace_period is False
-        assert criteria["compliant"].status == STATUS_FAIL
+        assert criteria["compliant"].status == CriterionStatus.FAIL.value
         assert criteria["compliant"].in_grace_period is True
 
     def test_evaluated_at_is_latest_across_criteria(self):
