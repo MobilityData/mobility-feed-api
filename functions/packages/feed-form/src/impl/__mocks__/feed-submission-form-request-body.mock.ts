@@ -1,0 +1,43 @@
+import { FeedSubmissionFormRequestBody } from "../types";
+
+export const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
+  name: "Sample Feed",
+  isOfficialProducer: "yes",
+  isOfficialFeed: "yes",
+  dataType: "gtfs",
+  transitProviderName: "Sample Transit Provider",
+  feedLink: "https://example.com/feed",
+  isUpdatingFeed: "yes",
+  oldFeedLink: "https://example.com/old-feed",
+  licensePath: "/path/to/license",
+  country: "USA",
+  region: "California",
+  municipality: "San Francisco",
+  tripUpdates: "",
+  vehiclePositions: "",
+  serviceAlerts: "",
+  gtfsRelatedScheduleLink: "https://example.com/gtfs-schedule",
+  authType: "None - 0",
+  authSignupLink: "https://example.com/signup",
+  authParameterName: "auth_token",
+  dataProducerEmail: "producer@example.com",
+  isInterestedInQualityAudit: "yes",
+  userInterviewEmail: "interviewee@example.com",
+  whatToolsUsedText: "Google Sheets, Node.js",
+  hasLogoPermission: "yes",
+  unofficialDesc: "For research purposes",
+  updateFreq: "every month",
+  emptyLicenseUsage: "unsure",
+};
+
+export const sampleRequestBodyGTFSRT: FeedSubmissionFormRequestBody = {
+  ...sampleRequestBodyGTFS,
+  dataType: "gtfs_rt",
+  feedLink: "",
+  tripUpdates: "https://example.com/gtfs-realtime-trip-update",
+  vehiclePositions: "https://example.com/gtfs-realtime-vehicle-position",
+  serviceAlerts: "https://example.com/gtfs-realtime-service-alerts",
+  oldTripUpdates: "https://example.com/old-feed-tu",
+  oldServiceAlerts: "https://example.com/old-feed-sa",
+  oldVehiclePositions: "https://example.com/old-feed-vp",
+};
