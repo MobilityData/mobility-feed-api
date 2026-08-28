@@ -450,5 +450,86 @@ class TestStateShape(unittest.TestCase):
             self.assertFalse(status.is_verdict, status)
 
 
+class TestGraceExpiresOnAnUnknownDay(unittest.TestCase):
+    """A streak whose grace runs out on a day that produced no reading.
+
+    Found by marching a feed locally: fourteen failures, UNKNOWN across the day grace
+    expired, then a pass — and nothing was confirmed, so the outage left no trace.
+    """
+
+    def _grace_expired_under_unknowns(self):
+        # Grace runs 14 days from the streak start on day 1, so day 15 both expires it and
+        # is the first day with no reading.
+        return _run(
+            [(0, PASS)]
+            + _failing(1, 15)
+            + [
+                (15, CriterionStatus.UNKNOWN),
+                (16, CriterionStatus.UNKNOWN),
+                (17, CriterionStatus.UNKNOWN),
+            ]
+        )
+
+    def test_the_streak_start_survives_the_unknown_days(self):
+        """The unknowns neither reset nor forget the streak."""
+        state = self._grace_expired_under_unknowns()
+        self.assertEqual(state.first_observed_failure_at, _day(1))
+        self.assertEqual(
+            state.last_verdict_at,
+            _day(14),
+            "no verdict since the last observed failure",
+        )
+
+    def test_a_streak_past_its_grace_confirms_without_a_fresh_verdict(self):
+        state = self._grace_expired_under_unknowns()
+        self.assertIs(
+            state.confirmed_status,
+            FAIL,
+            "17 days into a streak whose grace expired on day 15",
+        )
+
+    def test_a_pass_cannot_forgive_a_streak_that_outlived_its_grace(self):
+        """Otherwise one pass after the unknowns erases the whole outage."""
+        recovered = _run([(18, PASS)], state=self._grace_expired_under_unknowns())
+        self.assertIsNotNone(
+            recovered.last_confirmed_failure_at,
+            "a fortnight of failure left no record at all",
+        )
+
+
+class TestProbationAcrossAnUnknownDay(unittest.TestCase):
+    """`probation_start` when a confirmed failure is followed by no reading.
+
+    A confirmed streak re-stamps it to the following day. An UNKNOWN day leaves it alone,
+    which makes that day the first of probation and counts it toward the term.
+    """
+
+    def _confirmed_then_unknown(self):
+        streaking = _run([(0, PASS)] + _failing(1, 17))
+        return streaking, _run([(17, CriterionStatus.UNKNOWN)], state=streaking)
+
+    def test_the_streak_leaves_probation_stamped_for_the_following_day(self):
+        streaking, _ = self._confirmed_then_unknown()
+        self.assertIs(streaking.confirmed_status, FAIL)
+        self.assertEqual(streaking.probation_start, _day(17))
+
+    def test_an_unknown_day_does_not_push_probation_forward(self):
+        streaking, after = self._confirmed_then_unknown()
+        self.assertEqual(
+            after.probation_start,
+            streaking.probation_start,
+            "no verdict re-stamps it, so probation begins on the unknown day",
+        )
+        self.assertIs(after.confirmed_status, FAIL, "the last verdict still stands")
+        self.assertIs(phase(after), CriterionPhase.ON_PROBATION)
+
+    def test_the_unknown_day_counts_toward_serving_probation(self):
+        """A day with no reading still serves the term."""
+        _, after = self._confirmed_then_unknown()
+        served = _run([(17 + PROBATION_PERIOD.days, PASS)], state=after)
+        self.assertIsNone(served.probation_start, "the term was served")
+        self.assertIs(phase(served), CriterionPhase.STEADY)
+
+
 if __name__ == "__main__":
     unittest.main()
