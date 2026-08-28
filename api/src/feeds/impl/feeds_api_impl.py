@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import List, Union, TypeVar, Optional
 
 from sqlalchemy import or_, desc, nullslast
@@ -55,7 +54,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter
-from utils.date_utils import valid_iso_date
+from utils.date_utils import parse_iso_datetime, valid_iso_date
 from utils.logger import get_logger
 
 T = TypeVar("T", bound="Feed")
@@ -184,8 +183,8 @@ class FeedsApiImpl(BaseFeedsApi):
             raise_http_error(404, f"FeedOrm with id {gtfs_feed_id} not found")
 
         query = GtfsDatasetFilter(
-            downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,
-            downloaded_at__gte=datetime.fromisoformat(downloaded_after) if downloaded_after else None,
+            downloaded_at__lte=parse_iso_datetime(downloaded_before),
+            downloaded_at__gte=parse_iso_datetime(downloaded_after),
         ).filter(DatasetsApiImpl.create_dataset_query().filter(FeedOrm.stable_id == gtfs_feed_id))
 
         if latest:
@@ -348,8 +347,8 @@ class FeedsApiImpl(BaseFeedsApi):
         if to and not valid_iso_date(to):
             raise_http_validation_error(invalid_date_message.format("to"))
 
-        from_dt = datetime.fromisoformat(_from) if _from else None
-        to_dt = datetime.fromisoformat(to) if to else None
+        from_dt = parse_iso_datetime(_from)
+        to_dt = parse_iso_datetime(to)
 
         if from_dt and to_dt and from_dt > to_dt:
             raise_http_validation_error(availability_from_after_to)
@@ -394,8 +393,8 @@ class FeedsApiImpl(BaseFeedsApi):
         if downloaded_before and not valid_iso_date(downloaded_before):
             raise_http_validation_error(invalid_date_message.format("downloaded_before"))
 
-        after_dt = datetime.fromisoformat(downloaded_after) if downloaded_after else None
-        before_dt = datetime.fromisoformat(downloaded_before) if downloaded_before else None
+        after_dt = parse_iso_datetime(downloaded_after)
+        before_dt = parse_iso_datetime(downloaded_before)
 
         if after_dt and before_dt and after_dt > before_dt:
             raise_http_validation_error(continuous_coverage_downloaded_after_before)
@@ -424,10 +423,13 @@ class FeedsApiImpl(BaseFeedsApi):
         )
 
         # Each item's overlap is measured against the dataset downloaded just before it. Within the
-        # page that is simply the next item, but the oldest item's neighbour lies outside the page,
-        # so it is fetched from the feed's unfiltered datasets - otherwise every page would report a
-        # missing overlap at its bottom edge and look like a gap.
-        predecessors = page[1:] + [self._previous_dataset(feed_datasets, page[-1]) if page else None]
+        # page that is usually the next item, but the oldest item's neighbour lies outside the page,
+        # and any item bordering a null-`downloaded_at` run can't trust its positional neighbour
+        # either - `_predecessor` falls back to a real lookup in both cases.
+        predecessors = [
+            self._predecessor(feed_datasets, dataset, next_dataset)
+            for dataset, next_dataset in zip(page, page[1:] + [None])
+        ]
 
         latest_coverage = self._latest_continuous_coverage(feed, feed_datasets)
 
@@ -502,6 +504,26 @@ class FeedsApiImpl(BaseFeedsApi):
             .options(selectinload(Gtfsdataset.feed_info))
             .first()
         )
+
+    @staticmethod
+    def _predecessor(
+        feed_datasets: Query, dataset: Gtfsdataset, positional_next: Optional[Gtfsdataset]
+    ) -> Optional[Gtfsdataset]:
+        """The predecessor to use for one page row.
+
+        The next row in the page is a valid predecessor only when both it and `dataset` have a
+        real `downloaded_at` - `_continuous_coverage_order`'s `nullslast` sorts undated datasets to
+        the end of the page, so a positional neighbour next to one of them is not necessarily who
+        was downloaded immediately before it. Falling back to `_previous_dataset` covers that case
+        and the page's actual last row (`positional_next is None`) alike.
+        """
+        if (
+            dataset.downloaded_at is not None
+            and positional_next is not None
+            and positional_next.downloaded_at is not None
+        ):
+            return positional_next
+        return FeedsApiImpl._previous_dataset(feed_datasets, dataset)
 
     @with_db_session
     def get_gbfs_feed(

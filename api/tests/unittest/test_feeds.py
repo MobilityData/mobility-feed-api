@@ -4,6 +4,8 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import Mock, MagicMock
 import json
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
@@ -777,3 +779,125 @@ def test_get_gtfs_feed_datasets_accepts_z_suffixed_dates(mocker):
     _, kwargs = filter_cls.call_args
     assert kwargs["downloaded_at__gte"] == datetime(2024, 1, 1, tzinfo=timezone.utc)
     assert kwargs["downloaded_at__lte"] == datetime(2024, 6, 1, tzinfo=timezone.utc)
+
+
+# ---- Regression tests: one date param carrying a UTC offset and the other not must not raise
+# TypeError ("can't compare offset-naive and offset-aware datetimes") - both are equally valid per
+# `valid_iso_date`, so `parse_iso_datetime` normalizes an offset-less value to UTC before any
+# after/before comparison happens. ----
+
+
+def test_get_gtfs_feed_continuous_coverage_mixed_naive_and_aware_dates(mocker):
+    feed = Gtfsfeed(latest_dataset_id=None)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value = feed_datasets
+    feed_datasets.count.return_value = 0
+    feed_datasets.order_by.return_value.offset.return_value.limit.return_value.options.return_value.all.return_value = (
+        []
+    )
+
+    db_session = MagicMock()
+    db_session.query.return_value = feed_datasets
+
+    response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+        id="mdb-1",
+        downloaded_after="2024-01-01T00:00:00",
+        downloaded_before="2024-06-01T00:00:00Z",
+        limit=20,
+        offset=0,
+        db_session=db_session,
+    )
+
+    assert response.total == 0
+
+
+def test_get_gtfs_feed_continuous_coverage_mixed_dates_still_validates_order(mocker):
+    """Normalizing to UTC must not paper over a genuinely reversed range."""
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=Gtfsfeed(latest_dataset_id=None))
+
+    with pytest.raises(HTTPException) as exc_info:
+        FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+            id="mdb-1",
+            downloaded_after="2024-06-01T00:00:00",
+            downloaded_before="2024-01-01T00:00:00Z",
+            limit=20,
+            offset=0,
+            db_session=MagicMock(),
+        )
+    assert exc_info.value.status_code == 422
+
+
+def test_get_gtfs_feed_availability_mixed_naive_and_aware_dates(mocker):
+    feed = Gtfsfeed(id=1)
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+
+    query = MagicMock()
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
+
+    db_session = MagicMock()
+    db_session.query.return_value = query
+
+    response = FeedsApiImpl().get_gtfs_feed_availability(
+        id="mdb-1",
+        _from="2024-01-01T00:00:00",
+        to="2024-06-01T00:00:00Z",
+        limit=20,
+        offset=0,
+        sort="desc",
+        db_session=db_session,
+    )
+
+    assert response.total == 0
+
+
+# ---- Unit tests for `_predecessor`: a page row's positional neighbour is only a valid predecessor
+# when both rows have a real `downloaded_at`. `_continuous_coverage_order`'s `nullslast` sorts
+# undated datasets to the end of the page, so a positional neighbour next to one of them can't be
+# trusted - `_predecessor` must fall back to `_previous_dataset` instead. ----
+
+
+def test_predecessor_uses_positional_next_when_both_dated():
+    dataset = Gtfsdataset(id="a", downloaded_at=datetime(2024, 6, 1, tzinfo=timezone.utc))
+    next_dataset = Gtfsdataset(id="b", downloaded_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
+
+    assert FeedsApiImpl._predecessor(MagicMock(), dataset, next_dataset) is next_dataset
+
+
+def test_predecessor_falls_back_when_dataset_itself_is_undated(mocker):
+    dataset = Gtfsdataset(id="a", downloaded_at=None)
+    next_dataset = Gtfsdataset(id="b", downloaded_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    previous_dataset = mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=None)
+
+    result = FeedsApiImpl._predecessor(MagicMock(), dataset, next_dataset)
+
+    assert result is None
+    previous_dataset.assert_called_once()
+
+
+def test_predecessor_falls_back_when_positional_next_is_undated(mocker):
+    """A dated dataset immediately followed, in the page, by an undated one must not report that
+    undated neighbour as its predecessor - we don't know when it was actually downloaded."""
+    dataset = Gtfsdataset(id="a", downloaded_at=datetime(2024, 6, 1, tzinfo=timezone.utc))
+    next_dataset = Gtfsdataset(id="b", downloaded_at=None)
+    real_previous = Gtfsdataset(id="c", downloaded_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    previous_dataset = mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=real_previous)
+
+    result = FeedsApiImpl._predecessor(MagicMock(), dataset, next_dataset)
+
+    assert result is real_previous
+    previous_dataset.assert_called_once()
+
+
+def test_predecessor_falls_back_for_the_last_page_row(mocker):
+    """No positional neighbour at all (the page's last row) - unchanged from before this fix."""
+    dataset = Gtfsdataset(id="a", downloaded_at=datetime(2024, 6, 1, tzinfo=timezone.utc))
+    previous_dataset = mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=None)
+
+    result = FeedsApiImpl._predecessor(MagicMock(), dataset, None)
+
+    assert result is None
+    previous_dataset.assert_called_once()
