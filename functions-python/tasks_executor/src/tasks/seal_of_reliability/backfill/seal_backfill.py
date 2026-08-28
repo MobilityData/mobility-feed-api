@@ -50,6 +50,7 @@ from tasks.seal_of_reliability.context import (
 )
 from tasks.seal_of_reliability.backfill.simulation import (
     MAX_TRACE_ROWS,
+    check_simulated_write_allowed,
     check_simulation_fits,
     collapse_runs,
     observe,
@@ -464,13 +465,7 @@ def backfill_seals(
     if not stable_feed_ids:
         raise ValueError("stable_feed_ids is required and must be non-empty")
     if simulate and not dry_run:
-        # A simulated verdict written to seal_criterion is indistinguishable from an earned
-        # one — the row carries no provenance. Refuse rather than quietly downgrade, so an
-        # operator cannot believe a real run happened.
-        raise ValueError(
-            "simulate requires dry_run: forced verdicts must never be written to the seal "
-            "tables, where nothing would mark them as simulated"
-        )
+        check_simulated_write_allowed(simulate, db_session)
     if snapshot_mode not in SNAPSHOT_MODES:
         raise ValueError(
             f"Unknown snapshot_mode {snapshot_mode!r}. Known modes: {list(SNAPSHOT_MODES)}"
@@ -588,6 +583,10 @@ def backfill_seals(
                 criterion: forced.as_reported()
                 for criterion, forced in simulation.items()
             }
+            if not dry_run:
+                # The only provenance that exists: the response says the rows are fabricated,
+                # because the rows themselves cannot.
+                report["simulated_write"] = True
 
         granted = [outcome for outcome in outcomes if outcome["granted"]]
         # Only reachable with only_missing=False, but reported anyway so the monitor's

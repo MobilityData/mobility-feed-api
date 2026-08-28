@@ -90,7 +90,9 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds    cap on the `feeds` list in the response. Default: 50
         simulate         force statuses per criterion, on days counted from each feed's
                          march start: {"fresh_coverage": {"default": "pass", "fail": [3]}}.
-                         Requires dry_run; see `parse_simulation` for the full shape
+                         see `parse_simulation` for the full shape. Combining it with
+                         dry_run=false writes fabricated verdicts, which is refused in
+                         production and on production's tunnel port
         trace            return the march day by day: every seal_criterion field, plus where
                          it came from. Marches without writing when dry_run. Consecutive days
                          in which nothing changed are always collapsed into one entry — its

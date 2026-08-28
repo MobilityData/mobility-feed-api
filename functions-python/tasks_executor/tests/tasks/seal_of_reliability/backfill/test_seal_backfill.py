@@ -21,6 +21,7 @@ a success that wrote nothing.
 """
 
 import json
+import os
 import unittest
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -615,17 +616,51 @@ class TestSimulateAndTrace(MarchTestCase):
         self.assertIsNone(seal_row(MARCHED))
         self.assertEqual(report["criterion_rows_written"], 0)
 
-    def test_writing_with_a_simulation_is_refused(self):
-        with self.assertRaises(ValueError) as caught:
-            with self.registry(_script_for([])):
-                backfill_seals(
-                    stable_feed_ids=[MARCHED],
-                    start_date=MARCH_START,
-                    end_date=MARCH_END,
-                    dry_run=False,
-                    simulate={"official": {"fail": [0]}},
-                )
-        self.assertIn("dry_run", str(caught.exception))
+    def _simulated_write(self, **kwargs):
+        with self.registry(_script_for([])):
+            return backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+                only_missing=False,
+                simulate={"official": {"fail": [0]}},
+                **kwargs,
+            )
+
+    def test_a_simulated_write_is_allowed_in_dev_with_the_flag(self):
+        """The override exists so a debounced state can be written and read back locally."""
+        with patch.dict(os.environ, {"ENVIRONMENT": "dev"}):
+            report = self._simulated_write()
+        self.assertFalse(report["dry_run"])
+        self.assertTrue(
+            report["simulated_write"], "the response is the only provenance there is"
+        )
+
+    def test_a_simulated_write_is_refused_in_production(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "prod"}):
+            with self.assertRaises(ValueError) as caught:
+                self._simulated_write()
+        self.assertIn("prod", str(caught.exception))
+
+    def test_a_simulated_write_is_refused_on_the_prod_tunnel_port(self):
+        """ENVIRONMENT describes the process; the port is the only hint about the target."""
+        with patch.dict(os.environ, {"ENVIRONMENT": "local"}):
+            with patch(
+                "tasks.seal_of_reliability.backfill.simulation._connection_port",
+                return_value=9901,
+            ):
+                with self.assertRaises(ValueError) as caught:
+                    self._simulated_write()
+        self.assertIn("9901", str(caught.exception))
+
+    def test_an_unset_environment_is_treated_as_production(self):
+        """Fail closed: a deployment that forgets ENVIRONMENT must not fabricate history."""
+        with patch.dict(os.environ):
+            os.environ.pop("ENVIRONMENT", None)
+            with self.assertRaises(ValueError) as caught:
+                self._simulated_write()
+        self.assertIn("unset", str(caught.exception))
 
     def test_a_forced_failure_reaches_the_state_machine(self):
         """Day 0 is the first evaluation, so it gets no grace and confirms immediately."""
@@ -893,9 +928,11 @@ class TestSimulatedPolicy(MarchTestCase):
             self.simulate(simulate={"official": {"probation_days": "a fortnight"}})
         self.assertIn("probation_days", str(caught.exception))
 
-    def test_a_lent_policy_never_writes(self):
-        """Same rule as forced verdicts: a fabricated policy must not reach the tables."""
-        with self.assertRaises(ValueError):
+    def test_a_lent_policy_never_writes_in_production(self):
+        """Same rule as forced verdicts: a fabricated policy must not reach real tables."""
+        with patch.dict(os.environ, {"ENVIRONMENT": "prod"}), self.assertRaises(
+            ValueError
+        ):
             with self.registry(_script_for([])):
                 backfill_seals(
                     stable_feed_ids=[MARCHED],
