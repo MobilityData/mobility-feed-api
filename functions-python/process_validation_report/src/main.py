@@ -109,7 +109,7 @@ def parse_json_report(json_report):
     """
     try:
         dt = json_report["summary"]["validatedAt"]
-        validated_at = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        validated_at = datetime.fromisoformat(dt)
         version = None
         if "validatorVersion" in json_report["summary"]:
             version = json_report["summary"]["validatorVersion"]
