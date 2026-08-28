@@ -2,8 +2,8 @@
 functions-framework==3.*
 google-cloud-logging
 psycopg2-binary==2.9.6
-requests~=2.33.1
-certifi~=2025.8.3
+requests~=2.34.2
+certifi~=2026.7.22
 
 # SQL Alchemy and Geo Alchemy (database_gen models depend on geoalchemy2)
 SQLAlchemy==2.0.23
