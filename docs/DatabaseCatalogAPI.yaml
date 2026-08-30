@@ -53,6 +53,8 @@ paths:
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/created_after"
+        - $ref: "#/components/parameters/created_before"
         - $ref: "#/components/parameters/is_official_query_param"
 
       security:
@@ -98,6 +100,8 @@ paths:
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/created_after"
+        - $ref: "#/components/parameters/created_before"
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
@@ -127,6 +131,8 @@ paths:
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/created_after"
+        - $ref: "#/components/parameters/created_before"
         - $ref: "#/components/parameters/entity_types"
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
@@ -153,6 +159,8 @@ paths:
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/created_after"
+        - $ref: "#/components/parameters/created_before"
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
@@ -2388,6 +2396,26 @@ components:
       schema:
         type: string
         example: Los Angeles
+    created_after:
+      name: created_after
+      in: query
+      description: Filter feeds added to the database at or after this timestamp. Date should be in ISO 8601 date-time format.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-01-01T00:00:00Z"
+
+    created_before:
+      name: created_before
+      in: query
+      description: Filter feeds added to the database at or before this timestamp. Date should be in ISO 8601 date-time format.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-08-01T00:00:00Z"
+
     downloaded_after:
       name: downloaded_after
       in: query

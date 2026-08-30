@@ -106,14 +106,26 @@ class FeedsApiImpl(BaseFeedsApi):
         status: str,
         provider: str,
         producer_url: str,
+        created_after: str,
+        created_before: str,
         is_official: bool,
         db_session: Session,
     ) -> List[Feed]:
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
+        if created_after and not valid_iso_date(created_after):
+            raise_http_validation_error(invalid_date_message.format("created_after"))
+        if created_before and not valid_iso_date(created_before):
+            raise_http_validation_error(invalid_date_message.format("created_before"))
+
         feed_filter = FeedFilter(
-            status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
+            status=status,
+            provider__ilike=provider,
+            producer_url__ilike=producer_url,
+            stable_id=None,
+            created_at__gte=parse_iso_datetime(created_after),
+            created_at__lte=parse_iso_datetime(created_before),
         )
         feed_query = feed_filter.filter(Database().get_query_model(db_session, FeedOrm))
         feed_query = add_official_filter(feed_query, is_official)
@@ -199,6 +211,8 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         provider: str,
         producer_url: str,
+        created_after: str,
+        created_before: str,
         country_code: str,
         subdivision_name: str,
         municipality: str,
@@ -208,6 +222,11 @@ class FeedsApiImpl(BaseFeedsApi):
         is_official: bool,
         db_session: Session,
     ) -> List[GtfsFeed]:
+        if created_after and not valid_iso_date(created_after):
+            raise_http_validation_error(invalid_date_message.format("created_after"))
+        if created_before and not valid_iso_date(created_before):
+            raise_http_validation_error(invalid_date_message.format("created_before"))
+
         try:
             published_only = is_user_email_restricted()
             feed_query = get_gtfs_feeds_query(
@@ -215,6 +234,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 offset=offset,
                 provider=provider,
                 producer_url=producer_url,
+                created_after=parse_iso_datetime(created_after),
+                created_before=parse_iso_datetime(created_before),
                 country_code=country_code,
                 subdivision_name=subdivision_name,
                 municipality=municipality,
@@ -270,6 +291,8 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         provider: str,
         producer_url: str,
+        created_after: str,
+        created_before: str,
         entity_types: str,
         country_code: str,
         subdivision_name: str,
@@ -278,6 +301,11 @@ class FeedsApiImpl(BaseFeedsApi):
         db_session: Session,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
+        if created_after and not valid_iso_date(created_after):
+            raise_http_validation_error(invalid_date_message.format("created_after"))
+        if created_before and not valid_iso_date(created_before):
+            raise_http_validation_error(invalid_date_message.format("created_before"))
+
         try:
             published_only = is_user_email_restricted()
             feed_query = get_gtfs_rt_feeds_query(
@@ -285,6 +313,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 offset=offset,
                 provider=provider,
                 producer_url=producer_url,
+                created_after=parse_iso_datetime(created_after),
+                created_before=parse_iso_datetime(created_before),
                 entity_types=entity_types,
                 country_code=country_code,
                 subdivision_name=subdivision_name,
@@ -545,6 +575,8 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         provider: str,
         producer_url: str,
+        created_after: str,
+        created_before: str,
         country_code: str,
         subdivision_name: str,
         municipality: str,
@@ -552,10 +584,17 @@ class FeedsApiImpl(BaseFeedsApi):
         version: str,
         db_session: Session,
     ) -> List[GbfsFeed]:
+        if created_after and not valid_iso_date(created_after):
+            raise_http_validation_error(invalid_date_message.format("created_after"))
+        if created_before and not valid_iso_date(created_before):
+            raise_http_validation_error(invalid_date_message.format("created_before"))
+
         query = get_gbfs_feeds_query(
             db_session=db_session,
             provider=provider,
             producer_url=producer_url,
+            created_after=parse_iso_datetime(created_after),
+            created_before=parse_iso_datetime(created_before),
             country_code=country_code,
             subdivision_name=subdivision_name,
             municipality=municipality,
