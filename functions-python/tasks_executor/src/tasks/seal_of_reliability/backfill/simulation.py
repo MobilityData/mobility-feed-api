@@ -15,14 +15,12 @@
 #
 """Forced per-day statuses and the day-by-day trace, for inspecting a backfill march.
 
-Neither may write. A simulated verdict in `seal_criterion` would be indistinguishable from an
-earned one — the row carries no provenance — so `simulate` is refused on a real run, and a
-traced dry run marches with writing suppressed. The trace is the substitute: it carries every
-field a snapshot would have stored, for each marched day.
+Neither may write: a simulated verdict is indistinguishable from an earned one, the row
+carrying no provenance. The trace is the substitute, and carries every field a snapshot
+would have stored.
 
-Day offsets are counted from each feed's own march start, so day 0 is that feed's first
-evaluated day: the one denied a grace period. Anchoring to the run's `start_date` instead
-would point at days a younger feed never marched.
+Day offsets count from each feed's own march start, so day 0 is its first evaluated day —
+the one denied a grace period.
 """
 
 import logging
@@ -36,25 +34,20 @@ from tasks.seal_of_reliability.state_machine import SealCriterionState, phase
 
 logger = logging.getLogger(__name__)
 
-# Every field of the state a day leaves behind, minus the two that identify it — those are
-# already on the row as `stable_id` and `criterion`. Taken from the dataclass rather than
-# listed, so a field added to SealCriterionState shows up in the trace without touching
-# this file, which is the same trick `seal_updater._snapshot_row` uses for the snapshots.
+# Derived from the dataclass, not listed, so a new state field reaches the trace on its own —
+# the same trick `seal_updater._snapshot_row` uses. `feed_id` and `criterion` are already on
+# the row as `stable_id` and `criterion`.
 TRACED_STATE_FIELDS: Tuple[str, ...] = tuple(
     f.name
     for f in dataclass_fields(SealCriterionState)
     if f.name not in ("feed_id", "criterion")
 )
 
-# Fields that advance on their own inside a stretch where nothing actually happened, and so
-# must not break a run when collapsing. `day` and `evaluated_at` move every day;
-# `last_verdict_at` moves on every verdict; and during a confirmed failure streak
-# `last_observed_failure_at`, `last_confirmed_failure_at` and `probation_start` are all
-# re-stamped daily — probation_start to tomorrow, which is why the longest runs would never
-# collapse if it counted. `reason` is prose and differs per simulated day.
-#
-# Everything else is part of the signature, so a field added to SealCriterionState breaks
-# runs by default rather than being silently ignored: too eager beats invisible.
+# Fields that advance on their own inside a stretch where nothing happened, so collapsing
+# must ignore them. `probation_start` is the load-bearing one: a confirmed streak re-stamps it
+# to tomorrow every day, so counting it would stop the longest runs ever collapsing.
+# Everything else is part of the signature, so a new state field breaks runs rather than being
+# silently ignored.
 TICKING_FIELDS: frozenset = frozenset(
     {
         "day",
@@ -67,12 +60,12 @@ TICKING_FIELDS: frozenset = frozenset(
     }
 )
 
-# Cap on the trace a single call returns. A year x a batch of feeds x six criteria would be
-# a response no one can read and Cloud Logging would drop; a simulation is a small thing.
+# Cap on the trace one call returns: a year x a batch x six criteria is a response Cloud
+# Logging would drop.
 MAX_TRACE_ROWS: int = 2000
 
-# Payload keys inside a criterion that do something other than name days. Status names are a
-# closed set, so there is no collision.
+# Payload keys that do something other than name days. Status names are a closed set, so
+# there is no collision.
 GRACE_KEY = "grace_days"
 PROBATION_KEY = "probation_days"
 DEFAULT_KEY = "default"
@@ -87,20 +80,12 @@ _UNSET = object()
 class CriterionSimulation:
     """What a payload sets for one criterion: a baseline, named days, and optionally policy.
 
-    A scenario is usually "this criterion holds one status, except on these days". `default`
-    is that baseline, and the named days are the exceptions on top of it. Without a baseline
-    the unnamed days fall through to the real evaluator, which is only useful where the
-    source data says something: locally `fresh_coverage` has no dataset history to read and
-    every unnamed day comes back UNKNOWN, so a scenario built purely from exceptions never
-    leaves `never_evaluated`.
+    `default` is the baseline and the named days are exceptions on it. Without a baseline the
+    unnamed days fall through to the evaluator, which says nothing useful where the source
+    data is absent — `fresh_coverage` answers UNKNOWN for every day on a local database.
 
-    Overriding the periods matters for a criterion that has none — `official` and `stable`
-    are point-in-time checks, so a forced failure confirms the same day and the trace shows
-    nothing about debouncing. `fresh_coverage` ships with 14 days of grace and 180 of
-    probation, so it needs no lending to exercise either.
-
-    Only ever applied to a dry run, so no fabricated status or policy can reach the seal
-    tables.
+    Lending periods matters only for a criterion that has none: `official` and `stable` are
+    point-in-time checks, so a forced failure confirms the same day.
     """
 
     days: Mapping[int, CriterionStatus] = field(default_factory=dict)
@@ -128,10 +113,8 @@ class CriterionSimulation:
     def as_reported(self) -> dict:
         """The echo returned in the report, so a run states what it was told to pretend.
 
-        Offsets are stringified rather than left as ints: they share the dict with
-        `grace_days` and `probation_days`, and Flask's jsonify sorts keys, which raises on a
-        dict mixing str and int. JSON object keys are strings anyway, so the response shape
-        is unchanged.
+        Offsets are stringified because they share the dict with `grace_days`, and jsonify
+        sorts keys — which raises on a dict mixing str and int.
         """
         echo: Dict[str, Any] = {
             str(offset): status.value for offset, status in sorted(self.days.items())
@@ -186,16 +169,12 @@ def parse_simulation(
 
         {"fresh_coverage": {"default": "pass", "fail": [3, 4], "unknown": [8]}}
 
-    Offsets rather than dates because a scenario is about the shape of a history — "it fails
-    on day 3" — not about a calendar. Anchoring per feed rather than to the window start is
-    what makes day 0 the feed's first evaluation, the one denied a grace period.
+    Offsets rather than dates: a scenario is the shape of a history, not a calendar. Per feed
+    rather than per window, so day 0 is the feed's first evaluation — the one denied grace.
 
-    `default` is the status every unnamed day takes. Omit it and unnamed days fall through to
-    the real evaluator instead, which is what you want when the source data has something to
-    say and useless when it does not.
-
-    `grace_days` and `probation_days` are optional and override the criterion's own values
-    for the run. Omit either to keep the evaluator's; pass null to mean it has none.
+    `default` is what unnamed days take; omit it and they fall through to the evaluator.
+    `grace_days` and `probation_days` override the criterion's own — omit to keep them, null
+    to mean it has none.
     """
     if not simulate:
         return {}
@@ -293,9 +272,7 @@ def check_simulation_fits(
 def observe(evaluator, ctx, simulation, offset: int) -> CriterionObservation:
     """The criterion's own verdict, unless this day is simulated.
 
-    A named day wins over the baseline, and with neither the day falls through to the real
-    evaluator — so a simulation ranges from real data with a couple of overrides to a wholly
-    synthetic history, depending on whether `default` was given.
+    A named day wins over the baseline; with neither, the day falls through to the evaluator.
     """
     entry = simulation.get(evaluator.name.value)
     forced = entry.status_on(offset) if entry else None
@@ -329,12 +306,8 @@ def _as_day(value):
 def trace_row(feed, evaluator, offset: int, observation, state) -> dict:
     """One day of one criterion: every seal_criterion field, plus where it came from.
 
-    Carries the whole state rather than a summary, so a trace answers the same questions the
-    stored row would — when the current streak began, when a verdict was last reached — and
-    a reader never has to run the march again to see a field that was left out.
-
-    Flask's jsonify sorts keys, so the order here is for reading the source, not the
-    response.
+    The whole state rather than a summary, so a trace answers what the stored row would.
+    jsonify sorts keys, so the order here is for reading the source, not the response.
     """
     row = {
         "stable_id": feed.stable_id,
@@ -361,12 +334,9 @@ def _signature(row: dict) -> tuple:
 def collapse_runs(rows: Sequence[dict]) -> List[dict]:
     """Collapse consecutive days in which nothing changed into one entry per run.
 
-    A year of trace is mostly repetition — a criterion sits in one situation for weeks. Each
-    run is reported as its first day, its last day, and how many days sat between them, so
-    the boundaries stay exact while the middle collapses.
-
-    Rows are grouped by feed and criterion first: the march emits them day-major, so
-    consecutive entries in the flat list are different feeds, not consecutive days.
+    Each run reports its first day, its last, and the count between, so the boundaries stay
+    exact while the middle goes. Grouped by feed and criterion first: the march emits rows
+    day-major, so neighbours in the flat list are different feeds, not consecutive days.
     """
     grouped: Dict[Tuple[str, str], List[dict]] = {}
     for row in rows:
@@ -400,10 +370,9 @@ def _as_run(run: Sequence[dict]) -> dict:
 def refuse_simulated_write() -> None:
     """A forced verdict must never reach the seal tables, in any environment.
 
-    The row carries no provenance, so a simulated verdict and an earned one are the same row.
-    A trace is the substitute: it reports the state every marched day left behind, field for
-    field, which is what a snapshot would have stored — see
-    `test_every_snapshot_row_matches_its_trace_entry`.
+    The row carries no provenance, so a fabricated verdict and an earned one are the same
+    row. The trace is the substitute, and `test_every_traced_day_matches_its_stored_snapshot`
+    pins that it holds every field a snapshot would.
     """
     raise ValueError(
         "simulate requires dry_run: forced verdicts must never be written to the seal "

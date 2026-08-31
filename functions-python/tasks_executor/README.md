@@ -407,7 +407,7 @@ Only **comparable** datasets are considered: a dataset must have a `downloaded_a
 | `dispatched` | (dry-run only) list of `{feed_stable_id, base_dataset_stable_id, new_dataset_stable_id}` |
 
 
-### update_seal_of_reliability
+### `update_seal_of_reliability`
 
 Evaluates the implemented Seal of Reliability criteria (issue #1761) for a given list of GTFS
 feeds and updates the `sealcriterion` and `feedreliabilityseal` tables. Reads the source
@@ -555,7 +555,7 @@ the single-invocation timeout ceiling entirely.
 Use `get_task_run_status` (payload `{"task_name": "seal_orchestrator_run", "run_id":
 "..."}`) to inspect a run at any point without driving it forward.
 
-### backfill_seal_of_reliability
+### `backfill_seal_of_reliability`
 
 Gives feeds that have no seal state a starting one (issue #1763), so the nightly
 `update_seal_of_reliability` has a "yesterday" to step from. It cold-starts each feed at
@@ -630,10 +630,8 @@ A re-march **replaces** rather than accumulates. It rewrites only the days it ma
 values — and because the row is recomputed from the new march, failure history the previous run
 recorded is lost when the new march never sees it. `resume_from_snapshot` is the mitigation.
 
-#### Running it locally
-
-As for `update_seal_of_reliability`. A plan-only dry run needs nothing but
-`FEEDS_DATABASE_URL`:
+Run it locally as described under `update_seal_of_reliability`. A plan-only dry run needs no
+GCP credentials — only `FEEDS_DATABASE_URL`:
 
 ```shell
 curl -s -X POST http://localhost:8080 -H "Content-Type: application/json" \

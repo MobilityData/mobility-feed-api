@@ -15,16 +15,14 @@
 #
 """The Cloud Tasks fan-out both seal producers share.
 
-The nightly run (#1800) and the backfill (#1763) differ in what they send a worker and which
-feeds they select, but the mechanism between those two points is identical: count, chunk,
-register the run, enqueue a worker per batch, reconcile the count against what the stream
-actually yielded, enqueue one monitor. That reconciliation is the subtle part — it is what
-stops a batch sitting `triggered` until the deadline — and having it in one place is the
-reason this module exists.
+The nightly run (#1800) and the backfill (#1763) differ in which feeds they select and what
+they send a worker; the mechanism between is identical: count, chunk, register the run,
+enqueue a worker per batch, reconcile the count against what the stream yielded, enqueue one
+monitor. The reconciliation is the subtle part — it is what stops a batch sitting `triggered`
+until the deadline — and one copy of it is why this module exists.
 
-A producer supplies a `FanoutSpec` (the names and queues it uses) plus three callables: how
-to count its feeds, how to stream them, and how to build a worker payload. Everything else is
-here.
+A producer supplies a `FanoutSpec` plus three callables: how to count its feeds, how to
+stream them, and how to build a worker payload.
 """
 
 import json

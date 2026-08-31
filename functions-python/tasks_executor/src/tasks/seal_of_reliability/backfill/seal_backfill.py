@@ -16,18 +16,17 @@
 """Seal of Reliability backfill (issue #1763).
 
 Gives feeds with no seal state a starting one, so the nightly job (#1761) has a "yesterday"
-to step from: cold-start each feed at `march_start`, replay the nightly evaluation forward a
-day at a time to `end_date`, write only the final day. Marching is what builds the
-path-dependent state (grace streaks, probation) the final state depends on. A dry run returns
-the plan without writing.
+to step from: cold-start each feed at `march_start`, replay the nightly evaluation forward to
+`end_date`, write only the final day. Marching is what builds the path-dependent state (grace
+streaks, probation) the final state depends on.
 
-`march_start = max(start_date, feed.created_at)` — skips days before the feed existed, and is
-what Stable counts its 180 days from. `end_date` is resolved once by the caller, never per
-feed, so every feed of a run ends on the same day.
+`march_start = max(start_date, feed.created_at)`, which is also what Stable counts its 180
+days from. `end_date` is resolved once by the caller, so every feed of a run ends on the same
+day.
 
 Two limits, argued in misc/AI/seal_backfill_algorithm_1763.md: Official and Stable have no
-history and are read at today's values; and the cold start's error is not bounded by the
-window, so `days_back` is a cost/coverage default rather than a correctness guarantee.
+history and are read at today's values, and the cold start's error is not bounded by the
+window — so `days_back` is a cost decision, not a correctness guarantee.
 """
 
 import logging
@@ -229,14 +228,12 @@ def _upsert_seals_from_backfill(
 ) -> None:
     """Write feed_reliability_seal for the marched feeds.
 
-    Differs from the nightly `_upsert_seals` only in `created_at`, which is written as the
-    feed's march start (left at `DEFAULT now()`, Stable would fail on every simulated day and
-    the backfill would grant nothing) and is **insert-only**, so a re-backfill cannot reset a
-    countdown already running.
+    Differs from the nightly `_upsert_seals` in `created_at` only: the feed's march start,
+    since at `DEFAULT now()` Stable would fail on every marched day, and **insert-only**, so a
+    re-backfill cannot reset a countdown already running.
 
-    `seal_earned_at` gets `end_date`. The march knows the day the roll-up flipped, but under
-    a cold start that is often day one — which would claim a feed earned its seal a year ago
-    on one simulated day.
+    `seal_earned_at` gets `end_date` rather than the day the roll-up flipped, which under a
+    cold start is often day one.
     """
     for outcome in outcomes:
         row = {
@@ -270,9 +267,9 @@ def _upsert_seals_from_backfill(
 def _longest_march(windows: Dict[str, Tuple[date, date]]) -> int:
     """Days in the longest window of the run, both ends included.
 
-    Feeds clamped to their own `created_at` march fewer, so this is an upper bound rather
-    than a length they all share. It is the report's `days`, and the range a simulated day
-    offset has to fall inside. Zero when nothing was selected.
+    An upper bound, not a shared length: feeds clamped to their own `created_at` march fewer.
+    It is the report's `days` and the range a simulated offset must fall inside; zero when
+    nothing was selected.
     """
     return max(((end - start).days + 1 for start, end in windows.values()), default=0)
 
@@ -292,9 +289,9 @@ def _march(
 ) -> dict:
     """Replay the nightly evaluation day by day for one batch, and write the final day.
 
-    The evaluation is the nightly job's, unmodified; what this adds is threading each day's
-    state into the next in memory, so a year costs one write per feed rather than 366.
-    Ascending order is the algorithm, not a convenience: each day feeds the next.
+    The evaluation is the nightly job's, unmodified; this threads each day's state into the
+    next in memory, so a year costs one write per feed. Ascending order is the algorithm, not
+    a convenience: each day feeds the next.
     """
     if not feeds:
         return {
@@ -454,15 +451,12 @@ def backfill_seals(
     ineligible ids are skipped with a warning; it raises only if none can be used. See
     `backfill_seal_of_reliability` for the parameters as an operator passes them.
 
-    `simulate` forces observed statuses on named days, and `trace` returns the state each
-    day left behind, collapsed by default to one entry per unchanged stretch because a year of
-    days is mostly repetition. `collapse_trace=False` returns every day, which is what a
-    snapshot would have stored: the ticking fields vary inside a stretch, so the collapsed
-    form brackets them rather than reporting them. Both are inspection tools and neither may
-    write: see the dry_run check below.
+    `simulate` forces observed statuses on named days; `trace` returns the state each day left
+    behind, collapsed by default. `collapse_trace=False` returns every day, which is what a
+    snapshot would have stored — the ticking fields vary inside a stretch, so the collapsed
+    form only brackets them. Neither may write: see the dry_run check below.
 
-    Returns a report; `days` is the longest march in the run, since feeds clamped to their
-    own `created_at` march fewer.
+    Returns a report; `days` is the longest march in the run.
     """
     started = clock.monotonic()
     if not stable_feed_ids:

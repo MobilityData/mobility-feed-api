@@ -398,10 +398,8 @@ def snapshot_days(stable_id, db_session=None):
 def trace_day(report, day):
     """The marched day `day`, found inside the collapsed trace.
 
-    A trace reports one entry per unchanged stretch, so a day in the middle of one is
-    represented by that stretch's `first` row — every field asserted on here is part of the
-    signature the stretch collapsed on, and so is identical across it. The closing day carries
-    its own row, returned as `last`.
+    A day mid-stretch resolves to that stretch's `first` row: every field asserted on here is
+    part of the signature it collapsed on, so it is identical across the stretch.
     """
     for entry in report["trace"]:
         first = entry["first"]
@@ -919,8 +917,8 @@ class TestSimulatedPolicy(MarchTestCase):
 class TestSimulatedBaseline(MarchTestCase):
     """`default` is what every unnamed day observes; named days are exceptions on top.
 
-    Without it, unnamed days fall through to the evaluator — which says nothing useful for a
-    criterion whose source data is absent, as `fresh_coverage` is on a local database.
+    Without it they fall through to the evaluator, which says nothing useful where the source
+    data is absent — as `fresh_coverage` is on a local database.
     """
 
     def simulate(self, **kwargs):
@@ -974,13 +972,12 @@ class TestSimulatedBaseline(MarchTestCase):
 class TestTraceStandsInForTheSnapshots(MarchTestCase):
     """A trace has to answer what a snapshot would have, because simulate cannot write.
 
-    Both come from the same per-day state object in `_march`, so they agree by construction.
-    These tests pin that, because it is the only reason a traced dry run is an acceptable
-    substitute for inspecting stored rows.
+    Both come from the same per-day state in `_march`, so they agree by construction — pinned
+    here, since it is the only reason a traced dry run substitutes for stored rows.
     """
 
     def test_the_trace_carries_every_stored_column(self):
-        """No DB needed: a column the snapshot stores and the trace omits is unanswerable."""
+        """A column the snapshot stores and the trace omits would be unanswerable."""
         missing = set(SNAPSHOT_STATE_COLUMNS) - set(TRACED_STATE_FIELDS)
         self.assertEqual(
             missing, set(), f"trace omits stored column(s): {sorted(missing)}"
@@ -988,7 +985,7 @@ class TestTraceStandsInForTheSnapshots(MarchTestCase):
 
     @staticmethod
     def _rendered(value):
-        """Snapshot values in the trace's shape: statuses as names, timestamps as their day."""
+        """A snapshot value in the trace's shape: status names, timestamps as their day."""
         if hasattr(value, "value"):
             return value.value
         if hasattr(value, "date"):

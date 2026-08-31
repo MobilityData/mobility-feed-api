@@ -15,14 +15,14 @@
 #
 """Cloud Tasks producer: fan the Seal of Reliability backfill out across the catalog (#1763).
 
-Enumerates the catalog and chunks it for `backfill_seal_of_reliability`, which only marches
-an explicit list. The mechanism is `fanout.plan_fanout`, shared with the nightly producer.
+Enumerates the catalog and chunks it for `backfill_seal_of_reliability`, which only marches an
+explicit list. The mechanism is `fanout.plan_fanout`, shared with the nightly producer.
 
-Three differences from the nightly run, all because a march is long where a nightly
-evaluation is one day: `end_date` is resolved here once and passed to every worker (or two
-workers either side of midnight would end on different days); batches are smaller and the
-deadline longer; and `only_missing` is the eligibility predicate rather than a worker-side
-filter, so a feed the nightly job owns never has a simulation written over it.
+Three differences from the nightly run, all because a march is long: `end_date` is resolved
+here once and passed to every worker, or two workers either side of midnight would end on
+different days; batches are smaller and the deadline longer; and `only_missing` is the
+eligibility predicate rather than a worker-side filter, so a feed the nightly job owns never
+has a reconstruction written over it.
 
 Payload (all optional)::
 
