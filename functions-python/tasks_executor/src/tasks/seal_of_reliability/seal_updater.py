@@ -15,38 +15,45 @@
 #
 """Nightly Seal of Reliability evaluation (issue #1761).
 
-Reads feed, dataset, validation report and availability data; writes only seal_criterion
-and feed_reliability_seal. The source tables are never modified.
+Reads feed, dataset, validation report and availability data; writes only seal_criterion,
+seal_criterion_snapshot and feed_reliability_seal. The source tables are never modified.
 
-Both seal tables are written with Core `insert(...).on_conflict_do_update` statements
+The seal tables are written with Core `insert(...).on_conflict_do_update` statements
 against `__table__` for bulk upsert.
+
+seal_criterion holds the current state, one row per feed and criterion. seal_criterion_snapshot
+records the same state under the day it was evaluated (issue #1809), one row per feed,
+criterion and day, so past values survive and a correction can resume from a day rather than
+cold-start the window. The job takes the snapshots but never reads them: the state it needs is the
+current one.
 """
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from shared.common.seal_criteria import (
+    CriterionPhase,
+    CriterionStatus,
+    SealCriterionName,
+)
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
-    Feed,
     FeedReliabilitySeal,
+    Gtfsfeed,
     SealCriterion,
+    SealCriterionSnapshot,
 )
 
 from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
-    get_seal_feeds_query,
-)
-from tasks.seal_of_reliability.criteria import (
-    CriterionPhase,
-    CriterionStatus,
-    SealCriterionName,
+    is_seal_eligible,
 )
 from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.state_machine import (
@@ -62,6 +69,17 @@ DEFAULT_MAX_REPORTED_FEEDS: int = 50
 
 SEAL_TABLE = FeedReliabilitySeal.__table__
 CRITERION_TABLE = SealCriterion.__table__
+SNAPSHOT_TABLE = SealCriterionSnapshot.__table__
+
+# The state columns of a snapshot row: everything but its key. Taken from the table rather than
+# listed here, so a column added to seal_criterion_snapshot is written without touching this file
+# — and, if it has no matching field on SealCriterionState, fails loudly on the first run
+# instead of being silently left NULL.
+SNAPSHOT_STATE_COLUMNS: Tuple[str, ...] = tuple(
+    column.name
+    for column in SNAPSHOT_TABLE.columns
+    if column.name not in ("feed_id", "criterion", "snapshot_date")
+)
 
 
 def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
@@ -79,8 +97,8 @@ def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
 
 
 def _validate_requested_feed_ids(
-    db_session: Session,
     requested: Sequence[str],
+    found: Set[str],
     evaluated: Set[str],
 ) -> None:
     """Warn about requested feeds that will not be evaluated, or raise if that is all of them."""
@@ -88,21 +106,17 @@ def _validate_requested_feed_ids(
     if not unusable:
         return  # every requested feed is being evaluated, so there is nothing to report
 
-    # One extra query, and only now that something has already been dropped.
-    existing = {
-        row.stable_id
-        for row in db_session.execute(
-            select(Feed.stable_id).where(Feed.stable_id.in_(unusable))
-        ).all()
-    }
-    unknown = sorted(set(unusable) - existing)
+    # `found` already came from the by-id load, so telling "not found" apart from
+    # "found but ineligible" costs nothing extra here.
+    unknown = sorted(set(unusable) - found)
+    ineligible = sorted(set(unusable) & found)
 
     problems = []
     if unknown:
         problems.append(f"not found: {unknown}")
-    if existing:
+    if ineligible:
         problems.append(
-            f"not eligible for the seal: {sorted(existing)} (must be gtfs, "
+            f"not eligible for the seal: {ineligible} (must be gtfs, "
             "operational_status=published, and status not in (deprecated, development))"
         )
     summary = "; ".join(problems)
@@ -229,6 +243,65 @@ def _upsert_criteria(
     )
 
 
+def snapshot_date_of(now: datetime) -> date:
+    """The UTC day a run evaluating at `now` takes its snapshots under.
+
+    Naive values are read as UTC rather than rejected: the entry point normalizes what an
+    operator passes, but `update_seals` is also called directly.
+    """
+    if now.tzinfo is None:
+        return now.date()
+    return now.astimezone(timezone.utc).date()
+
+
+def _snapshot_row(state: SealCriterionState, snapshot_date: date) -> dict:
+    """One seal_criterion_snapshot row: the key, then the state columns read off by name.
+
+    The column names and the SealCriterionState field names are deliberately the same, which
+    is what lets the state columns be taken from the table instead of listed here.
+    """
+    row = {
+        "feed_id": state.feed_id,
+        "criterion": state.criterion.value,
+        "snapshot_date": snapshot_date,
+    }
+    for column in SNAPSHOT_STATE_COLUMNS:
+        value = getattr(state, column)
+        row[column] = value.value if isinstance(value, CriterionStatus) else value
+    return row
+
+
+def _upsert_criterion_snapshot(
+    db_session: Session, states: Sequence[SealCriterionState], snapshot_date: date
+) -> None:
+    """Record the states under `snapshot_date` in seal_criterion_snapshot.
+
+    Same states and same transaction as `_upsert_criteria`, so the two tables cannot
+    disagree: a criterion's latest snapshot is its current state.
+
+    The day is the key, so a rerun or a replay of the same day overwrites its row instead of
+    adding one — the number of runs in a day leaves no trace. Earlier days are never touched
+    by a run evaluating a later one; they are the record.
+    """
+    if not states:
+        return
+    payload = [_snapshot_row(state, snapshot_date) for state in states]
+    statement = insert(SNAPSHOT_TABLE).values(payload)
+    db_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[
+                SNAPSHOT_TABLE.c.feed_id,
+                SNAPSHOT_TABLE.c.criterion,
+                SNAPSHOT_TABLE.c.snapshot_date,
+            ],
+            set_={
+                column: getattr(statement.excluded, column)
+                for column in SNAPSHOT_STATE_COLUMNS
+            },
+        )
+    )
+
+
 def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) -> None:
     """Insert or update feed_reliability_seal rows.
 
@@ -308,19 +381,26 @@ def update_seals(
     evaluators = _resolve_evaluators(criteria)
     partial_run = len(evaluators) < len(EVALUATORS)
 
-    query = get_seal_feeds_query(db_session, stable_feed_ids=stable_feed_ids)
+    # Plain by-id load: no eligibility predicate here, since these ids were already
+    # explicitly requested. Eligibility is checked in Python below, on the loaded rows.
+    query = db_session.query(Gtfsfeed).filter(
+        Gtfsfeed.stable_id.in_(list(stable_feed_ids))
+    )
     if limit is not None:
         query = query.limit(limit)
     feeds = query.all()
+    eligible_feeds = [feed for feed in feeds if is_seal_eligible(feed)]
 
     _validate_requested_feed_ids(
-        db_session, stable_feed_ids, {feed.stable_id for feed in feeds}
+        stable_feed_ids,
+        found={feed.stable_id for feed in feeds},
+        evaluated={feed.stable_id for feed in eligible_feeds},
     )
 
     logging.info(
         "Evaluating %d criterion/criteria for %d feed(s) (dry_run=%s, now=%s).",
         len(evaluators),
-        len(feeds),
+        len(eligible_feeds),
         dry_run,
         now.isoformat(),
     )
@@ -332,7 +412,7 @@ def update_seals(
     not_applicable_count = 0
     first_evaluations = 0
 
-    for batch in batched(feeds, batch_size):
+    for batch in batched(eligible_feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
         contexts = build_contexts(db_session, batch, now)
         previous_states = _load_previous_states(db_session, batch_ids)
@@ -433,8 +513,10 @@ def update_seals(
     revoked = [outcome for outcome in outcomes if outcome["revoked"]]
     granted = [outcome for outcome in outcomes if outcome["granted"]]
     if not dry_run:
+        snapshot_date = snapshot_date_of(now)
         for state_batch in batched(all_states, batch_size):
             _upsert_criteria(db_session, state_batch, now)
+            _upsert_criterion_snapshot(db_session, state_batch, snapshot_date)
             db_session.commit()
         for outcome_batch in batched(outcomes, batch_size):
             _upsert_seals(db_session, outcome_batch, now)
@@ -442,12 +524,15 @@ def update_seals(
 
     report = {
         "message": (
-            f"{'Dry run: evaluated' if dry_run else 'Updated'} {len(feeds)} feed(s) "
-            f"across {len(evaluators)} criterion/criteria."
+            f"{'Dry run: evaluated' if dry_run else 'Updated'} {len(eligible_feeds)} "
+            f"feed(s) across {len(evaluators)} criterion/criteria."
         ),
         "dry_run": dry_run,
         "evaluated_at": now.isoformat(),
-        "total_feeds": len(feeds),
+        # The day the snapshots were taken under, which is the day a replay would name to
+        # overwrite them.
+        "snapshot_date": snapshot_date_of(now).isoformat(),
+        "total_feeds": len(eligible_feeds),
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
         "criterion_rows_written": 0 if dry_run else len(all_states),

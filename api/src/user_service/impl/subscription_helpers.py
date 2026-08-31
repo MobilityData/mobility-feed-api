@@ -28,13 +28,12 @@ from shared.common.brevo import (
     get_announcements_list_id,
     remove_contact_from_list,
 )
+from shared.common.feature_flags import feature_flag_enabled  # noqa: F401  (re-exported)
 from shared.database.database import generate_unique_id, with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
-    FeatureFlag,
     NotificationSubscription as NotificationSubscriptionOrm,
-    UserFeatureFlag,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,34 +63,6 @@ FEED_SCOPED_NOTIFICATION_TYPE_IDS = frozenset(
         "feed.coverage",
     }
 )
-
-
-def feature_flag_enabled(db_session, user_id: str, flag_id: str) -> bool:
-    """Resolve a boolean feature flag for a user.
-
-    The user's override wins, falling back to the flag's default value; a missing flag denies
-    (nothing to resolve). The ``disabled`` column is deliberately NOT consulted here: it only
-    controls consumer-facing *exposure* (whether the flag is surfaced in the user profile's
-    ``features`` list) — it is a backend concern and must not block a user who has been granted
-    access from subscribing. Otherwise a disabled-but-granted flag would leave no way to subscribe.
-    """
-    flag = db_session.get(FeatureFlag, flag_id)
-    if flag is None:
-        logger.debug("feature flag %r not found; denying user %s", flag_id, user_id)
-        return False
-    override = db_session.get(UserFeatureFlag, (user_id, flag_id))
-    value = override.value if override is not None and override.value is not None else flag.default_value
-    enabled = value is True
-    logger.debug(
-        "feature flag %r for user %s: override=%r default=%r resolved=%r enabled=%s",
-        flag_id,
-        user_id,
-        getattr(override, "value", None),
-        flag.default_value,
-        value,
-        enabled,
-    )
-    return enabled
 
 
 @with_db_session

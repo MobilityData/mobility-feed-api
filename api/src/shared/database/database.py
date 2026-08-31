@@ -78,6 +78,7 @@ cascade_entities = {
         Feed.redirectingids_,  # redirectingid_target_id_fkey
         Feed.feed_license_changes,
         Feed.seal_criteria,  # seal_criterion_feed_id_fkey
+        Feed.seal_criterion_snapshots,  # seal_criterion_snapshot_feed_id_fkey
         Feed.feed_reliability_seal,  # feed_reliability_seal_feed_id_fkey
     ],
     Gtfsfeed: [Gtfsfeed.gtfs_dataset_changelogs],

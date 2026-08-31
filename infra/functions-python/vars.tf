@@ -102,6 +102,12 @@ variable "reconcile_announcements_schedule" {
     default     = "0 3 * * *" # Daily at 03:00 UTC
 }
 
+variable "seal_orchestrator_schedule" {
+    type        = string
+    description = "Cron schedule for the nightly Seal of Reliability orchestrator job"
+    default     = "0 4 * * *" # Daily at 04:00 UTC
+}
+
 variable "notification_dispatch_weekly_weekday" {
     type        = number
     description = "Weekday the weekly digest is sent by the daily dispatcher (Monday=0 .. Sunday=6)"

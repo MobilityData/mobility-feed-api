@@ -694,6 +694,156 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 502)
 
 
+def _make_feed_row(feed_stable_id, subscription_id="sub-1", **kwargs):
+    from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedRowOrm
+
+    defaults = dict(subscription_id=subscription_id, feed_stable_id=feed_stable_id, created_at=FIXED_NOW)
+    defaults.update(kwargs)
+    return FeedRowOrm(**defaults)
+
+
+def _mock_feed_group_rows(session, rows):
+    """Wire the `.join().filter().order_by().all()` chain used by the unfiltered (list) query."""
+    session.query.return_value.join.return_value.filter.return_value.order_by.return_value.all.return_value = rows
+
+
+def _mock_feed_group_rows_filtered(session, rows):
+    """Wire the `.join().filter().filter().order_by().all()` chain used by the feed_stable_id-filtered query."""
+    chain = session.query.return_value.join.return_value.filter.return_value.filter.return_value
+    chain.order_by.return_value.all.return_value = rows
+
+
+class TestSubscriptionFeedGroups(unittest.TestCase):
+    """GET /v1/user/subscriptions/feeds and GET /v1/user/subscriptions/feeds/{id}."""
+
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+        meta_patcher = patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value={})
+        meta_patcher.start()
+        self.addCleanup(meta_patcher.stop)
+
+    def _make_sub(self, **kwargs):
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
+
+        defaults = dict(
+            id="sub-1",
+            user_id="uid-123",
+            notification_type_id="feed.url_updated",
+            active=True,
+            created_at=FIXED_NOW,
+        )
+        defaults.update(kwargs)
+        return Orm(**defaults)
+
+    # ── list ──
+    def test_get_user_subscription_feeds_empty(self):
+        _mock_feed_group_rows(self.mock_session, [])
+
+        result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertEqual(result, [])
+
+    def test_get_user_subscription_feeds_single_feed(self):
+        sub = self._make_sub()
+        row = _make_feed_row("mdb-1", subscription_id=sub.id)
+        _mock_feed_group_rows(self.mock_session, [(row, sub)])
+
+        result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].feed_id, "mdb-1")
+        self.assertEqual(len(result[0].subscriptions), 1)
+        self.assertEqual(result[0].subscriptions[0].id, "sub-1")
+        self.assertEqual(result[0].subscriptions[0].notification_id, "feed.url_updated")
+
+    def test_get_user_subscription_feeds_groups_by_feed(self):
+        sub1 = self._make_sub(id="sub-1")
+        sub2 = self._make_sub(id="sub-2", notification_type_id="feed.coverage")
+        rows = [
+            (_make_feed_row("mdb-1", subscription_id="sub-1"), sub1),
+            (_make_feed_row("mdb-2", subscription_id="sub-2"), sub2),
+        ]
+        _mock_feed_group_rows(self.mock_session, rows)
+
+        result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertEqual([g.feed_id for g in result], ["mdb-1", "mdb-2"])
+        self.assertEqual(result[0].subscriptions[0].id, "sub-1")
+        self.assertEqual(result[1].subscriptions[0].id, "sub-2")
+
+    def test_get_user_subscription_feeds_subscription_targets_multiple_feeds(self):
+        sub = self._make_sub()
+        rows = [
+            (_make_feed_row("mdb-1", subscription_id=sub.id), sub),
+            (_make_feed_row("mdb-2", subscription_id=sub.id), sub),
+        ]
+        _mock_feed_group_rows(self.mock_session, rows)
+
+        result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertEqual([g.feed_id for g in result], ["mdb-1", "mdb-2"])
+        self.assertEqual(result[0].subscriptions[0].id, sub.id)
+        self.assertEqual(result[1].subscriptions[0].id, sub.id)
+
+    def test_get_user_subscription_feeds_includes_inactive(self):
+        sub = self._make_sub(active=False)
+        row = _make_feed_row("mdb-1", subscription_id=sub.id)
+        _mock_feed_group_rows(self.mock_session, [(row, sub)])
+
+        result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertFalse(result[0].subscriptions[0].active)
+
+    def test_get_user_subscription_feeds_resolves_feed_metadata(self):
+        sub = self._make_sub()
+        row = _make_feed_row("mdb-1", subscription_id=sub.id)
+        _mock_feed_group_rows(self.mock_session, [(row, sub)])
+
+        with patch(
+            "user_service.impl.users_api_impl.resolve_feed_metadata",
+            return_value={"mdb-1": {"data_type": "gtfs", "provider": "Test Transit", "feed_name": "Test Feed"}},
+        ):
+            result = self.api.get_user_subscription_feeds(db_session=self.mock_session)
+
+        self.assertEqual(result[0].data_type, "gtfs")
+        self.assertEqual(result[0].provider, "Test Transit")
+        self.assertEqual(result[0].feed_name, "Test Feed")
+
+    def test_get_user_subscription_feeds_guest_403(self):
+        _set_context(is_guest=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.get_user_subscription_feeds(db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    # ── by id ──
+    def test_get_user_subscription_feed_by_id_returns_group(self):
+        sub = self._make_sub()
+        row = _make_feed_row("mdb-1", subscription_id=sub.id)
+        _mock_feed_group_rows_filtered(self.mock_session, [(row, sub)])
+
+        result = self.api.get_user_subscription_feed_by_id("mdb-1", db_session=self.mock_session)
+
+        self.assertEqual(result.feed_id, "mdb-1")
+        self.assertEqual(len(result.subscriptions), 1)
+        self.assertEqual(result.subscriptions[0].id, "sub-1")
+
+    def test_get_user_subscription_feed_by_id_404_when_no_rows(self):
+        _mock_feed_group_rows_filtered(self.mock_session, [])
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.get_user_subscription_feed_by_id("mdb-999", db_session=self.mock_session)
+
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_get_user_subscription_feed_by_id_guest_403(self):
+        _set_context(is_guest=True)
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.get_user_subscription_feed_by_id("mdb-1", db_session=self.mock_session)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+
 class TestSubscriptionGate(unittest.TestCase):
     """The isNotificationsEnabled feature flag gates POST/PATCH subscriptions."""
 

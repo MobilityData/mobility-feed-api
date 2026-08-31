@@ -38,7 +38,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from tasks.seal_of_reliability.criteria import (
+from shared.common.seal_criteria import (
     CriterionPhase,
     CriterionStatus,
     SealCriterionName,

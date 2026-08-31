@@ -22,6 +22,13 @@ SELECT
     -- official status
     Feed.official AS official,
 
+    -- seal of reliability (GTFS only; NULL when the feed has never been evaluated)
+    ReliabilitySealJoin.has_seal AS has_seal,
+    ReliabilitySealJoin.seal_earned_at AS seal_earned_at,
+    ReliabilitySealJoin.seal_lost_at AS seal_lost_at,
+    ReliabilitySealJoin.seal_evaluated_at AS seal_evaluated_at,
+    ReliabilitySealJoin.seal_latest_probation_start AS seal_latest_probation_start,
+
     -- seasonal status
     Feed.seasonal AS seasonal,
 
@@ -104,6 +111,31 @@ LEFT JOIN (
     FROM license_license_tags llt
     GROUP BY llt.license_id
 ) AS LicenseTagsJoin ON LicenseTagsJoin.license_id = Feed.license_id
+
+-- Seal of Reliability. FeedReliabilitySeal owns the overall outcome; the per-criterion rows
+-- contribute the last evaluation time and the probation roll-up, so the search result can carry
+-- the same summary the feed-detail endpoint embeds without a second lookup.
+-- Probation is aggregated over the criteria that actually serve it: 'official' and 'stable' are
+-- point-in-time state checks and are exempt, so a stray probation_start on one of them must not
+-- make the feed look like it is waiting out six months.
+LEFT JOIN (
+    SELECT
+        FeedReliabilitySeal.feed_id,
+        FeedReliabilitySeal.has_seal,
+        FeedReliabilitySeal.seal_earned_at,
+        FeedReliabilitySeal.seal_lost_at,
+        MAX(SealCriterion.evaluated_at) AS seal_evaluated_at,
+        MAX(SealCriterion.probation_start) FILTER (
+            WHERE SealCriterion.criterion NOT IN ('official', 'stable')
+        ) AS seal_latest_probation_start
+    FROM feed_reliability_seal AS FeedReliabilitySeal
+    LEFT JOIN seal_criterion AS SealCriterion ON SealCriterion.feed_id = FeedReliabilitySeal.feed_id
+    GROUP BY
+        FeedReliabilitySeal.feed_id,
+        FeedReliabilitySeal.has_seal,
+        FeedReliabilitySeal.seal_earned_at,
+        FeedReliabilitySeal.seal_lost_at
+) AS ReliabilitySealJoin ON ReliabilitySealJoin.feed_id = Feed.id
 
 -- Latest dataset
 LEFT JOIN gtfsfeed gtf ON gtf.id = Feed.id AND Feed.data_type = 'gtfs'

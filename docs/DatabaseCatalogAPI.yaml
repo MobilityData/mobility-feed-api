@@ -302,6 +302,64 @@ paths:
         500:
           description: Internal server error.
 
+  /v1/gtfs_feeds/{id}/reliability:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        Returns the Seal of Reliability breakdown for a GTFS feed: whether the feed currently holds
+        the seal, and the verdict for each of the six criteria.
+      tags:
+        - "feeds"
+        - "beta"
+      operationId: getGtfsFeedReliability
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Seal of Reliability breakdown for the GTFS feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedReliabilityReport"
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+
+  /v1/gtfs_feeds/{id}/continuous_coverage:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        Returns the continuous coverage history for a GTFS feed: one entry per dataset, ordered by
+        `downloaded_at` from newest to oldest. Each entry carries the service window the dataset
+        covers, the window declared in its `feed_info.txt`, whether the two agree, and how much that
+        dataset overlaps the previous (older) one.
+      tags:
+        - "feeds"
+      operationId: getGtfsFeedContinuousCoverage
+      parameters:
+        - $ref: "#/components/parameters/continuous_coverage_downloaded_after"
+        - $ref: "#/components/parameters/continuous_coverage_downloaded_before"
+        - $ref: "#/components/parameters/limit_query_param_continuous_coverage_endpoint"
+        - $ref: "#/components/parameters/offset"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Continuous coverage history for the GTFS feed, ordered by downloaded_at (newest first).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedContinuousCoverageResponse"
+        400:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+
   /v1/datasets/gtfs/{id}:
     get:
       description: Get the specified dataset from the Mobility Database.
@@ -368,6 +426,7 @@ paths:
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
         - $ref: "#/components/parameters/is_official_query_param"
+        - $ref: "#/components/parameters/has_seal_query_param"
         - $ref: "#/components/parameters/version_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
         - $ref: "#/components/parameters/feature"
@@ -377,6 +436,8 @@ paths:
       security:
         - Authentication: []
       responses:
+        403:
+          description: Filtering by Seal of Reliability status is not available to this caller.
         200:
           description: Successful search feeds using full-text search on feed, location and provider's information, potentially returning a mixed array of different entity types.
           content:
@@ -694,6 +755,8 @@ components:
                 The dataset ID of the dataset used to compute the visualization files.
               type: string
               example: mdb-1210-202402121801
+            reliability_seal:
+              $ref: "#/components/schemas/FeedReliabilitySummary"
 
     GbfsFeed:
       allOf:
@@ -999,6 +1062,8 @@ components:
           items:
             type: string
             example: "mdb-20"
+        reliability_seal:
+          $ref: "#/components/schemas/FeedReliabilitySummary"
 
     Feeds:
       type: array
@@ -1014,6 +1079,227 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/GtfsRTFeed"
+
+    FeedReliabilitySummary:
+      description: >
+        A summary of the feed's Seal of Reliability. `null` when the feed has never been evaluated. 
+        Use `GET /v1/gtfs_feeds/{id}/reliability` for the per-criterion breakdown.
+      type: object
+      nullable: true
+      required:
+        - has_seal
+        - on_probation
+      properties:
+        has_seal:
+          description: >
+            Whether the feed currently holds the Seal of Reliability.
+          type: boolean
+          example: true
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: >
+            Whether at least one criterion is serving probation - the six clean months a criterion
+            must go through, with no failure, after a confirmed failure before it can count towards
+            the seal again. While this is true the feed cannot hold the seal even if every criterion
+            currently passes.
+          type: boolean
+          example: true
+        probation_ends_at:
+          description: >
+            The earliest date the feed could regain the seal, in ISO 8601 date-time format: the end
+            of the longest-running probation across its criteria. `null` when no criterion is on
+            probation, and also when the stored probation has already elapsed without the nightly
+            job clearing it - a stale countdown is not served.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+
+    FeedReliabilityReport:
+      description: >
+        The full Seal of Reliability breakdown for a GTFS feed: the same summary as the embedded
+        `reliability_seal` object, plus one entry per criterion. All six criteria are always
+        returned, in a stable order, so a client can render them unconditionally.
+      type: object
+      required:
+        - feed_id
+        - has_seal
+        - on_probation
+        - criteria
+      properties:
+        feed_id:
+          description: Unique identifier of the GTFS feed.
+          type: string
+          example: mdb-1210
+        has_seal:
+          description: Whether the feed currently holds the Seal of Reliability.
+          type: boolean
+          example: false
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: Whether at least one criterion is serving probation. See `FeedReliabilitySummary`.
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: The earliest date the feed could regain the seal. See `FeedReliabilitySummary`.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        criteria:
+          description: One entry per criterion, always all six, in a stable order.
+          type: array
+          items:
+            $ref: "#/components/schemas/ReliabilityCriterion"
+
+    ReliabilityCriterion:
+      description: >
+        One criterion's contribution to the Seal of Reliability.
+
+        `status` is the criterion's own check at the last evaluation, undebounced, so a criterion
+        can read `fail` while the feed still holds the seal - that is the at-risk state, and
+        `in_grace_period` distinguishes it from a confirmed failure. Conversely a criterion can
+        read `pass` while `on_probation` is true, in which case it still does not count towards
+        the seal. The three states a client renders are therefore: healthy (`pass`), at risk
+        (`fail` with `in_grace_period`), and failing (`fail` without it) - with `on_probation`
+        as an independent flag on top.
+      type: object
+      required:
+        - criterion
+        - status
+        - in_grace_period
+        - on_probation
+      properties:
+        criterion:
+          description: >
+            Which criterion this entry describes.
+              * `official` - the feed is provided by the agency or a trusted source.
+              * `stable` - the feed has a stable producer URL and a long enough track record.
+              * `available` - the feed URL responds to scheduled availability checks.
+              * `compliant` - the latest dataset validates with no errors.
+              * `fresh_coverage` - the latest dataset's service period extends far enough ahead.
+              * `fresh_continuous` - successive datasets cover service without gaps.
+          type: string
+          enum:
+            - official
+            - stable
+            - available
+            - compliant
+            - fresh_coverage
+            - fresh_continuous
+          example: compliant
+        status:
+          description: >
+            The criterion's verdict at the last evaluation, with no grace period applied.
+              * `pass` - the check passed.
+              * `fail` - the check failed. The seal is only withdrawn once the failure outlasts
+                the criterion's grace period, so check `in_grace_period` before presenting this
+                as a loss.
+              * `unknown` - the criterion was evaluated but its inputs were missing, so no verdict
+                could be reached this time. It is skipped when deciding the seal rather than counted
+                as a failure.
+              * `not_applicable` - the criterion does not apply to this feed (for example a
+                coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
+              * `never_evaluated` - the criterion has produced no verdict for this feed yet. It is
+                skipped when deciding the seal rather than counted as a failure.
+          type: string
+          enum:
+            - pass
+            - fail
+            - unknown
+            - not_applicable
+            - never_evaluated
+          example: fail
+        in_grace_period:
+          description: >
+            Whether a failing check is still inside the criterion's grace period, and so is not
+            yet counting against the seal. Can only be true while `status` is `fail`, and is
+            always false while `on_probation` is true, since a failure during probation restarts
+            probation outright rather than being absorbed.
+          type: boolean
+          example: true
+        grace_period_ends_at:
+          description: >
+            When the grace period expires and the failure starts counting against the seal, in
+            ISO 8601 date-time format. `null` unless `in_grace_period` is true, and also when the
+            window has already elapsed without the nightly job acting on it.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-08-24T04:00:00Z
+        on_probation:
+          description: >
+            Whether this criterion is serving the six clean months required after a confirmed
+            failure. While true, the criterion does not count towards the seal whatever its
+            `status`. Never true for `official` or `stable`, which are point-in-time state checks
+            with no track record to rebuild.
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: >
+            When this criterion finishes probation, in ISO 8601 date-time format. `null` when it
+            is not on probation, and also when the window has already elapsed without the nightly
+            job clearing it.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        evaluated_at:
+          description: When this criterion was last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        first_failure_at:
+          description: >
+            Start of the current run of failing checks, in ISO 8601 date-time format. `null` once
+            the criterion passes again. This is what the grace period is measured from.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-25T04:00:00Z
+        last_failure_at:
+          description: >
+            The most recent failing check, in ISO 8601 date-time format. Kept as history and never
+            cleared, so it can be set on a criterion that currently passes.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
 
     GtfsFeedAvailabilityResponse:
       type: object
@@ -1085,6 +1371,237 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+
+    GtfsFeedContinuousCoverageResponse:
+      type: object
+      required:
+        - feed_id
+        - items
+        - latest_files
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest_files:
+          type: array
+          description: >
+            The files the calculation reads for the feed's latest dataset (the `items[]` entry
+            with `is_latest: true`), and whether each was present. Always returned in the same
+            order with one entry per file, so a client can render a fixed row.
+          items:
+            $ref: "#/components/schemas/GtfsFeedContinuousCoverageFile"
+        latest_coverage_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        latest_coverage_window_source:
+          type: string
+          nullable: true
+          description: >
+            Which input the latest dataset's `latest_coverage_window` was taken from.
+
+            * `service_dates` - the service dates derived by the validator from `calendar.txt` and
+              `calendar_dates.txt`.
+            * `feed_info` - the dates declared in `feed_info.txt`, used only when the service dates
+              are missing.
+          enum:
+            - service_dates
+            - feed_info
+          example: service_dates
+        latest_within_max_coverage_window:
+          type: boolean
+          nullable: true
+          description: >
+            Whether the latest dataset's `latest_coverage_window` stays inside the maximum
+            coverage window the seal allows (two years). Null when there is no coverage window to
+            measure.
+          example: true
+        latest_service_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        latest_feed_info_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        latest_feed_info_matches:
+          type: boolean
+          nullable: true
+          description: >
+            Whether the latest dataset's `latest_feed_info_window` agrees with
+            `latest_service_window` on both bounds. Null when either window is missing, which is
+            not the same as a mismatch.
+          example: true
+        latest_overlap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of overlap between the latest dataset's coverage window and that of the dataset
+            immediately older than it. Zero means the windows meet exactly; a gap is reported as
+            `latest_gap_days` instead. Null when either window is missing or there is no older
+            dataset.
+          example: 15
+        latest_gap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of uncovered service between the end of the older dataset's window and the start
+            of the latest dataset's window. Null when the windows overlap or meet, which is the
+            passing case.
+          example: 3
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: >
+            One entry per dataset, ordered by downloaded_at from newest to oldest. The first entry of
+            the unpaged list is the feed's current coverage; it is marked with `is_latest`.
+          items:
+            $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+
+    GtfsFeedContinuousCoverage:
+      type: object
+      description: >
+        The coverage one dataset contributes, and how it lines up with the dataset downloaded just
+        before it.
+
+
+        Three windows are reported. `service_window` is the service dates the validator derived from
+        `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's
+        `feed_info.txt` declares; `coverage_window` is the one the calculation actually used, with
+        `coverage_window_source` naming which of the two it came from. Any of them may be absent when
+        the dataset did not supply the underlying files.
+      required:
+        - dataset_id
+        - is_latest
+        - files
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the dataset this entry describes.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: >
+            Whether this is the feed's latest dataset. Exactly one entry in the unpaged list has this
+            set, so a client can identify the headline entry without assuming it is on the current page.
+          example: true
+        downloaded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the dataset was downloaded.
+          example: "2026-06-28T00:29:00Z"
+        coverage_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        coverage_window_source:
+          type: string
+          nullable: true
+          description: >
+            Which input `coverage_window` was taken from.
+
+            * `service_dates` - the service dates derived by the validator from `calendar.txt` and
+              `calendar_dates.txt`.
+            * `feed_info` - the dates declared in `feed_info.txt`, used only when the service dates
+              are missing.
+          enum:
+            - service_dates
+            - feed_info
+          example: service_dates
+        within_max_coverage_window:
+          type: boolean
+          nullable: true
+          description: >
+            Whether `coverage_window` stays inside the maximum coverage window the seal allows
+            (two years). Null when there is no coverage window to measure.
+          example: true
+        service_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        feed_info_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        feed_info_matches:
+          type: boolean
+          nullable: true
+          description: >
+            Whether `feed_info_window` agrees with `service_window` on both bounds. Null when either
+            window is missing, which is not the same as a mismatch.
+          example: true
+        previous_dataset_id:
+          type: string
+          nullable: true
+          description: >
+            Stable identifier of the dataset downloaded immediately before this one. Null for the
+            oldest dataset of the feed. Populated even when that dataset falls outside the requested
+            page or date range, so overlap is never reported as absent merely because of paging.
+          example: mdb-123-202604290029
+        overlap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of overlap between this dataset's coverage window and that of the dataset
+            immediately older than it. Zero means the windows meet exactly; a gap is reported as
+            `gap_days` instead. Null when either window is missing or there is no older dataset.
+          example: 15
+        gap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of uncovered service between the end of the older dataset's window and the start of
+            this one. Null when the windows overlap or meet, which is the passing case.
+          example: 3
+        files:
+          type: array
+          description: >
+            The files the calculation reads, and whether each was present in this dataset. Always
+            returned in the same order with one entry per file, so a client can render a fixed row.
+          items:
+            $ref: "#/components/schemas/GtfsFeedContinuousCoverageFile"
+
+    GtfsFeedContinuousCoverageFile:
+      type: object
+      required:
+        - name
+        - present
+      properties:
+        name:
+          type: string
+          description: Name of the GTFS file.
+          example: calendar.txt
+        present:
+          type: boolean
+          description: Whether the file was present in the dataset.
+          example: true
+
+    ServiceDateWindow:
+      type: object
+      description: A closed range of service dates, with its length in days.
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date
+          description: First date covered by the window.
+          example: "2026-09-16"
+        end:
+          type: string
+          format: date
+          description: Last date covered by the window.
+          example: "2027-07-28"
+        days:
+          type: integer
+          nullable: true
+          description: Length of the window in days, counting both bounds.
+          example: 316
 
     LatestDataset:
       type: object
@@ -1935,6 +2452,19 @@ components:
         type: boolean
         default: null
 
+    has_seal_query_param:
+      name: has_seal
+      in: query
+      description: >
+        If true, only return feeds that currently hold the Seal of Reliability; if false, only feeds
+        without it. Viewing a feed's seal is public, but filtering the catalogue by it is granted per
+        user and requires the `isSealFilterEnabled` feature flag - other callers receive a 403. To
+        request access or learn more, contact us at api@mobilitydata.org.
+      required: False
+      schema:
+        type: boolean
+        default: null
+
     limit_query_param_locations_endpoint:
       name: limit
       in: query
@@ -2162,6 +2692,43 @@ components:
         type: string
         format: date-time
         example: "2026-05-01T00:00:00Z"
+
+    limit_query_param_continuous_coverage_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned. Maximum is 100.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 20
+        example: 2
+
+    continuous_coverage_downloaded_after:
+      name: downloaded_after
+      in: query
+      description: >
+        Only include datasets downloaded at or after this timestamp. Date should be in ISO 8601
+        date-time format. The dataset immediately older than the oldest included one is still used to
+        compute its overlap.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-02-24T00:00:00Z"
+
+    continuous_coverage_downloaded_before:
+      name: downloaded_before
+      in: query
+      description: >
+        Only include datasets downloaded at or before this timestamp. Date should be in ISO 8601
+        date-time format.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-08-24T00:00:00Z"
 
     availability_sort:
       name: sort

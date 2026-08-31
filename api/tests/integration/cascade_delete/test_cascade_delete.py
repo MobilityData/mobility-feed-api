@@ -27,6 +27,7 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     FeedLicenseChange,
     SealCriterion,
+    SealCriterionSnapshot,
     FeedReliabilitySeal,
 )
 
@@ -228,6 +229,37 @@ def test_delete_feed_cascadeto_seal_criterion(test_database):
             [
                 "SELECT COUNT(*) FROM feed where id = 'f1'",
                 "SELECT COUNT(*) FROM seal_criterion where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_seal_criterion_snapshot(test_database):
+    """Deleting a feed removes its recorded per-day criterion state (issue #1809).
+
+    Same shape as the seal_criterion case above: feed_id is NOT NULL and part of the
+    composite primary key, so without the `Feed.seal_criterion_snapshots` entry in
+    `cascade_entities` SQLAlchemy would try to NULL it instead of letting ON DELETE CASCADE
+    remove the rows.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        log_row = SealCriterionSnapshot(
+            feed_id="f1",
+            criterion="official",
+            snapshot_date=datetime.date(2026, 6, 1),
+            observed_status="pass",
+            confirmed_status="pass",
+        )
+        session.add_all([feed, log_row])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM seal_criterion_snapshot where feed_id = 'f1'",
             ],
             feed,
         )

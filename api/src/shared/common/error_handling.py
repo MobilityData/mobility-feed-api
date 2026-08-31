@@ -4,6 +4,9 @@ invalid_date_message: Final[str] = (
     "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
 )
 availability_from_after_to: Final[str] = "'from' timestamp must be before 'to' timestamp"
+continuous_coverage_downloaded_after_before: Final[str] = (
+    "'downloaded_after' timestamp must be before 'downloaded_before' timestamp"
+)
 invalid_bounding_coordinates: Final[str] = "Invalid bounding coordinates {} {}"
 invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
 feed_not_found: Final[str] = "Feed '{}' not found"
@@ -11,6 +14,14 @@ gtfs_feed_not_found: Final[str] = "GTFS feed '{}' not found"
 gtfs_rt_feed_not_found: Final[str] = "GTFS realtime Feed '{}' not found"
 gbfs_feed_not_found: Final[str] = "GBFS feed '{}' not found"
 dataset_not_found: Final[str] = "Dataset '{}' not found"
+has_seal_filter_not_permitted: Final[str] = (
+    "Filtering feeds by Seal of Reliability status is available to selected users only. "
+    "To request access or learn more, contact us at api@mobilitydata.org"
+)
+unknown_seal_criterion: Final[str] = (
+    "Unknown Seal of Reliability criterion '{}'. The seal_criterion_name DB enum has grown past "
+    "this build: SealCriterionName and the API criterion enum need to be updated to match it."
+)
 
 
 class InternalHTTPException(Exception):

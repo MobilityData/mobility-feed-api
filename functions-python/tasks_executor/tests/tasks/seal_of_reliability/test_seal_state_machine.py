@@ -18,7 +18,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from tasks.seal_of_reliability.criteria import (
+from shared.common.seal_criteria import (
     PROBATION_PERIOD,
     CriterionPhase,
     CriterionStatus,
