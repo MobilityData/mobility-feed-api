@@ -262,6 +262,7 @@ def test_new_gtfs_rt_feed_inherits_existing_static_feed_location(client: TestCli
     assert feed["locations"][0]["subdivision_name"] == "Ontario"
     assert feed["locations"][0]["municipality"] == "Barrie"
 
+
 def test_gtfs_rt_feed_with_existing_location_is_not_overwritten(client: TestClient):
     """
     A GTFS-RT location explicitly present in the catalogue must not be replaced
