@@ -43,6 +43,8 @@ from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
     backfill_seal_of_reliability_handler,
     get_parameters,
 )
+from tasks.seal_of_reliability.backfill.simulation import TRACED_STATE_FIELDS
+from tasks.seal_of_reliability.seal_updater import SNAPSHOT_STATE_COLUMNS
 from tasks.seal_of_reliability.backfill.seal_backfill import (
     DEFAULT_DAYS_BACK,
     backfill_seals,
@@ -117,6 +119,7 @@ class TestGetParameters(unittest.TestCase):
             max_reported_feeds,
             simulate,
             trace,
+            collapse_trace,
         ) = get_parameters({"stable_feed_ids": ["a"]})
 
         self.assertEqual(stable_feed_ids, ["a"])
@@ -133,6 +136,7 @@ class TestGetParameters(unittest.TestCase):
         self.assertEqual(max_reported_feeds, 50)
         self.assertIsNone(simulate)
         self.assertFalse(trace, "a run must not pay for a trace unless asked")
+        self.assertTrue(collapse_trace, "a year of days is unreadable row by row")
 
     def test_empty_payload_does_not_raise_here(self):
         """Validation belongs to the engine, so the parser stays a plain reader."""
@@ -616,51 +620,20 @@ class TestSimulateAndTrace(MarchTestCase):
         self.assertIsNone(seal_row(MARCHED))
         self.assertEqual(report["criterion_rows_written"], 0)
 
-    def _simulated_write(self, **kwargs):
-        with self.registry(_script_for([])):
-            return backfill_seals(
-                stable_feed_ids=[MARCHED],
-                start_date=MARCH_START,
-                end_date=MARCH_END,
-                dry_run=False,
-                only_missing=False,
-                simulate={"official": {"fail": [0]}},
-                **kwargs,
-            )
-
-    def test_a_simulated_write_is_allowed_in_dev_with_the_flag(self):
-        """The override exists so a debounced state can be written and read back locally."""
-        with patch.dict(os.environ, {"ENVIRONMENT": "dev"}):
-            report = self._simulated_write()
-        self.assertFalse(report["dry_run"])
-        self.assertTrue(
-            report["simulated_write"], "the response is the only provenance there is"
-        )
-
-    def test_a_simulated_write_is_refused_in_production(self):
-        with patch.dict(os.environ, {"ENVIRONMENT": "prod"}):
-            with self.assertRaises(ValueError) as caught:
-                self._simulated_write()
-        self.assertIn("prod", str(caught.exception))
-
-    def test_a_simulated_write_is_refused_on_the_prod_tunnel_port(self):
-        """ENVIRONMENT describes the process; the port is the only hint about the target."""
-        with patch.dict(os.environ, {"ENVIRONMENT": "local"}):
-            with patch(
-                "tasks.seal_of_reliability.backfill.simulation._connection_port",
-                return_value=9901,
-            ):
-                with self.assertRaises(ValueError) as caught:
-                    self._simulated_write()
-        self.assertIn("9901", str(caught.exception))
-
-    def test_an_unset_environment_is_treated_as_production(self):
-        """Fail closed: a deployment that forgets ENVIRONMENT must not fabricate history."""
-        with patch.dict(os.environ):
-            os.environ.pop("ENVIRONMENT", None)
-            with self.assertRaises(ValueError) as caught:
-                self._simulated_write()
-        self.assertIn("unset", str(caught.exception))
+    def test_writing_with_a_simulation_is_refused(self):
+        """No environment permits it: the row would be indistinguishable from an earned one."""
+        with self.assertRaises(ValueError) as caught:
+            with self.registry(_script_for([])):
+                backfill_seals(
+                    stable_feed_ids=[MARCHED],
+                    start_date=MARCH_START,
+                    end_date=MARCH_END,
+                    dry_run=False,
+                    only_missing=False,
+                    simulate={"official": {"fail": [0]}},
+                )
+        self.assertIn("dry_run", str(caught.exception))
+        self.assertEqual(criterion_rows(MARCHED), {}, "and nothing was written")
 
     def test_a_forced_failure_reaches_the_state_machine(self):
         """Day 0 is the first evaluation, so it gets no grace and confirms immediately."""
@@ -996,6 +969,76 @@ class TestSimulatedBaseline(MarchTestCase):
         """No named day, so nothing to range-check — the baseline still forces the march."""
         report = self.simulate(simulate={"official": {"default": "unknown"}})
         self.assertEqual(trace_day(report, 0)["observed_status"], "unknown")
+
+
+class TestTraceStandsInForTheSnapshots(MarchTestCase):
+    """A trace has to answer what a snapshot would have, because simulate cannot write.
+
+    Both come from the same per-day state object in `_march`, so they agree by construction.
+    These tests pin that, because it is the only reason a traced dry run is an acceptable
+    substitute for inspecting stored rows.
+    """
+
+    def test_the_trace_carries_every_stored_column(self):
+        """No DB needed: a column the snapshot stores and the trace omits is unanswerable."""
+        missing = set(SNAPSHOT_STATE_COLUMNS) - set(TRACED_STATE_FIELDS)
+        self.assertEqual(
+            missing, set(), f"trace omits stored column(s): {sorted(missing)}"
+        )
+
+    @staticmethod
+    def _rendered(value):
+        """Snapshot values in the trace's shape: statuses as names, timestamps as their day."""
+        if hasattr(value, "value"):
+            return value.value
+        if hasattr(value, "date"):
+            return value.date().isoformat()
+        return value
+
+    @with_db_session(db_url=default_db_url)
+    def test_every_traced_day_matches_its_stored_snapshot(self, db_session=None):
+        """A real march, so it may write: every day compared, uncollapsed against stored."""
+        report = self.march(
+            MARCHED,
+            _script_for(range(10, 46)),
+            snapshot_mode="all",
+            trace=True,
+            collapse_trace=False,
+        )
+        rows = {
+            row.snapshot_date.isoformat(): row
+            for row in db_session.execute(select(SealCriterionSnapshot.__table__)).all()
+        }
+        self.assertTrue(rows, "the march wrote no snapshots to compare against")
+        self.assertEqual(
+            len(report["trace"]), len(rows), "one traced day per stored snapshot"
+        )
+
+        for traced in report["trace"]:
+            row = rows.get(traced["evaluated_at"])
+            self.assertIsNotNone(
+                row, f"no snapshot for the traced day {traced['evaluated_at']}"
+            )
+            for column in SNAPSHOT_STATE_COLUMNS:
+                self.assertEqual(
+                    traced[column],
+                    self._rendered(getattr(row, column)),
+                    f"{column} differs on {traced['evaluated_at']}",
+                )
+
+    def test_an_uncollapsed_trace_reports_every_marched_day(self):
+        report = self.march(
+            MARCHED,
+            _script_for([20]),
+            snapshot_mode="none",
+            trace=True,
+            collapse_trace=False,
+        )
+        self.assertFalse(report["trace_collapsed"])
+        self.assertEqual(
+            len(report["trace"]), (MARCH_END - MARCH_START).days + 1, "one row per day"
+        )
+        self.assertEqual([row["day"] for row in report["trace"]][:3], [0, 1, 2])
 
 
 if __name__ == "__main__":

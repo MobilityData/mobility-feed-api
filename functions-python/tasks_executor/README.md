@@ -554,3 +554,115 @@ the single-invocation timeout ceiling entirely.
 
 Use `get_task_run_status` (payload `{"task_name": "seal_orchestrator_run", "run_id":
 "..."}`) to inspect a run at any point without driving it forward.
+
+### backfill_seal_of_reliability
+
+Gives feeds that have no seal state a starting one (issue #1763), so the nightly
+`update_seal_of_reliability` has a "yesterday" to step from. It cold-starts each feed at
+`march_start`, replays the nightly evaluation forward one day at a time to `end_date`, and
+writes only the final day.
+
+Marching rather than evaluating once is the whole point: the state is path-dependent. A grace
+period debounces a failure streak, and a confirmed failure opens probation that outlives
+recovery, so the final row depends on the order the days happened in. Marching also recovers
+dates a single evaluation cannot: `stable` flips the day a feed turns 180 days old, and the
+march finds that day from the feed's `created_at`.
+
+`march_start = max(start_date, feed.created_at)` — days before the feed existed are skipped,
+and it is the value `stable` counts its 180 days from. `end_date` is resolved once for the run,
+never per feed, so every feed of a run ends on the same day. The window is a cost/coverage
+decision rather than a correctness guarantee: the cold start assumes no prior state on its
+first day, which is usually false, and that error decays as the march proceeds. 365 days is
+roughly twice the probation horizon, which is what gives it room to decay.
+
+```json
+{
+  "task": "backfill_seal_of_reliability",
+  "payload": {
+    "stable_feed_ids": ["mdb-1210"],
+    "dry_run": true
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `stable_feed_ids` | list[str] | **required** | The feeds to march; must be non-empty. Enumerating the catalog is `seal_backfill_orchestrator`'s job. Unknown or ineligible ids are skipped with a logged warning; it raises only when none can be used |
+| `start_date` | str \| null | `null` | ISO date. Defaults to `end_date` minus `days_back`. Clamped up to each feed's `created_at`, so a request for 365 days can silently become a much shorter march for a young feed — `days` and each `feeds[].march_start` in the response say what actually ran |
+| `end_date` | str \| null | `null` | ISO date, the last day marched. Defaults to yesterday UTC. Pin it for reproducible runs; the default moves daily |
+| `days_back` | int | `365` | Window length when `start_date` is absent |
+| `dry_run` | bool | `true` | Return the plan without writing. With neither `simulate` nor `trace` it does not march at all |
+| `limit` | int \| null | `null` | Cap the number of feeds, from the list |
+| `criteria` | list[str] \| null | `null` | March only these criteria. A subset skips the `has_seal` roll-up, so no `feedreliabilityseal` row is touched, and `note` in the response says so |
+| `batch_size` | int | `200` | Feeds marched per batch. A memory bound only: state never leaks between batches and the report aggregates across them |
+| `only_missing` | bool | `true` | Skip feeds that already have any `sealcriterion` row. This is what makes re-running over the catalog a safe no-op rather than a reconstruction over history the nightly job owns. A run that selects nothing is reported as a normal run with `total_feeds: 0`, not an error |
+| `snapshot_mode` | str | `final` | `final` writes one `sealcriterionsnapshot` row per feed per criterion, for `end_date`. `all` writes one per marched day — millions of rows over a year for the full catalog, but what lets `resume_from_snapshot` seed a later re-march. `none` writes no snapshots |
+| `resume_from_snapshot` | bool | `false` | Seed each (feed, criterion) from its latest snapshot before `march_start` instead of cold-starting (the #1803 hook). Pairs with no snapshot cold-start as usual, so a resume reaching further back than the snapshots go degrades rather than fails |
+| `max_reported_feeds` | int | `50` | Cap on the `feeds` list in the response; `feeds_omitted` says how many were left out |
+| `simulate` | dict \| null | `null` | Force observed statuses per criterion, on days counted from each feed's own `march_start`: `{"fresh_coverage": {"default": "pass", "fail": [3, 4]}}`. `default` is what unnamed days observe — omit it and they fall through to the real evaluator. `grace_days`/`probation_days` lend a criterion periods it does not have. **Requires `dry_run`**: a forced verdict written to `sealcriterion` would be indistinguishable from an earned one, since the row carries no provenance |
+| `trace` | bool | `false` | Return the march day by day: every `sealcriterion` field, plus `phase`, `reason` and whether the day was simulated. Marches with writing suppressed when `dry_run` |
+| `collapse_trace` | bool | `true` | Fold consecutive unchanged days into one entry — its first day, its last, and the count between. `false` returns one row per marched day, which is field-for-field what a snapshot would have stored |
+
+**Response fields** — the shared ones (`total_feeds`, `criteria`, `partial_run`,
+`criterion_rows_written`, `seals_granted` / `seals_revoked` / `seals_after_run`,
+`granted_stable_ids` / `revoked_stable_ids`, `feeds_omitted`) mean the same as in
+`update_seal_of_reliability`. The ones specific to a backfill:
+
+| Field | Description |
+|---|---|
+| `start_date` / `end_date` | The window as resolved for the run |
+| `days` | The **longest** march in the run, not a length every feed shares — a feed clamped to its own `created_at` marches fewer. Reflects the feeds actually selected, so `only_missing` narrowing the selection narrows this too |
+| `skipped_already_backfilled` | Feeds excluded by `only_missing` |
+| `snapshot_rows_written` | `sealcriterionsnapshot` rows written, per `snapshot_mode` (`0` on a dry run) |
+| `feeds` | One entry per selected feed: `stable_id`, `march_start`, `end_date`, `days`, and `tracking_start` — the value the feed's `feedreliabilityseal.created_at` receives, which is also `stable`'s anchor |
+| `trace` | Present with `trace`. Collapsed entries are `{days, first, last, in_between}`; uncollapsed is one flat row per day |
+| `trace_collapsed` / `trace_truncated` | Which shape came back, and whether the march stopped recording at the 2000-row cap. The cap counts marched days, not collapsed entries |
+| `simulated` | Present with `simulate`: the payload echoed back, so a run states what it was told to pretend |
+| `elapsed_seconds` | Wall clock for the run |
+
+Two things the write does differently from the nightly job: `feedreliabilityseal.created_at`
+is set to the feed's `march_start` and is **insert-only**, so a re-backfill cannot reset a
+countdown already running; and `seal_earned_at` gets `end_date` rather than the day the roll-up
+flipped, which under a cold start is often day one.
+
+A re-march **replaces** rather than accumulates. It rewrites only the days it marched, keyed on
+`(feed_id, criterion, snapshot_date)`, so days outside the new window keep their earlier
+values — and because the row is recomputed from the new march, failure history the previous run
+recorded is lost when the new march never sees it. `resume_from_snapshot` is the mitigation.
+
+#### Running it locally
+
+As for `update_seal_of_reliability`. A plan-only dry run needs nothing but
+`FEEDS_DATABASE_URL`:
+
+```shell
+curl -s -X POST http://localhost:8080 -H "Content-Type: application/json" \
+  -d '{"task":"backfill_seal_of_reliability","payload":{"stable_feed_ids":["mdb-1210"],"dry_run":true}}' \
+  | python3 -m json.tool
+```
+
+### `seal_backfill_orchestrator` (+ `seal_backfill_worker`)
+
+The whole-catalog fan-out of the backfill, the same three-task shape as `seal_orchestrator`
+and sharing its barrier: the monitor is `seal_orchestrator_monitor` called with
+`task_name: "seal_backfill_run"`.
+
+- **`seal_backfill_orchestrator`** (producer) — resolves every seal-eligible GTFS feed with no
+  seal state, chunks it, registers a run in `TaskExecutionTracker`, and enqueues one
+  `seal_backfill_worker` per batch plus one monitor task. The window is resolved **here**, once,
+  and passed to every worker, so all batches of a run end on the same day even if they execute
+  hours apart.
+- **`seal_backfill_worker`** (worker, one per batch) — marches its slice and reports
+  completion/failure to the tracker, storing its `backfill_seals` report as that batch's
+  metadata. Required: `run_id`, `batch_id`, `stable_feed_ids`, `start_date`, `end_date`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Resolve and count without registering a run or enqueuing anything |
+| `batch_size` | int | `100` | Feeds per worker task. Smaller than the nightly job's 250: a batch marches up to 366 days per feed rather than evaluating one |
+| `start_date` / `end_date` / `days_back` | | as above | Resolved once and forwarded to every batch |
+| `criteria` / `only_missing` / `snapshot_mode` / `resume_from_snapshot` | | as above | Forwarded to every batch |
+| `limit` | int \| null | `null` | Cap the eligible feeds considered, before chunking |
+| `stable_feed_ids` | list[str] \| null | `null` | Restrict eligibility to these ids instead of the whole catalog |
+| `deadline_seconds` | int | `7200` | Wall-clock cap on the run. Twice the nightly job's, since marching a year per feed takes longer than evaluating one day |
+| `monitor_delay_seconds` | int | `300` | Delay before the barrier task first runs |

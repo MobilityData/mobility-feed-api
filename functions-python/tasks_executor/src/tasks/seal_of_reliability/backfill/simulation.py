@@ -15,12 +15,10 @@
 #
 """Forced per-day statuses and the day-by-day trace, for inspecting a backfill march.
 
-A simulated verdict in `seal_criterion` would be indistinguishable from an earned one — the
-row carries no provenance — so writing one is refused by default, and a traced dry run
-marches with writing suppressed. `check_simulated_write_allowed` holds the exception and its
-conditions: an explicit payload flag, an environment on the allowlist, and not the production
-tunnel port. Everything that decides whether a fabricated status may reach the tables lives in
-this module, so the rule can be read in one place.
+Neither may write. A simulated verdict in `seal_criterion` would be indistinguishable from an
+earned one — the row carries no provenance — so `simulate` is refused on a real run, and a
+traced dry run marches with writing suppressed. The trace is the substitute: it carries every
+field a snapshot would have stored, for each marched day.
 
 Day offsets are counted from each feed's own march start, so day 0 is that feed's first
 evaluated day: the one denied a grace period. Anchoring to the run's `start_date` instead
@@ -28,12 +26,9 @@ would point at days a younger feed never marched.
 """
 
 import logging
-import os
 from dataclasses import dataclass, field, fields as dataclass_fields
 from datetime import timedelta
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
-
-from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import CriterionStatus
 from tasks.seal_of_reliability.evaluators.base import CriterionObservation
@@ -402,62 +397,16 @@ def _as_run(run: Sequence[dict]) -> dict:
     return entry
 
 
-# Environments in which a forced verdict may be written to the seal tables. Deliberately a
-# closed list rather than "anything but prod": an ENVIRONMENT that is unset or misspelled
-# refuses, so a deployment that forgets to set it cannot fabricate seal history. dev and qa are
-# both in, by decision — they are where scenarios get exercised. Note dev and qa share one
-# Cloud SQL instance, so a simulated write in either is one database name away from the other's
-# data; the response flag and the warning log are the only marks a fabricated row leaves.
-SIMULATED_WRITE_ENVIRONMENTS: Tuple[str, ...] = ("local", "dev", "qa", "test")
+def refuse_simulated_write() -> None:
+    """A forced verdict must never reach the seal tables, in any environment.
 
-# The local port production is reached on when a tunnel is up, by team convention. Refusing it
-# is a guard rail, not a guarantee: the port is a property of how the tunnel was started rather
-# than of the database, so a tunnel opened on another port walks straight past this. It is here
-# because ENVIRONMENT describes the process, not the write target — a local run labelled `local`
-# can be pointed at production through a tunnel and would otherwise pass every other check. The
-# actual control is connecting to production as a read-only user.
-PROD_TUNNEL_PORT: int = 9901
-
-
-def _connection_port(db_session: Session) -> Optional[int]:
-    """The port this session is connected on, or None if it cannot be determined."""
-    try:
-        return db_session.get_bind().url.port
-    except Exception:  # defensive: never let the guard rail itself break a run
-        logger.warning(
-            "Could not determine the database port for the simulated-write check"
-        )
-        return None
-
-
-def check_simulated_write_allowed(simulate: dict, db_session: Session) -> None:
-    """Refuse to write forced verdicts anywhere they could be mistaken for real history.
-
-    A simulated verdict in `seal_criterion` is indistinguishable from an earned one — the row
-    carries no provenance — so where it may be written is decided here, by the deployment
-    rather than by the payload. Two conditions, both about the target: the environment has to
-    be one where fabricated data is expected, and the connection must not be production's
-    tunnel port.
+    The row carries no provenance, so a simulated verdict and an earned one are the same row.
+    A trace is the substitute: it reports the state every marched day left behind, field for
+    field, which is what a snapshot would have stored — see
+    `test_every_snapshot_row_matches_its_trace_entry`.
     """
-    environment = os.getenv("ENVIRONMENT", "").strip().lower()
-    if environment not in SIMULATED_WRITE_ENVIRONMENTS:
-        raise ValueError(
-            f"a simulated write is refused with ENVIRONMENT={environment or 'unset'!r}: "
-            f"forced verdicts may only be written in {list(SIMULATED_WRITE_ENVIRONMENTS)}, "
-            f"and an unset environment is treated as production."
-        )
-
-    port = _connection_port(db_session)
-    if port == PROD_TUNNEL_PORT:
-        raise ValueError(
-            f"a simulated write is refused on port {PROD_TUNNEL_PORT}: that is the "
-            f"production database's tunnel port, whatever ENVIRONMENT={environment!r} claims."
-        )
-
-    logger.warning(
-        "SIMULATED WRITE in ENVIRONMENT=%s on port %s: forced statuses for %s are being "
-        "written to the seal tables. These rows are indistinguishable from earned ones.",
-        environment,
-        port,
-        sorted(simulate),
+    raise ValueError(
+        "simulate requires dry_run: forced verdicts must never be written to the seal "
+        "tables, where nothing would mark them as simulated. Use trace to read the state "
+        "each day would have stored."
     )

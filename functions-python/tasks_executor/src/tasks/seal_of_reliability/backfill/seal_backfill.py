@@ -50,12 +50,12 @@ from tasks.seal_of_reliability.context import (
 )
 from tasks.seal_of_reliability.backfill.simulation import (
     MAX_TRACE_ROWS,
-    check_simulated_write_allowed,
     check_simulation_fits,
     collapse_runs,
     observe,
     parse_simulation,
     policy_for,
+    refuse_simulated_write,
     trace_row,
 )
 from shared.common.seal_criteria import CriterionStatus, SealCriterionName
@@ -446,6 +446,7 @@ def backfill_seals(
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
     simulate: Optional[dict] = None,
     trace: bool = False,
+    collapse_trace: bool = True,
 ) -> dict:
     """Plan and run the backfill for an explicit list of feeds.
 
@@ -454,9 +455,11 @@ def backfill_seals(
     `backfill_seal_of_reliability` for the parameters as an operator passes them.
 
     `simulate` forces observed statuses on named days, and `trace` returns the state each
-    day left behind, always collapsed to one entry per unchanged stretch — a year of days is
-    mostly repetition, and no caller wanted it row by row. Both are inspection tools and
-    neither may write: see the dry_run check below.
+    day left behind, collapsed by default to one entry per unchanged stretch because a year of
+    days is mostly repetition. `collapse_trace=False` returns every day, which is what a
+    snapshot would have stored: the ticking fields vary inside a stretch, so the collapsed
+    form brackets them rather than reporting them. Both are inspection tools and neither may
+    write: see the dry_run check below.
 
     Returns a report; `days` is the longest march in the run, since feeds clamped to their
     own `created_at` march fewer.
@@ -465,7 +468,7 @@ def backfill_seals(
     if not stable_feed_ids:
         raise ValueError("stable_feed_ids is required and must be non-empty")
     if simulate and not dry_run:
-        check_simulated_write_allowed(simulate, db_session)
+        refuse_simulated_write()
     if snapshot_mode not in SNAPSHOT_MODES:
         raise ValueError(
             f"Unknown snapshot_mode {snapshot_mode!r}. Known modes: {list(SNAPSHOT_MODES)}"
@@ -574,7 +577,10 @@ def backfill_seals(
             outcomes.extend(result["outcomes"])
             trace_rows.extend(result["trace"])
         if trace:
-            report["trace"] = collapse_runs(trace_rows)
+            report["trace"] = (
+                collapse_runs(trace_rows) if collapse_trace else trace_rows
+            )
+            report["trace_collapsed"] = collapse_trace
             # Counted on the marched days, not on the collapsed entries: the cap is what the
             # march stopped recording, and collapsing happens after.
             report["trace_truncated"] = len(trace_rows) >= MAX_TRACE_ROWS
@@ -583,10 +589,6 @@ def backfill_seals(
                 criterion: forced.as_reported()
                 for criterion, forced in simulation.items()
             }
-            if not dry_run:
-                # The only provenance that exists: the response says the rows are fabricated,
-                # because the rows themselves cannot.
-                report["simulated_write"] = True
 
         granted = [outcome for outcome in outcomes if outcome["granted"]]
         # Only reachable with only_missing=False, but reported anyway so the monitor's

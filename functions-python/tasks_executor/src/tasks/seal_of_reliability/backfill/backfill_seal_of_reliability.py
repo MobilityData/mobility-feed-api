@@ -67,6 +67,7 @@ def get_parameters(payload: dict):
         payload.get("max_reported_feeds", DEFAULT_MAX_REPORTED_FEEDS),
         payload.get("simulate", None),
         payload.get("trace", False),
+        payload.get("collapse_trace", True),
     )
 
 
@@ -90,13 +91,13 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds    cap on the `feeds` list in the response. Default: 50
         simulate         force statuses per criterion, on days counted from each feed's
                          march start: {"fresh_coverage": {"default": "pass", "fail": [3]}}.
-                         see `parse_simulation` for the full shape. Combining it with
-                         dry_run=false writes fabricated verdicts, which is refused in
-                         production and on production's tunnel port
+                         see `parse_simulation` for the full shape. Requires dry_run: a
+                         forced verdict must never reach the seal tables
         trace            return the march day by day: every seal_criterion field, plus where
-                         it came from. Marches without writing when dry_run. Consecutive days
-                         in which nothing changed are always collapsed into one entry — its
-                         first day, its last, and the count between
+                         it came from. Marches without writing when dry_run
+        collapse_trace   fold consecutive unchanged days into one entry — its first day, its
+                         last, and the count between. Default: True; pass false for every
+                         day, which is what the snapshots would hold
     """
     (
         stable_feed_ids,
@@ -113,6 +114,7 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds,
         simulate,
         trace,
+        collapse_trace,
     ) = get_parameters(payload)
     return backfill_seals(
         stable_feed_ids=stable_feed_ids,
@@ -129,4 +131,5 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds=max_reported_feeds,
         simulate=simulate,
         trace=trace,
+        collapse_trace=collapse_trace,
     )
