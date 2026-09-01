@@ -295,6 +295,69 @@ class TestBackfillPlan(BackfillDbTestCase):
         self.assertEqual(report["skipped_already_backfilled"], 0)
 
 
+class TestPerFeedMarchLength(BackfillDbTestCase):
+    """Two feeds of different ages, one run: each marches its own number of days.
+
+    `TestBackfillPlan.test_each_feed_marches_from_its_own_start` pins the *plan*, which is
+    arithmetic on `windows`. This pins the march, which is a different mechanism: `_march`
+    walks one day range for the whole batch — from the earliest march start in the run — and
+    admits each feed only once `windows[feed.id][0] <= today`. With one feed that filter can
+    never exclude anything, so it takes two feeds of different ages to exercise it at all.
+    """
+
+    OLD_DAYS = (END - START).days + 1
+    YOUNG_DAYS = (END - YOUNG_CREATED.date()).days + 1
+
+    def _marched_rows(self, **kwargs):
+        """stable_id -> its uncollapsed trace rows, from a dry run that marches anyway.
+
+        Everything passes, and the stand-in's verdict is a function of the day alone, so any
+        difference between the two feeds is the clamp's doing and nothing else.
+        """
+        with patch(
+            "tasks.seal_of_reliability.seal_updater.EVALUATORS",
+            [ScriptedEvaluator(Script())],
+        ):
+            report = backfill_seals(
+                stable_feed_ids=[OLD, YOUNG],
+                start_date=START,
+                end_date=END,
+                dry_run=True,
+                trace=True,
+                collapse_trace=False,
+                **kwargs,
+            )
+        by_feed = {}
+        for row in report["trace"]:
+            by_feed.setdefault(row["stable_id"], []).append(row)
+        return by_feed
+
+    def _assert_each_feed_marched_its_own_window(self, by_feed):
+        self.assertEqual(sorted(by_feed), sorted([OLD, YOUNG]))
+        for stable_id, expected_days, march_start in (
+            (OLD, self.OLD_DAYS, START),
+            (YOUNG, self.YOUNG_DAYS, YOUNG_CREATED.date()),
+        ):
+            rows = sorted(by_feed[stable_id], key=lambda row: row["day"])
+            self.assertEqual(
+                [row["day"] for row in rows],
+                list(range(expected_days)),
+                f"{stable_id} marched {len(rows)} day(s), expected {expected_days}",
+            )
+            # Day 0 is the feed's own march start; the last day is the run's end_date. The
+            # two feeds share the second and not the first.
+            self.assertEqual(rows[0]["evaluated_at"], march_start.isoformat())
+            self.assertEqual(rows[-1]["evaluated_at"], END.isoformat())
+        self.assertLess(len(by_feed[YOUNG]), len(by_feed[OLD]))
+
+    def test_each_feed_marches_its_own_number_of_days(self):
+        self._assert_each_feed_marched_its_own_window(self._marched_rows())
+
+    def test_the_clamp_holds_with_the_feeds_in_separate_batches(self):
+        """A batch walks from the *run's* earliest march start, not its own."""
+        self._assert_each_feed_marched_its_own_window(self._marched_rows(batch_size=1))
+
+
 class TestBackfillValidation(BackfillDbTestCase):
     def test_empty_feed_list_is_rejected(self):
         with self.assertRaises(ValueError):

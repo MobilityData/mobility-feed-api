@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
 # "12 months".
 DEFAULT_DAYS_BACK: int = 365
 
-# What to record in seal_criterion_snapshot: only the last day (per #1763), every simulated
+# What to record in seal_criterion_snapshot: only the last day (per #1763), every marched
 # day (millions of rows over a year, but what lets #1803 resume inside the window), or none.
 SNAPSHOT_MODES: Tuple[str, ...] = ("final", "all", "none")
 DEFAULT_SNAPSHOT_MODE: str = "final"
@@ -133,7 +133,7 @@ def march_start_for(feed: Gtfsfeed, start_date: date) -> date:
 def _feeds_with_seal_state(db_session: Session, feed_ids: Sequence[str]) -> Set[str]:
     """Feeds that already have seal state, which `only_missing` excludes.
 
-    Re-marching a feed the nightly job owns would write a simulation over real history.
+    Re-marching a feed the nightly job owns would write a march over real history.
     """
     if not feed_ids:
         return set()
@@ -146,7 +146,7 @@ def _feeds_with_seal_state(db_session: Session, feed_ids: Sequence[str]) -> Set[
 
 
 def day_start(day: date) -> datetime:
-    """The `now` a simulated day is evaluated at: midnight UTC.
+    """The `now` a marched day is evaluated at: midnight UTC.
 
     Fixed so `snapshot_date_of(now)` is the day itself and probation's `_next_day_start(now)`
     lands on the following midnight, with no rounding to reason about.
@@ -185,7 +185,7 @@ def _seed_states(
     windows: Dict[str, Tuple[date, date]],
     resume_from_snapshot: bool,
 ) -> Dict[Tuple[str, str], SealCriterionState]:
-    """The state each (feed, criterion) enters its first simulated day with.
+    """The state each (feed, criterion) enters its first marched day with.
 
     Empty unless `resume_from_snapshot`, which seeds each pair from its latest snapshot
     before that feed's march start — a complete state, so a cold start becomes a resume

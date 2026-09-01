@@ -120,7 +120,7 @@ def _eligible_stable_ids_query(
 
     `exclude_backfilled` drops feeds that already have seal state, which is the backfill
     producer's candidate set (#1763): a feed the nightly job already owns has real history
-    to carry forward and must not have a simulation written over it. It lives here rather
+    to carry forward and must not have a march written over it. It lives here rather
     than in the producer so both the count and the stream apply one predicate.
     """
     query = db_session.query(Gtfsfeed.stable_id).filter(

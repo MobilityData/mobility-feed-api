@@ -78,7 +78,7 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         stable_feed_ids  required, non-empty; there is no run-the-whole-catalogue mode
         start_date       ISO date, clamped up to each feed's created_at. Default: end_date
                          minus days_back
-        end_date         ISO date, last day simulated. Default: yesterday UTC
+        end_date         ISO date, last day marched. Default: yesterday UTC
         days_back        window length when start_date is absent. Default: 365
         dry_run          Default: True
         limit            cap the number of feeds. Default: no limit
