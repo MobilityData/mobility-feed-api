@@ -187,7 +187,8 @@ def transition(
       the criterion in the roll-up with its last verdict.
     * NOT_APPLICABLE — there is no question to ask. `confirmed_status` is written too, which
       is what withdraws the criterion from the roll-up, while probation and the failure
-      timestamps stay frozen in case the criterion becomes applicable again.
+      history stay frozen in case the criterion becomes applicable again. Any open streak is
+      closed: `first_observed_failure_at` is cleared, as it is on a recovery.
 
     Args:
         prev: The stored state, or None if this criterion has no row for this feed yet.
@@ -209,13 +210,18 @@ def transition(
     observed_status = observation.observed_status
 
     if not observed_status.is_verdict:
-        # NOT_APPLICABLE leaves the roll-up. Its penalty survives, should it come back.
+        # The criterion does not apply to this feed, so it drops out of the roll-up.
+        # `probation_start` and the `last_*` timestamps stay, in case it applies again
+        # later. `first_observed_failure_at` does not: it marks a streak running now,
+        # and there is nothing to fail while the criterion does not apply. Left set,
+        # the grace-expiry check below would find it weeks later and confirm a failure.
         if observed_status is CriterionStatus.NOT_APPLICABLE:
             return replace(
                 base,
                 observed_status=observed_status,
                 confirmed_status=CriterionStatus.NOT_APPLICABLE,
                 evaluated_at=now,
+                first_observed_failure_at=None,
             )
 
         # UNKNOWN keeps the stored verdict, unless the streak has already outlived its

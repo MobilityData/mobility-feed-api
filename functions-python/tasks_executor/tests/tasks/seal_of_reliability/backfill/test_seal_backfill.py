@@ -399,6 +399,9 @@ class TestBackfillValidation(BackfillDbTestCase):
 
 MARCHED = f"{PREFIX}marched"
 REPLAYED = f"{PREFIX}replayed"
+NEWBORN = (
+    f"{PREFIX}newborn"  # created after the window closes, so it has no day to march
+)
 
 # The march tests below run with EVALUATORS patched to a single ScriptedEvaluator. It files
 # its rows under the `official` criterion but carries a 30-day grace period and the standard
@@ -456,6 +459,18 @@ def snapshot_days(stable_id, db_session=None):
         )
     ).all()
     return sorted({row.snapshot_date for row in rows})
+
+
+@with_db_session(db_url=default_db_url)
+def snapshot_row(stable_id, criterion, snapshot_date, db_session=None):
+    """One snapshot row, or None where the run wrote none."""
+    return db_session.execute(
+        select(SealCriterionSnapshot.__table__).where(
+            SealCriterionSnapshot.__table__.c.feed_id == stable_id,
+            SealCriterionSnapshot.__table__.c.criterion == criterion,
+            SealCriterionSnapshot.__table__.c.snapshot_date == snapshot_date,
+        )
+    ).one_or_none()
 
 
 def trace_day(report, day):
@@ -615,6 +630,53 @@ class TestMarchWrites(MarchTestCase):
         self.assertFalse(report["dry_run"])
 
 
+class TestFeedYoungerThanTheWindow(MarchTestCase):
+    """A feed created after `end_date` has no day in the window to march.
+
+    Its march start is clamped up to `created_at`, which lands past the last day of the run,
+    so it is never evaluated and there is no criterion state to roll `has_seal` up from. It
+    should come out of the run with nothing written for it at all.
+    """
+
+    CREATED = day_start(MARCH_END + timedelta(days=17))
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        super().setUp()
+        _seed_feed(db_session, NEWBORN, self.CREATED)
+        db_session.commit()
+
+    def _march_both(self):
+        with self.registry(_script_for([])):
+            return backfill_seals(
+                stable_feed_ids=[MARCHED, NEWBORN],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+            )
+
+    def test_the_older_feed_is_still_marched(self):
+        """Guard: the run works, so the rest is about the newborn alone."""
+        self._march_both()
+        self.assertIn(SealCriterionName.OFFICIAL.value, criterion_rows(MARCHED))
+        self.assertIsNotNone(seal_row(MARCHED))
+
+    def test_it_gets_no_criterion_state(self):
+        self._march_both()
+        self.assertEqual(criterion_rows(NEWBORN), {})
+
+    def test_it_gets_no_seal_row(self):
+        """The seal row's created_at is when tracking started, and it never did."""
+        self._march_both()
+        self.assertIsNone(seal_row(NEWBORN))
+
+    def test_it_is_not_reported_as_marched(self):
+        report = self._march_both()
+        self.assertEqual([entry["stable_id"] for entry in report["feeds"]], [MARCHED])
+        self.assertEqual(report["total_feeds"], 1)
+        self.assertEqual(report["skipped_created_after_end_date"], 1)
+
+
 class TestResumeFromSnapshot(MarchTestCase):
     def test_a_resume_starts_from_the_stored_snapshot(self):
         """Seeded from the day before, the march inherits an open probation.
@@ -657,6 +719,105 @@ class TestResumeFromSnapshot(MarchTestCase):
         self.assertIsNone(
             self.state_of(MARCHED)["probation_start"],
             "a cold start carries no probation forward",
+        )
+
+
+class TestResumeWithACriteriaSubset(MarchTestCase):
+    """A resumed run must leave alone the criteria it was not asked to march.
+
+    `_upsert_criteria` writes everything left in `states` at the end of the march. Seeding a
+    criterion the run never marches over would restore it to its pre-window state, so
+    `_seed_states` seeds only the run's own criteria; these pin that.
+
+    The registry here holds two criteria rather than the usual one, because a subset of one is
+    what makes the run partial.
+    """
+
+    MARCHED_CRITERION = SealCriterionName.OFFICIAL.value
+    UNMARCHED_CRITERION = SealCriterionName.STABLE.value
+
+    # Before the window: confirmed failing, probation open.
+    SNAPSHOT_DAY = MARCH_START - timedelta(days=1)
+    STALE_PROBATION_START = day_start(MARCH_START - timedelta(days=20))
+    # Since then, as the nightly job left it: recovered, off probation.
+    CURRENT_VERDICT_AT = day_start(MARCH_START + timedelta(days=40))
+
+    @with_db_session(db_url=default_db_url)
+    def _seed_history(self, db_session):
+        """Both criteria, each with a stored state that disagrees with its old snapshot."""
+        for criterion in (self.MARCHED_CRITERION, self.UNMARCHED_CRITERION):
+            db_session.execute(
+                insert(SealCriterionSnapshot.__table__).values(
+                    feed_id=MARCHED,
+                    criterion=criterion,
+                    snapshot_date=self.SNAPSHOT_DAY,
+                    observed_status="fail",
+                    confirmed_status="fail",
+                    last_verdict_at=day_start(self.SNAPSHOT_DAY),
+                    first_observed_failure_at=self.STALE_PROBATION_START,
+                    last_observed_failure_at=day_start(self.SNAPSHOT_DAY),
+                    last_confirmed_failure_at=day_start(self.SNAPSHOT_DAY),
+                    probation_start=self.STALE_PROBATION_START,
+                )
+            )
+            db_session.execute(
+                insert(SealCriterion.__table__).values(
+                    feed_id=MARCHED,
+                    criterion=criterion,
+                    observed_status="pass",
+                    confirmed_status="pass",
+                    evaluated_at=self.CURRENT_VERDICT_AT,
+                    last_verdict_at=self.CURRENT_VERDICT_AT,
+                    probation_start=None,
+                )
+            )
+        db_session.commit()
+
+    def _resume_marching_one_criterion(self):
+        self._seed_history()
+        script = _script_for([])
+        with patch(
+            "tasks.seal_of_reliability.seal_updater.EVALUATORS",
+            [
+                ScriptedEvaluator(script),
+                ScriptedEvaluator(script, criterion=SealCriterionName.STABLE),
+            ],
+        ):
+            return backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+                only_missing=False,
+                criteria=[self.MARCHED_CRITERION],
+                resume_from_snapshot=True,
+            )
+
+    def test_the_requested_criterion_is_marched(self):
+        """Guard: the run really did march, so what follows is about the other criterion."""
+        report = self._resume_marching_one_criterion()
+        self.assertTrue(report["partial_run"])
+        self.assertEqual(
+            criterion_rows(MARCHED)[self.MARCHED_CRITERION].evaluated_at,
+            day_start(MARCH_END),
+        )
+
+    def test_a_criterion_outside_the_run_keeps_its_stored_state(self):
+        self._resume_marching_one_criterion()
+        row = criterion_rows(MARCHED)[self.UNMARCHED_CRITERION]
+        self.assertEqual(
+            (row.confirmed_status, row.probation_start),
+            ("pass", None),
+            f"{self.UNMARCHED_CRITERION} was not in `criteria`, so the run must leave its "
+            "row where the nightly job left it rather than restoring the pre-window snapshot",
+        )
+
+    def test_a_criterion_outside_the_run_is_not_snapshotted(self):
+        """`final` mode records the day it marched — for the criteria it marched."""
+        self._resume_marching_one_criterion()
+        self.assertIsNone(
+            snapshot_row(MARCHED, self.UNMARCHED_CRITERION, MARCH_END),
+            "a criterion the run never evaluated has no state to record for end_date",
         )
 
 

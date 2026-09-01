@@ -183,16 +183,26 @@ def _seed_states(
     db_session: Session,
     feeds: Sequence[Gtfsfeed],
     windows: Dict[str, Tuple[date, date]],
+    evaluators: Sequence,
     resume_from_snapshot: bool,
 ) -> Dict[Tuple[str, str], SealCriterionState]:
-    """The state each (feed, criterion) enters its first marched day with.
+    """The state each pair (one feed, one criterion) enters its first marched day with.
 
-    Empty unless `resume_from_snapshot`, which seeds each pair from its latest snapshot
-    before that feed's march start — a complete state, so a cold start becomes a resume
-    (#1803). Pairs with no snapshot are absent, and cold-start as usual: a resume reaching
-    further back than the snapshots go degrades rather than fails.
+    Empty unless `resume_from_snapshot`. With it, a pair starts from its latest snapshot
+    before that feed's march start — a whole stored state, so the march carries on from it
+    instead of cold-starting (#1803). A pair with no snapshot that far back is left out and
+    cold-starts as usual, so asking to resume from before the snapshots begin is not an error.
+
+    `_upsert_criteria` writes everything left in `states` at the end of the march, so a
+    criterion seeded here but never marched over would be written back at its pre-window
+    state, over what the nightly job has recorded since. That is why the result holds only
+    the criteria this run marches.
     """
     if not resume_from_snapshot or not feeds:
+        return {}
+
+    marched_criteria = [evaluator.name.value for evaluator in evaluators]
+    if not marched_criteria:
         return {}
 
     # One query for the batch. Each feed has its own cut-off, hence the OR; DISTINCT ON
@@ -210,7 +220,10 @@ def _seed_states(
 
     rows = db_session.execute(
         select(SNAPSHOT_TABLE)
-        .where(or_(*cutoffs))
+        .where(
+            SNAPSHOT_TABLE.c.criterion.in_(marched_criteria),
+            or_(*cutoffs),
+        )
         .distinct(SNAPSHOT_TABLE.c.feed_id, SNAPSHOT_TABLE.c.criterion)
         .order_by(
             SNAPSHOT_TABLE.c.feed_id,
@@ -307,7 +320,7 @@ def _march(
     # One load per criterion for the whole range; per-day queries would be thousands.
     inputs = collect_inputs(db_session, feeds, marched_days, evaluators)
 
-    states = _seed_states(db_session, feeds, windows, resume_from_snapshot)
+    states = _seed_states(db_session, feeds, windows, evaluators, resume_from_snapshot)
     simulation = simulation or {}
     snapshot_rows = 0
     trace_rows: List[dict] = []
@@ -489,7 +502,7 @@ def backfill_seals(
         if only_missing
         else set()
     )
-    selected = [feed for feed in eligible if feed.id not in already_backfilled]
+    candidates = [feed for feed in eligible if feed.id not in already_backfilled]
 
     _validate_requested_feed_ids(
         stable_feed_ids,
@@ -497,9 +510,14 @@ def backfill_seals(
         evaluated={feed.stable_id for feed in eligible},
     )
 
-    windows = {
-        feed.id: (march_start_for(feed, window_start), window_end) for feed in selected
-    }
+    # A feed created after the window closes has no day inside it to march. Dropped here, or
+    # it would come out of the run with a seal row for a stretch it did not exist for.
+    windows = {}
+    for feed in candidates:
+        march_start = march_start_for(feed, window_start)
+        if march_start <= window_end:
+            windows[feed.id] = (march_start, window_end)
+    selected = [feed for feed in candidates if feed.id in windows]
     longest_march = _longest_march(windows)
     if simulation:
         check_simulation_fits(simulation, longest_march)
@@ -530,6 +548,7 @@ def backfill_seals(
         "days": longest_march,
         "total_feeds": len(selected),
         "skipped_already_backfilled": len(already_backfilled),
+        "skipped_created_after_end_date": len(candidates) - len(selected),
         "criteria": [evaluator.name.value for evaluator in evaluators],
         "partial_run": partial_run,
         "only_missing": only_missing,

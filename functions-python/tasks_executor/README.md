@@ -597,7 +597,7 @@ roughly twice the probation horizon, which is what gives it room to decay.
 | `batch_size` | int | `200` | Feeds marched per batch. A memory bound only: state never leaks between batches and the report aggregates across them |
 | `only_missing` | bool | `true` | Skip feeds that already have any `sealcriterion` row. This is what makes re-running over the catalog a safe no-op rather than a reconstruction over history the nightly job owns. A run that selects nothing is reported as a normal run with `total_feeds: 0`, not an error |
 | `snapshot_mode` | str | `final` | `final` writes one `sealcriterionsnapshot` row per feed per criterion, for `end_date`. `all` writes one per marched day — millions of rows over a year for the full catalog, but what lets `resume_from_snapshot` seed a later re-march. `none` writes no snapshots |
-| `resume_from_snapshot` | bool | `false` | Seed each (feed, criterion) from its latest snapshot before `march_start` instead of cold-starting (the #1803 hook). Pairs with no snapshot cold-start as usual, so a resume reaching further back than the snapshots go degrades rather than fails |
+| `resume_from_snapshot` | bool | `false` | Seed each pair (feed, criterion) from its latest snapshot before `march_start` instead of cold-starting (the #1803 hook). A pair with no snapshot that far back cold-starts as usual, so asking to resume from before the snapshots begin is not an error |
 | `max_reported_feeds` | int | `50` | Cap on the `feeds` list in the response; `feeds_omitted` says how many were left out |
 | `simulate` | dict \| null | `null` | Force observed statuses per criterion, on days counted from each feed's own `march_start`: `{"fresh_coverage": {"default": "pass", "fail": [3, 4]}}`. `default` is what unnamed days observe — omit it and they fall through to the real evaluator. `grace_days`/`probation_days` lend a criterion periods it does not have. **Requires `dry_run`**: a forced verdict written to `sealcriterion` would be indistinguishable from an earned one, since the row carries no provenance |
 | `trace` | bool | `false` | Return the march day by day: every `sealcriterion` field, plus `phase`, `reason` and whether the day was simulated. Marches with writing suppressed when `dry_run` |
@@ -613,10 +613,11 @@ roughly twice the probation horizon, which is what gives it room to decay.
 | `start_date` / `end_date` | The window as resolved for the run |
 | `days` | The **longest** march in the run, not a length every feed shares — a feed clamped to its own `created_at` marches fewer. Reflects the feeds actually selected, so `only_missing` narrowing the selection narrows this too |
 | `skipped_already_backfilled` | Feeds excluded by `only_missing` |
+| `skipped_created_after_end_date` | Feeds created after the window closes. They have no day inside it to march, so they are dropped rather than marched for zero days and given a `feedreliabilityseal` row for a stretch they did not exist for |
 | `snapshot_rows_written` | `sealcriterionsnapshot` rows written, per `snapshot_mode` (`0` on a dry run) |
 | `feeds` | One entry per selected feed: `stable_id`, `march_start`, `end_date`, `days`, and `tracking_start` — the value the feed's `feedreliabilityseal.created_at` receives, which is also `stable`'s anchor |
 | `trace` | Present with `trace`. Collapsed entries are `{days, first, last, in_between}`; uncollapsed is one flat row per day |
-| `trace_collapsed` / `trace_truncated` | Which shape came back, and whether the march stopped recording at the 2000-row cap. The cap counts marched days, not collapsed entries |
+| `trace_collapsed` / `trace_truncated` | Which shape came back, and whether the march stopped recording at the 2000-row cap. The cap counts marched days, not collapsed entries, and it applies **per batch**: a run of several batches can come back with more than 2000 rows, and `trace_truncated` compares the run's total against the cap rather than what any one batch dropped |
 | `simulated` | Present with `simulate`: the payload echoed back, so a run states what it was told to pretend |
 | `elapsed_seconds` | Wall clock for the run |
 

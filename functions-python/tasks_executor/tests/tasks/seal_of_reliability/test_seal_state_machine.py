@@ -531,5 +531,44 @@ class TestProbationAcrossAnUnknownDay(unittest.TestCase):
         self.assertIs(phase(served), CriterionPhase.STEADY)
 
 
+class TestNotApplicableRetiresTheStreak(unittest.TestCase):
+    """A streak frozen by NOT_APPLICABLE must not be confirmed by a later UNKNOWN day.
+
+    The grace-expiry check on the UNKNOWN path reads `first_observed_failure_at` against the
+    clock. A streak left open across a not-applicable spell would be confirmed by the first
+    day with no reading, on failures nobody has observed since — which is why NOT_APPLICABLE
+    closes the streak.
+
+    The reachable case is Fresh (future coverage) on a feed whose `seasonal` flag is set and
+    later cleared: it answers NOT_APPLICABLE throughout the season, and UNKNOWN on the first
+    day after the flag goes if the feed has no dataset.
+    """
+
+    def _one_failure_then_a_seasonal_spell(self):
+        """Day 1 fails inside grace, days 2-59 do not apply, day 60 has no reading."""
+        return _run(
+            [(0, PASS), (1, FAIL)]
+            + [(day, CriterionStatus.NOT_APPLICABLE) for day in range(2, 60)]
+            + [(60, CriterionStatus.UNKNOWN)]
+        )
+
+    def test_the_criterion_stays_withdrawn(self):
+        state = self._one_failure_then_a_seasonal_spell()
+        self.assertIs(
+            state.confirmed_status,
+            CriterionStatus.NOT_APPLICABLE,
+            "the one failure was 59 days ago and the spell retired it",
+        )
+
+    def test_the_retired_streak_carries_no_penalty(self):
+        """Backdated to day 2, probation would run to day 182 and hold the seal down to it."""
+        state = self._one_failure_then_a_seasonal_spell()
+        self.assertIsNone(state.probation_start)
+        self.assertIsNone(
+            state.last_confirmed_failure_at,
+            "the failure was absorbed by the grace period",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
