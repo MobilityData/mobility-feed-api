@@ -15,25 +15,32 @@
 #
 """Seal eligibility (query + Python predicate) and bulk loading of evaluator inputs.
 
-The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
-feeds happens here, in a fixed number of queries regardless of batch size.
+Evaluators never touch the database. They read a `FeedSealContext`, which this module builds,
+and all the loading for a batch of feeds happens here in a fixed number of queries however
+many feeds there are.
 
-A criterion's inputs reach it one of two ways, and the split is deliberate:
+An evaluator's inputs get onto the context in one of three ways:
 
-* Day-invariant feed facts — `official`, `seasonal`, `is_producer_url_unstable`,
-  `created_at` — are fields on `FeedSealContext`, read straight off the feed row the caller
-  has already loaded. They cost no query and they have no history to read: the same value
-  answers every day of a backfill. Official and Stable need nothing else.
-* Anything that varies by day is loaded by the criterion itself, through
-  `CriterionEvaluator.load_inputs`. Only the criterion knows what its own inputs look like,
-  and keeping that knowledge there is what stops this module from having to grow a field
-  and a query for every criterion added. Fresh (future coverage) is the first of these — the
-  feed's latest dataset is a different row on each day a march evaluates — and the day's
-  availability rows for Available, the latest validation report for Compliant and the full
-  coverage history for Fresh continuous coverage all belong there too.
+1. Straight off the feed row: `official`, `seasonal`, `is_producer_url_unstable`,
+   `created_at`. No query needed, and the value is the same for every day. Official and
+   Stable need nothing more.
+2. One query per run, done by a `_load_*` helper here and stored in a field:
+   `closest_dataset`, `availability_check`, `latest_validation_report`. Available and
+   Compliant read these. Each query only looks at rows at or before the run's `now`, so a run
+   for a past date sees what was true then.
+3. One load per batch, done by the evaluator itself in its `load_inputs`, for inputs that
+   differ on each day evaluated. Fresh (future coverage) is the only one today: which dataset
+   is the closest one changes from day to day.
 
-Official, Stable and Fresh (future coverage) are implemented; Available and Compliant are
-the rest of #1784, and Fresh / continuous coverage is tracked by #1782.
+The six criteria are all here now or nearly so, each reading its inputs one of those ways.
+
+A backfill evaluates a year of days in one run, so it builds its own contexts and fills in
+kinds 1 and 3 only. A kind-2 field holds one answer for one `now`, which is no use across 365
+days, so it is left empty and Available and Compliant return UNKNOWN for a marched day.
+UNKNOWN is harmless: it keeps whatever verdict the criterion already had. And for days the
+nightly job has already seen, the backfill reads the stored status from
+`seal_criterion_snapshot` rather than evaluating at all. If a new criterion needs to work in
+a backfill, its inputs belong in kind 3.
 """
 
 import itertools
@@ -44,45 +51,97 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
-from shared.common.seal_criteria import SealCriterionName
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, SealCriterion
+from shared.common.seal_criteria import AVAILABILITY_LOOKBACK, SealCriterionName
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
+    Gtfsfeed,
+    SealCriterion,
+    Validationreport,
+    t_validationreportgtfsdataset,
+)
+
+
+@dataclass(frozen=True)
+class AvailabilityCheck:
+    """The most recent availability check for one feed, inside the run's window."""
+
+    checked_at: datetime
+    success: bool
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+    """The most recent validation report of one feed's closest dataset."""
+
+    report_id: str
+    dataset_id: str
+    validated_at: datetime
+    total_error: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ClosestDataset:
+    """One dataset row, cut down to the fields the criteria read off it.
+
+    "Closest" means the most recently downloaded dataset at or before the moment being
+    evaluated - the one being served at that moment. Never a later one, however near in time:
+    a run for a past date must not see a dataset that had not been downloaded yet.
+    """
+
+    dataset_id: str
+    downloaded_at: datetime
+    service_date_range_end: Optional[datetime] = None
 
 
 @dataclass
 class FeedSealContext:
     """Everything the evaluators need for one feed on one day.
 
-    Built by `build_contexts`. Evaluators read from this and never query.
+    Built by `build_contexts` for a nightly run, and by the backfill's `_march` for each day
+    it marches. Evaluators read from this and never query.
     """
 
     feed_id: str
-    # The evaluation timestamp. Passed in rather than read from the clock so evaluators
-    # stay pure and a run can be replayed for any point in time.
+    # The moment being evaluated. Passed in rather than read from the clock, so evaluators
+    # are pure functions and a run can be replayed for any date.
     now: datetime
     stable_id: Optional[str] = None
 
-    # Feed-level flags
+    # Kind 1: read straight off the feed row.
     official: Optional[bool] = None
     is_producer_url_unstable: Optional[bool] = None
     seasonal: Optional[bool] = None
 
-    # Stable: when the feed was first added to the database.
+    # Kind 1 as well. Stable uses it: it is when the feed was first added to the database.
     feed_created_at: Optional[datetime] = None
 
-    # Each criterion's own bulk-loaded inputs, keyed by criterion name — see
-    # `collect_inputs`. Opaque here: this module never looks inside a criterion's payload,
-    # and an evaluator reaches only its own through `inputs_for(self.name)`.
+    # Kind 2: one answer for this run's `now`, loaded by the `_load_*` helpers below.
     #
-    # The whole batch's inputs are shared by reference across every context, rather than
-    # sliced per feed and per day. Slicing would force every criterion into one storage
-    # shape, and it would copy a year of history once per (feed, day) during a backfill.
+    # `build_contexts` fills these in. The backfill does not: it evaluates many days in one
+    # run and a single answer cannot serve all of them, so it leaves them None. An evaluator
+    # that finds its field None must return UNKNOWN, never a verdict - see the module
+    # docstring.
+    closest_dataset: Optional[ClosestDataset] = None
+    availability_check: Optional[AvailabilityCheck] = None
+    latest_validation_report: Optional[ValidationReport] = None
+
+    # Kind 3: whatever each evaluator's own `load_inputs` returned, keyed by criterion name.
+    #
+    # This module never looks inside these payloads - only the evaluator that built one knows
+    # its shape - and an evaluator reaches only its own, through `inputs_for(self.name)`.
+    #
+    # One dict is shared by reference across every context of the batch, rather than sliced
+    # per feed and per day. Slicing would force every criterion into the same storage shape,
+    # and during a backfill it would copy a year of history once per feed per day.
     inputs: Mapping[SealCriterionName, Any] = field(default_factory=dict)
 
     def inputs_for(self, criterion: SealCriterionName) -> Any:
-        """This criterion's loaded inputs, or None if its loader returned nothing.
+        """This criterion's kind-3 inputs, or None if it loaded none.
 
-        None is the normal answer for a criterion whose inputs are day-invariant fields on
-        this context, so it means "nothing to load", not "the load failed".
+        None is the normal answer for a criterion that has no `load_inputs` of its own, so it
+        means "there was nothing to load", not "the load failed".
         """
         return self.inputs.get(criterion)
 
@@ -96,10 +155,10 @@ ELIGIBLE_OPERATIONAL_STATUS = "published"
 def is_seal_eligible(feed) -> bool:
     """Whether an already-loaded feed row is eligible for the seal.
 
-    Same predicate as the DB-level filter in `_eligible_stable_ids_query`, applied in
-    Python to a row already loaded by id. Used by `update_seals`, which is always given
-    explicit ids and needs to tell a feed that does not exist apart from one that exists
-    but is no longer eligible, without a second query.
+    The same test as the SQL filter in `_eligible_stable_ids_query`, but applied in Python to
+    a row that has already been loaded by id. `update_seals` uses this one: it is always given
+    explicit ids, and it needs to tell "this feed does not exist" apart from "it exists but is
+    not eligible" without running a second query.
     """
     return (
         feed.status not in INELIGIBLE_STATUSES
@@ -113,23 +172,25 @@ def _eligible_stable_ids_query(
     exclude_backfilled: bool = False,
     required_criteria: Optional[Sequence[str]] = None,
 ):
-    """Base query: `stable_id` of every seal-eligible GTFS feed.
+    """Base query: the `stable_id` of every seal-eligible GTFS feed.
 
-    `stable_feed_ids`, if given, narrows the candidate set without changing the
-    predicate. Left as `None`, every eligible feed in the catalog is returned; this is
-    what the seal orchestrator (issue #1800) uses to enumerate the full batch to fan out.
+    Three optional narrowings, all off by default:
 
-    `exclude_backfilled` drops feeds that already have seal state, which is the backfill
-    producer's candidate set (#1763): a feed the nightly job already owns has real history
-    to carry forward and must not have a march written over it. It lives here rather
-    than in the producer so both the count and the stream apply one predicate.
+    `stable_feed_ids` restricts the result to those ids. Left as None, every eligible feed in
+    the catalog comes back, which is what the seal orchestrator uses to enumerate the whole
+    catalog before fanning it out.
 
-    `required_criteria` makes that "done" test complete rather than merely present: a feed
-    is excluded only once it holds a row for **every** criterion the run evaluates. A feed
-    holding some of them was left half-done — by a crash between two feeds' commits, or by
-    an earlier run filtered to fewer criteria — and marching it again is the point. Left
-    `None`, any row excludes the feed, which is the older behaviour and what a caller that
-    does not know the run's criteria still gets.
+    `exclude_backfilled` drops feeds that already have seal state. This is the backfill
+    producer's candidate set: a feed the nightly job already owns has real history, and a
+    backfill would write a reconstruction over it. It lives here rather than in the producer
+    so that the count and the stream cannot apply different rules.
+
+    `required_criteria` decides what "already has seal state" means. Given a list of criteria,
+    a feed is only excluded once it has a `seal_criterion` row for **every** one of them.
+    A feed with only some of them is not finished - that happens when an earlier run was
+    narrowed to fewer criteria, or was run by a build that had fewer evaluators registered -
+    and it should be marched again. Left as None, a single row is enough to exclude the feed,
+    which is what a caller that does not know the run's criteria gets.
     """
     query = db_session.query(Gtfsfeed.stable_id).filter(
         Feed.status.notin_(INELIGIBLE_STATUSES),
@@ -141,8 +202,10 @@ def _eligible_stable_ids_query(
         criterion_rows = SealCriterion.__table__
         if required_criteria:
             wanted = sorted(set(required_criteria))
-            # Correlated count rather than EXISTS: "holds all of them" is not a row-level
-            # predicate. Indexed by the (feed_id, criterion) primary key.
+            # "Has a row for all of them" cannot be expressed as EXISTS, which only asks
+            # whether some row matches. So count the distinct criteria this feed has out of
+            # the ones we want, and keep the feed when that count is short. The count uses the
+            # (feed_id, criterion) primary key, so it is cheap.
             complete = (
                 select(func.count(distinct(criterion_rows.c.criterion)))
                 .where(
@@ -167,7 +230,7 @@ def count_eligible_feeds(
     exclude_backfilled: bool = False,
     required_criteria: Optional[Sequence[str]] = None,
 ) -> int:
-    """Cheap `COUNT(*)` of eligible feeds — no rows loaded."""
+    """How many eligible feeds there are. A plain COUNT(*), no rows loaded."""
     query = _eligible_stable_ids_query(
         db_session,
         stable_feed_ids=stable_feed_ids,
@@ -187,11 +250,11 @@ def iter_eligible_stable_ids(
     exclude_backfilled: bool = False,
     required_criteria: Optional[Sequence[str]] = None,
 ) -> Iterator[List[str]]:
-    """Stream eligible feeds' `stable_id`s in chunks of at most `batch_size`.
+    """Yield eligible feeds' `stable_id`s in chunks of at most `batch_size`.
 
-    Selects only `stable_id` and uses a server-side cursor (`stream_results=True`) so
-    rows are pulled from Postgres as each chunk is consumed, instead of materializing the
-    whole eligible-id list up front.
+    Only `stable_id` is selected, and `stream_results=True` asks Postgres for a server-side
+    cursor, so rows arrive as each chunk is consumed instead of the whole id list being built
+    in memory first.
     """
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
@@ -216,15 +279,164 @@ def iter_eligible_stable_ids(
 
 
 def snapshot_date_of(now: datetime) -> date:
-    """The UTC day a run evaluating at `now` belongs to.
+    """The UTC day that a run evaluating at `now` belongs to.
 
-    The day a run's snapshots are keyed under, and the day its criteria are evaluated
-    against. Naive values are read as UTC rather than rejected: the task entry points
-    normalize what an operator passes, but `update_seals` is also called directly.
+    Used for two things: the day a run's snapshot rows are keyed under, and the day its
+    criteria are evaluated against. A value with no timezone is read as UTC rather than
+    rejected, because the task entry points normalize whatever an operator types but
+    `update_seals` can also be called directly from code.
     """
     if now.tzinfo is None:
         return now.date()
     return now.astimezone(timezone.utc).date()
+
+
+def _load_closest_datasets(
+    db_session: Session, feed_ids: Sequence[str], now: datetime
+) -> Dict[str, ClosestDataset]:
+    """feed_id -> that feed's closest dataset as of `now`. Feeds with no dataset are absent.
+
+    "Closest as of `now`" is the most recently downloaded dataset whose `downloaded_at` is at
+    or before `now`. Looking backwards only, never forwards.
+
+    A feed missing from the result had no dataset at all by then. That is deliberately
+    different from being present with `service_date_range_end` set to None, which means the
+    feed had a dataset but its coverage was never extracted. Criteria treat both as UNKNOWN,
+    but they say which one it was.
+
+    Compliant is the reason this runs: `_load_validation_reports` needs the exact dataset to
+    scope a report to. Fresh does not use it - it needs a different dataset per marched day,
+    so it loads its own history in `FreshCoverageEvaluator.load_inputs` instead. For a nightly
+    run the two overlap a little (this query returns one row per feed, that one returns a
+    short history), which is accepted rather than shared: reading another criterion's kind-3
+    inputs would tie the two evaluators together.
+    """
+    if not feed_ids:
+        return {}
+    rows = db_session.execute(
+        select(
+            Gtfsdataset.feed_id,
+            Gtfsdataset.id,
+            Gtfsdataset.downloaded_at,
+            Gtfsdataset.service_date_range_end,
+        )
+        .where(
+            Gtfsdataset.feed_id.in_(list(feed_ids)),
+            Gtfsdataset.downloaded_at.is_not(None),
+            Gtfsdataset.downloaded_at <= now,
+        )
+        # DISTINCT ON (feed_id) plus this ORDER BY keeps the first row per feed, which the
+        # ordering makes the most recently downloaded one. `id` breaks ties so two datasets
+        # stamped at the same instant always resolve the same way.
+        .distinct(Gtfsdataset.feed_id)
+        .order_by(
+            Gtfsdataset.feed_id,
+            Gtfsdataset.downloaded_at.desc(),
+            Gtfsdataset.id.desc(),
+        )
+    ).all()
+    return {
+        row.feed_id: ClosestDataset(
+            dataset_id=row.id,
+            downloaded_at=row.downloaded_at,
+            service_date_range_end=row.service_date_range_end,
+        )
+        for row in rows
+    }
+
+
+def _load_validation_reports(
+    db_session: Session,
+    closest_datasets: Dict[str, ClosestDataset],
+    now: datetime,
+) -> Dict[str, ValidationReport]:
+    """feed_id -> the latest validation report of that feed's closest dataset, as of `now`.
+
+    Scoped to the closest dataset rather than to the feed on purpose: a verdict on a dataset
+    that has since been replaced says nothing about what is being served now. A feed whose
+    closest dataset has not been validated yet is simply absent from the result, and Compliant
+    reads that as UNKNOWN.
+
+    One dataset can have several reports, because it can be re-validated. The most recently
+    validated one wins, and reports with no `validated_at` are ignored since they cannot be
+    placed in time.
+    """
+    if not closest_datasets:
+        return {}
+    # Reports are keyed by dataset, but the caller wants them keyed by feed, so keep the
+    # mapping back from dataset to feed while querying.
+    feed_id_by_dataset = {
+        dataset.dataset_id: feed_id for feed_id, dataset in closest_datasets.items()
+    }
+    join_table = t_validationreportgtfsdataset
+    rows = db_session.execute(
+        select(
+            join_table.c.dataset_id,
+            Validationreport.id,
+            Validationreport.validated_at,
+            Validationreport.total_error,
+        )
+        .select_from(join_table)
+        .join(
+            Validationreport,
+            Validationreport.id == join_table.c.validation_report_id,
+        )
+        .where(
+            join_table.c.dataset_id.in_(list(feed_id_by_dataset)),
+            Validationreport.validated_at.is_not(None),
+            Validationreport.validated_at <= now,
+        )
+        .distinct(join_table.c.dataset_id)
+        .order_by(
+            join_table.c.dataset_id,
+            Validationreport.validated_at.desc(),
+            Validationreport.id.desc(),
+        )
+    ).all()
+    return {
+        feed_id_by_dataset[row.dataset_id]: ValidationReport(
+            report_id=row.id,
+            dataset_id=row.dataset_id,
+            validated_at=row.validated_at,
+            total_error=row.total_error,
+        )
+        for row in rows
+    }
+
+
+def _load_availability(
+    db_session: Session, feed_ids: Sequence[str], now: datetime
+) -> Dict[str, AvailabilityCheck]:
+    """feed_id -> its latest availability check in the 24 hours up to `now`.
+
+    A rolling 24-hour window rather than "the UTC day of `now`", so a check still counts when
+    the availability job (02:00 UTC) and the seal run (04:00 UTC) drift apart, or when one of
+    them runs late.
+    """
+    if not feed_ids:
+        return {}
+    rows = db_session.execute(
+        select(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at,
+            GtfsFeedAvailabilityCheck.success,
+        )
+        .where(
+            GtfsFeedAvailabilityCheck.feed_id.in_(list(feed_ids)),
+            GtfsFeedAvailabilityCheck.checked_at > now - AVAILABILITY_LOOKBACK,
+            GtfsFeedAvailabilityCheck.checked_at <= now,
+        )
+        .distinct(GtfsFeedAvailabilityCheck.feed_id)
+        .order_by(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at.desc(),
+            GtfsFeedAvailabilityCheck.id.desc(),
+        )
+    ).all()
+    return {
+        row.feed_id: AvailabilityCheck(checked_at=row.checked_at, success=row.success)
+        for row in rows
+    }
 
 
 def collect_inputs(
@@ -233,24 +445,25 @@ def collect_inputs(
     days: Sequence[date],
     evaluators: Sequence,
 ) -> Dict[SealCriterionName, Any]:
-    """Ask each evaluator to bulk-load its own day-varying inputs for the whole batch.
+    """Ask every evaluator to load its own kind-3 inputs, once, for the whole batch.
 
-    Called once per batch whatever the number of days: a criterion loads its full history
-    for `days` in one go and answers each day from memory afterwards. That is what holds the
-    query count proportional to the number of criteria rather than to feeds x days — the
-    difference between a handful of queries and several thousand once a backfill marches a
-    year (#1763).
+    Called once per batch no matter how many days are being evaluated. Each evaluator loads
+    its full history for `days` in one go and then answers each day from memory. That is what
+    keeps the number of queries proportional to the number of criteria instead of to feeds
+    times days: a handful of queries rather than several thousand once a backfill marches a
+    year.
 
     Args:
         db_session: SQLAlchemy session.
         feeds: The batch of feeds, already loaded and eligibility-checked by the caller.
-        days: Every UTC day that will be evaluated, ascending. One entry for a nightly run.
-        evaluators: The `CriterionEvaluator` instances this run will apply. Not annotated as
-            such because `evaluators.base` imports this module for `FeedSealContext`.
+        days: Every UTC day that will be evaluated, ascending. Just one for a nightly run.
+        evaluators: The `CriterionEvaluator` instances this run will apply. Deliberately not
+            type-annotated as such: `evaluators.base` imports this module for
+            `FeedSealContext`, so annotating it would be a circular import.
 
     Returns:
-        criterion name -> whatever that criterion's loader returned. Opaque to this module;
-        an evaluator reaches its own with `ctx.inputs_for(self.name)`.
+        criterion name -> whatever that criterion's loader returned. Opaque here; an evaluator
+        gets its own back with `ctx.inputs_for(self.name)`.
     """
     return {
         evaluator.name: evaluator.load_inputs(db_session, feeds, days)
@@ -264,35 +477,51 @@ def build_contexts(
     now: datetime,
     evaluators: Sequence,
 ) -> Dict[str, FeedSealContext]:
-    """Build one context per feed for a single day — the nightly run's case.
+    """Build one context per feed, for a single day. This is the nightly run's path.
 
-    This is `collect_inputs` over a one-day range, plus the day-invariant feed fields. A
-    backfill marching a year calls `collect_inputs` once for the whole range and then builds
-    its contexts per day from that same result, so both paths load a criterion's inputs
-    through the criterion itself and there is only ever one place they come from.
+    It loads all three kinds of input: the kind-2 fields through the `_load_*` helpers above,
+    and the kind-3 inputs through `collect_inputs` over a one-day range. Kind 1 is read off
+    the feed rows the caller already has.
+
+    The backfill does not call this. It calls `collect_inputs` once for its whole window and
+    then builds a context per day itself, so kind-3 inputs are loaded through the evaluator in
+    both paths and there is only ever one place they come from.
 
     Args:
         db_session: SQLAlchemy session, passed on to the evaluators' loaders.
-        feeds: The batch of feeds to build for, already loaded (and eligibility-checked via
-            `is_seal_eligible`) by the caller — `update_seals`.
-        now: The evaluation timestamp.
-        evaluators: The evaluators this run will apply. Required rather than defaulted: an
-            omitted list would leave every criterion with no inputs and quietly turn its
-            verdicts into UNKNOWN.
+        feeds: The batch of feeds, already loaded and eligibility-checked by the caller,
+            which is `update_seals`.
+        now: The moment to evaluate at.
+        evaluators: The evaluators this run will apply. Required, not defaulted: an empty list
+            would leave every criterion with no inputs and quietly turn its verdicts into
+            UNKNOWN.
 
     Returns:
         feed_id -> FeedSealContext.
 
-    Adding a criterion's data. Two kinds:
+    Adding data for a new criterion. Pick the cheapest kind that works:
 
-    1. Already on the selected feed row (`official`, `created_at`, `seasonal`,
-       `is_producer_url_unstable`). Add the field to `FeedSealContext` and read it off `feed`
-       below. No query, no cost, and it answers for any day.
-
-    2. Varies by day. Nothing changes here: override `load_inputs` on the criterion's own
-       evaluator and read it back in `_evaluate` with `ctx.inputs_for(self.name)`.
+    1. It is already on the feed row (like `official` or `seasonal`). Add a field to
+       `FeedSealContext` and read it off `feed` below. No query, and it is correct for any
+       day.
+    2. It needs a query, and one answer per run is enough. Add a field, write a module-level
+       `_load_*` helper that takes the whole batch and returns a dict keyed by feed_id, and
+       call it once here - `_load_closest_datasets`, `_load_availability` and
+       `_load_validation_reports` are the examples. Filter the helper by `now` so the
+       criterion stays replayable, and leave feeds with no row out of the dict instead of
+       giving them a default: absent means "we did not look", which evaluators read as UNKNOWN
+       rather than as a failure. Be aware that a backfill leaves these fields empty.
+    3. The answer differs per day. Nothing changes in this file: override `load_inputs` on the
+       evaluator and read it back in `_evaluate` with `ctx.inputs_for(self.name)`. This is the
+       only kind a backfill can reconstruct.
     """
+    feed_ids = [feed.id for feed in feeds]
+    closest_datasets = _load_closest_datasets(db_session, feed_ids, now)
+    availability = _load_availability(db_session, feed_ids, now)
+    # Runs after the datasets query because it needs to know which dataset to scope to.
+    validation_reports = _load_validation_reports(db_session, closest_datasets, now)
     inputs = collect_inputs(db_session, feeds, [snapshot_date_of(now)], evaluators)
+
     return {
         feed.id: FeedSealContext(
             feed_id=feed.id,
@@ -302,6 +531,9 @@ def build_contexts(
             is_producer_url_unstable=feed.is_producer_url_unstable,
             seasonal=feed.seasonal,
             feed_created_at=feed.created_at,
+            closest_dataset=closest_datasets.get(feed.id),
+            availability_check=availability.get(feed.id),
+            latest_validation_report=validation_reports.get(feed.id),
             inputs=inputs,
         )
         for feed in feeds
@@ -309,6 +541,6 @@ def build_contexts(
 
 
 def batched(items: Sequence, size: int):
-    """Yield successive slices of `items` of at most `size` elements."""
+    """Yield successive slices of `items`, each holding at most `size` elements."""
     for start in range(0, len(items), size):
         yield items[start : start + size]

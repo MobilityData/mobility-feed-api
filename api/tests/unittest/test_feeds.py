@@ -475,6 +475,7 @@ def test_gtfs_feed_reliability_never_evaluated(client: TestClient):
     body = response.json()
     assert body["feed_id"] == TEST_GTFS_FEED_STABLE_IDS[0]
     assert body["has_seal"] is False
+    assert body["seal_status"] == "never_evaluated", "no criterion row at all, so nothing was ever decided"
     assert body["on_probation"] is False
     assert len(body["criteria"]) == 6
     assert {criterion["status"] for criterion in body["criteria"]} == {"never_evaluated"}
@@ -574,6 +575,41 @@ def test_gtfs_feed_get_embeds_reliability_seal(client: TestClient):
     assert seal["has_seal"] is True
     assert seal["on_probation"] is False
     assert seal["evaluated_at"] is not None
+
+
+def test_gtfs_feed_reliability_reports_an_undecided_seal_as_unknown(client: TestClient):
+    """`has_seal: false` covers three different things; `seal_status` is what separates them.
+
+    A feed whose criteria have not all been judged is not a feed that was judged and failed, and a
+    client has to be able to tell those apart. The status is derived from the criterion rows rather
+    than stored, so one passing criterion beside one never-evaluated one is all it takes.
+    """
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[2]
+    criteria = {
+        "official": {"observed_status": "pass", "confirmed_status": "pass", "evaluated_at": SEAL_NOW},
+        "available": {"observed_status": "unknown", "confirmed_status": "never_evaluated", "evaluated_at": SEAL_NOW},
+    }
+    with _seal_rows(feed_stable_id, has_seal=False, criteria=criteria):
+        response = client.request("GET", f"/v1/gtfs_feeds/{feed_stable_id}/reliability", headers=authHeaders)
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    body = response.json()
+    assert body["has_seal"] is False
+    assert body["seal_status"] == "unknown"
+
+
+def test_gtfs_feed_reliability_reports_a_judged_seal_as_granted(client: TestClient):
+    """The other side of the same coin: every criterion in scope judged, and all passing."""
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[3]
+    criteria = {
+        criterion: {"observed_status": "pass", "confirmed_status": "pass", "evaluated_at": SEAL_NOW}
+        for criterion in ("official", "stable", "available", "compliant", "fresh_coverage", "fresh_continuous")
+    }
+    with _seal_rows(feed_stable_id, has_seal=True, criteria=criteria):
+        response = client.request("GET", f"/v1/gtfs_feeds/{feed_stable_id}/reliability", headers=authHeaders)
+
+    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+    assert response.json()["seal_status"] == "granted"
 
 
 def test_gtfs_feed_get_without_seal_reports_null(client: TestClient):

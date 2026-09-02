@@ -15,14 +15,12 @@
 #
 """The seal criterion evaluators.
 
-`EVALUATORS` is the registry the job iterates. Official (issue #1783), Stable and Fresh /
-future coverage (issue #1784) are implemented; Available and Compliant are the rest of
-#1784, and Fresh / continuous coverage is tracked by #1782.
-
-Adding one means a new subclass and an entry here, plus — for whatever inputs it needs —
-either a day-invariant field on `FeedSealContext`, or its own `load_inputs` override when the
-inputs vary by day. Its windows are not declared on the subclass: they come from the policy
-maps in `shared.common.seal_criteria`, which the read API reads too.
+`EVALUATORS` is the registry the job iterates. Official (issue #1783), Stable, Available,
+Compliant and Fresh / future coverage (issue #1784) are implemented; Fresh / continuous
+coverage is tracked by #1782. Adding one means a new subclass,
+an entry here, and whatever fields it needs on `FeedSealContext`. Its windows are not declared
+on the subclass: they come from the policy maps in `shared.common.seal_criteria`, which the
+read API reads too.
 
 `seal_criterion_name` in the database already declares all six values, so a criterion can
 be added without a schema change.
@@ -34,6 +32,8 @@ from tasks.seal_of_reliability.evaluators.base import (
     CriterionEvaluator,
     CriterionObservation,
 )
+from tasks.seal_of_reliability.evaluators.available import AvailableEvaluator
+from tasks.seal_of_reliability.evaluators.compliant import CompliantEvaluator
 from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageEvaluator
 from tasks.seal_of_reliability.evaluators.official import OfficialEvaluator
 from tasks.seal_of_reliability.evaluators.stable import StableEvaluator
@@ -41,11 +41,15 @@ from tasks.seal_of_reliability.evaluators.stable import StableEvaluator
 EVALUATORS: Final[List[CriterionEvaluator]] = [
     OfficialEvaluator(),
     StableEvaluator(),
+    AvailableEvaluator(),
+    CompliantEvaluator(),
     FreshCoverageEvaluator(),
 ]
 
 __all__ = [
     "EVALUATORS",
+    "AvailableEvaluator",
+    "CompliantEvaluator",
     "CriterionEvaluator",
     "CriterionObservation",
     "FreshCoverageEvaluator",

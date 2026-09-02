@@ -69,7 +69,7 @@ from tasks.seal_of_reliability.backfill.simulation import (
     refuse_simulated_write,
     trace_row,
 )
-from shared.common.seal_criteria import CriterionStatus, SealCriterionName
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName, SealStatus
 from tasks.seal_of_reliability.evaluators.base import CriterionObservation
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
@@ -79,7 +79,7 @@ from tasks.seal_of_reliability.seal_updater import (
     SNAPSHOT_TABLE,
     _load_previous_seals,
     _resolve_evaluators,
-    _roll_up_has_seal,
+    _roll_up_seal_status,
     _snapshot_row,
     _upsert_criteria,
     _upsert_criterion_snapshot,
@@ -558,9 +558,13 @@ def _feed_outcome(
         return None
 
     had_seal = bool(previous_seals.get(feed.id))
-    has_seal = _roll_up_has_seal(
+    # `has_seal` stays a boolean, and only GRANTED counts as holding the seal - the same
+    # narrowing the nightly job applies, so unknown and never-evaluated read as false to
+    # everything already consuming the flag.
+    seal_status = _roll_up_seal_status(
         {state.criterion.value: state for state in feed_states}
     )
+    has_seal = seal_status is SealStatus.GRANTED
     return {
         "feed_id": feed.id,
         "stable_id": feed.stable_id,

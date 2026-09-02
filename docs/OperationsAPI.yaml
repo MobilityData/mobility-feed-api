@@ -1211,6 +1211,17 @@ components:
           description: Whether the feed currently holds the Seal of Reliability.
           type: boolean
           example: false
+        seal_status:
+          description: >
+            Descriptive status of the feed's seal. `has_seal` is true only when this is `granted`. `not_granted`: at least one criterion is failing. `unknown`: none is failing, but not every criterion has been evaluated yet. `never_evaluated`: none of the criteria has  been evaluated yet.
+
+          type: string
+          enum:
+            - granted
+            - not_granted
+            - unknown
+            - never_evaluated
+          example: granted
         earned_at:
           description: When the feed most recently earned the seal, in ISO 8601 date-time format.
           type: string
@@ -2490,6 +2501,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2617,6 +2629,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2719,6 +2732,7 @@ components:
 
 
 
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2736,6 +2750,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
 
 

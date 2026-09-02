@@ -25,13 +25,18 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
 )
-from tasks.seal_of_reliability.context import FeedSealContext, collect_inputs
-from tasks.seal_of_reliability.evaluators.fresh_coverage import (
-    FreshCoverageInputs,
-    LatestDataset,
+from tasks.seal_of_reliability.context import (
+    AvailabilityCheck,
+    ClosestDataset,
+    FeedSealContext,
+    ValidationReport,
+    collect_inputs,
 )
+from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageInputs
 from tasks.seal_of_reliability.evaluators import (
     EVALUATORS,
+    AvailableEvaluator,
+    CompliantEvaluator,
     CriterionEvaluator,
     FreshCoverageEvaluator,
     OfficialEvaluator,
@@ -161,8 +166,8 @@ class TestLoadInputs(unittest.TestCase):
 
         None means "nothing to load", not "the load failed" — Official and Stable read the
         feed row off the context and never need a query. Fresh overrides the loader, because
-        which dataset is "the latest" changes on every day a march evaluates, but it must
-        still answer an empty batch without touching the session.
+        which dataset is the closest one changes on every day a march evaluates, but it
+        must still answer an empty batch without touching the session.
 
         The session is `object()` on purpose: any evaluator that queried here would raise.
         """
@@ -310,7 +315,7 @@ class TestStable(unittest.TestCase):
 
 
 class TestFreshCoverage(unittest.TestCase):
-    """`latest dataset.service_date_range_end >= now + 7 days`."""
+    """`closest_dataset.service_date_range_end >= now + 7 days`."""
 
     @staticmethod
     def _inputs(coverage_end):
@@ -318,7 +323,7 @@ class TestFreshCoverage(unittest.TestCase):
         return FreshCoverageInputs(
             {
                 "feed-1": [
-                    LatestDataset(
+                    ClosestDataset(
                         dataset_id="mdb-1-202606010000",
                         downloaded_at=NOW - timedelta(days=1),
                         service_date_range_end=coverage_end,
@@ -400,11 +405,11 @@ class TestFreshCoverage(unittest.TestCase):
                     CriterionStatus.PASS,
                 )
 
-    def test_no_latest_dataset_is_unknown(self):
+    def test_no_closest_dataset_is_unknown(self):
         """Not a failure: a feed we have never fetched says nothing about its freshness."""
         result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(dataset=False))
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
-        self.assertIn("no latest dataset", result.reason)
+        self.assertIn("no dataset", result.reason)
 
     def test_a_dataset_with_no_coverage_end_is_unknown(self):
         """The other missing input, and the reason has to tell the two apart."""
@@ -421,19 +426,20 @@ class TestFreshCoverage(unittest.TestCase):
         """A context built without running the loader is a bug, not a missing dataset.
 
         Both end as UNKNOWN, because a raise would take down a whole nightly run over the
-        catalogue, but the reason has to name the real cause: a silent "no latest dataset"
-        across every feed of a backfill is exactly what going unnoticed looks like.
+        catalogue, but the reason has to name the real cause: a silent "no dataset" across
+        every feed of a backfill is exactly what going unnoticed looks like.
         """
         result = FreshCoverageEvaluator().evaluate(_ctx())
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("never loaded", result.reason)
 
-    def test_the_latest_dataset_is_resolved_as_of_the_day_being_evaluated(self):
-        """The point of loading a range: each day of a march sees its own latest dataset.
+    def test_the_closest_dataset_is_resolved_as_of_the_day_being_evaluated(self):
+        """The point of loading a range: each day of a march sees its own closest dataset.
 
         Three datasets, published a week apart, each covering less of the future than the
         last. Evaluated at three different `now`s from one loaded input set, the criterion
-        reads a different dataset each time.
+        reads a different dataset each time - which is what `ctx.closest_dataset` cannot do,
+        holding as it does a single answer for a single `now`.
         """
         published = [
             (NOW - timedelta(days=14), NOW + timedelta(days=90)),
@@ -443,7 +449,7 @@ class TestFreshCoverage(unittest.TestCase):
         inputs = FreshCoverageInputs(
             {
                 "feed-1": [
-                    LatestDataset(
+                    ClosestDataset(
                         dataset_id=f"mdb-1-{index}",
                         downloaded_at=downloaded_at,
                         service_date_range_end=coverage_end,
@@ -466,6 +472,146 @@ class TestFreshCoverage(unittest.TestCase):
                     _ctx(now=moment, inputs=payload)
                 )
                 self.assertIs(result.observed_status, expected)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class TestAvailable(unittest.TestCase):
+    """The latest availability check in the window since the previous evaluation."""
+
+    @staticmethod
+    def _check(success, checked_at=None):
+        return AvailabilityCheck(checked_at=checked_at or NOW, success=success)
+
+    def test_a_successful_check_passes(self):
+        self.assertIs(
+            AvailableEvaluator()
+            .evaluate(_ctx(availability_check=self._check(True)))
+            .observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_a_failed_check_fails(self):
+        result = AvailableEvaluator().evaluate(
+            _ctx(availability_check=self._check(False))
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("failed", result.reason)
+
+    def test_no_check_in_the_window_is_unknown_not_a_failure(self):
+        """A window the availability job did not cover says nothing about the producer."""
+        result = AvailableEvaluator().evaluate(_ctx(availability_check=None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no availability check since", result.reason)
+
+    def test_the_reason_names_the_check_it_read(self):
+        """The window makes "which check decided this" a real question, so answer it."""
+        checked_at = NOW - timedelta(hours=3)
+        result = AvailableEvaluator().evaluate(
+            _ctx(availability_check=self._check(False, checked_at))
+        )
+        self.assertIn(checked_at.isoformat(), result.reason)
+
+    def test_is_never_not_applicable(self):
+        """Availability applies to every feed, seasonal ones included."""
+        for check in (self._check(True), self._check(False), None):
+            with self.subTest(check=check):
+                self.assertIsNot(
+                    AvailableEvaluator()
+                    .evaluate(_ctx(availability_check=check, seasonal=True))
+                    .observed_status,
+                    CriterionStatus.NOT_APPLICABLE,
+                )
+
+    def test_has_a_grace_period_and_serves_probation(self):
+        self.assertEqual(AvailableEvaluator().grace_period, timedelta(days=14))
+        self.assertEqual(AvailableEvaluator().probation_period, PROBATION_PERIOD)
+
+
+class TestCompliant(unittest.TestCase):
+    """`total_error = 0` on the latest validation report of the feed's closest dataset."""
+
+    DATASET_ID = "mdb-1-202605280000"
+
+    def _compliant_ctx(
+        self, total_error=0, with_report=True, with_dataset=True, **overrides
+    ):
+        report = (
+            ValidationReport(
+                report_id="report-1",
+                dataset_id=self.DATASET_ID,
+                validated_at=NOW - timedelta(hours=1),
+                total_error=total_error,
+            )
+            if with_report
+            else None
+        )
+        dataset = (
+            ClosestDataset(
+                dataset_id=self.DATASET_ID,
+                downloaded_at=NOW - timedelta(hours=2),
+            )
+            if with_dataset
+            else None
+        )
+        defaults = {"latest_validation_report": report, "closest_dataset": dataset}
+        defaults.update(overrides)
+        return _ctx(**defaults)
+
+    def test_a_clean_report_passes(self):
+        self.assertIs(
+            CompliantEvaluator().evaluate(self._compliant_ctx(0)).observed_status,
+            CriterionStatus.PASS,
+        )
+
+    def test_any_error_fails(self):
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(1))
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("1 error(s)", result.reason)
+
+    def test_a_feed_with_no_dataset_is_unknown(self):
+        """Nothing published means nothing to validate, not a failure."""
+        result = CompliantEvaluator().evaluate(
+            self._compliant_ctx(with_report=False, with_dataset=False)
+        )
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no dataset", result.reason)
+
+    def test_an_unvalidated_closest_dataset_is_unknown(self):
+        """The case that keeps a never-validated feed off a confirmed failure.
+
+        Validation lags publication, so a feed publishing faster than the validator sits at
+        UNKNOWN and keeps whatever verdict it last earned.
+        """
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(with_report=False))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no validation report", result.reason)
+        self.assertIn(self.DATASET_ID, result.reason)
+
+    def test_the_reason_names_the_dataset_that_was_validated(self):
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(3))
+        self.assertIn(self.DATASET_ID, result.reason)
+
+    def test_a_report_with_no_error_count_is_unknown_not_a_pass(self):
+        """total_error is nullable, and a missing count must not read as zero errors."""
+        result = CompliantEvaluator().evaluate(self._compliant_ctx(None))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no total_error", result.reason)
+
+    def test_is_never_not_applicable(self):
+        """Compliance applies to every feed, seasonal ones included."""
+        self.assertIsNot(
+            CompliantEvaluator()
+            .evaluate(self._compliant_ctx(0, seasonal=True))
+            .observed_status,
+            CriterionStatus.NOT_APPLICABLE,
+        )
+
+    def test_has_a_grace_period_and_serves_probation(self):
+        self.assertEqual(CompliantEvaluator().grace_period, timedelta(days=30))
+        self.assertEqual(CompliantEvaluator().probation_period, PROBATION_PERIOD)
 
 
 if __name__ == "__main__":
