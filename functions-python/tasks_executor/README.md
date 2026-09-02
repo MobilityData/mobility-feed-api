@@ -596,7 +596,7 @@ roughly twice the probation horizon, which is what gives it room to decay.
 | `criteria` | list[str] \| null | `null` | March only these criteria. A subset skips the `has_seal` roll-up, so no `feedreliabilityseal` row is touched, and `note` in the response says so |
 | `batch_size` | int | `200` | Feeds marched per batch. A memory bound only: state never leaks between batches and the report aggregates across them |
 | `only_missing` | bool | `true` | Skip feeds that already hold a `sealcriterion` row for **every** criterion the run evaluates. This is what makes re-running over the catalog a safe no-op rather than a reconstruction over history the nightly job owns — and what makes an interrupted run resumable: a feed left holding only some of the criteria is marched again (see *Resuming an interrupted run* below). A run that selects nothing is reported as a normal run with `total_feeds: 0`, not an error |
-| `snapshot_mode` | str | `final` | `final` writes one `sealcriterionsnapshot` row per feed per criterion, for `end_date`. `all` writes one per marched day — millions of rows over a year for the full catalog, but what lets `resume_from_snapshot` seed a later re-march. `none` writes no snapshots |
+| `snapshot_mode` | str | `all` | `all` writes one `sealcriterionsnapshot` row per feed per criterion per marched day — roughly 2,200 rows per feed over a year at six criteria, millions for the full catalog, and the only mode that keeps the history the march reconstructed. It is the default because that history is the march's whole product, and because `resume_from_snapshot` has nothing to seed from without it. `final` writes one row per feed per criterion, for `end_date` only — enough to seed the nightly job's "yesterday" and nothing more. `none` writes no snapshots |
 | `resume_from_snapshot` | bool | `false` | Seed each pair (feed, criterion) from its latest snapshot before `march_start` instead of cold-starting (the #1803 hook). A pair with no snapshot that far back cold-starts as usual, so asking to resume from before the snapshots begin is not an error |
 | `max_reported_feeds` | int | `50` | Cap on the `feeds` list in the response; `feeds_omitted` says how many were left out |
 | `simulate` | dict \| null | `null` | Force observed statuses per criterion, on days counted from each feed's own `march_start`: `{"fresh_coverage": {"default": "pass", "fail": [3, 4]}}`. `default` is what unnamed days observe — omit it and they fall through to the real evaluator. `grace_days`/`probation_days` lend a criterion periods it does not have. **Requires `dry_run`**: a forced verdict written to `sealcriterion` would be indistinguishable from an earned one, since the row carries no provenance |
@@ -654,9 +654,9 @@ Two things to know on top of that:
   from case 1 or case 2 — that is, which part of the window is real and which is estimated.
 
 None of this makes the *writes* selective. A marched day is written back whatever its source,
-so the run still rewrites `sealcriterion` and, in `all` mode, the snapshot rows for those days
-(with the same `observed_status` it just read, but recomputed timestamps). Keep the window to
-the history you actually mean to fill.
+so the run rewrites `sealcriterion` and — under the default `all` — the snapshot rows for those
+days too, carrying the same `observed_status` it just read but recomputed timestamps. Keep the
+window to the history you actually mean to fill.
 
 A re-march **replaces** rather than accumulates. It rewrites only the days it marched, keyed on
 `(feed_id, criterion, snapshot_date)`, so days outside the new window keep their earlier
@@ -681,8 +681,8 @@ Two consequences worth knowing:
 
 - A feed that was mid-march when the run died is marched again **from its `march_start`**, not
   from where it stopped. Days are cheap in memory; the partial march is simply discarded.
-- With `snapshot_mode: all`, an interrupted feed may leave snapshot rows behind with no
-  `sealcriterion` row. The re-march overwrites them on the same `(feed_id, criterion,
+- Under `snapshot_mode: all` (the default), an interrupted feed may leave snapshot rows behind
+  with no `sealcriterion` row. The re-march overwrites them on the same `(feed_id, criterion,
   snapshot_date)` key, so this heals itself and needs no cleanup.
 
 The transaction is one feed's worth, not one batch's, and it does not grow with `batch_size`:

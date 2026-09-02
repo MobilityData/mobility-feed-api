@@ -36,7 +36,7 @@ Payload (all optional)::
         "limit": int | None,              # cap total feeds considered, default None
         "stable_feed_ids": [str] | None,  # restrict eligibility to these ids, default None
         "only_missing": bool,             # default True
-        "snapshot_mode": str,             # final | all | none, default final
+        "snapshot_mode": str,             # final | all | none, default all
         "resume_from_snapshot": bool,     # default False
         "deadline_seconds": int,          # default 7200 (2h)
         "monitor_delay_seconds": int,     # default 300

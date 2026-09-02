@@ -95,10 +95,16 @@ logger = logging.getLogger(__name__)
 # "12 months".
 DEFAULT_DAYS_BACK: int = 365
 
-# What to record in seal_criterion_snapshot: only the last day (per #1763), every marched
-# day (millions of rows over a year, but what lets #1803 resume inside the window), or none.
+# What to record in seal_criterion_snapshot: every marched day, only the last one, or none.
+#
+# `all` is the default because the march's whole product is the history, and storing only its
+# endpoint throws that away: nothing outside this job reads the table, and the one thing that
+# does — `resume_from_snapshot`, which seeds from a day inside the window — has nothing to
+# read unless the days are there. The cost is real, roughly 2,200 rows per feed per year at
+# six criteria, so `final` remains for a run that only wants to seed the nightly job's
+# starting state, and `none` for one that wants no record at all.
 SNAPSHOT_MODES: Tuple[str, ...] = ("final", "all", "none")
-DEFAULT_SNAPSHOT_MODE: str = "final"
+DEFAULT_SNAPSHOT_MODE: str = "all"
 
 CRITERION_TABLE = SealCriterion.__table__
 

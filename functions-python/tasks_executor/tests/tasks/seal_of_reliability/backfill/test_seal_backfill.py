@@ -137,7 +137,9 @@ class TestGetParameters(unittest.TestCase):
         self.assertIsNone(criteria)
         self.assertEqual(batch_size, 200)
         self.assertTrue(only_missing, "#1763 backfills feeds that have no state yet")
-        self.assertEqual(snapshot_mode, "final")
+        self.assertEqual(
+            snapshot_mode, "all", "the reconstructed history is the march's product"
+        )
         self.assertFalse(resume_from_snapshot)
         self.assertEqual(max_reported_feeds, 50)
         self.assertIsNone(simulate)
@@ -625,8 +627,13 @@ class TestMarchMatchesTheDatabaseReplay(MarchTestCase):
 
 
 class TestMarchWrites(MarchTestCase):
-    def test_only_the_final_day_is_snapshotted_by_default(self):
+    def test_every_marched_day_is_snapshotted_by_default(self):
+        """`all` is the default: the reconstructed history is what the march is for."""
         self.march(MARCHED, _script_for([20]))
+        self.assertEqual(snapshot_days(MARCHED), days_between(MARCH_START, MARCH_END))
+
+    def test_snapshot_mode_final_records_only_the_last_day(self):
+        self.march(MARCHED, _script_for([20]), snapshot_mode="final")
         self.assertEqual(snapshot_days(MARCHED), [MARCH_END])
 
     def test_snapshot_mode_all_records_every_day(self):
@@ -679,7 +686,11 @@ class TestMarchWrites(MarchTestCase):
     def test_the_report_counts_what_was_written(self):
         report = self.march(MARCHED, _script_for([20]))
         self.assertEqual(report["criterion_rows_written"], 1)
-        self.assertEqual(report["snapshot_rows_written"], 1)
+        self.assertEqual(
+            report["snapshot_rows_written"],
+            (MARCH_END - MARCH_START).days + 1,
+            "one criterion, one row per marched day",
+        )
         self.assertEqual(report["granted_stable_ids"], [MARCHED])
         self.assertFalse(report["dry_run"])
 

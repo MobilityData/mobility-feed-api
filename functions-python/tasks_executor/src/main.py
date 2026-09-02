@@ -328,7 +328,7 @@ tasks = {
             "meaning every implemented criterion), batch_size (default 200), "
             "only_missing (default true; skips feeds already holding every criterion "
             "of the run, so re-running finishes an interrupted one), "
-            "snapshot_mode (final|all|none, default final), resume_from_snapshot "
+            "snapshot_mode (final|all|none, default all), resume_from_snapshot "
             "(default false; the #1803 hook), max_reported_feeds (default 50)."
         ),
         "handler": backfill_seal_of_reliability_handler,
@@ -359,7 +359,7 @@ tasks = {
             "Parameters: run_id (required), batch_id (required), stable_feed_ids "
             "(required, non-empty), start_date (required, ISO date), end_date (required, "
             "ISO date), criteria (default null), only_missing (default true), "
-            "snapshot_mode (default final), resume_from_snapshot (default false)."
+            "snapshot_mode (default all), resume_from_snapshot (default false)."
         ),
         "handler": seal_backfill_worker_handler,
     },

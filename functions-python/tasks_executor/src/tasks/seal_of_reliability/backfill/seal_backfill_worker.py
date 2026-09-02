@@ -32,7 +32,7 @@ Payload::
         "end_date": str,               # required, ISO date
         "criteria": [str] | None,      # optional
         "only_missing": bool,          # optional, default True
-        "snapshot_mode": str,          # optional, default final
+        "snapshot_mode": str,          # optional, default all
         "resume_from_snapshot": bool   # optional, default False
     }
 """
