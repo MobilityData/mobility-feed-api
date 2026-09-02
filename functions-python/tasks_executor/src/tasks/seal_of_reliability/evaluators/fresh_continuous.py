@@ -95,8 +95,9 @@ class FreshContinuousEvaluator(CriterionEvaluator):
 
     Three steps, in order:
 
-    1. The closest dataset's window - its `feed_info.txt` range, or its validated service
-       window when it declares none - must be no longer than `MAX_COVERAGE_WINDOW`.
+    1. The closest dataset needs a window of its own - its `feed_info.txt` range, or its
+       validated service window when it declares none - no longer than
+       `MAX_COVERAGE_WINDOW`.
     2. A feed with only that one dataset passes: there is no boundary to break yet.
     3. Otherwise, the boundary against the previous dataset decides. The declared ranges rule
        where both datasets declare one, and the validated service windows are what excuses a
@@ -114,21 +115,26 @@ class FreshContinuousEvaluator(CriterionEvaluator):
         if newer is None:
             return CriterionStatus.UNKNOWN, "the feed has no dataset"
 
-        # 1. the maximum coverage window, on the closest dataset alone
+        # 1. the closest dataset's own window: its declared range, else its validated one
         declared = _declared_window(newer)
         window = declared or _service_window(newer)
-        if window is not None and within_max_coverage_window(*window) is False:
+        if window is None:
+            if newer.has_calendar_data:
+                return (
+                    CriterionStatus.UNKNOWN,
+                    f"dataset {newer.dataset_id} has no validated service window yet",
+                )
+            return (
+                CriterionStatus.FAIL,
+                f"dataset {newer.dataset_id} carries neither a {FEED_INFO_FILE} range "
+                f"nor {CALENDAR_FILE_LIST}",
+            )
+        if within_max_coverage_window(*window) is False:
             return (
                 CriterionStatus.FAIL,
                 f"dataset {newer.dataset_id} covers {_span(window)}, longer than the "
                 f"{MAX_COVERAGE_WINDOW.days}-day maximum coverage window",
             )
-        elif window is None:
-            return (
-                CriterionStatus.UNKNOWN,
-                f"Unknown coverage window for dataset {newer.dataset_id}",
-            )
-
         # 2. nothing published before it, so no boundary to judge
         older = ctx.previous_dataset
         if older is None:

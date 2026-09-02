@@ -582,9 +582,24 @@ class TestFreshContinuous(unittest.TestCase):
         self.assertIs(result.observed_status, CriterionStatus.PASS)
         self.assertIn("only dataset", result.reason)
 
-    def test_a_feed_with_one_dataset_and_no_window_at_all_passes(self):
+    def test_no_window_and_no_calendar_files_fails(self):
         result = self._verdict(None, self._dataset("ds-newer", has_calendar_data=False))
-        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("carries neither", result.reason)
+
+    def test_no_window_with_calendar_files_is_unknown(self):
+        """The file is there and the window is not, so the missing input is ours."""
+        result = self._verdict(None, self._dataset("ds-newer", has_calendar_data=True))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no validated service window yet", result.reason)
+
+    def test_a_windowless_closest_dataset_is_settled_before_the_boundary(self):
+        older, _ = self._continuous_pair()
+        result = self._verdict(
+            older, self._dataset("ds-newer", has_calendar_data=False)
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("ds-newer carries neither", result.reason)
 
     def test_a_feed_with_no_dataset_is_unknown(self):
         result = FreshContinuousEvaluator().evaluate(_ctx())
@@ -720,13 +735,6 @@ class TestFreshContinuous(unittest.TestCase):
         result = self._verdict(older, newer)
         self.assertIs(result.observed_status, CriterionStatus.FAIL)
         self.assertIn("do not both declare", result.reason)
-
-    def test_neither_window_nor_calendar_data_fails(self):
-        older = self._dataset("ds-older", has_calendar_data=False)
-        newer = self._dataset("ds-newer", has_calendar_data=False)
-        result = self._verdict(older, newer)
-        self.assertIs(result.observed_status, CriterionStatus.FAIL)
-        self.assertIn("ds-older, ds-newer", result.reason)
 
     def test_an_inverted_window_is_no_window(self):
         older = self._dataset(
