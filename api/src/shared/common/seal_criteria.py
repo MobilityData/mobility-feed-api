@@ -129,28 +129,30 @@ def roll_up_seal_status(
     criteria: Iterable[Tuple[CriterionStatus, bool]],
 ) -> SealStatus:
     """The feed-level seal outcome from its criteria.
-    * every criterion NEVER_EVALUATED -> seal NEVER_EVALUATED.
+    * every criterion NEVER_EVALUATED or NOT_APPLICABLE -> seal NEVER_EVALUATED.
     * any criterion failing or on probation -> seal NOT_GRANTED, whatever the rest say.
     * any remaining criterion NEVER_EVALUATED -> seal UNKNOWN.
     * otherwise every criterion is a confirmed pass and none is on probation -> seal GRANTED.
     """
     in_scope = [
-        (status, on_probation) for status, on_probation in criteria if status is not CriterionStatus.NOT_APPLICABLE
+        (confirmed_status, on_probation)
+        for confirmed_status, on_probation in criteria
+        if confirmed_status is not CriterionStatus.NOT_APPLICABLE
     ]
     if not in_scope:
         # Every criterion is NOT_APPLICABLE, so there is nothing left to judge the feed by.
         return SealStatus.NEVER_EVALUATED
 
-    unjudged = sum(1 for status, _ in in_scope if status is CriterionStatus.NEVER_EVALUATED)
+    unjudged = sum(1 for confirmed_status, _ in in_scope if confirmed_status is CriterionStatus.NEVER_EVALUATED)
     if unjudged == len(in_scope):
-        # Every criterion that isn't NOT_APPLICABLE is NEVER_EVALUATED
+        # All criteria are either NOT_APPLICABLE or NEVER_EVALUATED: nothing to judge the feed by.
         return SealStatus.NEVER_EVALUATED
 
     # One criterion is enough to deny the seal, so this is decidable even with the rest unjudged.
     # A pass on probation denies it too: probation withholds the criterion whatever its status.
     denied = any(
-        status is CriterionStatus.FAIL or (status is CriterionStatus.PASS and on_probation)
-        for status, on_probation in in_scope
+        confirmed_status is CriterionStatus.FAIL or (confirmed_status is CriterionStatus.PASS and on_probation)
+        for confirmed_status, on_probation in in_scope
     )
     if denied:
         return SealStatus.NOT_GRANTED

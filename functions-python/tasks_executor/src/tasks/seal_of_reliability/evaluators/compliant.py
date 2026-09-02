@@ -28,6 +28,12 @@ class CompliantEvaluator(CriterionEvaluator):
     A dataset with no report yet - unvalidated, or validation lagging publication - is UNKNOWN,
     which freezes the criterion at its last confirmed verdict rather than failing it. So is a feed
     with no dataset: a missing report is not a clean bill of health, nor evidence of one.
+
+    Time-aware, so a backfill (#1782) can replay a past date: "latest dataset" and "latest
+    report" are both resolved by `build_contexts` as of the run's `ctx.now` rather than from the
+    current pointer, so a run for a past date sees the dataset that was being served then and the
+    report that had been produced by then, not today's. The criterion itself only reads what the
+    context handed it, so it needs no clock of its own.
     """
 
     name = SealCriterionName.COMPLIANT

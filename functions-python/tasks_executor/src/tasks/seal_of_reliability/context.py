@@ -18,12 +18,16 @@
 The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
 feeds happens here, in a fixed number of queries regardless of batch size.
 
-Official, Stable and Fresh (future coverage) are implemented. Official and Stable read the
-feed row alone; Fresh needs one bulk-loaded extra, the feed's latest dataset. Each new
-criterion adds the fields it needs here plus, where they are not already on the feed row, one
-bulk query to populate them: the latest dataset's validation report for Compliant, the day's
-availability rows for Available, the full dataset coverage history for Fresh continuous
-coverage.
+Official, Stable, Fresh (future coverage), Available and Compliant are implemented. Official
+and Stable read the feed row alone; Fresh needs one bulk-loaded extra, the feed's latest
+dataset; Available needs the run window's availability rows and Compliant the latest dataset's
+validation report. Each new criterion adds the fields it needs here plus, where they are not
+already on the feed row, one bulk query to populate them - Fresh continuous coverage would add
+the full dataset coverage history.
+
+Every query here is bounded by the run's `now` rather than reading a "current" pointer column,
+so a run replayed for a past date sees the state as it was then. That is what lets a backfill
+(#1782) reconstruct history with the same evaluators.
 """
 
 import itertools
@@ -337,17 +341,12 @@ def build_contexts(
 
     2. Needs its own query. Add the field, then a module-level `_load_*` helper that takes
        the whole batch and returns a dict keyed by feed_id, and call it once here, as
-       `_load_latest_datasets` does. Keeping the query per batch rather than per feed
-       is what holds the query count proportional to the number of criteria instead of the
-       number of feeds. For example, Available (issue #1784) would add:
-
-           def _load_availability_today(db_session, feed_ids, day_start) -> Dict[str, bool]:
-               '''feed_id -> whether any availability check succeeded since day_start.
-               Feeds absent from the result had no check at all, which the criterion reads
-               as "not evaluable" rather than "failing".'''
-
-       called once as `availability = _load_availability_today(...)` and consumed per feed
-       as `availability_success_today=availability.get(feed.id, False)`.
+       `_load_latest_datasets`, `_load_availability` and `_load_validation_reports` do.
+       Keeping the query per batch rather than per feed is what holds the query count
+       proportional to the number of criteria instead of the number of feeds. Bound the
+       helper by `now` so the criterion stays replayable, and leave feeds with no row out of
+       the returned dict rather than defaulting them: absent means "we did not look", which
+       the evaluators read as UNKNOWN rather than as a failure.
     """
     feed_ids = [feed.id for feed in feeds]
     latest_datasets = _load_latest_datasets(db_session, feed_ids, now)
