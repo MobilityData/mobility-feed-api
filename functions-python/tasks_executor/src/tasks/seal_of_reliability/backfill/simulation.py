@@ -271,6 +271,17 @@ def check_simulation_fits(
             )
 
 
+def is_simulated(simulation, evaluator, offset: int) -> bool:
+    """Whether this criterion's status on this day is forced, and so is nobody else's to set.
+
+    A simulated run asks what the state machine does with a given sequence of statuses. A day
+    that is only sometimes forced — because something real was recorded for it — would answer
+    a question nobody asked.
+    """
+    entry = simulation.get(evaluator.name.value)
+    return entry is not None and entry.status_on(offset) is not None
+
+
 def observe(evaluator, ctx, simulation, offset: int) -> CriterionObservation:
     """The criterion's own verdict, unless this day is simulated.
 
@@ -319,6 +330,10 @@ def trace_row(feed, evaluator, offset: int, observation, state) -> dict:
         # evaluates every criterion once per day and `transition` stamps it every time.
         "phase": phase(state).value,
         "simulated": observation.reason.startswith("simulated:"),
+        # A day the nightly job had already recorded, so the march used its verdict rather
+        # than reconstructing one. Part of the collapse signature, so the switch from
+        # reconstructed days to recorded ones shows up as a run boundary.
+        "recorded": observation.reason.startswith("recorded:"),
         "reason": observation.reason,
     }
     for name in TRACED_STATE_FIELDS:

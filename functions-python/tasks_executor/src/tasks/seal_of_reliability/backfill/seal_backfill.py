@@ -29,6 +29,12 @@ together once that march is over, and `only_missing` skips a feed only once it h
 criterion of the run. So re-running an interrupted run finishes it, and re-running a finished
 one writes nothing.
 
+On each marched day, a criterion is evaluated only where `seal_criterion_snapshot` holds no
+verdict of its own for it. A row already holding PASS, FAIL or NOT_APPLICABLE supplies the
+day's `observed_status` and the evaluator is not called; a missing row, or one holding
+UNKNOWN or NEVER_EVALUATED, is no verdict, so the evaluator is called. Grace, probation and
+the streak are worked out from whichever status was used, day by day, as always.
+
 Two limits, argued in misc/AI/seal_backfill_algorithm_1763.md: Official and Stable have no
 history and are read at today's values, and the cold start's error is not bounded by the
 window — so `days_back` is a cost decision, not a correctness guarantee.
@@ -56,6 +62,7 @@ from tasks.seal_of_reliability.backfill.simulation import (
     MAX_TRACE_ROWS,
     check_simulation_fits,
     collapse_runs,
+    is_simulated,
     observe,
     parse_simulation,
     policy_for,
@@ -63,6 +70,7 @@ from tasks.seal_of_reliability.backfill.simulation import (
     trace_row,
 )
 from shared.common.seal_criteria import CriterionStatus, SealCriterionName
+from tasks.seal_of_reliability.evaluators.base import CriterionObservation
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_REPORTED_FEEDS,
@@ -162,6 +170,59 @@ def _find_fully_backfilled_feeds(
         held.setdefault(row.feed_id, set()).add(row.criterion)
     return {
         feed_id for feed_id, criteria_held in held.items() if criteria_held >= wanted
+    }
+
+
+def _load_recorded_observations(
+    db_session: Session,
+    feed_ids: Sequence[str],
+    first_day: date,
+    last_day: date,
+    criteria: Sequence[str],
+) -> Dict[Tuple[str, str, date], CriterionStatus]:
+    """Read the verdicts the nightly job already stored for the days this batch will march.
+
+    Returns a dict keyed by (feed id, criterion, day), holding **verdicts only**: PASS, FAIL
+    and NOT_APPLICABLE. A day the nightly job stored as UNKNOWN or NEVER_EVALUATED is not a
+    verdict and is left out of the dict, exactly like a day it never stored at all.
+
+    So when `_march` looks a day up, there are exactly two cases:
+
+    1. the day **is** in the dict — it uses that status and does not call the evaluator;
+    2. the day **is not** in the dict, either because nothing was stored for it or because
+       what was stored is UNKNOWN or NEVER_EVALUATED — it calls the evaluator as usual.
+
+    Why prefer a stored verdict: the nightly job checked the feed on the day itself, while a
+    backfill can only guess what that day looked like using data available now. When both have
+    an answer, the one taken at the time is the better of the two.
+
+    One query for the whole batch. Doing it per day would be thousands of round trips.
+    """
+    if not feed_ids or not criteria:
+        return {}
+    rows = db_session.execute(
+        select(
+            SNAPSHOT_TABLE.c.feed_id,
+            SNAPSHOT_TABLE.c.criterion,
+            SNAPSHOT_TABLE.c.snapshot_date,
+            SNAPSHOT_TABLE.c.observed_status,
+        ).where(
+            SNAPSHOT_TABLE.c.feed_id.in_(list(feed_ids)),
+            SNAPSHOT_TABLE.c.criterion.in_(sorted(set(criteria))),
+            SNAPSHOT_TABLE.c.snapshot_date.between(first_day, last_day),
+            SNAPSHOT_TABLE.c.observed_status.notin_(
+                [
+                    CriterionStatus.UNKNOWN.value,
+                    CriterionStatus.NEVER_EVALUATED.value,
+                ]
+            ),
+        )
+    ).all()
+    return {
+        (row.feed_id, row.criterion, row.snapshot_date): CriterionStatus(
+            row.observed_status
+        )
+        for row in rows
     }
 
 
@@ -351,9 +412,17 @@ def _march(
     trace_rows: List[dict] = []
     outcomes: List[dict] = []
     criterion_names = [evaluator.name.value for evaluator in evaluators]
-    # One query for the batch rather than one per feed, and taken before anything is
-    # written, so every feed's `had_seal` is the state this run started from.
-    previous_seals = _load_previous_seals(db_session, [feed.id for feed in feeds])
+    # The two queries below run here, before the loop, rather than inside it. Two reasons.
+    # One query for the whole batch instead of one per feed. And the loop commits as it goes,
+    # so a query moved inside it would start seeing rows this very run has written: seals
+    # would look unchanged because we just wrote them, and marched days would look like the
+    # nightly job's observations because we just saved them. Read once up front and both stay
+    # what they were when the run started.
+    feed_ids = [feed.id for feed in feeds]
+    previous_seals = _load_previous_seals(db_session, feed_ids)
+    recorded_observations = _load_recorded_observations(
+        db_session, feed_ids, marched_days[0], end_date, criterion_names
+    )
 
     for feed in feeds:
         feed_start = windows[feed.id][0]
@@ -381,7 +450,25 @@ def _march(
             days_states: List[SealCriterionState] = []
             for evaluator in evaluators:
                 key = (feed.id, evaluator.name.value)
-                observation = observe(evaluator, ctx, simulation, offset)
+                recorded = (
+                    None
+                    if is_simulated(simulation, evaluator, offset)
+                    else recorded_observations.get(
+                        (feed.id, evaluator.name.value, today)
+                    )
+                )
+                if recorded is None:
+                    observation = observe(evaluator, ctx, simulation, offset)
+                else:
+                    # The nightly job read this day on the day itself, so there is nothing to
+                    # reconstruct and the evaluator is not called at all. Only the observation
+                    # is settled this way: grace, probation and the streak are still worked
+                    # out by `transition` below, from this status and the day before it.
+                    observation = CriterionObservation(
+                        criterion=evaluator.name,
+                        observed_status=recorded,
+                        reason=f"recorded: {recorded.value} on {today.isoformat()}",
+                    )
                 # A simulation may lend a criterion a grace period or probation it does not
                 # have, which is the only way Official shows any debouncing at all.
                 grace, probation = policy_for(evaluator, simulation)

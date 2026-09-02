@@ -58,7 +58,7 @@ from tasks.seal_of_reliability.backfill.seal_backfill import (
     resolve_window,
     yesterday_utc,
 )
-from shared.common.seal_criteria import SealCriterionName
+from shared.common.seal_criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.seal_updater import update_seals
 from test_scripted_evaluator import Script, ScriptedEvaluator
@@ -793,6 +793,115 @@ class TestAnInterruptedRunResumesByFeed(MarchTestCase):
         self.assertEqual(report["skipped_already_backfilled"], 1)
         self.assertIn(SealCriterionName.OFFICIAL.value, criterion_rows(casualty))
         self.assertIsNotNone(seal_row(survivor), "the survivor was left alone")
+
+
+class _CountingEvaluator(ScriptedEvaluator):
+    """A scripted evaluator that remembers which days it was asked about."""
+
+    def __init__(self, script):
+        super().__init__(script)
+        self.days_evaluated = []
+
+    def evaluate(self, ctx):
+        self.days_evaluated.append(ctx.now.date())
+        return super().evaluate(ctx)
+
+
+class TestRecordedDaysBeatTheReconstruction(MarchTestCase):
+    """A day the nightly job already observed is used as it was observed.
+
+    The backfill infers a past day from today's data; the nightly job read that day on the
+    day itself. Where both have an answer, the real one is not a candidate to be improved on.
+    """
+
+    RECORDED = MARCH_START + timedelta(days=30)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def record(day, observed, db_session=None):
+        """One `seal_criterion_snapshot` row, as a night of the real job would leave it."""
+        db_session.execute(
+            insert(SealCriterionSnapshot.__table__).values(
+                feed_id=MARCHED,
+                criterion=SealCriterionName.OFFICIAL.value,
+                snapshot_date=day,
+                observed_status=observed,
+                confirmed_status=observed,
+            )
+        )
+        db_session.commit()
+
+    def test_a_recorded_verdict_replaces_the_reconstruction(self):
+        """The script passes every day; the record says that day failed. The record wins."""
+        self.record(self.RECORDED, CriterionStatus.FAIL.value)
+        report = self.march(MARCHED, _script_for([]), trace=True)
+
+        entry = trace_day(report, 30)
+        self.assertEqual(entry["observed_status"], CriterionStatus.FAIL.value)
+        self.assertTrue(entry["recorded"])
+        self.assertEqual(trace_day(report, 29)["observed_status"], "pass")
+
+    def test_the_evaluator_is_not_called_for_a_recorded_day(self):
+        """Nothing to reconstruct, so nothing is reconstructed."""
+        self.record(self.RECORDED, CriterionStatus.PASS.value)
+        evaluator = _CountingEvaluator(_script_for([]))
+        with patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", [evaluator]):
+            backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+            )
+        self.assertNotIn(self.RECORDED, evaluator.days_evaluated)
+        self.assertIn(
+            MARCH_START, evaluator.days_evaluated, "every other day is still evaluated"
+        )
+
+    def test_a_recorded_unknown_falls_through_to_the_evaluator(self):
+        """UNKNOWN is not an observation — it is the record saying it could not tell."""
+        self.record(self.RECORDED, CriterionStatus.UNKNOWN.value)
+        report = self.march(MARCHED, _script_for([30]), trace=True)
+
+        entry = trace_day(report, 30)
+        self.assertEqual(entry["observed_status"], CriterionStatus.FAIL.value)
+        self.assertFalse(entry["recorded"])
+
+    def test_the_streak_carries_the_recorded_day(self):
+        """Only the observation comes from the record; grace and probation still run."""
+        self.record(self.RECORDED, CriterionStatus.FAIL.value)
+        self.march(MARCHED, _script_for([]), trace=True)
+
+        state = self.state_of(MARCHED)
+        self.assertEqual(
+            state["last_observed_failure_at"].astimezone(timezone.utc).date(),
+            self.RECORDED,
+            "the recorded failure reached the state machine",
+        )
+        self.assertIsNone(
+            state["last_confirmed_failure_at"],
+            "one failing day inside a 30-day grace period confirms nothing",
+        )
+
+    def test_a_simulated_day_still_wins_over_the_record(self):
+        """`simulate` asks what the state machine does with a given sequence of statuses.
+
+        A record quietly overriding one of them would answer a question nobody asked.
+        """
+        self.record(self.RECORDED, CriterionStatus.PASS.value)
+        with self.registry(_script_for([])):
+            report = backfill_seals(
+                stable_feed_ids=[MARCHED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=True,
+                simulate={"official": {"fail": [30]}},
+                trace=True,
+            )
+
+        entry = trace_day(report, 30)
+        self.assertEqual(entry["observed_status"], CriterionStatus.FAIL.value)
+        self.assertTrue(entry["simulated"])
+        self.assertFalse(entry["recorded"])
 
 
 class TestResumeFromSnapshot(MarchTestCase):

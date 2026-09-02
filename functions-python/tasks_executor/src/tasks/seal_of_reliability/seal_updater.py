@@ -292,9 +292,9 @@ def _write_snapshot_rows(db_session: Session, payload: Sequence[dict]) -> None:
     """Upsert already-built snapshot rows, which may span several days.
 
     Split out for the backfill, whose march produces a day at a time but should not spend a
-    statement on each: it builds rows with `_snapshot_row` and flushes them in blocks. Rows
-    must be unique on (feed_id, criterion, snapshot_date) within one call, or ON CONFLICT
-    refuses to touch the same row twice — a march never repeats a day, so they are.
+    statement on each: it builds rows with `_snapshot_row` and writes a feed's whole march in
+    one call. Rows must be unique on (feed_id, criterion, snapshot_date) within that call, or
+    ON CONFLICT refuses to touch the same row twice — a march never repeats a day, so they are.
     """
     if not payload:
         return
