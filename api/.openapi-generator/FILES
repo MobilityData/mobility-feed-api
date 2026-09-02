@@ -34,6 +34,9 @@ src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_feed_availability_check.py
 src/feeds_gen/models/gtfs_feed_availability_response.py
+src/feeds_gen/models/gtfs_feed_continuous_coverage.py
+src/feeds_gen/models/gtfs_feed_continuous_coverage_file.py
+src/feeds_gen/models/gtfs_feed_continuous_coverage_response.py
 src/feeds_gen/models/gtfs_rt_feed.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
@@ -49,6 +52,7 @@ src/feeds_gen/models/redirect.py
 src/feeds_gen/models/reliability_criterion.py
 src/feeds_gen/models/search_feed_item_result.py
 src/feeds_gen/models/search_feeds200_response.py
+src/feeds_gen/models/service_date_window.py
 src/feeds_gen/models/source_info.py
 src/feeds_gen/models/validation_report.py
 src/feeds_gen/security_api.py
