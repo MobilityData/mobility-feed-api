@@ -513,8 +513,9 @@ def test_gtfs_feed_reliability_with_criteria(client: TestClient):
     assert body["has_seal"] is False
     assert body["lost_at"] is not None
     assert by_name["official"]["status"] == "pass"
-    # Failing but inside its 30-day grace window: still at-risk rather than a confirmed loss.
-    assert by_name["compliant"]["status"] == "fail"
+    # Failing its daily check but inside its 30-day grace window, so it still counts towards the
+    # seal: `pass` plus the at-risk flag, rather than a confirmed loss.
+    assert by_name["compliant"]["status"] == "pass"
     assert by_name["compliant"]["in_grace_period"] is True
     assert by_name["compliant"]["grace_period_ends_at"] is not None
     # Passing its check yet still serving probation, which is why the feed has no seal.
