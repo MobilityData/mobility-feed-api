@@ -37,4 +37,7 @@
     <!-- Create the isSealFilterEnabled feature flag gating the has_seal search
          filter (issue #1789). -->
     <include file="changes_user/feat_1789.sql" relativeToChangelogFile="true"/>
+    <!-- Add early access program tables: bulk CSV-driven feature-flag grants,
+         including members who have never signed in (product-tasks#213). -->
+    <include file="changes_user/feat_early_access.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

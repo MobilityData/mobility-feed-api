@@ -68,6 +68,7 @@ from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 from tasks.users.reconcile_announcements_from_brevo import (
     reconcile_announcements_from_brevo_handler,
 )
+from tasks.users.purge_early_access_invites import purge_early_access_invites_handler
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
     notifications_dispatch_handler,
@@ -220,6 +221,17 @@ tasks = {
             "Parameters: dry_run (default true), limit (default null)."
         ),
         "handler": reconcile_announcements_from_brevo_handler,
+    },
+    "purge_early_access_invites": {
+        "description": (
+            "Deletes early_access_invited_email rows past their program's "
+            "invite_retention_days (product-tasks#213) - legal/privacy: we must not "
+            "hold the email of someone who never registered. Claiming an invite "
+            "already deletes its row; this sweeps up ones that were never claimed. "
+            "Reports counts per program only, never addresses. "
+            "Parameters: dry_run (default true)."
+        ),
+        "handler": purge_early_access_invites_handler,
     },
     "notifications_dispatch_batch": {
         "description": (

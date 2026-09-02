@@ -63,6 +63,14 @@ class TestGetUserMe(unittest.TestCase):
     def setUp(self):
         self.api = UsersApiImpl()
         self.mock_session = MagicMock()
+        # The get_user hook calls the real apply_invited_email_grants against db_session
+        # unless patched; on a plain MagicMock session that raises (not a query, so
+        # _mock_query_first's dispatch doesn't cover it) and would be silently swallowed by
+        # the hook's own broad except. Patch it explicitly so these tests exercise get_user's
+        # own logic deterministically, not the exception-swallowing path.
+        patcher = patch("user_service.impl.users_api_impl.apply_invited_email_grants", return_value=[])
+        self.mock_apply_invited_email_grants = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_returns_existing_user(self):
         user = _make_user()
@@ -76,6 +84,39 @@ class TestGetUserMe(unittest.TestCase):
         self.assertEqual(result.email, "user@example.com")
         self.assertEqual(result.full_name, "Jane Doe")
         self.assertFalse(result.is_registered_to_receive_api_announcements)
+        self.mock_apply_invited_email_grants.assert_called_once_with(self.mock_session, "uid-123", "user@example.com")
+
+    def test_claim_expires_user_feature_flags_when_something_was_claimed(self):
+        user = _make_user()
+        _mock_query_first(self.mock_session, user)
+        _set_context()
+        self.mock_apply_invited_email_grants.return_value = ["program-1"]
+
+        self.api.get_user(db_session=self.mock_session)
+
+        # An existing user's user_feature_flags was already eagerly loaded above; a claim
+        # just written via a Core insert wouldn't otherwise show up without this.
+        self.mock_session.expire.assert_called_once_with(user, ["user_feature_flags"])
+
+    def test_claim_does_not_expire_user_feature_flags_when_nothing_was_claimed(self):
+        user = _make_user()
+        _mock_query_first(self.mock_session, user)
+        _set_context()
+        self.mock_apply_invited_email_grants.return_value = []
+
+        self.api.get_user(db_session=self.mock_session)
+
+        self.mock_session.expire.assert_not_called()
+
+    def test_claim_failure_does_not_break_get_user(self):
+        user = _make_user()
+        _mock_query_first(self.mock_session, user)
+        _set_context()
+        self.mock_apply_invited_email_grants.side_effect = RuntimeError("boom")
+
+        result = self.api.get_user(db_session=self.mock_session)
+
+        self.assertEqual(result.id, "uid-123")
 
     def test_upserts_new_user_on_first_call(self):
         _mock_query_first(self.mock_session, None)

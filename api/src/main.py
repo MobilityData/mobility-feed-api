@@ -27,6 +27,7 @@ from feeds_gen.apis.search_api import router as SearchApiRouter
 from feeds_gen.apis.licenses_api import router as LicensesApiRouter
 from feeds_gen.apis.locations_api import router as LocationsApiRouter
 from user_service_gen.apis.users_api import router as UsersApiRouter
+from user_service_gen.apis.early_access_api import router as EarlyAccessApiRouter
 from user_service_gen.apis.notifications_api import router as NotificationsApiRouter
 from user_service_gen.apis.subscriptions_api import router as SubscriptionsApiRouter
 
@@ -65,6 +66,7 @@ app.include_router(LocationsApiRouter)
 # synchronous impls (database + Brevo HTTP). Offload them to the threadpool so a
 # slow Brevo call cannot freeze the event loop for every other request.
 app.include_router(offload_blocking_routes(UsersApiRouter))
+app.include_router(offload_blocking_routes(EarlyAccessApiRouter))
 app.include_router(offload_blocking_routes(NotificationsApiRouter))
 app.include_router(offload_blocking_routes(SubscriptionsApiRouter))
 

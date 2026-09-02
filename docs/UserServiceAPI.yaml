@@ -29,6 +29,11 @@ servers:
 tags:
   - name: "users"
     description: "User profile management"
+  - name: "early-access"
+    description: >-
+      Early access programs (e.g. a Summit or GBFS validator beta) grant feature flags in bulk.
+      Enrollment is driven entirely by an operations-run CSV import of invited emails — there is
+      no self-service join endpoint here, only a read of what the current user has been granted.
   - name: "notifications"
     description: "Notification catalog — the notification types a user can subscribe to."
   - name: "subscriptions"
@@ -98,6 +103,35 @@ paths:
           description: Forbidden — insufficient permissions to update this profile.
         "404":
           description: User not found.
+        "500":
+          description: Internal server error.
+
+  /v1/user/early-access:
+    get:
+      summary: List the current user's early access grants
+      description: >
+        Returns the early access programs the authenticated user has been granted, via an
+        invited-email claim or a direct operations grant. Returns an empty array if the user has
+        no grants. There is no self-service join endpoint — enrollment is driven entirely by the
+        operations CSV import (see the Operations API).
+      operationId: getUserEarlyAccess
+      tags:
+        - "early-access"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: The user's early access grants (possibly empty).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EarlyAccessGrant"
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "403":
+          description: Forbidden — guest users have no profile to look up grants for.
         "500":
           description: Internal server error.
 
@@ -682,6 +716,34 @@ components:
         value:
           description: Resolved flag value — the user's override if set, otherwise the global default.
           nullable: true
+
+    EarlyAccessGrant:
+      type: object
+      required:
+        - program_id
+        - program_name
+        - features
+      properties:
+        program_id:
+          type: string
+          description: The early access program's unique identifier.
+          example: "b1f4b0e0-1234-4a11-9c00-early00access"
+        program_name:
+          type: string
+          description: The program's display name.
+          example: "Summit 2026"
+        enrolled_at:
+          type: string
+          format: date-time
+          description: When the user was enrolled in this program.
+        features:
+          type: array
+          description: >
+            This program's feature flags, resolved the same way as `UserProfile.features` (the
+            user's override when set, otherwise the global default).
+          items:
+            $ref: "#/components/schemas/FeatureFlag"
+          default: []
 
   securitySchemes:
     Authentication:
