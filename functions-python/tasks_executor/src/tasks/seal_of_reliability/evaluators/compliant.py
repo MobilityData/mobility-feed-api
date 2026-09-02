@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Compliant criterion: the latest dataset validates with no errors."""
+"""Compliant criterion: the closest dataset validates with no errors."""
 
 from typing import Tuple
 
@@ -23,30 +23,24 @@ from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
 class CompliantEvaluator(CriterionEvaluator):
-    """`total_error = 0` on the latest validation report of the feed's latest dataset.
+    """`total_error = 0` on the latest validation report of the feed's closest dataset.
 
     A dataset with no report yet - unvalidated, or validation lagging publication - is UNKNOWN,
     which freezes the criterion at its last confirmed verdict rather than failing it. So is a feed
     with no dataset: a missing report is not a clean bill of health, nor evidence of one.
-
-    Time-aware, so a backfill (#1782) can replay a past date: "latest dataset" and "latest
-    report" are both resolved by `build_contexts` as of the run's `ctx.now` rather than from the
-    current pointer, so a run for a past date sees the dataset that was being served then and the
-    report that had been produced by then, not today's. The criterion itself only reads what the
-    context handed it, so it needs no clock of its own.
     """
 
     name = SealCriterionName.COMPLIANT
 
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
-        if ctx.latest_dataset is None:
+        if ctx.closest_dataset is None:
             return CriterionStatus.UNKNOWN, "the feed has no dataset"
 
         report = ctx.latest_validation_report
         if report is None:
             return (
                 CriterionStatus.UNKNOWN,
-                f"dataset {ctx.latest_dataset.dataset_id} has no validation report",
+                f"dataset {ctx.closest_dataset.dataset_id} has no validation report",
             )
 
         if report.total_error is None:

@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Fresh (future coverage) criterion: the latest dataset still covers the near future."""
+"""Fresh (future coverage) criterion: the closest dataset still covers the near future."""
 
 from typing import Tuple
 
@@ -27,7 +27,7 @@ from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
 class FreshCoverageEvaluator(CriterionEvaluator):
-    """`latest dataset.service_date_range_end >= now + 7 days`.
+    """`closest_dataset.service_date_range_end >= now + 7 days`.
 
     This is the only implemented criterion that can return NOT_APPLICABLE. A seasonal feed
     is expected to have coverage that runs out between seasons, so the question "does this
@@ -47,14 +47,14 @@ class FreshCoverageEvaluator(CriterionEvaluator):
 
         # Two different missing inputs, kept apart so the report says which: no dataset at
         # all as of this run, or one whose coverage was never extracted.
-        if ctx.latest_dataset is None:
-            return CriterionStatus.UNKNOWN, "the feed has no latest dataset"
+        if ctx.closest_dataset is None:
+            return CriterionStatus.UNKNOWN, "the feed has no dataset"
 
-        coverage_end = ctx.latest_dataset.service_date_range_end
+        coverage_end = ctx.closest_dataset.service_date_range_end
         if coverage_end is None:
             return (
                 CriterionStatus.UNKNOWN,
-                "the latest dataset has no service_date_range_end",
+                "the closest dataset has no service_date_range_end",
             )
 
         horizon = ctx.now + FUTURE_COVERAGE_HORIZON

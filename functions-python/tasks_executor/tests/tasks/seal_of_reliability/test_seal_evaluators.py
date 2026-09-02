@@ -28,7 +28,7 @@ from shared.common.seal_criteria import (
 from tasks.seal_of_reliability.context import (
     AvailabilityCheck,
     FeedSealContext,
-    LatestDataset,
+    ClosestDataset,
     ValidationReport,
 )
 from tasks.seal_of_reliability.evaluators import (
@@ -251,18 +251,18 @@ class TestStable(unittest.TestCase):
 
 
 class TestFreshCoverage(unittest.TestCase):
-    """`latest dataset.service_date_range_end >= now + 7 days`."""
+    """`closest_dataset.service_date_range_end >= now + 7 days`."""
 
     @staticmethod
     def _dataset(coverage_end):
-        return LatestDataset(
+        return ClosestDataset(
             dataset_id="mdb-1-202606010000",
             downloaded_at=NOW - timedelta(days=1),
             service_date_range_end=coverage_end,
         )
 
     def _fresh_ctx(self, coverage_end=NOW + timedelta(days=90), **overrides):
-        defaults = {"latest_dataset": self._dataset(coverage_end)}
+        defaults = {"closest_dataset": self._dataset(coverage_end)}
         defaults.update(overrides)
         return _ctx(**defaults)
 
@@ -306,7 +306,7 @@ class TestFreshCoverage(unittest.TestCase):
         """Applicability is a property of the feed, so it is settled before the inputs."""
         self.assertIs(
             FreshCoverageEvaluator()
-            .evaluate(self._fresh_ctx(seasonal=True, latest_dataset=None))
+            .evaluate(self._fresh_ctx(seasonal=True, closest_dataset=None))
             .observed_status,
             CriterionStatus.NOT_APPLICABLE,
         )
@@ -321,11 +321,13 @@ class TestFreshCoverage(unittest.TestCase):
                     CriterionStatus.PASS,
                 )
 
-    def test_no_latest_dataset_is_unknown(self):
+    def test_no_closest_dataset_is_unknown(self):
         """Not a failure: a feed we have never fetched says nothing about its freshness."""
-        result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(latest_dataset=None))
+        result = FreshCoverageEvaluator().evaluate(
+            self._fresh_ctx(closest_dataset=None)
+        )
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
-        self.assertIn("no latest dataset", result.reason)
+        self.assertIn("no dataset", result.reason)
 
     def test_a_dataset_with_no_coverage_end_is_unknown(self):
         """The other missing input, and the reason has to tell the two apart."""
@@ -392,7 +394,7 @@ class TestAvailable(unittest.TestCase):
 
 
 class TestCompliant(unittest.TestCase):
-    """`total_error = 0` on the latest validation report of the feed's latest dataset."""
+    """`total_error = 0` on the latest validation report of the feed's closest dataset."""
 
     DATASET_ID = "mdb-1-202605280000"
 
@@ -410,14 +412,14 @@ class TestCompliant(unittest.TestCase):
             else None
         )
         dataset = (
-            LatestDataset(
+            ClosestDataset(
                 dataset_id=self.DATASET_ID,
                 downloaded_at=NOW - timedelta(hours=2),
             )
             if with_dataset
             else None
         )
-        defaults = {"latest_validation_report": report, "latest_dataset": dataset}
+        defaults = {"latest_validation_report": report, "closest_dataset": dataset}
         defaults.update(overrides)
         return _ctx(**defaults)
 
@@ -440,7 +442,7 @@ class TestCompliant(unittest.TestCase):
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("no dataset", result.reason)
 
-    def test_an_unvalidated_latest_dataset_is_unknown(self):
+    def test_an_unvalidated_closest_dataset_is_unknown(self):
         """The case that keeps a never-validated feed off a confirmed failure.
 
         Validation lags publication, so a feed publishing faster than the validator sits at

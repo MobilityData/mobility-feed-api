@@ -170,7 +170,7 @@ TRACKING_PERIOD: Final[timedelta] = timedelta(days=180)
 # Available: how far back to look for an availability check
 AVAILABILITY_LOOKBACK: Final[timedelta] = timedelta(hours=24)
 
-# Fresh / future coverage: how far ahead the latest dataset's service coverage must reach
+# Fresh / future coverage: how far ahead the closest dataset's service coverage must reach
 FUTURE_COVERAGE_HORIZON: Final[timedelta] = timedelta(days=7)
 
 

@@ -218,7 +218,7 @@ def _seed_dataset(
     """Give the feed a dataset covering up to `coverage_end` (None = never extracted).
 
     `latest_dataset_id` is pointed at it too, so a test that only seeds one dataset matches
-    what the catalog looks like. The criterion resolves the latest dataset from
+    what the catalog looks like. The criterion resolves the closest dataset from
     `downloaded_at` rather than from that pointer, which is what the two-dataset tests below
     exercise.
     """
@@ -518,16 +518,16 @@ class TestBuildContexts(SealDbTestCase):
         """The bulk load misses, and the context says so rather than guessing a value."""
         feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNone(ctx.latest_dataset)
+        self.assertIsNone(ctx.closest_dataset)
 
     @with_db_session(db_url=default_db_url)
-    def test_the_latest_dataset_coverage_is_loaded(self, db_session):
+    def test_the_closest_dataset_coverage_is_loaded(self, db_session):
         _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertEqual(ctx.latest_dataset.dataset_id, f"{TRACKED}_dataset")
+        self.assertEqual(ctx.closest_dataset.dataset_id, f"{TRACKED}_dataset")
         self.assertEqual(
-            ctx.latest_dataset.service_date_range_end, NOW + timedelta(days=90)
+            ctx.closest_dataset.service_date_range_end, NOW + timedelta(days=90)
         )
 
     @with_db_session(db_url=default_db_url)
@@ -536,13 +536,13 @@ class TestBuildContexts(SealDbTestCase):
         _seed_dataset(db_session, TRACKED, coverage_end=None)
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNotNone(ctx.latest_dataset, "the dataset is there ...")
+        self.assertIsNotNone(ctx.closest_dataset, "the dataset is there ...")
         self.assertIsNone(
-            ctx.latest_dataset.service_date_range_end, "... its coverage end is not"
+            ctx.closest_dataset.service_date_range_end, "... its coverage end is not"
         )
 
     @with_db_session(db_url=default_db_url)
-    def test_the_latest_dataset_is_resolved_as_of_now(self, db_session):
+    def test_the_closest_dataset_is_resolved_as_of_now(self, db_session):
         """A replay must not see a dataset published after the day it is evaluating.
 
         `gtfsfeed.latest_dataset_id` points at the newest dataset that exists today, so
@@ -567,7 +567,7 @@ class TestBuildContexts(SealDbTestCase):
 
         as_of_now = build_contexts(db_session, feeds, NOW)[feeds[0].id]
         self.assertEqual(
-            as_of_now.latest_dataset.service_date_range_end,
+            as_of_now.closest_dataset.service_date_range_end,
             NOW + timedelta(days=5),
             "the newer dataset had not been downloaded yet",
         )
@@ -575,7 +575,7 @@ class TestBuildContexts(SealDbTestCase):
         later = NOW + timedelta(days=20)
         as_of_later = build_contexts(db_session, feeds, later)[feeds[0].id]
         self.assertEqual(
-            as_of_later.latest_dataset.service_date_range_end,
+            as_of_later.closest_dataset.service_date_range_end,
             NOW + timedelta(days=400),
             "by then it had",
         )
@@ -654,12 +654,12 @@ class TestBuildContexts(SealDbTestCase):
         _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNotNone(ctx.latest_dataset, "the dataset is there ...")
+        self.assertIsNotNone(ctx.closest_dataset, "the dataset is there ...")
         self.assertIsNone(ctx.latest_validation_report, "... a report is not")
 
     @with_db_session(db_url=default_db_url)
     def test_a_report_on_a_superseded_dataset_is_not_loaded(self, db_session):
-        """The report is the latest dataset's, so an older dataset's report is not it.
+        """The report is the closest dataset's, so an older dataset's report is not it.
 
         Validation lags publication, so the newest dataset may have no report yet. That is
         left as "no report" rather than backfilled from the dataset before it: the criterion
@@ -685,7 +685,7 @@ class TestBuildContexts(SealDbTestCase):
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
 
-        self.assertEqual(ctx.latest_dataset.dataset_id, f"{TRACKED}_dataset_newest")
+        self.assertEqual(ctx.closest_dataset.dataset_id, f"{TRACKED}_dataset_newest")
         self.assertIsNone(
             ctx.latest_validation_report,
             "the older dataset's report does not describe what is being served",
@@ -748,7 +748,7 @@ class TestBuildContexts(SealDbTestCase):
         db_session.commit()
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNone(ctx.latest_dataset)
+        self.assertIsNone(ctx.closest_dataset)
 
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
@@ -1504,7 +1504,7 @@ class TestFullRegistry(SealDbTestCase):
         self.assertEqual(self.derived_seal_status(TRACKED), SealStatus.GRANTED.value)
         self.assertTrue(seal.has_seal)
 
-    def test_compliant_reads_the_latest_report_of_the_latest_dataset(self):
+    def test_compliant_reads_the_latest_report_of_the_closest_dataset(self):
         """Several validator versions run against one dataset; the newest one decides."""
         self.seed_dataset(TRACKED, self.FAR_FUTURE)
         self.seed_availability_check(TRACKED, success=True)
