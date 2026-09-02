@@ -326,7 +326,8 @@ tasks = {
             "end_date (ISO date, default yesterday UTC), days_back (default 365), "
             "dry_run (default true), limit (default null), criteria (default null "
             "meaning every implemented criterion), batch_size (default 200), "
-            "only_missing (default true; skips feeds that already have seal state), "
+            "only_missing (default true; skips feeds already holding every criterion "
+            "of the run, so re-running finishes an interrupted one), "
             "snapshot_mode (final|all|none, default final), resume_from_snapshot "
             "(default false; the #1803 hook), max_reported_feeds (default 50)."
         ),
@@ -335,8 +336,9 @@ tasks = {
     "seal_backfill_orchestrator": {
         "description": (
             "Cloud Tasks producer for the Seal of Reliability backfill across the whole "
-            "catalog (issue #1763). Resolves every seal-eligible GTFS feed that has no "
-            "seal state yet, chunks it, registers a run in TaskExecutionTracker (feeds "
+            "catalog (issue #1763). Resolves every seal-eligible GTFS feed not yet "
+            "holding all of the run's criteria, chunks it, registers a run in "
+            "TaskExecutionTracker (feeds "
             "DB), and enqueues one 'seal_backfill_worker' task per batch plus a single "
             "'seal_orchestrator_monitor' barrier task. The window is resolved here once "
             "and passed to every worker, so all batches of a run end on the same day. "

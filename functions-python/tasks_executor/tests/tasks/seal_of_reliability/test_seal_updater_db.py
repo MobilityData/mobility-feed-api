@@ -40,7 +40,7 @@ from tasks.seal_of_reliability.evaluators import (
 from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageInputs
 from tasks.seal_of_reliability.seal_updater import update_seals
 from tasks.seal_of_reliability.state_machine import SealCriterionState
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
@@ -372,6 +372,60 @@ class TestEligibilityQuery(SealDbTestCase):
             )
         )
         self.assertEqual(batches, [[OFFICIAL]])
+
+    @with_db_session(db_url=default_db_url)
+    def test_exclude_backfilled_drops_a_feed_holding_every_required_criterion(
+        self, db_session
+    ):
+        """The producer half of the backfill's resume rule (#1763).
+
+        A feed holding all of them finished; one holding some of them was interrupted, and
+        has to be handed out again. Without `required_criteria` any row still excludes it,
+        which is what a caller that does not know the run's criteria gets.
+        """
+        table = SealCriterion.__table__
+        db_session.execute(
+            insert(table).values(
+                [
+                    {"feed_id": OFFICIAL, "criterion": "official"},
+                    {"feed_id": OFFICIAL, "criterion": "stable"},
+                    {"feed_id": TRACKED, "criterion": "official"},
+                ]
+            )
+        )
+        db_session.commit()
+
+        def eligible(**kwargs):
+            return {
+                stable_id
+                for batch in iter_eligible_stable_ids(
+                    db_session,
+                    batch_size=10,
+                    stable_feed_ids=[OFFICIAL, TRACKED, INACTIVE],
+                    exclude_backfilled=True,
+                    **kwargs,
+                )
+                for stable_id in batch
+            }
+
+        wanted = ["official", "stable"]
+        found = eligible(required_criteria=wanted)
+        self.assertNotIn(OFFICIAL, found, "holds both, so it is finished")
+        self.assertIn(TRACKED, found, "holds one of two, so it marches again")
+        self.assertIn(INACTIVE, found, "holds none")
+        self.assertEqual(
+            count_eligible_feeds(
+                db_session,
+                stable_feed_ids=[OFFICIAL, TRACKED, INACTIVE],
+                exclude_backfilled=True,
+                required_criteria=wanted,
+            ),
+            len(found),
+            "the count and the stream apply one predicate",
+        )
+        self.assertNotIn(
+            TRACKED, eligible(), "without the criteria, any row still excludes a feed"
+        )
 
     def test_batch_size_must_be_positive(self):
         """The raise happens before any DB access, so a MagicMock db_session suffices.

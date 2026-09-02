@@ -150,6 +150,31 @@ class TestBackfillOrchestrator(unittest.TestCase):
     @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=3)
+    def test_the_producer_asks_for_the_criteria_the_workers_will_march(
+        self, count_mock, iter_mock, enqueue_mock, start_run_mock
+    ):
+        """Both ends must agree on what "already backfilled" means, or a feed left short by
+        an interrupted run would never be handed out again."""
+        from tasks.seal_of_reliability.backfill.seal_backfill_orchestrator import (
+            seal_backfill_orchestrator_handler,
+        )
+
+        iter_mock.return_value = iter([["mdb-1"]])
+        seal_backfill_orchestrator_handler(
+            {
+                "dry_run": False,
+                "end_date": END.isoformat(),
+                "criteria": ["official"],
+            }
+        )
+
+        self.assertEqual(count_mock.call_args.kwargs["required_criteria"], ["official"])
+        self.assertEqual(iter_mock.call_args.kwargs["required_criteria"], ["official"])
+
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
+    @patch(f"{_PLAN}.iter_eligible_stable_ids")
+    @patch(f"{_PLAN}.count_eligible_feeds", return_value=3)
     def test_only_missing_false_widens_it(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock
     ):

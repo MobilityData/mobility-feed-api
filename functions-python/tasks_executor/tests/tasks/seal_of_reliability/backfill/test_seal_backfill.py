@@ -44,7 +44,11 @@ from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
     get_parameters,
 )
 from tasks.seal_of_reliability.backfill.simulation import TRACED_STATE_FIELDS
-from tasks.seal_of_reliability.seal_updater import SNAPSHOT_STATE_COLUMNS
+from tasks.seal_of_reliability.seal_updater import (
+    SNAPSHOT_STATE_COLUMNS,
+    _upsert_criteria,
+    _write_snapshot_rows,
+)
 from tasks.seal_of_reliability.backfill.seal_backfill import (
     DEFAULT_DAYS_BACK,
     backfill_seals,
@@ -55,6 +59,7 @@ from tasks.seal_of_reliability.backfill.seal_backfill import (
     yesterday_utc,
 )
 from shared.common.seal_criteria import SealCriterionName
+from tasks.seal_of_reliability.evaluators import EVALUATORS
 from tasks.seal_of_reliability.seal_updater import update_seals
 from test_scripted_evaluator import Script, ScriptedEvaluator
 from test_shared.test_utils.database_utils import default_db_url
@@ -63,7 +68,8 @@ PREFIX = "seal_bf_"
 OLD = f"{PREFIX}old"  # created well before any window we test
 YOUNG = f"{PREFIX}young"  # created inside the window, so its march is clamped
 DEPRECATED = f"{PREFIX}deprecated"  # not seal-eligible
-ALREADY = f"{PREFIX}already"  # already has seal state
+ALREADY = f"{PREFIX}already"  # holds every criterion: a finished feed
+PARTIAL = f"{PREFIX}partial"  # holds one criterion: interrupted, so not finished
 
 END = date(2026, 6, 1)
 START = date(2025, 6, 1)
@@ -218,9 +224,20 @@ class BackfillDbTestCase(unittest.TestCase):
         _seed_feed(db_session, YOUNG, YOUNG_CREATED)
         _seed_feed(db_session, DEPRECATED, OLD_CREATED, status="deprecated")
         _seed_feed(db_session, ALREADY, OLD_CREATED)
+        _seed_feed(db_session, PARTIAL, OLD_CREATED)
+        # ALREADY finished: a row for every criterion the run evaluates. PARTIAL was
+        # interrupted after one, which is what `only_missing` has to tell apart.
         db_session.execute(
             insert(SealCriterion.__table__).values(
-                feed_id=ALREADY, criterion="official"
+                [
+                    {"feed_id": ALREADY, "criterion": evaluator.name.value}
+                    for evaluator in EVALUATORS
+                ]
+            )
+        )
+        db_session.execute(
+            insert(SealCriterion.__table__).values(
+                feed_id=PARTIAL, criterion="official"
             )
         )
         db_session.commit()
@@ -282,6 +299,33 @@ class TestBackfillPlan(BackfillDbTestCase):
         self.assertEqual(report["total_feeds"], 1)
         self.assertEqual(report["skipped_already_backfilled"], 1)
         self.assertEqual([entry["stable_id"] for entry in report["feeds"]], [OLD])
+
+    def test_only_missing_re_marches_a_feed_left_half_written(self):
+        """The resume rule: holding some of the run's criteria is not holding them all.
+
+        A feed committed by an interrupted run — or by an earlier run filtered to fewer
+        criteria — has to march again, or the criteria it never got would stay missing.
+        """
+        report = backfill_seals(
+            stable_feed_ids=[PARTIAL, ALREADY],
+            start_date=START,
+            end_date=END,
+            dry_run=True,
+        )
+        self.assertEqual([entry["stable_id"] for entry in report["feeds"]], [PARTIAL])
+        self.assertEqual(report["skipped_already_backfilled"], 1)
+
+    def test_only_missing_counts_a_partial_feed_as_done_for_the_criteria_it_holds(self):
+        """Narrowed to `official` alone, PARTIAL is finished: it holds that one."""
+        report = backfill_seals(
+            stable_feed_ids=[PARTIAL],
+            start_date=START,
+            end_date=END,
+            dry_run=True,
+            criteria=["official"],
+        )
+        self.assertEqual(report["total_feeds"], 0)
+        self.assertEqual(report["skipped_already_backfilled"], 1)
 
     def test_only_missing_false_re_backfills(self):
         report = backfill_seals(
@@ -589,6 +633,16 @@ class TestMarchWrites(MarchTestCase):
         self.march(MARCHED, _script_for([20]), snapshot_mode="all")
         self.assertEqual(snapshot_days(MARCHED), days_between(MARCH_START, MARCH_END))
 
+    def test_snapshot_mode_all_writes_the_march_in_one_statement(self):
+        """Collecting the days is a round-trip saving, not a filter: they all arrive."""
+        with patch(
+            "tasks.seal_of_reliability.backfill.seal_backfill._write_snapshot_rows",
+            side_effect=_write_snapshot_rows,
+        ) as write_mock:
+            self.march(MARCHED, _script_for([20]), snapshot_mode="all")
+        self.assertEqual(snapshot_days(MARCHED), days_between(MARCH_START, MARCH_END))
+        self.assertEqual(write_mock.call_count, 1, "one feed, one statement")
+
     def test_snapshot_mode_none_records_nothing(self):
         self.march(MARCHED, _script_for([20]), snapshot_mode="none")
         self.assertEqual(snapshot_days(MARCHED), [])
@@ -675,6 +729,70 @@ class TestFeedYoungerThanTheWindow(MarchTestCase):
         self.assertEqual([entry["stable_id"] for entry in report["feeds"]], [MARCHED])
         self.assertEqual(report["total_feeds"], 1)
         self.assertEqual(report["skipped_created_after_end_date"], 1)
+
+
+class TestAnInterruptedRunResumesByFeed(MarchTestCase):
+    """A run that dies mid-batch leaves whole feeds behind, and a rerun finishes the rest.
+
+    The crash is staged on the second feed's `_upsert_criteria`, which is the first statement
+    of that feed's transaction — the worst moment for the feed being written, and the one that
+    proves the previous feed was already committed rather than merely staged.
+    """
+
+    def _crash_on_the_second_feed(self):
+        marched = []
+        real = _upsert_criteria
+
+        def upsert_then_die(db_session, states, now):
+            marched.append(states)
+            if len(marched) > 1:
+                raise RuntimeError("the worker died mid-batch")
+            return real(db_session, states, now)
+
+        with self.registry(_script_for([])), patch(
+            "tasks.seal_of_reliability.backfill.seal_backfill._upsert_criteria",
+            upsert_then_die,
+        ):
+            with self.assertRaises(RuntimeError):
+                backfill_seals(
+                    stable_feed_ids=[MARCHED, REPLAYED],
+                    start_date=MARCH_START,
+                    end_date=MARCH_END,
+                    dry_run=False,
+                )
+        # Feed order comes from the database, so the survivor is whichever went first.
+        written = [
+            stable_id for stable_id in (MARCHED, REPLAYED) if criterion_rows(stable_id)
+        ]
+        self.assertEqual(len(written), 1, "exactly one feed should have survived")
+        survivor = written[0]
+        return survivor, MARCHED if survivor == REPLAYED else REPLAYED
+
+    def test_the_finished_feed_is_committed_whole(self):
+        survivor, _ = self._crash_on_the_second_feed()
+        self.assertIn(SealCriterionName.OFFICIAL.value, criterion_rows(survivor))
+        self.assertIsNotNone(
+            seal_row(survivor), "its seal row is in the same transaction"
+        )
+
+    def test_the_interrupted_feed_is_not_half_written(self):
+        _, casualty = self._crash_on_the_second_feed()
+        self.assertEqual(criterion_rows(casualty), {})
+        self.assertIsNone(seal_row(casualty))
+
+    def test_a_rerun_picks_up_exactly_what_is_left(self):
+        survivor, casualty = self._crash_on_the_second_feed()
+        with self.registry(_script_for([])):
+            report = backfill_seals(
+                stable_feed_ids=[MARCHED, REPLAYED],
+                start_date=MARCH_START,
+                end_date=MARCH_END,
+                dry_run=False,
+            )
+        self.assertEqual([entry["stable_id"] for entry in report["feeds"]], [casualty])
+        self.assertEqual(report["skipped_already_backfilled"], 1)
+        self.assertIn(SealCriterionName.OFFICIAL.value, criterion_rows(casualty))
+        self.assertIsNotNone(seal_row(survivor), "the survivor was left alone")
 
 
 class TestResumeFromSnapshot(MarchTestCase):

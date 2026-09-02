@@ -84,7 +84,8 @@ def backfill_seal_of_reliability_handler(payload: dict) -> dict:
         limit            cap the number of feeds. Default: no limit
         criteria         restrict to these criteria. Default: every implemented one
         batch_size       Default: 200
-        only_missing     skip feeds that already have seal state. Default: True
+        only_missing     skip feeds already holding every criterion of the run, which is
+                         also how an interrupted run resumes. Default: True
         snapshot_mode    final | all | none. Default: final
         resume_from_snapshot  seed from the snapshot before march_start (#1803).
                          Default: False

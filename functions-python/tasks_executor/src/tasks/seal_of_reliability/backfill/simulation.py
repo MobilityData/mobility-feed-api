@@ -61,7 +61,9 @@ TICKING_FIELDS: frozenset = frozenset(
 )
 
 # Cap on the trace one call returns: a year x a batch x six criteria is a response Cloud
-# Logging would drop.
+# Logging would drop. The march is feed-major, so hitting the cap drops the last feeds of the
+# batch entirely rather than the last days of every feed — whichever feeds it does report,
+# it reports whole.
 MAX_TRACE_ROWS: int = 2000
 
 # Payload keys that do something other than name days. Status names are a closed set, so
@@ -256,8 +258,8 @@ def check_simulation_fits(
         # usual cause.
         raise ValueError(
             "Nothing to simulate: no feed was selected for this run. If the feeds already "
-            "have seal state, only_missing (default true) excludes them — pass "
-            "only_missing=false to march them again."
+            "hold every criterion of the run, only_missing (default true) excludes them — "
+            "pass only_missing=false to march them again."
         )
     for criterion, forced in simulation.items():
         beyond = sorted(offset for offset in forced.days if offset >= longest_march)
@@ -336,7 +338,8 @@ def collapse_runs(rows: Sequence[dict]) -> List[dict]:
 
     Each run reports its first day, its last, and the count between, so the boundaries stay
     exact while the middle goes. Grouped by feed and criterion first: the march emits rows
-    day-major, so neighbours in the flat list are different feeds, not consecutive days.
+    feed-major but criterion-interleaved, so neighbours in the flat list are different
+    criteria of the same day, not consecutive days.
     """
     grouped: Dict[Tuple[str, str], List[dict]] = {}
     for row in rows:

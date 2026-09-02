@@ -60,6 +60,7 @@ from tasks.seal_of_reliability.context import (
     iter_eligible_stable_ids,
 )
 from tasks.seal_of_reliability.fanout import FanoutSpec, plan_fanout
+from tasks.seal_of_reliability.seal_updater import _resolve_evaluators
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,12 @@ def _plan_run(
         "resume_from_snapshot": resume_from_snapshot,
     }
 
+    # The same criteria the workers will march, so "already backfilled" means the same thing
+    # at both ends: a feed left short by an interrupted run is handed out again.
+    required_criteria = [
+        evaluator.name.value for evaluator in _resolve_evaluators(criteria)
+    ]
+
     plan = plan_fanout(
         db_session,
         SPEC,
@@ -151,6 +158,7 @@ def _plan_run(
             stable_feed_ids=stable_feed_ids,
             limit=limit,
             exclude_backfilled=only_missing,
+            required_criteria=required_criteria,
         ),
         iter_batches=lambda session, size: iter_eligible_stable_ids(
             session,
@@ -158,6 +166,7 @@ def _plan_run(
             stable_feed_ids=stable_feed_ids,
             limit=limit,
             exclude_backfilled=only_missing,
+            required_criteria=required_criteria,
         ),
         build_worker_payload=lambda run_id, batch_id, ids: {
             "run_id": run_id,

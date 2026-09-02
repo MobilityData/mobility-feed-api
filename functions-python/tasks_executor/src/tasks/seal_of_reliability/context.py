@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import SealCriterionName
@@ -111,6 +111,7 @@ def _eligible_stable_ids_query(
     db_session: Session,
     stable_feed_ids: Optional[Sequence[str]] = None,
     exclude_backfilled: bool = False,
+    required_criteria: Optional[Sequence[str]] = None,
 ):
     """Base query: `stable_id` of every seal-eligible GTFS feed.
 
@@ -122,6 +123,13 @@ def _eligible_stable_ids_query(
     producer's candidate set (#1763): a feed the nightly job already owns has real history
     to carry forward and must not have a march written over it. It lives here rather
     than in the producer so both the count and the stream apply one predicate.
+
+    `required_criteria` makes that "done" test complete rather than merely present: a feed
+    is excluded only once it holds a row for **every** criterion the run evaluates. A feed
+    holding some of them was left half-done — by a crash between two feeds' commits, or by
+    an earlier run filtered to fewer criteria — and marching it again is the point. Left
+    `None`, any row excludes the feed, which is the older behaviour and what a caller that
+    does not know the run's criteria still gets.
     """
     query = db_session.query(Gtfsfeed.stable_id).filter(
         Feed.status.notin_(INELIGIBLE_STATUSES),
@@ -130,10 +138,25 @@ def _eligible_stable_ids_query(
     if stable_feed_ids is not None:
         query = query.filter(Feed.stable_id.in_(list(stable_feed_ids)))
     if exclude_backfilled:
-        has_state = select(SealCriterion.__table__.c.feed_id).where(
-            SealCriterion.__table__.c.feed_id == Feed.id
-        )
-        query = query.filter(~has_state.exists())
+        criterion_rows = SealCriterion.__table__
+        if required_criteria:
+            wanted = sorted(set(required_criteria))
+            # Correlated count rather than EXISTS: "holds all of them" is not a row-level
+            # predicate. Indexed by the (feed_id, criterion) primary key.
+            complete = (
+                select(func.count(distinct(criterion_rows.c.criterion)))
+                .where(
+                    criterion_rows.c.feed_id == Feed.id,
+                    criterion_rows.c.criterion.in_(wanted),
+                )
+                .scalar_subquery()
+            )
+            query = query.filter(complete < len(wanted))
+        else:
+            has_state = select(criterion_rows.c.feed_id).where(
+                criterion_rows.c.feed_id == Feed.id
+            )
+            query = query.filter(~has_state.exists())
     return query
 
 
@@ -142,12 +165,14 @@ def count_eligible_feeds(
     stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
     exclude_backfilled: bool = False,
+    required_criteria: Optional[Sequence[str]] = None,
 ) -> int:
     """Cheap `COUNT(*)` of eligible feeds — no rows loaded."""
     query = _eligible_stable_ids_query(
         db_session,
         stable_feed_ids=stable_feed_ids,
         exclude_backfilled=exclude_backfilled,
+        required_criteria=required_criteria,
     )
     if limit is not None:
         query = query.limit(limit)
@@ -160,6 +185,7 @@ def iter_eligible_stable_ids(
     stable_feed_ids: Optional[Sequence[str]] = None,
     limit: Optional[int] = None,
     exclude_backfilled: bool = False,
+    required_criteria: Optional[Sequence[str]] = None,
 ) -> Iterator[List[str]]:
     """Stream eligible feeds' `stable_id`s in chunks of at most `batch_size`.
 
@@ -174,6 +200,7 @@ def iter_eligible_stable_ids(
             db_session,
             stable_feed_ids=stable_feed_ids,
             exclude_backfilled=exclude_backfilled,
+            required_criteria=required_criteria,
         )
         .order_by(Gtfsfeed.stable_id)
         .execution_options(stream_results=True)

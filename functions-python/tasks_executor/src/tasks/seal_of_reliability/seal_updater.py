@@ -283,10 +283,22 @@ def _upsert_criterion_snapshot(
     adding one — the number of runs in a day leaves no trace. Earlier days are never touched
     by a run evaluating a later one; they are the record.
     """
-    if not states:
+    _write_snapshot_rows(
+        db_session, [_snapshot_row(state, snapshot_date) for state in states]
+    )
+
+
+def _write_snapshot_rows(db_session: Session, payload: Sequence[dict]) -> None:
+    """Upsert already-built snapshot rows, which may span several days.
+
+    Split out for the backfill, whose march produces a day at a time but should not spend a
+    statement on each: it builds rows with `_snapshot_row` and flushes them in blocks. Rows
+    must be unique on (feed_id, criterion, snapshot_date) within one call, or ON CONFLICT
+    refuses to touch the same row twice — a march never repeats a day, so they are.
+    """
+    if not payload:
         return
-    payload = [_snapshot_row(state, snapshot_date) for state in states]
-    statement = insert(SNAPSHOT_TABLE).values(payload)
+    statement = insert(SNAPSHOT_TABLE).values(list(payload))
     db_session.execute(
         statement.on_conflict_do_update(
             index_elements=[
