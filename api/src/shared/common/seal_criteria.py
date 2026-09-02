@@ -14,7 +14,7 @@ See #1761 for the algorithm and #1760 for the tables.
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Final, Optional
+from typing import Dict, Final, Iterable, Optional, Tuple
 
 from shared.common.error_handling import raise_internal_http_error, unknown_seal_criterion
 
@@ -59,6 +59,20 @@ class CriterionStatus(str, Enum):
     def is_verdict(self) -> bool:
         """True for PASS and FAIL - the two values that mean the check actually answered."""
         return self in (CriterionStatus.PASS, CriterionStatus.FAIL)
+
+
+class SealStatus(str, Enum):
+    """The feed-level seal outcome."""
+
+    GRANTED = "granted"
+    NOT_GRANTED = "not_granted"
+    UNKNOWN = "unknown"
+    NEVER_EVALUATED = "never_evaluated"
+
+    @property
+    def is_answer(self) -> bool:
+        """True for GRANTED and NOT_GRANTED - the two values that actually decide the seal."""
+        return self in (SealStatus.GRANTED, SealStatus.NOT_GRANTED)
 
 
 class CriterionPhase(str, Enum):
@@ -111,11 +125,52 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 )
 
 
+def roll_up_seal_status(
+    criteria: Iterable[Tuple[CriterionStatus, bool]],
+) -> SealStatus:
+    """The feed-level seal outcome from its criteria.
+    * every criterion NEVER_EVALUATED or NOT_APPLICABLE -> seal NEVER_EVALUATED.
+    * any criterion failing or on probation -> seal NOT_GRANTED, whatever the rest say.
+    * any remaining criterion NEVER_EVALUATED -> seal UNKNOWN.
+    * otherwise every criterion is a confirmed pass and none is on probation -> seal GRANTED.
+    """
+    in_scope = [
+        (confirmed_status, on_probation)
+        for confirmed_status, on_probation in criteria
+        if confirmed_status is not CriterionStatus.NOT_APPLICABLE
+    ]
+    if not in_scope:
+        # Every criterion is NOT_APPLICABLE, so there is nothing left to judge the feed by.
+        return SealStatus.NEVER_EVALUATED
+
+    unjudged = sum(1 for confirmed_status, _ in in_scope if confirmed_status is CriterionStatus.NEVER_EVALUATED)
+    if unjudged == len(in_scope):
+        # All criteria are either NOT_APPLICABLE or NEVER_EVALUATED: nothing to judge the feed by.
+        return SealStatus.NEVER_EVALUATED
+
+    # One criterion is enough to deny the seal, so this is decidable even with the rest unjudged.
+    # A pass on probation denies it too: probation withholds the criterion whatever its status.
+    denied = any(
+        confirmed_status is CriterionStatus.FAIL or (confirmed_status is CriterionStatus.PASS and on_probation)
+        for confirmed_status, on_probation in in_scope
+    )
+    if denied:
+        return SealStatus.NOT_GRANTED
+    if unjudged:
+        # Nothing denies the seal, but not everything has been judged: it cannot be granted yet.
+        return SealStatus.UNKNOWN
+
+    return SealStatus.GRANTED
+
+
 # Stable: how long we must have been tracking a feed - measured from its
 # `feed.created_at` - before it can be called stable.
 TRACKING_PERIOD: Final[timedelta] = timedelta(days=180)
 
-# Fresh / future coverage: how far ahead the latest dataset's service coverage must reach
+# Available: how far back to look for an availability check
+AVAILABILITY_LOOKBACK: Final[timedelta] = timedelta(hours=24)
+
+# Fresh / future coverage: how far ahead the closest dataset's service coverage must reach
 FUTURE_COVERAGE_HORIZON: Final[timedelta] = timedelta(days=7)
 
 

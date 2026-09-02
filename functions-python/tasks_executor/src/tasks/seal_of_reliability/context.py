@@ -18,12 +18,16 @@
 The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
 feeds happens here, in a fixed number of queries regardless of batch size.
 
-Official, Stable and Fresh (future coverage) are implemented. Official and Stable read the
-feed row alone; Fresh needs one bulk-loaded extra, the feed's latest dataset. Each new
-criterion adds the fields it needs here plus, where they are not already on the feed row, one
-bulk query to populate them: the latest dataset's validation report for Compliant, the day's
-availability rows for Available, the full dataset coverage history for Fresh continuous
-coverage.
+Official, Stable, Fresh (future coverage), Available and Compliant are implemented. Official
+and Stable read the feed row alone; Fresh needs one bulk-loaded extra, the feed's latest
+dataset; Available needs the run window's availability rows and Compliant the closest dataset's
+validation report. Each new criterion adds the fields it needs here plus, where they are not
+already on the feed row, one bulk query to populate them - Fresh continuous coverage would add
+the full dataset coverage history.
+
+Every query here is bounded by the run's `now` rather than reading a "current" pointer column,
+so a run replayed for a past date sees the state as it was then. That is what lets a backfill
+(#1782) reconstruct history with the same evaluators.
 """
 
 import itertools
@@ -34,13 +38,43 @@ from typing import Dict, Iterator, List, Optional, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset, Gtfsfeed
+from shared.common.seal_criteria import AVAILABILITY_LOOKBACK
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
+    Gtfsfeed,
+    Validationreport,
+    t_validationreportgtfsdataset,
+)
 
 
 @dataclass(frozen=True)
-class LatestDataset:
+class AvailabilityCheck:
+    """The latest availability check for a feed within the run's window."""
+
+    checked_at: datetime
+    success: bool
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+    """The latest validation report of the feed's closest dataset, as of the run's `now`."""
+
+    report_id: str
+    dataset_id: str
+    validated_at: datetime
+    total_error: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ClosestDataset:
     """
-    The feed's latest dataset as of the run's `now`, and the fields criteria read off it.
+    The feed's dataset closest to the run's `now`, and the fields criteria read off it.
+
+    "Closest" means closest at or before `now` - the dataset being served at that instant.
+    Never a later one, however near: a run for a past date must not see a dataset that had
+    not been downloaded yet.
     """
 
     dataset_id: str
@@ -69,8 +103,14 @@ class FeedSealContext:
     # Stable: when the feed was first added to the database.
     feed_created_at: Optional[datetime] = None
 
-    # The feed's latest dataset as of `now` - resolved by `downloaded_at` vs `now`
-    latest_dataset: Optional[LatestDataset] = None
+    # The feed's closest dataset as of `now` - resolved by `downloaded_at` vs `now`
+    closest_dataset: Optional[ClosestDataset] = None
+
+    # Available: the latest availability check in the window this run covers.
+    availability_check: Optional[AvailabilityCheck] = None
+
+    # Compliant: the latest validation report of the dataset in `closest_dataset`.
+    latest_validation_report: Optional[ValidationReport] = None
 
 
 # Feeds in these statuses, or not published, are never eligible for the seal.
@@ -152,16 +192,16 @@ def iter_eligible_stable_ids(
         yield chunk
 
 
-def _load_latest_datasets(
+def _load_closest_datasets(
     db_session: Session, feed_ids: Sequence[str], now: datetime
-) -> Dict[str, LatestDataset]:
-    """feed_id -> the feed's latest dataset as of `now`, for feeds that had one.
+) -> Dict[str, ClosestDataset]:
+    """feed_id -> the feed's closest dataset as of `now`, for feeds that had one.
 
-    "Latest as of `now`" is the most recently downloaded dataset with
-    `downloaded_at <= now`.
+    "Closest to `now`" is the most recently downloaded dataset with `downloaded_at <= now`
+    - closest looking backwards only, never the nearest in either direction.
 
     A feed missing from the result had no dataset at all as of `now`. That is deliberately
-    distinct from a `LatestDataset` whose `service_date_range_end` is None, which had one
+    distinct from a `ClosestDataset` whose `service_date_range_end` is None, which had one
     whose coverage was never extracted - the criteria read both as UNKNOWN but report which.
     """
     if not feed_ids:
@@ -186,11 +226,99 @@ def _load_latest_datasets(
         )
     ).all()
     return {
-        row.feed_id: LatestDataset(
+        row.feed_id: ClosestDataset(
             dataset_id=row.id,
             downloaded_at=row.downloaded_at,
             service_date_range_end=row.service_date_range_end,
         )
+        for row in rows
+    }
+
+
+def _load_validation_reports(
+    db_session: Session,
+    closest_datasets: Dict[str, ClosestDataset],
+    now: datetime,
+) -> Dict[str, ValidationReport]:
+    """feed_id -> the latest validation report of that feed's closest dataset, as of `now`.
+
+    Scoped to the closest dataset, not the feed: a verdict on a superseded dataset does not describe
+    what is being served. A feed whose closest dataset is not validated yet is left out, which the
+    evaluator reads as UNKNOWN. One dataset can have several reports (a re-validation); the most
+    recently validated wins, and ones with no `validated_at` are excluded.
+    """
+    if not closest_datasets:
+        return {}
+    feed_id_by_dataset = {
+        dataset.dataset_id: feed_id for feed_id, dataset in closest_datasets.items()
+    }
+    join_table = t_validationreportgtfsdataset
+    rows = db_session.execute(
+        select(
+            join_table.c.dataset_id,
+            Validationreport.id,
+            Validationreport.validated_at,
+            Validationreport.total_error,
+        )
+        .select_from(join_table)
+        .join(
+            Validationreport,
+            Validationreport.id == join_table.c.validation_report_id,
+        )
+        .where(
+            join_table.c.dataset_id.in_(list(feed_id_by_dataset)),
+            Validationreport.validated_at.is_not(None),
+            Validationreport.validated_at <= now,
+        )
+        .distinct(join_table.c.dataset_id)
+        .order_by(
+            join_table.c.dataset_id,
+            Validationreport.validated_at.desc(),
+            Validationreport.id.desc(),
+        )
+    ).all()
+    return {
+        feed_id_by_dataset[row.dataset_id]: ValidationReport(
+            report_id=row.id,
+            dataset_id=row.dataset_id,
+            validated_at=row.validated_at,
+            total_error=row.total_error,
+        )
+        for row in rows
+    }
+
+
+def _load_availability(
+    db_session: Session, feed_ids: Sequence[str], now: datetime
+) -> Dict[str, AvailabilityCheck]:
+    """feed_id -> its latest availability check in the 24 hours up to `now`.
+
+    A rolling window rather than the UTC day of `now`, so a check still counts when the
+    availability job (02:00 UTC) and the seal run (04:00 UTC) drift apart or one of them runs
+    late.
+    """
+    if not feed_ids:
+        return {}
+    rows = db_session.execute(
+        select(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at,
+            GtfsFeedAvailabilityCheck.success,
+        )
+        .where(
+            GtfsFeedAvailabilityCheck.feed_id.in_(list(feed_ids)),
+            GtfsFeedAvailabilityCheck.checked_at > now - AVAILABILITY_LOOKBACK,
+            GtfsFeedAvailabilityCheck.checked_at <= now,
+        )
+        .distinct(GtfsFeedAvailabilityCheck.feed_id)
+        .order_by(
+            GtfsFeedAvailabilityCheck.feed_id,
+            GtfsFeedAvailabilityCheck.checked_at.desc(),
+            GtfsFeedAvailabilityCheck.id.desc(),
+        )
+    ).all()
+    return {
+        row.feed_id: AvailabilityCheck(checked_at=row.checked_at, success=row.success)
         for row in rows
     }
 
@@ -217,21 +345,17 @@ def build_contexts(
 
     2. Needs its own query. Add the field, then a module-level `_load_*` helper that takes
        the whole batch and returns a dict keyed by feed_id, and call it once here, as
-       `_load_latest_datasets` does. Keeping the query per batch rather than per feed
-       is what holds the query count proportional to the number of criteria instead of the
-       number of feeds. For example, Available (issue #1784) would add:
-
-           def _load_availability_today(db_session, feed_ids, day_start) -> Dict[str, bool]:
-               '''feed_id -> whether any availability check succeeded since day_start.
-               Feeds absent from the result had no check at all, which the criterion reads
-               as "not evaluable" rather than "failing".'''
-
-       called once as `availability = _load_availability_today(...)` and consumed per feed
-       as `availability_success_today=availability.get(feed.id, False)`.
+       `_load_closest_datasets`, `_load_availability` and `_load_validation_reports` do.
+       Keeping the query per batch rather than per feed is what holds the query count
+       proportional to the number of criteria instead of the number of feeds. Bound the
+       helper by `now` so the criterion stays replayable, and leave feeds with no row out of
+       the returned dict rather than defaulting them: absent means "we did not look", which
+       the evaluators read as UNKNOWN rather than as a failure.
     """
-    latest_datasets = _load_latest_datasets(
-        db_session, [feed.id for feed in feeds], now
-    )
+    feed_ids = [feed.id for feed in feeds]
+    closest_datasets = _load_closest_datasets(db_session, feed_ids, now)
+    availability = _load_availability(db_session, feed_ids, now)
+    validation_reports = _load_validation_reports(db_session, closest_datasets, now)
 
     return {
         feed.id: FeedSealContext(
@@ -242,7 +366,9 @@ def build_contexts(
             is_producer_url_unstable=feed.is_producer_url_unstable,
             seasonal=feed.seasonal,
             feed_created_at=feed.created_at,
-            latest_dataset=latest_datasets.get(feed.id),
+            closest_dataset=closest_datasets.get(feed.id),
+            availability_check=availability.get(feed.id),
+            latest_validation_report=validation_reports.get(feed.id),
         )
         for feed in feeds
     }

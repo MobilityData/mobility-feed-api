@@ -21,9 +21,13 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from shared.common.seal_criteria import (
+    AVAILABILITY_LOOKBACK,
     PROBATION_PERIOD,
+    PROBATION_EXEMPT_CRITERIA,
     CriterionStatus,
     SealCriterionName,
+    SealStatus,
+    roll_up_seal_status,
 )
 from tasks.seal_of_reliability.context import (
     build_contexts,
@@ -44,10 +48,13 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
+    GtfsFeedAvailabilityCheck,
     Gtfsdataset,
     Gtfsfeed,
     SealCriterion,
     SealCriterionSnapshot,
+    Validationreport,
+    t_validationreportgtfsdataset,
 )
 from test_shared.test_utils.database_utils import default_db_url
 
@@ -79,7 +86,8 @@ class _StandInEvaluator(CriterionEvaluator):
 
     It reads `official` so a test can drive it with the existing `set_official` helper, but
     unlike Official it debounces failures and serves probation afterwards. It borrows the
-    `available` enum value, which has no evaluator of its own yet (#1784).
+    `available` enum value and is patched over the whole registry, so the real
+    AvailableEvaluator never runs alongside it.
     """
 
     name = SealCriterionName.AVAILABLE
@@ -105,7 +113,7 @@ DARK_FROM = NOW + timedelta(days=2)
 
 
 class _GoesDarkEvaluator(CriterionEvaluator):
-    """A criterion that loses its upstream input partway through, standing in for #1784.
+    """A criterion that loses its upstream input partway through.
 
     It returns no verdict from `DARK_FROM` onwards, keyed on the clock rather than on
     `official` so that a test can drive it and Official in opposite directions at the same
@@ -158,6 +166,25 @@ class _StopsApplyingEvaluator(CriterionEvaluator):
 STOPS_APPLYING = [OfficialEvaluator(), _StopsApplyingEvaluator()]
 
 
+class _NeverAnswersEvaluator(CriterionEvaluator):
+    """A criterion whose input never arrives, so it never produces a verdict.
+
+    Stands in for a criterion whose data source has not started collecting yet. Its
+    `confirmed_status` therefore stays NEVER_EVALUATED for good, which is the input the
+    feed-level UNKNOWN roll-up is about.
+    """
+
+    name = SealCriterionName.AVAILABLE
+    grace_period = None
+
+    def _evaluate(self, ctx):
+        return CriterionStatus.UNKNOWN, "stand-in never has an input"
+
+
+NEVER_ANSWERS = [_NeverAnswersEvaluator()]
+OFFICIAL_AND_NEVER_ANSWERS = [OfficialEvaluator(), _NeverAnswersEvaluator()]
+
+
 def _seed_feed(
     db_session,
     feed_id: str,
@@ -191,7 +218,7 @@ def _seed_dataset(
     """Give the feed a dataset covering up to `coverage_end` (None = never extracted).
 
     `latest_dataset_id` is pointed at it too, so a test that only seeds one dataset matches
-    what the catalog looks like. The criterion resolves the latest dataset from
+    what the catalog looks like. The criterion resolves the closest dataset from
     `downloaded_at` rather than from that pointer, which is what the two-dataset tests below
     exercise.
     """
@@ -211,6 +238,43 @@ def _seed_dataset(
         Gtfsfeed.__table__.update()
         .where(Gtfsfeed.__table__.c.id == feed_id)
         .values(latest_dataset_id=dataset_id)
+    )
+    db_session.commit()
+
+
+def _seed_availability_check(db_session, feed_id: str, success, checked_at=None):
+    """One `gtfs_feed_availability_check` row for the feed."""
+    db_session.add(
+        GtfsFeedAvailabilityCheck(
+            feed_id=feed_id,
+            checked_at=checked_at or NOW,
+            request_url=f"https://example.com/{feed_id}.zip",
+            request_type="http_head",
+            status_code=200 if success else 503,
+            success=success,
+        )
+    )
+    db_session.commit()
+
+
+def _seed_validation_report(
+    db_session, dataset_id: str, total_error, validated_at=None, suffix=""
+):
+    """A validation report for the dataset, linked through validationreportgtfsdataset."""
+    report_id = f"{dataset_id}_report{suffix}"
+    db_session.add(
+        Validationreport(
+            id=report_id,
+            validator_version=f"1.0.0{suffix}",
+            validated_at=validated_at or NOW - timedelta(hours=1),
+            total_error=total_error,
+        )
+    )
+    db_session.flush()
+    db_session.execute(
+        t_validationreportgtfsdataset.insert().values(
+            dataset_id=dataset_id, validation_report_id=report_id
+        )
     )
     db_session.commit()
 
@@ -242,6 +306,12 @@ def _cleanup(db_session):
     tables, all of which are ON DELETE CASCADE.
     """
     db_session.execute(delete(Feed).where(Feed.stable_id.like(f"{PREFIX}%")))
+    # validationreport is not reachable by cascade from feed: deleting the feed cascades to
+    # gtfsdataset and to the validationreportgtfsdataset join row, but leaves the report
+    # itself orphaned, and the next test collides on its primary key.
+    db_session.execute(
+        delete(Validationreport).where(Validationreport.id.like(f"{PREFIX}%"))
+    )
     db_session.commit()
 
 
@@ -294,6 +364,21 @@ class SealDbTestCase(unittest.TestCase):
             select(table).where(table.c.feed_id == feed_id)
         ).first()
 
+    def derived_seal_status(self, feed_id):
+        """The feed's seal status, derived from the persisted rows the way the read API does.
+
+        Nothing stores it, so an assertion has to re-derive it - and doing so from the rows the run
+        wrote checks what the API will actually see.
+        """
+        return roll_up_seal_status(
+            (
+                CriterionStatus(row.confirmed_status),
+                row.probation_start is not None
+                and row.criterion not in PROBATION_EXEMPT_CRITERIA,
+            )
+            for row in self.criterion_rows(feed_id).values()
+        ).value
+
     @staticmethod
     @with_db_session(db_url=default_db_url)
     def set_official(feed_id, official, db_session):
@@ -320,6 +405,20 @@ class SealDbTestCase(unittest.TestCase):
         feed_id, coverage_end, downloaded_at=None, suffix="", db_session=None
     ):
         _seed_dataset(db_session, feed_id, coverage_end, downloaded_at, suffix)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def seed_availability_check(feed_id, success, checked_at=None, db_session=None):
+        _seed_availability_check(db_session, feed_id, success, checked_at)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def seed_validation_report(
+        dataset_id, total_error, validated_at=None, suffix="", db_session=None
+    ):
+        _seed_validation_report(
+            db_session, dataset_id, total_error, validated_at, suffix
+        )
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -419,16 +518,16 @@ class TestBuildContexts(SealDbTestCase):
         """The bulk load misses, and the context says so rather than guessing a value."""
         feeds = list(_feeds_by_stable_id(db_session, OFFICIAL).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNone(ctx.latest_dataset)
+        self.assertIsNone(ctx.closest_dataset)
 
     @with_db_session(db_url=default_db_url)
-    def test_the_latest_dataset_coverage_is_loaded(self, db_session):
+    def test_the_closest_dataset_coverage_is_loaded(self, db_session):
         _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertEqual(ctx.latest_dataset.dataset_id, f"{TRACKED}_dataset")
+        self.assertEqual(ctx.closest_dataset.dataset_id, f"{TRACKED}_dataset")
         self.assertEqual(
-            ctx.latest_dataset.service_date_range_end, NOW + timedelta(days=90)
+            ctx.closest_dataset.service_date_range_end, NOW + timedelta(days=90)
         )
 
     @with_db_session(db_url=default_db_url)
@@ -437,13 +536,13 @@ class TestBuildContexts(SealDbTestCase):
         _seed_dataset(db_session, TRACKED, coverage_end=None)
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNotNone(ctx.latest_dataset, "the dataset is there ...")
+        self.assertIsNotNone(ctx.closest_dataset, "the dataset is there ...")
         self.assertIsNone(
-            ctx.latest_dataset.service_date_range_end, "... its coverage end is not"
+            ctx.closest_dataset.service_date_range_end, "... its coverage end is not"
         )
 
     @with_db_session(db_url=default_db_url)
-    def test_the_latest_dataset_is_resolved_as_of_now(self, db_session):
+    def test_the_closest_dataset_is_resolved_as_of_now(self, db_session):
         """A replay must not see a dataset published after the day it is evaluating.
 
         `gtfsfeed.latest_dataset_id` points at the newest dataset that exists today, so
@@ -468,7 +567,7 @@ class TestBuildContexts(SealDbTestCase):
 
         as_of_now = build_contexts(db_session, feeds, NOW)[feeds[0].id]
         self.assertEqual(
-            as_of_now.latest_dataset.service_date_range_end,
+            as_of_now.closest_dataset.service_date_range_end,
             NOW + timedelta(days=5),
             "the newer dataset had not been downloaded yet",
         )
@@ -476,10 +575,166 @@ class TestBuildContexts(SealDbTestCase):
         later = NOW + timedelta(days=20)
         as_of_later = build_contexts(db_session, feeds, later)[feeds[0].id]
         self.assertEqual(
-            as_of_later.latest_dataset.service_date_range_end,
+            as_of_later.closest_dataset.service_date_range_end,
             NOW + timedelta(days=400),
             "by then it had",
         )
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_check_inside_the_rolling_window_counts(self, db_session):
+        _seed_availability_check(db_session, TRACKED, True, NOW - timedelta(hours=6))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertTrue(ctx.availability_check.success)
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_window_is_exactly_the_lookback(self, db_session):
+        """A check just inside the window counts; the same check an hour older does not."""
+        _seed_availability_check(
+            db_session,
+            TRACKED,
+            True,
+            NOW - AVAILABILITY_LOOKBACK + timedelta(minutes=1),
+        )
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        self.assertIsNotNone(
+            build_contexts(db_session, feeds, NOW)[feeds[0].id].availability_check
+        )
+        self.assertIsNone(
+            build_contexts(db_session, feeds, NOW + timedelta(hours=1))[
+                feeds[0].id
+            ].availability_check
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_check_older_than_the_fallback_window_is_ignored(self, db_session):
+        _seed_availability_check(db_session, TRACKED, True, NOW - timedelta(days=3))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNone(ctx.availability_check)
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_check_after_now_is_not_visible_yet(self, db_session):
+        """Same replay rule as everywhere else: a run never reads its own future."""
+        _seed_availability_check(db_session, TRACKED, True, NOW + timedelta(hours=1))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        self.assertIsNone(
+            build_contexts(db_session, feeds, NOW)[feeds[0].id].availability_check
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_latest_check_in_the_window_decides(self, db_session):
+        """Not "any success": the most recent answer describes the feed now."""
+        _seed_availability_check(db_session, TRACKED, True, NOW - timedelta(hours=5))
+        _seed_availability_check(db_session, TRACKED, False, NOW - timedelta(hours=1))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertFalse(ctx.availability_check.success)
+        self.assertEqual(ctx.availability_check.checked_at, NOW - timedelta(hours=1))
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_failed_check_is_a_verdict_not_a_missing_one(self, db_session):
+        """A check that ran and failed and no check at all are different answers."""
+        _seed_availability_check(db_session, TRACKED, False, NOW)
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNotNone(ctx.availability_check)
+        self.assertFalse(ctx.availability_check.success)
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_latest_validation_report_is_loaded(self, db_session):
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        _seed_validation_report(db_session, f"{TRACKED}_dataset", total_error=3)
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertEqual(ctx.latest_validation_report.total_error, 3)
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_feed_with_no_report_carries_none(self, db_session):
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNotNone(ctx.closest_dataset, "the dataset is there ...")
+        self.assertIsNone(ctx.latest_validation_report, "... a report is not")
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_report_on_a_superseded_dataset_is_not_loaded(self, db_session):
+        """The report is the closest dataset's, so an older dataset's report is not it.
+
+        Validation lags publication, so the newest dataset may have no report yet. That is
+        left as "no report" rather than backfilled from the dataset before it: the criterion
+        is about the data being served now.
+        """
+        _seed_dataset(
+            db_session,
+            TRACKED,
+            coverage_end=NOW + timedelta(days=90),
+            downloaded_at=NOW - timedelta(days=5),
+            suffix="_older",
+        )
+        _seed_validation_report(
+            db_session, f"{TRACKED}_dataset_older", total_error=0, suffix="_older"
+        )
+        _seed_dataset(
+            db_session,
+            TRACKED,
+            coverage_end=NOW + timedelta(days=90),
+            downloaded_at=NOW - timedelta(hours=2),
+            suffix="_newest",
+        )
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+
+        self.assertEqual(ctx.closest_dataset.dataset_id, f"{TRACKED}_dataset_newest")
+        self.assertIsNone(
+            ctx.latest_validation_report,
+            "the older dataset's report does not describe what is being served",
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_the_validation_report_is_resolved_as_of_now(self, db_session):
+        """Same replay rule as the dataset: a later re-validation must not leak backwards."""
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        dataset_id = f"{TRACKED}_dataset"
+        _seed_validation_report(
+            db_session,
+            dataset_id,
+            5,
+            validated_at=NOW - timedelta(days=2),
+            suffix="_old",
+        )
+        _seed_validation_report(
+            db_session,
+            dataset_id,
+            0,
+            validated_at=NOW + timedelta(days=2),
+            suffix="_new",
+        )
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+
+        as_of_now = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertEqual(
+            as_of_now.latest_validation_report.total_error,
+            5,
+            "the re-validation had not happened yet",
+        )
+
+        later = NOW + timedelta(days=3)
+        as_of_later = build_contexts(db_session, feeds, later)[feeds[0].id]
+        self.assertEqual(as_of_later.latest_validation_report.total_error, 0)
+
+    @with_db_session(db_url=default_db_url)
+    def test_a_report_with_no_validated_at_is_excluded(self, db_session):
+        """It cannot be placed in time, so it is dropped rather than guessed at."""
+        _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
+        _seed_validation_report(db_session, f"{TRACKED}_dataset", total_error=0)
+        db_session.execute(
+            Validationreport.__table__.update().values(validated_at=None)
+        )
+        db_session.commit()
+        feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
+        ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
+        self.assertIsNone(ctx.latest_validation_report)
 
     @with_db_session(db_url=default_db_url)
     def test_a_dataset_with_no_downloaded_at_cannot_be_placed_in_time(self, db_session):
@@ -493,7 +748,7 @@ class TestBuildContexts(SealDbTestCase):
         db_session.commit()
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW)[feeds[0].id]
-        self.assertIsNone(ctx.latest_dataset)
+        self.assertIsNone(ctx.closest_dataset)
 
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
@@ -767,6 +1022,146 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(report["feeds_omitted"], 0)
 
 
+class TestSealStatusRollUp(SealDbTestCase):
+    """The four-way feed-level outcome, and the boolean that hangs off it.
+
+    `has_seal` answers only "does the feed hold the seal", so all three non-granting values
+    read as false through it. `seal_status` is what tells them apart, and the distinction that
+    matters is between a feed that was judged and did not qualify and one that could not be
+    judged at all.
+    """
+
+    @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
+    def test_every_criterion_passing_grants_the_seal(self):
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+
+        seal = self.seal_row(OFFICIAL)
+        self.assertEqual(self.derived_seal_status(OFFICIAL), SealStatus.GRANTED.value)
+        self.assertTrue(seal.has_seal)
+
+    @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
+    def test_a_judged_feed_that_does_not_qualify_is_not_granted(self):
+        """Not the same as unknown: every criterion answered, and the answer was no."""
+        update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+
+        seal = self.seal_row(NOT_OFFICIAL)
+        self.assertEqual(
+            self.derived_seal_status(NOT_OFFICIAL), SealStatus.NOT_GRANTED.value
+        )
+        self.assertFalse(seal.has_seal)
+
+    @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", NEVER_ANSWERS)
+    def test_no_criterion_ever_judged_is_never_evaluated(self):
+        """A row is written - the attempt happened - but nothing has been decided."""
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+
+        seal = self.seal_row(OFFICIAL)
+        self.assertEqual(
+            self.derived_seal_status(OFFICIAL), SealStatus.NEVER_EVALUATED.value
+        )
+        self.assertFalse(seal.has_seal)
+
+    @patch(
+        "tasks.seal_of_reliability.seal_updater.EVALUATORS", OFFICIAL_AND_NEVER_ANSWERS
+    )
+    def test_one_criterion_without_a_verdict_makes_the_whole_seal_unknown(self):
+        """Official passes, but the other criterion has never been judged.
+
+        The feed may well qualify - which is exactly why this is not NOT_GRANTED - but it
+        cannot be granted the seal on evidence covering only half its criteria.
+        """
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+
+        rows = self.criterion_rows(OFFICIAL)
+        self.assertEqual(
+            rows[SealCriterionName.OFFICIAL.value].confirmed_status,
+            CriterionStatus.PASS.value,
+        )
+        seal = self.seal_row(OFFICIAL)
+        self.assertEqual(self.derived_seal_status(OFFICIAL), SealStatus.UNKNOWN.value)
+        self.assertFalse(seal.has_seal)
+
+    @patch(
+        "tasks.seal_of_reliability.seal_updater.EVALUATORS", OFFICIAL_AND_NEVER_ANSWERS
+    )
+    def test_a_transient_outage_does_not_make_a_judged_seal_unknown(self):
+        """The distinction the roll-up rests on: no verdict *ever*, not no verdict today.
+
+        The first run is driven by the real registry, so both criteria reach a verdict. The
+        second patches one of them dark; it keeps its stored pass, and the seal stays granted.
+        """
+        with patch(
+            "tasks.seal_of_reliability.seal_updater.EVALUATORS",
+            [OfficialEvaluator(), _StandInEvaluator()],
+        ):
+            update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertEqual(self.derived_seal_status(OFFICIAL), SealStatus.GRANTED.value)
+
+        later = NOW + timedelta(days=1)
+        update_seals(dry_run=False, stable_feed_ids=[OFFICIAL], now=later)
+
+        row = self.criterion_rows(OFFICIAL)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        self.assertEqual(row.confirmed_status, CriterionStatus.PASS.value)
+        seal = self.seal_row(OFFICIAL)
+        self.assertEqual(self.derived_seal_status(OFFICIAL), SealStatus.GRANTED.value)
+        self.assertTrue(seal.has_seal)
+
+    @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
+    def test_the_report_counts_and_names_the_outcomes(self):
+        """The two decided values, from `official` alone across the seeded feeds."""
+        report = update_seals(dry_run=True, stable_feed_ids=OURS, now=NOW)
+
+        counts = report["seal_status_counts"]
+        self.assertEqual(set(counts), {status.value for status in SealStatus})
+        self.assertEqual(
+            sum(counts.values()),
+            report["total_feeds"],
+            "every feed lands in exactly one",
+        )
+        self.assertEqual(
+            {row["stable_id"]: row["seal_status"] for row in report["feeds"]},
+            {
+                OFFICIAL: SealStatus.GRANTED.value,
+                INACTIVE: SealStatus.GRANTED.value,
+                NOT_OFFICIAL: SealStatus.NOT_GRANTED.value,
+                # `official IS NULL` is a verdict for Official, not an absent one.
+                UNKNOWN_OFFICIAL: SealStatus.NOT_GRANTED.value,
+            },
+        )
+        self.assertEqual(counts[SealStatus.GRANTED.value], 2)
+
+    @patch(
+        "tasks.seal_of_reliability.seal_updater.EVALUATORS", OFFICIAL_AND_NEVER_ANSWERS
+    )
+    def test_a_failing_criterion_decides_the_seal_even_with_another_unjudged(self):
+        """A feed failing Official is NOT_GRANTED, not UNKNOWN, though a criterion has never
+        been judged.
+
+        One failure is enough to deny the seal, so the outcome is decidable however little we
+        know about the rest: no verdict the missing criterion could produce would grant it.
+        UNKNOWN is reserved for the case where nothing is failing and the evaluation is simply
+        incomplete.
+        """
+        update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+
+        rows = self.criterion_rows(NOT_OFFICIAL)
+        self.assertEqual(
+            rows[SealCriterionName.OFFICIAL.value].confirmed_status,
+            CriterionStatus.FAIL.value,
+        )
+        self.assertEqual(
+            rows[SealCriterionName.AVAILABLE.value].confirmed_status,
+            CriterionStatus.NEVER_EVALUATED.value,
+            "the other criterion has no verdict at all",
+        )
+        seal = self.seal_row(NOT_OFFICIAL)
+        self.assertEqual(
+            self.derived_seal_status(NOT_OFFICIAL), SealStatus.NOT_GRANTED.value
+        )
+        self.assertFalse(seal.has_seal)
+
+
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
 class TestCriterionSnapshot(SealDbTestCase):
     """seal_criterion_snapshot, the per-day record of each criterion (issue #1809).
@@ -896,19 +1291,241 @@ class TestFullRegistry(SealDbTestCase):
             {evaluator.name.value for evaluator in EVALUATORS},
         )
 
-    def test_a_feed_meeting_all_three_earns_the_seal(self):
+    def satisfy_everything(self):
+        """Seed the inputs every implemented criterion needs, all passing."""
         self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_validation_report(f"{TRACKED}_dataset", total_error=0)
+
+    def test_a_feed_meeting_every_criterion_earns_the_seal(self):
+        self.satisfy_everything()
 
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
 
         self.assertEqual(
             self.criteria_of(),
             {
-                SealCriterionName.OFFICIAL.value: CriterionStatus.PASS.value,
-                SealCriterionName.STABLE.value: CriterionStatus.PASS.value,
-                SealCriterionName.FRESH_COVERAGE.value: CriterionStatus.PASS.value,
+                evaluator.name.value: CriterionStatus.PASS.value
+                for evaluator in EVALUATORS
             },
         )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_criteria_with_no_data_leave_the_seal_unknown(self):
+        """Available and Compliant have never had a verdict, so the seal cannot be decided.
+
+        They do not *deny* the seal - the feed may well qualify - but with two of five
+        criteria unjudged, saying it does not qualify would be as wrong as saying it does.
+        """
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        rows = self.criterion_rows(TRACKED)
+        for criterion in (
+            SealCriterionName.AVAILABLE.value,
+            SealCriterionName.COMPLIANT.value,
+        ):
+            with self.subTest(criterion=criterion):
+                self.assertEqual(
+                    rows[criterion].observed_status, CriterionStatus.UNKNOWN.value
+                )
+                self.assertEqual(
+                    rows[criterion].confirmed_status,
+                    CriterionStatus.NEVER_EVALUATED.value,
+                )
+        seal = self.seal_row(TRACKED)
+        self.assertEqual(self.derived_seal_status(TRACKED), SealStatus.UNKNOWN.value)
+        self.assertFalse(seal.has_seal, "unknown is not a grant")
+
+    def test_a_failed_availability_check_denies_the_seal(self):
+        self.satisfy_everything()
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+        # Next day: the only check that ran failed.
+        later = NOW + timedelta(days=1)
+        self.seed_availability_check(TRACKED, success=False, checked_at=later)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.FAIL.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.PASS.value,
+            "Available has a 14-day grace period and had already passed",
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal, "still held, under grace")
+
+    def test_a_recovery_later_in_the_window_wins(self):
+        """Several checks in one window: the most recent one is the verdict."""
+        self.satisfy_everything()
+        later = NOW + timedelta(days=1)
+        self.seed_availability_check(TRACKED, success=False, checked_at=later)
+        self.seed_availability_check(
+            TRACKED, success=True, checked_at=later + timedelta(hours=2)
+        )
+
+        update_seals(
+            dry_run=False,
+            stable_feed_ids=[TRACKED],
+            now=later + timedelta(hours=3),
+        )
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
+
+    def test_a_check_still_answers_a_second_run_inside_the_window(self):
+        """The window is a rolling 24h, not "checks this run has not seen yet"."""
+        self.satisfy_everything()
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        # Six hours later, no new check: the earlier one is still inside the window.
+        later = NOW + timedelta(hours=6)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_the_criterion_goes_quiet_once_the_check_ages_out(self):
+        """A day with no check at all is UNKNOWN, which freezes the last verdict."""
+        self.satisfy_everything()
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        stale = NOW + AVAILABILITY_LOOKBACK + timedelta(hours=1)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=stale)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.PASS.value,
+            "UNKNOWN freezes the criterion at its last verdict rather than failing it",
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_a_late_availability_job_is_picked_up_by_the_next_run(self):
+        """The reason for the window: a check the seal run missed is not lost.
+
+        The seal runs, sees nothing; the availability job lands afterwards; the next seal run
+        still reads that check instead of it falling into a closed calendar day.
+        """
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertEqual(
+            self.criterion_rows(TRACKED)[
+                SealCriterionName.AVAILABLE.value
+            ].observed_status,
+            CriterionStatus.UNKNOWN.value,
+        )
+
+        self.seed_availability_check(
+            TRACKED, success=True, checked_at=NOW + timedelta(hours=1)
+        )
+        later = NOW + timedelta(hours=2)
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
+        self.assertEqual(row.confirmed_status, CriterionStatus.PASS.value)
+
+    def test_validation_errors_deny_the_seal(self):
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_validation_report(f"{TRACKED}_dataset", total_error=7)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.COMPLIANT.value]
+        self.assertEqual(row.observed_status, CriterionStatus.FAIL.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.FAIL.value,
+            "a first verdict gets no grace period",
+        )
+        self.assertFalse(self.seal_row(TRACKED).has_seal)
+
+    def test_a_dataset_with_no_report_is_unknown_not_compliant(self):
+        """A missing report is not a clean bill of health."""
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.COMPLIANT.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        self.assertIsNone(row.last_verdict_at)
+
+    def test_a_feed_publishing_faster_than_validation_keeps_its_last_verdict(self):
+        """Daily publishing plus lagging validation, which is the common case.
+
+        Each new dataset arrives unvalidated, so Compliant observes UNKNOWN on the days in
+        between. That freezes the criterion at the verdict it last earned instead of failing
+        it, so the feed keeps the seal while the validator catches up.
+        """
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_dataset(
+            TRACKED,
+            self.FAR_FUTURE,
+            downloaded_at=NOW - timedelta(days=2),
+            suffix="_validated",
+        )
+        self.seed_validation_report(
+            f"{TRACKED}_dataset_validated", total_error=0, suffix="_validated"
+        )
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+        self.assertEqual(
+            self.criterion_rows(TRACKED)[
+                SealCriterionName.COMPLIANT.value
+            ].observed_status,
+            CriterionStatus.PASS.value,
+        )
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+        # Published since, and not validated yet.
+        later = NOW + timedelta(hours=6)
+        self.seed_dataset(
+            TRACKED,
+            self.FAR_FUTURE,
+            downloaded_at=NOW + timedelta(hours=1),
+            suffix="_fresh",
+        )
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=later)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.COMPLIANT.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        self.assertEqual(
+            row.confirmed_status,
+            CriterionStatus.PASS.value,
+            "the verdict on the dataset we did validate still stands",
+        )
+        seal = self.seal_row(TRACKED)
+        self.assertEqual(self.derived_seal_status(TRACKED), SealStatus.GRANTED.value)
+        self.assertTrue(seal.has_seal)
+
+    def test_compliant_reads_the_latest_report_of_the_closest_dataset(self):
+        """Several validator versions run against one dataset; the newest one decides."""
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.seed_availability_check(TRACKED, success=True)
+        dataset_id = f"{TRACKED}_dataset"
+        self.seed_validation_report(
+            dataset_id,
+            total_error=9,
+            validated_at=NOW - timedelta(days=3),
+            suffix="_old",
+        )
+        self.seed_validation_report(
+            dataset_id,
+            total_error=0,
+            validated_at=NOW - timedelta(hours=1),
+            suffix="_new",
+        )
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.COMPLIANT.value]
+        self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
         self.assertTrue(self.seal_row(TRACKED).has_seal)
 
     def test_a_feed_new_to_the_database_cannot_hold_the_seal_yet(self):
@@ -933,6 +1550,8 @@ class TestFullRegistry(SealDbTestCase):
         """
         self.set_feed_created_at(TRACKED, NOW)
         self.seed_dataset(TRACKED, NOW + timedelta(days=400))
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_validation_report(f"{TRACKED}_dataset", total_error=0)
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
         self.assertFalse(
             self.seal_row(TRACKED).has_seal, "in the database for zero days"
@@ -949,7 +1568,7 @@ class TestFullRegistry(SealDbTestCase):
     def test_an_old_feed_qualifies_on_its_very_first_run(self):
         """The point of reading `feed.created_at`: no six-month wait after deployment for a
         feed that has already been in the catalog for years."""
-        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.satisfy_everything()
 
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
 
@@ -961,7 +1580,7 @@ class TestFullRegistry(SealDbTestCase):
 
     def test_an_unstable_producer_url_denies_the_seal_immediately(self):
         """Stable has no grace period, so the flag costs the seal the day it is set."""
-        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.satisfy_everything()
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
         self.assertTrue(self.seal_row(TRACKED).has_seal)
 
@@ -975,8 +1594,8 @@ class TestFullRegistry(SealDbTestCase):
         )
         self.assertFalse(self.seal_row(TRACKED).has_seal)
 
-    def test_a_feed_with_no_dataset_leaves_fresh_out_of_the_roll_up(self):
-        """UNKNOWN is not a failure: the other two criteria still decide the seal."""
+    def test_a_feed_with_no_dataset_leaves_the_seal_unknown(self):
+        """UNKNOWN is not a failure - but it is not a pass to be skipped over either."""
 
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
 
@@ -988,10 +1607,13 @@ class TestFullRegistry(SealDbTestCase):
             "no verdict was ever produced, so the criterion is out of service",
         )
         self.assertIsNone(row.last_verdict_at)
-        self.assertTrue(
-            self.seal_row(TRACKED).has_seal,
-            "Official and Stable carry it while Fresh has nothing to say",
+        seal = self.seal_row(TRACKED)
+        self.assertEqual(
+            self.derived_seal_status(TRACKED),
+            SealStatus.UNKNOWN.value,
+            "Official and Stable pass, but Fresh has never been judged",
         )
+        self.assertFalse(seal.has_seal)
 
     def test_lapsed_coverage_is_confirmed_at_once_on_a_first_evaluation(self):
         """Fresh has a 14-day grace period, but a criterion that has never passed has not
@@ -1007,6 +1629,8 @@ class TestFullRegistry(SealDbTestCase):
 
     def test_the_grace_period_absorbs_a_lapse_on_a_feed_that_was_passing(self):
         self.seed_dataset(TRACKED, NOW + timedelta(days=10))
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_validation_report(f"{TRACKED}_dataset", total_error=0)
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
         self.assertTrue(self.seal_row(TRACKED).has_seal)
 
@@ -1046,6 +1670,7 @@ class TestFullRegistry(SealDbTestCase):
         """NOT_APPLICABLE withdraws the criterion instead of failing it, which is the whole
         point of the value: a seasonal feed keeps the seal on the criteria that do apply.
         """
+        self.satisfy_everything()
         self.set_seasonal(TRACKED, True)
 
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
@@ -1058,6 +1683,8 @@ class TestFullRegistry(SealDbTestCase):
     def test_becoming_seasonal_freezes_a_failing_fresh_rather_than_carrying_it(self):
         """A feed marked seasonal after a confirmed Fresh failure stops being judged on it."""
         self.seed_dataset(TRACKED, NOW - timedelta(days=1))
+        self.seed_availability_check(TRACKED, success=True)
+        self.seed_validation_report(f"{TRACKED}_dataset", total_error=0)
         update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
         self.assertFalse(self.seal_row(TRACKED).has_seal)
 
@@ -1072,7 +1699,7 @@ class TestFullRegistry(SealDbTestCase):
         )
         self.assertTrue(self.seal_row(TRACKED).has_seal)
 
-    def test_a_run_reports_all_three_criteria_with_their_reasons(self):
+    def test_a_run_reports_every_criterion_with_its_reason(self):
         self.seed_dataset(TRACKED, self.FAR_FUTURE)
         report = update_seals(dry_run=True, stable_feed_ids=[TRACKED], now=NOW)
 
@@ -1398,11 +2025,12 @@ class TestCriterionThatStopsBeingEvaluable(SealDbTestCase):
             frozen.last_verdict_at, self.FAILED_AT, "but got no new verdict"
         )
 
-    def test_going_dark_before_any_verdict_leaves_the_criterion_out_of_service(self):
+    def test_going_dark_before_any_verdict_leaves_the_seal_unknown(self):
         """The other half: with no verdict ever, there is nothing to hold in service.
 
         A row is written, because the attempt is worth recording, but `confirmed_status`
-        stays NEVER_EVALUATED so the criterion is skipped rather than denying the seal.
+        stays NEVER_EVALUATED - and a criterion that has never been judged cannot be skipped
+        over, so the seal is UNKNOWN rather than granted on the strength of the others.
         """
         self.run_at(DARK_FROM)
 
@@ -1415,9 +2043,10 @@ class TestCriterionThatStopsBeingEvaluable(SealDbTestCase):
             "no verdict has ever been produced",
         )
         self.assertIsNone(row.last_verdict_at)
-        self.assertTrue(
-            self.seal_row(OFFICIAL).has_seal,
-            "and the criterion is skipped rather than denying the seal",
+        seal = self.seal_row(OFFICIAL)
+        self.assertEqual(self.derived_seal_status(OFFICIAL), SealStatus.UNKNOWN.value)
+        self.assertFalse(
+            seal.has_seal, "unknown is not a grant, and not a denial either"
         )
 
 

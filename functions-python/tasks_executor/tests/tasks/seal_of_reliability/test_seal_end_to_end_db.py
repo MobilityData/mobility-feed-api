@@ -52,8 +52,11 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
     Gtfsdataset,
+    GtfsFeedAvailabilityCheck,
     Gtfsfeed,
     SealCriterion,
+    Validationreport,
+    t_validationreportgtfsdataset,
 )
 from test_shared.test_utils.database_utils import default_db_url
 
@@ -69,8 +72,11 @@ UNPUBLISHED = f"{PREFIX}unpublished"
 # The task always runs against an explicit feed list. These are the eligible seeded feeds.
 REQUESTED = [OFFICIAL, NOT_OFFICIAL, UNKNOWN_OFFICIAL]
 
-# Every seeded feed gets a dataset covering the next 400 days, so Fresh passes and `official`
-# stays the only criterion that separates the feeds. Stable needs nothing seeded: it reads
+# Every seeded feed gets a dataset covering the next 400 days, a successful availability check
+# and a clean validation report of that dataset, so Fresh, Available and Compliant all pass and
+# `official` stays the only criterion that separates the feeds. A criterion with no verdict at
+# all makes the whole seal `unknown`, so a feed missing one of these inputs would never be
+# granted or revoked. Stable needs nothing seeded: it reads
 # `feed.created_at`, which `_seed` already backdates by 400 days.
 COVERAGE_END = NOW + timedelta(days=400)
 
@@ -112,9 +118,53 @@ def _seed(db_session, feed_id, official=True, status="active", operational="publ
     )
     db_session.flush()
 
+    # Available's input.
+    db_session.add(
+        GtfsFeedAvailabilityCheck(
+            feed_id=feed_id,
+            checked_at=NOW - timedelta(hours=2),
+            request_url=f"https://example.com/{feed_id}.zip",
+            request_type="http_head",
+            status_code=200,
+            success=True,
+        )
+    )
+    db_session.flush()
+
+    # Compliant's input: a clean report of the dataset seeded just above.
+    report_id = f"{dataset_id}_report"
+    db_session.add(
+        Validationreport(
+            id=report_id,
+            validator_version="1.0.0",
+            validated_at=NOW - timedelta(hours=1),
+            total_error=0,
+        )
+    )
+    db_session.flush()
+    db_session.execute(
+        t_validationreportgtfsdataset.insert().values(
+            dataset_id=dataset_id, validation_report_id=report_id
+        )
+    )
+    db_session.flush()
+
 
 def _cleanup(db_session):
-    """Deleting the parent Feed cascades to gtfsfeed and both seal tables."""
+    """Deleting the parent Feed cascades to gtfsfeed, its datasets and both seal tables.
+
+    Validation reports are not owned by the feed - they hang off the dataset through
+    validationreportgtfsdataset - so they and their link rows are removed by hand, dependency
+    first, before the ids are reused by the next test.
+    """
+    db_session.execute(
+        t_validationreportgtfsdataset.delete().where(
+            t_validationreportgtfsdataset.c.validation_report_id.like(f"{PREFIX}%")
+        )
+    )
+    db_session.execute(
+        delete(Validationreport).where(Validationreport.id.like(f"{PREFIX}%"))
+    )
     db_session.execute(delete(Feed).where(Feed.stable_id.like(f"{PREFIX}%")))
     db_session.commit()
 

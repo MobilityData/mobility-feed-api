@@ -1152,6 +1152,19 @@ components:
           description: Whether the feed currently holds the Seal of Reliability.
           type: boolean
           example: false
+        seal_status:
+          description: >
+            Descriptive status of the feed's seal. `has_seal` is true only when this is `granted`.
+            `not_granted`: at least one criterion is failing. `unknown`: none is failing, but not
+            every criterion has been evaluated yet. `never_evaluated`: none of the criteria has 
+            been evaluated yet.
+          type: string
+          enum:
+            - granted
+            - not_granted
+            - unknown
+            - never_evaluated
+          example: granted
         earned_at:
           description: When the feed most recently earned the seal, in ISO 8601 date-time format.
           type: string
