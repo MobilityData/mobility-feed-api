@@ -1,9 +1,3 @@
-"""Shared identity helper for User Service impls.
-
-Extracted from `UsersApiImpl._require_user_id` (which now delegates here) so other impls don't
-need to import a sibling impl class just to resolve the caller's identity.
-"""
-
 from fastapi import HTTPException
 
 from middleware.request_context import get_request_context

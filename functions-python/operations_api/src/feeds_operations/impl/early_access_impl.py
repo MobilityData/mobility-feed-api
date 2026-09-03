@@ -26,7 +26,6 @@ from typing import List, Optional
 from email_validator import EmailNotValidError, validate_email
 from fastapi import HTTPException
 from sqlalchemy import delete, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.early_access_api_base import BaseEarlyAccessApi
@@ -470,34 +469,27 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             now = datetime.now(timezone.utc)
             for email in matched_existing_account:
                 user_id = matched_by_email[email]
-                db_session.execute(
-                    pg_insert(EarlyAccessEnrollment.__table__)
-                    .values(
+                db_session.add(
+                    EarlyAccessEnrollment(
                         id=generate_unique_id(),
                         program_id=id,
                         user_id=user_id,
                         enrolled_at=now,
                         source="operations",
                     )
-                    .on_conflict_do_nothing(index_elements=["program_id", "user_id"])
                 )
-                grant_program_flags(db_session, user_id, id)
-            if no_account_yet:
-                db_session.execute(
-                    pg_insert(EarlyAccessInvitedEmail.__table__)
-                    .values(
-                        [
-                            {
-                                "id": generate_unique_id(),
-                                "program_id": id,
-                                "email": email,
-                                "created_at": now,
-                            }
-                            for email in no_account_yet
-                        ]
+                grant_program_flags(user_id, id, db_session)
+            db_session.add_all(
+                [
+                    EarlyAccessInvitedEmail(
+                        id=generate_unique_id(),
+                        program_id=id,
+                        email=email,
+                        created_at=now,
                     )
-                    .on_conflict_do_nothing(index_elements=["program_id", "email"])
-                )
+                    for email in no_account_yet
+                ]
+            )
             db_session.flush()
             logger.info(
                 "early access program %s import applied: matched=%d no_account=%d "

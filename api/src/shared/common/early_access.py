@@ -1,22 +1,10 @@
-"""Early access program grants (product-tasks#213).
-
-Lives in `shared/common` because both the User Service (the `get_user` claim hook) and the
-Operations API function (the CSV import) need `grant_program_flags` / `apply_invited_email_grants`,
-and `common` is in both functions' `include_api_folders`. Must not import the Brevo SDK, for the
-same reason `feature_flags.py` was split out: some functions that include `common` (e.g.
-`batch_process_dataset`) do not depend on it.
-
-Email verification is deliberately not checked here: `app_user.email_verified` is not kept in
-sync anywhere in the codebase today, so enforcing it would require building a live sync as a side
-effect of this feature. Grants are made on a matching, authenticated email alone.
-"""
-
 import logging
 from datetime import datetime, timezone
 from typing import Final
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
 
 from shared.database.database import generate_unique_id
 from shared.users_database_gen.sqlacodegen_models import (
@@ -33,19 +21,15 @@ early_access_program_not_found: Final[str] = "Early access program '{}' not foun
 unknown_feature_flags: Final[str] = "Unknown feature flag(s): {}."
 
 
-def grant_program_flags(db_session, user_id: str, program_id: str) -> bool:
-    """Grant every feature flag `program_id` currently configures to `user_id`.
+def grant_program_flags(user_id: str, program_id: str, db_session: Session) -> bool:
+    """Grant every feature flag `program_id` configures to `user_id`.
 
-    No-ops if the program is disabled or has no configured flags — a disabled program hands out
-    nothing, whether the caller is the invited-email claim path or the CSV import's immediate
-    grant for an already-existing account.
+    No-ops if the program is disabled or configures no flags. Returns whether a grant was
+    attempted, not whether any row was actually written.
 
-    ``DO NOTHING``, not ``DO UPDATE``: an operator-set `user_feature_flag` row always wins over a
-    program grant, whether from an invited-email claim or a bulk CSV import.
-
-    Returns True if a grant was attempted (program enabled and has flags), False otherwise. This
-    says nothing about whether any row was actually inserted — ``DO NOTHING`` can silently no-op
-    per flag, and that's the intended behaviour, not a failure to report.
+    ON CONFLICT DO NOTHING because a collision here is a normal case rather than an error: the
+    user may already hold the flag from an operator's manual assignment, which must win, or from
+    another program granting the same flag.
     """
     program = db_session.get(EarlyAccessProgram, program_id)
     if program is None or program.disabled:
@@ -77,18 +61,14 @@ def grant_program_flags(db_session, user_id: str, program_id: str) -> bool:
     return True
 
 
-def apply_invited_email_grants(db_session, user_id: str, email: str) -> list[str]:
-    """Claim every outstanding, non-disabled invited-email row for `email` on behalf of `user_id`.
+def apply_invited_email_grants(user_id: str, email: str, db_session: Session) -> list[str]:
+    """Claim every outstanding invited-email row for `email` on behalf of `user_id`.
 
-    For each claimed program: creates the durable `early_access_enrollment` audit row
-    (`source='invited_email'`) and calls `grant_program_flags`. The enrollment insert's
-    ``ON CONFLICT DO NOTHING`` is a safety net, not a cap check — an `early_access_invited_email`
-    row cannot outlive its claim, so a genuine double-claim race is not expected.
+    The DELETE ... RETURNING claims the rows exclusively, so only one caller can ever act on a
+    given invite. Rows tied to a disabled program are left in place, so re-enabling that program
+    still lets them be claimed later.
 
-    A row tied to a currently-disabled program is left untouched (not deleted), so re-enabling
-    the program later still lets it be claimed on a subsequent call.
-
-    Returns the list of program_ids claimed (empty if none were pending).
+    Returns the program_ids claimed (empty if none were pending).
     """
     email = email.lower()
     not_disabled_program_ids = select(EarlyAccessProgram.id).where(EarlyAccessProgram.disabled.is_(False))
@@ -109,18 +89,17 @@ def apply_invited_email_grants(db_session, user_id: str, email: str) -> list[str
 
     now = datetime.now(timezone.utc)
     for program_id in claimed_program_ids:
-        db_session.execute(
-            pg_insert(EarlyAccessEnrollment.__table__)
-            .values(
+        db_session.add(
+            EarlyAccessEnrollment(
                 id=generate_unique_id(),
                 program_id=program_id,
                 user_id=user_id,
                 enrolled_at=now,
                 source="invited_email",
             )
-            .on_conflict_do_nothing(index_elements=["program_id", "user_id"])
         )
-        grant_program_flags(db_session, user_id, program_id)
+        grant_program_flags(user_id, program_id, db_session)
+    db_session.flush()
 
     logger.info("user %s claimed %d early access invite(s)", user_id, len(claimed_program_ids))
     return list(claimed_program_ids)

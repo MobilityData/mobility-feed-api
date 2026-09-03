@@ -113,7 +113,7 @@ class UsersApiImpl(BaseUsersApi):
             if user.email:
                 try:
                     with db_session.begin_nested():
-                        apply_invited_email_grants(db_session, user_id, user.email)
+                        apply_invited_email_grants(user_id, user.email, db_session)
                 except Exception:
                     logger.exception(
                         "Early access invite claim failed for user_id=%s; continuing without it.",

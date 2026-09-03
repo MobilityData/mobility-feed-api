@@ -111,7 +111,7 @@ class TestGetUserMe(unittest.TestCase):
         self.assertEqual(added_user.email, "user@example.com")
         self.assertEqual(result.id, "uid-123")
         # The claim hook only fires here, on account creation.
-        self.mock_apply_invited_email_grants.assert_called_once_with(self.mock_session, "uid-123", "user@example.com")
+        self.mock_apply_invited_email_grants.assert_called_once_with("uid-123", "user@example.com", self.mock_session)
 
     def test_raises_401_when_user_id_missing(self):
         _request_context.set({"user_id": None, "user_email": "user@example.com"})
