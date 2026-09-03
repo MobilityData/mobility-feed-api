@@ -13,12 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Shared feature-flag value validation.
-
-Extracted from `user_feature_flags_impl.py` so the early access program endpoints (which also
-validate a `value` against a flag's declared `value_type` — a program's feature flag grants, and
-its bulk replace endpoint) can reuse the same rule instead of re-implementing it.
-"""
 
 from fastapi import HTTPException
 

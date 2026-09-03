@@ -31,14 +31,17 @@ import uuid
 import pytest
 
 from middleware.request_context import _request_context
+from shared.common.early_access import grant_program_flags
 from shared.common.feature_flags import feature_flag_enabled
 from shared.database.users_database import UsersDatabase
 from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
     EarlyAccessEnrollment,
     EarlyAccessInvitedEmail,
     EarlyAccessProgram,
     EarlyAccessProgramFeatureFlag,
     FeatureFlag,
+    UserFeatureFlag,
 )
 from user_service.impl.users_api_impl import UsersApiImpl
 
@@ -156,3 +159,42 @@ class TestInvitedEmailClaimOnGetUser:
 
 def _assert_flag_granted(session, user_id, flag_id):
     assert feature_flag_enabled(session, user_id, flag_id) is True
+
+
+class TestGrantProgramFlagsConflicts:
+    """The two reasons `grant_program_flags` inserts with ON CONFLICT DO NOTHING. Without these,
+    swapping it for a plain insert would raise IntegrityError on a normal path while every other
+    test still passed."""
+
+    def test_two_programs_granting_the_same_flag_do_not_collide(self, session):
+        flag_id = _make_flag(session, "shared")
+        program_a = _make_program(session, (flag_id, True))
+        program_b = _make_program(session, (flag_id, True))
+        user_id = f"user-{_uid()}"
+        email = f"{user_id}@example.com"
+        _make_invite(session, program_a.id, email)
+        _make_invite(session, program_b.id, email)
+        _request_context.set({"user_id": user_id, "user_email": email, "is_guest": False})
+
+        # Claims both invites in one transaction, so the second program's grant hits the
+        # (user_id, feature_flag_id) primary key a second time.
+        UsersApiImpl().get_user(db_session=session)
+
+        _assert_flag_granted(session, user_id, flag_id)
+        assert session.query(UserFeatureFlag).filter_by(user_id=user_id, feature_flag_id=flag_id).count() == 1
+        enrolled = {row.program_id for row in session.query(EarlyAccessEnrollment).filter_by(user_id=user_id).all()}
+        assert enrolled == {program_a.id, program_b.id}
+
+    def test_program_grant_never_overwrites_an_operator_set_flag(self, session):
+        flag_id = _make_flag(session, "operator")
+        program = _make_program(session, (flag_id, True))
+        user_id = f"user-{_uid()}"
+        session.add(AppUser(id=user_id, email=f"{user_id}@example.com"))
+        session.flush()
+        # An operator explicitly turned this flag OFF for this user; a program grant must lose.
+        session.add(UserFeatureFlag(user_id=user_id, feature_flag_id=flag_id, value=False))
+        session.flush()
+
+        grant_program_flags(user_id, program.id, session)
+
+        assert feature_flag_enabled(session, user_id, flag_id) is False

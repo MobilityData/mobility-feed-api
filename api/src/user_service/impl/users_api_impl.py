@@ -104,21 +104,14 @@ class UsersApiImpl(BaseUsersApi):
             )
             db_session.add(user)
             db_session.flush()
-
-            # Only fires on account creation: the CSV import grants a matching existing account
-            # immediately at import time, so an invite row only exists for someone who had no
-            # account yet, and their first sign-in (right above) is the only place it can be
-            # claimed. SAVEPOINT + broad except: this is the most-called endpoint in the service
-            # and must never 500 because a program row is malformed.
-            if user.email:
-                try:
-                    with db_session.begin_nested():
-                        apply_invited_email_grants(user_id, user.email, db_session)
-                except Exception:
-                    logger.exception(
-                        "Early access invite claim failed for user_id=%s; continuing without it.",
-                        user_id,
-                    )
+            try:
+                with db_session.begin_nested():
+                    apply_invited_email_grants(user_id, user.email, db_session)
+            except Exception:
+                logger.exception(
+                    "Early access invite claim failed for user_id=%s; continuing without it.",
+                    user_id,
+                )
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
         return AppUserImpl.from_orm(user, all_flags)
