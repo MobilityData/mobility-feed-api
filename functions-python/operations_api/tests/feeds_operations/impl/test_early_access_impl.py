@@ -20,6 +20,8 @@ Runs against the real Postgres users test database (``MobilityDatabaseUsersTest`
 rows and cleans them up in a fixture teardown.
 """
 
+import csv
+import io
 import uuid
 
 import pytest
@@ -35,11 +37,11 @@ from feeds_gen.models.early_access_program_feature_flag_grant import (
 from feeds_gen.models.import_early_access_invited_emails_request import (
     ImportEarlyAccessInvitedEmailsRequest,
 )
-from feeds_gen.models.put_early_access_program_feature_flags_request import (
-    PutEarlyAccessProgramFeatureFlagsRequest,
-)
 from feeds_gen.models.remove_early_access_invited_emails_request import (
     RemoveEarlyAccessInvitedEmailsRequest,
+)
+from feeds_gen.models.update_early_access_program_request import (
+    UpdateEarlyAccessProgramRequest,
 )
 from feeds_operations.impl.early_access_impl import EarlyAccessApiImpl
 from shared.database.users_database import UsersDatabase
@@ -156,14 +158,17 @@ class TestCreateProgram:
         )
 
 
-class TestPutFeatureFlags:
-    def test_replaces_the_grant_set(self, api, session):
+class TestUpdateProgram:
+    """`PUT /{id}` now carries the feature flag grants too. The program's own fields stay a
+    partial update; `feature_flags` is a full replace, so omitting it clears the set."""
+
+    def _program_with_flag(self, session, name):
         flag_a = f"test.flag.{_uid()}"
         flag_b = f"test.flag.{_uid()}"
         session.add(FeatureFlag(id=flag_a, value_type="boolean", default_value=False))
         session.add(FeatureFlag(id=flag_b, value_type="boolean", default_value=False))
         session.flush()
-        program = EarlyAccessProgram(id=_uid(), name="Replace Test")
+        program = EarlyAccessProgram(id=_uid(), name=name)
         session.add(program)
         session.flush()
         session.add(
@@ -172,10 +177,22 @@ class TestPutFeatureFlags:
             )
         )
         session.flush()
+        return program, flag_a, flag_b
 
-        result = api.put_early_access_program_feature_flags(
+    def _grants(self, session, program_id):
+        return [
+            g.feature_flag_id
+            for g in session.query(EarlyAccessProgramFeatureFlag)
+            .filter_by(program_id=program_id)
+            .all()
+        ]
+
+    def test_replaces_the_grant_set(self, api, session):
+        program, _flag_a, flag_b = self._program_with_flag(session, "Replace Test")
+
+        result = api.update_early_access_program(
             program.id,
-            PutEarlyAccessProgramFeatureFlagsRequest(
+            UpdateEarlyAccessProgramRequest(
                 feature_flags=[
                     EarlyAccessProgramFeatureFlagGrant(
                         feature_flag_id=flag_b, value=True
@@ -186,18 +203,66 @@ class TestPutFeatureFlags:
         )
 
         assert [g.feature_flag_id for g in result.feature_flags] == [flag_b]
-        remaining = (
-            session.query(EarlyAccessProgramFeatureFlag)
-            .filter_by(program_id=program.id)
-            .all()
+        assert self._grants(session, program.id) == [flag_b]
+
+    def test_omitting_feature_flags_clears_the_grant_set(self, api, session):
+        program, _flag_a, _flag_b = self._program_with_flag(session, "Clear Test")
+
+        result = api.update_early_access_program(
+            program.id,
+            UpdateEarlyAccessProgramRequest(name="Renamed"),
+            db_session=session,
         )
-        assert [g.feature_flag_id for g in remaining] == [flag_b]
+
+        assert result.name == "Renamed"
+        assert result.feature_flags == []
+        assert self._grants(session, program.id) == []
+
+    def test_updates_own_fields_partially(self, api, session):
+        program, _flag_a, flag_b = self._program_with_flag(session, "Partial Test")
+
+        result = api.update_early_access_program(
+            program.id,
+            UpdateEarlyAccessProgramRequest(
+                description="now described",
+                feature_flags=[
+                    EarlyAccessProgramFeatureFlagGrant(
+                        feature_flag_id=flag_b, value=True
+                    )
+                ],
+            ),
+            db_session=session,
+        )
+
+        # `name` was not in the body, so it is untouched.
+        assert result.name == "Partial Test"
+        assert result.description == "now described"
+
+    def test_unknown_feature_flag_rejected_nothing_written(self, api, session):
+        program, flag_a, _flag_b = self._program_with_flag(session, "Bad Flag Test")
+
+        with pytest.raises(HTTPException) as exc_info:
+            api.update_early_access_program(
+                program.id,
+                UpdateEarlyAccessProgramRequest(
+                    name="should not stick",
+                    feature_flags=[
+                        EarlyAccessProgramFeatureFlagGrant(
+                            feature_flag_id="does-not-exist", value=True
+                        )
+                    ],
+                ),
+                db_session=session,
+            )
+        assert exc_info.value.status_code == 422
+        # The pre-existing grant survives: validation runs before the replace.
+        assert self._grants(session, program.id) == [flag_a]
 
     def test_unknown_program_404(self, api, session):
         with pytest.raises(HTTPException) as exc_info:
-            api.put_early_access_program_feature_flags(
+            api.update_early_access_program(
                 "does-not-exist",
-                PutEarlyAccessProgramFeatureFlagsRequest(feature_flags=[]),
+                UpdateEarlyAccessProgramRequest(feature_flags=[]),
                 db_session=session,
             )
         assert exc_info.value.status_code == 404
@@ -417,3 +482,165 @@ class TestRemoveInvitedEmails:
             .first()
         )
         assert remaining is None
+
+
+def _csv_rows(response):
+    """Parse a csv_response body back into (header, data_rows)."""
+    reader = csv.reader(io.StringIO(response.body.decode()))
+    rows = list(reader)
+    return rows[0], rows[1:]
+
+
+class TestProgramReport:
+    @pytest.fixture
+    def populated(self, session):
+        """1 enrollment from an invite claim, 1 direct ops grant, 2 outstanding invites."""
+        program = EarlyAccessProgram(id=_uid(), name="Report Test")
+        session.add(program)
+        session.flush()
+        for source in ("invited_email", "operations"):
+            user = AppUser(id=f"user-{_uid()}", email=f"{source}-{_uid()}@example.com")
+            session.add(user)
+            session.flush()
+            session.add(
+                EarlyAccessEnrollment(
+                    id=_uid(),
+                    program_id=program.id,
+                    user_id=user.id,
+                    source=source,
+                )
+            )
+        for _ in range(2):
+            session.add(
+                EarlyAccessInvitedEmail(
+                    id=_uid(),
+                    program_id=program.id,
+                    email=f"invited-{_uid()}@example.com",
+                )
+            )
+        session.flush()
+        return program
+
+    def test_unions_both_halves_with_summary(self, api, session, populated):
+        result = api.get_early_access_program_report(populated.id, db_session=session)
+
+        assert result.program_id == populated.id
+        assert result.summary.enrolled_count == 2
+        assert result.summary.outstanding_invite_count == 2
+        assert result.summary.total == 4
+        assert result.summary.by_source.invited_email == 1
+        assert result.summary.by_source.operations == 1
+        assert result.total == 4
+        assert len(result.rows) == 4
+
+        statuses = [row.status for row in result.rows]
+        assert statuses.count("enrolled") == 2
+        assert statuses.count("invited") == 2
+        # Enrolled rows carry account fields; invited rows carry the invite timestamp instead.
+        for row in result.rows:
+            if row.status == "enrolled":
+                assert row.user_id is not None and row.enrolled_at is not None
+                assert row.invited_at is None
+            else:
+                assert row.user_id is None and row.enrolled_at is None
+                assert row.invited_at is not None
+
+    def test_rows_sorted_by_status_then_email(self, api, session, populated):
+        result = api.get_early_access_program_report(populated.id, db_session=session)
+        keys = [(row.status, row.email) for row in result.rows]
+        assert keys == sorted(keys)
+
+    def test_report_csv(self, api, session, populated):
+        response = api.get_early_access_program_report(
+            populated.id, format="csv", db_session=session
+        )
+
+        header, rows = _csv_rows(response)
+        assert header == [
+            "email",
+            "status",
+            "user_id",
+            "enrolled_at",
+            "source",
+            "invited_at",
+        ]
+        assert len(rows) == 4
+        # An invited row leaves the enrolled-only columns as blank cells, not "None".
+        invited = [row for row in rows if row[1] == "invited"]
+        assert len(invited) == 2
+        assert all(row[2] == "" and row[3] == "" and row[4] == "" for row in invited)
+
+    def test_csv_metadata(self, api, session, populated):
+        response = api.get_early_access_program_report(
+            populated.id, format="csv", db_session=session
+        )
+        assert response.media_type == "text/csv; charset=utf-8"
+        assert "attachment" in response.headers["content-disposition"]
+
+    def test_pagination(self, api, session, populated):
+        result = api.get_early_access_program_report(
+            populated.id, limit=3, offset=0, db_session=session
+        )
+        assert result.total == 4
+        assert len(result.rows) == 3
+        # The summary counts the whole program, not just the page.
+        assert result.summary.total == 4
+
+        result = api.get_early_access_program_report(
+            populated.id, limit=3, offset=3, db_session=session
+        )
+        assert len(result.rows) == 1
+
+    def test_csv_honours_limit_and_offset(self, api, session, populated):
+        response = api.get_early_access_program_report(
+            populated.id, limit=3, offset=0, format="csv", db_session=session
+        )
+        _header, rows = _csv_rows(response)
+        assert len(rows) == 3
+
+        response = api.get_early_access_program_report(
+            populated.id, limit=3, offset=3, format="csv", db_session=session
+        )
+        _header, rows = _csv_rows(response)
+        assert len(rows) == 1
+
+    def test_status_filter_narrows_rows_but_not_the_summary(
+        self, api, session, populated
+    ):
+        for status, expected in (("enrolled", 2), ("invited", 2)):
+            result = api.get_early_access_program_report(
+                populated.id, status=status, db_session=session
+            )
+            assert [row.status for row in result.rows] == [status] * expected
+            assert result.total == expected
+            # The headline numbers still describe the whole program.
+            assert result.summary.enrolled_count == 2
+            assert result.summary.outstanding_invite_count == 2
+            assert result.summary.total == 4
+
+    def test_status_filter_applies_to_csv(self, api, session, populated):
+        response = api.get_early_access_program_report(
+            populated.id, status="invited", format="csv", db_session=session
+        )
+        _header, rows = _csv_rows(response)
+        assert len(rows) == 2
+        assert all(row[1] == "invited" for row in rows)
+
+    def test_unsupported_format_422(self, api, session, populated):
+        with pytest.raises(HTTPException) as exc_info:
+            api.get_early_access_program_report(
+                populated.id, format="xlsx", db_session=session
+            )
+        assert exc_info.value.status_code == 422
+
+    def test_unsupported_status_422(self, api, session, populated):
+        with pytest.raises(HTTPException) as exc_info:
+            api.get_early_access_program_report(
+                populated.id, status="pending", db_session=session
+            )
+        assert exc_info.value.status_code == 422
+
+    def test_unknown_program_404(self, api, session):
+        with pytest.raises(HTTPException) as exc_info:
+            api.get_early_access_program_report("does-not-exist", db_session=session)
+        assert exc_info.value.status_code == 404

@@ -21,7 +21,7 @@ in the public API.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from email_validator import EmailNotValidError, validate_email
 from fastapi import HTTPException
@@ -32,20 +32,20 @@ from feeds_gen.apis.early_access_api_base import BaseEarlyAccessApi
 from feeds_gen.models.create_early_access_program_request import (
     CreateEarlyAccessProgramRequest,
 )
-from feeds_gen.models.early_access_enrollment import (
-    EarlyAccessEnrollment as EarlyAccessEnrollmentModel,
-)
 from feeds_gen.models.early_access_import_category_summary import (
     EarlyAccessImportCategorySummary,
 )
 from feeds_gen.models.early_access_invalid_email_entry import (
     EarlyAccessInvalidEmailEntry,
 )
-from feeds_gen.models.early_access_invited_email import (
-    EarlyAccessInvitedEmail as EarlyAccessInvitedEmailModel,
-)
 from feeds_gen.models.early_access_program_feature_flag_grant import (
     EarlyAccessProgramFeatureFlagGrant,
+)
+from feeds_gen.models.early_access_program_report import EarlyAccessProgramReport
+from feeds_gen.models.early_access_report_row import EarlyAccessReportRow
+from feeds_gen.models.early_access_report_summary import EarlyAccessReportSummary
+from feeds_gen.models.early_access_report_summary_by_source import (
+    EarlyAccessReportSummaryBySource,
 )
 from feeds_gen.models.import_early_access_invited_emails_request import (
     ImportEarlyAccessInvitedEmailsRequest,
@@ -53,19 +53,10 @@ from feeds_gen.models.import_early_access_invited_emails_request import (
 from feeds_gen.models.import_early_access_invited_emails_response import (
     ImportEarlyAccessInvitedEmailsResponse,
 )
-from feeds_gen.models.list_early_access_enrollments200_response import (
-    ListEarlyAccessEnrollments200Response,
-)
-from feeds_gen.models.list_early_access_invited_emails200_response import (
-    ListEarlyAccessInvitedEmails200Response,
-)
 from feeds_gen.models.list_early_access_programs200_response import (
     ListEarlyAccessPrograms200Response,
 )
 from feeds_gen.models.operation_early_access_program import OperationEarlyAccessProgram
-from feeds_gen.models.put_early_access_program_feature_flags_request import (
-    PutEarlyAccessProgramFeatureFlagsRequest,
-)
 from feeds_gen.models.remove_early_access_invited_emails_request import (
     RemoveEarlyAccessInvitedEmailsRequest,
 )
@@ -75,6 +66,7 @@ from feeds_gen.models.remove_early_access_invited_emails_response import (
 from feeds_gen.models.update_early_access_program_request import (
     UpdateEarlyAccessProgramRequest,
 )
+from feeds_operations.impl.csv_utils import CSV_FORMAT, JSON_FORMAT, csv_response
 from feeds_operations.impl.models.feature_flag_validation import validate_value_type
 from feeds_operations.impl.models.operation_early_access_program_impl import (
     OperationEarlyAccessProgramImpl,
@@ -105,10 +97,46 @@ _PROGRAM_FLAGS_LOAD = selectinload(
 # operator needs in full to fix and resubmit).
 _SAMPLE_SIZE = 5
 
+_STATUS_ENROLLED = "enrolled"
+_STATUS_INVITED = "invited"
+
+# Explicit CSV column order, so adding a field to the row model cannot silently reorder or
+# introduce columns in a file someone is already parsing.
+_REPORT_CSV_FIELDS = (
+    "email",
+    "status",
+    "user_id",
+    "enrolled_at",
+    "source",
+    "invited_at",
+)
+
 
 def _validate_window(program: EarlyAccessProgram) -> None:
     if program.starts_at and program.ends_at and program.ends_at <= program.starts_at:
         raise HTTPException(status_code=422, detail="ends_at must be after starts_at.")
+
+
+def _validate_format(format: Optional[str]) -> None:
+    """The generator types `format` as a plain `str`, not an enum, so the spec's enum is not
+    enforced for us at the routing layer."""
+    if format is not None and format not in (JSON_FORMAT, CSV_FORMAT):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported format '{format}'. Expected '{JSON_FORMAT}' or '{CSV_FORMAT}'.",
+        )
+
+
+def _validate_status(status: Optional[str]) -> None:
+    """Same as _validate_format: the generated `status` param is a plain `str`."""
+    if status is not None and status not in (_STATUS_ENROLLED, _STATUS_INVITED):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unsupported status '{status}'. "
+                f"Expected '{_STATUS_ENROLLED}' or '{_STATUS_INVITED}'."
+            ),
+        )
 
 
 def _dedupe_grants(
@@ -246,44 +274,21 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
 
+        # The program's own fields are a partial update; feature_flags is a full replace, so it
+        # is handled separately below rather than setattr'd from update_data.
         update_data = update_early_access_program_request.model_dump(exclude_unset=True)
+        update_data.pop("feature_flags", None)
         for field, value in update_data.items():
             setattr(program, field, value)
         _validate_window(program)
-        db_session.flush()
-        return OperationEarlyAccessProgramImpl.from_orm(program)
 
-    @with_users_db_session
-    def delete_early_access_program(self, id: str, db_session=None) -> None:
-        program = db_session.get(EarlyAccessProgram, id)
-        if program is None:
-            raise HTTPException(
-                status_code=404, detail=early_access_program_not_found.format(id)
-            )
-        db_session.delete(program)
-        db_session.flush()
-
-    @with_users_db_session
-    def put_early_access_program_feature_flags(
-        self,
-        id: str,
-        put_early_access_program_feature_flags_request: PutEarlyAccessProgramFeatureFlagsRequest,
-        db_session=None,
-    ) -> OperationEarlyAccessProgram:
-        program = db_session.get(EarlyAccessProgram, id)
-        if program is None:
-            raise HTTPException(
-                status_code=404, detail=early_access_program_not_found.format(id)
-            )
-
-        grants = _dedupe_grants(
-            put_early_access_program_feature_flags_request.feature_flags or []
-        )
+        grants = _dedupe_grants(update_early_access_program_request.feature_flags or [])
         _validate_feature_flag_grants(db_session, grants)
 
-        # Replace: delete the program's current grant set, then insert the new one. This never
-        # touches `user_feature_flag` rows already granted to existing enrollees — it only
-        # changes what future enrollments and invite claims receive.
+        # Replace: delete the program's current grant set, then insert the new one. Omitting
+        # feature_flags entirely clears the set. This never touches `user_feature_flag` rows
+        # already granted to existing enrollees - it only changes what future enrollments and
+        # invite claims receive.
         db_session.query(EarlyAccessProgramFeatureFlag).filter_by(
             program_id=id
         ).delete()
@@ -298,90 +303,112 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             ]
         )
         db_session.flush()
-        # The bulk delete above bypasses the relationship, so an already-loaded collection would
-        # still hold the removed rows. Same intent as refresh() in put_user_feature_flags.
+        # The bulk delete above bypasses the relationship, so the already-loaded collection
+        # (_PROGRAM_FLAGS_LOAD) would still hold the removed rows. Same intent as refresh() in
+        # put_user_feature_flags.
         db_session.expire(program, ["early_access_program_feature_flags"])
         return OperationEarlyAccessProgramImpl.from_orm(program)
 
     @with_users_db_session
-    def list_early_access_enrollments(
-        self,
-        id: str,
-        limit: Optional[int] = 100,
-        offset: Optional[int] = 0,
-        db_session=None,
-    ) -> ListEarlyAccessEnrollments200Response:
-        if db_session.get(EarlyAccessProgram, id) is None:
+    def delete_early_access_program(self, id: str, db_session=None) -> None:
+        program = db_session.get(EarlyAccessProgram, id)
+        if program is None:
             raise HTTPException(
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
-        limit = limit or 100
-        offset = offset or 0
-        q = (
-            db_session.query(EarlyAccessEnrollment, AppUser.email)
-            .join(AppUser, AppUser.id == EarlyAccessEnrollment.user_id)
-            .filter(EarlyAccessEnrollment.program_id == id)
-        )
-        total = q.order_by(None).count()
-        rows = (
-            q.order_by(EarlyAccessEnrollment.enrolled_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
-        return ListEarlyAccessEnrollments200Response(
-            total=total,
-            offset=offset,
-            limit=limit,
-            enrollments=[
-                EarlyAccessEnrollmentModel(
-                    id=enrollment.id,
-                    user_id=enrollment.user_id,
-                    email=email,
-                    enrolled_at=enrollment.enrolled_at,
-                    source=enrollment.source,
-                )
-                for enrollment, email in rows
-            ],
-        )
+        db_session.delete(program)
+        db_session.flush()
 
     @with_users_db_session
-    def list_early_access_invited_emails(
+    def get_early_access_program_report(
         self,
         id: str,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
+        status: Optional[str] = None,
+        format: Optional[str] = JSON_FORMAT,
         db_session=None,
-    ) -> ListEarlyAccessInvitedEmails200Response:
+    ) -> EarlyAccessProgramReport:
         if db_session.get(EarlyAccessProgram, id) is None:
             raise HTTPException(
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
+        _validate_format(format)
+        _validate_status(status)
         limit = limit or 100
         offset = offset or 0
-        q = db_session.query(EarlyAccessInvitedEmail).filter(
-            EarlyAccessInvitedEmail.program_id == id
-        )
-        total = q.order_by(None).count()
-        rows = (
-            q.order_by(EarlyAccessInvitedEmail.created_at.desc())
-            .offset(offset)
-            .limit(limit)
+
+        # Two queries merged in Python rather than a SQL UNION: the two halves carry different
+        # columns (an invited address has no user_id/source, an enrollment has no invited_at),
+        # so a UNION would need a column of NULL literals per side and give up type clarity.
+        enrolled = [
+            EarlyAccessReportRow(
+                email=email,
+                status=_STATUS_ENROLLED,
+                user_id=enrollment.user_id,
+                enrolled_at=enrollment.enrolled_at,
+                source=enrollment.source,
+                invited_at=None,
+            )
+            for enrollment, email in db_session.query(
+                EarlyAccessEnrollment, AppUser.email
+            )
+            .join(AppUser, AppUser.id == EarlyAccessEnrollment.user_id)
+            .filter(EarlyAccessEnrollment.program_id == id)
             .all()
+        ]
+        invited = [
+            EarlyAccessReportRow(
+                email=row.email,
+                status=_STATUS_INVITED,
+                user_id=None,
+                enrolled_at=None,
+                source=None,
+                invited_at=row.created_at,
+            )
+            for row in db_session.query(EarlyAccessInvitedEmail)
+            .filter(EarlyAccessInvitedEmail.program_id == id)
+            .all()
+        ]
+
+        # The summary always describes the whole program, so the headline numbers stay the same
+        # whether or not `status` narrows the rows below.
+        by_source: Dict[str, int] = {}
+        for row in enrolled:
+            by_source[row.source] = by_source.get(row.source, 0) + 1
+        summary = EarlyAccessReportSummary(
+            enrolled_count=len(enrolled),
+            outstanding_invite_count=len(invited),
+            total=len(enrolled) + len(invited),
+            by_source=EarlyAccessReportSummaryBySource(
+                invited_email=by_source.get("invited_email", 0),
+                operations=by_source.get("operations", 0),
+            ),
         )
-        return ListEarlyAccessInvitedEmails200Response(
-            total=total,
+
+        if status == _STATUS_ENROLLED:
+            selected = enrolled
+        elif status == _STATUS_INVITED:
+            selected = invited
+        else:
+            selected = enrolled + invited
+        all_rows = sorted(selected, key=lambda row: (row.status, row.email))
+        page = all_rows[offset : offset + limit]
+        if format == CSV_FORMAT:
+            # CSV carries the rows only; the summary has no sensible tabular representation
+            # alongside them.
+            return csv_response(
+                f"early-access-{id}-report.csv",
+                _REPORT_CSV_FIELDS,
+                [row.model_dump() for row in page],
+            )
+        return EarlyAccessProgramReport(
+            program_id=id,
+            summary=summary,
+            total=len(all_rows),
             offset=offset,
             limit=limit,
-            invited_emails=[
-                EarlyAccessInvitedEmailModel(
-                    id=row.id,
-                    email=row.email,
-                    created_at=row.created_at,
-                    created_by=row.created_by,
-                )
-                for row in rows
-            ],
+            rows=page,
         )
 
     @with_users_db_session

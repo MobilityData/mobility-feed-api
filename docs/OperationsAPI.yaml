@@ -749,7 +749,7 @@ paths:
     put:
       summary: Update an early access program
       description: >
-        Updates the program's own fields (name, description, window, disabled, invite_retention_days). Does not touch the program's feature flag grants — use `PUT .../feature-flags` for that.
+        Updates the program's own fields (name, description, window, disabled, invite_retention_days) and replaces its feature flag grants. The program's own fields are a partial update - omit a field to leave it unchanged - but `feature_flags` is a full replace: omitting it, or sending an empty array, removes every grant this program makes going forward. This never touches `user_feature_flag` rows already granted to existing enrollees.
 
       operationId: updateEarlyAccessProgram
       tags:
@@ -774,7 +774,9 @@ paths:
         "404":
           description: Program not found.
         "422":
-          description: Validation error (e.g. ends_at not after starts_at).
+          description: >
+            Validation error - e.g. ends_at not after starts_at, an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+
     delete:
       summary: Delete an early access program
       description: >
@@ -792,157 +794,11 @@ paths:
           description: Unauthorized.
         "404":
           description: Program not found.
-  /v1/operations/early-access-programs/{id}/feature-flags:
-    put:
-      summary: Replace an early access program's feature flag grants
-      description: >
-        Replaces the program's complete set of feature flag grants in a single call — a flag omitted from the new list is no longer granted by this program going forward, and a newly listed one is added. This never touches `user_feature_flag` rows already granted to existing enrollees; it only changes what future enrollments and invite claims receive.
-
-      operationId: putEarlyAccessProgramFeatureFlags
-      tags:
-        - "early-access"
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The early access program's ID.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PutEarlyAccessProgramFeatureFlagsRequest"
-      responses:
-        "200":
-          description: Updated program with its new feature flag grants.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OperationEarlyAccessProgram"
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Program not found.
-        "422":
-          description: >
-            Validation error — e.g. an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
-
-  /v1/operations/early-access-programs/{id}/enrollments:
-    get:
-      summary: List a program's enrollments
-      description: Returns a paginated list of users enrolled in this program.
-      operationId: listEarlyAccessEnrollments
-      tags:
-        - "early-access"
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The early access program's ID.
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 100
-            minimum: 1
-            maximum: 1000
-        - name: offset
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        "200":
-          description: Paginated list of enrollments.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total:
-                    type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
-                  enrollments:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/EarlyAccessEnrollment"
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Program not found.
   /v1/operations/early-access-programs/{id}/invited-emails:
-    get:
-      summary: List a program's outstanding invited emails
-      description: >
-        Returns the emails invited to this program that have not yet been claimed (i.e. still have a row in `early_access_invited_email`). A claimed invite no longer appears here — see the enrollments list instead.
-
-      operationId: listEarlyAccessInvitedEmails
-      tags:
-        - "early-access"
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The early access program's ID.
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 100
-            minimum: 1
-            maximum: 1000
-        - name: offset
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        "200":
-          description: Paginated list of outstanding invited emails.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total:
-                    type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
-                  invited_emails:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/EarlyAccessInvitedEmail"
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Program not found.
     post:
-      summary: Bulk-import invited emails (CSV import)
+      summary: Bulk-add invited emails
       description: >
-        Categorises every submitted address against this program and, unless `dry_run` is true (the default), applies the result: an address matching an existing account is granted the program's flags immediately; an address with no matching account gets an invite row, claimed automatically the next time that email signs in. The same body is used for preview and apply so the matching rules cannot diverge between the two. Never logs the submitted list.
+        Takes a JSON array of addresses and categorises every one of them against this program. Unless `dry_run` is true (the default), applies the result: an address matching an existing account is granted the program's flags immediately; an address with no matching account gets an invite row, claimed automatically the next time that email signs in. The same body is used for preview and apply so the matching rules cannot diverge between the two. Never logs the submitted list.
 
       operationId: importEarlyAccessInvitedEmails
       tags:
@@ -975,11 +831,10 @@ paths:
           description: Program not found.
         "422":
           description: More than 5000 emails were submitted.
-  /v1/operations/early-access-programs/{id}/invited-emails/remove:
-    post:
+    delete:
       summary: Bulk-remove invited emails
       description: >
-        Removes outstanding (unclaimed) invited-email rows for this program. Never `DELETE .../{email}` — addresses stay out of URLs (and therefore out of proxy/access logs). Removing an invite does not touch any flag already granted from an earlier claim.
+        Removes outstanding (unclaimed) invited-email rows for this program. The addresses go in the request body rather than the path, so they stay out of URLs and therefore out of proxy and access logs. Removing an invite does not touch any flag already granted from an earlier claim.
 
       operationId: removeEarlyAccessInvitedEmails
       tags:
@@ -1006,6 +861,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RemoveEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/early-access-programs/{id}/report:
+    get:
+      summary: Combined enrollment and invite report for a program
+      description: >
+        One row per person across both halves of the program: everyone already enrolled and every address still holding an outstanding invite, distinguished by `status`. Includes a summary count block. Note that an enrolled row's `email` is the account's email as it is *now*, which is not necessarily the address the invite was sent to - the invite row is deleted on claim, so the two cannot be correlated afterwards.
+
+      operationId: getEarlyAccessProgramReport
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: status
+          in: query
+          required: false
+          description: >
+            Restrict `rows` to one half of the program: `enrolled` for people already in it, `invited` for addresses still holding an unclaimed invite. Omit for both. The `summary` block always covers the whole program regardless of this filter.
+
+          schema:
+            type: string
+            enum: [enrolled, invited]
+        - $ref: "#/components/parameters/early_access_format_param"
+      responses:
+        "200":
+          description: >
+            The program's combined report, as JSON or as CSV depending on `format`. In CSV the summary block is omitted and only the rows are emitted.
+
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EarlyAccessProgramReport"
+            text/csv:
+              schema:
+                type: string
         "401":
           description: Unauthorized.
         "404":
@@ -3379,7 +3293,7 @@ components:
       x-operation: true
       type: object
       description: >
-        Partial update of the program's own fields. Does not touch feature flag grants — use `PUT .../feature-flags` for that.
+        The program's own fields are a partial update - omit one to leave it unchanged. `feature_flags` is the exception: it is a full replace, so omitting it or sending an empty array removes every grant this program makes going forward.
 
       properties:
         name:
@@ -3399,62 +3313,14 @@ components:
           type: boolean
         invite_retention_days:
           type: integer
-    PutEarlyAccessProgramFeatureFlagsRequest:
-      x-operation: true
-      type: object
-      required:
-        - feature_flags
-      properties:
         feature_flags:
           type: array
           description: >
-            The program's complete set of feature flag grants after this call — a "set" operation, not an incremental add/remove. An empty array removes all of this program's grants going forward without touching flags already granted to existing enrollees.
+            The program's complete set of feature flag grants after this call - a "set" operation, not an incremental add/remove. Omitting this field, or sending an empty array, removes all of this program's grants going forward without touching flags already granted to existing enrollees.
 
           items:
             $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
-    EarlyAccessEnrollment:
-      x-operation: true
-      type: object
-      required:
-        - id
-        - user_id
-        - enrolled_at
-        - source
-      properties:
-        id:
-          type: string
-        user_id:
-          type: string
-        email:
-          type: string
-          nullable: true
-          description: The enrolled user's current email, for operator convenience.
-        enrolled_at:
-          type: string
-          format: date-time
-        source:
-          type: string
-          enum: [invited_email, operations]
-          description: How this enrollment was created.
-    EarlyAccessInvitedEmail:
-      x-operation: true
-      type: object
-      required:
-        - id
-        - email
-        - created_at
-      properties:
-        id:
-          type: string
-        email:
-          type: string
-          format: email
-        created_at:
-          type: string
-          format: date-time
-        created_by:
-          type: string
-          nullable: true
+          default: []
     ImportEarlyAccessInvitedEmailsRequest:
       x-operation: true
       type: object
@@ -3572,6 +3438,93 @@ components:
           description: >
             Number of submitted addresses that had no outstanding invite for this program (already claimed, never invited, or already removed).
 
+    EarlyAccessReportRow:
+      x-operation: true
+      type: object
+      description: >
+        One person in a program's report. `status` says which half of the program they are in, and which of the remaining fields are populated.
+
+      required:
+        - email
+        - status
+      properties:
+        email:
+          type: string
+          format: email
+          description: >
+            For an enrolled row, the account's email as it is now; for an invited row, the address the invite was created for.
+
+        status:
+          type: string
+          enum: [enrolled, invited]
+        user_id:
+          type: string
+          nullable: true
+          description: Set for `enrolled` rows, null for `invited` (there is no account yet).
+        enrolled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set for `enrolled` rows only.
+        source:
+          type: string
+          enum: [invited_email, operations]
+          nullable: true
+          description: How the enrollment was created. Set for `enrolled` rows only.
+        invited_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the invite was created. Set for `invited` rows only.
+    EarlyAccessReportSummary:
+      x-operation: true
+      type: object
+      required:
+        - enrolled_count
+        - outstanding_invite_count
+        - total
+      properties:
+        enrolled_count:
+          type: integer
+          description: People already enrolled in the program.
+        outstanding_invite_count:
+          type: integer
+          description: Invited addresses not yet claimed.
+        total:
+          type: integer
+          description: enrolled_count + outstanding_invite_count.
+        by_source:
+          type: object
+          description: Enrollment counts broken down by how the enrollment was created.
+          properties:
+            invited_email:
+              type: integer
+            operations:
+              type: integer
+    EarlyAccessProgramReport:
+      x-operation: true
+      type: object
+      required:
+        - program_id
+        - summary
+        - rows
+      properties:
+        program_id:
+          type: string
+        summary:
+          $ref: "#/components/schemas/EarlyAccessReportSummary"
+        total:
+          type: integer
+          description: Total rows available, ignoring pagination.
+        offset:
+          type: integer
+        limit:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarlyAccessReportRow"
+          default: []
     OperationUserProfile:
       x-operation: true
       type: object
@@ -3623,6 +3576,18 @@ components:
             - feature_flag_id: "max_results"
               value: 50
   parameters:
+    early_access_format_param:
+      x-operation: true
+      name: format
+      in: query
+      description: >
+        Response format. `json` (the default) returns the paginated object; `csv` returns the same rows as `text/csv` with a header row.
+
+      required: False
+      schema:
+        type: string
+        enum: [json, csv]
+        default: json
     feed_id_path_param:
       x-operation: true
       name: id

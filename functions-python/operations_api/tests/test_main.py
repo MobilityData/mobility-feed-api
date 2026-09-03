@@ -31,7 +31,25 @@ def test_early_access_routes_registered():
     paths = _registered_paths()
     assert "/v1/operations/early-access-programs" in paths
     assert "/v1/operations/early-access-programs/{id}" in paths
-    assert "/v1/operations/early-access-programs/{id}/feature-flags" in paths
-    assert "/v1/operations/early-access-programs/{id}/enrollments" in paths
     assert "/v1/operations/early-access-programs/{id}/invited-emails" in paths
-    assert "/v1/operations/early-access-programs/{id}/invited-emails/remove" in paths
+    assert "/v1/operations/early-access-programs/{id}/report" in paths
+    # Removed rather than renamed; a lingering route would mean a stale generated router.
+    # feature-flags folded into PUT /{id}; the two list endpoints folded into /report;
+    # invited-emails/remove became DELETE on /invited-emails.
+    assert "/v1/operations/early-access-programs/{id}/feature-flags" not in paths
+    assert "/v1/operations/early-access-programs/{id}/enrollments" not in paths
+    assert (
+        "/v1/operations/early-access-programs/{id}/invited-emails/remove" not in paths
+    )
+
+
+def test_invited_emails_supports_both_add_and_remove():
+    """The bulk add and the bulk remove share one path, distinguished by method."""
+    methods = {
+        method
+        for route in app.routes
+        if getattr(route, "path", None)
+        == "/v1/operations/early-access-programs/{id}/invited-emails"
+        for method in route.methods
+    }
+    assert {"POST", "DELETE"} <= methods
