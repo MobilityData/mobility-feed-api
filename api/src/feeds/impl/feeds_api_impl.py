@@ -197,6 +197,7 @@ class FeedsApiImpl(BaseFeedsApi):
         self,
         limit: int,
         offset: int,
+        status: str,
         provider: str,
         producer_url: str,
         country_code: str,
@@ -213,6 +214,7 @@ class FeedsApiImpl(BaseFeedsApi):
             feed_query = get_gtfs_feeds_query(
                 limit=limit,
                 offset=offset,
+                status=status,
                 provider=provider,
                 producer_url=producer_url,
                 country_code=country_code,
