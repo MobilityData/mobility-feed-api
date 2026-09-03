@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
 
-from sqlalchemy import func
+from sqlalchemy import column, func
 
 from shared.database.database import with_db_session
 from test_shared.test_utils.database_utils import default_db_url
@@ -9,8 +9,9 @@ from main import (
     update_feed_statuses_query,
 )
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset, Gtfsfeed
-from datetime import date, timedelta
+from datetime import datetime, timezone
 from typing import Iterator, NamedTuple
+from uuid import uuid4
 
 import os
 
@@ -76,6 +77,59 @@ def test_update_feed_status(db_session: Session) -> None:
 
 
 @with_db_session(db_url=default_db_url)
+def test_null_service_date_range_sets_feed_inactive(db_session: Session) -> None:
+    feed_id = str(uuid4())
+    dataset_id = str(uuid4())
+    stable_id = f"issue-1209-{uuid4()}"
+
+    feed = Gtfsfeed(
+        id=feed_id,
+        stable_id=stable_id,
+        status="active",
+    )
+    try:
+        db_session.add(feed)
+        db_session.flush()
+
+        dataset = Gtfsdataset(
+            id=dataset_id,
+            stable_id=f"{stable_id}-dataset",
+            feed=feed,
+            downloaded_at=datetime.now(timezone.utc),
+            service_date_range_start=None,
+            service_date_range_end=None,
+        )
+        db_session.add(dataset)
+        db_session.flush()
+
+        feed.latest_dataset_id = dataset.id
+        db_session.flush()
+
+        with patch(
+            "shared.helpers.feed_status.create_refresh_materialized_view_task"
+        ):
+            result = dict(update_feed_statuses_query(db_session, [stable_id]))
+
+        db_session.expire_all()
+
+        updated_feed = (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.stable_id == stable_id)
+            .one()
+        )
+
+        assert result == {
+            "inactive": 1,
+            "active": 0,
+            "future": 0,
+        }
+        assert updated_feed.status == "inactive"
+    finally:
+        db_session.rollback()
+
+
+
+@with_db_session(db_url=default_db_url)
 def test_update_feed_status_with_ids(db_session: Session) -> None:
     # clean_testing_db()
     # populate_database()
@@ -101,23 +155,16 @@ def test_update_feed_status_with_ids(db_session: Session) -> None:
 def test_update_feed_status_failed_query():
     mock_session = MagicMock()
 
-    today = date(2025, 3, 1)
-
     class Columns:
-        feed_id = 1
-        service_date_range_start = today - timedelta(days=10)
-        service_date_range_end = today + timedelta(days=10)
+        feed_id = column("feed_id")
+        service_date_range_start = column("service_date_range_start")
+        service_date_range_end = column("service_date_range_end")
 
     mock_subquery = MagicMock()
     mock_subquery.c = Columns()
-    # mock_subquery.c.feed_id = 1
-    # mock_subquery.c.service_date_range_start = today - timedelta(days=10)
-    # mock_subquery.c.service_date_range_end = today + timedelta(days=10)
 
     mock_query = mock_session.query.return_value
-    mock_query.join.return_value.filter.return_value.subquery.return_value = (
-        mock_subquery
-    )
+    mock_query.join.return_value.subquery.return_value = mock_subquery
 
     mock_update_query = mock_session.query.return_value.filter.return_value
     mock_update_query.update.side_effect = Exception("Mocked exception")
