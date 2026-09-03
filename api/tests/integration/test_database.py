@@ -113,6 +113,7 @@ def test_merge_gtfs_feed(test_database):
                 None,
                 None,
                 None,
+                None,
                 db_session=session,
             )
             if feed.id in TEST_GTFS_FEED_STABLE_IDS
