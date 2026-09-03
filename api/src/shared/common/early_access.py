@@ -30,7 +30,6 @@ from shared.users_database_gen.sqlacodegen_models import (
 
 logger = logging.getLogger(__name__)
 
-guest_no_early_access: Final[str] = "Guest users do not have early access grants."
 early_access_program_not_found: Final[str] = "Early access program '{}' not found."
 unknown_feature_flags: Final[str] = "Unknown feature flag(s): {}."
 

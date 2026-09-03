@@ -14,7 +14,11 @@
 #  limitations under the License.
 #
 """DB-backed tests for early access programs (product-tasks#213): the invited-email claim hook
-in `get_user`, and `GET /v1/user/early-access`.
+in `get_user`.
+
+There is no user-facing early-access endpoint — `GET /v1/user`'s existing `features[]` is the
+only surface; the UI gates on a flag's resolved value and never needs to know which program
+granted it. See EARLY-ACCESS-PLAN.md.
 
 These exercise the real users test database, following the pattern in
 `test_notifications_api_impl.py::test_get_notifications_db_backed` and
@@ -25,21 +29,17 @@ nothing persists between tests.
 import uuid
 
 import pytest
-from fastapi import HTTPException
 
 from middleware.request_context import _request_context
-from shared.common.early_access import grant_program_flags
 from shared.common.feature_flags import feature_flag_enabled
 from shared.database.users_database import UsersDatabase
 from shared.users_database_gen.sqlacodegen_models import (
-    AppUser,
     EarlyAccessEnrollment,
     EarlyAccessInvitedEmail,
     EarlyAccessProgram,
     EarlyAccessProgramFeatureFlag,
     FeatureFlag,
 )
-from user_service.impl.early_access_api_impl import EarlyAccessApiImpl
 from user_service.impl.users_api_impl import UsersApiImpl
 
 
@@ -150,41 +150,3 @@ class TestInvitedEmailClaimOnGetUser:
 
 def _assert_flag_granted(session, user_id, flag_id):
     assert feature_flag_enabled(session, user_id, flag_id) is True
-
-
-class TestGetUserEarlyAccess:
-    def test_guest_is_403(self, session):
-        _request_context.set({"user_id": "guest-1", "user_email": "", "is_guest": True})
-
-        with pytest.raises(HTTPException) as exc_info:
-            EarlyAccessApiImpl().get_user_early_access(db_session=session)
-        assert exc_info.value.status_code == 403
-
-    def test_no_grants_is_empty(self, session):
-        user_id = f"user-{_uid()}"
-        _request_context.set({"user_id": user_id, "user_email": f"{user_id}@example.com", "is_guest": False})
-
-        result = EarlyAccessApiImpl().get_user_early_access(db_session=session)
-
-        assert result == []
-
-    def test_populated_grant_returns_program_and_resolved_features(self, session):
-        flag_id = _make_flag(session, "visible")
-        program = _make_program(session, (flag_id, True))
-        user_id = f"user-{_uid()}"
-        email = f"{user_id}@example.com"
-        session.add(AppUser(id=user_id, email=email))
-        session.flush()
-        session.add(EarlyAccessEnrollment(id=_uid(), program_id=program.id, user_id=user_id, source="operations"))
-        session.flush()
-
-        grant_program_flags(session, user_id, program.id)
-        _request_context.set({"user_id": user_id, "user_email": email, "is_guest": False})
-
-        result = EarlyAccessApiImpl().get_user_early_access(db_session=session)
-
-        assert len(result) == 1
-        assert result[0].program_id == program.id
-        assert result[0].program_name == program.name
-        assert [f.id for f in result[0].features] == [flag_id]
-        assert result[0].features[0].value is True
