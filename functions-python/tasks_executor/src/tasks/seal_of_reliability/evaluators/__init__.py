@@ -15,15 +15,11 @@
 #
 """The seal criterion evaluators.
 
-`EVALUATORS` is the registry the job iterates. Official (issue #1783), Stable, Available,
-Compliant and Fresh / future coverage (issue #1784) are implemented; Fresh / continuous
-coverage is tracked by #1782. Adding one means a new subclass,
-an entry here, and whatever fields it needs on `FeedSealContext`. Its windows are not declared
-on the subclass: they come from the policy maps in `shared.common.seal_criteria`, which the
-read API reads too.
-
-`seal_criterion_name` in the database already declares all six values, so a criterion can
-be added without a schema change.
+`EVALUATORS` is the registry the job iterates, and it now covers `seal_criterion_name` exactly:
+Official (#1783), Stable, Available, Compliant, Fresh / future coverage (#1784) and Fresh /
+continuous coverage (#1782). Adding one means a new subclass, an entry here, and whatever fields
+it needs on `FeedSealContext`. Its windows are not declared on the subclass: they come from the
+policy maps in `shared.common.seal_criteria`, which the read API reads too.
 """
 
 from typing import Final, List
@@ -34,6 +30,9 @@ from tasks.seal_of_reliability.evaluators.base import (
 )
 from tasks.seal_of_reliability.evaluators.available import AvailableEvaluator
 from tasks.seal_of_reliability.evaluators.compliant import CompliantEvaluator
+from tasks.seal_of_reliability.evaluators.fresh_continuous import (
+    FreshContinuousEvaluator,
+)
 from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageEvaluator
 from tasks.seal_of_reliability.evaluators.official import OfficialEvaluator
 from tasks.seal_of_reliability.evaluators.stable import StableEvaluator
@@ -44,6 +43,7 @@ EVALUATORS: Final[List[CriterionEvaluator]] = [
     AvailableEvaluator(),
     CompliantEvaluator(),
     FreshCoverageEvaluator(),
+    FreshContinuousEvaluator(),
 ]
 
 __all__ = [
@@ -52,6 +52,7 @@ __all__ = [
     "CompliantEvaluator",
     "CriterionEvaluator",
     "CriterionObservation",
+    "FreshContinuousEvaluator",
     "FreshCoverageEvaluator",
     "OfficialEvaluator",
     "StableEvaluator",

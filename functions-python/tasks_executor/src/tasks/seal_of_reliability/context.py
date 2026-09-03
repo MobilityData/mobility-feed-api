@@ -18,35 +18,41 @@
 The evaluators are pure functions over a `FeedSealContext`, so every DB read for a batch of
 feeds happens here, in a fixed number of queries regardless of batch size.
 
-Official, Stable, Fresh (future coverage), Available and Compliant are implemented. Official
-and Stable read the feed row alone; Fresh needs one bulk-loaded extra, the feed's latest
-dataset; Available needs the run window's availability rows and Compliant the closest dataset's
-validation report. Each new criterion adds the fields it needs here plus, where they are not
-already on the feed row, one bulk query to populate them - Fresh continuous coverage would add
-the full dataset coverage history.
+All six criteria are implemented. Official and Stable read the feed row alone; Available needs
+the run window's availability rows and Compliant the closest dataset's validation report. The two
+Fresh criteria share `_load_recent_datasets`. Each new criterion adds the fields it needs here
+plus, where they are not already on the feed row, one bulk query to populate them.
 
 Every query here is bounded by the run's `now` rather than reading a "current" pointer column,
 so a run replayed for a past date sees the state as it was then. That is what lets a backfill
 (#1782) reconstruct history with the same evaluators.
 """
 
+import datetime as datetime_module
 import itertools
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterator, List, Optional, Sequence
+from typing import Dict, Final, Iterator, List, Optional, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from shared.common.continuous_coverage import CALENDAR_FILES
 from shared.common.seal_criteria import AVAILABILITY_LOOKBACK
 from shared.database_gen.sqlacodegen_models import (
     Feed,
+    Feedinfo,
     GtfsFeedAvailabilityCheck,
     Gtfsdataset,
     Gtfsfeed,
+    Gtfsfile,
     Validationreport,
     t_validationreportgtfsdataset,
 )
+
+# How far back down a feed's dataset history the contexts reach: `fresh_continuous` judges one
+# boundary, so it needs the closest dataset and the one before it.
+DATASET_HISTORY_DEPTH: Final[int] = 2
 
 
 @dataclass(frozen=True)
@@ -68,18 +74,26 @@ class ValidationReport:
 
 
 @dataclass(frozen=True)
-class ClosestDataset:
-    """
-    The feed's dataset closest to the run's `now`, and the fields criteria read off it.
+class DatasetCoverage:
+    """One dataset in a feed's history, and the coverage fields the Fresh criteria read off it.
 
-    "Closest" means closest at or before `now` - the dataset being served at that instant.
-    Never a later one, however near: a run for a past date must not see a dataset that had
-    not been downloaded yet.
+    The declared and validated windows are kept separate rather than resolved to one here: the
+    criteria disagree about which to prefer, and a missing one of each means something
+    different. `has_calendar_data` is what tells a dataset that published no calendar apart
+    from one whose window we simply have not derived yet.
     """
 
     dataset_id: str
     downloaded_at: datetime
+    service_date_range_start: Optional[datetime] = None
     service_date_range_end: Optional[datetime] = None
+
+    # The producer's declared window, from the `feedinfo` row this dataset points at.
+    feed_info_start: Optional[datetime_module.date] = None
+    feed_info_end: Optional[datetime_module.date] = None
+
+    # Whether the dataset carries `calendar.txt` or `calendar_dates.txt`.
+    has_calendar_data: bool = False
 
 
 @dataclass
@@ -104,7 +118,11 @@ class FeedSealContext:
     feed_created_at: Optional[datetime] = None
 
     # The feed's closest dataset as of `now` - resolved by `downloaded_at` vs `now`
-    closest_dataset: Optional[ClosestDataset] = None
+    closest_dataset: Optional[DatasetCoverage] = None
+
+    # Fresh / continuous coverage: the dataset downloaded immediately before `closest_dataset`,
+    # whose coverage the closest one has to meet. None when the feed had only one as of `now`.
+    previous_dataset: Optional[DatasetCoverage] = None
 
     # Available: the latest availability check in the window this run covers.
     availability_check: Optional[AvailabilityCheck] = None
@@ -192,52 +210,83 @@ def iter_eligible_stable_ids(
         yield chunk
 
 
-def _load_closest_datasets(
+def _load_recent_datasets(
     db_session: Session, feed_ids: Sequence[str], now: datetime
-) -> Dict[str, ClosestDataset]:
-    """feed_id -> the feed's closest dataset as of `now`, for feeds that had one.
+) -> Dict[str, List[DatasetCoverage]]:
+    """feed_id -> its `DATASET_HISTORY_DEPTH` most recent datasets as of `now`, newest first.
 
-    "Closest to `now`" is the most recently downloaded dataset with `downloaded_at <= now`
-    - closest looking backwards only, never the nearest in either direction.
+    Ordered by `downloaded_at` among the datasets with `downloaded_at <= now` - looking
+    backwards only, so a run for a past date cannot see a dataset downloaded after it.
 
-    A feed missing from the result had no dataset at all as of `now`. That is deliberately
-    distinct from a `ClosestDataset` whose `service_date_range_end` is None, which had one
-    whose coverage was never extracted - the criteria read both as UNKNOWN but report which.
+    A feed missing from the result had no dataset at all as of `now`, which stays distinct
+    from a `DatasetCoverage` whose windows are None: that one exists but was never processed.
+
+    One query for the whole batch, `ROW_NUMBER()` rather than a per-feed `LIMIT`.
     """
     if not feed_ids:
         return {}
-    rows = db_session.execute(
+
+    # Correlated, so the flag comes back with the row rather than needing a second query.
+    has_calendar_data = (
+        select(1)
+        .where(
+            Gtfsfile.gtfs_dataset_id == Gtfsdataset.id,
+            Gtfsfile.file_name.in_(CALENDAR_FILES),
+        )
+        .exists()
+    )
+    ranked = (
         select(
             Gtfsdataset.feed_id,
             Gtfsdataset.id,
             Gtfsdataset.downloaded_at,
+            Gtfsdataset.service_date_range_start,
             Gtfsdataset.service_date_range_end,
+            Feedinfo.feed_start_date,
+            Feedinfo.feed_end_date,
+            has_calendar_data.label("has_calendar_data"),
+            func.row_number()
+            .over(
+                partition_by=Gtfsdataset.feed_id,
+                order_by=(Gtfsdataset.downloaded_at.desc(), Gtfsdataset.id.desc()),
+            )
+            .label("recency"),
         )
+        .select_from(Gtfsdataset)
+        # Outer: a dataset with no `feed_info.txt` still comes back, with no declared window.
+        .outerjoin(Feedinfo, Feedinfo.id == Gtfsdataset.feed_info_id)
         .where(
             Gtfsdataset.feed_id.in_(list(feed_ids)),
             Gtfsdataset.downloaded_at.is_not(None),
             Gtfsdataset.downloaded_at <= now,
         )
-        .distinct(Gtfsdataset.feed_id)
-        .order_by(
-            Gtfsdataset.feed_id,
-            Gtfsdataset.downloaded_at.desc(),
-            Gtfsdataset.id.desc(),
-        )
+        .subquery()
+    )
+    rows = db_session.execute(
+        select(ranked)
+        .where(ranked.c.recency <= DATASET_HISTORY_DEPTH)
+        .order_by(ranked.c.feed_id, ranked.c.recency)
     ).all()
-    return {
-        row.feed_id: ClosestDataset(
-            dataset_id=row.id,
-            downloaded_at=row.downloaded_at,
-            service_date_range_end=row.service_date_range_end,
+
+    recent: Dict[str, List[DatasetCoverage]] = {}
+    for row in rows:
+        recent.setdefault(row.feed_id, []).append(
+            DatasetCoverage(
+                dataset_id=row.id,
+                downloaded_at=row.downloaded_at,
+                service_date_range_start=row.service_date_range_start,
+                service_date_range_end=row.service_date_range_end,
+                feed_info_start=row.feed_start_date,
+                feed_info_end=row.feed_end_date,
+                has_calendar_data=bool(row.has_calendar_data),
+            )
         )
-        for row in rows
-    }
+    return recent
 
 
 def _load_validation_reports(
     db_session: Session,
-    closest_datasets: Dict[str, ClosestDataset],
+    closest_datasets: Dict[str, DatasetCoverage],
     now: datetime,
 ) -> Dict[str, ValidationReport]:
     """feed_id -> the latest validation report of that feed's closest dataset, as of `now`.
@@ -345,7 +394,7 @@ def build_contexts(
 
     2. Needs its own query. Add the field, then a module-level `_load_*` helper that takes
        the whole batch and returns a dict keyed by feed_id, and call it once here, as
-       `_load_closest_datasets`, `_load_availability` and `_load_validation_reports` do.
+       `_load_recent_datasets`, `_load_availability` and `_load_validation_reports` do.
        Keeping the query per batch rather than per feed is what holds the query count
        proportional to the number of criteria instead of the number of feeds. Bound the
        helper by `now` so the criterion stays replayable, and leave feeds with no row out of
@@ -353,7 +402,17 @@ def build_contexts(
        the evaluators read as UNKNOWN rather than as a failure.
     """
     feed_ids = [feed.id for feed in feeds]
-    closest_datasets = _load_closest_datasets(db_session, feed_ids, now)
+    recent_datasets = _load_recent_datasets(db_session, feed_ids, now)
+    closest_datasets = {
+        feed_id: datasets[0]
+        for feed_id, datasets in recent_datasets.items()
+        if len(datasets) > 0
+    }
+    previous_datasets = {
+        feed_id: datasets[1]
+        for feed_id, datasets in recent_datasets.items()
+        if len(datasets) > 1
+    }
     availability = _load_availability(db_session, feed_ids, now)
     validation_reports = _load_validation_reports(db_session, closest_datasets, now)
 
@@ -367,6 +426,7 @@ def build_contexts(
             seasonal=feed.seasonal,
             feed_created_at=feed.created_at,
             closest_dataset=closest_datasets.get(feed.id),
+            previous_dataset=previous_datasets.get(feed.id),
             availability_check=availability.get(feed.id),
             latest_validation_report=validation_reports.get(feed.id),
         )

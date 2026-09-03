@@ -21,10 +21,18 @@ from typing import Final, Optional, Tuple
 # this is not evidence of continuous coverage - it is more likely a placeholder calendar.
 MAX_COVERAGE_WINDOW: Final[timedelta] = timedelta(days=730)
 
+# The file supplying the producer's declared window.
+FEED_INFO_FILE: Final[str] = "feed_info.txt"
+
+# The files the validated service window is derived from. A dataset carrying neither published
+# no calendar data at all, which `fresh_continuous` reads as a verdict rather than as a gap
+# in what we know.
+CALENDAR_FILES: Final[Tuple[str, ...]] = ("calendar.txt", "calendar_dates.txt")
+
 # The files the calculation reads, in the order they are reported. `feed_info.txt` supplies the
 # declared window; the two calendar files are what the validator derives the service window
 # from. Order is fixed so a client can render one row of chips per dataset without sorting.
-COVERAGE_FILES: Final[Tuple[str, ...]] = ("feed_info.txt", "calendar.txt", "calendar_dates.txt")
+COVERAGE_FILES: Final[Tuple[str, ...]] = (FEED_INFO_FILE, *CALENDAR_FILES)
 
 # Which input a coverage window was taken from. Values match the `coverage_window_source` enum
 # in the API spec.
