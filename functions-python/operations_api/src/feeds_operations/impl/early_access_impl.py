@@ -13,18 +13,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Operations API for early access programs (product-tasks#213).
-
-This is the only enrollment path in the system — there is no self-service join endpoint anywhere
-in the public API.
-"""
+"""Operations API for early access programs. The only enrollment path: there is no
+self-service join endpoint in the public API."""
 
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from email_validator import EmailNotValidError, validate_email
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy import delete, func
 from sqlalchemy.orm import selectinload
 
@@ -93,15 +90,13 @@ _PROGRAM_FLAGS_LOAD = selectinload(
     EarlyAccessProgram.early_access_program_feature_flags
 )
 
-# A sample, not the full list, is returned for every category except `invalid` (which the
-# operator needs in full to fix and resubmit).
+# Every category returns a sample; only `invalid` is returned in full, for the operator to fix.
 _SAMPLE_SIZE = 5
 
 _STATUS_ENROLLED = "enrolled"
 _STATUS_INVITED = "invited"
 
-# Explicit CSV column order, so adding a field to the row model cannot silently reorder or
-# introduce columns in a file someone is already parsing.
+# Explicit, so adding a field to the row model cannot reorder a file someone already parses.
 _REPORT_CSV_FIELDS = (
     "email",
     "status",
@@ -113,8 +108,7 @@ _REPORT_CSV_FIELDS = (
 
 
 def _validate_format(format: Optional[str]) -> None:
-    """The generator types `format` as a plain `str`, not an enum, so the spec's enum is not
-    enforced for us at the routing layer."""
+    """The generated param is a plain `str`, so the spec's enum is not enforced for us."""
     if format is not None and format not in (JSON_FORMAT, CSV_FORMAT):
         raise HTTPException(
             status_code=422,
@@ -123,7 +117,7 @@ def _validate_format(format: Optional[str]) -> None:
 
 
 def _validate_status(status: Optional[str]) -> None:
-    """Same as _validate_format: the generated `status` param is a plain `str`."""
+    """As _validate_format: the generated param is a plain `str`."""
     if status is not None and status not in (_STATUS_ENROLLED, _STATUS_INVITED):
         raise HTTPException(
             status_code=422,
@@ -137,8 +131,7 @@ def _validate_status(status: Optional[str]) -> None:
 def _dedupe_grants(
     grants: List[EarlyAccessProgramFeatureFlagGrant],
 ) -> List[EarlyAccessProgramFeatureFlagGrant]:
-    """Keeps the last occurrence of each feature_flag_id (a client submitting the same id twice
-    would otherwise violate the (program_id, feature_flag_id) primary key on flush)."""
+    """Last occurrence wins; a repeated id would otherwise violate the composite primary key."""
     return list({grant.feature_flag_id: grant for grant in grants}.values())
 
 
@@ -266,8 +259,7 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
 
-        # The program's own fields are a partial update; feature_flags is a full replace, so it
-        # is handled separately below rather than setattr'd from update_data.
+        # Own fields are a partial update; feature_flags is a full replace, handled below.
         update_data = update_early_access_program_request.model_dump(exclude_unset=True)
         update_data.pop("feature_flags", None)
         for field, value in update_data.items():
@@ -276,10 +268,8 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         grants = _dedupe_grants(update_early_access_program_request.feature_flags or [])
         _validate_feature_flag_grants(db_session, grants)
 
-        # Replace: delete the program's current grant set, then insert the new one. Omitting
-        # feature_flags entirely clears the set. This never touches `user_feature_flag` rows
-        # already granted to existing enrollees - it only changes what future enrollments and
-        # invite claims receive.
+        # Full replace, so omitting feature_flags clears the set. Only affects what future
+        # enrollments receive; never touches flags already granted to existing enrollees.
         db_session.query(EarlyAccessProgramFeatureFlag).filter_by(
             program_id=id
         ).delete()
@@ -294,21 +284,25 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             ]
         )
         db_session.flush()
-        # The bulk delete above bypasses the relationship, so the already-loaded collection
-        # (_PROGRAM_FLAGS_LOAD) would still hold the removed rows. Same intent as refresh() in
-        # put_user_feature_flags.
+        # The bulk delete bypasses the relationship, so the eager-loaded collection would
+        # still hold the removed rows.
         db_session.expire(program, ["early_access_program_feature_flags"])
         return OperationEarlyAccessProgramImpl.from_orm(program)
 
     @with_users_db_session
-    def delete_early_access_program(self, id: str, db_session=None) -> None:
+    def delete_early_access_program(self, id: str, db_session=None) -> Response:
         program = db_session.get(EarlyAccessProgram, id)
         if program is None:
             raise HTTPException(
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
+        # Cascades to grants, enrollments and invites via ON DELETE CASCADE (see the mapper
+        # listener in shared/database/users_database.py). Flags already granted are untouched.
         db_session.delete(program)
         db_session.flush()
+        # The generator records 204 only under `responses`, never as the route's status_code,
+        # so returning None here would answer 200.
+        return Response(status_code=204)
 
     @with_users_db_session
     def get_early_access_program_report(
@@ -329,9 +323,8 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         limit = limit or 100
         offset = offset or 0
 
-        # Two queries merged in Python rather than a SQL UNION: the two halves carry different
-        # columns (an invited address has no user_id/source, an enrollment has no invited_at),
-        # so a UNION would need a column of NULL literals per side and give up type clarity.
+        # Merged in Python, not a SQL UNION: the halves carry different columns, so a UNION
+        # would need NULL-literal padding per side.
         enrolled = [
             EarlyAccessReportRow(
                 email=email,
@@ -362,8 +355,7 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             .all()
         ]
 
-        # The summary always describes the whole program, so the headline numbers stay the same
-        # whether or not `status` narrows the rows below.
+        # Always the whole program, so `status` below narrows rows but not these counts.
         by_source: Dict[str, int] = {}
         for row in enrolled:
             by_source[row.source] = by_source.get(row.source, 0) + 1
@@ -386,8 +378,7 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         all_rows = sorted(selected, key=lambda row: (row.status, row.email))
         page = all_rows[offset : offset + limit]
         if format == CSV_FORMAT:
-            # CSV carries the rows only; the summary has no sensible tabular representation
-            # alongside them.
+            # Rows only; the summary has no sensible tabular form alongside them.
             return csv_response(
                 f"early-access-{id}-report.csv",
                 _REPORT_CSV_FIELDS,
@@ -417,8 +408,7 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         req = import_early_access_invited_emails_request
         dry_run = req.dry_run if req.dry_run is not None else True
 
-        # Normalize (lower-case, strip, de-duplicate) and validate format. The cap at 5000 is
-        # already enforced by the request schema (max_length) before this code runs.
+        # The 5000 cap is enforced by the request schema before this runs.
         invalid: List[EarlyAccessInvalidEmailEntry] = []
         seen: set[str] = set()
         candidates: List[str] = []
@@ -436,10 +426,8 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
                 continue
             candidates.append(candidate)
 
-        # Case-insensitive match against app_user.email (idx_app_user_email_lower). Note:
-        # app_user.email only carries a case-sensitive UNIQUE (feat_1683.sql) - two accounts
-        # differing solely by case would collide here; this is a pre-existing data-quality edge
-        # case, not introduced by this import.
+        # Case-insensitive match via idx_app_user_email_lower. app_user.email is only
+        # case-sensitively UNIQUE, so two accounts differing by case would both match here.
         matched_by_email = {}
         if candidates:
             for row in (

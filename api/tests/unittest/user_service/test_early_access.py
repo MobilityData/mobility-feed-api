@@ -13,18 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""DB-backed tests for early access programs (product-tasks#213): the invited-email claim hook
-in `get_user`.
-
-There is no user-facing early-access endpoint — `GET /v1/user`'s existing `features[]` is the
-only surface; the UI gates on a flag's resolved value and never needs to know which program
-granted it.
-
-These exercise the real users test database, following the pattern in
-`test_notifications_api_impl.py::test_get_notifications_db_backed` and
-`test_subscription_feeds.py`: a real `UsersDatabase` session, rolled back (never committed) so
-nothing persists between tests.
-"""
+"""DB-backed tests for the invited-email claim hook in `get_user`, against the real users test
+database. There is no user-facing early-access endpoint; `GET /v1/user`'s `features[]` is the
+only surface."""
 
 import uuid
 
@@ -132,11 +123,8 @@ class TestInvitedEmailClaimOnGetUser:
         assert session.query(EarlyAccessEnrollment).filter_by(user_id=user_id).first() is None
 
     def test_invite_added_after_first_signin_is_not_claimed_on_a_later_call(self, session):
-        """The hook is creation-only, deliberately: the CSV import grants a matching *existing*
-        account immediately at import time, so an invite row only exists for someone who had no
-        account yet. This scenario (account already exists, invite shows up afterwards) is only
-        reachable via the narrow, low-consequence race described in the get_user hook's comment
-        in users_api_impl.py - it is expected to be left unclaimed here, not silently handled."""
+        """Creation-only by design: an existing account is granted at bulk-add time, so a
+        pending invite for one is only reachable via a narrow race and is left unclaimed."""
         flag_id = _make_flag(session, "later")
         user_id = f"user-{_uid()}"
         email = f"{user_id}@example.com"
@@ -162,9 +150,8 @@ def _assert_flag_granted(session, user_id, flag_id):
 
 
 class TestGrantProgramFlagsConflicts:
-    """The two reasons `grant_program_flags` inserts with ON CONFLICT DO NOTHING. Without these,
-    swapping it for a plain insert would raise IntegrityError on a normal path while every other
-    test still passed."""
+    """Why `grant_program_flags` needs ON CONFLICT DO NOTHING: a plain insert would raise
+    IntegrityError on both these normal paths."""
 
     def test_two_programs_granting_the_same_flag_do_not_collide(self, session):
         flag_id = _make_flag(session, "shared")
@@ -176,8 +163,7 @@ class TestGrantProgramFlagsConflicts:
         _make_invite(session, program_b.id, email)
         _request_context.set({"user_id": user_id, "user_email": email, "is_guest": False})
 
-        # Claims both invites in one transaction, so the second program's grant hits the
-        # (user_id, feature_flag_id) primary key a second time.
+        # Both invites in one transaction, so the second grant hits the same primary key.
         UsersApiImpl().get_user(db_session=session)
 
         _assert_flag_granted(session, user_id, flag_id)

@@ -13,12 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""DB-backed tests for the Operations early access programs API (product-tasks#213).
-
-Runs against the real Postgres users test database (``MobilityDatabaseUsersTest``), mirroring
-``test_licenses_propagate_match.py``'s ``db_session`` fixture style. Each test creates its own
-rows and cleans them up in a fixture teardown.
-"""
+"""DB-backed tests for the Operations early access programs API, against the real users test
+database."""
 
 import csv
 import io
@@ -44,6 +40,7 @@ from feeds_gen.models.update_early_access_program_request import (
     UpdateEarlyAccessProgramRequest,
 )
 from feeds_operations.impl.early_access_impl import EarlyAccessApiImpl
+from shared.common.early_access import grant_program_flags
 from shared.database.users_database import UsersDatabase
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
@@ -52,6 +49,7 @@ from shared.users_database_gen.sqlacodegen_models import (
     EarlyAccessProgram,
     EarlyAccessProgramFeatureFlag,
     FeatureFlag,
+    UserFeatureFlag,
 )
 from test_shared.test_utils.database_utils import default_users_db_url
 
@@ -67,12 +65,8 @@ def _uid() -> str:
 
 @pytest.fixture
 def session():
-    """A real users-DB session, rolled back (never committed) so nothing persists.
-
-    Uses ``db.Session()`` directly rather than ``start_db_session()``, which commits on a clean
-    exit - this keeps the test DB clean across repeated runs without needing to track and delete
-    every row each test creates.
-    """
+    """A real users-DB session, rolled back so nothing persists. `db.Session()` rather than
+    `start_db_session()`, which commits on a clean exit."""
     _reset_singleton()
     db = UsersDatabase(users_database_url=default_users_db_url)
     s = db.Session()
@@ -158,9 +152,83 @@ class TestCreateProgram:
         )
 
 
+class TestDeleteProgram:
+    def test_deletes_a_program_that_has_children(self, api, session, flag):
+        """Without passive_deletes on the generated relationships, SQLAlchemy blanks the NOT
+        NULL child FKs first and this fails on anything but an empty program."""
+        program = EarlyAccessProgram(id=_uid(), name="Delete With Children")
+        session.add(program)
+        session.flush()
+        session.add(
+            EarlyAccessProgramFeatureFlag(
+                program_id=program.id, feature_flag_id=flag, value=True
+            )
+        )
+        user = AppUser(id=f"user-{_uid()}", email=f"enrolled-{_uid()}@example.com")
+        session.add(user)
+        session.flush()
+        session.add(
+            EarlyAccessEnrollment(
+                id=_uid(),
+                program_id=program.id,
+                user_id=user.id,
+                source="operations",
+            )
+        )
+        session.add(
+            EarlyAccessInvitedEmail(
+                id=_uid(), program_id=program.id, email=f"invited-{_uid()}@example.com"
+            )
+        )
+        grant_program_flags(user.id, program.id, session)
+        session.flush()
+        assert (
+            session.query(UserFeatureFlag)
+            .filter_by(user_id=user.id, feature_flag_id=flag)
+            .count()
+            == 1
+        )
+
+        api.delete_early_access_program(program.id, db_session=session)
+
+        assert session.get(EarlyAccessProgram, program.id) is None
+        for model, attr in (
+            (EarlyAccessProgramFeatureFlag, "program_id"),
+            (EarlyAccessEnrollment, "program_id"),
+            (EarlyAccessInvitedEmail, "program_id"),
+        ):
+            assert session.query(model).filter_by(**{attr: program.id}).count() == 0
+
+        # The cascade stops at the program's own rows: the flag definition is shared, and
+        # granted access is never revoked.
+        assert session.get(FeatureFlag, flag) is not None
+        assert (
+            session.query(UserFeatureFlag)
+            .filter_by(user_id=user.id, feature_flag_id=flag)
+            .count()
+            == 1
+        )
+        assert session.get(AppUser, user.id) is not None
+
+    def test_returns_204(self, api, session):
+        program = EarlyAccessProgram(id=_uid(), name="Delete Status")
+        session.add(program)
+        session.flush()
+
+        response = api.delete_early_access_program(program.id, db_session=session)
+
+        # The generator never sets status_code, so the impl returns the Response itself.
+        assert response.status_code == 204
+
+    def test_unknown_program_404(self, api, session):
+        with pytest.raises(HTTPException) as exc_info:
+            api.delete_early_access_program("does-not-exist", db_session=session)
+        assert exc_info.value.status_code == 404
+
+
 class TestUpdateProgram:
-    """`PUT /{id}` now carries the feature flag grants too. The program's own fields stay a
-    partial update; `feature_flags` is a full replace, so omitting it clears the set."""
+    """Own fields are a partial update; `feature_flags` is a full replace, so omitting it
+    clears the set."""
 
     def _program_with_flag(self, session, name):
         flag_a = f"test.flag.{_uid()}"

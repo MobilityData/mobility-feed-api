@@ -13,16 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Purges unclaimed early access invited emails past their program's retention window.
+"""Purges unclaimed early access invited emails past their program's `invite_retention_days`.
 
-Legal/privacy requirement (product-tasks#213): we must not hold the email address of someone who
-never registered. Claiming an invite already deletes its row (see `apply_invited_email_grants` in
-`shared/common/early_access.py`); this task is the other half — sweeping up invites that were
-never claimed at all, once they are older than their program's `invite_retention_days`.
-
-``dry_run`` (default True) computes counts without deleting. Reports counts **per program only,
-never addresses** — the whole point of this task is to stop holding them, so they must not
-reappear in logs on the way out.
+Privacy: we must not hold the email of someone who never registered. Claiming an invite deletes
+its row; this sweeps up the ones never claimed. Reports counts per program only, never addresses.
 """
 
 from __future__ import annotations
@@ -36,8 +30,7 @@ from shared.database.users_database import with_users_db_session
 
 logger = logging.getLogger(__name__)
 
-# Two programs can have different `invite_retention_days`, so the cutoff is computed per-row
-# against each invite's own program, not a single global cutoff.
+# Cutoff is per-row against each invite's own program: retention varies per program.
 _EXPIRED_INVITES_BY_PROGRAM_SQL = text("""
     SELECT i.program_id AS program_id, count(*) AS expired_count
       FROM early_access_invited_email i
@@ -58,16 +51,7 @@ _DELETE_EXPIRED_INVITES_SQL = text("""
 def purge_early_access_invites(
     dry_run: bool = True, db_session: Session | None = None
 ) -> dict:
-    """Core purge logic.
-
-    Args:
-        dry_run: When True (default), counts expired invites per program without deleting them.
-        db_session: Injected by the @with_users_db_session decorator.
-
-    Returns:
-        Summary dict: dry_run, programs_with_expired_invites, total_expired_invites, and
-        counts_by_program (program_id -> count). No email addresses anywhere in the result.
-    """
+    """Counts per program when `dry_run`, deletes otherwise. Returns counts only, no addresses."""
     if dry_run:
         counts_by_program = {
             row.program_id: row.expired_count
@@ -98,11 +82,7 @@ def purge_early_access_invites(
 def purge_early_access_invites_handler(
     payload: dict | None = None, db_session: Session | None = None
 ) -> dict:
-    """tasks_executor entry point.
-
-    Payload keys (all optional):
-        dry_run (bool, default True): Count expired invites per program without deleting them.
-    """
+    """tasks_executor entry point. Payload: dry_run (bool, default True)."""
     payload = payload or {}
     logger.info("purge_early_access_invites_handler called with payload=%s", payload)
 

@@ -22,8 +22,7 @@ from shared.users_database_gen.sqlacodegen_models import EarlyAccessProgram
 
 
 class OperationEarlyAccessProgramImpl(OperationEarlyAccessProgram):
-    """Converts an EarlyAccessProgram ORM object (with its feature flag grants) to an
-    OperationEarlyAccessProgram Pydantic model."""
+    """Converts an EarlyAccessProgram ORM object to its Pydantic model."""
 
     class Config:
         from_attributes = True

@@ -13,12 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Route-presence regression test.
-
-Forgetting to `app.include_router(...)` a newly generated router 404s every route in it even
-though its impl and its tests are green — nothing else catches that. This asserts the routes this
-app is supposed to expose are actually registered.
-"""
+"""Route-presence regression test: a missing `app.include_router(...)` 404s every route in it
+while its impl and tests stay green."""
 
 from main import app
 
@@ -33,9 +29,7 @@ def test_early_access_routes_registered():
     assert "/v1/operations/early-access-programs/{id}" in paths
     assert "/v1/operations/early-access-programs/{id}/invited-emails" in paths
     assert "/v1/operations/early-access-programs/{id}/report" in paths
-    # Removed rather than renamed; a lingering route would mean a stale generated router.
-    # feature-flags folded into PUT /{id}; the two list endpoints folded into /report;
-    # invited-emails/remove became DELETE on /invited-emails.
+    # Removed, not renamed; a lingering route means a stale generated router.
     assert "/v1/operations/early-access-programs/{id}/feature-flags" not in paths
     assert "/v1/operations/early-access-programs/{id}/enrollments" not in paths
     assert (

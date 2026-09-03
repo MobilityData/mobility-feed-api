@@ -25,11 +25,8 @@ def grant_program_flags(user_id: str, program_id: str, db_session: Session) -> b
     """Grant every feature flag `program_id` configures to `user_id`.
 
     No-ops if the program is disabled or configures no flags. Returns whether a grant was
-    attempted, not whether any row was actually written.
-
-    ON CONFLICT DO NOTHING because a collision here is a normal case rather than an error: the
-    user may already hold the flag from an operator's manual assignment, which must win, or from
-    another program granting the same flag.
+    attempted, not whether any row was written: DO NOTHING because the user may already hold the
+    flag from an operator (who wins) or from another program granting the same one.
     """
     program = db_session.get(EarlyAccessProgram, program_id)
     if program is None or program.disabled:
@@ -62,13 +59,10 @@ def grant_program_flags(user_id: str, program_id: str, db_session: Session) -> b
 
 
 def apply_invited_email_grants(user_id: str, email: str, db_session: Session) -> list[str]:
-    """Claim every outstanding invited-email row for `email` on behalf of `user_id`.
+    """Claim every outstanding invited-email row for `email`, returning the program_ids claimed.
 
-    The DELETE ... RETURNING claims the rows exclusively, so only one caller can ever act on a
-    given invite. Rows tied to a disabled program are left in place, so re-enabling that program
-    still lets them be claimed later.
-
-    Returns the program_ids claimed (empty if none were pending).
+    DELETE ... RETURNING claims exclusively, so only one caller acts on a given invite. Rows for
+    a disabled program are left in place so re-enabling it lets them be claimed later.
     """
     email = email.lower()
     not_disabled_program_ids = select(EarlyAccessProgram.id).where(EarlyAccessProgram.disabled.is_(False))

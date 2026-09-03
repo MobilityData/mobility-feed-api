@@ -15,13 +15,9 @@
 #
 """CSV responses for Operations API list endpoints.
 
-Callers pass an explicit `fieldnames` list rather than letting the writer infer columns from the
-data, so column order is stable and adding a field to a row dict cannot silently reorder or
-introduce columns. Same approach as `export_csv/src/main.py`.
-
-Returns a single buffered `Response`, never a `StreamingResponse`: `operations_api` runs behind a
-WSGI-to-ASGI shim (`operations_api/src/main.py`) whose `send()` overwrites the response body per
-message instead of appending, so a multi-chunk body would be truncated to its last chunk.
+Buffered `Response` only, never `StreamingResponse`: the WSGI-to-ASGI shim in
+`operations_api/src/main.py` overwrites the body per message instead of appending, so a
+multi-chunk body is truncated to its last chunk.
 """
 
 import csv
@@ -35,7 +31,7 @@ JSON_FORMAT = "json"
 
 
 def rows_to_csv(fieldnames: Sequence[str], rows: List[Dict[str, Any]]) -> str:
-    """Render `rows` as CSV text with a header row. Keys absent from a row become empty cells."""
+    """CSV text with a header row. Explicit `fieldnames` keeps column order stable."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=list(fieldnames), extrasaction="ignore")
     writer.writeheader()
@@ -47,9 +43,8 @@ def rows_to_csv(fieldnames: Sequence[str], rows: List[Dict[str, Any]]) -> str:
 def csv_response(
     filename: str, fieldnames: Sequence[str], rows: List[Dict[str, Any]]
 ) -> Response:
-    """A `text/csv` attachment response. Returning a raw Response from an impl whose generated
-    route is annotated with a Pydantic model is supported: FastAPI skips response-model
-    validation when the handler returns a Response instance."""
+    """A `text/csv` attachment. FastAPI skips response-model validation for a raw Response, so
+    this is safe to return from a route annotated with a Pydantic model."""
     return Response(
         content=rows_to_csv(fieldnames, rows),
         media_type="text/csv; charset=utf-8",
@@ -58,7 +53,7 @@ def csv_response(
 
 
 def _cell(value: Any) -> str:
-    """Empty string for None so a missing value is a blank cell rather than the text 'None'."""
+    """Blank cell for None rather than the text 'None'."""
     if value is None:
         return ""
     if hasattr(value, "isoformat"):

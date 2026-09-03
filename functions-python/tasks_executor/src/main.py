@@ -225,11 +225,10 @@ tasks = {
     "purge_early_access_invites": {
         "description": (
             "Deletes early_access_invited_email rows past their program's "
-            "invite_retention_days (product-tasks#213) - legal/privacy: we must not "
-            "hold the email of someone who never registered. Claiming an invite "
-            "already deletes its row; this sweeps up ones that were never claimed. "
-            "Reports counts per program only, never addresses. "
-            "Parameters: dry_run (default true)."
+            "invite_retention_days. Privacy: we must not hold the email of someone "
+            "who never registered. Claiming an invite already deletes its row; this "
+            "sweeps up ones never claimed. Reports counts per program only, never "
+            "addresses. Parameters: dry_run (default true)."
         ),
         "handler": purge_early_access_invites_handler,
     },

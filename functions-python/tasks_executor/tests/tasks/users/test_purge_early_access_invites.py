@@ -13,16 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""Integration tests for the purge_early_access_invites task.
+"""Integration tests for purge_early_access_invites against the real users test database.
 
-These run against the real Postgres users test database (``MobilityDatabaseUsersTest``). Each
-test creates its own programs/invites and removes them again in tearDown.
-
-Calls the core (undecorated) ``purge_early_access_invites`` through a locally-decorated wrapper
-pinned to ``default_users_db_url``, rather than the ``_handler`` entry point: the handler's
-``@with_users_db_session`` has no ``db_url`` override, so it resolves ``USERS_DATABASE_URL`` from
-the environment at call time - which in local dev points at the real ``MobilityDatabaseUsers`` DB,
-not the test one.
+Goes through a wrapper pinned to `default_users_db_url` rather than the handler, whose
+`@with_users_db_session` would resolve `USERS_DATABASE_URL` to the real local DB.
 """
 
 import unittest
