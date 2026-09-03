@@ -38,8 +38,6 @@ class OperationEarlyAccessProgramImpl(OperationEarlyAccessProgram):
             id=program.id,
             name=program.name,
             description=program.description,
-            starts_at=program.starts_at,
-            ends_at=program.ends_at,
             disabled=program.disabled,
             invite_retention_days=program.invite_retention_days,
             created_at=program.created_at,

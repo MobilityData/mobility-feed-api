@@ -112,11 +112,6 @@ _REPORT_CSV_FIELDS = (
 )
 
 
-def _validate_window(program: EarlyAccessProgram) -> None:
-    if program.starts_at and program.ends_at and program.ends_at <= program.starts_at:
-        raise HTTPException(status_code=422, detail="ends_at must be after starts_at.")
-
-
 def _validate_format(format: Optional[str]) -> None:
     """The generator types `format` as a plain `str`, not an enum, so the spec's enum is not
     enforced for us at the routing layer."""
@@ -216,13 +211,10 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             id=generate_unique_id(),
             name=req.name,
             description=req.description,
-            starts_at=req.starts_at,
-            ends_at=req.ends_at,
             disabled=req.disabled or False,
             invite_retention_days=req.invite_retention_days or 90,
             created_at=datetime.now(timezone.utc),
         )
-        _validate_window(program)
         db_session.add(program)
         db_session.flush()
 
@@ -280,7 +272,6 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         update_data.pop("feature_flags", None)
         for field, value in update_data.items():
             setattr(program, field, value)
-        _validate_window(program)
 
         grants = _dedupe_grants(update_early_access_program_request.feature_flags or [])
         _validate_feature_flag_grants(db_session, grants)

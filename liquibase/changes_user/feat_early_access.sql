@@ -3,18 +3,17 @@
 -- changeset MobilityData:feat_early_access_programs
 -- comment: Add early access program tables (bulk CSV-driven feature-flag grants; product-tasks#213)
 
+-- No start/end window columns: `disabled` is the single switch. A date window would look like
+-- it gated access without doing so - nothing revokes, and an invite is claimed whenever its
+-- recipient first signs in, which is routinely long after the event the program was named for.
 CREATE TABLE early_access_program (
     id                    TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name                  TEXT NOT NULL,
     description           TEXT,
-    starts_at             TIMESTAMPTZ,
-    ends_at               TIMESTAMPTZ,
     disabled              BOOLEAN NOT NULL DEFAULT false,
     invite_retention_days INTEGER NOT NULL DEFAULT 90 CHECK (invite_retention_days > 0),
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by            TEXT,
-    CONSTRAINT ck_early_access_window
-        CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
+    created_by            TEXT
 );
 
 CREATE TABLE early_access_program_feature_flag (

@@ -775,7 +775,7 @@ paths:
           description: Program not found.
         "422":
           description: >
-            Validation error - e.g. ends_at not after starts_at, an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+            Validation error - an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
 
     delete:
       summary: Delete an early access program
@@ -3219,20 +3219,6 @@ components:
           type: string
           nullable: true
           description: Optional description of the program.
-        starts_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: >
-            Informational only — not currently enforced by any grant path (invited-email grants bypass it, and there is no other enrollment path left to gate on it).
-
-        ends_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: >
-            Informational only — not currently enforced by any grant path (invited-email grants deliberately bypass it).
-
         disabled:
           type: boolean
           description: When true, invited-email claims and direct grants for this program are refused.
@@ -3267,14 +3253,6 @@ components:
         description:
           type: string
           nullable: true
-        starts_at:
-          type: string
-          format: date-time
-          nullable: true
-        ends_at:
-          type: string
-          format: date-time
-          nullable: true
         disabled:
           type: boolean
           default: false
@@ -3300,14 +3278,6 @@ components:
           type: string
         description:
           type: string
-          nullable: true
-        starts_at:
-          type: string
-          format: date-time
-          nullable: true
-        ends_at:
-          type: string
-          format: date-time
           nullable: true
         disabled:
           type: boolean
