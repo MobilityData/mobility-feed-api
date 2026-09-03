@@ -27,7 +27,7 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Gtfsfile
 from shared.dataset_service.dataset_service_commons import BatchExecution
 from shared.dataset_service.main import BatchExecutionService
 from shared.database.database import with_db_session
@@ -88,6 +88,10 @@ def get_non_deprecated_feeds(
         .select_from(Gtfsfeed)
         .outerjoin(Gtfsdataset, (Gtfsfeed.latest_dataset_id == Gtfsdataset.id))
         .filter(Gtfsfeed.status != "deprecated")
+        .filter(
+            (Gtfsfeed.latest_dataset_id.is_(None))
+            | Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt")
+        )
     )
     if feed_stable_ids:
         # If feed_stable_ids are provided, filter the query by stable IDs

@@ -105,6 +105,45 @@ def test_batch_datasets_w_feed_ids(mock_client, mock_publish, db_session):
                 assert message["feed_stable_id"] in [feed.stable_id for feed in feeds]
 
 
+@with_db_session(db_url=default_db_url)
+def test_get_non_deprecated_feeds_requires_stops_for_existing_dataset(db_session):
+    from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
+
+    feeds_before = get_non_deprecated_feeds(db_session)
+
+    feed_without_dataset = next(
+        feed for feed in feeds_before if feed.dataset_stable_id is None
+    )
+
+    feed_with_dataset = next(
+        feed for feed in feeds_before if feed.dataset_stable_id is not None
+    )
+
+    dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(Gtfsdataset.stable_id == feed_with_dataset.dataset_stable_id)
+        .one()
+    )
+
+    assert any(file.file_name == "stops.txt" for file in dataset.gtfsfiles)
+
+    dataset.gtfsfiles = [
+        Gtfsfile(
+            id="missing-stops-routes",
+            gtfs_dataset_id=dataset.id,
+            file_name="routes.txt",
+            file_size_bytes=1,
+        )
+    ]
+    db_session.commit()
+
+    feeds_after = get_non_deprecated_feeds(db_session)
+    returned_ids = {feed.stable_id for feed in feeds_after}
+
+    assert feed_without_dataset.stable_id in returned_ids
+    assert feed_with_dataset.stable_id not in returned_ids
+
+
 def test_batch_datasets_exception():
     exception_message = "Failure occurred"
     mock_session = MagicMock()
