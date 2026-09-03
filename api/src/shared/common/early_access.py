@@ -6,10 +6,9 @@ and `common` is in both functions' `include_api_folders`. Must not import the Br
 same reason `feature_flags.py` was split out: some functions that include `common` (e.g.
 `batch_process_dataset`) do not depend on it.
 
-Email verification is deliberately not checked here — see EARLY-ACCESS-PLAN.md section 5.
-`app_user.email_verified` is not kept in sync anywhere in the codebase today, so enforcing it
-here would require building a live sync as a side effect of this feature. Grants are made on a
-matching, authenticated email alone; keeping `email_verified` current is a separate issue.
+Email verification is deliberately not checked here: `app_user.email_verified` is not kept in
+sync anywhere in the codebase today, so enforcing it would require building a live sync as a side
+effect of this feature. Grants are made on a matching, authenticated email alone.
 """
 
 import logging
@@ -42,8 +41,7 @@ def grant_program_flags(db_session, user_id: str, program_id: str) -> bool:
     grant for an already-existing account.
 
     ``DO NOTHING``, not ``DO UPDATE``: an operator-set `user_feature_flag` row always wins over a
-    program grant, self-service (invited-email claim) or bulk (CSV import), per decision 3 in
-    EARLY-ACCESS-PLAN.md.
+    program grant, whether from an invited-email claim or a bulk CSV import.
 
     Returns True if a grant was attempted (program enabled and has flags), False otherwise. This
     says nothing about whether any row was actually inserted — ``DO NOTHING`` can silently no-op
@@ -82,16 +80,10 @@ def grant_program_flags(db_session, user_id: str, program_id: str) -> bool:
 def apply_invited_email_grants(db_session, user_id: str, email: str) -> list[str]:
     """Claim every outstanding, non-disabled invited-email row for `email` on behalf of `user_id`.
 
-    Runs on every `get_user` call, not just account creation — a user with no pending invite the
-    first time they sign in must still be able to claim one added, or still outstanding, later.
-    The common case (no pending invite) is a single indexed lookup on `idx_eaie_email` that
-    deletes nothing.
-
     For each claimed program: creates the durable `early_access_enrollment` audit row
     (`source='invited_email'`) and calls `grant_program_flags`. The enrollment insert's
     ``ON CONFLICT DO NOTHING`` is a safety net, not a cap check — an `early_access_invited_email`
-    row cannot outlive its claim, so a genuine double-claim race is not expected, and there is no
-    enrollment cap to enforce (see EARLY-ACCESS-PLAN.md section 1, `max_enrollments` removal).
+    row cannot outlive its claim, so a genuine double-claim race is not expected.
 
     A row tied to a currently-disabled program is left untouched (not deleted), so re-enabling
     the program later still lets it be claimed on a subsequent call.

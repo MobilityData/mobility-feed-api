@@ -16,7 +16,7 @@
 """Operations API for early access programs (product-tasks#213).
 
 This is the only enrollment path in the system — there is no self-service join endpoint anywhere
-in the public API. See EARLY-ACCESS-PLAN.md.
+in the public API.
 """
 
 import logging
@@ -103,7 +103,7 @@ _PROGRAM_FLAGS_LOAD = selectinload(
 )
 
 # A sample, not the full list, is returned for every category except `invalid` (which the
-# operator needs in full to fix and resubmit) — see EARLY-ACCESS-PLAN.md section 7.
+# operator needs in full to fix and resubmit).
 _SAMPLE_SIZE = 5
 
 

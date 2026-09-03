@@ -18,7 +18,7 @@ in `get_user`.
 
 There is no user-facing early-access endpoint — `GET /v1/user`'s existing `features[]` is the
 only surface; the UI gates on a flag's resolved value and never needs to know which program
-granted it. See EARLY-ACCESS-PLAN.md.
+granted it.
 
 These exercise the real users test database, following the pattern in
 `test_notifications_api_impl.py::test_get_notifications_db_backed` and
@@ -128,8 +128,12 @@ class TestInvitedEmailClaimOnGetUser:
         assert result.id == user_id
         assert session.query(EarlyAccessEnrollment).filter_by(user_id=user_id).first() is None
 
-    def test_invite_added_after_first_signin_is_claimed_on_a_later_call(self, session):
-        """Proves the hook isn't creation-only: it must run on every get_user call."""
+    def test_invite_added_after_first_signin_is_not_claimed_on_a_later_call(self, session):
+        """The hook is creation-only, deliberately: the CSV import grants a matching *existing*
+        account immediately at import time, so an invite row only exists for someone who had no
+        account yet. This scenario (account already exists, invite shows up afterwards) is only
+        reachable via the narrow, low-consequence race described in the get_user hook's comment
+        in users_api_impl.py - it is expected to be left unclaimed here, not silently handled."""
         flag_id = _make_flag(session, "later")
         user_id = f"user-{_uid()}"
         email = f"{user_id}@example.com"
@@ -145,7 +149,9 @@ class TestInvitedEmailClaimOnGetUser:
 
         UsersApiImpl().get_user(db_session=session)
 
-        _assert_flag_granted(session, user_id, flag_id)
+        assert not feature_flag_enabled(session, user_id, flag_id)
+        invite = session.query(EarlyAccessInvitedEmail).filter_by(program_id=program.id, email=email).first()
+        assert invite is not None
 
 
 def _assert_flag_granted(session, user_id, flag_id):

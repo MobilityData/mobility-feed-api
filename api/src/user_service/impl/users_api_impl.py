@@ -105,25 +105,20 @@ class UsersApiImpl(BaseUsersApi):
             db_session.add(user)
             db_session.flush()
 
-        # Runs on every call, not just account creation: a user with no pending invite the first
-        # time they sign in must still be able to claim one added, or still outstanding, later.
-        # SAVEPOINT + broad except: this is the most-called endpoint in the service and must
-        # never 500 because a program row is malformed. Email verification is deliberately not
-        # checked - see EARLY-ACCESS-PLAN.md section 5.
-        if user.email:
-            try:
-                with db_session.begin_nested():
-                    claimed = apply_invited_email_grants(db_session, user_id, user.email)
-                if claimed:
-                    # `user.user_feature_flags` may already be loaded (existing user, eager
-                    # selectinload above); the grant just written via a Core insert wouldn't
-                    # otherwise show up in this same response.
-                    db_session.expire(user, ["user_feature_flags"])
-            except Exception:
-                logger.exception(
-                    "Early access invite claim failed for user_id=%s; continuing without it.",
-                    user_id,
-                )
+            # Only fires on account creation: the CSV import grants a matching existing account
+            # immediately at import time, so an invite row only exists for someone who had no
+            # account yet, and their first sign-in (right above) is the only place it can be
+            # claimed. SAVEPOINT + broad except: this is the most-called endpoint in the service
+            # and must never 500 because a program row is malformed.
+            if user.email:
+                try:
+                    with db_session.begin_nested():
+                        apply_invited_email_grants(db_session, user_id, user.email)
+                except Exception:
+                    logger.exception(
+                        "Early access invite claim failed for user_id=%s; continuing without it.",
+                        user_id,
+                    )
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
         return AppUserImpl.from_orm(user, all_flags)

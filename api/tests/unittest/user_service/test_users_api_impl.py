@@ -84,33 +84,13 @@ class TestGetUserMe(unittest.TestCase):
         self.assertEqual(result.email, "user@example.com")
         self.assertEqual(result.full_name, "Jane Doe")
         self.assertFalse(result.is_registered_to_receive_api_announcements)
-        self.mock_apply_invited_email_grants.assert_called_once_with(self.mock_session, "uid-123", "user@example.com")
+        # The claim hook only fires on account creation (see test_upserts_new_user_on_first_call)
+        # - an existing user's invite, if any, was already granted immediately at CSV-import
+        # time, so there is nothing left to check here on every call.
+        self.mock_apply_invited_email_grants.assert_not_called()
 
-    def test_claim_expires_user_feature_flags_when_something_was_claimed(self):
-        user = _make_user()
-        _mock_query_first(self.mock_session, user)
-        _set_context()
-        self.mock_apply_invited_email_grants.return_value = ["program-1"]
-
-        self.api.get_user(db_session=self.mock_session)
-
-        # An existing user's user_feature_flags was already eagerly loaded above; a claim
-        # just written via a Core insert wouldn't otherwise show up without this.
-        self.mock_session.expire.assert_called_once_with(user, ["user_feature_flags"])
-
-    def test_claim_does_not_expire_user_feature_flags_when_nothing_was_claimed(self):
-        user = _make_user()
-        _mock_query_first(self.mock_session, user)
-        _set_context()
-        self.mock_apply_invited_email_grants.return_value = []
-
-        self.api.get_user(db_session=self.mock_session)
-
-        self.mock_session.expire.assert_not_called()
-
-    def test_claim_failure_does_not_break_get_user(self):
-        user = _make_user()
-        _mock_query_first(self.mock_session, user)
+    def test_claim_failure_on_creation_does_not_break_get_user(self):
+        _mock_query_first(self.mock_session, None)
         _set_context()
         self.mock_apply_invited_email_grants.side_effect = RuntimeError("boom")
 
@@ -130,6 +110,8 @@ class TestGetUserMe(unittest.TestCase):
         self.assertEqual(added_user.id, "uid-123")
         self.assertEqual(added_user.email, "user@example.com")
         self.assertEqual(result.id, "uid-123")
+        # The claim hook only fires here, on account creation.
+        self.mock_apply_invited_email_grants.assert_called_once_with(self.mock_session, "uid-123", "user@example.com")
 
     def test_raises_401_when_user_id_missing(self):
         _request_context.set({"user_id": None, "user_email": "user@example.com"})
