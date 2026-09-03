@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""CSV responses for Operations API list endpoints.
+"""Reading and writing CSV for the Operations API.
 
 Buffered `Response` only, never `StreamingResponse`: the WSGI-to-ASGI shim in
 `operations_api/src/main.py` overwrites the body per message instead of appending, so a
@@ -28,6 +28,40 @@ from fastapi import Response
 
 CSV_FORMAT = "csv"
 JSON_FORMAT = "json"
+
+EMAIL_COLUMN = "email"
+
+
+class MissingEmailColumn(Exception):
+    """The uploaded CSV has no `email` header."""
+
+
+def emails_from_csv(text: str) -> List[str]:
+    """Every value in the `email` column, in file order, unvalidated.
+
+    The header is matched case-insensitively at any position and other columns are ignored.
+    Values are returned as-is so the caller's categorisation reports malformed ones rather than
+    dropping them here.
+    """
+    reader = csv.reader(io.StringIO(text))
+    try:
+        header = next(reader)
+    except StopIteration:
+        raise MissingEmailColumn()
+
+    try:
+        column = [name.strip().lower() for name in header].index(EMAIL_COLUMN)
+    except ValueError:
+        raise MissingEmailColumn()
+
+    values = []
+    for row in reader:
+        if column >= len(row):
+            continue
+        value = row[column].strip()
+        if value:
+            values.append(value)
+    return values
 
 
 def rows_to_csv(fieldnames: Sequence[str], rows: List[Dict[str, Any]]) -> str:

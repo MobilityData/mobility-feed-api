@@ -800,6 +800,9 @@ paths:
       description: >
         Takes a JSON array of addresses and categorises every one of them against this program. Unless `dry_run` is true (the default), applies the result: an address matching an existing account is granted the program's flags immediately; an address with no matching account gets an invite row, claimed automatically the next time that email signs in. The same body is used for preview and apply so the matching rules cannot diverge between the two. Never logs the submitted list.
 
+
+        This variant takes the addresses already extracted, as JSON. To hand over a CSV file instead, post it to `.../invited-emails:upload`, which parses it server-side and returns the same categorisation. Malformed addresses are never silently skipped by either variant - they come back in `invalid` with a reason, for the operator to fix and resubmit.
+
       operationId: importEarlyAccessInvitedEmails
       tags:
         - "early-access"
@@ -865,6 +868,57 @@ paths:
           description: Unauthorized.
         "404":
           description: Program not found.
+  /v1/operations/early-access-programs/{id}/invited-emails:upload:
+    post:
+      summary: Bulk-add invited emails from a CSV file
+      description: >
+        Same categorisation and same `dry_run` semantics as posting JSON to `.../invited-emails`, but takes the CSV itself so an operator does not have to extract the addresses first.
+
+        Send the CSV as the raw request body with `Content-Type: text/csv`, not as a multipart upload. Addresses are read from the column headed `email`, matched case-insensitively and at any position; every other column is ignored, so a CRM export can be uploaded unedited. Quoted fields containing commas are handled, as are CRLF line endings. A file with no `email` column is a 422 rather than an empty import, so a wrong file is never mistaken for a program with no invitees. The file's contents are never logged.
+
+      operationId: uploadEarlyAccessInvitedEmailsCsv
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: dry_run
+          in: query
+          required: false
+          description: >
+            When true (default), categorise without persisting anything.
+
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        description: The CSV itself, as the raw request body.
+        content:
+          text/csv:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: Categorisation result (preview if `dry_run` is true, applied otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: >
+            The file has no `email` column, is not valid UTF-8, or its `email` column holds more than 5000 addresses.
+
   /v1/operations/early-access-programs/{id}/report:
     get:
       summary: Combined enrollment and invite report for a program

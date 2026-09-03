@@ -522,6 +522,108 @@ class TestImportInvitedEmails:
         assert exc_info.value.status_code == 404
 
 
+class TestUploadInvitedEmailsCsv:
+    @pytest.fixture
+    def program(self, session):
+        p = EarlyAccessProgram(id=_uid(), name="Upload Test")
+        session.add(p)
+        session.flush()
+        return p
+
+    def test_reads_the_email_column_at_any_position_and_case(
+        self, api, session, program
+    ):
+        existing = AppUser(id=f"user-{_uid()}", email=f"matched-{_uid()}@example.com")
+        session.add(existing)
+        session.flush()
+        new_email = f"new-{_uid()}@example.com"
+        csv_text = (
+            "Name,EMAIL,Org\r\n"
+            f'"Doe, Ada",{existing.email},ACME\r\n'
+            f"Grace,{new_email},ACME\r\n"
+        )
+
+        result = api.upload_early_access_invited_emails_csv(
+            program.id, csv_text, dry_run=True, db_session=session
+        )
+
+        # The quoted "Doe, Ada" must not shift the columns.
+        assert result.matched_existing_account.count == 1
+        assert result.no_account_yet.count == 1
+        assert result.dry_run is True
+
+    def test_other_columns_are_ignored(self, api, session, program):
+        csv_text = (
+            f"email,backup_email\nnew-{_uid()}@example.com,other-{_uid()}@example.com\n"
+        )
+
+        result = api.upload_early_access_invited_emails_csv(
+            program.id, csv_text, dry_run=True, db_session=session
+        )
+
+        assert result.no_account_yet.count == 1
+
+    def test_malformed_rows_come_back_as_invalid(self, api, session, program):
+        csv_text = f"email\nnew-{_uid()}@example.com\nnot-an-email\n"
+
+        result = api.upload_early_access_invited_emails_csv(
+            program.id, csv_text, dry_run=True, db_session=session
+        )
+
+        assert result.no_account_yet.count == 1
+        assert [entry.email for entry in result.invalid] == ["not-an-email"]
+
+    def test_applies_when_not_dry_run(self, api, session, program):
+        new_email = f"new-{_uid()}@example.com"
+
+        api.upload_early_access_invited_emails_csv(
+            program.id, f"email\n{new_email}\n", dry_run=False, db_session=session
+        )
+
+        assert (
+            session.query(EarlyAccessInvitedEmail)
+            .filter_by(program_id=program.id, email=new_email)
+            .count()
+            == 1
+        )
+
+    def test_no_email_column_is_422(self, api, session, program):
+        with pytest.raises(HTTPException) as exc_info:
+            api.upload_early_access_invited_emails_csv(
+                program.id, "id,name\n1,Alex\n", dry_run=True, db_session=session
+            )
+        assert exc_info.value.status_code == 422
+        # The rejection must not echo the file's contents.
+        assert "Alex" not in exc_info.value.detail
+
+    def test_empty_file_is_422(self, api, session, program):
+        with pytest.raises(HTTPException) as exc_info:
+            api.upload_early_access_invited_emails_csv(
+                program.id, "", dry_run=True, db_session=session
+            )
+        assert exc_info.value.status_code == 422
+
+    def test_over_the_cap_is_422_without_listing_addresses(self, api, session, program):
+        rows = "\n".join(f"user{i}@example.com" for i in range(5001))
+        with pytest.raises(HTTPException) as exc_info:
+            api.upload_early_access_invited_emails_csv(
+                program.id, f"email\n{rows}\n", dry_run=True, db_session=session
+            )
+        assert exc_info.value.status_code == 422
+        assert "5001" in exc_info.value.detail
+        assert "@example.com" not in exc_info.value.detail
+
+    def test_unknown_program_404(self, api, session):
+        with pytest.raises(HTTPException) as exc_info:
+            api.upload_early_access_invited_emails_csv(
+                "does-not-exist",
+                "email\na@example.com\n",
+                dry_run=True,
+                db_session=session,
+            )
+        assert exc_info.value.status_code == 404
+
+
 class TestRemoveInvitedEmails:
     def test_removes_outstanding_invites_and_counts_not_found(self, api, session):
         program = EarlyAccessProgram(id=_uid(), name="Remove Test")

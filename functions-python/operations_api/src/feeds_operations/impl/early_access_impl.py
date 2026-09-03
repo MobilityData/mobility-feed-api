@@ -63,7 +63,14 @@ from feeds_gen.models.remove_early_access_invited_emails_response import (
 from feeds_gen.models.update_early_access_program_request import (
     UpdateEarlyAccessProgramRequest,
 )
-from feeds_operations.impl.csv_utils import CSV_FORMAT, JSON_FORMAT, csv_response
+from feeds_operations.impl.csv_utils import (
+    CSV_FORMAT,
+    EMAIL_COLUMN,
+    JSON_FORMAT,
+    MissingEmailColumn,
+    csv_response,
+    emails_from_csv,
+)
 from feeds_operations.impl.models.feature_flag_validation import validate_value_type
 from feeds_operations.impl.models.operation_early_access_program_impl import (
     OperationEarlyAccessProgramImpl,
@@ -92,6 +99,9 @@ _PROGRAM_FLAGS_LOAD = selectinload(
 
 # Every category returns a sample; only `invalid` is returned in full, for the operator to fix.
 _SAMPLE_SIZE = 5
+
+# Mirrors the `maxItems` the JSON variant's schema enforces, for the upload variant to apply.
+MAX_INVITED_EMAILS = 5000
 
 _STATUS_ENROLLED = "enrolled"
 _STATUS_INVITED = "invited"
@@ -400,19 +410,60 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
         import_early_access_invited_emails_request: ImportEarlyAccessInvitedEmailsRequest,
         db_session=None,
     ) -> ImportEarlyAccessInvitedEmailsResponse:
+        req = import_early_access_invited_emails_request
+        # The 5000 cap is enforced by the request schema before this runs.
+        return self._categorise_invited_emails(
+            id,
+            req.emails,
+            req.dry_run if req.dry_run is not None else True,
+            db_session,
+        )
+
+    @with_users_db_session
+    def upload_early_access_invited_emails_csv(
+        self,
+        id: str,
+        body: str,
+        dry_run: bool = True,
+        db_session=None,
+    ) -> ImportEarlyAccessInvitedEmailsResponse:
+        """`body` is the raw CSV. Categorisation is shared with the JSON variant so the two
+        cannot diverge."""
+        try:
+            emails = emails_from_csv(body or "")
+        except MissingEmailColumn:
+            raise HTTPException(
+                status_code=422,
+                detail=f'The uploaded file has no "{EMAIL_COLUMN}" column.',
+            )
+        # The schema-level cap only guards the JSON variant, so enforce it here too. Reported
+        # without the addresses, which must not reach a log or an error string.
+        if len(emails) > MAX_INVITED_EMAILS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"The file holds {len(emails)} addresses; "
+                    f"at most {MAX_INVITED_EMAILS} may be submitted at once."
+                ),
+            )
+        return self._categorise_invited_emails(id, emails, dry_run, db_session)
+
+    def _categorise_invited_emails(
+        self,
+        id: str,
+        raw_emails: List[str],
+        dry_run: bool,
+        db_session,
+    ) -> ImportEarlyAccessInvitedEmailsResponse:
         if db_session.get(EarlyAccessProgram, id) is None:
             raise HTTPException(
                 status_code=404, detail=early_access_program_not_found.format(id)
             )
 
-        req = import_early_access_invited_emails_request
-        dry_run = req.dry_run if req.dry_run is not None else True
-
-        # The 5000 cap is enforced by the request schema before this runs.
         invalid: List[EarlyAccessInvalidEmailEntry] = []
         seen: set[str] = set()
         candidates: List[str] = []
-        for raw in req.emails:
+        for raw in raw_emails:
             candidate = (raw or "").strip().lower()
             if not candidate or candidate in seen:
                 continue

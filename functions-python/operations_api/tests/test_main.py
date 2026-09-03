@@ -28,6 +28,7 @@ def test_early_access_routes_registered():
     assert "/v1/operations/early-access-programs" in paths
     assert "/v1/operations/early-access-programs/{id}" in paths
     assert "/v1/operations/early-access-programs/{id}/invited-emails" in paths
+    assert "/v1/operations/early-access-programs/{id}/invited-emails:upload" in paths
     assert "/v1/operations/early-access-programs/{id}/report" in paths
     # Removed, not renamed; a lingering route means a stale generated router.
     assert "/v1/operations/early-access-programs/{id}/feature-flags" not in paths
