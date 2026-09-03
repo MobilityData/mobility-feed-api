@@ -21,6 +21,9 @@ tags:
     description: "Licenses of the Mobility Database"
   - name: "users"
     description: "User and feature flag management"
+  - name: "early-access"
+    description: >-
+      Early access programs (e.g. a Summit or GBFS validator beta) grant feature flags in bulk, including to members who have never signed in. This is the only enrollment path — there is no self-service join endpoint anywhere in the public API.
 paths:
   /v1/operations/feeds:
     get:
@@ -641,6 +644,340 @@ paths:
           description: Unauthorized.
         "404":
           description: Feature flag not found.
+  /v1/operations/early-access-programs:
+    get:
+      summary: List early access programs
+      description: Returns a paginated list of early access programs.
+      operationId: listEarlyAccessPrograms
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Paginated list of early access programs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of programs, ignoring pagination.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  programs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create an early access program
+      description: >
+        Creates a program and, atomically, the feature flags it grants. A program with no `feature_flags` entries is valid but grants nothing — the caller is expected to include at least one.
+
+      operationId: createEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEarlyAccessProgramRequest"
+      responses:
+        "201":
+          description: Program created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "422":
+          description: >
+            Validation error — e.g. an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+
+  /v1/operations/early-access-programs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The early access program's ID.
+    get:
+      summary: Get an early access program
+      description: Returns a program's own fields and its current feature flag grants.
+      operationId: getEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The early access program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+    put:
+      summary: Update an early access program
+      description: >
+        Updates the program's own fields (name, description, window, disabled, invite_retention_days) and replaces its feature flag grants. The program's own fields are a partial update - omit a field to leave it unchanged - but `feature_flags` is a full replace: omitting it, or sending an empty array, removes every grant this program makes going forward. This never touches `user_feature_flag` rows already granted to existing enrollees.
+
+      operationId: updateEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEarlyAccessProgramRequest"
+      responses:
+        "200":
+          description: Updated program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: >
+            Validation error - an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+
+    delete:
+      summary: Delete an early access program
+      description: >
+        Deletes the program and cascades to its feature flag grants, enrollments, and any outstanding invited emails. Does not touch `user_feature_flag` rows already granted — deleting a program never revokes access already given out.
+
+      operationId: deleteEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Program deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/early-access-programs/{id}/invited-emails:
+    post:
+      summary: Bulk-add invited emails
+      description: >
+        Takes a JSON array of addresses and categorises every one of them against this program. Unless `dry_run` is true (the default), applies the result: an address matching an existing account is granted the program's flags immediately; an address with no matching account gets an invite row, claimed automatically the next time that email signs in. The same body is used for preview and apply so the matching rules cannot diverge between the two. Never logs the submitted list.
+
+
+        This variant takes the addresses already extracted, as JSON. To hand over a CSV file instead, post it to `.../invited-emails:upload`, which parses it server-side and returns the same categorisation. Malformed addresses are never silently skipped by either variant - they come back in `invalid` with a reason, for the operator to fix and resubmit.
+
+      operationId: importEarlyAccessInvitedEmails
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsRequest"
+      responses:
+        "200":
+          description: Categorisation result (preview if `dry_run` is true, applied otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: More than 5000 emails were submitted.
+    delete:
+      summary: Bulk-remove invited emails
+      description: >
+        Removes outstanding (unclaimed) invited-email rows for this program. The addresses go in the request body rather than the path, so they stay out of URLs and therefore out of proxy and access logs. Removing an invite does not touch any flag already granted from an earlier claim.
+
+      operationId: removeEarlyAccessInvitedEmails
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveEarlyAccessInvitedEmailsRequest"
+      responses:
+        "200":
+          description: Removal result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoveEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/early-access-programs/{id}/invited-emails:upload:
+    post:
+      summary: Bulk-add invited emails from a CSV file
+      description: >
+        Same categorisation and same `dry_run` semantics as posting JSON to `.../invited-emails`, but takes the CSV itself so an operator does not have to extract the addresses first.
+
+        Send the CSV as the raw request body with `Content-Type: text/csv`, not as a multipart upload. Addresses are read from the column headed `email`, matched case-insensitively and at any position; every other column is ignored, so a CRM export can be uploaded unedited. Quoted fields containing commas are handled, as are CRLF line endings. A file with no `email` column is a 422 rather than an empty import, so a wrong file is never mistaken for a program with no invitees. The file's contents are never logged.
+
+      operationId: uploadEarlyAccessInvitedEmailsCsv
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: dry_run
+          in: query
+          required: false
+          description: >
+            When true (default), categorise without persisting anything.
+
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        description: The CSV itself, as the raw request body.
+        content:
+          text/csv:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: Categorisation result (preview if `dry_run` is true, applied otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: >
+            The file has no `email` column, is not valid UTF-8, or its `email` column holds more than 5000 addresses.
+
+  /v1/operations/early-access-programs/{id}/report:
+    get:
+      summary: Combined enrollment and invite report for a program
+      description: >
+        One row per person across both halves of the program: everyone already enrolled and every address still holding an outstanding invite, distinguished by `status`. Includes a summary count block. Note that an enrolled row's `email` is the account's email as it is *now*, which is not necessarily the address the invite was sent to - the invite row is deleted on claim, so the two cannot be correlated afterwards.
+
+      operationId: getEarlyAccessProgramReport
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: status
+          in: query
+          required: false
+          description: >
+            Restrict `rows` to one half of the program: `enrolled` for people already in it, `invited` for addresses still holding an unclaimed invite. Omit for both. The `summary` block always covers the whole program regardless of this filter.
+
+          schema:
+            type: string
+            enum: [enrolled, invited]
+        - $ref: "#/components/parameters/early_access_format_param"
+      responses:
+        "200":
+          description: >
+            The program's combined report, as JSON or as CSV depending on `format`. In CSV the summary block is omitted and only the rows are emitted.
+
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EarlyAccessProgramReport"
+            text/csv:
+              schema:
+                type: string
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
 components:
   schemas:
     Redirect:
@@ -2502,6 +2839,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2630,6 +2968,7 @@ components:
 
 
 
+
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -2733,6 +3072,7 @@ components:
 
 
 
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -2750,6 +3090,7 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
 
 
 
@@ -2900,6 +3241,314 @@ components:
           description: >
             When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
 
+    EarlyAccessProgramFeatureFlagGrant:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+        - value
+      properties:
+        feature_flag_id:
+          type: string
+          description: The feature flag's unique slug. Must reference an existing feature_flag row.
+          example: "isSealFilterEnabled"
+        value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The value granted by this program. Must match the flag's declared value_type.
+    OperationEarlyAccessProgram:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: The program's unique identifier.
+        name:
+          type: string
+          description: The program's display name.
+          example: "Summit 2026"
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the program.
+        disabled:
+          type: boolean
+          description: When true, invited-email claims and direct grants for this program are refused.
+          default: false
+        invite_retention_days:
+          type: integer
+          description: >
+            Days an unclaimed invited email is kept before the purge task deletes it.
+
+          default: 90
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          nullable: true
+        feature_flags:
+          type: array
+          description: The feature flags this program currently grants.
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    CreateEarlyAccessProgramRequest:
+      x-operation: true
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "Summit 2026"
+        description:
+          type: string
+          nullable: true
+        disabled:
+          type: boolean
+          default: false
+        invite_retention_days:
+          type: integer
+          default: 90
+        feature_flags:
+          type: array
+          description: >
+            The feature flags this program grants, written atomically with the program row. A program created with no entries here is valid but grants nothing.
+
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    UpdateEarlyAccessProgramRequest:
+      x-operation: true
+      type: object
+      description: >
+        The program's own fields are a partial update - omit one to leave it unchanged. `feature_flags` is the exception: it is a full replace, so omitting it or sending an empty array removes every grant this program makes going forward.
+
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        disabled:
+          type: boolean
+        invite_retention_days:
+          type: integer
+        feature_flags:
+          type: array
+          description: >
+            The program's complete set of feature flag grants after this call - a "set" operation, not an incremental add/remove. Omitting this field, or sending an empty array, removes all of this program's grants going forward without touching flags already granted to existing enrollees.
+
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    ImportEarlyAccessInvitedEmailsRequest:
+      x-operation: true
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          description: >
+            Addresses to invite. Lower-cased and de-duplicated before matching. Capped at 5000 — larger submissions are rejected with 422 rather than truncated.
+
+          items:
+            type: string
+            format: email
+          maxItems: 5000
+        dry_run:
+          type: boolean
+          description: >
+            When true (default), compute and return the categorisation without persisting any changes. Set to false to apply — grant matched accounts immediately and create invite rows for the rest.
+
+          default: true
+    EarlyAccessImportCategorySummary:
+      x-operation: true
+      type: object
+      description: >
+        A count plus a short sample of the addresses in this category. Only the `invalid` category is returned in full — see ImportEarlyAccessInvitedEmailsResponse.
+
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+        sample:
+          type: array
+          items:
+            type: string
+            format: email
+    EarlyAccessInvalidEmailEntry:
+      x-operation: true
+      type: object
+      required:
+        - email
+        - reason
+      properties:
+        email:
+          type: string
+        reason:
+          type: string
+          description: Why this address was rejected (e.g. not a valid email format).
+    ImportEarlyAccessInvitedEmailsResponse:
+      x-operation: true
+      type: object
+      required:
+        - program_id
+        - dry_run
+        - matched_existing_account
+        - no_account_yet
+        - already_invited
+        - already_enrolled
+        - invalid
+      properties:
+        program_id:
+          type: string
+        dry_run:
+          type: boolean
+          description: Whether this was a dry run (no changes persisted).
+        matched_existing_account:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses matching an existing account. Flags are granted immediately on apply.
+        no_account_yet:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: >
+            Addresses with no matching account. An invite row is created on apply, claimed automatically the next time that email signs in.
+
+        already_invited:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses that already have an outstanding invite for this program. No-op.
+        already_enrolled:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses already enrolled in this program. No-op.
+        invalid:
+          type: array
+          description: >
+            Addresses that were rejected, returned in full (not just a sample) so the operator can fix and resubmit them.
+
+          items:
+            $ref: "#/components/schemas/EarlyAccessInvalidEmailEntry"
+    RemoveEarlyAccessInvitedEmailsRequest:
+      x-operation: true
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
+    RemoveEarlyAccessInvitedEmailsResponse:
+      x-operation: true
+      type: object
+      required:
+        - removed_count
+        - not_found_count
+      properties:
+        removed_count:
+          type: integer
+          description: Number of outstanding invites removed.
+        not_found_count:
+          type: integer
+          description: >
+            Number of submitted addresses that had no outstanding invite for this program (already claimed, never invited, or already removed).
+
+    EarlyAccessReportRow:
+      x-operation: true
+      type: object
+      description: >
+        One person in a program's report. `status` says which half of the program they are in, and which of the remaining fields are populated.
+
+      required:
+        - email
+        - status
+      properties:
+        email:
+          type: string
+          format: email
+          description: >
+            For an enrolled row, the account's email as it is now; for an invited row, the address the invite was created for.
+
+        status:
+          type: string
+          enum: [enrolled, invited]
+        user_id:
+          type: string
+          nullable: true
+          description: Set for `enrolled` rows, null for `invited` (there is no account yet).
+        enrolled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set for `enrolled` rows only.
+        source:
+          type: string
+          enum: [invited_email, operations]
+          nullable: true
+          description: How the enrollment was created. Set for `enrolled` rows only.
+        invited_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the invite was created. Set for `invited` rows only.
+    EarlyAccessReportSummary:
+      x-operation: true
+      type: object
+      required:
+        - enrolled_count
+        - outstanding_invite_count
+        - total
+      properties:
+        enrolled_count:
+          type: integer
+          description: People already enrolled in the program.
+        outstanding_invite_count:
+          type: integer
+          description: Invited addresses not yet claimed.
+        total:
+          type: integer
+          description: enrolled_count + outstanding_invite_count.
+        by_source:
+          type: object
+          description: Enrollment counts broken down by how the enrollment was created.
+          properties:
+            invited_email:
+              type: integer
+            operations:
+              type: integer
+    EarlyAccessProgramReport:
+      x-operation: true
+      type: object
+      required:
+        - program_id
+        - summary
+        - rows
+      properties:
+        program_id:
+          type: string
+        summary:
+          $ref: "#/components/schemas/EarlyAccessReportSummary"
+        total:
+          type: integer
+          description: Total rows available, ignoring pagination.
+        offset:
+          type: integer
+        limit:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarlyAccessReportRow"
+          default: []
     OperationUserProfile:
       x-operation: true
       type: object
@@ -2951,6 +3600,18 @@ components:
             - feature_flag_id: "max_results"
               value: 50
   parameters:
+    early_access_format_param:
+      x-operation: true
+      name: format
+      in: query
+      description: >
+        Response format. `json` (the default) returns the paginated object; `csv` returns the same rows as `text/csv` with a header row.
+
+      required: False
+      schema:
+        type: string
+        enum: [json, csv]
+        default: json
     feed_id_path_param:
       x-operation: true
       name: id

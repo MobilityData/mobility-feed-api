@@ -144,3 +144,20 @@ def _configure_users_passive_deletes(mapper_, class_):
                 rel = mapper_.relationships[rel_name]
                 rel.cascade = "all, delete-orphan"
                 rel.passive_deletes = True
+
+    # Same problem for the early access children: NOT NULL FKs with ON DELETE CASCADE, so
+    # without this, deleting any of these three parents blanks the child FK and fails.
+    early_access_children = {
+        "AppUser": ("early_access_enrollments",),
+        "FeatureFlag": ("early_access_program_feature_flags",),
+        "EarlyAccessProgram": (
+            "early_access_enrollments",
+            "early_access_invited_emails",
+            "early_access_program_feature_flags",
+        ),
+    }
+    for rel_name in early_access_children.get(class_.__name__, ()):
+        if rel_name in mapper_.relationships:
+            rel = mapper_.relationships[rel_name]
+            rel.cascade = "all"
+            rel.passive_deletes = True
