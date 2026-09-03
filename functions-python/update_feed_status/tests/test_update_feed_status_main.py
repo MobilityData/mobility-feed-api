@@ -128,7 +128,6 @@ def test_null_service_date_range_sets_feed_inactive(db_session: Session) -> None
         db_session.rollback()
 
 
-
 @with_db_session(db_url=default_db_url)
 def test_update_feed_status_with_ids(db_session: Session) -> None:
     # clean_testing_db()
