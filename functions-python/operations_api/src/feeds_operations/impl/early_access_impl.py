@@ -210,7 +210,6 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
                 ]
             )
             db_session.flush()
-            db_session.expire(program, ["early_access_program_feature_flags"])
         return OperationEarlyAccessProgramImpl.from_orm(program)
 
     @with_users_db_session
@@ -299,6 +298,8 @@ class EarlyAccessApiImpl(BaseEarlyAccessApi):
             ]
         )
         db_session.flush()
+        # The bulk delete above bypasses the relationship, so an already-loaded collection would
+        # still hold the removed rows. Same intent as refresh() in put_user_feature_flags.
         db_session.expire(program, ["early_access_program_feature_flags"])
         return OperationEarlyAccessProgramImpl.from_orm(program)
 
