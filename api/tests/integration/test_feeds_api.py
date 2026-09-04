@@ -1,7 +1,7 @@
 # coding: utf-8
+from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
-from datetime import timedelta
 
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
 from tests.test_utils.token import authHeaders
@@ -1171,4 +1171,137 @@ def test_gtfs_feed_availability_invalid_date_returns_422(client: TestClient):
         headers=authHeaders,
         params={"from": "not-a-date"},
     )
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+def test_feed_list_created_at_filters_are_inclusive(client: TestClient, endpoint):
+    """Feed-list created_at bounds include feeds exactly on either boundary."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+
+    feeds = response.json()
+    assert feeds, f"Expected test data for {endpoint}"
+    assert all(feed["created_at"] is not None for feed in feeds)
+
+    created_at_by_id = {feed["id"]: datetime.fromisoformat(feed["created_at"].replace("Z", "+00:00")) for feed in feeds}
+
+    boundary = max(created_at_by_id.values())
+    boundary_iso = boundary.isoformat().replace("+00:00", "Z")
+
+    expected_ids = {feed_id for feed_id, created_at in created_at_by_id.items() if created_at == boundary}
+
+    after_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={"created_after": boundary_iso},
+    )
+    assert after_response.status_code == 200
+
+    after_ids = {feed["id"] for feed in after_response.json()}
+    assert after_ids == expected_ids
+
+    before_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={"created_before": boundary_iso},
+    )
+    assert before_response.status_code == 200
+
+    before_ids = {feed["id"] for feed in before_response.json()}
+    assert expected_ids.issubset(before_ids)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+def test_feed_list_created_at_range(client: TestClient, endpoint):
+    """Combined created_at bounds return exactly the inclusive temporal range."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+
+    feeds = response.json()
+    assert feeds, f"Expected test data for {endpoint}"
+    assert all(feed["created_at"] is not None for feed in feeds)
+
+    created_at_by_id = {feed["id"]: datetime.fromisoformat(feed["created_at"].replace("Z", "+00:00")) for feed in feeds}
+
+    ordered_dates = sorted(set(created_at_by_id.values()))
+
+    lower = ordered_dates[0]
+    upper = ordered_dates[-1]
+
+    lower_iso = lower.isoformat().replace("+00:00", "Z")
+    upper_iso = upper.isoformat().replace("+00:00", "Z")
+
+    expected_ids = {feed_id for feed_id, created_at in created_at_by_id.items() if lower <= created_at <= upper}
+
+    filtered_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": lower_iso,
+            "created_before": upper_iso,
+        },
+    )
+    assert filtered_response.status_code == 200
+
+    filtered_ids = {feed["id"] for feed in filtered_response.json()}
+    assert filtered_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+@pytest.mark.parametrize(
+    "parameter",
+    ["created_after", "created_before"],
+)
+def test_feed_list_created_at_invalid_date_returns_422(
+    client: TestClient,
+    endpoint,
+    parameter,
+):
+    """Invalid created_at bounds are rejected consistently by feed-list endpoints."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={parameter: "invalid_date"},
+    )
+
     assert response.status_code == 422
