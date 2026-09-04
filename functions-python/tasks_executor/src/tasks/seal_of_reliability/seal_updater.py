@@ -38,6 +38,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import (
+    CriterionNameStr,
     CriterionPhase,
     CriterionStatus,
     SealCriterionName,
@@ -52,6 +53,7 @@ from shared.database_gen.sqlacodegen_models import (
     SealCriterionSnapshot,
 )
 
+from tasks.seal_of_reliability.history import FeedIdStr, FeedStableIdStr
 from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
@@ -85,7 +87,7 @@ SNAPSHOT_STATE_COLUMNS: Tuple[str, ...] = tuple(
 )
 
 
-def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
+def _resolve_evaluators(criteria: Optional[Sequence[CriterionNameStr]]) -> List:
     """Return the evaluators to run, optionally filtered to `criteria`."""
     if criteria is None:
         return list(EVALUATORS)
@@ -143,7 +145,7 @@ def _validate_requested_feed_ids(
 
 
 def _load_previous_states(
-    db_session: Session, feed_ids: Sequence[str]
+    db_session: Session, feed_ids: Sequence[FeedIdStr]
 ) -> Dict[Tuple[str, str], SealCriterionState]:
     """Map (feed_id, criterion) -> stored state for a batch of feeds."""
     if not feed_ids:
@@ -169,7 +171,7 @@ def _load_previous_states(
 
 
 def _load_previous_seals(
-    db_session: Session, feed_ids: Sequence[str]
+    db_session: Session, feed_ids: Sequence[FeedIdStr]
 ) -> Dict[str, bool]:
     """Map feed_id -> stored has_seal, for feeds that already have a seal row."""
     if not feed_ids:
@@ -336,10 +338,10 @@ def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) 
 @with_db_session
 def update_seals(
     db_session: Session,
-    stable_feed_ids: Sequence[str],
+    stable_feed_ids: Sequence[FeedStableIdStr],
     dry_run: bool = True,
     limit: Optional[int] = None,
-    criteria: Optional[Sequence[str]] = None,
+    criteria: Optional[Sequence[CriterionNameStr]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,

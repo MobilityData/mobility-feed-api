@@ -28,7 +28,11 @@ from shared.common.seal_criteria import (
 )
 from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
 from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.history import AvailabilityCheck, AvailabilityHistory
+from tasks.seal_of_reliability.history import (
+    AvailabilityCheck,
+    AvailabilityHistory,
+    FeedIdStr,
+)
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
@@ -77,7 +81,7 @@ class AvailableEvaluator(CriterionEvaluator):
             )
         ).all()
 
-        checks_by_feed: Dict[str, List[AvailabilityCheck]] = {}
+        checks_by_feed: Dict[FeedIdStr, List[AvailabilityCheck]] = {}
         for row in rows:
             checks_by_feed.setdefault(row.feed_id, []).append(
                 AvailabilityCheck(checked_at=row.checked_at, success=bool(row.success))

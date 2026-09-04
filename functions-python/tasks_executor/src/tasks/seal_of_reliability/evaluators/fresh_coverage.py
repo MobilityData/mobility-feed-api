@@ -28,7 +28,11 @@ from shared.common.seal_criteria import (
 )
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from tasks.seal_of_reliability.context import FeedSealContext
-from tasks.seal_of_reliability.history import DatasetCoverage, DatasetHistory
+from tasks.seal_of_reliability.history import (
+    DatasetCoverage,
+    DatasetHistory,
+    FeedIdStr,
+)
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
@@ -76,7 +80,7 @@ class FreshCoverageEvaluator(CriterionEvaluator):
             max(days), time.min, tzinfo=timezone.utc
         ) + timedelta(days=1)
 
-        datasets_by_feed: Dict[str, List[DatasetCoverage]] = {}
+        datasets_by_feed: Dict[FeedIdStr, List[DatasetCoverage]] = {}
         for feed_id, dataset in self._datasets_at_range_start(
             db_session, feed_ids, range_start
         ) + self._datasets_in_range(db_session, feed_ids, range_start, range_end):
@@ -93,7 +97,7 @@ class FreshCoverageEvaluator(CriterionEvaluator):
         )
 
     @classmethod
-    def _rows_to_datasets(cls, rows) -> List[Tuple[str, DatasetCoverage]]:
+    def _rows_to_datasets(cls, rows) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
         return [
             (
                 row.feed_id,
@@ -108,8 +112,8 @@ class FreshCoverageEvaluator(CriterionEvaluator):
 
     @classmethod
     def _datasets_at_range_start(
-        cls, db_session: Session, feed_ids: Sequence[str], range_start: datetime
-    ) -> List[Tuple[str, DatasetCoverage]]:
+        cls, db_session: Session, feed_ids: Sequence[FeedIdStr], range_start: datetime
+    ) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
         """One row per feed: the dataset it already had when the range opened.
 
         Strictly before `range_start`, so it is the state each feed carries into the first
@@ -136,10 +140,10 @@ class FreshCoverageEvaluator(CriterionEvaluator):
     def _datasets_in_range(
         cls,
         db_session: Session,
-        feed_ids: Sequence[str],
+        feed_ids: Sequence[FeedIdStr],
         range_start: datetime,
         range_end: datetime,
-    ) -> List[Tuple[str, DatasetCoverage]]:
+    ) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
         """Every dataset downloaded while the range was open."""
         rows = db_session.execute(
             select(*cls._columns())

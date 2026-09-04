@@ -19,28 +19,15 @@ Evaluators never touch the database. They read a `FeedSealContext`, which this m
 and all the loading for a batch of feeds happens here in a fixed number of queries however
 many feeds there are.
 
-An evaluator's inputs get onto the context in one of three ways:
+Data reaches a criterion in one of three shapes, named here and referred to by name and
+number in the rest of the code. `FeedSealContext` groups its fields by them:
 
-1. Straight off the feed row: `official`, `seasonal`, `is_producer_url_unstable`,
-   `created_at`. No query needed, and the value is the same for every day. Official and
-   Stable need nothing more.
-2. One query per run, done by a `_load_*` helper here and stored in a field:
-   `closest_dataset`, `availability_check`, `latest_validation_report`. Available and
-   Compliant read these. Each query only looks at rows at or before the run's `now`, so a run
-   for a past date sees what was true then.
-3. One load per batch, done by the evaluator itself in its `load_history`, for inputs that
-   differ on each day evaluated. Fresh (future coverage) is the only one today: which dataset
-   is the closest one changes from day to day.
+1. **Feed field** - a column on the feed row, the same on every day evaluated.
+2. **Fixed day** - one value, resolved for one day when it is loaded.
+3. **History (day range)** - the whole range, asked per day.
 
-The six criteria are all here now or nearly so, each reading its inputs one of those ways.
-
-A backfill evaluates a year of days in one run, so it builds its own contexts and fills in
-kinds 1 and 3 only. A kind-2 field holds one answer for one `now`, which is no use across 365
-days, so it is left empty and Available and Compliant return UNKNOWN for a marched day.
-UNKNOWN is harmless: it keeps whatever verdict the criterion already had. And for days the
-nightly job has already seen, the backfill reads the stored status from
-`seal_criterion_snapshot` rather than evaluating at all. If a new criterion needs to work in
-a backfill, its inputs belong in kind 3.
+A backfill fills 1 and 3 but never 2, so a criterion that reads a fixed-day field returns
+UNKNOWN for every day it marches. Give a new criterion a history if it has to work there.
 """
 
 import itertools
@@ -52,10 +39,12 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from shared.common.continuous_coverage import CALENDAR_FILES
-from shared.common.seal_criteria import AVAILABILITY_LOOKBACK
+from shared.common.seal_criteria import AVAILABILITY_LOOKBACK, CriterionNameStr
 from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
     DatasetCoverage,
+    FeedIdStr,
+    FeedStableIdStr,
     PreloadedHistory,
     ValidationReport,
 )
@@ -84,39 +73,38 @@ class FeedSealContext:
     it marches. Evaluators read from this and never query.
     """
 
-    feed_id: str
+    feed_id: FeedIdStr
     # The moment being evaluated. Passed in rather than read from the clock, so evaluators
     # are pure functions and a run can be replayed for any date.
     now: datetime
-    stable_id: Optional[str] = None
+    stable_id: Optional[FeedStableIdStr] = None
 
-    # Kind 1: read straight off the feed row.
+    # 1. Feed field. Read by official and stable.
     official: Optional[bool] = None
     is_producer_url_unstable: Optional[bool] = None
     seasonal: Optional[bool] = None
 
-    # Kind 1 as well. Stable uses it: it is when the feed was first added to the database.
+    # 1. Feed field as well: when the feed was first added to the database. Stable counts
+    # its 180 days from here.
     feed_created_at: Optional[datetime] = None
 
-    # Kind 2: one answer for this run's `now`, loaded by the `_load_*` helpers below.
-    #
-    # `build_contexts` fills these in. The backfill does not: it evaluates many days in one
-    # run and a single answer cannot serve all of them, so it leaves them None. An evaluator
-    # that finds its field None must return UNKNOWN, never a verdict - see the module
-    # docstring.
+    # 2. Fixed day, loaded by the `_load_*` helpers below. Only `build_contexts` fills these,
+    # so they are None throughout a backfill and compliant and fresh_continuous cannot answer
+    # a marched day. An evaluator finding its field None must return UNKNOWN, never a verdict.
     closest_dataset: Optional[DatasetCoverage] = None
-    # Fresh / continuous coverage: the dataset downloaded immediately before
-    # `closest_dataset`, whose coverage the closest one has to meet. None when the feed
-    # had only one as of `now`.
+    # The dataset downloaded immediately before `closest_dataset`, whose coverage the closest
+    # one has to meet. None when the feed had only one as of `now`.
     previous_dataset: Optional[DatasetCoverage] = None
 
     availability_check: Optional[AvailabilityCheck] = None
     latest_validation_report: Optional[ValidationReport] = None
 
-    # Kind 3: see `PreloadedHistory`. One instance is shared by reference across every context
-    # of the batch, rather than sliced per feed and per day: slicing would force every
-    # criterion into the same storage shape, and during a backfill it would copy a year of
-    # history once per feed per day.
+    # 3. History, see `PreloadedHistory`. Read by available and fresh_coverage, and filled by
+    # both runs - the nightly one asks for a single day.
+    #
+    # One instance is shared by reference across every context of the batch, rather than
+    # sliced per feed and per day: slicing would force every criterion into the same storage
+    # shape, and during a backfill it would copy a year of history once per feed per day.
     history: Optional[PreloadedHistory] = None
 
 
@@ -142,9 +130,9 @@ def is_seal_eligible(feed) -> bool:
 
 def _eligible_stable_ids_query(
     db_session: Session,
-    stable_feed_ids: Optional[Sequence[str]] = None,
+    stable_feed_ids: Optional[Sequence[FeedStableIdStr]] = None,
     exclude_backfilled: bool = False,
-    required_criteria: Optional[Sequence[str]] = None,
+    required_criteria: Optional[Sequence[CriterionNameStr]] = None,
 ):
     """Base query: the `stable_id` of every seal-eligible GTFS feed.
 
@@ -199,10 +187,10 @@ def _eligible_stable_ids_query(
 
 def count_eligible_feeds(
     db_session: Session,
-    stable_feed_ids: Optional[Sequence[str]] = None,
+    stable_feed_ids: Optional[Sequence[FeedStableIdStr]] = None,
     limit: Optional[int] = None,
     exclude_backfilled: bool = False,
-    required_criteria: Optional[Sequence[str]] = None,
+    required_criteria: Optional[Sequence[CriterionNameStr]] = None,
 ) -> int:
     """How many eligible feeds there are. A plain COUNT(*), no rows loaded."""
     query = _eligible_stable_ids_query(
@@ -219,11 +207,11 @@ def count_eligible_feeds(
 def iter_eligible_stable_ids(
     db_session: Session,
     batch_size: int,
-    stable_feed_ids: Optional[Sequence[str]] = None,
+    stable_feed_ids: Optional[Sequence[FeedStableIdStr]] = None,
     limit: Optional[int] = None,
     exclude_backfilled: bool = False,
-    required_criteria: Optional[Sequence[str]] = None,
-) -> Iterator[List[str]]:
+    required_criteria: Optional[Sequence[CriterionNameStr]] = None,
+) -> Iterator[List[FeedStableIdStr]]:
     """Yield eligible feeds' `stable_id`s in chunks of at most `batch_size`.
 
     Only `stable_id` is selected, and `stream_results=True` asks Postgres for a server-side
@@ -266,8 +254,8 @@ def snapshot_date_of(now: datetime) -> date:
 
 
 def _load_recent_datasets(
-    db_session: Session, feed_ids: Sequence[str], now: datetime
-) -> Dict[str, List[DatasetCoverage]]:
+    db_session: Session, feed_ids: Sequence[FeedIdStr], now: datetime
+) -> Dict[FeedIdStr, List[DatasetCoverage]]:
     """feed_id -> its `DATASET_HISTORY_DEPTH` most recent datasets as of `now`, newest first.
 
     Ordered by `downloaded_at` among the datasets with `downloaded_at <= now` - looking
@@ -323,7 +311,7 @@ def _load_recent_datasets(
         .order_by(ranked.c.feed_id, ranked.c.recency)
     ).all()
 
-    recent: Dict[str, List[DatasetCoverage]] = {}
+    recent: Dict[FeedIdStr, List[DatasetCoverage]] = {}
     for row in rows:
         recent.setdefault(row.feed_id, []).append(
             DatasetCoverage(
@@ -341,9 +329,9 @@ def _load_recent_datasets(
 
 def _load_validation_reports(
     db_session: Session,
-    closest_datasets: Dict[str, DatasetCoverage],
+    closest_datasets: Dict[FeedIdStr, DatasetCoverage],
     now: datetime,
-) -> Dict[str, ValidationReport]:
+) -> Dict[FeedIdStr, ValidationReport]:
     """feed_id -> the latest validation report of that feed's closest dataset, as of `now`.
 
     Scoped to the closest dataset rather than to the feed on purpose: a verdict on a dataset
@@ -399,8 +387,8 @@ def _load_validation_reports(
 
 
 def _load_availability(
-    db_session: Session, feed_ids: Sequence[str], now: datetime
-) -> Dict[str, AvailabilityCheck]:
+    db_session: Session, feed_ids: Sequence[FeedIdStr], now: datetime
+) -> Dict[FeedIdStr, AvailabilityCheck]:
     """feed_id -> its latest availability check in the 24 hours up to `now`.
 
     A rolling 24-hour window rather than "the UTC day of `now`", so a check still counts when
@@ -438,7 +426,7 @@ def build_contexts(
     feeds: Sequence[Gtfsfeed],
     now: datetime,
     evaluators: Sequence,
-) -> Dict[str, FeedSealContext]:
+) -> Dict[FeedIdStr, FeedSealContext]:
     """Build one context per feed, for a single day. This is the nightly run's path.
 
     It loads all three kinds of input: the kind-2 fields through the `_load_*` helpers above,
@@ -478,12 +466,15 @@ def build_contexts(
        only kind a backfill can reconstruct.
     """
     feed_ids = [feed.id for feed in feeds]
+    # Each feed's two most recent datasets as of `now`, newest first.
     recent_datasets = _load_recent_datasets(db_session, feed_ids, now)
+    # The dataset each feed was serving at `now`.
     closest_datasets = {
         feed_id: datasets[0]
         for feed_id, datasets in recent_datasets.items()
         if len(datasets) > 0
     }
+    # The one before it, for feeds that had two: `fresh_continuous` judges that boundary.
     previous_datasets = {
         feed_id: datasets[1]
         for feed_id, datasets in recent_datasets.items()

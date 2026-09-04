@@ -58,6 +58,7 @@ from tasks.seal_of_reliability.context import (
     PreloadedHistory,
     is_seal_eligible,
 )
+from tasks.seal_of_reliability.history import FeedIdStr, FeedStableIdStr
 from tasks.seal_of_reliability.backfill.simulation import (
     MAX_TRACE_ROWS,
     check_simulation_fits,
@@ -69,7 +70,12 @@ from tasks.seal_of_reliability.backfill.simulation import (
     refuse_simulated_write,
     trace_row,
 )
-from shared.common.seal_criteria import CriterionStatus, SealCriterionName, SealStatus
+from shared.common.seal_criteria import (
+    CriterionNameStr,
+    CriterionStatus,
+    SealCriterionName,
+    SealStatus,
+)
 from tasks.seal_of_reliability.evaluators.base import CriterionObservation
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
@@ -152,7 +158,9 @@ def march_start_for(feed: Gtfsfeed, start_date: date) -> date:
 
 
 def _find_fully_backfilled_feeds(
-    db_session: Session, feed_ids: Sequence[str], criteria: Sequence[str]
+    db_session: Session,
+    feed_ids: Sequence[FeedIdStr],
+    criteria: Sequence[CriterionNameStr],
 ) -> Set[str]:
     """Pick out the feeds already holding a `seal_criterion` row for every one of `criteria`.
 
@@ -181,10 +189,10 @@ def _find_fully_backfilled_feeds(
 
 def _load_recorded_observations(
     db_session: Session,
-    feed_ids: Sequence[str],
+    feed_ids: Sequence[FeedIdStr],
     first_day: date,
     last_day: date,
-    criteria: Sequence[str],
+    criteria: Sequence[CriterionNameStr],
 ) -> Dict[Tuple[str, str, date], CriterionStatus]:
     """Read the verdicts the nightly job already stored for the days this batch will march.
 
@@ -580,13 +588,13 @@ def _feed_outcome(
 @with_db_session
 def backfill_seals(
     db_session: Session,
-    stable_feed_ids: Sequence[str],
+    stable_feed_ids: Sequence[FeedStableIdStr],
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     days_back: int = DEFAULT_DAYS_BACK,
     dry_run: bool = True,
     limit: Optional[int] = None,
-    criteria: Optional[Sequence[str]] = None,
+    criteria: Optional[Sequence[CriterionNameStr]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     only_missing: bool = True,
     snapshot_mode: str = DEFAULT_SNAPSHOT_MODE,

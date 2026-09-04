@@ -14,9 +14,13 @@ See #1761 for the algorithm and #1760 for the tables.
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Final, Iterable, Optional, Tuple
+from typing import Dict, Final, Iterable, Optional, Tuple, TypeAlias
 
 from shared.common.error_handling import raise_internal_http_error, unknown_seal_criterion
+
+# A criterion named by its `SealCriterionName` value, as it arrives in a payload and as it
+# is stored in `seal_criterion.criterion`.
+CriterionNameStr: TypeAlias = str
 
 
 class SealCriterionName(str, Enum):

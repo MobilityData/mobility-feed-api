@@ -25,11 +25,18 @@ from bisect import bisect_right
 from dataclasses import dataclass
 import datetime as datetime_module
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, TypeAlias
 
 from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import SealCriterionName
+
+# A feed's internal `feed.id`, not its `stable_id`.
+FeedIdStr: TypeAlias = str
+
+# A feed's public `mdb-1210` form. Not interchangeable with `FeedIdStr`: the loaders and
+# lookups here are keyed by `feed.id`, while the task payloads name feeds this way.
+FeedStableIdStr: TypeAlias = str
 
 
 @dataclass(frozen=True)
@@ -80,9 +87,9 @@ class DatasetHistory:
     is a binary search rather than a scan: a year's march asks once per feed per day.
     """
 
-    def __init__(self, datasets_by_feed: Dict[str, List[DatasetCoverage]]):
-        self._downloaded_at: Dict[str, List[datetime]] = {}
-        self._datasets: Dict[str, List[DatasetCoverage]] = {}
+    def __init__(self, datasets_by_feed: Dict[FeedIdStr, List[DatasetCoverage]]):
+        self._downloaded_at: Dict[FeedIdStr, List[datetime]] = {}
+        self._datasets: Dict[FeedIdStr, List[DatasetCoverage]] = {}
         for feed_id, datasets in datasets_by_feed.items():
             # `dataset_id` breaks ties the same way the loader orders them, so two datasets
             # stamped at the same instant resolve to one answer rather than an arbitrary one.
@@ -94,7 +101,9 @@ class DatasetHistory:
                 dataset.downloaded_at for dataset in datasets
             ]
 
-    def closest_at(self, feed_id: str, moment: datetime) -> Optional[DatasetCoverage]:
+    def closest_at(
+        self, feed_id: FeedIdStr, moment: datetime
+    ) -> Optional[DatasetCoverage]:
         keys = self._downloaded_at.get(feed_id)
         if not keys:
             return None
@@ -107,16 +116,16 @@ class DatasetHistory:
 class AvailabilityHistory:
     """Every feed's availability checks over a run's day range, sorted by `checked_at`."""
 
-    def __init__(self, checks_by_feed: Dict[str, List[AvailabilityCheck]]):
-        self._checked_at: Dict[str, List[datetime]] = {}
-        self._checks: Dict[str, List[AvailabilityCheck]] = {}
+    def __init__(self, checks_by_feed: Dict[FeedIdStr, List[AvailabilityCheck]]):
+        self._checked_at: Dict[FeedIdStr, List[datetime]] = {}
+        self._checks: Dict[FeedIdStr, List[AvailabilityCheck]] = {}
         for feed_id, checks in checks_by_feed.items():
             checks.sort(key=lambda check: check.checked_at)
             self._checks[feed_id] = checks
             self._checked_at[feed_id] = [check.checked_at for check in checks]
 
     def latest_in_window(
-        self, feed_id: str, moment: datetime, lookback: timedelta
+        self, feed_id: FeedIdStr, moment: datetime, lookback: timedelta
     ) -> Optional[AvailabilityCheck]:
         keys = self._checked_at.get(feed_id)
         if not keys:
@@ -176,7 +185,7 @@ class PreloadedHistory:
         return self._history_by_criterion.get(criterion)
 
     def get_closest_dataset_at(
-        self, feed_id: str, moment: datetime
+        self, feed_id: FeedIdStr, moment: datetime
     ) -> Optional[DatasetCoverage]:
         """The feed's most recently downloaded dataset at `moment`, or None if it had none.
 
@@ -186,7 +195,7 @@ class PreloadedHistory:
         return history.closest_at(feed_id, moment) if history else None
 
     def get_latest_availability_check_at(
-        self, feed_id: str, moment: datetime, lookback: timedelta
+        self, feed_id: FeedIdStr, moment: datetime, lookback: timedelta
     ) -> Optional[AvailabilityCheck]:
         """The feed's latest availability check in `(moment - lookback, moment]`.
 
