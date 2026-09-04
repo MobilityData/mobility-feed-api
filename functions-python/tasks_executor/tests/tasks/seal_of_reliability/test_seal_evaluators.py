@@ -16,7 +16,7 @@
 """Unit tests for the seal criterion evaluators. No database."""
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from shared.common.continuous_coverage import MAX_COVERAGE_WINDOW
 from shared.common.seal_criteria import (
@@ -26,10 +26,13 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
 )
-from tasks.seal_of_reliability.context import (
+from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
-    FeedSealContext,
+    AvailabilityHistory,
     DatasetCoverage,
+    DatasetHistory,
+    PreloadedHistory,
     ValidationReport,
 )
 from tasks.seal_of_reliability.evaluators import (
@@ -44,6 +47,31 @@ from tasks.seal_of_reliability.evaluators import (
 )
 
 NOW = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+class _Preloaded:
+    """A stub evaluator that hands back a ready-made history, so a test can build a
+    `PreloadedHistory` without a database."""
+
+    def __init__(self, name, history):
+        self.name = name
+        self._history = history
+
+    def load_history(self, db_session, feeds, days):
+        return self._history
+
+
+def _history(**by_name) -> PreloadedHistory:
+    """`PreloadedHistory` holding the given stores, keyed by criterion name."""
+    return PreloadedHistory(
+        None,
+        [],
+        [],
+        [
+            _Preloaded(SealCriterionName[name.upper()], store)
+            for name, store in by_name.items()
+        ],
+    )
 
 
 def _ctx(**overrides) -> FeedSealContext:
@@ -158,6 +186,63 @@ class TestOfficial(unittest.TestCase):
         self.assertIn("None", result.reason)
 
 
+class TestLoadInputs(unittest.TestCase):
+    """The `load_history` hook, and how what it loads reaches `_evaluate`."""
+
+    def test_no_criterion_queries_for_an_empty_batch(self):
+        """A criterion reading only day-invariant context fields has nothing to load.
+
+        None means "nothing to load", not "the load failed" — Official and Stable read the
+        feed row off the context and never need a query. A criterion whose data changes from
+        day to day overrides the loader instead, but must still answer an empty batch without
+        touching the session.
+
+        Which evaluators override it is deliberately not asserted: that is a property of each
+        criterion's data, and pinning the list would fail this test whenever a criterion is
+        correctly moved to a per-day loader. What matters here is that none of them queries.
+
+        The session is `object()` on purpose: any evaluator that queried here would raise.
+        """
+        for evaluator in EVALUATORS:
+            with self.subTest(criterion=evaluator.name):
+                evaluator.load_history(object(), [], [NOW.date()])
+
+    def test_each_criterion_is_asked_once_for_the_whole_batch(self):
+        """One call per criterion, carrying every feed and every day.
+
+        This is the property the backfill depends on: a criterion loading per day instead
+        would turn a year's march into several thousand queries.
+        """
+        calls = []
+
+        class Recording(CriterionEvaluator):
+            name = SealCriterionName.AVAILABLE
+
+            def load_history(self, db_session, feeds, days):
+                calls.append((tuple(feeds), tuple(days)))
+                return {"loaded": True}
+
+            def _evaluate(self, ctx):
+                return CriterionStatus.PASS, "recorded"
+
+        feeds = ["feed-1", "feed-2"]
+        days = [date(2026, 5, 30), date(2026, 5, 31), NOW.date()]
+        history = PreloadedHistory(object(), feeds, days, [Recording()])
+
+        self.assertEqual(calls, [(("feed-1", "feed-2"), tuple(days))])
+        self.assertTrue(history.has_history_for(SealCriterionName.AVAILABLE))
+
+    def test_a_lookup_answers_only_from_its_own_criterion_store(self):
+        """`get_closest_dataset_at` reads Fresh's store, never another criterion's."""
+        history = _history(available="available-history")
+        self.assertFalse(history.has_history_for(SealCriterionName.FRESH_COVERAGE))
+        self.assertIsNone(history.get_closest_dataset_at("feed-1", NOW))
+        self.assertTrue(history.has_history_for(SealCriterionName.AVAILABLE))
+
+    def test_context_defaults_to_no_history(self):
+        self.assertIsNone(_ctx().history)
+
+
 class TestStable(unittest.TestCase):
     """`feed.created_at <= now - 180 days` and the producer URL is not flagged unstable."""
 
@@ -256,15 +341,35 @@ class TestFreshCoverage(unittest.TestCase):
     """`closest_dataset.service_date_range_end >= now + 7 days`."""
 
     @staticmethod
-    def _dataset(coverage_end):
-        return DatasetCoverage(
-            dataset_id="mdb-1-202606010000",
-            downloaded_at=NOW - timedelta(days=1),
-            service_date_range_end=coverage_end,
+    def _history(coverage_end):
+        """The criterion's own loaded history, holding one dataset for `feed-1`."""
+        return DatasetHistory(
+            {
+                "feed-1": [
+                    DatasetCoverage(
+                        dataset_id="mdb-1-202606010000",
+                        downloaded_at=NOW - timedelta(days=1),
+                        service_date_range_end=coverage_end,
+                    )
+                ]
+            }
         )
 
-    def _fresh_ctx(self, coverage_end=NOW + timedelta(days=90), **overrides):
-        defaults = {"closest_dataset": self._dataset(coverage_end)}
+    def _fresh_ctx(
+        self, coverage_end=NOW + timedelta(days=90), dataset=True, **overrides
+    ):
+        """A context whose Fresh history was loaded, with or without a dataset in them.
+
+        `dataset=False` is a feed that had none as of `now` — an empty load, which is not the
+        same thing as a load that never ran (see `test_unloaded_history_says_so`).
+        """
+        defaults = {
+            "history": _history(
+                fresh_coverage=(
+                    self._history(coverage_end) if dataset else DatasetHistory({})
+                )
+            )
+        }
         defaults.update(overrides)
         return _ctx(**defaults)
 
@@ -308,7 +413,7 @@ class TestFreshCoverage(unittest.TestCase):
         """Applicability is a property of the feed, so it is settled before the inputs."""
         self.assertIs(
             FreshCoverageEvaluator()
-            .evaluate(self._fresh_ctx(seasonal=True, closest_dataset=None))
+            .evaluate(self._fresh_ctx(seasonal=True, dataset=False))
             .observed_status,
             CriterionStatus.NOT_APPLICABLE,
         )
@@ -325,9 +430,7 @@ class TestFreshCoverage(unittest.TestCase):
 
     def test_no_closest_dataset_is_unknown(self):
         """Not a failure: a feed we have never fetched says nothing about its freshness."""
-        result = FreshCoverageEvaluator().evaluate(
-            self._fresh_ctx(closest_dataset=None)
-        )
+        result = FreshCoverageEvaluator().evaluate(self._fresh_ctx(dataset=False))
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("no dataset", result.reason)
 
@@ -342,6 +445,61 @@ class TestFreshCoverage(unittest.TestCase):
         self.assertEqual(FreshCoverageEvaluator().grace_period, timedelta(days=14))
         self.assertEqual(FreshCoverageEvaluator().probation_period, PROBATION_PERIOD)
 
+    def test_unloaded_history_says_so(self):
+        """A context built without running the loader is a bug, not a missing dataset.
+
+        Both end as UNKNOWN, because a raise would take down a whole nightly run over the
+        catalogue, but the reason has to name the real cause: a silent "no dataset" across
+        every feed of a backfill is exactly what going unnoticed looks like.
+        """
+        result = FreshCoverageEvaluator().evaluate(_ctx())
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("never loaded", result.reason)
+
+    def test_the_closest_dataset_is_resolved_as_of_the_day_being_evaluated(self):
+        """The point of loading a range: each day of a march sees its own closest dataset.
+
+        Three datasets, published a week apart, each covering less of the future than the
+        last. Evaluated at three different `now`s from one loaded input set, the criterion
+        reads a different dataset each time - which is what `ctx.closest_dataset` cannot do,
+        holding as it does a single answer for a single `now`.
+        """
+        published = [
+            (NOW - timedelta(days=14), NOW + timedelta(days=90)),
+            (NOW - timedelta(days=7), NOW + timedelta(days=30)),
+            (NOW - timedelta(days=1), NOW + timedelta(days=2)),
+        ]
+        history = DatasetHistory(
+            {
+                "feed-1": [
+                    DatasetCoverage(
+                        dataset_id=f"mdb-1-{index}",
+                        downloaded_at=downloaded_at,
+                        service_date_range_end=coverage_end,
+                    )
+                    for index, (downloaded_at, coverage_end) in enumerate(published)
+                ]
+            }
+        )
+        payload = _history(fresh_coverage=history)
+
+        for offset, expected in (
+            (-20, CriterionStatus.UNKNOWN),  # before the feed had any dataset
+            (-10, CriterionStatus.PASS),  # the first one, covering 90 days out
+            (-3, CriterionStatus.PASS),  # the second, still beyond the horizon
+            (0, CriterionStatus.FAIL),  # the third, covering only 2 more days
+        ):
+            moment = NOW + timedelta(days=offset)
+            with self.subTest(days_from_now=offset):
+                result = FreshCoverageEvaluator().evaluate(
+                    _ctx(now=moment, history=payload)
+                )
+                self.assertIs(result.observed_status, expected)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
 
 class TestAvailable(unittest.TestCase):
     """The latest availability check in the window since the previous evaluation."""
@@ -350,24 +508,34 @@ class TestAvailable(unittest.TestCase):
     def _check(success, checked_at=None):
         return AvailabilityCheck(checked_at=checked_at or NOW, success=success)
 
+    @staticmethod
+    def _ctx_with(check, **overrides):
+        """A context whose Available history was loaded, with or without a check in it.
+
+        `check=None` is a loaded history holding nothing for this feed - an empty load, which
+        is not the same thing as a load that never ran.
+        """
+        checks = {"feed-1": [check]} if check is not None else {}
+        return _ctx(
+            history=_history(available=AvailabilityHistory(checks)), **overrides
+        )
+
     def test_a_successful_check_passes(self):
         self.assertIs(
             AvailableEvaluator()
-            .evaluate(_ctx(availability_check=self._check(True)))
+            .evaluate(self._ctx_with(self._check(True)))
             .observed_status,
             CriterionStatus.PASS,
         )
 
     def test_a_failed_check_fails(self):
-        result = AvailableEvaluator().evaluate(
-            _ctx(availability_check=self._check(False))
-        )
+        result = AvailableEvaluator().evaluate(self._ctx_with(self._check(False)))
         self.assertIs(result.observed_status, CriterionStatus.FAIL)
         self.assertIn("failed", result.reason)
 
     def test_no_check_in_the_window_is_unknown_not_a_failure(self):
         """A window the availability job did not cover says nothing about the producer."""
-        result = AvailableEvaluator().evaluate(_ctx(availability_check=None))
+        result = AvailableEvaluator().evaluate(self._ctx_with(None))
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("no availability check since", result.reason)
 
@@ -375,7 +543,7 @@ class TestAvailable(unittest.TestCase):
         """The window makes "which check decided this" a real question, so answer it."""
         checked_at = NOW - timedelta(hours=3)
         result = AvailableEvaluator().evaluate(
-            _ctx(availability_check=self._check(False, checked_at))
+            self._ctx_with(self._check(False, checked_at))
         )
         self.assertIn(checked_at.isoformat(), result.reason)
 
@@ -385,7 +553,7 @@ class TestAvailable(unittest.TestCase):
             with self.subTest(check=check):
                 self.assertIsNot(
                     AvailableEvaluator()
-                    .evaluate(_ctx(availability_check=check, seasonal=True))
+                    .evaluate(self._ctx_with(check, seasonal=True))
                     .observed_status,
                     CriterionStatus.NOT_APPLICABLE,
                 )

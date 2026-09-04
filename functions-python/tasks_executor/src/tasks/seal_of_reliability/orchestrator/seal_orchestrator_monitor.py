@@ -31,9 +31,15 @@ useful even with some workers unaccounted for), an incomplete seal run should su
 a clear failure: the whole point of tracking start/end is to know when a nightly run did
 NOT fully update the seal for every feed.
 
+The same monitor settles the backfill fan-out (#1763). Everything it does — poll, honour
+the deadline, aggregate each batch's stored report — is identical for both; only the
+TaskExecutionTracker `task_name` differs, so it is a payload parameter rather than a second
+copy of this file.
+
 Payload::
 
-    { "run_id": str }   # required
+    { "run_id": str,          # required
+      "task_name": str }      # optional, defaults to the nightly run's task name
 """
 
 import logging
@@ -61,19 +67,32 @@ MAX_REPORTED_IDS = 200
 
 _SETTLED_STATUSES = (STATUS_COMPLETED, STATUS_FAILED)
 
+# Numeric keys summed across a run's batches. A batch that does not report one contributes
+# zero, which is what lets the nightly and backfill fan-outs share this aggregation.
+_SUMMED_KEYS = (
+    "total_feeds",
+    "criterion_rows_written",
+    "snapshot_rows_written",
+    "seals_granted",
+    "seals_revoked",
+)
+
 
 def seal_orchestrator_monitor_handler(payload: dict) -> dict:
     """Entry point for the `seal_orchestrator_monitor` task."""
-    run_id = (payload or {}).get("run_id")
+    payload = payload or {}
+    run_id = payload.get("run_id")
     if not run_id:
         raise ValueError("run_id is required")
-    return _monitor(run_id)
+    return _monitor(run_id, payload.get("task_name") or SEAL_ORCHESTRATOR_TASK_NAME)
 
 
 @with_db_session
-def _monitor(run_id: str, db_session=None) -> dict:
+def _monitor(
+    run_id: str, task_name: str = SEAL_ORCHESTRATOR_TASK_NAME, db_session=None
+) -> dict:
     tracker = TaskExecutionTracker(
-        task_name=SEAL_ORCHESTRATOR_TASK_NAME,
+        task_name=task_name,
         run_id=run_id,
         db_session=db_session,
     )
@@ -89,7 +108,7 @@ def _monitor(run_id: str, db_session=None) -> dict:
     # report the same aggregate (read-only, no mutation) rather than a bare status string:
     # this is the only way to see a settled run's feed-processing totals after the fact.
     if summary["run_status"] in _SETTLED_STATUSES:
-        aggregated = _aggregate_batches(db_session, run_id)
+        aggregated = _aggregate_batches(db_session, run_id, task_name)
         return {
             "run_id": run_id,
             "status": (
@@ -121,7 +140,7 @@ def _monitor(run_id: str, db_session=None) -> dict:
             f"run {run_id} still in progress: {summary['triggered']} batch(es) pending"
         )
 
-    aggregated = _aggregate_batches(db_session, run_id)
+    aggregated = _aggregate_batches(db_session, run_id, task_name)
     incomplete = summary["triggered"]  # > 0 only if the deadline was reached first
     final_status = (
         STATUS_FAILED if summary["failed"] > 0 or incomplete > 0 else STATUS_COMPLETED
@@ -152,32 +171,29 @@ def _monitor(run_id: str, db_session=None) -> dict:
     return result
 
 
-def _aggregate_batches(db_session, run_id: str) -> Dict[str, Any]:
+def _aggregate_batches(db_session, run_id: str, task_name: str) -> Dict[str, Any]:
     """Sum each completed batch's stored `update_seals` report into one run-level report."""
     rows = (
         db_session.query(TaskExecutionLog.metadata_)
         .filter(
-            TaskExecutionLog.task_name == SEAL_ORCHESTRATOR_TASK_NAME,
+            TaskExecutionLog.task_name == task_name,
             TaskExecutionLog.run_id == run_id,
             TaskExecutionLog.metadata_.isnot(None),
         )
         .all()
     )
 
-    total_feeds = 0
-    criterion_rows_written = 0
-    seals_granted = 0
-    seals_revoked = 0
+    # snapshot_rows_written is only ever reported by a backfill batch; a nightly batch
+    # simply has no such key and contributes zero.
+    totals = dict.fromkeys(_SUMMED_KEYS, 0)
     granted_stable_ids: list = []
     revoked_stable_ids: list = []
 
     for (metadata,) in rows:
         if not metadata:
             continue
-        total_feeds += metadata.get("total_feeds", 0) or 0
-        criterion_rows_written += metadata.get("criterion_rows_written", 0) or 0
-        seals_granted += metadata.get("seals_granted", 0) or 0
-        seals_revoked += metadata.get("seals_revoked", 0) or 0
+        for key in _SUMMED_KEYS:
+            totals[key] += metadata.get(key, 0) or 0
         granted_stable_ids.extend(metadata.get("granted_stable_ids") or [])
         revoked_stable_ids.extend(metadata.get("revoked_stable_ids") or [])
 
@@ -186,10 +202,9 @@ def _aggregate_batches(db_session, run_id: str) -> Dict[str, Any]:
     )
 
     return {
-        "total_feeds_evaluated": total_feeds,
-        "criterion_rows_written": criterion_rows_written,
-        "seals_granted": seals_granted,
-        "seals_revoked": seals_revoked,
+        # Kept under its historical name; the others carry the key the batch reported.
+        "total_feeds_evaluated": totals["total_feeds"],
+        **{key: totals[key] for key in _SUMMED_KEYS if key != "total_feeds"},
         "granted_stable_ids": granted_stable_ids[:MAX_REPORTED_IDS],
         "revoked_stable_ids": revoked_stable_ids[:MAX_REPORTED_IDS],
         "ids_omitted": ids_omitted,

@@ -76,6 +76,18 @@ from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
 )
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
+from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
+    backfill_seal_of_reliability_handler,
+)
+
+from tasks.seal_of_reliability.backfill.seal_backfill_orchestrator import (
+    seal_backfill_orchestrator_handler,
+)
+
+from tasks.seal_of_reliability.backfill.seal_backfill_worker import (
+    seal_backfill_worker_handler,
+)
+
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
@@ -302,6 +314,55 @@ tasks = {
         ),
         "handler": update_seal_of_reliability_handler,
     },
+    "backfill_seal_of_reliability": {
+        "description": (
+            "Establishes a starting Seal of Reliability state for feeds that have none "
+            "(issue #1763), by cold-starting each feed 12 months back and replaying the "
+            "nightly evaluation forward one day at a time to end_date, writing only the "
+            "final day. The intermediate days are held in memory and discarded unless "
+            "snapshot_mode says otherwise. "
+            "Parameters: stable_feed_ids (required, non-empty), start_date (ISO date, "
+            "default end_date minus days_back; clamped up to each feed's created_at), "
+            "end_date (ISO date, default yesterday UTC), days_back (default 365), "
+            "dry_run (default true), limit (default null), criteria (default null "
+            "meaning every implemented criterion), batch_size (default 200), "
+            "only_missing (default true; skips feeds already holding every criterion "
+            "of the run, so re-running finishes an interrupted one), "
+            "snapshot_mode (final|all|none, default all), resume_from_snapshot "
+            "(default false; the #1803 hook), max_reported_feeds (default 50)."
+        ),
+        "handler": backfill_seal_of_reliability_handler,
+    },
+    "seal_backfill_orchestrator": {
+        "description": (
+            "Cloud Tasks producer for the Seal of Reliability backfill across the whole "
+            "catalog (issue #1763). Resolves every seal-eligible GTFS feed not yet "
+            "holding all of the run's criteria, chunks it, registers a run in "
+            "TaskExecutionTracker (feeds "
+            "DB), and enqueues one 'seal_backfill_worker' task per batch plus a single "
+            "'seal_orchestrator_monitor' barrier task. The window is resolved here once "
+            "and passed to every worker, so all batches of a run end on the same day. "
+            "Parameters: dry_run (default true), batch_size (default 100), start_date "
+            "(ISO date, default end_date minus days_back), end_date (ISO date, default "
+            "yesterday UTC), days_back (default 365), criteria (default null), limit "
+            "(default null), stable_feed_ids (restrict eligibility to these ids, default "
+            "null), only_missing (default true), snapshot_mode (final|all|none, default "
+            "final), resume_from_snapshot (default false), deadline_seconds (default "
+            "7200), monitor_delay_seconds (default 300)."
+        ),
+        "handler": seal_backfill_orchestrator_handler,
+    },
+    "seal_backfill_worker": {
+        "description": (
+            "Cloud Tasks worker: march one batch's worth of feeds for the Seal of "
+            "Reliability backfill and report completion/failure to TaskExecutionTracker. "
+            "Parameters: run_id (required), batch_id (required), stable_feed_ids "
+            "(required, non-empty), start_date (required, ISO date), end_date (required, "
+            "ISO date), criteria (default null), only_missing (default true), "
+            "snapshot_mode (default all), resume_from_snapshot (default false)."
+        ),
+        "handler": seal_backfill_worker_handler,
+    },
     "seal_orchestrator": {
         "description": (
             "Cloud Tasks producer for the nightly Seal of Reliability run across the "
@@ -333,8 +394,10 @@ tasks = {
             "batch of a seal orchestrator run has reported, or the run's "
             "deadline_seconds passes, then aggregates each batch's report and marks "
             "the run completed (every batch succeeded) or failed (any batch failed, "
-            "or the deadline was reached with batches still unaccounted for). "
-            "Parameters: run_id (required)."
+            "or the deadline was reached with batches still unaccounted for). Settles "
+            "both the nightly fan-out and the backfill fan-out; task_name selects which. "
+            "Parameters: run_id (required), task_name (default 'seal_orchestrator_run'; "
+            "pass 'seal_backfill_run' for a backfill run)."
         ),
         "handler": seal_orchestrator_monitor_handler,
     },
