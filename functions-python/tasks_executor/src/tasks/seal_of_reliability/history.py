@@ -23,6 +23,7 @@ evaluate, and answers every point-in-time question the criteria ask. An evaluato
 
 from bisect import bisect_right
 from dataclasses import dataclass
+import datetime as datetime_module
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -50,17 +51,26 @@ class ValidationReport:
 
 
 @dataclass(frozen=True)
-class ClosestDataset:
-    """One dataset row, cut down to the fields the criteria read off it.
+class DatasetCoverage:
+    """One dataset in a feed's history, and the coverage fields the Fresh criteria read off it.
 
-    "Closest" means the most recently downloaded dataset at or before the moment being
-    evaluated - the one being served at that moment. Never a later one, however near in time:
-    a run for a past date must not see a dataset that had not been downloaded yet.
+    The declared and validated windows are kept separate rather than resolved to one here: the
+    criteria disagree about which to prefer, and a missing one of each means something
+    different. `has_calendar_data` is what tells a dataset that published no calendar apart
+    from one whose window we simply have not derived yet.
     """
 
     dataset_id: str
     downloaded_at: datetime
+    service_date_range_start: Optional[datetime] = None
     service_date_range_end: Optional[datetime] = None
+
+    # The producer's declared window, from the `feedinfo` row this dataset points at.
+    feed_info_start: Optional[datetime_module.date] = None
+    feed_info_end: Optional[datetime_module.date] = None
+
+    # Whether the dataset carries `calendar.txt` or `calendar_dates.txt`.
+    has_calendar_data: bool = False
 
 
 class DatasetHistory:
@@ -70,9 +80,9 @@ class DatasetHistory:
     is a binary search rather than a scan: a year's march asks once per feed per day.
     """
 
-    def __init__(self, datasets_by_feed: Dict[str, List[ClosestDataset]]):
+    def __init__(self, datasets_by_feed: Dict[str, List[DatasetCoverage]]):
         self._downloaded_at: Dict[str, List[datetime]] = {}
-        self._datasets: Dict[str, List[ClosestDataset]] = {}
+        self._datasets: Dict[str, List[DatasetCoverage]] = {}
         for feed_id, datasets in datasets_by_feed.items():
             # `dataset_id` breaks ties the same way the loader orders them, so two datasets
             # stamped at the same instant resolve to one answer rather than an arbitrary one.
@@ -84,7 +94,7 @@ class DatasetHistory:
                 dataset.downloaded_at for dataset in datasets
             ]
 
-    def closest_at(self, feed_id: str, moment: datetime) -> Optional[ClosestDataset]:
+    def closest_at(self, feed_id: str, moment: datetime) -> Optional[DatasetCoverage]:
         keys = self._downloaded_at.get(feed_id)
         if not keys:
             return None
@@ -167,7 +177,7 @@ class PreloadedHistory:
 
     def get_closest_dataset_at(
         self, feed_id: str, moment: datetime
-    ) -> Optional[ClosestDataset]:
+    ) -> Optional[DatasetCoverage]:
         """The feed's most recently downloaded dataset at `moment`, or None if it had none.
 
         None means the feed had no dataset at all by then.

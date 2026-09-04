@@ -142,16 +142,17 @@ EXCLUDED_FROM = NOW + timedelta(days=2)
 
 
 class _StopsApplyingEvaluator(CriterionEvaluator):
-    """A criterion that stops applying to the feed partway through, standing in for #1782.
+    """A criterion that stops applying to the feed partway through.
 
-    Fresh / continuous coverage does not apply to a seasonal feed, and a feed can be marked
-    seasonal at any time. Keyed on the clock rather than on `official` so a test can drive it
-    and Official in opposite directions at the same moment. No grace period, so its verdicts
-    land immediately and the tests are about what happens once it withdraws.
+    These tests are about what the roll-up does once a criterion withdraws, not about any real
+    criterion: the only one that ever answers NOT_APPLICABLE is Fresh / future coverage, on a
+    seasonal feed, and `TestFullRegistry` already covers that against real data. Keyed on the
+    clock rather than on `official` so a test can drive it and Official in opposite directions
+    at the same moment. No grace period, so its verdicts land immediately.
 
-    It borrows `fresh_continuous`, which has no evaluator of its own yet, rather than
-    `fresh_coverage`, whose real evaluator now covers the same seasonal case against real
-    data in `TestFullRegistry`.
+    It borrows the `fresh_continuous` name, whose real evaluator is patched out of the registry
+    here, rather than `fresh_coverage`, so the stand-in cannot be confused with the criterion
+    that genuinely withdraws.
     """
 
     name = SealCriterionName.FRESH_CONTINUOUS
@@ -239,6 +240,29 @@ def _seed_dataset(
         Gtfsfeed.__table__.update()
         .where(Gtfsfeed.__table__.c.id == feed_id)
         .values(latest_dataset_id=dataset_id)
+    )
+    db_session.commit()
+
+
+def _seed_previous_dataset(
+    db_session, feed_id: str, coverage_start=None, coverage_end=None
+):
+    """Give the feed an earlier dataset whose service window runs into the newer one's.
+
+    Downloaded a month before the dataset `_seed_dataset` creates and overlapping it, so
+    `fresh_continuous` has a boundary with no uncovered day across it. `latest_dataset_id` is
+    left alone: this is deliberately not the feed's newest dataset.
+    """
+    dataset_id = f"{feed_id}_dataset_previous"
+    db_session.add(
+        Gtfsdataset(
+            id=dataset_id,
+            feed_id=feed_id,
+            stable_id=dataset_id,
+            downloaded_at=NOW - timedelta(days=31),
+            service_date_range_start=coverage_start or NOW - timedelta(days=90),
+            service_date_range_end=coverage_end or NOW - timedelta(days=20),
+        )
     )
     db_session.commit()
 
@@ -406,6 +430,13 @@ class SealDbTestCase(unittest.TestCase):
         feed_id, coverage_end, downloaded_at=None, suffix="", db_session=None
     ):
         _seed_dataset(db_session, feed_id, coverage_end, downloaded_at, suffix)
+
+    @staticmethod
+    @with_db_session(db_url=default_db_url)
+    def seed_previous_dataset(
+        feed_id, coverage_start=None, coverage_end=None, db_session=None
+    ):
+        _seed_previous_dataset(db_session, feed_id, coverage_start, coverage_end)
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -1479,11 +1510,11 @@ class TestCriterionSnapshot(SealDbTestCase):
 
 
 class TestFullRegistry(SealDbTestCase):
-    """Official, Stable and Fresh together, against real rows and the real registry.
+    """All six criteria together, against real rows and the real registry.
 
     The classes above patch the registry down to Official because they are about the
     report, the roll-up and the snapshot table rather than about any one criterion. These
-    tests are the other half: the three implemented criteria, driven by the columns they
+    tests are the other half: the implemented criteria, driven by the columns they
     actually read.
     """
 
@@ -1505,6 +1536,8 @@ class TestFullRegistry(SealDbTestCase):
     def satisfy_everything(self):
         """Seed the inputs every implemented criterion needs, all passing."""
         self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        # A real boundary for Fresh / continuous coverage, rather than the single-dataset pass.
+        self.seed_previous_dataset(TRACKED)
         self.seed_availability_check(TRACKED, success=True)
         self.seed_validation_report(f"{TRACKED}_dataset", total_error=0)
 
@@ -1525,7 +1558,7 @@ class TestFullRegistry(SealDbTestCase):
     def test_criteria_with_no_data_leave_the_seal_unknown(self):
         """Available and Compliant have never had a verdict, so the seal cannot be decided.
 
-        They do not *deny* the seal - the feed may well qualify - but with two of five
+        They do not *deny* the seal - the feed may well qualify - but with two of six
         criteria unjudged, saying it does not qualify would be as wrong as saying it does.
         """
         self.seed_dataset(TRACKED, self.FAR_FUTURE)
@@ -1933,14 +1966,21 @@ class TestCriteriaSelection(SealDbTestCase):
                 stable_feed_ids=[OFFICIAL], criteria=["not_a_criterion"], now=NOW
             )
 
-    def test_criterion_without_an_evaluator_raises(self):
-        """`fresh_continuous` is a valid DB enum value but has no evaluator yet (#1782)."""
-        with self.assertRaises(ValueError):
-            update_seals(
-                stable_feed_ids=[OFFICIAL],
-                criteria=[SealCriterionName.FRESH_CONTINUOUS.value],
-                now=NOW,
-            )
+    def test_every_db_criterion_has_an_evaluator(self):
+        """Every `seal_criterion_name` value is now runnable, so none of them raises.
+
+        This is the assertion the "criterion without an evaluator" case turned into once
+        #1782 completed the registry: naming any single stored criterion is a valid run.
+        """
+        for criterion in SealCriterionName:
+            with self.subTest(criterion=criterion.value):
+                report = update_seals(
+                    dry_run=True,
+                    stable_feed_ids=[OFFICIAL],
+                    criteria=[criterion.value],
+                    now=NOW,
+                )
+                self.assertEqual(report["criteria"], [criterion.value])
 
     def test_naming_every_implemented_criterion_is_not_a_partial_run(self):
         report = update_seals(

@@ -18,6 +18,7 @@
 import unittest
 from datetime import date, datetime, timedelta, timezone
 
+from shared.common.continuous_coverage import MAX_COVERAGE_WINDOW
 from shared.common.seal_criteria import (
     FUTURE_COVERAGE_HORIZON,
     PROBATION_PERIOD,
@@ -29,7 +30,7 @@ from tasks.seal_of_reliability.context import FeedSealContext
 from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
     AvailabilityHistory,
-    ClosestDataset,
+    DatasetCoverage,
     DatasetHistory,
     PreloadedHistory,
     ValidationReport,
@@ -39,6 +40,7 @@ from tasks.seal_of_reliability.evaluators import (
     AvailableEvaluator,
     CompliantEvaluator,
     CriterionEvaluator,
+    FreshContinuousEvaluator,
     FreshCoverageEvaluator,
     OfficialEvaluator,
     StableEvaluator,
@@ -344,7 +346,7 @@ class TestFreshCoverage(unittest.TestCase):
         return DatasetHistory(
             {
                 "feed-1": [
-                    ClosestDataset(
+                    DatasetCoverage(
                         dataset_id="mdb-1-202606010000",
                         downloaded_at=NOW - timedelta(days=1),
                         service_date_range_end=coverage_end,
@@ -470,7 +472,7 @@ class TestFreshCoverage(unittest.TestCase):
         history = DatasetHistory(
             {
                 "feed-1": [
-                    ClosestDataset(
+                    DatasetCoverage(
                         dataset_id=f"mdb-1-{index}",
                         downloaded_at=downloaded_at,
                         service_date_range_end=coverage_end,
@@ -580,7 +582,7 @@ class TestCompliant(unittest.TestCase):
             else None
         )
         dataset = (
-            ClosestDataset(
+            DatasetCoverage(
                 dataset_id=self.DATASET_ID,
                 downloaded_at=NOW - timedelta(hours=2),
             )
@@ -643,6 +645,286 @@ class TestCompliant(unittest.TestCase):
     def test_has_a_grace_period_and_serves_probation(self):
         self.assertEqual(CompliantEvaluator().grace_period, timedelta(days=30))
         self.assertEqual(CompliantEvaluator().probation_period, PROBATION_PERIOD)
+
+
+class TestFreshContinuous(unittest.TestCase):
+    """The maximum coverage window, then the single-dataset pass, then the boundary."""
+
+    TODAY = NOW.date()
+
+    def _days(self, offset):
+        return self.TODAY + timedelta(days=offset)
+
+    @staticmethod
+    def _dataset(dataset_id, service=None, declared=None, has_calendar_data=True):
+        """One dataset, its two windows given as `(start, end)` date pairs or None."""
+        return DatasetCoverage(
+            dataset_id=dataset_id,
+            downloaded_at=NOW,
+            service_date_range_start=service[0] if service else None,
+            service_date_range_end=service[1] if service else None,
+            feed_info_start=declared[0] if declared else None,
+            feed_info_end=declared[1] if declared else None,
+            has_calendar_data=has_calendar_data,
+        )
+
+    def _verdict(self, older, newer, **overrides):
+        return FreshContinuousEvaluator().evaluate(
+            _ctx(previous_dataset=older, closest_dataset=newer, **overrides)
+        )
+
+    def _continuous_pair(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-10)),
+            declared=(self._days(-60), self._days(-10)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-20), self._days(60)),
+            declared=(self._days(-20), self._days(60)),
+        )
+        return older, newer
+
+    # 1. the maximum coverage window, on the closest dataset alone
+
+    def test_an_overlong_declared_range_fails(self):
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-20), self._days(60)),
+            declared=(self._days(-20), self._days(MAX_COVERAGE_WINDOW.days + 1)),
+        )
+        older, _ = self._continuous_pair()
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("maximum coverage window", result.reason)
+
+    def test_the_maximum_window_itself_passes(self):
+        older, _ = self._continuous_pair()
+        newer = self._dataset(
+            "ds-newer",
+            declared=(self._days(-20), self._days(-20 + MAX_COVERAGE_WINDOW.days)),
+        )
+        self.assertIs(self._verdict(older, newer).observed_status, CriterionStatus.PASS)
+
+    def test_the_threshold_falls_back_to_the_service_window(self):
+        """No declared range, so the validated one is what the threshold measures."""
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-20), self._days(MAX_COVERAGE_WINDOW.days + 1)),
+        )
+        result = self._verdict(None, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("maximum coverage window", result.reason)
+
+    def test_the_declared_range_is_measured_ahead_of_the_service_window(self):
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-20), self._days(MAX_COVERAGE_WINDOW.days + 1)),
+            declared=(self._days(-20), self._days(60)),
+        )
+        self.assertIs(self._verdict(None, newer).observed_status, CriterionStatus.PASS)
+
+    def test_the_threshold_is_reached_before_the_single_dataset_pass(self):
+        """A feed can fail on its only dataset, which is why this step comes first."""
+        newer = self._dataset(
+            "ds-newer",
+            declared=(self._days(-20), self._days(MAX_COVERAGE_WINDOW.days + 1)),
+        )
+        self.assertIs(self._verdict(None, newer).observed_status, CriterionStatus.FAIL)
+
+    def test_the_previous_datasets_window_is_not_measured(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-MAX_COVERAGE_WINDOW.days - 100), self._days(-10)),
+            declared=(self._days(-MAX_COVERAGE_WINDOW.days - 100), self._days(-10)),
+        )
+        _, newer = self._continuous_pair()
+        self.assertIs(self._verdict(older, newer).observed_status, CriterionStatus.PASS)
+
+    # 2. no previous dataset
+
+    def test_a_feed_with_one_dataset_passes(self):
+        newer = self._dataset("ds-newer", service=(self._days(-20), self._days(60)))
+        result = self._verdict(None, newer)
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIn("only dataset", result.reason)
+
+    def test_no_window_and_no_calendar_files_fails(self):
+        result = self._verdict(None, self._dataset("ds-newer", has_calendar_data=False))
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("carries neither", result.reason)
+
+    def test_no_window_with_calendar_files_is_unknown(self):
+        """The file is there and the window is not, so the missing input is ours."""
+        result = self._verdict(None, self._dataset("ds-newer", has_calendar_data=True))
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no validated service window yet", result.reason)
+
+    def test_a_windowless_closest_dataset_is_settled_before_the_boundary(self):
+        older, _ = self._continuous_pair()
+        result = self._verdict(
+            older, self._dataset("ds-newer", has_calendar_data=False)
+        )
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("ds-newer carries neither", result.reason)
+
+    def test_a_feed_with_no_dataset_is_unknown(self):
+        result = FreshContinuousEvaluator().evaluate(_ctx())
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no dataset", result.reason)
+
+    # 3. the boundary
+
+    def test_overlapping_declared_ranges_pass(self):
+        result = self._verdict(*self._continuous_pair())
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIn("no gap", result.reason)
+
+    def test_declared_ranges_that_meet_exactly_pass(self):
+        older = self._dataset("ds-older", declared=(self._days(-60), self._days(-10)))
+        newer = self._dataset("ds-newer", declared=(self._days(-9), self._days(60)))
+        self.assertIs(self._verdict(older, newer).observed_status, CriterionStatus.PASS)
+
+    def test_a_declared_gap_is_excused_by_continuous_calendars(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-5)),
+            declared=(self._days(-60), self._days(-30)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-10), self._days(60)),
+            declared=(self._days(-20), self._days(60)),
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIn("9-day gap", result.reason)
+        self.assertIn("validated service windows leave no gap", result.reason)
+
+    def test_a_gap_in_both_windows_fails(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-30)),
+            declared=(self._days(-60), self._days(-30)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-20), self._days(60)),
+            declared=(self._days(-20), self._days(60)),
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("validated service windows leave a 9-day gap", result.reason)
+
+    def test_one_uncovered_day_is_enough_to_fail(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-10)),
+            declared=(self._days(-60), self._days(-10)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            service=(self._days(-8), self._days(60)),
+            declared=(self._days(-8), self._days(60)),
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("1-day gap", result.reason)
+
+    def test_a_declared_gap_with_no_calendar_published_fails(self):
+        """The thread's decision: no calendar file is the producer's answer, not a missing one."""
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-30)),
+            declared=(self._days(-60), self._days(-30)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            declared=(self._days(-20), self._days(60)),
+            has_calendar_data=False,
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("ds-newer carries no calendar.txt", result.reason)
+
+    def test_a_declared_gap_with_an_unprocessed_calendar_is_unknown(self):
+        """The file is there and the window is not, so the missing input is ours."""
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-30)),
+            declared=(self._days(-60), self._days(-30)),
+        )
+        newer = self._dataset(
+            "ds-newer",
+            declared=(self._days(-20), self._days(60)),
+            has_calendar_data=True,
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
+        self.assertIn("no validated service window yet", result.reason)
+
+    def test_a_producer_omission_outweighs_our_own_lag(self):
+        """One dataset short of each: the producer's omission decides."""
+        older = self._dataset(
+            "ds-older",
+            declared=(self._days(-60), self._days(-30)),
+            has_calendar_data=False,
+        )
+        newer = self._dataset(
+            "ds-newer",
+            declared=(self._days(-20), self._days(60)),
+            has_calendar_data=True,
+        )
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("ds-older carries no", result.reason)
+
+    def test_with_no_declared_range_the_calendars_decide(self):
+        older = self._dataset("ds-older", service=(self._days(-60), self._days(-10)))
+        newer = self._dataset("ds-newer", service=(self._days(-20), self._days(60)))
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIn("do not both declare", result.reason)
+
+    def test_with_no_declared_range_a_calendar_gap_fails(self):
+        older = self._dataset("ds-older", service=(self._days(-60), self._days(-30)))
+        newer = self._dataset("ds-newer", service=(self._days(-20), self._days(60)))
+        self.assertIs(self._verdict(older, newer).observed_status, CriterionStatus.FAIL)
+
+    def test_a_declared_range_on_only_one_dataset_falls_back_to_the_calendars(self):
+        """Half a declared boundary is not a boundary; the two ends must be comparable."""
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-30)),
+            declared=(self._days(-60), self._days(-10)),
+        )
+        newer = self._dataset("ds-newer", service=(self._days(-20), self._days(60)))
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.FAIL)
+        self.assertIn("do not both declare", result.reason)
+
+    def test_an_inverted_window_is_no_window(self):
+        older = self._dataset(
+            "ds-older",
+            service=(self._days(-60), self._days(-10)),
+            declared=(self._days(-10), self._days(-60)),
+        )
+        _, newer = self._continuous_pair()
+        result = self._verdict(older, newer)
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+        self.assertIn("do not both declare", result.reason)
+
+    # policy
+
+    def test_a_seasonal_feed_is_still_evaluated(self):
+        """Unlike Fresh / future coverage, this criterion has no seasonal exemption."""
+        result = self._verdict(*self._continuous_pair(), seasonal=True)
+        self.assertIs(result.observed_status, CriterionStatus.PASS)
+
+    def test_has_no_grace_period_but_serves_probation(self):
+        self.assertIsNone(FreshContinuousEvaluator().grace_period)
+        self.assertEqual(FreshContinuousEvaluator().probation_period, PROBATION_PERIOD)
 
 
 if __name__ == "__main__":
