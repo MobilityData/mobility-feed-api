@@ -28,6 +28,7 @@ from shared.common.seal_criteria import (
 from tasks.seal_of_reliability.context import FeedSealContext
 from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
+    AvailabilityHistory,
     ClosestDataset,
     DatasetHistory,
     PreloadedHistory,
@@ -505,24 +506,34 @@ class TestAvailable(unittest.TestCase):
     def _check(success, checked_at=None):
         return AvailabilityCheck(checked_at=checked_at or NOW, success=success)
 
+    @staticmethod
+    def _ctx_with(check, **overrides):
+        """A context whose Available history was loaded, with or without a check in it.
+
+        `check=None` is a loaded history holding nothing for this feed - an empty load, which
+        is not the same thing as a load that never ran.
+        """
+        checks = {"feed-1": [check]} if check is not None else {}
+        return _ctx(
+            history=_history(available=AvailabilityHistory(checks)), **overrides
+        )
+
     def test_a_successful_check_passes(self):
         self.assertIs(
             AvailableEvaluator()
-            .evaluate(_ctx(availability_check=self._check(True)))
+            .evaluate(self._ctx_with(self._check(True)))
             .observed_status,
             CriterionStatus.PASS,
         )
 
     def test_a_failed_check_fails(self):
-        result = AvailableEvaluator().evaluate(
-            _ctx(availability_check=self._check(False))
-        )
+        result = AvailableEvaluator().evaluate(self._ctx_with(self._check(False)))
         self.assertIs(result.observed_status, CriterionStatus.FAIL)
         self.assertIn("failed", result.reason)
 
     def test_no_check_in_the_window_is_unknown_not_a_failure(self):
         """A window the availability job did not cover says nothing about the producer."""
-        result = AvailableEvaluator().evaluate(_ctx(availability_check=None))
+        result = AvailableEvaluator().evaluate(self._ctx_with(None))
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("no availability check since", result.reason)
 
@@ -530,7 +541,7 @@ class TestAvailable(unittest.TestCase):
         """The window makes "which check decided this" a real question, so answer it."""
         checked_at = NOW - timedelta(hours=3)
         result = AvailableEvaluator().evaluate(
-            _ctx(availability_check=self._check(False, checked_at))
+            self._ctx_with(self._check(False, checked_at))
         )
         self.assertIn(checked_at.isoformat(), result.reason)
 
@@ -540,7 +551,7 @@ class TestAvailable(unittest.TestCase):
             with self.subTest(check=check):
                 self.assertIsNot(
                     AvailableEvaluator()
-                    .evaluate(_ctx(availability_check=check, seasonal=True))
+                    .evaluate(self._ctx_with(check, seasonal=True))
                     .observed_status,
                     CriterionStatus.NOT_APPLICABLE,
                 )

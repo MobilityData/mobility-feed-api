@@ -34,6 +34,7 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     FeedReliabilitySeal,
+    GtfsFeedAvailabilityCheck,
     Gtfsfeed,
     SealCriterion,
     SealCriterionSnapshot,
@@ -1498,6 +1499,108 @@ class TestTraceStandsInForTheSnapshots(MarchTestCase):
             len(report["trace"]), (MARCH_END - MARCH_START).days + 1, "one row per day"
         )
         self.assertEqual([row["day"] for row in report["trace"]][:3], [0, 1, 2])
+
+
+AVAIL = f"{PREFIX}avail"
+AVAIL_START = date(2026, 5, 10)
+AVAIL_END = date(2026, 5, 16)
+# Stamped mid-afternoon, as the real availability job records them. A march evaluates at each
+# day's start, so a check taken during day D falls in the window of day D+1, never day D.
+OK_CHECK = datetime(2026, 5, 11, 14, 0, tzinfo=timezone.utc)
+BAD_CHECK = datetime(2026, 5, 13, 14, 0, tzinfo=timezone.utc)
+
+
+def _seed_check(db_session, feed_id, checked_at, success):
+    db_session.execute(
+        insert(GtfsFeedAvailabilityCheck.__table__).values(
+            feed_id=feed_id,
+            checked_at=checked_at,
+            request_url=f"https://example.com/{feed_id}.zip",
+            request_type="http_head",
+            success=success,
+        )
+    )
+
+
+class TestAvailabilityIsMarchedFromHistory(unittest.TestCase):
+    """A backfilled `available` reads `gtfs_feed_availability_check` day by day.
+
+    The regression this guards: `available` used to read `ctx.availability_check`, a field the
+    nightly context builder fills and the march does not, so every marched day answered
+    UNKNOWN no matter how much history the table held. Since #1819 made an unjudged criterion
+    cap the feed at UNKNOWN, that silently revoked the seal of every feed a backfill touched.
+
+    Two checks, four days apart, are enough to pin all three behaviours at once: the successful
+    one becomes a PASS, the failed one a FAIL, and the days whose 24-hour window holds neither
+    stay UNKNOWN. A run that ignores the table fails on the first two; one that ignores the
+    window and reuses a single check for the whole march fails on the third.
+    """
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        _cleanup(db_session)
+        _seed_feed(db_session, AVAIL, OLD_CREATED)
+        _seed_check(db_session, AVAIL, OK_CHECK, True)
+        _seed_check(db_session, AVAIL, BAD_CHECK, False)
+        db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def tearDown(self, db_session):
+        _cleanup(db_session)
+
+    def test_each_marched_day_gets_the_check_from_its_own_window(self):
+        backfill_seals(
+            stable_feed_ids=[AVAIL],
+            start_date=AVAIL_START,
+            end_date=AVAIL_END,
+            dry_run=False,
+            only_missing=False,
+            criteria=[SealCriterionName.AVAILABLE.value],
+            snapshot_mode="all",
+        )
+
+        expected = {
+            # Nothing recorded yet.
+            date(2026, 5, 10): CriterionStatus.UNKNOWN.value,
+            # The check lands at 14:00 today, after this day's window closed at 00:00.
+            date(2026, 5, 11): CriterionStatus.UNKNOWN.value,
+            date(2026, 5, 12): CriterionStatus.PASS.value,
+            # Yesterday's window has slid past the successful check.
+            date(2026, 5, 13): CriterionStatus.UNKNOWN.value,
+            date(2026, 5, 14): CriterionStatus.FAIL.value,
+            date(2026, 5, 15): CriterionStatus.UNKNOWN.value,
+            date(2026, 5, 16): CriterionStatus.UNKNOWN.value,
+        }
+        actual = {
+            day: snapshot_row(
+                AVAIL, SealCriterionName.AVAILABLE.value, day
+            ).observed_status
+            for day in expected
+        }
+        self.assertEqual(actual, expected)
+
+    def test_the_final_criterion_row_is_the_last_marched_day(self):
+        """The handover to the nightly job, not the newest check in the table.
+
+        A march that ended days after the last check must not carry that check forward: the
+        stored row is the state on `end_date`, which is UNKNOWN here.
+        """
+        backfill_seals(
+            stable_feed_ids=[AVAIL],
+            start_date=AVAIL_START,
+            end_date=AVAIL_END,
+            dry_run=False,
+            only_missing=False,
+            criteria=[SealCriterionName.AVAILABLE.value],
+            snapshot_mode="final",
+        )
+        row = criterion_rows(AVAIL)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
+        # The failure observed on 2026-05-14 is on record, dated to that day.
+        self.assertEqual(row.last_observed_failure_at, day_start(date(2026, 5, 14)))
+        # But not confirmed: Available has 14 days of grace and this window is 7 days long,
+        # so the streak is still being absorbed when the march ends.
+        self.assertIsNone(row.last_confirmed_failure_at)
 
 
 if __name__ == "__main__":
