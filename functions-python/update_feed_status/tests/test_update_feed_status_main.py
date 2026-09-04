@@ -105,17 +105,13 @@ def test_null_service_date_range_sets_feed_inactive(db_session: Session) -> None
         feed.latest_dataset_id = dataset.id
         db_session.flush()
 
-        with patch(
-            "shared.helpers.feed_status.create_refresh_materialized_view_task"
-        ):
+        with patch("shared.helpers.feed_status.create_refresh_materialized_view_task"):
             result = dict(update_feed_statuses_query(db_session, [stable_id]))
 
         db_session.expire_all()
 
         updated_feed = (
-            db_session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == stable_id)
-            .one()
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == stable_id).one()
         )
 
         assert result == {
