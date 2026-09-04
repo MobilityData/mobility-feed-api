@@ -15,7 +15,6 @@
 #
 """Fresh (future coverage) criterion: the closest dataset still covers the near future."""
 
-from bisect import bisect_right
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -28,50 +27,9 @@ from shared.common.seal_criteria import (
     SealCriterionName,
 )
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
-from tasks.seal_of_reliability.context import ClosestDataset, FeedSealContext
+from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.history import ClosestDataset, DatasetHistory
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
-
-
-class FreshCoverageInputs:
-    """Every feed's dataset history over a run's day range, ready for as-of lookups.
-
-    Holds the whole batch's history rather than one dataset per feed, because which dataset
-    is the closest one changes from day to day as a backfill marches. Built once per batch by
-    `FreshCoverageEvaluator.load_inputs` and shared by reference across every context.
-
-    The per-feed lists are sorted by `downloaded_at` and the keys are kept alongside them, so
-    `as_of` is a binary search rather than a scan: a year's march asks this once per feed per
-    day, which is where a linear lookup would start to cost real time.
-    """
-
-    def __init__(self, history: Dict[str, List[ClosestDataset]]):
-        self._downloaded_at: Dict[str, List[datetime]] = {}
-        self._datasets: Dict[str, List[ClosestDataset]] = {}
-        for feed_id, datasets in history.items():
-            # `dataset_id` breaks ties the same way `_load` orders them, so two datasets
-            # stamped at the same instant resolve to one answer rather than an arbitrary one.
-            datasets.sort(
-                key=lambda dataset: (dataset.downloaded_at, dataset.dataset_id)
-            )
-            self._datasets[feed_id] = datasets
-            self._downloaded_at[feed_id] = [
-                dataset.downloaded_at for dataset in datasets
-            ]
-
-    def as_of(self, feed_id: str, moment: datetime) -> Optional[ClosestDataset]:
-        """The feed's most recently downloaded dataset at `moment`, or None if it had none.
-
-        None means the feed had no dataset at all by then - deliberately distinct from a
-        `ClosestDataset` whose `service_date_range_end` is None, which had one whose coverage
-        was never extracted. The criterion reads both as UNKNOWN but reports which.
-        """
-        keys = self._downloaded_at.get(feed_id)
-        if not keys:
-            return None
-        index = bisect_right(keys, moment)
-        if index == 0:
-            return None
-        return self._datasets[feed_id][index - 1]
 
 
 class FreshCoverageEvaluator(CriterionEvaluator):
@@ -81,24 +39,24 @@ class FreshCoverageEvaluator(CriterionEvaluator):
     is expected to have coverage that runs out between seasons, so the question "does this
     feed cover the next week" has no meaningful answer for it.
 
-    Its inputs also vary by day, so it loads them itself in `load_inputs` instead of reading
+    Its inputs also vary by day, so it loads them itself in `load_history` instead of reading
     a field on `FeedSealContext`. `ctx.closest_dataset` holds one answer, for one `now`, and a
     march needs one per day - see the `context` module docstring on the three kinds of input.
     """
 
     name = SealCriterionName.FRESH_COVERAGE
 
-    def load_inputs(
+    def load_history(
         self,
         db_session: Session,
         feeds: Sequence,
         days: Sequence[date],
-    ) -> Optional[FreshCoverageInputs]:
+    ) -> Optional[DatasetHistory]:
         """Every dataset the batch's feeds had over `days`, plus the one each carried in.
 
         Two queries for the whole batch and the whole range, never one per day:
 
-        1. The carry-in - one row per feed, the closest dataset from strictly before the range
+        1. The starting state - one row per feed, the closest dataset from strictly before the range
            opens. Without it, the first day of a march would find no dataset at all for a feed
            whose most recent one predates the range, and Fresh would answer UNKNOWN.
         2. Everything downloaded inside the range, which is what makes later days differ from
@@ -108,7 +66,7 @@ class FreshCoverageEvaluator(CriterionEvaluator):
         the row count proportional to the days actually being evaluated.
         """
         if not feeds or not days:
-            return FreshCoverageInputs({})
+            return DatasetHistory({})
 
         feed_ids = [feed.id for feed in feeds]
         # The march evaluates at each day's start, while a nightly run evaluates part-way
@@ -118,12 +76,12 @@ class FreshCoverageEvaluator(CriterionEvaluator):
             max(days), time.min, tzinfo=timezone.utc
         ) + timedelta(days=1)
 
-        history: Dict[str, List[ClosestDataset]] = {}
-        for feed_id, dataset in self._carry_in(
+        datasets_by_feed: Dict[str, List[ClosestDataset]] = {}
+        for feed_id, dataset in self._datasets_at_range_start(
             db_session, feed_ids, range_start
-        ) + self._in_range(db_session, feed_ids, range_start, range_end):
-            history.setdefault(feed_id, []).append(dataset)
-        return FreshCoverageInputs(history)
+        ) + self._datasets_in_range(db_session, feed_ids, range_start, range_end):
+            datasets_by_feed.setdefault(feed_id, []).append(dataset)
+        return DatasetHistory(datasets_by_feed)
 
     @staticmethod
     def _columns():
@@ -149,10 +107,15 @@ class FreshCoverageEvaluator(CriterionEvaluator):
         ]
 
     @classmethod
-    def _carry_in(
+    def _datasets_at_range_start(
         cls, db_session: Session, feed_ids: Sequence[str], range_start: datetime
     ) -> List[Tuple[str, ClosestDataset]]:
-        """One row per feed: its closest dataset from before the range opened."""
+        """One row per feed: the dataset it already had when the range opened.
+
+        Strictly before `range_start`, so it is the state each feed carries into the first
+        marched day. Without it, a feed whose most recent download predates the range would
+        find no dataset at all on day 0 and Fresh would answer UNKNOWN.
+        """
         rows = db_session.execute(
             select(*cls._columns())
             .where(
@@ -170,7 +133,7 @@ class FreshCoverageEvaluator(CriterionEvaluator):
         return cls._rows_to_datasets(rows)
 
     @classmethod
-    def _in_range(
+    def _datasets_in_range(
         cls,
         db_session: Session,
         feed_ids: Sequence[str],
@@ -199,20 +162,19 @@ class FreshCoverageEvaluator(CriterionEvaluator):
                 "the feed is seasonal, so future coverage is not required",
             )
 
-        inputs = ctx.inputs_for(self.name)
-        if inputs is None:
+        if ctx.history is None or not ctx.history.has_history_for(self.name):
             # Not a data condition: the context was built without running this criterion's
             # loader. Said out loud in the reason rather than passed off as a missing dataset,
             # because the two look identical in the stored row and only this one is a bug.
             return (
                 CriterionStatus.UNKNOWN,
-                "fresh_coverage inputs were never loaded for this run - the context was "
-                "built without calling load_inputs",
+                "fresh_coverage history was never loaded for this run - the context was "
+                "built without calling load_history",
             )
 
         # Two different missing inputs, kept apart so the report says which: no dataset at
         # all as of this run, or one whose coverage was never extracted.
-        closest = inputs.as_of(ctx.feed_id, ctx.now)
+        closest = ctx.history.get_closest_dataset_at(ctx.feed_id, ctx.now)
         if closest is None:
             return CriterionStatus.UNKNOWN, "the feed has no dataset"
 

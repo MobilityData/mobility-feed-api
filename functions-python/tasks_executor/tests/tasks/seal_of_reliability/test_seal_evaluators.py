@@ -25,14 +25,14 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
 )
-from tasks.seal_of_reliability.context import (
+from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
     ClosestDataset,
-    FeedSealContext,
+    DatasetHistory,
+    PreloadedHistory,
     ValidationReport,
-    collect_inputs,
 )
-from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageInputs
 from tasks.seal_of_reliability.evaluators import (
     EVALUATORS,
     AvailableEvaluator,
@@ -44,6 +44,31 @@ from tasks.seal_of_reliability.evaluators import (
 )
 
 NOW = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+class _Preloaded:
+    """A stub evaluator that hands back a ready-made history, so a test can build a
+    `PreloadedHistory` without a database."""
+
+    def __init__(self, name, history):
+        self.name = name
+        self._history = history
+
+    def load_history(self, db_session, feeds, days):
+        return self._history
+
+
+def _history(**by_name) -> PreloadedHistory:
+    """`PreloadedHistory` holding the given stores, keyed by criterion name."""
+    return PreloadedHistory(
+        None,
+        [],
+        [],
+        [
+            _Preloaded(SealCriterionName[name.upper()], store)
+            for name, store in by_name.items()
+        ],
+    )
 
 
 def _ctx(**overrides) -> FeedSealContext:
@@ -159,25 +184,25 @@ class TestOfficial(unittest.TestCase):
 
 
 class TestLoadInputs(unittest.TestCase):
-    """The `load_inputs` hook, and how what it loads reaches `_evaluate`."""
+    """The `load_history` hook, and how what it loads reaches `_evaluate`."""
 
     def test_no_criterion_queries_for_an_empty_batch(self):
         """A criterion reading only day-invariant context fields has nothing to load.
 
         None means "nothing to load", not "the load failed" — Official and Stable read the
-        feed row off the context and never need a query. Fresh overrides the loader, because
-        which dataset is the closest one changes on every day a march evaluates, but it
-        must still answer an empty batch without touching the session.
+        feed row off the context and never need a query. A criterion whose data changes from
+        day to day overrides the loader instead, but must still answer an empty batch without
+        touching the session.
+
+        Which evaluators override it is deliberately not asserted: that is a property of each
+        criterion's data, and pinning the list would fail this test whenever a criterion is
+        correctly moved to a per-day loader. What matters here is that none of them queries.
 
         The session is `object()` on purpose: any evaluator that queried here would raise.
         """
         for evaluator in EVALUATORS:
             with self.subTest(criterion=evaluator.name):
-                loaded = evaluator.load_inputs(object(), [], [NOW.date()])
-                if isinstance(evaluator, FreshCoverageEvaluator):
-                    self.assertIsInstance(loaded, FreshCoverageInputs)
-                else:
-                    self.assertIsNone(loaded)
+                evaluator.load_history(object(), [], [NOW.date()])
 
     def test_each_criterion_is_asked_once_for_the_whole_batch(self):
         """One call per criterion, carrying every feed and every day.
@@ -190,7 +215,7 @@ class TestLoadInputs(unittest.TestCase):
         class Recording(CriterionEvaluator):
             name = SealCriterionName.AVAILABLE
 
-            def load_inputs(self, db_session, feeds, days):
+            def load_history(self, db_session, feeds, days):
                 calls.append((tuple(feeds), tuple(days)))
                 return {"loaded": True}
 
@@ -199,25 +224,20 @@ class TestLoadInputs(unittest.TestCase):
 
         feeds = ["feed-1", "feed-2"]
         days = [date(2026, 5, 30), date(2026, 5, 31), NOW.date()]
-        inputs = collect_inputs(object(), feeds, days, [Recording()])
+        history = PreloadedHistory(object(), feeds, days, [Recording()])
 
         self.assertEqual(calls, [(("feed-1", "feed-2"), tuple(days))])
-        self.assertEqual(inputs, {SealCriterionName.AVAILABLE: {"loaded": True}})
+        self.assertTrue(history.has_history_for(SealCriterionName.AVAILABLE))
 
-    def test_a_criterion_reaches_only_its_own_inputs(self):
-        ctx = _ctx(
-            inputs={
-                SealCriterionName.AVAILABLE: "available-inputs",
-                SealCriterionName.COMPLIANT: "compliant-inputs",
-            }
-        )
-        self.assertEqual(
-            ctx.inputs_for(SealCriterionName.AVAILABLE), "available-inputs"
-        )
-        self.assertIsNone(ctx.inputs_for(SealCriterionName.OFFICIAL))
+    def test_a_lookup_answers_only_from_its_own_criterion_store(self):
+        """`get_closest_dataset_at` reads Fresh's store, never another criterion's."""
+        history = _history(available="available-history")
+        self.assertFalse(history.has_history_for(SealCriterionName.FRESH_COVERAGE))
+        self.assertIsNone(history.get_closest_dataset_at("feed-1", NOW))
+        self.assertTrue(history.has_history_for(SealCriterionName.AVAILABLE))
 
-    def test_context_defaults_to_no_inputs(self):
-        self.assertIsNone(_ctx().inputs_for(SealCriterionName.AVAILABLE))
+    def test_context_defaults_to_no_history(self):
+        self.assertIsNone(_ctx().history)
 
 
 class TestStable(unittest.TestCase):
@@ -318,9 +338,9 @@ class TestFreshCoverage(unittest.TestCase):
     """`closest_dataset.service_date_range_end >= now + 7 days`."""
 
     @staticmethod
-    def _inputs(coverage_end):
-        """The criterion's own loaded inputs, holding one dataset for `feed-1`."""
-        return FreshCoverageInputs(
+    def _history(coverage_end):
+        """The criterion's own loaded history, holding one dataset for `feed-1`."""
+        return DatasetHistory(
             {
                 "feed-1": [
                     ClosestDataset(
@@ -335,17 +355,17 @@ class TestFreshCoverage(unittest.TestCase):
     def _fresh_ctx(
         self, coverage_end=NOW + timedelta(days=90), dataset=True, **overrides
     ):
-        """A context whose Fresh inputs were loaded, with or without a dataset in them.
+        """A context whose Fresh history was loaded, with or without a dataset in them.
 
         `dataset=False` is a feed that had none as of `now` — an empty load, which is not the
-        same thing as a load that never ran (see `test_unloaded_inputs_say_so`).
+        same thing as a load that never ran (see `test_unloaded_history_says_so`).
         """
         defaults = {
-            "inputs": {
-                SealCriterionName.FRESH_COVERAGE: (
-                    self._inputs(coverage_end) if dataset else FreshCoverageInputs({})
+            "history": _history(
+                fresh_coverage=(
+                    self._history(coverage_end) if dataset else DatasetHistory({})
                 )
-            }
+            )
         }
         defaults.update(overrides)
         return _ctx(**defaults)
@@ -422,7 +442,7 @@ class TestFreshCoverage(unittest.TestCase):
         self.assertEqual(FreshCoverageEvaluator().grace_period, timedelta(days=14))
         self.assertEqual(FreshCoverageEvaluator().probation_period, PROBATION_PERIOD)
 
-    def test_unloaded_inputs_say_so(self):
+    def test_unloaded_history_says_so(self):
         """A context built without running the loader is a bug, not a missing dataset.
 
         Both end as UNKNOWN, because a raise would take down a whole nightly run over the
@@ -446,7 +466,7 @@ class TestFreshCoverage(unittest.TestCase):
             (NOW - timedelta(days=7), NOW + timedelta(days=30)),
             (NOW - timedelta(days=1), NOW + timedelta(days=2)),
         ]
-        inputs = FreshCoverageInputs(
+        history = DatasetHistory(
             {
                 "feed-1": [
                     ClosestDataset(
@@ -458,7 +478,7 @@ class TestFreshCoverage(unittest.TestCase):
                 ]
             }
         )
-        payload = {SealCriterionName.FRESH_COVERAGE: inputs}
+        payload = _history(fresh_coverage=history)
 
         for offset, expected in (
             (-20, CriterionStatus.UNKNOWN),  # before the feed had any dataset
@@ -469,7 +489,7 @@ class TestFreshCoverage(unittest.TestCase):
             moment = NOW + timedelta(days=offset)
             with self.subTest(days_from_now=offset):
                 result = FreshCoverageEvaluator().evaluate(
-                    _ctx(now=moment, inputs=payload)
+                    _ctx(now=moment, history=payload)
                 )
                 self.assertIs(result.observed_status, expected)
 

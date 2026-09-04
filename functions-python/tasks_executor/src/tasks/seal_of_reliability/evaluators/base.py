@@ -59,10 +59,10 @@ class CriterionEvaluator:
 
     Evaluators never touch the database at evaluation time: everything they need is already
     on the context, either as a day-invariant feed field or as the inputs their own
-    `load_inputs` bulk-loaded.
+    `load_history` bulk-loaded.
 
     A criterion that has to look backwards owns that lookup itself, rather than the context
-    builder growing a field and a query per criterion. `load_inputs` is where it goes.
+    builder growing a field and a query per criterion. `load_history` is where it goes.
     """
 
     name: SealCriterionName = None
@@ -84,7 +84,7 @@ class CriterionEvaluator:
         """
         return probation_period_for(self.name)
 
-    def load_inputs(
+    def load_history(
         self,
         db_session: Session,
         feeds: Sequence,
@@ -94,7 +94,7 @@ class CriterionEvaluator:
 
         Returns an object of the criterion's own choosing — nothing outside the criterion
         looks inside it. The caller stashes it on every context in the batch, and `_evaluate`
-        reads it back with `ctx.inputs_for(self.name)`, indexing by `ctx.feed_id` and the
+        reads it back with `ctx.history_for(self.name)`, indexing by `ctx.feed_id` and the
         day of `ctx.now`.
 
         The default returns None, which is the right answer for a criterion whose inputs are

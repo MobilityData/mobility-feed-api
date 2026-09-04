@@ -55,7 +55,7 @@ from shared.database_gen.sqlacodegen_models import Gtfsfeed, SealCriterion
 from tasks.seal_of_reliability.context import (
     FeedSealContext,
     batched,
-    collect_inputs,
+    PreloadedHistory,
     is_seal_eligible,
 )
 from tasks.seal_of_reliability.backfill.simulation import (
@@ -408,8 +408,8 @@ def _march(
 
     marched_days = days_between(min(start for start, _ in windows.values()), end_date)
 
-    # One load per criterion for the whole range; per-day queries would be thousands.
-    inputs = collect_inputs(db_session, feeds, marched_days, evaluators)
+    # Get the history for all feeds, criteria and days here, to query the DB more efficiently.
+    history = PreloadedHistory(db_session, feeds, marched_days, evaluators)
 
     states = _seed_states(db_session, feeds, windows, evaluators, resume_from_snapshot)
     simulation = simulation or {}
@@ -450,7 +450,7 @@ def _march(
                 is_producer_url_unstable=feed.is_producer_url_unstable,
                 seasonal=feed.seasonal,
                 feed_created_at=feed.created_at,
-                inputs=inputs,
+                history=history,
             )
             offset = (today - feed_start).days
             days_states: List[SealCriterionState] = []

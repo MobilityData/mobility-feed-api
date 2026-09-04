@@ -28,7 +28,7 @@ An evaluator's inputs get onto the context in one of three ways:
    `closest_dataset`, `availability_check`, `latest_validation_report`. Available and
    Compliant read these. Each query only looks at rows at or before the run's `now`, so a run
    for a past date sees what was true then.
-3. One load per batch, done by the evaluator itself in its `load_inputs`, for inputs that
+3. One load per batch, done by the evaluator itself in its `load_history`, for inputs that
    differ on each day evaluated. Fresh (future coverage) is the only one today: which dataset
    is the closest one changes from day to day.
 
@@ -44,14 +44,20 @@ a backfill, its inputs belong in kind 3.
 """
 
 import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence
+from typing import Dict, Iterator, List, Optional, Sequence
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
-from shared.common.seal_criteria import AVAILABILITY_LOOKBACK, SealCriterionName
+from shared.common.seal_criteria import AVAILABILITY_LOOKBACK
+from tasks.seal_of_reliability.history import (
+    AvailabilityCheck,
+    ClosestDataset,
+    PreloadedHistory,
+    ValidationReport,
+)
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     GtfsFeedAvailabilityCheck,
@@ -61,38 +67,6 @@ from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     t_validationreportgtfsdataset,
 )
-
-
-@dataclass(frozen=True)
-class AvailabilityCheck:
-    """The most recent availability check for one feed, inside the run's window."""
-
-    checked_at: datetime
-    success: bool
-
-
-@dataclass(frozen=True)
-class ValidationReport:
-    """The most recent validation report of one feed's closest dataset."""
-
-    report_id: str
-    dataset_id: str
-    validated_at: datetime
-    total_error: Optional[int] = None
-
-
-@dataclass(frozen=True)
-class ClosestDataset:
-    """One dataset row, cut down to the fields the criteria read off it.
-
-    "Closest" means the most recently downloaded dataset at or before the moment being
-    evaluated - the one being served at that moment. Never a later one, however near in time:
-    a run for a past date must not see a dataset that had not been downloaded yet.
-    """
-
-    dataset_id: str
-    downloaded_at: datetime
-    service_date_range_end: Optional[datetime] = None
 
 
 @dataclass
@@ -127,23 +101,11 @@ class FeedSealContext:
     availability_check: Optional[AvailabilityCheck] = None
     latest_validation_report: Optional[ValidationReport] = None
 
-    # Kind 3: whatever each evaluator's own `load_inputs` returned, keyed by criterion name.
-    #
-    # This module never looks inside these payloads - only the evaluator that built one knows
-    # its shape - and an evaluator reaches only its own, through `inputs_for(self.name)`.
-    #
-    # One dict is shared by reference across every context of the batch, rather than sliced
-    # per feed and per day. Slicing would force every criterion into the same storage shape,
-    # and during a backfill it would copy a year of history once per feed per day.
-    inputs: Mapping[SealCriterionName, Any] = field(default_factory=dict)
-
-    def inputs_for(self, criterion: SealCriterionName) -> Any:
-        """This criterion's kind-3 inputs, or None if it loaded none.
-
-        None is the normal answer for a criterion that has no `load_inputs` of its own, so it
-        means "there was nothing to load", not "the load failed".
-        """
-        return self.inputs.get(criterion)
+    # Kind 3: see `PreloadedHistory`. One instance is shared by reference across every context
+    # of the batch, rather than sliced per feed and per day: slicing would force every
+    # criterion into the same storage shape, and during a backfill it would copy a year of
+    # history once per feed per day.
+    history: Optional[PreloadedHistory] = None
 
 
 # Feeds in these statuses, or not published, are never eligible for the seal.
@@ -306,7 +268,7 @@ def _load_closest_datasets(
 
     Compliant is the reason this runs: `_load_validation_reports` needs the exact dataset to
     scope a report to. Fresh does not use it - it needs a different dataset per marched day,
-    so it loads its own history in `FreshCoverageEvaluator.load_inputs` instead. For a nightly
+    so it loads its own history in `FreshCoverageEvaluator.load_history` instead. For a nightly
     run the two overlap a little (this query returns one row per feed, that one returns a
     short history), which is accepted rather than shared: reading another criterion's kind-3
     inputs would tie the two evaluators together.
@@ -439,38 +401,6 @@ def _load_availability(
     }
 
 
-def collect_inputs(
-    db_session: Session,
-    feeds: Sequence[Gtfsfeed],
-    days: Sequence[date],
-    evaluators: Sequence,
-) -> Dict[SealCriterionName, Any]:
-    """Ask every evaluator to load its own kind-3 inputs, once, for the whole batch.
-
-    Called once per batch no matter how many days are being evaluated. Each evaluator loads
-    its full history for `days` in one go and then answers each day from memory. That is what
-    keeps the number of queries proportional to the number of criteria instead of to feeds
-    times days: a handful of queries rather than several thousand once a backfill marches a
-    year.
-
-    Args:
-        db_session: SQLAlchemy session.
-        feeds: The batch of feeds, already loaded and eligibility-checked by the caller.
-        days: Every UTC day that will be evaluated, ascending. Just one for a nightly run.
-        evaluators: The `CriterionEvaluator` instances this run will apply. Deliberately not
-            type-annotated as such: `evaluators.base` imports this module for
-            `FeedSealContext`, so annotating it would be a circular import.
-
-    Returns:
-        criterion name -> whatever that criterion's loader returned. Opaque here; an evaluator
-        gets its own back with `ctx.inputs_for(self.name)`.
-    """
-    return {
-        evaluator.name: evaluator.load_inputs(db_session, feeds, days)
-        for evaluator in evaluators
-    }
-
-
 def build_contexts(
     db_session: Session,
     feeds: Sequence[Gtfsfeed],
@@ -480,10 +410,10 @@ def build_contexts(
     """Build one context per feed, for a single day. This is the nightly run's path.
 
     It loads all three kinds of input: the kind-2 fields through the `_load_*` helpers above,
-    and the kind-3 inputs through `collect_inputs` over a one-day range. Kind 1 is read off
+    and the kind-3 history through `PreloadedHistory.load` over a one-day range. Kind 1 is read off
     the feed rows the caller already has.
 
-    The backfill does not call this. It calls `collect_inputs` once for its whole window and
+    The backfill does not call this. It calls `PreloadedHistory.load` once for its whole window and
     then builds a context per day itself, so kind-3 inputs are loaded through the evaluator in
     both paths and there is only ever one place they come from.
 
@@ -511,8 +441,8 @@ def build_contexts(
        criterion stays replayable, and leave feeds with no row out of the dict instead of
        giving them a default: absent means "we did not look", which evaluators read as UNKNOWN
        rather than as a failure. Be aware that a backfill leaves these fields empty.
-    3. The answer differs per day. Nothing changes in this file: override `load_inputs` on the
-       evaluator and read it back in `_evaluate` with `ctx.inputs_for(self.name)`. This is the
+    3. The answer differs per day. Nothing changes in this file: override `load_history` on the
+       evaluator and read it back in `_evaluate` with `ctx.history_for(self.name)`. This is the
        only kind a backfill can reconstruct.
     """
     feed_ids = [feed.id for feed in feeds]
@@ -520,7 +450,7 @@ def build_contexts(
     availability = _load_availability(db_session, feed_ids, now)
     # Runs after the datasets query because it needs to know which dataset to scope to.
     validation_reports = _load_validation_reports(db_session, closest_datasets, now)
-    inputs = collect_inputs(db_session, feeds, [snapshot_date_of(now)], evaluators)
+    history = PreloadedHistory(db_session, feeds, [snapshot_date_of(now)], evaluators)
 
     return {
         feed.id: FeedSealContext(
@@ -534,7 +464,7 @@ def build_contexts(
             closest_dataset=closest_datasets.get(feed.id),
             availability_check=availability.get(feed.id),
             latest_validation_report=validation_reports.get(feed.id),
-            inputs=inputs,
+            history=history,
         )
         for feed in feeds
     }

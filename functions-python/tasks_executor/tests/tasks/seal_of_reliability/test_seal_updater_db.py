@@ -41,7 +41,6 @@ from tasks.seal_of_reliability.evaluators import (
     FreshCoverageEvaluator,
     OfficialEvaluator,
 )
-from tasks.seal_of_reliability.evaluators.fresh_coverage import FreshCoverageInputs
 from tasks.seal_of_reliability.seal_updater import update_seals
 from tasks.seal_of_reliability.state_machine import SealCriterionState
 from sqlalchemy import delete, insert, select
@@ -817,15 +816,15 @@ class TestBuildContexts(SealDbTestCase):
         Fresh's inputs are not a field on the context: which dataset is the closest one is a
         different row on each day a march evaluates, and `ctx.closest_dataset` holds a single
         answer for a single `now`. So they arrive under the criterion's own key instead, and it
-        reads them back with `inputs_for`.
+        reads them back through its `get_*_at` lookups.
         """
         _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
         feeds = list(_feeds_by_stable_id(db_session, TRACKED).values())
         ctx = build_contexts(db_session, feeds, NOW, EVALUATORS)[feeds[0].id]
 
-        inputs = ctx.inputs_for(SealCriterionName.FRESH_COVERAGE)
-        self.assertIsInstance(inputs, FreshCoverageInputs)
-        latest = inputs.as_of(feeds[0].id, NOW)
+        self.assertTrue(ctx.history.has_history_for(SealCriterionName.FRESH_COVERAGE))
+        inputs = ctx.history
+        latest = inputs.get_closest_dataset_at(feeds[0].id, NOW)
         self.assertEqual(latest.dataset_id, f"{TRACKED}_dataset")
         self.assertEqual(latest.service_date_range_end, NOW + timedelta(days=90))
 
@@ -841,7 +840,7 @@ class TestBuildContexts(SealDbTestCase):
         class Loading(CriterionEvaluator):
             name = SealCriterionName.AVAILABLE
 
-            def load_inputs(self, db_session, feeds, days):
+            def load_history(self, db_session, feeds, days):
                 seen_days.append(list(days))
                 return {feed.id: feed.stable_id for feed in feeds}
 
@@ -852,9 +851,13 @@ class TestBuildContexts(SealDbTestCase):
         contexts = build_contexts(db_session, feeds, NOW, [Loading()])
 
         self.assertEqual(seen_days, [[NOW.date()]])
-        for feed in feeds:
-            inputs = contexts[feed.id].inputs_for(SealCriterionName.AVAILABLE)
-            self.assertEqual(inputs[feed.id], feed.stable_id)
+        # One store, shared by reference: every context points at the same history object
+        # rather than the builder slicing a copy per feed.
+        shared = {id(contexts[feed.id].history) for feed in feeds}
+        self.assertEqual(len(shared), 1)
+        self.assertTrue(
+            contexts[feeds[0].id].history.has_history_for(SealCriterionName.AVAILABLE)
+        )
 
     @with_db_session(db_url=default_db_url)
     def test_builds_one_context_per_feed(self, db_session):
@@ -865,26 +868,26 @@ class TestBuildContexts(SealDbTestCase):
 
 
 class TestFreshCoverageLoadInputs(SealDbTestCase):
-    """`FreshCoverageEvaluator.load_inputs` against real dataset rows."""
+    """`FreshCoverageEvaluator.load_history` against real dataset rows."""
 
     @staticmethod
     def _load(db_session, stable_id, days=None):
         feeds = list(_feeds_by_stable_id(db_session, stable_id).values())
-        return feeds[0], FreshCoverageEvaluator().load_inputs(
+        return feeds[0], FreshCoverageEvaluator().load_history(
             db_session, feeds, days or [NOW.date()]
         )
 
     @with_db_session(db_url=default_db_url)
     def test_a_feed_with_no_dataset_says_so(self, db_session):
-        """The load misses, and `as_of` says so rather than guessing a value."""
+        """The load misses, and the lookup says so rather than guessing a value."""
         feed, inputs = self._load(db_session, OFFICIAL)
-        self.assertIsNone(inputs.as_of(feed.id, NOW))
+        self.assertIsNone(inputs.closest_at(feed.id, NOW))
 
     @with_db_session(db_url=default_db_url)
     def test_the_closest_dataset_coverage_is_loaded_by_the_loader(self, db_session):
         _seed_dataset(db_session, TRACKED, coverage_end=NOW + timedelta(days=90))
         feed, inputs = self._load(db_session, TRACKED)
-        latest = inputs.as_of(feed.id, NOW)
+        latest = inputs.closest_at(feed.id, NOW)
         self.assertEqual(latest.dataset_id, f"{TRACKED}_dataset")
         self.assertEqual(latest.service_date_range_end, NOW + timedelta(days=90))
 
@@ -893,7 +896,7 @@ class TestFreshCoverageLoadInputs(SealDbTestCase):
         """The two UNKNOWN cases must stay distinguishable at the loading layer."""
         _seed_dataset(db_session, TRACKED, coverage_end=None)
         feed, inputs = self._load(db_session, TRACKED)
-        latest = inputs.as_of(feed.id, NOW)
+        latest = inputs.closest_at(feed.id, NOW)
         self.assertIsNotNone(latest, "the dataset is there ...")
         self.assertIsNone(latest.service_date_range_end, "... its coverage end is not")
 
@@ -924,12 +927,12 @@ class TestFreshCoverageLoadInputs(SealDbTestCase):
         feed, inputs = self._load(db_session, TRACKED, days=[NOW.date(), later.date()])
 
         self.assertEqual(
-            inputs.as_of(feed.id, NOW).service_date_range_end,
+            inputs.closest_at(feed.id, NOW).service_date_range_end,
             NOW + timedelta(days=5),
             "the newer dataset had not been downloaded yet",
         )
         self.assertEqual(
-            inputs.as_of(feed.id, later).service_date_range_end,
+            inputs.closest_at(feed.id, later).service_date_range_end,
             NOW + timedelta(days=400),
             "by then it had",
         )
@@ -949,7 +952,7 @@ class TestFreshCoverageLoadInputs(SealDbTestCase):
         )
         feed, inputs = self._load(db_session, TRACKED)
         self.assertIsNotNone(
-            inputs.as_of(feed.id, NOW), "downloaded long before the range opened"
+            inputs.closest_at(feed.id, NOW), "downloaded long before the range opened"
         )
 
     @with_db_session(db_url=default_db_url)
@@ -963,7 +966,7 @@ class TestFreshCoverageLoadInputs(SealDbTestCase):
         )
         db_session.commit()
         feed, inputs = self._load(db_session, TRACKED)
-        self.assertIsNone(inputs.as_of(feed.id, NOW))
+        self.assertIsNone(inputs.closest_at(feed.id, NOW))
 
 
 @patch("tasks.seal_of_reliability.seal_updater.EVALUATORS", ONLY_OFFICIAL)
