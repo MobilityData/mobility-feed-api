@@ -30,6 +30,8 @@ from tasks.seal_of_reliability.context import FeedSealContext
 from tasks.seal_of_reliability.history import (
     AvailabilityCheck,
     AvailabilityHistory,
+    CompliantHistory,
+    ValidationReportHistory,
     DatasetCoverage,
     DatasetHistory,
     PreloadedHistory,
@@ -589,7 +591,16 @@ class TestCompliant(unittest.TestCase):
             if with_dataset
             else None
         )
-        defaults = {"latest_validation_report": report, "closest_dataset": dataset}
+        defaults = {
+            "history": _history(
+                compliant=CompliantHistory(
+                    DatasetHistory({"feed-1": [dataset]} if dataset else {}),
+                    ValidationReportHistory(
+                        {self.DATASET_ID: [report]} if report else {}
+                    ),
+                )
+            )
+        }
         defaults.update(overrides)
         return _ctx(**defaults)
 

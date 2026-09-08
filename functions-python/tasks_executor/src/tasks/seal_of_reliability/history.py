@@ -24,10 +24,13 @@ evaluate, and answers every point-in-time question the criteria ask. An evaluato
 from bisect import bisect_right
 from dataclasses import dataclass
 import datetime as datetime_module
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence, TypeAlias
+from datetime import date, datetime, time, timedelta, timezone
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeAlias
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
 
 from shared.common.seal_criteria import SealCriterionName
 
@@ -137,6 +140,48 @@ class AvailabilityHistory:
         return check if check.checked_at > moment - lookback else None
 
 
+class ValidationReportHistory:
+    """Every validation report of the batch's datasets over a run's day range.
+
+    Keyed by dataset rather than by feed: which dataset a feed is serving changes as a march
+    proceeds, so the report wanted on one day belongs to a different dataset than the report
+    wanted on another. The caller resolves the dataset first, then asks for its report.
+    """
+
+    def __init__(self, reports_by_dataset: Dict[str, List[ValidationReport]]):
+        self._validated_at: Dict[str, List[datetime]] = {}
+        self._reports: Dict[str, List[ValidationReport]] = {}
+        for dataset_id, reports in reports_by_dataset.items():
+            # `report_id` breaks ties, so two reports validated at the same instant resolve to
+            # one answer rather than an arbitrary one.
+            reports.sort(key=lambda report: (report.validated_at, report.report_id))
+            self._reports[dataset_id] = reports
+            self._validated_at[dataset_id] = [report.validated_at for report in reports]
+
+    def latest_at(
+        self, dataset_id: str, moment: datetime
+    ) -> Optional[ValidationReport]:
+        keys = self._validated_at.get(dataset_id)
+        if not keys:
+            return None
+        index = bisect_right(keys, moment)
+        if index == 0:
+            return None
+        return self._reports[dataset_id][index - 1]
+
+
+class CompliantHistory:
+    """What compliant loads: the datasets, and the validation reports of those datasets.
+
+    It needs both because the report it wants on a given day is the report of *that day's*
+    closest dataset. Holding them together keeps the pair loaded or absent as one.
+    """
+
+    def __init__(self, datasets: DatasetHistory, reports: ValidationReportHistory):
+        self.datasets = datasets
+        self.reports = reports
+
+
 class PreloadedHistory:
     """Every criterion's data for every day of a run, fetched before any day is evaluated.
 
@@ -191,8 +236,15 @@ class PreloadedHistory:
 
         None means the feed had no dataset at all by then.
         """
-        history = self._history_for(SealCriterionName.FRESH_COVERAGE)
-        return history.closest_at(feed_id, moment) if history else None
+        # Both criteria load the datasets, so either store can answer. Whichever ran is fine:
+        # they cover the same feeds and the same range.
+        fresh = self._history_for(SealCriterionName.FRESH_COVERAGE)
+        if fresh is not None:
+            return fresh.closest_at(feed_id, moment)
+        compliant = self._history_for(SealCriterionName.COMPLIANT)
+        if compliant is not None:
+            return compliant.datasets.closest_at(feed_id, moment)
+        return None
 
     def get_latest_availability_check_at(
         self, feed_id: FeedIdStr, moment: datetime, lookback: timedelta
@@ -205,6 +257,17 @@ class PreloadedHistory:
         history = self._history_for(SealCriterionName.AVAILABLE)
         return history.latest_in_window(feed_id, moment, lookback) if history else None
 
+    def get_validation_report_at(
+        self, dataset_id: str, moment: datetime
+    ) -> Optional[ValidationReport]:
+        """That dataset's latest validation report validated at or before `moment`.
+
+        None means the dataset had not been validated by then, which compliant reads as
+        UNKNOWN: an unvalidated dataset is not a clean bill of health.
+        """
+        history = self._history_for(SealCriterionName.COMPLIANT)
+        return history.reports.latest_at(dataset_id, moment) if history else None
+
     def has_history_for(self, criterion: SealCriterionName) -> bool:
         """Whether that criterion's loader actually ran for this history.
 
@@ -212,3 +275,106 @@ class PreloadedHistory:
         ran", which is a bug rather than a data condition.
         """
         return self._history_by_criterion.get(criterion) is not None
+
+
+def _dataset_columns():
+    return (
+        Gtfsdataset.feed_id,
+        Gtfsdataset.id,
+        Gtfsdataset.downloaded_at,
+        Gtfsdataset.service_date_range_end,
+    )
+
+
+def _rows_to_datasets(rows) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
+    return [
+        (
+            row.feed_id,
+            DatasetCoverage(
+                dataset_id=row.id,
+                downloaded_at=row.downloaded_at,
+                service_date_range_end=row.service_date_range_end,
+            ),
+        )
+        for row in rows
+    ]
+
+
+def _datasets_at_range_start(
+    db_session: Session, feed_ids: Sequence[FeedIdStr], range_start: datetime
+) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
+    """One row per feed: the dataset it already had when the range opened.
+
+    Strictly before `range_start`, so it is the state each feed carries into the first
+    marched day. Without it, a feed whose most recent download predates the range would find
+    no dataset at all on day 0 and the criteria would answer UNKNOWN.
+    """
+    rows = db_session.execute(
+        select(*_dataset_columns())
+        .where(
+            Gtfsdataset.feed_id.in_(list(feed_ids)),
+            Gtfsdataset.downloaded_at.is_not(None),
+            Gtfsdataset.downloaded_at < range_start,
+        )
+        .distinct(Gtfsdataset.feed_id)
+        .order_by(
+            Gtfsdataset.feed_id,
+            Gtfsdataset.downloaded_at.desc(),
+            Gtfsdataset.id.desc(),
+        )
+    ).all()
+    return _rows_to_datasets(rows)
+
+
+def _datasets_in_range(
+    db_session: Session,
+    feed_ids: Sequence[FeedIdStr],
+    range_start: datetime,
+    range_end: datetime,
+) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
+    """Every dataset downloaded while the range was open."""
+    rows = db_session.execute(
+        select(*_dataset_columns())
+        .where(
+            Gtfsdataset.feed_id.in_(list(feed_ids)),
+            Gtfsdataset.downloaded_at.is_not(None),
+            Gtfsdataset.downloaded_at >= range_start,
+            Gtfsdataset.downloaded_at < range_end,
+        )
+        .order_by(Gtfsdataset.feed_id, Gtfsdataset.downloaded_at, Gtfsdataset.id)
+    ).all()
+    return _rows_to_datasets(rows)
+
+
+def range_bounds(days: Sequence[date]) -> Tuple[datetime, datetime]:
+    """The half-open instant range covering `days`.
+
+    A march evaluates at each day's start while a nightly run evaluates part-way through its
+    day, so the range closes at the end of the last day either way.
+    """
+    range_start = datetime.combine(min(days), time.min, tzinfo=timezone.utc)
+    range_end = datetime.combine(max(days), time.min, tzinfo=timezone.utc) + timedelta(
+        days=1
+    )
+    return range_start, range_end
+
+
+def load_dataset_history(
+    db_session: Session, feeds: Sequence, days: Sequence[date]
+) -> DatasetHistory:
+    """Every dataset the batch's feeds had over `days`, plus the one each carried in.
+
+    Two queries for the whole batch and the whole range, never one per day. Shared by
+    fresh_coverage and compliant, which both resolve the dataset current on each day.
+    """
+    if not feeds or not days:
+        return DatasetHistory({})
+
+    feed_ids = [feed.id for feed in feeds]
+    range_start, range_end = range_bounds(days)
+    datasets_by_feed: Dict[FeedIdStr, List[DatasetCoverage]] = {}
+    for feed_id, dataset in _datasets_at_range_start(
+        db_session, feed_ids, range_start
+    ) + _datasets_in_range(db_session, feed_ids, range_start, range_end):
+        datasets_by_feed.setdefault(feed_id, []).append(dataset)
+    return DatasetHistory(datasets_by_feed)

@@ -32,6 +32,9 @@ from sqlalchemy import delete, insert, select
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Validationreport,
+    t_validationreportgtfsdataset,
     Feed,
     FeedReliabilitySeal,
     GtfsFeedAvailabilityCheck,
@@ -1601,6 +1604,193 @@ class TestAvailabilityIsMarchedFromHistory(unittest.TestCase):
         # But not confirmed: Available has 14 days of grace and this window is 7 days long,
         # so the streak is still being absorbed when the march ends.
         self.assertIsNone(row.last_confirmed_failure_at)
+
+
+FRESH = f"{PREFIX}fresh"
+FRESH_START = date(2026, 5, 10)
+FRESH_END = date(2026, 5, 16)
+# Downloaded before the range opens, so it reaches the march through the carry-in query, and
+# its coverage has already run out by the time the range starts.
+CARRIED_IN_DOWNLOAD = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+CARRIED_IN_COVERAGE_END = datetime(2026, 5, 14, tzinfo=timezone.utc)
+# Downloaded mid-range, covering far beyond the horizon.
+MID_RANGE_DOWNLOAD = datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc)
+MID_RANGE_COVERAGE_END = datetime(2026, 8, 1, tzinfo=timezone.utc)
+
+
+def _seed_fresh_dataset(db_session, feed_id, suffix, downloaded_at, coverage_end):
+    dataset_id = f"{feed_id}_dataset{suffix}"
+    db_session.add(
+        Gtfsdataset(
+            id=dataset_id,
+            feed_id=feed_id,
+            stable_id=dataset_id,
+            downloaded_at=downloaded_at,
+            service_date_range_start=downloaded_at,
+            service_date_range_end=coverage_end,
+        )
+    )
+    db_session.flush()
+
+
+class TestFreshCoverageIsMarchedFromHistory(unittest.TestCase):
+    """A marched `fresh_coverage` follows the dataset that was current on each day.
+
+    Two datasets, one carried into the range and one downloaded inside it, so both halves of
+    the loader are exercised: the carry-in that gives day 0 something to read, and the
+    in-range query that makes later days differ from earlier ones.
+
+    The carried-in dataset's coverage has already lapsed for every marched day, and the
+    mid-range one reaches well past the horizon, so the verdict has to flip on the day the
+    new dataset becomes the closest one - and not before. A march that resolved the dataset
+    once for the whole run would report a single verdict across all seven days.
+    """
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        _cleanup(db_session)
+        _seed_feed(db_session, FRESH, OLD_CREATED)
+        _seed_fresh_dataset(
+            db_session, FRESH, "_carried", CARRIED_IN_DOWNLOAD, CARRIED_IN_COVERAGE_END
+        )
+        _seed_fresh_dataset(
+            db_session, FRESH, "_mid", MID_RANGE_DOWNLOAD, MID_RANGE_COVERAGE_END
+        )
+        db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def tearDown(self, db_session):
+        _cleanup(db_session)
+
+    def test_the_verdict_follows_the_dataset_current_on_each_day(self):
+        backfill_seals(
+            stable_feed_ids=[FRESH],
+            start_date=FRESH_START,
+            end_date=FRESH_END,
+            dry_run=False,
+            only_missing=False,
+            criteria=[SealCriterionName.FRESH_COVERAGE.value],
+            snapshot_mode="all",
+        )
+
+        expected = {
+            # The carried-in dataset, whose coverage ends inside the range.
+            date(2026, 5, 10): CriterionStatus.FAIL.value,
+            date(2026, 5, 11): CriterionStatus.FAIL.value,
+            # The new dataset lands at 12:00 today, after this day's evaluation at 00:00.
+            date(2026, 5, 12): CriterionStatus.FAIL.value,
+            # From here the new dataset is the closest one.
+            date(2026, 5, 13): CriterionStatus.PASS.value,
+            date(2026, 5, 14): CriterionStatus.PASS.value,
+            date(2026, 5, 15): CriterionStatus.PASS.value,
+            date(2026, 5, 16): CriterionStatus.PASS.value,
+        }
+        actual = {
+            day: snapshot_row(
+                FRESH, SealCriterionName.FRESH_COVERAGE.value, day
+            ).observed_status
+            for day in expected
+        }
+        self.assertEqual(actual, expected)
+
+
+COMPLIANT = f"{PREFIX}compliant"
+# The carried-in dataset is validated before the range opens and has errors.
+COMPLIANT_OLD_DOWNLOAD = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+COMPLIANT_OLD_VALIDATED = datetime(2026, 5, 2, 12, 0, tzinfo=timezone.utc)
+# The mid-range one is clean, but validation lags its publication by two days.
+COMPLIANT_NEW_DOWNLOAD = datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc)
+COMPLIANT_NEW_VALIDATED = datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+
+
+def _seed_report(db_session, dataset_id, total_error, validated_at):
+    report_id = f"{dataset_id}_report"
+    db_session.add(
+        Validationreport(
+            id=report_id,
+            validator_version="1.0.0",
+            validated_at=validated_at,
+            total_error=total_error,
+        )
+    )
+    db_session.flush()
+    db_session.execute(
+        t_validationreportgtfsdataset.insert().values(
+            dataset_id=dataset_id, validation_report_id=report_id
+        )
+    )
+
+
+class TestCompliantIsMarchedFromHistory(unittest.TestCase):
+    """A marched `compliant` judges the report of the dataset current on each day.
+
+    The march passes through all three answers in one run. It starts on a dataset validated
+    with errors, switches to a newer dataset the day after that one is downloaded, and finds
+    no report for it until validation catches up two days later.
+
+    That middle stretch is the case the criterion's docstring calls out - validation lagging
+    publication - and it is UNKNOWN rather than a failure: an unvalidated dataset is not
+    evidence of anything. A march that resolved the dataset or the report once for the whole
+    run could not produce three different answers.
+    """
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        _cleanup(db_session)
+        _seed_feed(db_session, COMPLIANT, OLD_CREATED)
+        _seed_fresh_dataset(
+            db_session,
+            COMPLIANT,
+            "_old",
+            COMPLIANT_OLD_DOWNLOAD,
+            datetime(2026, 8, 1, tzinfo=timezone.utc),
+        )
+        _seed_fresh_dataset(
+            db_session,
+            COMPLIANT,
+            "_new",
+            COMPLIANT_NEW_DOWNLOAD,
+            datetime(2026, 8, 1, tzinfo=timezone.utc),
+        )
+        _seed_report(db_session, f"{COMPLIANT}_dataset_old", 3, COMPLIANT_OLD_VALIDATED)
+        _seed_report(db_session, f"{COMPLIANT}_dataset_new", 0, COMPLIANT_NEW_VALIDATED)
+        db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def tearDown(self, db_session):
+        _cleanup(db_session)
+
+    def test_each_day_reads_the_report_of_that_days_dataset(self):
+        backfill_seals(
+            stable_feed_ids=[COMPLIANT],
+            start_date=FRESH_START,
+            end_date=FRESH_END,
+            dry_run=False,
+            only_missing=False,
+            criteria=[SealCriterionName.COMPLIANT.value],
+            snapshot_mode="all",
+        )
+
+        expected = {
+            # The carried-in dataset, validated with 3 errors.
+            date(2026, 5, 10): CriterionStatus.FAIL.value,
+            date(2026, 5, 11): CriterionStatus.FAIL.value,
+            # The new dataset lands at 12:00 today, after this day's evaluation at 00:00.
+            date(2026, 5, 12): CriterionStatus.FAIL.value,
+            # It is now the closest one, but has not been validated yet.
+            date(2026, 5, 13): CriterionStatus.UNKNOWN.value,
+            date(2026, 5, 14): CriterionStatus.UNKNOWN.value,
+            # Validation lands at 12:00 on the 14th, so it counts from the 15th.
+            date(2026, 5, 15): CriterionStatus.PASS.value,
+            date(2026, 5, 16): CriterionStatus.PASS.value,
+        }
+        actual = {
+            day: snapshot_row(
+                COMPLIANT, SealCriterionName.COMPLIANT.value, day
+            ).observed_status
+            for day in expected
+        }
+        self.assertEqual(actual, expected)
 
 
 if __name__ == "__main__":
