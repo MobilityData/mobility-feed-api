@@ -25,12 +25,13 @@ from bisect import bisect_right
 from dataclasses import dataclass
 import datetime as datetime_module
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeAlias
+from typing import Any, Dict, Final, List, Optional, Sequence, Tuple, TypeAlias
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.common.continuous_coverage import CALENDAR_FILES
+from shared.database_gen.sqlacodegen_models import Feedinfo, Gtfsdataset, Gtfsfile
 
 from shared.common.seal_criteria import SealCriterionName
 
@@ -40,6 +41,10 @@ FeedIdStr: TypeAlias = str
 # A feed's public `mdb-1210` form. Not interchangeable with `FeedIdStr`: the loaders and
 # lookups here are keyed by `feed.id`, while the task payloads name feeds this way.
 FeedStableIdStr: TypeAlias = str
+
+# How far back before the range the carry-in reaches. fresh_continuous judges the
+# boundary between two datasets, so day 0 needs the two most recent, not just one.
+CARRY_IN_DEPTH: Final[int] = 2
 
 
 @dataclass(frozen=True)
@@ -103,6 +108,18 @@ class DatasetHistory:
             self._downloaded_at[feed_id] = [
                 dataset.downloaded_at for dataset in datasets
             ]
+
+    def previous_at(
+        self, feed_id: FeedIdStr, moment: datetime
+    ) -> Optional[DatasetCoverage]:
+        """The dataset before the closest one at `moment`, or None if there was only one."""
+        keys = self._downloaded_at.get(feed_id)
+        if not keys:
+            return None
+        index = bisect_right(keys, moment)
+        if index < 2:
+            return None
+        return self._datasets[feed_id][index - 2]
 
     def closest_at(
         self, feed_id: FeedIdStr, moment: datetime
@@ -238,12 +255,32 @@ class PreloadedHistory:
         """
         # Both criteria load the datasets, so either store can answer. Whichever ran is fine:
         # they cover the same feeds and the same range.
-        fresh = self._history_for(SealCriterionName.FRESH_COVERAGE)
-        if fresh is not None:
-            return fresh.closest_at(feed_id, moment)
+        for criterion in (
+            SealCriterionName.FRESH_COVERAGE,
+            SealCriterionName.FRESH_CONTINUOUS,
+        ):
+            history = self._history_for(criterion)
+            if history is not None:
+                return history.closest_at(feed_id, moment)
         compliant = self._history_for(SealCriterionName.COMPLIANT)
         if compliant is not None:
             return compliant.datasets.closest_at(feed_id, moment)
+        return None
+
+    def get_previous_dataset_at(
+        self, feed_id: FeedIdStr, moment: datetime
+    ) -> Optional[DatasetCoverage]:
+        """The dataset before the closest one at `moment`, or None if there was only one."""
+        for criterion in (
+            SealCriterionName.FRESH_CONTINUOUS,
+            SealCriterionName.FRESH_COVERAGE,
+        ):
+            history = self._history_for(criterion)
+            if history is not None:
+                return history.previous_at(feed_id, moment)
+        compliant = self._history_for(SealCriterionName.COMPLIANT)
+        if compliant is not None:
+            return compliant.datasets.previous_at(feed_id, moment)
         return None
 
     def get_latest_availability_check_at(
@@ -277,12 +314,28 @@ class PreloadedHistory:
         return self._history_by_criterion.get(criterion) is not None
 
 
+def _has_calendar_data():
+    """Correlated, so the flag comes back with the row rather than needing a second query."""
+    return (
+        select(1)
+        .where(
+            Gtfsfile.gtfs_dataset_id == Gtfsdataset.id,
+            Gtfsfile.file_name.in_(CALENDAR_FILES),
+        )
+        .exists()
+    )
+
+
 def _dataset_columns():
     return (
         Gtfsdataset.feed_id,
         Gtfsdataset.id,
         Gtfsdataset.downloaded_at,
+        Gtfsdataset.service_date_range_start,
         Gtfsdataset.service_date_range_end,
+        Feedinfo.feed_start_date,
+        Feedinfo.feed_end_date,
+        _has_calendar_data().label("has_calendar_data"),
     )
 
 
@@ -293,7 +346,11 @@ def _rows_to_datasets(rows) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
             DatasetCoverage(
                 dataset_id=row.id,
                 downloaded_at=row.downloaded_at,
+                service_date_range_start=row.service_date_range_start,
                 service_date_range_end=row.service_date_range_end,
+                feed_info_start=row.feed_start_date,
+                feed_info_end=row.feed_end_date,
+                has_calendar_data=bool(row.has_calendar_data),
             ),
         )
         for row in rows
@@ -303,25 +360,38 @@ def _rows_to_datasets(rows) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
 def _datasets_at_range_start(
     db_session: Session, feed_ids: Sequence[FeedIdStr], range_start: datetime
 ) -> List[Tuple[FeedIdStr, DatasetCoverage]]:
-    """One row per feed: the dataset it already had when the range opened.
+    """The `CARRY_IN_DEPTH` most recent datasets each feed already had when the range opened.
 
-    Strictly before `range_start`, so it is the state each feed carries into the first
+    Strictly before `range_start`, so this is the state each feed carries into the first
     marched day. Without it, a feed whose most recent download predates the range would find
     no dataset at all on day 0 and the criteria would answer UNKNOWN.
+
+    Two per feed rather than one, because fresh_continuous judges the boundary between
+    successive datasets and needs both sides of it on that first day. `ROW_NUMBER()` rather
+    than a `LIMIT`, which would cap the whole result instead of each feed's share of it.
     """
-    rows = db_session.execute(
-        select(*_dataset_columns())
+    ranked = (
+        select(
+            *_dataset_columns(),
+            func.row_number()
+            .over(
+                partition_by=Gtfsdataset.feed_id,
+                order_by=(Gtfsdataset.downloaded_at.desc(), Gtfsdataset.id.desc()),
+            )
+            .label("recency"),
+        )
+        .select_from(Gtfsdataset)
+        # Outer: a dataset with no `feed_info.txt` still comes back, with no declared window.
+        .outerjoin(Feedinfo, Feedinfo.id == Gtfsdataset.feed_info_id)
         .where(
             Gtfsdataset.feed_id.in_(list(feed_ids)),
             Gtfsdataset.downloaded_at.is_not(None),
             Gtfsdataset.downloaded_at < range_start,
         )
-        .distinct(Gtfsdataset.feed_id)
-        .order_by(
-            Gtfsdataset.feed_id,
-            Gtfsdataset.downloaded_at.desc(),
-            Gtfsdataset.id.desc(),
-        )
+        .subquery()
+    )
+    rows = db_session.execute(
+        select(ranked).where(ranked.c.recency <= CARRY_IN_DEPTH)
     ).all()
     return _rows_to_datasets(rows)
 
@@ -335,6 +405,8 @@ def _datasets_in_range(
     """Every dataset downloaded while the range was open."""
     rows = db_session.execute(
         select(*_dataset_columns())
+        .select_from(Gtfsdataset)
+        .outerjoin(Feedinfo, Feedinfo.id == Gtfsdataset.feed_info_id)
         .where(
             Gtfsdataset.feed_id.in_(list(feed_ids)),
             Gtfsdataset.downloaded_at.is_not(None),

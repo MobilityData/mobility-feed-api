@@ -23,6 +23,7 @@ a success that wrote nothing.
 import json
 import os
 import unittest
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -32,6 +33,7 @@ from sqlalchemy import delete, insert, select
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Feedinfo,
     Gtfsdataset,
     Validationreport,
     t_validationreportgtfsdataset,
@@ -1787,6 +1789,110 @@ class TestCompliantIsMarchedFromHistory(unittest.TestCase):
         actual = {
             day: snapshot_row(
                 COMPLIANT, SealCriterionName.COMPLIANT.value, day
+            ).observed_status
+            for day in expected
+        }
+        self.assertEqual(actual, expected)
+
+
+CONTINUOUS = f"{PREFIX}continuous"
+# The carried-in dataset declares coverage that stops on the 20th of May.
+CONTINUOUS_OLD_DOWNLOAD = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+CONTINUOUS_OLD_DECLARED = (date(2026, 4, 1), date(2026, 5, 20))
+# The mid-range one picks up four days later, leaving the boundary uncovered.
+CONTINUOUS_NEW_DOWNLOAD = datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc)
+CONTINUOUS_NEW_DECLARED = (date(2026, 5, 24), date(2026, 6, 30))
+
+
+def _seed_declared_dataset(db_session, feed_id, suffix, downloaded_at, declared):
+    """A dataset whose `feed_info.txt` declares `declared`, and which ships no calendar."""
+    feed_info_id = uuid.uuid4()
+    db_session.add(
+        Feedinfo(
+            id=feed_info_id,
+            file_hash=f"{feed_id}{suffix}",
+            feed_start_date=declared[0],
+            feed_end_date=declared[1],
+        )
+    )
+    db_session.flush()
+    dataset_id = f"{feed_id}_dataset{suffix}"
+    db_session.add(
+        Gtfsdataset(
+            id=dataset_id,
+            feed_id=feed_id,
+            stable_id=dataset_id,
+            downloaded_at=downloaded_at,
+            service_date_range_start=declared[0],
+            service_date_range_end=declared[1],
+            feed_info_id=feed_info_id,
+        )
+    )
+    db_session.flush()
+
+
+class TestFreshContinuousIsMarchedFromHistory(unittest.TestCase):
+    """A marched `fresh_continuous` judges the boundary as it stood on each day.
+
+    One dataset is carried into the range and a second arrives inside it, declaring coverage
+    that starts four days after the first one ends. While the feed has only the carried-in
+    dataset there is no boundary to judge and it passes; once the second becomes the closest
+    one the gap between them is there to see, and it fails.
+
+    So the verdict turns on a boundary that does not exist until mid-march - something a run
+    that resolved the pair once could not reproduce.
+    """
+
+    @with_db_session(db_url=default_db_url)
+    def setUp(self, db_session):
+        _cleanup(db_session)
+        _seed_feed(db_session, CONTINUOUS, OLD_CREATED)
+        _seed_declared_dataset(
+            db_session,
+            CONTINUOUS,
+            "_old",
+            CONTINUOUS_OLD_DOWNLOAD,
+            CONTINUOUS_OLD_DECLARED,
+        )
+        _seed_declared_dataset(
+            db_session,
+            CONTINUOUS,
+            "_new",
+            CONTINUOUS_NEW_DOWNLOAD,
+            CONTINUOUS_NEW_DECLARED,
+        )
+        db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def tearDown(self, db_session):
+        _cleanup(db_session)
+
+    def test_the_boundary_is_judged_as_it_stood_on_each_day(self):
+        backfill_seals(
+            stable_feed_ids=[CONTINUOUS],
+            start_date=FRESH_START,
+            end_date=FRESH_END,
+            dry_run=False,
+            only_missing=False,
+            criteria=[SealCriterionName.FRESH_CONTINUOUS.value],
+            snapshot_mode="all",
+        )
+
+        expected = {
+            # Only the carried-in dataset so far: no boundary to break.
+            date(2026, 5, 10): CriterionStatus.PASS.value,
+            date(2026, 5, 11): CriterionStatus.PASS.value,
+            # The second dataset lands at 12:00 today, after this day's evaluation at 00:00.
+            date(2026, 5, 12): CriterionStatus.PASS.value,
+            # Now there are two, and the declared ranges leave the 21st to the 23rd uncovered.
+            date(2026, 5, 13): CriterionStatus.FAIL.value,
+            date(2026, 5, 14): CriterionStatus.FAIL.value,
+            date(2026, 5, 15): CriterionStatus.FAIL.value,
+            date(2026, 5, 16): CriterionStatus.FAIL.value,
+        }
+        actual = {
+            day: snapshot_row(
+                CONTINUOUS, SealCriterionName.FRESH_CONTINUOUS.value, day
             ).observed_status
             for day in expected
         }

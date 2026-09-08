@@ -16,6 +16,7 @@
 """Unit tests for the seal criterion evaluators. No database."""
 
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 
 from shared.common.continuous_coverage import MAX_COVERAGE_WINDOW
@@ -680,8 +681,21 @@ class TestFreshContinuous(unittest.TestCase):
         )
 
     def _verdict(self, older, newer, **overrides):
+        """Both datasets in one history, `older` downloaded before `newer`.
+
+        `_dataset` stamps them all at NOW, so they are re-stamped a day apart here: the
+        criterion resolves which is which from `downloaded_at`, not from argument order.
+        """
+        datasets = []
+        if older is not None:
+            datasets.append(replace(older, downloaded_at=NOW - timedelta(days=1)))
+        if newer is not None:
+            datasets.append(replace(newer, downloaded_at=NOW))
         return FreshContinuousEvaluator().evaluate(
-            _ctx(previous_dataset=older, closest_dataset=newer, **overrides)
+            _ctx(
+                history=_history(fresh_continuous=DatasetHistory({"feed-1": datasets})),
+                **overrides,
+            )
         )
 
     def _continuous_pair(self):
@@ -781,7 +795,8 @@ class TestFreshContinuous(unittest.TestCase):
         self.assertIn("ds-newer carries neither", result.reason)
 
     def test_a_feed_with_no_dataset_is_unknown(self):
-        result = FreshContinuousEvaluator().evaluate(_ctx())
+        """A load that ran and found nothing, which is not the same as no load at all."""
+        result = self._verdict(None, None)
         self.assertIs(result.observed_status, CriterionStatus.UNKNOWN)
         self.assertIn("no dataset", result.reason)
 
