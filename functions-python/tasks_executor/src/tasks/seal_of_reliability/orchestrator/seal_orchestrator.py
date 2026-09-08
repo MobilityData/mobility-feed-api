@@ -35,6 +35,8 @@ Payload (all optional)::
         "now": str | None,             # ISO timestamp, default current UTC time
         "limit": int | None,           # cap total eligible feeds considered, default None
         "stable_feed_ids": [str] | None,  # restrict eligibility to these ids, default None
+        # Wall clock for the whole run, not a function timeout: the monitor is a short
+        # invocation Cloud Tasks retries, so no single call runs anywhere near it.
         "deadline_seconds": int,       # default 3600 (1h)
         "monitor_delay_seconds": int,  # default 60
     }

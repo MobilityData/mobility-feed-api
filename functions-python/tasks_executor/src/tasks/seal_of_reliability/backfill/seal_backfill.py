@@ -35,9 +35,6 @@ day's `observed_status` and the evaluator is not called; a missing row, or one h
 UNKNOWN or NEVER_EVALUATED, is no verdict, so the evaluator is called. Grace, probation and
 the streak are worked out from whichever status was used, day by day, as always.
 
-Two limits, argued in misc/AI/seal_backfill_algorithm_1763.md: Official and Stable have no
-history and are read at today's values, and the cold start's error is not bounded by the
-window — so `days_back` is a cost decision, not a correctness guarantee.
 """
 
 import logging
@@ -97,8 +94,6 @@ from tasks.seal_of_reliability.state_machine import SealCriterionState, transiti
 
 logger = logging.getLogger(__name__)
 
-# Days rather than months, so the arithmetic needs no calendar library: 365 is #1763's
-# "12 months".
 DEFAULT_DAYS_BACK: int = 365
 
 # What to record in seal_criterion_snapshot: every marched day, only the last one, or none.

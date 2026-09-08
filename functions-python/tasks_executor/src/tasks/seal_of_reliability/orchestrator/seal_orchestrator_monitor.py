@@ -128,6 +128,9 @@ def _monitor(
     deadline_seconds = int(params.get("deadline_seconds", 0) or 0)
 
     settled = summary["triggered"] == 0
+    # Measured from when the orchestrator started, across every retry of this monitor -
+    # never within one invocation. Once it passes, stop waiting for the batches that
+    # never reported and settle the run as failed.
     past_deadline = (
         run_started_at is not None
         and deadline_seconds > 0

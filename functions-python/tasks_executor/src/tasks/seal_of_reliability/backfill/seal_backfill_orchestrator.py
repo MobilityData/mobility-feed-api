@@ -38,6 +38,8 @@ Payload (all optional)::
         "only_missing": bool,             # default True
         "snapshot_mode": str,             # final | all | none, default all
         "resume_from_snapshot": bool,     # default False
+        # Wall clock for the whole run, not a function timeout: the monitor is a short
+        # invocation Cloud Tasks retries, so no single call runs anywhere near it.
         "deadline_seconds": int,          # default 7200 (2h)
         "monitor_delay_seconds": int,     # default 300
     }
