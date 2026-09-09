@@ -22,11 +22,13 @@
 # The function must be located in the folder `functions-python/<function_name>`.
 # The function must be defined in the file `functions-python/<function_name>/main.py`.
 # The script look for a `.env.local` file in the function's folder to load environment variables.
+# Use --env_file to load a different one, e.g. a file pointing the function at another database.
 
 # Usage:
-#   function-python-run.sh --function_name <function name>
+#   function-python-run.sh --function_name <function name> [--env_file <file>]
 # Example:
 #   function-python-run.sh --function_name tokens
+#   function-python-run.sh --function_name tasks_executor --env_file config/.env.dupdb
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
@@ -42,11 +44,14 @@ display_usage() {
   echo "  --function_name <FUNCTION_NAME>     Name of the function to be executed."
   echo "  --index <integer>                   One based index of the function to be executed, if more than one function are decorated."
   echo "  --no_install_venv                   Do not install a python virtual environment."
+  echo "  --env_file <FILE>                   Environment file to load. Absolute, or relative to the"
+  echo "                                      function's folder, then to the repo root. Default .env.local."
   exit 1
 }
 
 index=1
 function_name=''
+env_file='.env.local'
 
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -70,6 +75,12 @@ while [[ $# -gt 0 ]]; do
     no_install_venv=true
     shift # past argument
     ;;
+  --env_file)
+    env_file="$2"
+    env_file_explicit=true
+    shift # past argument
+    shift # past value
+    ;;
   *)      # unknown option
     shift # past argument
     ;;
@@ -84,14 +95,35 @@ if [ ! -d "$FX_PATH" ]; then
   exit 1
 fi
 
-if [ ! -f "$FX_PATH/../.env.local" ]; then
-  printf "\nWARN: .env.local file not found at location: %s/../.env.local\n" "$FX_PATH"
+# A relative path is the function's own folder first - that is where .env.local lives - then
+# the repo root, so a shared file can be named as `config/.env.<something>`.
+case "$env_file" in
+/*) ENV_FILE="$env_file" ;;
+*)
+  ENV_FILE="$FX_PATH/../$env_file"
+  if [ ! -f "$ENV_FILE" ] && [ -f "$SCRIPT_PATH/../$env_file" ]; then
+    ENV_FILE="$SCRIPT_PATH/../$env_file"
+  fi
+  ;;
+esac
+
+if [ ! -f "$ENV_FILE" ]; then
+  # An env file asked for by name is a deliberate choice - usually pointing the function at
+  # another database - so falling back to the default would run against the wrong one silently.
+  if [ "${env_file_explicit:-}" = "true" ]; then
+    printf "\nERROR: env file not found at location: %s\n" "$ENV_FILE"
+    exit 1
+  fi
+  printf "\nWARN: %s file not found at location: %s\n" "$env_file" "$ENV_FILE"
 else
-  printf "\nINFO: loading environment variables from: %s/../.env.local\n" "$FX_PATH"
-  ENV_FILE="$FX_PATH/../.env.local"
-  while IFS='=' read -r key value
+  printf "\nINFO: loading environment variables from: %s\n" "$ENV_FILE"
+  while IFS= read -r line || [ -n "$line" ]
   do
-    export "$key=$value"
+    # Skip blanks, comments and anything that is not KEY=VALUE: exporting those fails with a
+    # confusing message naming whatever the line happened to contain.
+    if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      export "$line"
+    fi
   done < "$ENV_FILE"
 fi
 
