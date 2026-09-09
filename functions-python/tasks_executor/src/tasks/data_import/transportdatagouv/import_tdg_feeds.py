@@ -264,7 +264,7 @@ def _delete_and_recreate_feed_if_type_changed(
 
     # Operator-owned columns (OPERATOR_OWNED_FEED_COLUMNS) are not in any TDG payload, so
     # nothing upstream would ever set them again. Carry them across the delete/recreate by
-    # hand or a data_type flip silently clears them. See issue #1798.
+    # hand or a data_type flip silently clears them.
     preserved_seasonal = None
 
     if existing is not None and existing.data_type != feed_type:
@@ -363,7 +363,7 @@ def _update_common_tdg_fields(
     """
     # Only import-owned fields belong here: never assign anything in
     # OPERATOR_OWNED_FEED_COLUMNS (data_import_utils), which an operator sets by hand
-    # and this source does not carry. See issue #1798.
+    # and this source does not carry.
     feed.feed_name = dataset.get("title")
     feed.provider = (dataset.get("publisher") or {}).get("name")
     feed.producer_url = producer_url

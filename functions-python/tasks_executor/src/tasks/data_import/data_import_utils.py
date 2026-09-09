@@ -24,7 +24,7 @@ T = TypeVar("T", bound="Feed")
 # ODPT, JBDA) carries a seasonality signal, so the importers must never assign these -- the
 # only correct behaviour on every run is to leave the stored value alone, exactly as the
 # catalog CSV treats an empty `is_seasonal` cell. Enforced by the per-importer
-# `test_seasonal_survives_reimport` tests. See issue #1798.
+# `test_seasonal_survives_reimport` tests.
 OPERATOR_OWNED_FEED_COLUMNS: Final[tuple[str, ...]] = ("seasonal",)
 
 

@@ -104,8 +104,6 @@ _DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
 #
 # This is what lets a feed GET response be sent straight back as an update with no change
 # detected: absence means "unchanged" for every field that has no other way to say it.
-# `operational_status` replaced an `operational_status_action` field whose `no_change`
-# sentinel said it out loud while sitting outside the diff entirely. See issue #1798.
 _PRESERVE_WHEN_OMITTED_FIELDS: Final[tuple[str, ...]] = (
     "seasonal",
     "operational_status",

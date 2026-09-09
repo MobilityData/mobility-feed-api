@@ -109,9 +109,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
         # whose spec predates the field.
         if update_request.seasonal is not None:
             entity.seasonal = update_request.seasonal
-        # Tri-state as well: omitted means "leave the operational status alone". This used to
-        # be a separate `operational_status_action` field with a `no_change` sentinel, kept
-        # outside the diff; it is an ordinary diffed field now. See issue #1798.
+        # Tri-state as well: omitted means "leave the operational status alone".
         if update_request.operational_status is not None:
             entity.operational_status = update_request.operational_status
         entity.producer_url = (
