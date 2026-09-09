@@ -785,7 +785,7 @@ def test_latest_failure_continuous_coverage_never_failed():
     db_session = MagicMock()
     db_session.query.return_value.filter.return_value.scalar.return_value = None
 
-    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, MagicMock(), db_session) is None
+    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, MagicMock(), db_session=db_session) is None
 
 
 def test_latest_failure_continuous_coverage_resolves_the_dataset_of_the_moment(mocker):
@@ -802,7 +802,7 @@ def test_latest_failure_continuous_coverage_resolves_the_dataset_of_the_moment(m
     mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=previous_dataset)
     from_orm = mocker.patch.object(GtfsFeedContinuousCoverageImpl, "from_orm")
 
-    result = FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session)
+    result = FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session)
 
     from_orm.assert_called_once_with(failing_dataset, previous_dataset=previous_dataset, is_latest=False)
     assert result is from_orm.return_value
@@ -820,7 +820,7 @@ def test_latest_failure_continuous_coverage_marks_a_current_failure_as_latest(mo
     mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=None)
     from_orm = mocker.patch.object(GtfsFeedContinuousCoverageImpl, "from_orm")
 
-    FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session)
+    FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session)
 
     from_orm.assert_called_once_with(failing_dataset, previous_dataset=None, is_latest=True)
 
@@ -833,7 +833,7 @@ def test_latest_failure_continuous_coverage_no_dataset_at_the_moment(mocker):
     feed_datasets = MagicMock()
     feed_datasets.filter.return_value.order_by.return_value.options.return_value.first.return_value = None
 
-    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session) is None
+    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session) is None
 
 
 # ---- Regression tests: `datetime.fromisoformat` parses `Z`-suffixed dates directly on Python
