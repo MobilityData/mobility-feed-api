@@ -20,6 +20,7 @@ from flask import Request, Response
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from feeds_gen.apis.operations_api import router as FeedsApiRouter
+from feeds_gen.apis.early_access_api import router as EarlyAccessApiRouter
 from feeds_gen.apis.licenses_api import router as LicenseApiRouter
 from feeds_gen.apis.users_api import router as UsersApiRouter
 import functions_framework
@@ -54,6 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(FeedsApiRouter)
+app.include_router(EarlyAccessApiRouter)
 app.include_router(LicenseApiRouter)
 app.include_router(UsersApiRouter)
 

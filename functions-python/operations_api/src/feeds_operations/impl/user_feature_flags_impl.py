@@ -33,6 +33,7 @@ from feeds_gen.models.put_user_feature_flags_request import (
     PutUserFeatureFlagsRequest,
 )
 from feeds_gen.models.update_feature_flag_request import UpdateFeatureFlagRequest
+from feeds_operations.impl.models.feature_flag_validation import validate_value_type
 from feeds_operations.impl.models.operation_feature_flag_impl import (
     OperationFeatureFlagImpl,
 )
@@ -51,43 +52,6 @@ logger = logging.getLogger(__name__)
 _USER_FLAGS_LOAD = selectinload(AppUser.user_feature_flags).selectinload(
     UserFeatureFlag.feature_flag
 )
-
-# Maps a flag's value_type to the JSON/Python type(s) its value must have.
-_VALUE_TYPE_LABELS = {
-    "boolean": "a boolean",
-    "string": "a string",
-    "numeric": "a number",
-    "array": "an array",
-    "json": "an object",
-}
-
-
-def _validate_value_type(value_type: str, value) -> None:
-    """Ensures `value` is compatible with the declared `value_type`.
-
-    Raises HTTPException(422) when the value's shape does not match the type.
-    """
-    if value_type == "boolean":
-        ok = isinstance(value, bool)
-    elif value_type == "string":
-        ok = isinstance(value, str)
-    elif value_type == "numeric":
-        ok = isinstance(value, (int, float)) and not isinstance(value, bool)
-    elif value_type == "array":
-        ok = isinstance(value, list)
-    elif value_type == "json":
-        ok = isinstance(value, dict)
-    else:
-        ok = False
-
-    if not ok:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"default_value does not match value_type '{value_type}': "
-                f"expected {_VALUE_TYPE_LABELS.get(value_type, 'a valid value')}."
-            ),
-        )
 
 
 class UserFeatureFlagsApiImpl(BaseUsersApi):
@@ -151,7 +115,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             raise HTTPException(
                 status_code=409, detail="A feature flag with this ID already exists."
             )
-        _validate_value_type(
+        validate_value_type(
             create_feature_flag_request.value_type,
             create_feature_flag_request.default_value,
         )
@@ -189,7 +153,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         update_data = update_feature_flag_request.model_dump(exclude_unset=True)
         # value_type is immutable; validate any new default_value against it.
         if "default_value" in update_data:
-            _validate_value_type(flag.value_type, update_data["default_value"])
+            validate_value_type(flag.value_type, update_data["default_value"])
         for field, value in update_data.items():
             setattr(flag, field, value)
         db_session.flush()
@@ -231,7 +195,7 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
             # Verify each provided value matches the flag's declared value_type.
             for a in assignments:
                 if a.value is not None:
-                    _validate_value_type(value_type_by_id[a.feature_flag_id], a.value)
+                    validate_value_type(value_type_by_id[a.feature_flag_id], a.value)
 
         # Replace: delete all existing assignments then insert the new set
         db_session.query(UserFeatureFlag).filter_by(user_id=user_id).delete()
