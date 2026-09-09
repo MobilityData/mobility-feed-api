@@ -30,6 +30,10 @@ A confirmed failure starts probation, and probation suspends the grace period: i
 privilege, and a criterion serving a penalty for an earlier confirmed failure has forfeited
 it. That coupling is what makes IN_GRACE_PERIOD and ON_PROBATION mutually exclusive.
 
+The grace period runs from the day the streak began, not in days the criterion was seen
+failing, so it can expire on a day with no reading. It is confirmed then regardless: the
+evidence is the failures already observed.
+
 The seal (step 5, in seal_updater) requires every criterion in service to be a confirmed
 pass and not on probation.
 """
@@ -183,7 +187,8 @@ def transition(
       the criterion in the roll-up with its last verdict.
     * NOT_APPLICABLE — there is no question to ask. `confirmed_status` is written too, which
       is what withdraws the criterion from the roll-up, while probation and the failure
-      timestamps stay frozen in case the criterion becomes applicable again.
+      history stay frozen in case the criterion becomes applicable again. Any open streak is
+      closed: `first_observed_failure_at` is cleared, as it is on a recovery.
 
     Args:
         prev: The stored state, or None if this criterion has no row for this feed yet.
@@ -205,19 +210,51 @@ def transition(
     observed_status = observation.observed_status
 
     if not observed_status.is_verdict:
-        # UNKNOWN keeps the stored confirmed_status so the criterion stays in the roll-up
-        # with its last verdict; NOT_APPLICABLE overwrites it so the criterion leaves the
-        # roll-up. Neither touches probation or the failure timestamps, and neither moves
-        # last_verdict_at — no verdict was produced.
-        confirmed_status = (
-            CriterionStatus.NOT_APPLICABLE
-            if observed_status is CriterionStatus.NOT_APPLICABLE
-            else base.confirmed_status
+        # The criterion does not apply to this feed, so it drops out of the roll-up.
+        # `probation_start` and the `last_*` timestamps stay, in case it applies again
+        # later. `first_observed_failure_at` does not: it marks a streak running now,
+        # and there is nothing to fail while the criterion does not apply. Left set,
+        # the grace-expiry check below would find it weeks later and confirm a failure.
+        if observed_status is CriterionStatus.NOT_APPLICABLE:
+            return replace(
+                base,
+                observed_status=observed_status,
+                confirmed_status=CriterionStatus.NOT_APPLICABLE,
+                evaluated_at=now,
+                first_observed_failure_at=None,
+            )
+
+        # UNKNOWN keeps the stored verdict, unless the streak has already outlived its
+        # grace: today's missing reading does not undo the failures behind it. Only the first
+        # such day confirms, or probation would advance on days nobody measured.
+        outlived_grace = (
+            grace_period is not None
+            and base.confirmed_status is not CriterionStatus.FAIL
+            and base.first_observed_failure_at is not None
+            and base.last_verdict_at is not None
+            and now - base.first_observed_failure_at >= grace_period
         )
+        if outlived_grace:
+            # Stamped at the last observed failure, not today: today has nothing to point at.
+            last_seen = base.last_observed_failure_at
+            return replace(
+                base,
+                observed_status=observed_status,
+                confirmed_status=CriterionStatus.FAIL,
+                evaluated_at=now,
+                last_confirmed_failure_at=last_seen,
+                probation_start=(
+                    _next_day_start(last_seen)
+                    if probation_period is not None
+                    else base.probation_start
+                ),
+            )
+
+        # No branch here moves last_verdict_at: the check ran, but returned no verdict.
         return replace(
             base,
             observed_status=observed_status,
-            confirmed_status=confirmed_status,
+            confirmed_status=base.confirmed_status,
             evaluated_at=now,
         )
 

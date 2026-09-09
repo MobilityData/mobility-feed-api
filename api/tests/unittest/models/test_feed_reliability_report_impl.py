@@ -108,7 +108,9 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
         assert criteria["official"].status == CriterionStatus.PASS.value
         assert criteria["available"].status == CriterionStatus.FAIL.value
         assert criteria["available"].in_grace_period is False
-        assert criteria["compliant"].status == CriterionStatus.FAIL.value
+        # Failing its daily check but still inside grace, so it is not what cost the seal:
+        # `available` is. It reads `pass`, at risk.
+        assert criteria["compliant"].status == CriterionStatus.PASS.value
         assert criteria["compliant"].in_grace_period is True
 
     def test_evaluated_at_is_latest_across_criteria(self):

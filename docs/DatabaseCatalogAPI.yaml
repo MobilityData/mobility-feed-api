@@ -1203,13 +1203,14 @@ components:
       description: >
         One criterion's contribution to the Seal of Reliability.
 
-        `status` is the criterion's own check at the last evaluation, undebounced, so a criterion
-        can read `fail` while the feed still holds the seal - that is the at-risk state, and
-        `in_grace_period` distinguishes it from a confirmed failure. Conversely a criterion can
-        read `pass` while `on_probation` is true, in which case it still does not count towards
-        the seal. The three states a client renders are therefore: healthy (`pass`), at risk
-        (`fail` with `in_grace_period`), and failing (`fail` without it) - with `on_probation`
-        as an independent flag on top.
+        `status` is the criterion's debounced verdict - the one the seal is decided on, so a
+        client can always explain the `has_seal` beside it. A criterion failing its daily check
+        but still inside its grace period reads `pass` with `in_grace_period` true: grace is not
+        a failing state, it is the warning before one. Conversely a criterion can read `pass`
+        while `on_probation` is true, in which case it still does not count towards the seal.
+        The three states a client renders are therefore: healthy (`pass`), at risk (`pass` with
+        `in_grace_period`), and failing (`fail`) - with `on_probation` as an independent flag
+        on top.
       type: object
       required:
         - criterion
@@ -1237,14 +1238,15 @@ components:
           example: compliant
         status:
           description: >
-            The criterion's verdict at the last evaluation, with no grace period applied.
-              * `pass` - the check passed.
-              * `fail` - the check failed. The seal is only withdrawn once the failure outlasts
-                the criterion's grace period, so check `in_grace_period` before presenting this
-                as a loss.
-              * `unknown` - the criterion was evaluated but its inputs were missing, so no verdict
-                could be reached this time. It is skipped when deciding the seal rather than counted
-                as a failure.
+            The criterion's debounced verdict: what it contributes to the seal, grace period
+            already applied.
+              * `pass` - the criterion is not counting against the seal. Either its check passed,
+                or the check failed and the failure is still inside the criterion's grace period,
+                which `in_grace_period` tells apart.
+              * `fail` - the failure is confirmed and the criterion is withholding the seal.
+              * `unknown` - not produced. A run whose inputs were missing reaches no verdict and
+                leaves this value untouched, so the last verdict stands. Listed only because the
+                underlying column can hold it.
               * `not_applicable` - the criterion does not apply to this feed (for example a
                 coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
               * `never_evaluated` - the criterion has produced no verdict for this feed yet. It is
@@ -1259,10 +1261,12 @@ components:
           example: fail
         in_grace_period:
           description: >
-            Whether a failing check is still inside the criterion's grace period, and so is not
-            yet counting against the seal. Can only be true while `status` is `fail`, and is
-            always false while `on_probation` is true, since a failure during probation restarts
-            probation outright rather than being absorbed.
+            Whether the criterion's daily check is currently failing but the failure is still
+            inside its grace period, and so is not yet counting against the seal. This is the
+            at-risk state, and the only thing in the response that reports the raw daily check.
+            Can only be true while `status` is `pass`, and is always false while `on_probation`
+            is true, since a failure during probation restarts probation outright rather than
+            being absorbed.
           type: boolean
           example: true
         grace_period_ends_at:
