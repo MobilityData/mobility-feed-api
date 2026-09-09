@@ -32,7 +32,6 @@ def _make_request(source_info: SourceInfo, **overrides) -> UpdateRequestGtfsFeed
         source_info=source_info,
         redirects=[],
         external_ids=[],
-        operational_status_action="no_change",
         official=True,
     )
     payload.update(overrides)
@@ -104,6 +103,65 @@ def test_detect_changes_detects_cleared_list():
         external_ids=[ExternalId(external_id="e1", source="s1")],
     )
     requested = _make_request(source_info, external_ids=[])
+
+    diff = _detect(current, requested)
+
+    assert diff.affected_paths
+
+
+def test_detect_changes_ignores_omitted_seasonal():
+    """Issue #1798: an omitted `seasonal` means preserve, so it is not a change.
+
+    `to_orm` skips a None `seasonal`, so reporting it here would push `_update_feed` down
+    the write branch for nothing: a 200 instead of a 204, plus a materialized view refresh
+    and a web revalidation task on an update that changes nothing.
+    """
+    source_info = SourceInfo(producer_url="https://example.com/feed")
+    current = _make_request(source_info, seasonal=True)
+    requested = _make_request(source_info)  # client's spec predates the field
+
+    assert requested.seasonal is None
+    diff = _detect(current, requested)
+
+    assert not diff.affected_paths
+
+
+def test_detect_changes_detects_explicitly_cleared_seasonal():
+    """An explicit false is a real edit and must still be reported, unlike an omission."""
+    source_info = SourceInfo(producer_url="https://example.com/feed")
+    current = _make_request(source_info, seasonal=True)
+    requested = _make_request(source_info, seasonal=False)
+
+    diff = _detect(current, requested)
+
+    assert diff.affected_paths
+
+
+def test_detect_changes_ignores_omitted_operational_status():
+    """Omitting `operational_status` means preserve, so it is not a change.
+
+    Replaces the old `operational_status_action="no_change"` sentinel, which sat outside the
+    diff entirely.
+    """
+    source_info = SourceInfo(producer_url="https://example.com/feed")
+    current = _make_request(source_info, operational_status="published")
+    requested = _make_request(source_info)
+
+    assert requested.operational_status is None
+    diff = _detect(current, requested)
+
+    assert not diff.affected_paths
+
+
+def test_detect_changes_detects_operational_status_change():
+    """A real status change is reported by the diff rather than bypassing it.
+
+    It used to be invisible to change detection and applied by a special case in
+    `_populate_feed_values`; now the diff is the single gate on whether a write happens.
+    """
+    source_info = SourceInfo(producer_url="https://example.com/feed")
+    current = _make_request(source_info, operational_status="wip")
+    requested = _make_request(source_info, operational_status="published")
 
     diff = _detect(current, requested)
 

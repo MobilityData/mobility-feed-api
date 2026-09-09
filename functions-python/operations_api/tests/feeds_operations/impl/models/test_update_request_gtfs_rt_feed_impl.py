@@ -35,6 +35,7 @@ def test_from_orm():
         license_url="http://license.url",
         redirectingids=[redirecting_id],
         externalids=[external_id],
+        seasonal=True,
     )
 
     result = UpdateRequestGtfsRtFeedImpl.from_orm(gtfs_feed)
@@ -48,6 +49,7 @@ def test_from_orm():
     assert result.source_info.authentication_type == 1
     assert result.source_info.authentication_info_url == "http://auth.info.url"
     assert result.source_info.api_key_parameter_name == "api_key"
+    assert result.seasonal is True
     assert result.source_info.license_url == "http://license.url"
     assert len(result.redirects) == 1
     assert result.redirects[0].target_id == "target_stable_id"
@@ -79,6 +81,7 @@ def test_to_orm():
         external_ids=[ExternalIdImpl(external_id="external_id")],
         entity_types=["vp"],
         feed_references=["feed_reference"],
+        seasonal=True,
     )
     entity = Gtfsrealtimefeed(id="1", stable_id="stable_id", data_type="gtfs")
     target_feed = Gtfsfeed(id=2, stable_id="target_stable_id")
@@ -98,6 +101,7 @@ def test_to_orm():
     assert result.note == "note"
     assert result.feed_contact_email == "email@example.com"
     assert result.producer_url == "http://producer.url"
+    assert result.seasonal is True
     assert result.authentication_type == "1"
     assert result.authentication_info_url == "http://auth.info.url"
     assert result.api_key_parameter_name == "api_key"

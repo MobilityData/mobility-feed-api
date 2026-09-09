@@ -172,6 +172,9 @@ def _get_license_url(license_type: Optional[str]) -> Optional[str]:
 
 def _update_common_feed_fields(feed: Feed, item: dict, producer_url: str) -> None:
     """Update common fields of a Feed (Gtfsfeed or Gtfsrealtimefeed) from an ODPT feed item."""
+    # Only import-owned fields belong here: never assign anything in
+    # OPERATOR_OWNED_FEED_COLUMNS (data_import_utils), which an operator sets by hand
+    # and this source does not carry. See issue #1798.
     logger.debug(
         "Updating common fields for feed id=%s stable_id=%s",
         getattr(feed, "id", None),
