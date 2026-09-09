@@ -18,6 +18,8 @@
 from datetime import date
 from typing import Optional, Sequence, Tuple
 
+from sqlalchemy.orm import Session
+
 from shared.common.continuous_coverage import (
     CALENDAR_FILES,
     FEED_INFO_FILE,
@@ -29,6 +31,7 @@ from shared.common.continuous_coverage import (
 )
 from shared.common.seal_criteria import CriterionStatus, SealCriterionName
 from tasks.seal_of_reliability.context import DatasetCoverage, FeedSealContext
+from tasks.seal_of_reliability.history import DatasetHistory, load_dataset_history
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 Window = Tuple[date, date]
@@ -110,8 +113,28 @@ class FreshContinuousEvaluator(CriterionEvaluator):
 
     name = SealCriterionName.FRESH_CONTINUOUS
 
+    def load_history(
+        self,
+        db_session: Session,
+        feeds: Sequence,
+        days: Sequence[date],
+    ) -> Optional[DatasetHistory]:
+        """The datasets the batch's feeds had over `days`. See `load_dataset_history`.
+
+        Both sides of the boundary come from it: the closest dataset on the day being
+        evaluated, and the one downloaded before it.
+        """
+        return load_dataset_history(db_session, feeds, days)
+
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
-        newer = ctx.closest_dataset
+        if ctx.history is None or not ctx.history.has_history_for(self.name):
+            return (
+                CriterionStatus.UNKNOWN,
+                "fresh_continuous history was never loaded for this run - the context was "
+                "built without calling load_history",
+            )
+
+        newer = ctx.history.get_closest_dataset_at(ctx.feed_id, ctx.now)
         if newer is None:
             return CriterionStatus.UNKNOWN, "the feed has no dataset"
 
@@ -136,7 +159,7 @@ class FreshContinuousEvaluator(CriterionEvaluator):
                 f"{MAX_COVERAGE_WINDOW.days}-day maximum coverage window",
             )
         # 2. nothing published before it, so no boundary to judge
-        older = ctx.previous_dataset
+        older = ctx.history.get_previous_dataset_at(ctx.feed_id, ctx.now)
         if older is None:
             return (
                 CriterionStatus.PASS,
