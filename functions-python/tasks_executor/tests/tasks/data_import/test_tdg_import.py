@@ -374,7 +374,7 @@ class TestImportTDG(unittest.TestCase):
 
     @with_db_session(db_url=default_db_url)
     def test_seasonal_survives_reimport(self, db_session: Session):
-        """`seasonal` is operator-owned, so a re-import must leave it alone (issue #1798).
+        """`seasonal` is operator-owned, so a re-import must leave it alone.
 
         No TDG payload carries a seasonality signal, so if the importer ever wrote the
         column the flag would be cleared on the next monthly run and the feed would silently

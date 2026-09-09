@@ -221,7 +221,7 @@ async def test_update_gtfs_feed_seasonal_field(
 async def test_update_gtfs_feed_omitted_seasonal_is_preserved(
     mock_revalidation, update_request_gtfs_feed, db_session
 ):
-    """Issue #1798: a request that never mentions `seasonal` must not clear it.
+    """A request that never mentions `seasonal` must not clear it.
 
     Clients generated from a spec predating the field send no `seasonal` at all. While the
     property carried `default: false`, that omission reset an operator-set flag on the next

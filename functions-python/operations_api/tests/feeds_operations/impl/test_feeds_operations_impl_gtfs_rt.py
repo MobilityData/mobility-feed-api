@@ -207,7 +207,7 @@ async def test_update_gtfs_rt_feed_seasonal_field(
 async def test_update_gtfs_rt_feed_omitted_seasonal_is_preserved(
     mock_revalidation, update_request_gtfs_rt_feed, db_session
 ):
-    """Issue #1798: a request that never mentions `seasonal` must not clear it."""
+    """A request that never mentions `seasonal` must not clear it."""
     seeded_feed = (
         db_session.query(Gtfsrealtimefeed)
         .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)

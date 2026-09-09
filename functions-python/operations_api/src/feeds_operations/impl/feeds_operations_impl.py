@@ -511,8 +511,6 @@ class OperationsApiImpl(BaseOperationsApi):
 
     @staticmethod
     def _populate_feed_values(feed, impl_class, session, update_request_feed):
-        # `operational_status` is written by `to_orm` like any other field now; it no longer
-        # needs applying by hand here, because it is no longer invisible to the diff.
         impl_class.to_orm(update_request_feed, feed, session)
         session.add(feed)
 

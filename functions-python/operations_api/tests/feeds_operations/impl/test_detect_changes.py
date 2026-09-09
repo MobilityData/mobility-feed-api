@@ -110,7 +110,7 @@ def test_detect_changes_detects_cleared_list():
 
 
 def test_detect_changes_ignores_omitted_seasonal():
-    """Issue #1798: an omitted `seasonal` means preserve, so it is not a change.
+    """An omitted `seasonal` means preserve, so it is not a change.
 
     `to_orm` skips a None `seasonal`, so reporting it here would push `_update_feed` down
     the write branch for nothing: a 200 instead of a 204, plus a materialized view refresh
