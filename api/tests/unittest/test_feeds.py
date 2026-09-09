@@ -624,7 +624,7 @@ def test_gtfs_feed_get_without_seal_reports_null(client: TestClient):
     assert response.json()["reliability_seal"] is None
 
 
-# ---- Unit tests for the continuous coverage endpoint's `latest_*` root fields ----
+# ---- Unit tests for the continuous coverage endpoint's two states ----
 
 
 def test_latest_continuous_coverage_no_latest_dataset():
@@ -661,31 +661,47 @@ def test_latest_continuous_coverage_delegates_to_the_model_impl(mocker):
     assert result is from_orm.return_value
 
 
-def test_get_gtfs_feed_continuous_coverage_maps_latest_fields(mocker):
-    """The response's root `latest_*` fields are the `_latest_continuous_coverage` snapshot, not the
-    first item of whatever page was requested."""
-    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
-    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
-
-    latest_coverage = GtfsFeedContinuousCoverage(
-        dataset_id="dataset-latest",
-        is_latest=True,
+def _coverage(dataset_id: str, previous_dataset_id: str, is_latest: bool, gap_days=None):
+    """A coverage state object."""
+    return GtfsFeedContinuousCoverage(
+        dataset_id=dataset_id,
+        is_latest=is_latest,
         coverage_window=ServiceDateWindow(start=date(2026, 9, 16), end=date(2027, 7, 28), days=316),
         coverage_window_source="service_dates",
         within_max_coverage_window=True,
         service_window=ServiceDateWindow(start=date(2026, 9, 16), end=date(2027, 7, 28), days=316),
         feed_info_window=None,
         feed_info_matches=None,
-        overlap_days=15,
-        gap_days=None,
+        previous_dataset_id=previous_dataset_id,
+        overlap_days=None if gap_days else 15,
+        gap_days=gap_days,
         files=[GtfsFeedContinuousCoverageFile(name=name, present=True) for name in COVERAGE_FILES],
     )
-    mocker.patch.object(FeedsApiImpl, "_latest_continuous_coverage", return_value=latest_coverage)
 
+
+def _empty_page_session():
+    """A session whose dataset query returns no rows, leaving only the two states under test."""
     db_session = MagicMock()
     db_session.query.return_value.filter.return_value.count.return_value = 0
     empty_page = db_session.query.return_value.filter.return_value.order_by.return_value
     empty_page.offset.return_value.limit.return_value.options.return_value.all.return_value = []
+    return db_session
+
+
+def test_get_gtfs_feed_continuous_coverage_maps_both_states(mocker):
+    """Both states come from their own lookup, not from the first item of the requested page."""
+    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+    mocker.patch.object(
+        FeedsApiImpl,
+        "_latest_continuous_coverage",
+        return_value=_coverage("dataset-latest", "dataset-previous", is_latest=True),
+    )
+    mocker.patch.object(
+        FeedsApiImpl,
+        "_latest_failure_continuous_coverage",
+        return_value=_coverage("dataset-broke", "dataset-before-broke", is_latest=False, gap_days=3),
+    )
 
     response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
         id="mdb-1",
@@ -693,30 +709,59 @@ def test_get_gtfs_feed_continuous_coverage_maps_latest_fields(mocker):
         downloaded_before=None,
         limit=20,
         offset=0,
-        db_session=db_session,
+        db_session=_empty_page_session(),
     )
 
-    assert response.latest_coverage_window.start == date(2026, 9, 16)
-    assert response.latest_coverage_window_source == "service_dates"
-    assert response.latest_within_max_coverage_window is True
-    assert response.latest_service_window.end == date(2027, 7, 28)
-    assert response.latest_feed_info_window is None
-    assert response.latest_feed_info_matches is None
-    assert response.latest_overlap_days == 15
-    assert response.latest_gap_days is None
-    assert [f.present for f in response.latest_files] == [True] * len(COVERAGE_FILES)
+    assert response.latest_state.dataset_id == "dataset-latest"
+    assert response.latest_state.is_latest is True
+    assert response.latest_state.coverage_window.start == date(2026, 9, 16)
+    assert response.latest_state.coverage_window_source == "service_dates"
+    assert response.latest_state.within_max_coverage_window is True
+    assert response.latest_state.service_window.end == date(2027, 7, 28)
+    assert response.latest_state.feed_info_window is None
+    assert response.latest_state.feed_info_matches is None
+    assert response.latest_state.overlap_days == 15
+    assert response.latest_state.gap_days is None
+    assert [f.present for f in response.latest_state.files] == [True] * len(COVERAGE_FILES)
+
+    assert response.latest_failure.dataset_id == "dataset-broke"
+    assert response.latest_failure.is_latest is False
+    assert response.latest_failure.gap_days == 3
+    # At most four datasets across both states.
+    assert {
+        response.latest_state.dataset_id,
+        response.latest_state.previous_dataset_id,
+        response.latest_failure.dataset_id,
+        response.latest_failure.previous_dataset_id,
+    } == {"dataset-latest", "dataset-previous", "dataset-broke", "dataset-before-broke"}
+
+
+def test_get_gtfs_feed_continuous_coverage_states_can_share_datasets(mocker):
+    """A feed failing right now reports the same dataset in both states."""
+    feed = Gtfsfeed(latest_dataset_id="dataset-latest")
+    mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
+    current = _coverage("dataset-latest", "dataset-previous", is_latest=True, gap_days=3)
+    mocker.patch.object(FeedsApiImpl, "_latest_continuous_coverage", return_value=current)
+    mocker.patch.object(FeedsApiImpl, "_latest_failure_continuous_coverage", return_value=current)
+
+    response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
+        id="mdb-1",
+        downloaded_after=None,
+        downloaded_before=None,
+        limit=20,
+        offset=0,
+        db_session=_empty_page_session(),
+    )
+
+    assert response.latest_state.dataset_id == response.latest_failure.dataset_id == "dataset-latest"
+    assert response.latest_failure.is_latest is True, "the failure is the feed's current dataset"
 
 
 def test_get_gtfs_feed_continuous_coverage_no_latest_dataset(mocker):
-    """A feed with no datasets still returns the required `latest_files` list, with every file
-    reported absent rather than the field being omitted."""
+    """A feed with no datasets reports both states as null, not as empty objects."""
     feed = Gtfsfeed(latest_dataset_id=None)
     mocker.patch.object(FeedsApiImpl, "_get_gtfs_feed", return_value=feed)
-
-    db_session = MagicMock()
-    db_session.query.return_value.filter.return_value.count.return_value = 0
-    empty_page = db_session.query.return_value.filter.return_value.order_by.return_value
-    empty_page.offset.return_value.limit.return_value.options.return_value.all.return_value = []
+    mocker.patch.object(FeedsApiImpl, "_latest_failure_continuous_coverage", return_value=None)
 
     response = FeedsApiImpl().get_gtfs_feed_continuous_coverage(
         id="mdb-1",
@@ -724,12 +769,71 @@ def test_get_gtfs_feed_continuous_coverage_no_latest_dataset(mocker):
         downloaded_before=None,
         limit=20,
         offset=0,
-        db_session=db_session,
+        db_session=_empty_page_session(),
     )
 
-    assert response.latest_coverage_window is None
-    assert [f.name for f in response.latest_files] == list(COVERAGE_FILES)
-    assert [f.present for f in response.latest_files] == [False] * len(COVERAGE_FILES)
+    assert response.latest_state is None
+    assert response.latest_failure is None
+
+
+# ---- Unit tests for `latest_failure` ----
+
+
+def test_latest_failure_continuous_coverage_never_failed():
+    """No recorded failure means no failure state."""
+    feed = Gtfsfeed(id="feed-1", latest_dataset_id="dataset-latest")
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.scalar.return_value = None
+
+    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, MagicMock(), db_session=db_session) is None
+
+
+def test_latest_failure_continuous_coverage_resolves_the_dataset_of_the_moment(mocker):
+    """The failing dataset is the last one downloaded at or before the recorded failure."""
+    failed_at = datetime(2026, 6, 28, tzinfo=timezone.utc)
+    feed = Gtfsfeed(id="feed-1", latest_dataset_id="dataset-latest")
+    failing_dataset = Gtfsdataset(id="dataset-broke", stable_id="dataset-broke")
+    previous_dataset = Gtfsdataset(id="dataset-before-broke", stable_id="dataset-before-broke")
+
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.scalar.return_value = failed_at
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value.order_by.return_value.options.return_value.first.return_value = failing_dataset
+    mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=previous_dataset)
+    from_orm = mocker.patch.object(GtfsFeedContinuousCoverageImpl, "from_orm")
+
+    result = FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session)
+
+    from_orm.assert_called_once_with(failing_dataset, previous_dataset=previous_dataset, is_latest=False)
+    assert result is from_orm.return_value
+
+
+def test_latest_failure_continuous_coverage_marks_a_current_failure_as_latest(mocker):
+    """A failure resolving to the feed's current dataset is flagged `is_latest`."""
+    feed = Gtfsfeed(id="feed-1", latest_dataset_id="dataset-latest")
+    failing_dataset = Gtfsdataset(id="dataset-latest", stable_id="dataset-latest")
+
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.scalar.return_value = datetime(2026, 6, 28, tzinfo=timezone.utc)
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value.order_by.return_value.options.return_value.first.return_value = failing_dataset
+    mocker.patch.object(FeedsApiImpl, "_previous_dataset", return_value=None)
+    from_orm = mocker.patch.object(GtfsFeedContinuousCoverageImpl, "from_orm")
+
+    FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session)
+
+    from_orm.assert_called_once_with(failing_dataset, previous_dataset=None, is_latest=True)
+
+
+def test_latest_failure_continuous_coverage_no_dataset_at_the_moment(mocker):
+    """A failure older than every dataset the feed still has leaves nothing to report."""
+    feed = Gtfsfeed(id="feed-1", latest_dataset_id="dataset-latest")
+    db_session = MagicMock()
+    db_session.query.return_value.filter.return_value.scalar.return_value = datetime(2026, 6, 28, tzinfo=timezone.utc)
+    feed_datasets = MagicMock()
+    feed_datasets.filter.return_value.order_by.return_value.options.return_value.first.return_value = None
+
+    assert FeedsApiImpl._latest_failure_continuous_coverage(feed, feed_datasets, db_session=db_session) is None
 
 
 # ---- Regression tests: `datetime.fromisoformat` parses `Z`-suffixed dates directly on Python
@@ -745,6 +849,7 @@ def test_get_gtfs_feed_continuous_coverage_accepts_z_suffixed_dates(mocker):
 
     feed_datasets = MagicMock()
     feed_datasets.filter.return_value = feed_datasets  # chained `.filter()` calls stay on one mock
+    feed_datasets.scalar.return_value = None  # no recorded failure, so `latest_failure` is skipped
     feed_datasets.count.return_value = 0
     feed_datasets.order_by.return_value.offset.return_value.limit.return_value.options.return_value.all.return_value = (
         []
@@ -830,6 +935,7 @@ def test_get_gtfs_feed_continuous_coverage_mixed_naive_and_aware_dates(mocker):
 
     feed_datasets = MagicMock()
     feed_datasets.filter.return_value = feed_datasets
+    feed_datasets.scalar.return_value = None  # no recorded failure, so `latest_failure` is skipped
     feed_datasets.count.return_value = 0
     feed_datasets.order_by.return_value.offset.return_value.limit.return_value.options.return_value.all.return_value = (
         []

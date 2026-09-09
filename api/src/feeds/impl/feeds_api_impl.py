@@ -21,11 +21,9 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
 from feeds_gen.models.gtfs_feed_continuous_coverage import GtfsFeedContinuousCoverage
-from feeds_gen.models.gtfs_feed_continuous_coverage_file import GtfsFeedContinuousCoverageFile
 from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedContinuousCoverageResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
-from shared.common.continuous_coverage import COVERAGE_FILES
 from shared.common.db_utils import (
     get_gtfs_feeds_query,
     get_gtfs_rt_feeds_query,
@@ -33,6 +31,7 @@ from shared.common.db_utils import (
     add_official_filter,
     get_gbfs_feeds_query,
 )
+from shared.common.seal_criteria import SealCriterionName
 from shared.common.error_handling import (
     availability_from_after_to,
     continuous_coverage_downloaded_after_before,
@@ -50,6 +49,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
+    SealCriterion,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -431,26 +431,13 @@ class FeedsApiImpl(BaseFeedsApi):
             for dataset, next_dataset in zip(page, page[1:] + [None])
         ]
 
-        latest_coverage = self._latest_continuous_coverage(feed, feed_datasets)
-
         return GtfsFeedContinuousCoverageResponse(
             feed_id=id,
             total=total,
             offset=offset,
             limit=limit,
-            latest_files=(
-                latest_coverage.files
-                if latest_coverage
-                else [GtfsFeedContinuousCoverageFile(name=name, present=False) for name in COVERAGE_FILES]
-            ),
-            latest_coverage_window=latest_coverage.coverage_window if latest_coverage else None,
-            latest_coverage_window_source=latest_coverage.coverage_window_source if latest_coverage else None,
-            latest_within_max_coverage_window=(latest_coverage.within_max_coverage_window if latest_coverage else None),
-            latest_service_window=latest_coverage.service_window if latest_coverage else None,
-            latest_feed_info_window=latest_coverage.feed_info_window if latest_coverage else None,
-            latest_feed_info_matches=latest_coverage.feed_info_matches if latest_coverage else None,
-            latest_overlap_days=latest_coverage.overlap_days if latest_coverage else None,
-            latest_gap_days=latest_coverage.gap_days if latest_coverage else None,
+            latest_state=self._latest_continuous_coverage(feed, feed_datasets),
+            latest_failure=self._latest_failure_continuous_coverage(feed, feed_datasets),
             items=[
                 GtfsFeedContinuousCoverageImpl.from_orm(
                     dataset,
@@ -463,10 +450,7 @@ class FeedsApiImpl(BaseFeedsApi):
 
     @staticmethod
     def _latest_continuous_coverage(feed: Gtfsfeed, feed_datasets: Query) -> Optional[GtfsFeedContinuousCoverage]:
-        """The coverage snapshot for the feed's latest dataset, independent of the requested page or
-        date filters - the root `latest_*` response fields always describe this dataset, even when it
-        falls outside the current page or date range.
-        """
+        """`latest_state`: the feed's latest dataset, whatever page or date range was requested."""
         if feed.latest_dataset_id is None:
             return None
         latest_dataset = (
@@ -474,10 +458,45 @@ class FeedsApiImpl(BaseFeedsApi):
             .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
             .first()
         )
-        if latest_dataset is None:
+        return FeedsApiImpl._continuous_coverage_for(feed, feed_datasets, latest_dataset)
+
+    @staticmethod
+    @with_db_session()
+    def _latest_failure_continuous_coverage(
+        feed: Gtfsfeed, feed_datasets: Query, db_session: Session
+    ) -> Optional[GtfsFeedContinuousCoverage]:
+        """`latest_failure`: the state as of the criterion's `last_observed_failure_at`."""
+        failed_at = (
+            db_session.query(SealCriterion.last_observed_failure_at)
+            .filter(
+                SealCriterion.feed_id == feed.id,
+                SealCriterion.criterion == SealCriterionName.FRESH_CONTINUOUS.value,
+            )
+            .scalar()
+        )
+        if failed_at is None:
             return None
-        previous = FeedsApiImpl._previous_dataset(feed_datasets, latest_dataset)
-        return GtfsFeedContinuousCoverageImpl.from_orm(latest_dataset, previous_dataset=previous, is_latest=True)
+        failing_dataset = (
+            feed_datasets.filter(Gtfsdataset.downloaded_at <= failed_at)
+            .order_by(*FeedsApiImpl._continuous_coverage_order())
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .first()
+        )
+        return FeedsApiImpl._continuous_coverage_for(feed, feed_datasets, failing_dataset)
+
+    @staticmethod
+    def _continuous_coverage_for(
+        feed: Gtfsfeed, feed_datasets: Query, dataset: Optional[Gtfsdataset]
+    ) -> Optional[GtfsFeedContinuousCoverage]:
+        """One state object: `dataset` measured against the dataset downloaded before it."""
+        if dataset is None:
+            return None
+        previous = FeedsApiImpl._previous_dataset(feed_datasets, dataset)
+        return GtfsFeedContinuousCoverageImpl.from_orm(
+            dataset,
+            previous_dataset=previous,
+            is_latest=dataset.id == feed.latest_dataset_id,
+        )
 
     @staticmethod
     def _continuous_coverage_order() -> tuple:
