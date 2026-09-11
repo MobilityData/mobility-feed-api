@@ -39,6 +39,7 @@ def get_gtfs_feeds_query(
     stable_id: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
+    status: str | None = None,
     provider: str | None = None,
     producer_url: str | None = None,
     country_code: str | None = None,
@@ -54,6 +55,7 @@ def get_gtfs_feeds_query(
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
         stable_id=stable_id,
+        status=status,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
         location=None,
