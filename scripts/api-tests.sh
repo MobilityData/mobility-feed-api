@@ -86,7 +86,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Defaults first, then this worktree's overrides (if any) so its host ports win.
+# Later duplicate keys take precedence in a dotenv file. CI never creates
+# config/.env.worktree, so CI keeps the historical 5432 / 54320.
 cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
+if [ -f $ABS_SCRIPTPATH/../config/.env.worktree ]; then
+  cat $ABS_SCRIPTPATH/../config/.env.worktree >> $ABS_SCRIPTPATH/../.env
+fi
 
 execute_tests() {
   printf "\nExecuting tests in $1\n"
