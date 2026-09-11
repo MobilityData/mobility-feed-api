@@ -6,9 +6,12 @@ import pytest
 # Ensure src is on the path for these standalone unit tests.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../src"))
 
-# Users test database, matching the Liquibase target in the CI "Run tests" job
+from tests.test_utils.db_url import users_test_database_url as resolve_users_test_database_url  # noqa: E402
+
+# Users test database. Per worktree - see tests/test_utils/db_url.py. Defaults to
+# the CI "Run tests" Liquibase target
 # (liquibase update on jdbc:postgresql://localhost:54320/MobilityDatabaseUsersTest).
-USERS_TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseUsersTest"
+USERS_TEST_DATABASE_URL = resolve_users_test_database_url()
 
 
 @pytest.fixture
@@ -20,7 +23,7 @@ def users_test_database_url():
     ``USERS_DATABASE_URL`` and on the CI test database.
     """
     previous = os.environ.get("USERS_DATABASE_URL")
-    os.environ["USERS_DATABASE_URL"] = os.getenv("TEST_USERS_DATABASE_URL", USERS_TEST_DATABASE_URL)
+    os.environ["USERS_DATABASE_URL"] = USERS_TEST_DATABASE_URL
     try:
         yield os.environ["USERS_DATABASE_URL"]
     finally:

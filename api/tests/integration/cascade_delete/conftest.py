@@ -8,6 +8,7 @@ from sqlalchemy import text
 from shared.database.database import Database
 from main import app as application
 from tests.test_utils.database import populate_database
+from tests.test_utils.db_url import feeds_test_database_url
 
 
 @pytest.fixture(scope="package")
@@ -19,7 +20,7 @@ def app() -> FastAPI:
 @pytest.fixture(scope="package")
 def test_database():
     # Restrict the tests to the test database
-    os.environ["FEEDS_DATABASE_URL"] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+    os.environ["FEEDS_DATABASE_URL"] = feeds_test_database_url()
 
     data_dirs = []
     second_phase_data_dirs = []

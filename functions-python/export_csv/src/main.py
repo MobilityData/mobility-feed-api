@@ -469,8 +469,10 @@ if __name__ == "__main__":
         default=csv_default_file_path,
         help="Path to the output csv file.",
     )
-    os.environ["FEEDS_DATABASE_URL"] = (
-        "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+    # Per-worktree test DB (config/.env.worktree); falls back to the default port.
+    os.environ["FEEDS_DATABASE_URL"] = os.getenv(
+        "FEEDS_DATABASE_URL_TEST",
+        "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest",
     )
     args = parser.parse_args()
     export_csv(args.outpath)

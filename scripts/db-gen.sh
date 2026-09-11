@@ -18,6 +18,9 @@ OUT_FILE=$SCRIPT_PATH/../$FILENAME
 
 ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
+# Per-worktree host ports, if this worktree has them (config/.env.worktree).
+# shellcheck source=./worktree-env.sh
+source "$SCRIPT_PATH/worktree-env.sh"
 
 rm -rf "$SCRIPT_PATH/../api/src/shared/database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/shared/database_gen/"
@@ -29,7 +32,9 @@ then
   rm ${SCRIPT_PATH}/sqlacodegen.log
 fi
 
-PORT=$POSTGRES_PORT
+# sqlacodegen connects from the host, so it needs the published host port,
+# not POSTGRES_PORT (which is the in-container port).
+PORT=${POSTGRES_HOST_PORT:-$POSTGRES_PORT}
 DB=$POSTGRES_DB
 if [ "$USE_TEST_DB" = true ]; then
     PORT=$POSTGRES_TEST_PORT

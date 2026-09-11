@@ -43,7 +43,9 @@ scripts/setup-openapi-generator.sh
 cd api && pip3 install -r requirements.txt -r requirements_dev.txt
 
 # Local Postgres + Liquibase migrations
-docker-compose --env-file ./config/.env.local up -d --force-recreate
+scripts/docker-localdb-rebuild-data.sh   # prefer this over a bare `docker compose up`:
+                                        # it loads config/.env.worktree, which pins this
+                                        # worktree's Compose project and Postgres ports
 
 # Re-init local env after checking out a branch: rebuilds main+test DBs, regenerates
 # SQLAlchemy models, FastAPI stubs (Feeds + User Service + Operations API), and
@@ -84,7 +86,10 @@ scripts/function-python-run.sh --function_name <name>     # installs deps into a
 scripts/function-python-build.sh --function_name <name>   # zips into .dist/ for deploy
 ```
 
-`api-tests.sh` copies `config/.env.local` to `.env` before running, so local env vars match the docker-compose Postgres instance.
+`api-tests.sh` copies `config/.env.local` to `.env` before running, then appends `config/.env.worktree` if present, so local env vars match this worktree's docker-compose Postgres instance.
+
+### Per-worktree local databases
+Each git worktree runs its own Compose project, with its own published Postgres host ports and its own named data volumes, so several worktrees can run their stacks and test suites concurrently. `scripts/worktree-env.sh` generates `config/.env.worktree` (gitignored) on first use and every other script sources it; CI never creates that file, so CI keeps the default `5432` / `54320`. Release the resources with `scripts/docker-localdb-cleanup.sh` (add `--all` to reclaim idle leftovers from deleted worktrees). Note `config/.env.local` is *tracked* - never put per-worktree values there.
 
 ## Architecture Notes
 
