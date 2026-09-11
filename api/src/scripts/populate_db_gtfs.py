@@ -110,6 +110,8 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         """
         entity_types = self.get_safe_value(row, "entity_type", "").replace("|", "-").split("-")
         if len(entity_types) > 0:
+            if any(entity_types):
+                feed.entitytypes.clear()
             for entity_type_name in entity_types:
                 entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
 
