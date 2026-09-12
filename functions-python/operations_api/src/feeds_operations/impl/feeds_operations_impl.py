@@ -95,6 +95,20 @@ from .request_validator import validate_request
 # comparing it would report a phantom change whenever the request omits it.
 _DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
 
+# Tri-state fields: an omitted value means "preserve the stored one", and `to_orm` skips
+# them, so the diff must not report a phantom change. The inverse case of
+# _DERIVED_SOURCE_INFO_FIELDS: those are readable but not settable, these are settable but
+# not clearable by omission. Without this, a request that never mentions one of them would
+# force the write branch of `_update_feed` -- a 200 instead of a 204, plus a needless
+# materialized view refresh and web revalidation task.
+#
+# This is what lets a feed GET response be sent straight back as an update with no change
+# detected: absence means "unchanged" for every field that has no other way to say it.
+_PRESERVE_WHEN_OMITTED_FIELDS: Final[tuple[str, ...]] = (
+    "seasonal",
+    "operational_status",
+)
+
 
 def _normalize_for_diff(value):
     """Recursively coerce "absent" representations to None so change detection mirrors
@@ -311,15 +325,15 @@ class OperationsApiImpl(BaseOperationsApi):
     ) -> DeepDiff:
         """Detect changes between the feed and the update request."""
         copy_feed = impl_class.from_orm(feed)
-        copy_feed.operational_status_action = (
-            update_request_feed.operational_status_action
-        )
         current_values = _strip_derived_fields(
             _normalize_for_diff(copy_feed.model_dump())
         )
         requested_values = _strip_derived_fields(
             _normalize_for_diff(update_request_feed.model_dump())
         )
+        for field in _PRESERVE_WHEN_OMITTED_FIELDS:
+            if requested_values.get(field) is None:
+                requested_values[field] = current_values.get(field)
         diff = DeepDiff(
             current_values,
             requested_values,
@@ -393,10 +407,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 else UpdateRequestGtfsRtFeedImpl
             )
             diff = self.detect_changes(feed_from_db, update_request_feed, impl_class)
-            if len(diff.affected_paths) > 0 or (
-                update_request_feed.operational_status_action is not None
-                and update_request_feed.operational_status_action != "no_change"
-            ):
+            # Every settable field, `operational_status` included, is visible to the diff, so
+            # this is the single gate: write exactly when something actually changed.
+            if len(diff.affected_paths) > 0:
                 # Capture pre-mutation state for notification events (before to_orm mutates the object).
                 old_producer_url = getattr(feed_from_db, "producer_url", None)
                 old_redirect_target_ids = {
@@ -499,15 +512,6 @@ class OperationsApiImpl(BaseOperationsApi):
     @staticmethod
     def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
-        action = update_request_feed.operational_status_action
-        # This is a temporary solution as the operational_status is not visible in the diff
-        if action is not None and not action.lower() == "no_change":
-            if action.lower() == "wip":
-                feed.operational_status = "wip"
-            elif action.lower() == "published":
-                feed.operational_status = "published"
-            elif action.lower() == "unpublished":
-                feed.operational_status = "unpublished"
         session.add(feed)
 
     @staticmethod
