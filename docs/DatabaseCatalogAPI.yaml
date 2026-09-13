@@ -2629,12 +2629,12 @@ components:
     limit_query_param_availability_endpoint:
       name: limit
       in: query
-      description: The number of items to be returned. Maximum is 100.
+      description: The number of items to be returned. Maximum is 200.
       required: False
       schema:
         type: integer
         minimum: 0
-        maximum: 100
+        maximum: 200
         default: 100
         example: 10
 
