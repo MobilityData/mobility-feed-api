@@ -115,9 +115,12 @@ LEFT JOIN (
 -- Seal of Reliability. FeedReliabilitySeal owns the overall outcome; the per-criterion rows
 -- contribute the last evaluation time and the probation roll-up, so the search result can carry
 -- the same summary the feed-detail endpoint embeds without a second lookup.
--- Probation is aggregated over the criteria that actually serve it: 'official' and 'stable' are
--- point-in-time state checks and are exempt, so a stray probation_start on one of them must not
--- make the feed look like it is waiting out six months.
+-- Probation is aggregated over the criteria that are actually serving it: 'official' and 'stable'
+-- are point-in-time state checks and are exempt, so a stray probation_start on one of them must not
+-- make the feed look like it is waiting out six months; and a criterion whose latest check observed
+-- a failure is failing rather than recovering, since that failure restarts the probation clock.
+-- Mirrors is_serving_probation() in api/src/shared/common/seal_criteria.py, which the feed-detail
+-- and reliability-report endpoints read instead of this view.
 LEFT JOIN (
     SELECT
         FeedReliabilitySeal.feed_id,
@@ -127,6 +130,7 @@ LEFT JOIN (
         MAX(SealCriterion.evaluated_at) AS seal_evaluated_at,
         MAX(SealCriterion.probation_start) FILTER (
             WHERE SealCriterion.criterion NOT IN ('official', 'stable')
+              AND SealCriterion.observed_status <> 'fail'
         ) AS seal_latest_probation_start
     FROM feed_reliability_seal AS FeedReliabilitySeal
     LEFT JOIN seal_criterion AS SealCriterion ON SealCriterion.feed_id = FeedReliabilitySeal.feed_id
