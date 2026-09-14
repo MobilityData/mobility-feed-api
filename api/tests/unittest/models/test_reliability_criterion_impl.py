@@ -184,8 +184,11 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.on_probation is True
         assert result.probation_ends_at == probation_start + PROBATION_PERIOD
 
-    def test_grace_does_not_apply_during_probation(self):
-        """A failure during probation restarts probation, so grace has nothing to protect."""
+    def test_observed_failure_ends_probation(self):
+        """An observed failure restarts the probation clock, so the row is not serving probation.
+
+        Grace does not step in either: a failure during probation has nothing to protect.
+        """
         row = make_row(
             criterion=SealCriterionName.AVAILABLE,
             observed_status="fail",
@@ -197,7 +200,8 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == CriterionStatus.PASS.value
-        assert result.on_probation is True
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
 

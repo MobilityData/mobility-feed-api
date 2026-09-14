@@ -140,6 +140,22 @@ class TestFeedReliabilitySummaryFromOrm(unittest.TestCase):
         assert result.on_probation is True
         assert result.probation_ends_at == later + PROBATION_PERIOD
 
+    def test_probation_ignored_for_a_criterion_observed_failing(self):
+        """A criterion failing its latest check is failing, not recovering, so it rolls up as such."""
+        feed = make_feed(
+            criteria=[
+                make_criterion(
+                    SealCriterionName.AVAILABLE,
+                    observed_status="fail",
+                    probation_start=NOW - timedelta(days=20),
+                )
+            ]
+        )
+        result = FeedReliabilitySummaryImpl.from_orm(feed)
+
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
+
     def test_probation_ignored_for_exempt_criteria(self):
         """A stray `probation_start` on `official` never rolls up into the feed's probation."""
         feed = make_feed(criteria=[make_criterion(SealCriterionName.OFFICIAL, probation_start=NOW - timedelta(days=1))])
