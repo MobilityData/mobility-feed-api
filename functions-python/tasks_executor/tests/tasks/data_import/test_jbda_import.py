@@ -1,5 +1,6 @@
 import os
 import unittest
+import uuid
 from typing import Any, Dict, List
 from unittest.mock import patch, MagicMock
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from test_shared.test_utils.database_utils import default_db_url
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Feed,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Feedrelatedlink,
@@ -128,6 +130,49 @@ class _FakeSessionOK:
                 }
             )
 
+        return _FakeResponse({}, 404)
+
+
+class _FakeSessionSeasonal:
+    """
+    A single valid feed in its own org/feed namespace, with no RT urls, used by the
+    `seasonal` preservation test. The feed name differs from the stale one seeded into the
+    DB so the schedule fingerprint cannot match and the importer must take its update path.
+    """
+
+    FEEDS_URL = "https://api.gtfs-data.jp/v2/feeds"
+    DETAIL_TMPL = "https://api.gtfs-data.jp/v2/organizations/{org_id}/feeds/{feed_id}"
+    ORG_ID = "orgseason"
+    FEED_ID = "feedseason"
+
+    def get(self, url, timeout=60):
+        if url == self.FEEDS_URL:
+            return _FakeResponse(
+                {
+                    "body": [
+                        {
+                            "organization_id": self.ORG_ID,
+                            "feed_id": self.FEED_ID,
+                            "organization_name": "Season Org",
+                            "organization_email": "season@example.com",
+                            "feed_pref_id": 1,
+                            "feed_memo": "season memo",
+                        }
+                    ]
+                }
+            )
+        if url == self.DETAIL_TMPL.format(org_id=self.ORG_ID, feed_id=self.FEED_ID):
+            return _FakeResponse(
+                {
+                    "body": {
+                        "organization_id": self.ORG_ID,
+                        "feed_id": self.FEED_ID,
+                        "feed_name": "Season Feed",
+                        "feed_license_url": "https://license.example/season",
+                        "real_time": {},
+                    }
+                }
+            )
         return _FakeResponse({}, 404)
 
 
@@ -331,6 +376,72 @@ class TestImportJBDA(unittest.TestCase):
         self.assertEqual(out["created_rt"], 0)
         self.assertEqual(out["linked_refs"], 0)
         self.assertEqual(out["total_processed_items"], 0)
+
+    @with_db_session(db_url=default_db_url)
+    def test_seasonal_survives_reimport(self, db_session: Session):
+        """`seasonal` is operator-owned, so a re-import must leave it alone.
+
+        JBDA carries no seasonality signal, so if the importer ever wrote the column the
+        flag would be cleared on the next monthly run and the feed would silently start
+        failing the rolling 7-day coverage criterion again.
+        """
+        stable_id = f"jbda-{_FakeSessionSeasonal.ORG_ID}-{_FakeSessionSeasonal.FEED_ID}"
+        current_url = (
+            f"https://api.gtfs-data.jp/v2/organizations/{_FakeSessionSeasonal.ORG_ID}"
+            f"/feeds/{_FakeSessionSeasonal.FEED_ID}/files/feed.zip?rid=current"
+        )
+
+        def _head_side_effect(url, allow_redirects=True, timeout=15):
+            return _FakeResponse(status=200 if url == current_url else 404)
+
+        try:
+            db_session.add(
+                Gtfsfeed(
+                    id=str(uuid.uuid4()),
+                    stable_id=stable_id,
+                    data_type="gtfs",
+                    # Stale on purpose: feed_name is part of the schedule fingerprint, so
+                    # this forces the update path. Without it the importer short-circuits
+                    # on "no change detected" and the test would pass vacuously.
+                    feed_name="Stale feed name",
+                    seasonal=True,
+                )
+            )
+            db_session.commit()
+
+            with patch(
+                "tasks.data_import.jbda.import_jbda_feeds.requests.Session",
+                return_value=_FakeSessionSeasonal(),
+            ), patch(
+                "tasks.data_import.jbda.import_jbda_feeds.requests.head",
+                side_effect=_head_side_effect,
+            ), patch(
+                "tasks.data_import.jbda.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01
+            ), patch(
+                "tasks.data_import.data_import_utils.trigger_dataset_download",
+                MagicMock(),
+            ), patch(
+                "tasks.data_import.data_import_utils.create_web_revalidation_task",
+                MagicMock(),
+            ), patch.dict(
+                os.environ,
+                {"COMMIT_BATCH_SIZE": "1", "ENVIRONMENT": "test"},
+                clear=False,
+            ):
+                import_jbda_handler({"dry_run": False})
+
+            db_session.expire_all()
+            feed = (
+                db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == stable_id).one()
+            )
+            # Proves the importer really rewrote this row, so the assertion below is real.
+            self.assertEqual(feed.feed_name, "Season Feed")
+            self.assertTrue(feed.seasonal)
+        finally:
+            db_session.query(Feed).filter(Feed.stable_id == stable_id).delete(
+                synchronize_session=False
+            )
+            db_session.commit()
 
 
 if __name__ == "__main__":

@@ -262,6 +262,11 @@ def _delete_and_recreate_feed_if_type_changed(
         db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
     )
 
+    # Operator-owned columns (OPERATOR_OWNED_FEED_COLUMNS) are not in any TDG payload, so
+    # nothing upstream would ever set them again. Carry them across the delete/recreate by
+    # hand or a data_type flip silently clears them.
+    preserved_seasonal = None
+
     if existing is not None and existing.data_type != feed_type:
         logger.info(
             "TDG feed type changed for stable_id=%s: db_data_type=%s -> new_data_type=%s. Deleting and recreating.",
@@ -269,6 +274,7 @@ def _delete_and_recreate_feed_if_type_changed(
             getattr(existing, "data_type", None),
             feed_type,
         )
+        preserved_seasonal = existing.seasonal
         db_session.delete(existing)
         # flush so the new insert doesn't collide on stable_id unique constraint
         db_session.flush()
@@ -280,6 +286,13 @@ def _delete_and_recreate_feed_if_type_changed(
         feed_type,
         **get_or_create_kwargs,
     )
+    if preserved_seasonal is not None:
+        logger.info(
+            "Carrying seasonal=%s onto recreated TDG feed stable_id=%s",
+            preserved_seasonal,
+            stable_id,
+        )
+        feed.seasonal = preserved_seasonal
     return feed, is_new
 
 
@@ -348,6 +361,9 @@ def _update_common_tdg_fields(
     Update common fields for both schedule GTFS and RT from TDG dataset + resource.
     Assumes required fields were validated earlier.
     """
+    # Only import-owned fields belong here: never assign anything in
+    # OPERATOR_OWNED_FEED_COLUMNS (data_import_utils), which an operator sets by hand
+    # and this source does not carry.
     feed.feed_name = dataset.get("title")
     feed.provider = (dataset.get("publisher") or {}).get("name")
     feed.producer_url = producer_url

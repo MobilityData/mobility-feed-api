@@ -123,7 +123,10 @@ def test_to_orm_invalid_source_info():
     result = UpdateRequestGtfsFeedImpl.to_orm(update_request, entity, session)
     assert result.producer_url is None
     assert result.is_producer_url_unstable is None
-    assert result.seasonal is False
+    # The request omits `seasonal`, so to_orm leaves the attribute alone. This entity was
+    # never persisted, so the NOT NULL server default has not applied yet -- None here is
+    # the preserve path, not a stored value.
+    assert result.seasonal is None
     assert result.authentication_type is None
     assert result.authentication_info_url is None
     assert result.api_key_parameter_name is None
