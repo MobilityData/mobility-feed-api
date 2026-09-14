@@ -1,8 +1,8 @@
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from shared.common.seal_criteria import (
-    PROBATION_EXEMPT_CRITERIA,
     CriterionStatus,
     SealCriterionName,
+    is_serving_probation,
     resolve_criterion,
     roll_up_seal_status,
 )
@@ -16,7 +16,7 @@ def _seal_status_of(criterion_rows: list[SealCriterionOrm]) -> str:
     return roll_up_seal_status(
         (
             CriterionStatus(row.confirmed_status),
-            row.probation_start is not None and row.criterion not in PROBATION_EXEMPT_CRITERIA,
+            is_serving_probation(row.criterion, row.probation_start, row.observed_status),
         )
         for row in criterion_rows
     ).value

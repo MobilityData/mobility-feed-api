@@ -35,6 +35,7 @@ src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_feed_availability_check.py
 src/feeds_gen/models/gtfs_feed_availability_response.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage.py
+src/feeds_gen/models/gtfs_feed_continuous_coverage_boundary.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_file.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_response.py
 src/feeds_gen/models/gtfs_feed_validation_notice.py

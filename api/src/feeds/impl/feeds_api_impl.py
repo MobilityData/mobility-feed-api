@@ -10,6 +10,9 @@ from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
+from shared.db_models.gtfs_feed_continuous_coverage_boundary_impl import (
+    GtfsFeedContinuousCoverageBoundaryImpl,
+)
 from shared.db_models.gtfs_feed_continuous_coverage_impl import GtfsFeedContinuousCoverageImpl
 from shared.db_models.gtfs_feed_validation_report_impl import GtfsFeedValidationReportImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
@@ -21,7 +24,7 @@ from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
-from feeds_gen.models.gtfs_feed_continuous_coverage import GtfsFeedContinuousCoverage
+from feeds_gen.models.gtfs_feed_continuous_coverage_boundary import GtfsFeedContinuousCoverageBoundary
 from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedContinuousCoverageResponse
 from feeds_gen.models.gtfs_feed_validation_report import GtfsFeedValidationReport
 from feeds_gen.models.gtfs_feed_validation_reports_response import GtfsFeedValidationReportsResponse
@@ -456,8 +459,10 @@ class FeedsApiImpl(BaseFeedsApi):
         )
 
     @staticmethod
-    def _latest_continuous_coverage(feed: Gtfsfeed, feed_datasets: Query) -> Optional[GtfsFeedContinuousCoverage]:
-        """`latest_state`: the feed's latest dataset, whatever page or date range was requested."""
+    def _latest_continuous_coverage(
+        feed: Gtfsfeed, feed_datasets: Query
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_state`: the feed's latest dataset and the one before it, whatever page was asked for."""
         if feed.latest_dataset_id is None:
             return None
         latest_dataset = (
@@ -471,8 +476,8 @@ class FeedsApiImpl(BaseFeedsApi):
     @with_db_session()
     def _latest_failure_continuous_coverage(
         feed: Gtfsfeed, feed_datasets: Query, db_session: Session
-    ) -> Optional[GtfsFeedContinuousCoverage]:
-        """`latest_failure`: the state as of the criterion's `last_observed_failure_at`."""
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_failure`: the boundary as of the criterion's `last_observed_failure_at`."""
         failed_at = (
             db_session.query(SealCriterion.last_observed_failure_at)
             .filter(
@@ -494,12 +499,12 @@ class FeedsApiImpl(BaseFeedsApi):
     @staticmethod
     def _continuous_coverage_for(
         feed: Gtfsfeed, feed_datasets: Query, dataset: Optional[Gtfsdataset]
-    ) -> Optional[GtfsFeedContinuousCoverage]:
-        """One state object: `dataset` measured against the dataset downloaded before it."""
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """One boundary: `dataset` and the dataset downloaded before it, both in full."""
         if dataset is None:
             return None
         previous = FeedsApiImpl._previous_dataset(feed_datasets, dataset)
-        return GtfsFeedContinuousCoverageImpl.from_orm(
+        return GtfsFeedContinuousCoverageBoundaryImpl.from_orm(
             dataset,
             previous_dataset=previous,
             is_latest=dataset.id == feed.latest_dataset_id,
@@ -527,7 +532,7 @@ class FeedsApiImpl(BaseFeedsApi):
         return (
             feed_datasets.filter(Gtfsdataset.downloaded_at < dataset.downloaded_at)
             .order_by(*FeedsApiImpl._continuous_coverage_order())
-            .options(selectinload(Gtfsdataset.feed_info))
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
             .first()
         )
 
