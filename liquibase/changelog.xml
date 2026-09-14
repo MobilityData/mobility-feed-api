@@ -137,6 +137,9 @@
     <include file="changes/feat_1783.sql" relativeToChangelogFile="true"/>
     <!-- Seal of Reliability: seal_criterion_snapshot, the per-day record of each criterion (issue #1809). -->
     <include file="changes/feat_1809.sql" relativeToChangelogFile="true"/>
+    <!-- Index the unindexed FK gtfsfile.gtfs_dataset_id; the seal criteria scan it per dataset (issue #1831). -->
+    <!-- Created CONCURRENTLY, so it needs its own transaction: hence the XML wrapper, as in feat_1432_indexes.xml -->
+    <include file="changes/feat_1831_indexes.xml" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

@@ -64,5 +64,71 @@ yq -i '
     )
 ' "${DEST}"
 
+# yq's emitter re-serializes the whole file and inserts blank lines into every
+# block scalar it writes: one after the block, and - in folded (">") blocks - one
+# before every more-indented line. The latter accumulates, growing the same
+# description by one blank line on every run, so strip both here. Blank lines
+# separating two equally-indented paragraphs are authored and round-trip cleanly,
+# so they are left alone.
+python3 - "${DEST}" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    lines = f.read().splitlines(keepends=True)
+
+
+def indent_of(line):
+    return len(line) - len(line.lstrip(" "))
+
+
+# Matches a block scalar header: "key: >", "key: |2-", etc. The chomping
+# indicator matters - "+" keeps trailing newlines, so those blocks are left as is.
+header = re.compile(r":[ \t]*([|>])([0-9]*)([-+]?)[ \t]*$")
+
+out = []
+i = 0
+while i < len(lines):
+    line = lines[i]
+    out.append(line)
+    i += 1
+    match = header.search(line.rstrip("\n"))
+    if not match or match.group(3) == "+":
+        continue
+    style, block_indent = match.group(1), indent_of(line)
+
+    # The body runs until the first non-blank line indented no deeper than the header.
+    body = []
+    while i < len(lines):
+        following = lines[i]
+        if following.strip() and indent_of(following) <= block_indent:
+            break
+        body.append(following)
+        i += 1
+
+    while body and not body[-1].strip():
+        body.pop()
+
+    if style == ">":
+        kept, blanks, previous_indent = [], [], None
+        for body_line in body:
+            if not body_line.strip():
+                blanks.append(body_line)
+                continue
+            current_indent = indent_of(body_line)
+            if previous_indent is None or current_indent <= previous_indent:
+                kept.extend(blanks)
+            blanks = []
+            kept.append(body_line)
+            previous_indent = current_indent
+        body = kept
+
+    out.extend(body)
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write("".join(out))
+PY
+
 echo "Synced schemas from ${SOURCE} -> ${DEST} (${DEST}.bak created)."
 echo "Note: Schemas in Operations with x-operation: true were preserved."

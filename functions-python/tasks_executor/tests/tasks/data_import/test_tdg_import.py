@@ -1,5 +1,6 @@
 import os
 import unittest
+import uuid
 from typing import Any, Dict, Optional
 from unittest.mock import patch, MagicMock
 
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Feed,
     Gtfsfeed,
     Gtfsrealtimefeed,
 )
@@ -101,6 +103,51 @@ class _FakeSessionOK:
         return _FakeResponse(
             status=200,
             headers={"Content-Type": "application/octet-stream"},
+        )
+
+
+class _FakeSessionSeasonal:
+    """
+    One dataset with a single GTFS resource, under its own resource id so the rows it
+    touches never overlap the happy-path test's. Used by the `seasonal` preservation
+    tests: the dataset title differs from the stale one seeded into the DB, so the
+    schedule fingerprint cannot match and the importer is forced down its update path
+    instead of the "no change detected" early return.
+    """
+
+    TDG_DATASETS_URL = "https://transport.data.gouv.fr/api/datasets?format=gtfs"
+    GTFS_URL = "https://tdg.example/seasonal.zip"
+
+    def get(self, url, timeout=60, headers=None):
+        if url == self.TDG_DATASETS_URL:
+            return _FakeResponse(
+                [
+                    {
+                        "id": "ds-seasonal",
+                        "title": "Seasonal Dataset",
+                        "publisher": {"name": "TDG Seasonal Org"},
+                        "licence": "odc-odbl",
+                        "resources": [
+                            {
+                                "id": "res-seasonal",
+                                "title": "Static GTFS",
+                                "format": "GTFS",
+                                "url": self.GTFS_URL,
+                                "metadata": {"end_date": "2999-12-31"},
+                            }
+                        ],
+                    }
+                ]
+            )
+        return _FakeResponse({}, status=404)
+
+    def head(self, url, allow_redirects=True, timeout=15):
+        if url == self.GTFS_URL:
+            return _FakeResponse(
+                status=200, headers={"Content-Type": "application/zip"}
+            )
+        return _FakeResponse(
+            status=200, headers={"Content-Type": "application/octet-stream"}
         )
 
 
@@ -296,6 +343,111 @@ class TestImportTDG(unittest.TestCase):
         self.assertEqual(out["updated_gtfs"], 0)
         self.assertEqual(out["created_rt"], 0)
         self.assertEqual(out["total_processed_items"], 0)
+
+    SEASONAL_STABLE_ID = "tdg-res-seasonal"
+
+    def _run_seasonal_import(self):
+        """Run the importer against _FakeSessionSeasonal with side effects stubbed out."""
+        with patch(
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.requests.Session",
+            return_value=_FakeSessionSeasonal(),
+        ), patch(
+            "tasks.data_import.transportdatagouv.import_tdg_feeds.REQUEST_TIMEOUT_S",
+            0.01,
+        ), patch(
+            "tasks.data_import.data_import_utils.trigger_dataset_download",
+            MagicMock(),
+        ), patch(
+            "tasks.data_import.data_import_utils.create_web_revalidation_task",
+            MagicMock(),
+        ), patch(
+            # This test is not about the stale sweep. Stub it so it cannot deprecate the
+            # tdg- rows the happy-path test committed into the shared session-scoped DB.
+            "tasks.data_import.transportdatagouv.import_tdg_feeds._deprecate_stale_feeds",
+            MagicMock(return_value=[]),
+        ), patch.dict(
+            os.environ,
+            {"COMMIT_BATCH_SIZE": "1", "ENVIRONMENT": "test"},
+            clear=False,
+        ):
+            return import_tdg_handler({"dry_run": False})
+
+    @with_db_session(db_url=default_db_url)
+    def test_seasonal_survives_reimport(self, db_session: Session):
+        """`seasonal` is operator-owned, so a re-import must leave it alone.
+
+        No TDG payload carries a seasonality signal, so if the importer ever wrote the
+        column the flag would be cleared on the next monthly run and the feed would silently
+        start failing the rolling 7-day coverage criterion again.
+        """
+        try:
+            db_session.add(
+                Gtfsfeed(
+                    id=str(uuid.uuid4()),
+                    stable_id=self.SEASONAL_STABLE_ID,
+                    data_type="gtfs",
+                    # Stale on purpose: feed_name is part of the schedule fingerprint, so
+                    # this forces the update path. Without it the importer short-circuits
+                    # on "no change detected" and the test would pass vacuously.
+                    feed_name="Stale dataset title",
+                    seasonal=True,
+                )
+            )
+            db_session.commit()
+
+            self._run_seasonal_import()
+
+            db_session.expire_all()
+            feed = (
+                db_session.query(Gtfsfeed)
+                .filter(Gtfsfeed.stable_id == self.SEASONAL_STABLE_ID)
+                .one()
+            )
+            # Proves the importer really rewrote this row, so the assertion below is real.
+            self.assertEqual(feed.feed_name, "Seasonal Dataset")
+            self.assertTrue(feed.seasonal)
+        finally:
+            db_session.query(Feed).filter(
+                Feed.stable_id == self.SEASONAL_STABLE_ID
+            ).delete(synchronize_session=False)
+            db_session.commit()
+
+    @with_db_session(db_url=default_db_url)
+    def test_seasonal_survives_data_type_change(self, db_session: Session):
+        """A GTFS-RT -> GTFS flip deletes and recreates the row; `seasonal` must carry over.
+
+        _delete_and_recreate_feed_if_type_changed is the one path in any importer that drops
+        operator-set columns, because the new row is built from scratch.
+        """
+        try:
+            db_session.add(
+                Gtfsrealtimefeed(
+                    id=str(uuid.uuid4()),
+                    stable_id=self.SEASONAL_STABLE_ID,
+                    data_type="gtfs_rt",
+                    feed_name="Stale dataset title",
+                    seasonal=True,
+                )
+            )
+            db_session.commit()
+
+            self._run_seasonal_import()
+
+            db_session.expire_all()
+            feed = (
+                db_session.query(Feed)
+                .filter(Feed.stable_id == self.SEASONAL_STABLE_ID)
+                .one()
+            )
+            # The row was recreated as a schedule feed...
+            self.assertEqual(feed.data_type, "gtfs")
+            # ...and the operator-set flag survived the delete/recreate.
+            self.assertTrue(feed.seasonal)
+        finally:
+            db_session.query(Feed).filter(
+                Feed.stable_id == self.SEASONAL_STABLE_ID
+            ).delete(synchronize_session=False)
+            db_session.commit()
 
 
 if __name__ == "__main__":

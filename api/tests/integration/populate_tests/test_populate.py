@@ -321,3 +321,15 @@ def test_locationless_gtfs_rt_feed_inherits_union_of_static_feed_locations(
         ("CA", "Ontario", "London"),
         ("CA", "Ontario", "Barrie"),
     }
+
+
+def test_entity_types_overwrite(client: TestClient):
+    """A later catalog row must replace, not add to, GTFS-RT entity types."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-1562",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["entity_types"] == ["sa"]

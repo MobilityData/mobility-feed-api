@@ -108,6 +108,12 @@ variable "seal_orchestrator_schedule" {
     default     = "0 4 * * *" # Daily at 04:00 UTC
 }
 
+variable "purge_early_access_invites_schedule" {
+    type        = string
+    description = "Cron schedule for the nightly early access invited-email purge job"
+    default     = "0 5 * * *" # Daily at 05:00 UTC
+}
+
 variable "notification_dispatch_weekly_weekday" {
     type        = number
     description = "Weekday the weekly digest is sent by the daily dispatcher (Monday=0 .. Sunday=6)"

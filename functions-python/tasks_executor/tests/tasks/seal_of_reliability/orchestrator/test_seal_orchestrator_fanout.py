@@ -32,12 +32,13 @@ from shared.helpers.task_execution.task_execution_tracker import TaskInProgressE
 # seal_orchestrator (producer)
 # ---------------------------------------------------------------------------
 
+_FANOUT = "tasks.seal_of_reliability.fanout"
 _PLAN = "tasks.seal_of_reliability.orchestrator.seal_orchestrator"
 
 
 class TestSealOrchestratorHandler(unittest.TestCase):
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=5)
     def test_enqueues_worker_per_batch_plus_monitor(
@@ -64,8 +65,8 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         self.assertEqual(result["enqueued"], 3)
         self.assertFalse(result["dry_run"])
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=1)
     def test_dynamic_task_names_use_prefix(
@@ -82,8 +83,8 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         self.assertTrue(all(n.startswith("seal-orchestrator-") for n in names))
         self.assertTrue(any(n.startswith("seal-orchestrator-monitor-") for n in names))
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
     def test_dry_run_enqueues_nothing(
@@ -101,8 +102,8 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         self.assertEqual(result["enqueued"], 0)
         self.assertEqual(result["batches"], 2)
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=0)
     def test_no_eligible_feeds_enqueues_nothing(
@@ -120,15 +121,16 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         self.assertEqual(result["enqueued"], 0)
         self.assertEqual(result["batches"], 0)
 
-    @patch(f"{_PLAN}._mark_enqueue_failed")
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue")
+    @patch(f"{_FANOUT}.mark_enqueue_failed")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task")
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=1)
     def test_failed_enqueue_marks_batch_failed_immediately(
         self, count_mock, iter_mock, enqueue_mock, start_run_mock, mark_failed_mock
     ):
         from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
+            SEAL_ORCHESTRATOR_TASK_NAME,
             seal_orchestrator_handler,
         )
 
@@ -138,12 +140,13 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         seal_orchestrator_handler({"dry_run": False, "batch_size": 1})
 
         mark_failed_mock.assert_called_once()
-        call_args = mark_failed_mock.call_args[0]
-        self.assertTrue(call_args[0].startswith("seal-"))
-        self.assertEqual(call_args[1], "batch-0000")
+        task_name, run_id, batch_id = mark_failed_mock.call_args[0]
+        self.assertEqual(task_name, SEAL_ORCHESTRATOR_TASK_NAME)
+        self.assertTrue(run_id.startswith("seal-"))
+        self.assertEqual(batch_id, "batch-0000")
 
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task")
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds")
     def test_non_positive_batch_size_raises(
@@ -163,9 +166,9 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         enqueue_mock.assert_not_called()
         start_run_mock.assert_not_called()
 
-    @patch(f"{_PLAN}._mark_enqueue_failed")
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.mark_enqueue_failed")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=6)
     def test_stream_yields_fewer_batches_than_planned_marks_leftover_failed(
@@ -176,6 +179,7 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         leftover pre-registered batch_id must be failed immediately, not left
         `triggered` for the monitor's deadline to eventually notice."""
         from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
+            SEAL_ORCHESTRATOR_TASK_NAME,
             seal_orchestrator_handler,
         )
 
@@ -187,16 +191,18 @@ class TestSealOrchestratorHandler(unittest.TestCase):
 
         mark_failed_mock.assert_called_once()
         call_args, call_kwargs = mark_failed_mock.call_args
-        self.assertTrue(call_args[0].startswith("seal-"))
-        self.assertEqual(call_args[1], "batch-0002")
+        task_name, run_id, batch_id = call_args
+        self.assertEqual(task_name, SEAL_ORCHESTRATOR_TASK_NAME)
+        self.assertTrue(run_id.startswith("seal-"))
+        self.assertEqual(batch_id, "batch-0002")
         self.assertEqual(
             call_kwargs["error_message"],
             "no eligible-feed data for this batch (count/stream mismatch)",
         )
 
-    @patch(f"{_PLAN}._mark_enqueue_failed")
-    @patch(f"{_PLAN}._start_run")
-    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_FANOUT}.mark_enqueue_failed")
+    @patch(f"{_FANOUT}.start_run")
+    @patch(f"{_FANOUT}.enqueue_task", return_value=True)
     @patch(f"{_PLAN}.iter_eligible_stable_ids")
     @patch(f"{_PLAN}.count_eligible_feeds", return_value=2)
     def test_stream_yields_more_batches_than_planned_logs_and_does_not_mark_failed(
@@ -213,13 +219,14 @@ class TestSealOrchestratorHandler(unittest.TestCase):
         # chunk.
         iter_mock.return_value = iter([["mdb-1"], ["mdb-2"], ["mdb-3"]])
 
-        with self.assertLogs(
-            "tasks.seal_of_reliability.orchestrator.seal_orchestrator", level="ERROR"
-        ) as log_ctx:
+        with self.assertLogs(_FANOUT, level="ERROR") as log_ctx:
             result = seal_orchestrator_handler({"dry_run": False, "batch_size": 1})
 
         mark_failed_mock.assert_not_called()
-        self.assertTrue(any("newly-eligible" in msg for msg in log_ctx.output))
+        self.assertTrue(
+            any("more batches than the plan-time count" in m for m in log_ctx.output)
+        )
+        self.assertTrue(any("seal_orchestrator" in m for m in log_ctx.output))
         self.assertEqual(result["enqueued"], 2)
 
 

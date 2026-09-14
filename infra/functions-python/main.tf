@@ -733,6 +733,34 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
   attempt_deadline = "320s"
 }
 
+
+# Schedule the early access invited-email purge to run nightly.
+# Legal/privacy: deletes early_access_invited_email rows past their program's
+# invite_retention_days so we never hold the email of someone who never registered.
+# Runs with dry_run=false so it actually deletes. Disabled (paused) outside prod, like
+# the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "purge_early_access_invites_scheduler" {
+  name        = "purge-early-access-invites-${var.environment}"
+  description = "Nightly purge of expired early access invited emails"
+  time_zone   = "Etc/UTC"
+  schedule    = var.purge_early_access_invites_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"purge_early_access_invites\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
 # Schedule the mobilitydatabase.org sitemap generation to run daily at 08:00 UTC.
 # Overwrites sitemap.xml in the sitemap bucket on every run. Disabled (paused)
 # outside prod, like the other tasks_executor schedulers.
