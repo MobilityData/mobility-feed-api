@@ -23,6 +23,11 @@ drained. `update_seals` writes via upsert, so a Cloud Tasks redelivery of the sa
 batch (e.g. a timeout on the response after the write already committed) is safe to
 reprocess.
 
+It then enqueues a website revalidation for the feeds `update_seals` reports as changed.
+That happens here rather than in `update_seals` so that dry runs and ad-hoc runs go
+through the same evaluation without publishing anything, and per batch rather than in the
+monitor so a run that never settles still busts the caches it earned.
+
 Payload::
 
     {
@@ -44,6 +49,7 @@ from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTr
 from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
     SEAL_ORCHESTRATOR_TASK_NAME,
 )
+from tasks.seal_of_reliability.revalidation import revalidate_changed_feeds
 from tasks.seal_of_reliability.seal_updater import update_seals
 
 logger = logging.getLogger(__name__)
@@ -84,6 +90,23 @@ def seal_orchestrator_worker_handler(payload: dict) -> dict:
         )
         _mark_entry(run_id, batch_id, error=str(error))
         raise
+
+    try:
+        result.update(
+            revalidate_changed_feeds(
+                result["changed_stable_ids"],
+                # The batch is the unit Cloud Tasks may redeliver, so it is the unit the
+                # revalidation task names are keyed on: a replay re-enqueues nothing.
+                dedup_key=f"{run_id}-{batch_id}",
+            )
+        )
+    except Exception as revalidation_error:
+        logger.warning(
+            "Failed to enqueue web revalidation tasks for run=%s batch=%s: %s",
+            run_id,
+            batch_id,
+            revalidation_error,
+        )
 
     _mark_entry(run_id, batch_id, result=result)
     return {"status": "ok", "batch_id": batch_id, **result}

@@ -34,7 +34,9 @@ NOT fully update the seal for every feed.
 The same monitor settles the backfill fan-out (#1763). Everything it does — poll, honour
 the deadline, aggregate each batch's stored report — is identical for both; only the
 TaskExecutionTracker `task_name` differs, so it is a payload parameter rather than a second
-copy of this file.
+copy of this file. The one thing it does for the nightly run alone is emit the
+`admin.event_summary / seal_run_summary` notification_event: a backfill replays
+history rather than announcing it.
 
 Payload::
 
@@ -54,6 +56,7 @@ from shared.helpers.task_execution.task_execution_tracker import (
     TaskExecutionTracker,
     TaskInProgressError,
 )
+from shared.notifications.notification_event_service import emit_seal_run_summary
 
 from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
     SEAL_ORCHESTRATOR_TASK_NAME,
@@ -61,8 +64,8 @@ from tasks.seal_of_reliability.orchestrator.seal_orchestrator import (
 
 logger = logging.getLogger(__name__)
 
-# Cap on how many granted/revoked stable_ids the summary reports directly; the two seal
-# tables hold every transition regardless, so this only bounds the response size.
+# Cap on how many granted/revoked/changed stable_ids the summary reports directly; the two
+# seal tables hold every transition regardless, so this only bounds the response size.
 MAX_REPORTED_IDS = 200
 
 _SETTLED_STATUSES = (STATUS_COMPLETED, STATUS_FAILED)
@@ -75,6 +78,9 @@ _SUMMED_KEYS = (
     "snapshot_rows_written",
     "seals_granted",
     "seals_revoked",
+    "feeds_changed",
+    "feeds_revalidated",
+    "revalidation_tasks",
 )
 
 
@@ -161,6 +167,9 @@ def _monitor(
         "batches_incomplete": incomplete,
         **aggregated,
     }
+
+    if task_name == SEAL_ORCHESTRATOR_TASK_NAME:
+        emit_seal_run_summary(result)
     logger.info(
         "seal_orchestrator_monitor: run %s settled (past_deadline=%s) result=%s",
         run_id,
@@ -168,7 +177,8 @@ def _monitor(
         {
             k: v
             for k, v in result.items()
-            if k not in ("granted_stable_ids", "revoked_stable_ids")
+            if k
+            not in ("granted_stable_ids", "revoked_stable_ids", "changed_stable_ids")
         },
     )
     return result
@@ -191,6 +201,7 @@ def _aggregate_batches(db_session, run_id: str, task_name: str) -> Dict[str, Any
     totals = dict.fromkeys(_SUMMED_KEYS, 0)
     granted_stable_ids: list = []
     revoked_stable_ids: list = []
+    changed_stable_ids: list = []
 
     for (metadata,) in rows:
         if not metadata:
@@ -199,9 +210,12 @@ def _aggregate_batches(db_session, run_id: str, task_name: str) -> Dict[str, Any
             totals[key] += metadata.get(key, 0) or 0
         granted_stable_ids.extend(metadata.get("granted_stable_ids") or [])
         revoked_stable_ids.extend(metadata.get("revoked_stable_ids") or [])
+        changed_stable_ids.extend(metadata.get("changed_stable_ids") or [])
 
-    ids_omitted = max(0, len(granted_stable_ids) - MAX_REPORTED_IDS) + max(
-        0, len(revoked_stable_ids) - MAX_REPORTED_IDS
+    ids_omitted = (
+        max(0, len(granted_stable_ids) - MAX_REPORTED_IDS)
+        + max(0, len(revoked_stable_ids) - MAX_REPORTED_IDS)
+        + max(0, len(changed_stable_ids) - MAX_REPORTED_IDS)
     )
 
     return {
@@ -210,6 +224,7 @@ def _aggregate_batches(db_session, run_id: str, task_name: str) -> Dict[str, Any
         **{key: totals[key] for key in _SUMMED_KEYS if key != "total_feeds"},
         "granted_stable_ids": granted_stable_ids[:MAX_REPORTED_IDS],
         "revoked_stable_ids": revoked_stable_ids[:MAX_REPORTED_IDS],
+        "changed_stable_ids": changed_stable_ids[:MAX_REPORTED_IDS],
         "ids_omitted": ids_omitted,
     }
 

@@ -26,6 +26,10 @@ records the same state under the day it was evaluated (issue #1809), one row per
 criterion and day, so past values survive and a correction can resume from a day rather than
 cold-start the window. The job takes the snapshots but never reads them: the state it needs is the
 current one.
+
+It also reports which feeds the run actually changed, in the sense the website cares about
+(`page_signature`), so the caller can bust the Feed Detail cache for those and only those. It
+reports them rather than acting on them: the same function serves dry runs and ad-hoc runs.
 """
 
 import logging
@@ -61,6 +65,7 @@ from tasks.seal_of_reliability.context import (
     snapshot_date_of,
 )
 from tasks.seal_of_reliability.evaluators import EVALUATORS
+from tasks.seal_of_reliability.page_signature import page_state_changed
 from tasks.seal_of_reliability.state_machine import (
     SealCriterionState,
     phase,
@@ -403,6 +408,9 @@ def update_seals(
     all_states: List[SealCriterionState] = []
     outcomes: List[dict] = []
     feed_reports: List[dict] = []
+    # The feeds whose Feed Detail page would now render differently, so the website's cache of
+    # them has to be busted.
+    changed_stable_ids: List[FeedStableIdStr] = []
     unknown_count = 0
     not_applicable_count = 0
     first_evaluations = 0
@@ -474,21 +482,32 @@ def update_seals(
                     }
                 )
 
-            if partial_run:
-                # No roll-up on a partial run, so there is no seal state to report.
-                feed_reports.append(
-                    {"stable_id": ctx.stable_id, "criteria": criteria_report}
-                )
-                continue
-
             # Merge in any stored criteria this run did not produce a new state for, so the
             # roll-up sees the full set even when an evaluator returned "not evaluable".
-            merged = {
+            previous_for_feed = {
                 criterion: state
                 for (owner_id, criterion), state in previous_states.items()
                 if owner_id == feed.id
             }
+            merged = dict(previous_for_feed)
             merged.update(feed_states)
+
+            if partial_run:
+                # No roll-up on a partial run, so there is no seal state to report - and none to
+                # compare either, so the criteria that were evaluated decide on their own.
+                page_changed = page_state_changed(
+                    previous_for_feed, merged, had_seal=None, has_seal=None
+                )
+                if page_changed:
+                    changed_stable_ids.append(ctx.stable_id)
+                feed_reports.append(
+                    {
+                        "stable_id": ctx.stable_id,
+                        "criteria": criteria_report,
+                        "page_changed": page_changed,
+                    }
+                )
+                continue
 
             # A feed with no seal row yet is treated as not holding one, so a first run can
             # grant the seal but can never withdraw one: nothing was held to lose.
@@ -524,6 +543,16 @@ def update_seals(
                 outcome["had_seal"],
             )
 
+            # Only the values the page renders, with every timestamp left out.
+            page_changed = page_state_changed(
+                previous_for_feed,
+                merged,
+                had_seal=outcome["had_seal"],
+                has_seal=has_seal,
+            )
+            if page_changed:
+                changed_stable_ids.append(ctx.stable_id)
+
             feed_reports.append(
                 {
                     "stable_id": ctx.stable_id,
@@ -531,6 +560,7 @@ def update_seals(
                     "has_seal": has_seal,
                     "seal_status": seal_status.value,
                     "criteria": criteria_report,
+                    "page_changed": page_changed,
                 }
             )
 
@@ -584,6 +614,8 @@ def update_seals(
         # which feed moved, and that is the first thing anyone asks of a run.
         "granted_stable_ids": [outcome["stable_id"] for outcome in granted],
         "revoked_stable_ids": [outcome["stable_id"] for outcome in revoked],
+        "feeds_changed": len(changed_stable_ids),
+        "changed_stable_ids": changed_stable_ids,
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }
     if partial_run:
@@ -596,11 +628,15 @@ def update_seals(
     report["feeds"] = feed_reports[:max_reported_feeds]
     report["feeds_omitted"] = max(0, len(feed_reports) - max_reported_feeds)
 
-    # Log without `feeds`: Cloud Logging drops a LogEntry over 256 KB, so a run naming a
-    # few hundred feeds would lose the whole log entry. The counts belong in logs; `feeds`
-    # is for the caller reading the response.
+    # Log without `feeds` or `changed_stable_ids`: Cloud Logging drops a LogEntry over 256 KB,
+    # so a run naming a few hundred feeds would lose the whole log entry. The counts belong in
+    # logs; those two are for the caller reading the response.
     logging.info(
         "Task completed: %s",
-        {key: value for key, value in report.items() if key != "feeds"},
+        {
+            key: value
+            for key, value in report.items()
+            if key not in ("feeds", "changed_stable_ids")
+        },
     )
     return report

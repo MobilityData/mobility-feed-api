@@ -15,13 +15,17 @@
 #
 """Task entry point for the nightly Seal of Reliability evaluation (issue #1761)."""
 
+import logging
 from datetime import datetime, timezone
 
+from tasks.seal_of_reliability.revalidation import revalidate_changed_feeds
 from tasks.seal_of_reliability.seal_updater import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_REPORTED_FEEDS,
     update_seals,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_now(now: str) -> datetime:
@@ -50,6 +54,7 @@ def get_parameters(payload: dict):
         payload.get("batch_size", DEFAULT_BATCH_SIZE),
         _parse_now(now) if now else None,
         payload.get("max_reported_feeds", DEFAULT_MAX_REPORTED_FEEDS),
+        payload.get("revalidate", False),
     )
 
 
@@ -74,6 +79,11 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         max_reported_feeds (int): Cap on the `feeds` list in the response. Everything is
                         still evaluated and written; `feeds_omitted` reports how many
                         entries were left out. Default: 50.
+        revalidate (bool): Bust the website's Feed Detail cache for the feeds whose rendered
+                        seal state changed. Opt-in here, unlike the nightly
+                        orchestrator worker which always does it: an ad-hoc run is usually a
+                        check, not a publication. Ignored on a dry run, which writes nothing
+                        to compare against. Default: False.
     """
     (
         stable_feed_ids,
@@ -83,8 +93,9 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         batch_size,
         now,
         max_reported_feeds,
+        revalidate,
     ) = get_parameters(payload)
-    return update_seals(
+    report = update_seals(
         stable_feed_ids=stable_feed_ids,
         dry_run=dry_run,
         limit=limit,
@@ -93,3 +104,18 @@ def update_seal_of_reliability_handler(payload: dict) -> dict:
         now=now,
         max_reported_feeds=max_reported_feeds,
     )
+    if revalidate and not dry_run:
+        # Best-effort, as at every other revalidation call site: a cache that could not be
+        # busted must not turn a completed evaluation into a failed task.
+        try:
+            # A manual invocation has no retry identity to preserve, so the key only has to be
+            # unique per call.
+            dedup_key = f"adhoc-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
+            report.update(
+                revalidate_changed_feeds(
+                    report["changed_stable_ids"], dedup_key=dedup_key
+                )
+            )
+        except Exception as error:
+            logger.warning("Failed to enqueue web revalidation tasks: %s", error)
+    return report

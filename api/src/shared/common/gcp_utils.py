@@ -158,6 +158,95 @@ def create_web_revalidation_task(feed_stable_ids: List[str]) -> None:
         logging.error("Error enqueuing revalidation tasks: %s", error)
 
 
+# How many feed ids ride in one revalidation request.
+WEB_REVALIDATION_CHUNK_SIZE = 50
+
+
+def create_web_revalidation_batch_tasks(
+    feed_stable_ids: List[str],
+    dedup_key: str,
+    chunk_size: int = WEB_REVALIDATION_CHUNK_SIZE,
+) -> int:
+    """
+    Enqueue Cloud Tasks to revalidate the website cache for many feed pages at once.
+
+    The batch counterpart to `create_web_revalidation_task`, which enqueues one task per feed
+    and dedupes each on a 30-minute time bucket. That shape suits a single feed reacting to its
+    own dataset; it does not suit a nightly job that can change hundreds at once.
+
+    Deduplication is by caller-supplied identity rather than by clock: `dedup_key` names the
+    unit of work that may be redelivered (a seal run's batch, say), so replaying it produces the
+    same task names and Cloud Tasks refuses the duplicates. Tasks are scheduled immediately -
+    the bounce window exists to collapse repeat calls for one feed, and a run-scoped key has
+    nothing to collapse.
+
+    Args:
+        feed_stable_ids: Feed stable IDs whose pages should be revalidated. Every one of them is
+            enqueued; there is no cap, because leaving a page stale is the bug this exists to
+            fix.
+        dedup_key: Identifies the work being enqueued, e.g. f"{run_id}-{batch_id}". Must be
+            unique per logical unit of work and stable across its retries.
+        chunk_size: Feed ids per task.
+
+    Returns:
+        The number of tasks enqueued.
+    """
+    from google.cloud import tasks_v2
+
+    if not feed_stable_ids:
+        return 0
+
+    project = os.getenv("PROJECT_ID")
+    queue = os.getenv("WEB_REVALIDATION_QUEUE")
+    gcp_region = os.getenv("GCP_REGION")
+    environment_name = os.getenv("ENVIRONMENT")
+
+    if not queue:
+        logging.warning(
+            "WEB_REVALIDATION_QUEUE not set; skipping revalidation of %d feed(s)",
+            len(feed_stable_ids),
+        )
+        return 0
+
+    url = f"https://{gcp_region}-{project}.cloudfunctions.net/" f"tasks_executor-{environment_name}"
+    ids = list(feed_stable_ids)
+    chunks = [ids[start : start + chunk_size] for start in range(0, len(ids), chunk_size)]
+
+    try:
+        client = tasks_v2.CloudTasksClient()
+        for index, chunk in enumerate(chunks):
+            task_name = f"revalidate-batch-{dedup_key}-{index:04d}"
+            body = json.dumps(
+                {
+                    "task": "revalidate_feed",
+                    "payload": {"feed_stable_ids": chunk},
+                }
+            ).encode()
+            # `create_http_task_with_name` logs and swallows its own errors, including the
+            # already-exists case a redelivery produces, so one bad chunk cannot cost the rest.
+            create_http_task_with_name(
+                client=client,
+                body=body,
+                url=url,
+                project_id=project,
+                gcp_region=gcp_region,
+                queue_name=queue,
+                task_name=task_name,
+                task_time=None,
+                http_method=tasks_v2.HttpMethod.POST,
+            )
+        logging.info(
+            "Scheduled %d web revalidation task(s) for %d feed(s) (dedup_key=%s)",
+            len(chunks),
+            len(ids),
+            dedup_key,
+        )
+        return len(chunks)
+    except Exception as error:
+        logging.error("Error enqueuing batched revalidation tasks: %s", error)
+        return 0
+
+
 def create_http_task_with_name(
     client: any,  # tasks_v2.CloudTasksClient
     body: bytes,

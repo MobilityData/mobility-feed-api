@@ -44,6 +44,7 @@ from shared.notifications.brevo_notification_sender import (
     _unsubscribe_url,
 )
 from shared.notifications.notification_constants import (
+    AdminEventUpdateType,
     FeedUrlUpdateType,
     NotificationFeedRole,
     NotificationTypeId,
@@ -228,16 +229,20 @@ def test_build_params_feed_url_updated_handles_missing_created_at_and_urls():
 def test_build_params_admin_event_summary_with_and_without_events():
     event = _event(
         type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
         payload={"emails_sent": 5},
     )
     params = build_params_admin_event_summary([event], _SUBSCRIPTION)
     assert params["event_count"] == 1
     assert params["summary"] == {"emails_sent": 5}
+    # A Brevo-hosted template needs the subtype to know which report it is rendering.
+    assert params["event_subtype"] == AdminEventUpdateType.DISPATCH_SUMMARY
     assert params["unsubscribe_url"] == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
 
     empty = build_params_admin_event_summary([], _SUBSCRIPTION)
     assert empty["event_count"] == 0
     assert empty["summary"] == {}
+    assert empty["event_subtype"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +446,7 @@ def test_build_digest_html_falls_back_to_id_when_no_provider():
 def test_build_single_html_admin_summary():
     event = _event(
         type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
         feeds=[],
         payload={
             "subscriptions_processed": 4,
@@ -467,6 +473,7 @@ def test_build_digest_html_empty():
 def test_build_digest_html_admin_summary():
     event = _event(
         type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
         feeds=[],
         payload={"emails_sent": 3, "emails_failed": 1},
     )
@@ -476,19 +483,130 @@ def test_build_digest_html_admin_summary():
     assert ">1</td>" in html
 
 
+# ---------------------------------------------------------------------------
+# admin.event_summary subtypes
+# ---------------------------------------------------------------------------
+
+
+_SEAL_PAYLOAD = {
+    "run_id": "seal-20260911T040000",
+    "status": "complete",
+    "total_feeds_evaluated": 2914,
+    "seals_granted": 3,
+    "seals_revoked": 1,
+    "feeds_changed": 5,
+    "feeds_revalidated": 5,
+    "revalidation_tasks": 1,
+    "granted_stable_ids": ["mdb-1"],
+    "revoked_stable_ids": ["mdb-9"],
+    "changed_stable_ids": ["mdb-1", "mdb-9", "mdb-42"],
+    "batches_failed": 0,
+    "batches_incomplete": 0,
+    "ids_omitted": 0,
+}
+
+
+def _seal_event(payload=None):
+    return _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.SEAL_RUN_SUMMARY,
+        feeds=[],
+        payload=payload if payload is not None else dict(_SEAL_PAYLOAD),
+    )
+
+
+def _dispatch_event():
+    return _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        feeds=[],
+        payload={"emails_sent": 5, "cadence": "daily"},
+    )
+
+
+def test_subject_names_the_subtype_not_the_type():
+    """One type carries several reports, so the subject has to say which one this is."""
+    assert build_single_subject(_seal_event()) == "Daily Seal of Reliability summary"
+    assert build_single_subject(_dispatch_event()) == "Daily notification dispatch summary"
+
+
+def test_digest_subject_names_a_subtype_only_when_every_event_agrees():
+    assert build_digest_subject([_seal_event(), _seal_event()]) == "Daily Seal of Reliability summary"
+    assert build_digest_subject([_dispatch_event()]) == "Daily notification dispatch summary"
+    # A mixed digest cannot honestly be titled either one.
+    assert build_digest_subject([_seal_event(), _dispatch_event()]) == "Daily admin summary"
+
+
+def test_build_single_html_seal_run_summary():
+    html = build_single_html(_seal_event())
+    assert "Seal of Reliability Run Summary" in html
+    assert "seal-20260911T040000" in html
+    assert "2,914" in html  # thousands_sep filter
+    # The changed feeds link to their pages, which is the point of listing them.
+    assert "https://mobilitydatabase.org/feeds/mdb-42" in html
+    # Must NOT fall through to the dispatch layout.
+    assert "Notification Dispatch Summary" not in html
+    assert "Cadence" not in html
+
+
+def test_seal_summary_reports_how_many_tasks_carried_the_revalidations():
+    """Feeds and tasks are both shown: the counts diverge by batching, never by dropping."""
+    html = build_single_html(_seal_event(dict(_SEAL_PAYLOAD, feeds_revalidated=250, revalidation_tasks=5)))
+    assert "Pages revalidated" in html
+    assert ">250</td>" in html
+    assert "Revalidation tasks enqueued" in html
+    assert ">5</td>" in html
+
+
+def test_seal_summary_omits_empty_id_lists():
+    quiet = dict(
+        _SEAL_PAYLOAD,
+        seals_granted=0,
+        seals_revoked=0,
+        granted_stable_ids=[],
+        revoked_stable_ids=[],
+        changed_stable_ids=[],
+    )
+    html = build_single_html(_seal_event(quiet))
+    assert "Seal granted" not in html
+    assert "Seal revoked" not in html
+    assert "Page revalidated" not in html
+
+
+def test_seal_summary_reports_truncated_id_lists():
+    html = build_single_html(_seal_event(dict(_SEAL_PAYLOAD, ids_omitted=42)))
+    assert "42 further feed ids not listed" in html
+
+
+def test_build_digest_html_mixes_subtypes_in_one_document():
+    html = build_digest_html([_seal_event(), _dispatch_event()])
+    assert html.count("<html") == 1
+    assert "Seal of Reliability Run Summary" in html
+    assert "Notification Dispatch Summary" in html
+
+
 def test_build_digest_html_admin_summary_multiple_events_share_one_document():
     """Regression test: multiple admin.event_summary events batched into one
     digest must render as ONE HTML document (one shared header/footer), not
     N concatenated full documents stacked on top of each other."""
     events = [
         _event(
-            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 5, "cadence": "daily"}
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 5, "cadence": "daily"},
         ),
         _event(
-            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 7, "cadence": "daily"}
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 7, "cadence": "daily"},
         ),
         _event(
-            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY, feeds=[], payload={"emails_sent": 9, "cadence": "daily"}
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 9, "cadence": "daily"},
         ),
     ]
     html = build_digest_html(events)

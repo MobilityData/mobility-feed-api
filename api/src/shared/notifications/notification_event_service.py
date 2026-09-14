@@ -27,6 +27,7 @@ Usage
 -----
     from shared.notifications.notification_event_service import (
         emit_feed_redirected,
+        emit_seal_run_summary,
         emit_url_replaced,
     )
 
@@ -59,8 +60,10 @@ from dotenv import load_dotenv
 
 from shared.database.users_database import with_users_db_session
 from shared.notifications.notification_constants import (
+    AdminEventUpdateType,
     FeedUrlUpdateType,
     NotificationFeedRole,
+    NotificationSource,
     NotificationTypeId,
 )
 
@@ -191,6 +194,30 @@ def emit_url_replaced(
         event_subtype=FeedUrlUpdateType.URL_REPLACED,
         source=source,
         feeds=[(feed_stable_id, NotificationFeedRole.SUBJECT)],
+        payload=payload,
+    )
+
+
+def emit_seal_run_summary(payload: Dict[str, Any]) -> None:
+    """Create an ``admin.event_summary / seal_run_summary`` notification_event.
+
+    Called once per nightly Seal of Reliability run, by the orchestrator monitor that settles
+    the run.
+
+    Parameters
+    ----------
+    payload:
+        The run's aggregate — counts plus the granted / revoked / changed stable_ids. The
+        changed feeds live in the payload rather than in ``notification_event_feed`` because
+        this is a report about a run, not an event about a feed: they are the subject of a
+        line in a table, not of a subscription filter.
+
+    The event is written immediately and best-effort (see :func:`_emit`).
+    """
+    _emit(
+        notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        event_subtype=AdminEventUpdateType.SEAL_RUN_SUMMARY,
+        source=NotificationSource.SEAL_ORCHESTRATOR,
         payload=payload,
     )
 
