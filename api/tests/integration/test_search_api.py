@@ -1,6 +1,6 @@
 # coding: utf-8
 import contextlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -652,13 +652,14 @@ SEARCH_HEADERS = {"Authentication": "special-key"}
 
 
 @contextlib.contextmanager
-def _feed_with_seal(feed_stable_id: str):
+def _feed_with_seal(feed_stable_id: str, extra_criteria=None):
     """Give one feed the seal for the duration of a test, refreshing the search view either way.
 
     Search reads the `feedsearch` materialized view, so the view has to be rebuilt for the seal to
     be visible - and rebuilt again on the way out so the rest of the package sees the original data.
     Writes go through `__table__` (a Core insert) so the seal row's surrogate `id` falls back to its
-    `gen_random_uuid()` default.
+    `gen_random_uuid()` default. `extra_criteria` adds further `seal_criterion` rows, for the tests
+    that exercise the view's probation roll-up.
     """
     db = Database()
     with db.start_db_session() as session:
@@ -677,6 +678,8 @@ def _feed_with_seal(feed_stable_id: str):
                 evaluated_at=datetime.now(timezone.utc),
             )
         )
+        for criterion in extra_criteria or []:
+            session.execute(SealCriterion.__table__.insert().values(feed_id=feed_id, **criterion))
         session.commit()
         session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
         session.commit()
@@ -745,6 +748,50 @@ def test_search_has_seal_true(client: TestClient, mocker):
         assert [result.id for result in response_body.results] == [feed_stable_id]
         assert response_body.results[0].reliability_seal.has_seal is True
         assert response_body.results[0].reliability_seal.on_probation is False
+
+
+def _criterion(criterion, observed_status, probation_start):
+    return {
+        "criterion": criterion,
+        "observed_status": observed_status,
+        "confirmed_status": "pass",
+        "evaluated_at": datetime.now(timezone.utc),
+        "probation_start": probation_start,
+    }
+
+
+def test_search_reports_probation_from_the_view(client: TestClient, mocker):
+    """A criterion passing while on probation rolls up into the search result's badge."""
+    _grant_seal_filter(mocker)
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
+    probation_start = datetime.now(timezone.utc) - timedelta(days=20)
+
+    with _feed_with_seal(feed_stable_id, [_criterion("available", "pass", probation_start)]):
+        response = _search(client, [("limit", 100), ("has_seal", "true")])
+
+        assert response.status_code == 200
+        response_body = SearchFeeds200Response.parse_obj(response.json())
+        assert response_body.results[0].reliability_seal.on_probation is True
+        assert response_body.results[0].reliability_seal.probation_ends_at is not None
+
+
+def test_search_ignores_probation_for_a_criterion_observed_failing(client: TestClient, mocker):
+    """An observed failure restarts the probation clock, so the view must not roll it up.
+
+    This is the same rule `is_serving_probation` applies to the feed-detail and report endpoints;
+    search reads the materialized view instead, so the two roll-ups have to agree.
+    """
+    _grant_seal_filter(mocker)
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
+    probation_start = datetime.now(timezone.utc) - timedelta(days=20)
+
+    with _feed_with_seal(feed_stable_id, [_criterion("available", "fail", probation_start)]):
+        response = _search(client, [("limit", 100), ("has_seal", "true")])
+
+        assert response.status_code == 200
+        response_body = SearchFeeds200Response.parse_obj(response.json())
+        assert response_body.results[0].reliability_seal.on_probation is False
+        assert response_body.results[0].reliability_seal.probation_ends_at is None
 
 
 def test_search_has_seal_false_excludes_sealed_feed(client: TestClient, mocker):
