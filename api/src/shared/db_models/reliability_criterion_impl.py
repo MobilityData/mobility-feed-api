@@ -5,6 +5,7 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
     grace_period_for,
+    is_serving_probation,
     probation_period_for,
     resolve_criterion,
     window_end,
@@ -83,8 +84,8 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         # authority on which criteria serve them.
         grace_period = grace_period_for(criterion)
         probation_period = probation_period_for(criterion)
-        probation_start = criterion_row.probation_start if probation_period else None
-        on_probation = probation_start is not None
+        on_probation = is_serving_probation(criterion, criterion_row.probation_start, criterion_row.observed_status)
+        probation_start = criterion_row.probation_start if on_probation else None
 
         # A failing check still inside its grace period is not yet counting against the seal: the
         # daily check reads `fail` but the debounced status is still `pass`. Both columns are read
@@ -96,7 +97,7 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
             grace_period is not None
             and criterion_row.observed_status == CriterionStatus.FAIL
             and criterion_row.confirmed_status == CriterionStatus.PASS
-            and not on_probation
+            and criterion_row.probation_start is None
         )
 
         return cls(

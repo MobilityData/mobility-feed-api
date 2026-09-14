@@ -129,6 +129,22 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 )
 
 
+def is_serving_probation(
+    criterion: str | SealCriterionName,
+    probation_start: Optional[datetime],
+    observed_status: str | CriterionStatus | None,
+) -> bool:
+    """Whether `criterion` is currently serving probation.
+
+    Probation is a clean-run requirement, so a criterion whose most recent check observed a failure
+    is not serving it: that failure restarts the clock, and the criterion is reported as failing
+    rather than as recovering. Exempt criteria never serve probation whatever the row says.
+    """
+    if probation_start is None or probation_period_for(criterion) is None:
+        return False
+    return observed_status != CriterionStatus.FAIL
+
+
 def roll_up_seal_status(
     criteria: Iterable[Tuple[CriterionStatus, bool]],
 ) -> SealStatus:
