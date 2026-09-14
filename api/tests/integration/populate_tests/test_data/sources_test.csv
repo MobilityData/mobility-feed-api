@@ -14,6 +14,8 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 # For mdb-1562, change is_official from FALSE to TRUE. Should change to True.
 # Also change is_producer_url_unstable from base FALSE to TRUE: should change to True.
 # Also change is_seasonal from base FALSE to TRUE: should change to True.
+# For mdb-1562, first populate sa|vp, then the following row narrows entity_type to sa to verify replacement semantics.
+1562,gtfs-rt,sa|vp,CA,BC,Vancouver,Vancouver-Transit(éèàçíóúČ),TRUE,Realtime(ŘŤÜÎ),,,50,http://foo.org/google_transit.zip,0,,,,,,,,,,active,,10,,TRUE,TRUE
 1562,gtfs-rt,sa,CA,BC,Vancouver,Vancouver-Transit(éèàçíóúČ),TRUE,Realtime(ŘŤÜÎ),,,50,http://foo.org/google_transit.zip,0,,,,,,,,,,active,,10,,TRUE,TRUE
 # For mdb-1563, change is_official from TRUE to FALSE. Should change to False.
 # Also change is_producer_url_unstable from base TRUE to FALSE: should change to False.
