@@ -362,6 +362,42 @@ paths:
         500:
           description: Internal server error.
 
+  /v1/gtfs_feeds/{id}/validation_reports:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        Returns the validation history of a GTFS feed: one entry per dataset, carrying the counts of
+        its most recent validation report and the notice codes behind them, ordered by `validated_at`
+        from newest to oldest. `latest` is the entry for the feed's current dataset.
+      tags:
+        - "feeds"
+        - "beta"
+      operationId: getGtfsFeedValidationReports
+      parameters:
+        - $ref: "#/components/parameters/validation_validated_after"
+        - $ref: "#/components/parameters/validation_validated_before"
+        - $ref: "#/components/parameters/validation_min_errors"
+        - $ref: "#/components/parameters/validation_min_warnings"
+        - $ref: "#/components/parameters/validation_severity"
+        - $ref: "#/components/parameters/limit_query_param_validation_reports_endpoint"
+        - $ref: "#/components/parameters/offset"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Validation history for the GTFS feed, ordered by validated_at (newest first).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedValidationReportsResponse"
+        422:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+
   /v1/datasets/gtfs/{id}:
     get:
       description: Get the specified dataset from the Mobility Database.
@@ -2020,6 +2056,133 @@ components:
           type: string
           example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
 
+    GtfsFeedValidationReportsResponse:
+      type: object
+      description: >
+        The feed's validation history, one entry per dataset. `latest` is the entry for the feed's
+        current dataset, whatever page or filter was requested, and is null when the feed has no
+        validated dataset.
+      required:
+        - feed_id
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest:
+          $ref: "#/components/schemas/GtfsFeedValidationReport"
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: One entry per dataset, ordered by validated_at from newest to oldest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationReport"
+
+    GtfsFeedValidationReport:
+      type: object
+      description: >
+        The most recent validation report of one dataset. `total_*` counts every notice raised;
+        `unique_*` counts the distinct codes behind them.
+      required:
+        - dataset_id
+        - is_latest
+        - notices
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the validated dataset.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: Whether this is the feed's latest dataset.
+          example: true
+        validated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-28T00:29:00Z"
+        validator_version:
+          type: string
+          nullable: true
+          example: 4.2.0
+        total_error:
+          type: integer
+          nullable: true
+          example: 10
+        total_warning:
+          type: integer
+          nullable: true
+          example: 20
+        total_info:
+          type: integer
+          nullable: true
+          example: 30
+        unique_error_count:
+          type: integer
+          nullable: true
+          example: 1
+        unique_warning_count:
+          type: integer
+          nullable: true
+          example: 2
+        unique_info_count:
+          type: integer
+          nullable: true
+          example: 3
+        url_json:
+          type: string
+          nullable: true
+          description: JSON validation report URL.
+        url_html:
+          type: string
+          nullable: true
+          description: HTML validation report URL.
+        notices:
+          type: array
+          description: >
+            The notice codes raised, newest report only, ordered by severity then by count. Filtered
+            by the `severity` query parameter when one is given.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationNotice"
+
+    GtfsFeedValidationNotice:
+      type: object
+      required:
+        - code
+        - severity
+        - total
+      properties:
+        code:
+          type: string
+          description: Validator notice code.
+          example: invalid_phone_number
+        severity:
+          type: string
+          enum:
+            - ERROR
+            - WARNING
+            - INFO
+          example: ERROR
+        total:
+          type: integer
+          description: How many times this code was raised.
+          example: 10
+
     ValidationReport:
       description: Validation report
       type: object
@@ -2707,6 +2870,75 @@ components:
         type: string
         format: date-time
         example: "2026-08-24T00:00:00Z"
+
+    validation_validated_after:
+      name: validated_after
+      in: query
+      description: Only include reports validated at or after this timestamp. Date should be in ISO 8601 date-time format.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-02-24T00:00:00Z"
+
+    validation_validated_before:
+      name: validated_before
+      in: query
+      description: Only include reports validated at or before this timestamp. Date should be in ISO 8601 date-time format.
+      required: False
+      schema:
+        type: string
+        format: date-time
+        example: "2026-08-24T00:00:00Z"
+
+    validation_min_errors:
+      name: min_errors
+      in: query
+      description: Only include reports with at least this many errors. Use 1 to list only datasets that failed validation.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        example: 1
+
+    validation_min_warnings:
+      name: min_warnings
+      in: query
+      description: Only include reports with at least this many warnings.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        example: 1
+
+    validation_severity:
+      name: severity
+      in: query
+      description: >
+        Limit the `notices` of each entry to these severities. Repeat the parameter for more than
+        one. The counts are unaffected.
+      required: False
+      schema:
+        type: array
+        items:
+          type: string
+          enum:
+            - ERROR
+            - WARNING
+            - INFO
+      example: ["ERROR"]
+
+    limit_query_param_validation_reports_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned. Maximum is 100.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 20
+        example: 2
 
     availability_sort:
       name: sort

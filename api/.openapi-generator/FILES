@@ -38,6 +38,9 @@ src/feeds_gen/models/gtfs_feed_continuous_coverage.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_boundary.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_file.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_response.py
+src/feeds_gen/models/gtfs_feed_validation_notice.py
+src/feeds_gen/models/gtfs_feed_validation_report.py
+src/feeds_gen/models/gtfs_feed_validation_reports_response.py
 src/feeds_gen/models/gtfs_rt_feed.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
