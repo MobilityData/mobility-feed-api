@@ -2,7 +2,13 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from feeds_gen.models.feed_reliability_summary import FeedReliabilitySummary
-from shared.common.seal_criteria import PROBATION_PERIOD, is_serving_probation, window_end
+from shared.common.seal_criteria import (
+    PROBATION_PERIOD,
+    CriterionStatus,
+    is_serving_probation,
+    roll_up_on_probation,
+    window_end,
+)
 from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
 
 
@@ -58,11 +64,16 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
             return None
 
         evaluated_ats = [c.evaluated_at for c in feed.seal_criteria if c.evaluated_at is not None]
-        probation_starts = [
-            c.probation_start
+        serving_probation = {
+            c.criterion: is_serving_probation(c.criterion, c.probation_start, c.observed_status)
             for c in feed.seal_criteria
-            if is_serving_probation(c.criterion, c.probation_start, c.observed_status)
-        ]
+        }
+        on_probation = roll_up_on_probation(
+            (CriterionStatus(c.confirmed_status), serving_probation[c.criterion]) for c in feed.seal_criteria
+        )
+        probation_starts = (
+            [c.probation_start for c in feed.seal_criteria if serving_probation[c.criterion]] if on_probation else []
+        )
         return cls._build(
             has_seal=seal.has_seal,
             earned_at=seal.seal_earned_at,
