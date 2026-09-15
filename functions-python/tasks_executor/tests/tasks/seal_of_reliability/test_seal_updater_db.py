@@ -1264,6 +1264,62 @@ class TestUpdateSeals(SealDbTestCase):
         self.assertEqual(report["feeds_omitted"], 0)
 
 
+class TestPageChangeDetection(SealDbTestCase):
+    """Which feeds a run reports as needing their website cache busted.
+
+    The headline case is the second one: a re-run that moves only timestamps reports nothing,
+    because the page never showed them. Everything else caching buys us depends on that.
+    """
+
+    def test_a_first_evaluation_changes_every_feed(self):
+        """No seal_criterion rows to compare against, so the seal is new to the page."""
+        report = update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
+        self.assertEqual(sorted(report["changed_stable_ids"]), sorted(OURS))
+        self.assertEqual(report["feeds_changed"], len(OURS))
+
+    def test_a_rerun_that_only_moves_timestamps_changes_nothing(self):
+        update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
+
+        later = NOW + timedelta(days=1)
+        report = update_seals(dry_run=False, stable_feed_ids=OURS, now=later)
+
+        self.assertEqual(report["changed_stable_ids"], [])
+        self.assertEqual(report["feeds_changed"], 0)
+        # The run did happen: `evaluated_at` moved on every criterion it just declined to
+        # publish. That is precisely the movement the signature is blind to.
+        self.assertGreater(report["criterion_rows_written"], 0)
+        row = self.criterion_rows(OFFICIAL)[SealCriterionName.OFFICIAL.value]
+        self.assertEqual(row.evaluated_at, later)
+
+    def test_losing_the_seal_changes_the_feed(self):
+        update_seals(dry_run=False, stable_feed_ids=OURS, now=NOW)
+
+        self.set_official(OFFICIAL, False)
+        later = NOW + timedelta(days=1)
+        report = update_seals(dry_run=False, stable_feed_ids=OURS, now=later)
+
+        self.assertEqual(report["changed_stable_ids"], [OFFICIAL])
+
+    def test_regaining_the_seal_changes_the_feed(self):
+        update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=NOW)
+
+        self.set_official(NOT_OFFICIAL, True)
+        later = NOW + timedelta(days=1)
+        report = update_seals(dry_run=False, stable_feed_ids=[NOT_OFFICIAL], now=later)
+
+        self.assertEqual(report["changed_stable_ids"], [NOT_OFFICIAL])
+
+    def test_a_dry_run_reports_the_work_without_doing_it(self):
+        """`update_seals` never busts a cache itself, so a dry run can name the feeds safely."""
+        report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertEqual(report["changed_stable_ids"], [OFFICIAL])
+        self.assertIsNone(self.seal_row(OFFICIAL), "still a dry run")
+
+    def test_every_reported_feed_carries_its_page_changed_flag(self):
+        report = update_seals(dry_run=True, stable_feed_ids=[OFFICIAL], now=NOW)
+        self.assertTrue(report["feeds"][0]["page_changed"])
+
+
 class TestSealStatusRollUp(SealDbTestCase):
     """The four-way feed-level outcome, and the boolean that hangs off it.
 

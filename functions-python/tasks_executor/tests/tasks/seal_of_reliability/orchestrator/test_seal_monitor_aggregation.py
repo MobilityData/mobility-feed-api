@@ -239,6 +239,81 @@ class TestAggregateBatches(AggregationTestCase):
         self.assertEqual(len(result["granted_stable_ids"]), MAX_REPORTED_IDS)
         self.assertEqual(result["ids_omitted"], 5)
 
+    def test_revalidation_counters_and_changed_ids_reach_the_run_report(self):
+        self._seed(
+            [
+                _batch(
+                    SEAL_ORCHESTRATOR_TASK_NAME,
+                    RUN,
+                    "batch-0000",
+                    {
+                        "total_feeds": 10,
+                        "feeds_changed": 2,
+                        "feeds_revalidated": 2,
+                        "revalidation_tasks": 1,
+                        "changed_stable_ids": ["a", "b"],
+                    },
+                ),
+                _batch(
+                    SEAL_ORCHESTRATOR_TASK_NAME,
+                    RUN,
+                    "batch-0001",
+                    {
+                        "total_feeds": 10,
+                        "feeds_changed": 3,
+                        "feeds_revalidated": 3,
+                        "revalidation_tasks": 1,
+                        "changed_stable_ids": ["c", "d", "e"],
+                    },
+                ),
+            ]
+        )
+
+        result = self._aggregate()
+        self.assertEqual(result["feeds_changed"], 5)
+        # Every changed feed is revalidated - there is no cap that could make these differ.
+        self.assertEqual(result["feeds_revalidated"], 5)
+        self.assertEqual(result["revalidation_tasks"], 2, "one task carried each batch")
+        self.assertEqual(
+            sorted(result["changed_stable_ids"]), ["a", "b", "c", "d", "e"]
+        )
+
+    def test_a_backfill_batch_contributes_zero_revalidations(self):
+        """Only the nightly run busts caches, so a backfill reports none of these keys."""
+        self._seed(
+            [
+                _batch(
+                    SEAL_BACKFILL_TASK_NAME,
+                    RUN,
+                    "batch-0000",
+                    {"total_feeds": 3, "snapshot_rows_written": 18},
+                )
+            ]
+        )
+
+        result = self._aggregate(task_name=SEAL_BACKFILL_TASK_NAME)
+        self.assertEqual(result["feeds_changed"], 0)
+        self.assertEqual(result["feeds_revalidated"], 0)
+        self.assertEqual(result["revalidation_tasks"], 0)
+        self.assertEqual(result["changed_stable_ids"], [])
+
+    def test_the_changed_id_list_is_capped_and_counted_with_the_others(self):
+        changed = [f"mdb-{n}" for n in range(MAX_REPORTED_IDS + 3)]
+        self._seed(
+            [
+                _batch(
+                    SEAL_ORCHESTRATOR_TASK_NAME,
+                    RUN,
+                    "batch-0000",
+                    {"changed_stable_ids": changed},
+                )
+            ]
+        )
+
+        result = self._aggregate()
+        self.assertEqual(len(result["changed_stable_ids"]), MAX_REPORTED_IDS)
+        self.assertEqual(result["ids_omitted"], 3)
+
 
 class TestParseIso(unittest.TestCase):
     """The deadline check silently loses its guard if this returns None, so pin the branches."""

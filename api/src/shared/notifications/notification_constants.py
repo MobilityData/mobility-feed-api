@@ -54,9 +54,15 @@ class FeedUrlUpdateType:
 
 class AdminEventUpdateType:
     """Allowed values for ``notification_event.event_subtype`` when
-    ``notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY``."""
+    ``notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY``.
+
+    One type, several reports: an admin subscriber gets every subtype, and the
+    subtype decides how the email renders. Adding one means adding a summary
+    block in ``brevo_notification_sender``, not a new notification type.
+    """
 
     DISPATCH_SUMMARY = "dispatch_summary"
+    SEAL_RUN_SUMMARY = "seal_run_summary"
 
 
 class NotificationFeedRole:
@@ -90,3 +96,4 @@ class NotificationSource:
     DISPATCHER = "dispatcher"
     TDG_REDIRECTS = "tdg_redirects"
     TDG_IMPORT = "tdg_import"
+    SEAL_ORCHESTRATOR = "seal_orchestrator"

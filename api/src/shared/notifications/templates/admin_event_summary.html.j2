@@ -1,12 +1,19 @@
 {% extends "_base_email.html.j2" %}
 {% import "_admin_summary_block.html.j2" as blocks %}
-{% block title %}Mobility Database Notification Dispatch Summary{% endblock %}
-{% block header_label %}Dispatch Summary{% endblock %}
-{% block preheader %}Notification dispatch summary — {{ summary.emails_sent | default(0) }} emails sent, {{ summary.emails_failed | default(0) }} failed.{% endblock %}
+{% set is_seal = entry.subtype == "seal_run_summary" %}
+{% block title %}{{ "Mobility Database Seal of Reliability Summary" if is_seal else "Mobility Database Notification Dispatch Summary" }}{% endblock %}
+{% block header_label %}{{ "Seal Summary" if is_seal else "Dispatch Summary" }}{% endblock %}
+{% block preheader %}
+{%- if is_seal -%}
+Seal of Reliability run — {{ entry.summary.feeds_changed | default(0) }} feed{{ "s" if entry.summary.feeds_changed != 1 else "" }} changed, {{ entry.summary.seals_granted | default(0) }} granted, {{ entry.summary.seals_revoked | default(0) }} revoked.
+{%- else -%}
+Notification dispatch summary — {{ entry.summary.emails_sent | default(0) }} emails sent, {{ entry.summary.emails_failed | default(0) }} failed.
+{%- endif -%}
+{% endblock %}
 {% block content %}
 <tr>
   <td class="px" style="padding: 28px 32px;">
-    {{ blocks.summary_block(summary) }}
+    {{ blocks.summary_block(entry) }}
   </td>
 </tr>
 {% endblock %}
