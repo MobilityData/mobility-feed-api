@@ -25,6 +25,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
+    Gtfsfile,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
@@ -97,6 +98,14 @@ def populate_database(db_session: Session | None = None):
         )
         db_session.add(gtfs_dataset)
         db_session.flush()
+        gtfs_dataset.gtfsfiles = [
+            Gtfsfile(
+                id=fake.uuid4(),
+                gtfs_dataset_id=id,
+                file_name="stops.txt",
+                file_size_bytes=1,
+            )
+        ]
         active_gtfs_feeds[i].latest_dataset_id = id
 
     db_session.flush()
