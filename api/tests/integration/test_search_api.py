@@ -775,17 +775,14 @@ def test_search_reports_probation_from_the_view(client: TestClient, mocker):
         assert response_body.results[0].reliability_seal.probation_ends_at is not None
 
 
-def test_search_ignores_probation_for_a_criterion_observed_failing(client: TestClient, mocker):
-    """An observed failure restarts the probation clock, so the view must not roll it up.
-
-    This is the same rule `is_serving_probation` applies to the feed-detail and report endpoints;
-    search reads the materialized view instead, so the two roll-ups have to agree.
-    """
+def test_search_ignores_probation_for_a_withdrawn_criterion(client: TestClient, mocker):
+    """A withdrawn criterion's frozen `probation_start` must not roll up, in the view or the API."""
     _grant_seal_filter(mocker)
     feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
     probation_start = datetime.now(timezone.utc) - timedelta(days=20)
 
-    with _feed_with_seal(feed_stable_id, [_criterion("available", "fail", probation_start)]):
+    withdrawn = _criterion("fresh_coverage", "not_applicable", probation_start, confirmed_status="not_applicable")
+    with _feed_with_seal(feed_stable_id, [withdrawn]):
         response = _search(client, [("limit", 100), ("has_seal", "true")])
 
         assert response.status_code == 200

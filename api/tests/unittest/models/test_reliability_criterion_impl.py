@@ -184,26 +184,56 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.on_probation is True
         assert result.probation_ends_at == probation_start + PROBATION_PERIOD
 
-    def test_observed_failure_ends_probation(self):
-        """An observed failure restarts the probation clock, so the row is not serving probation.
-
-        Grace does not step in either: a failure during probation has nothing to protect.
-        """
+    def test_a_confirmed_failure_is_not_serving_probation(self):
+        """A criterion still failing has not begun its clean run, whatever `probation_start` says."""
         row = make_row(
             criterion=SealCriterionName.AVAILABLE,
             observed_status="fail",
-            confirmed_status="pass",
-            first_observed_failure_at=NOW - timedelta(days=2),
+            confirmed_status="fail",
+            first_observed_failure_at=NOW - timedelta(days=20),
             last_observed_failure_at=NOW,
-            probation_start=NOW - timedelta(days=1),
+            last_confirmed_failure_at=NOW,
+            probation_start=NOW + timedelta(days=1),
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == CriterionStatus.PASS.value
+        assert result.status == CriterionStatus.FAIL.value
         assert result.on_probation is False
         assert result.probation_ends_at is None
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
+
+    def test_an_unevaluable_run_over_a_confirmed_failure_is_not_probation(self):
+        """`unknown` on top of a confirmed failure is still a failure, not the recovery."""
+        row = make_row(
+            criterion=SealCriterionName.AVAILABLE,
+            observed_status="unknown",
+            confirmed_status="fail",
+            first_observed_failure_at=NOW - timedelta(days=20),
+            last_observed_failure_at=NOW - timedelta(days=1),
+            last_confirmed_failure_at=NOW - timedelta(days=1),
+            probation_start=NOW,
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
+
+        assert result.status == CriterionStatus.FAIL.value
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
+
+    def test_an_unevaluable_run_does_not_clear_the_grace_period(self):
+        """A night that reached no verdict leaves the streak, and its countdown, standing."""
+        first_failure = NOW - timedelta(days=10)
+        row = make_row(
+            observed_status="unknown",
+            confirmed_status="pass",
+            first_observed_failure_at=first_failure,
+            last_observed_failure_at=NOW - timedelta(days=1),
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
+
+        assert result.status == CriterionStatus.PASS.value
+        assert result.in_grace_period is True
+        assert result.grace_period_ends_at == first_failure + GRACE_PERIODS[SealCriterionName.COMPLIANT]
 
     def test_official_and_stable_serve_no_probation(self):
         """`official` and `stable` are exempt, even if a probation_start is somehow stored."""
