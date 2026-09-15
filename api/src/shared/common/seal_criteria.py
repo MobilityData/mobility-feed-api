@@ -145,6 +145,21 @@ def is_serving_probation(
     return observed_status != CriterionStatus.FAIL
 
 
+def roll_up_on_probation(
+    criteria: Iterable[Tuple[CriterionStatus, bool]],
+) -> bool:
+    """Whether the feed as a whole is serving probation.
+
+    The feed-level form of `is_serving_probation`: a confirmed failure on any criterion cancels the
+    roll-up, because the feed is failing the seal now rather than waiting out a clean run to earn it
+    back.
+    """
+    in_scope = list(criteria)
+    if any(confirmed_status is CriterionStatus.FAIL for confirmed_status, _ in in_scope):
+        return False
+    return any(on_probation for _, on_probation in in_scope)
+
+
 def roll_up_seal_status(
     criteria: Iterable[Tuple[CriterionStatus, bool]],
 ) -> SealStatus:

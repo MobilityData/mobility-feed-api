@@ -750,11 +750,11 @@ def test_search_has_seal_true(client: TestClient, mocker):
         assert response_body.results[0].reliability_seal.on_probation is False
 
 
-def _criterion(criterion, observed_status, probation_start):
+def _criterion(criterion, observed_status, probation_start, confirmed_status="pass"):
     return {
         "criterion": criterion,
         "observed_status": observed_status,
-        "confirmed_status": "pass",
+        "confirmed_status": confirmed_status,
         "evaluated_at": datetime.now(timezone.utc),
         "probation_start": probation_start,
     }
@@ -786,6 +786,33 @@ def test_search_ignores_probation_for_a_criterion_observed_failing(client: TestC
     probation_start = datetime.now(timezone.utc) - timedelta(days=20)
 
     with _feed_with_seal(feed_stable_id, [_criterion("available", "fail", probation_start)]):
+        response = _search(client, [("limit", 100), ("has_seal", "true")])
+
+        assert response.status_code == 200
+        response_body = SearchFeeds200Response.parse_obj(response.json())
+        assert response_body.results[0].reliability_seal.on_probation is False
+        assert response_body.results[0].reliability_seal.probation_ends_at is None
+
+
+def test_search_cancels_probation_when_a_criterion_is_confirmed_failing(client: TestClient, mocker):
+    """A confirmed failure anywhere cancels the feed-level probation: the feed is failing the seal
+    now rather than waiting out a clean run to earn it back.
+
+    The same rule `roll_up_on_probation` applies to the feed-detail and report endpoints. The seal
+    row is left holding the seal so the `has_seal` filter still returns the feed; only the probation
+    roll-up is under test.
+    """
+    _grant_seal_filter(mocker)
+    feed_stable_id = TEST_GTFS_FEED_STABLE_IDS[0]
+    probation_start = datetime.now(timezone.utc) - timedelta(days=20)
+
+    with _feed_with_seal(
+        feed_stable_id,
+        [
+            _criterion("available", "pass", probation_start),
+            _criterion("compliant", "fail", None, confirmed_status="fail"),
+        ],
+    ):
         response = _search(client, [("limit", 100), ("has_seal", "true")])
 
         assert response.status_code == 200
