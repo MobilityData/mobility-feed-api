@@ -17,7 +17,7 @@ def _seal_status_of(criterion_rows: list[SealCriterionOrm]) -> str:
     return roll_up_seal_status(
         (
             CriterionStatus(row.confirmed_status),
-            is_serving_probation(row.criterion, row.probation_start, row.observed_status),
+            is_serving_probation(row),
         )
         for row in criterion_rows
     ).value

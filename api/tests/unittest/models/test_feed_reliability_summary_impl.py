@@ -140,15 +140,53 @@ class TestFeedReliabilitySummaryFromOrm(unittest.TestCase):
         assert result.on_probation is True
         assert result.probation_ends_at == later + PROBATION_PERIOD
 
-    def test_probation_ignored_for_a_criterion_observed_failing(self):
-        """A criterion failing its latest check is failing, not recovering, so it rolls up as such."""
+    def test_probation_not_served_while_a_criterion_is_still_failing(self):
+        """A criterion sitting on a confirmed failure is failing, not waiting out a clean run."""
         feed = make_feed(
+            has_seal=False,
             criteria=[
                 make_criterion(
                     SealCriterionName.AVAILABLE,
                     observed_status="fail",
+                    confirmed_status="fail",
                     probation_start=NOW - timedelta(days=20),
                 )
+            ],
+        )
+        result = FeedReliabilitySummaryImpl.from_orm(feed)
+
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
+
+    def test_probation_not_served_when_the_latest_run_reached_no_verdict(self):
+        """`unknown` over a confirmed failure must not read as the recovery probation counts from."""
+        feed = make_feed(
+            has_seal=False,
+            criteria=[
+                make_criterion(
+                    SealCriterionName.AVAILABLE,
+                    observed_status="unknown",
+                    confirmed_status="fail",
+                    probation_start=NOW - timedelta(days=20),
+                )
+            ],
+        )
+        result = FeedReliabilitySummaryImpl.from_orm(feed)
+
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
+
+    def test_probation_ignored_for_a_withdrawn_criterion(self):
+        """`not_applicable` freezes `probation_start` rather than clearing it, so it must not roll up."""
+        feed = make_feed(
+            criteria=[
+                make_criterion(
+                    SealCriterionName.FRESH_COVERAGE,
+                    observed_status="not_applicable",
+                    confirmed_status="not_applicable",
+                    probation_start=NOW - timedelta(days=20),
+                ),
+                make_criterion(SealCriterionName.AVAILABLE),
             ]
         )
         result = FeedReliabilitySummaryImpl.from_orm(feed)

@@ -5,6 +5,7 @@ from shared.common.seal_criteria import (
     CriterionStatus,
     SealCriterionName,
     grace_period_for,
+    is_in_grace_period,
     is_serving_probation,
     probation_period_for,
     resolve_criterion,
@@ -17,12 +18,10 @@ from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterio
 # shared with the nightly job so the two cannot drift apart.
 #
 # `status` serves `confirmed_status`, the debounced verdict, which is the one `has_seal` is rolled
-# up from - so a client can always explain the seal it is shown. `observed_status`, the raw daily
-# check, never reaches the response on its own: the one thing it says that the debounced value does
-# not - a failure running right now - is carried by `in_grace_period` instead. This is the shape
-# specified in the #1789 spike; #1799 shipped `observed_status` here by mistake, which reported a
-# criterion inside its grace period as `fail` and could report a criterion that is the sole reason
-# a seal was withdrawn as `unknown`.
+# up from - so a client can always explain the seal it is shown. `observed_status` never reaches
+# the response, directly or through a derived flag: it belongs to the last run, so a badge built on
+# it would flicker on a night that reached no verdict. This is the shape specified in the #1789
+# spike; #1799 shipped `observed_status` here by mistake.
 
 
 class ReliabilityCriterionImpl(ReliabilityCriterion):
@@ -84,21 +83,9 @@ class ReliabilityCriterionImpl(ReliabilityCriterion):
         # authority on which criteria serve them.
         grace_period = grace_period_for(criterion)
         probation_period = probation_period_for(criterion)
-        on_probation = is_serving_probation(criterion, criterion_row.probation_start, criterion_row.observed_status)
+        on_probation = is_serving_probation(criterion_row)
+        in_grace_period = is_in_grace_period(criterion_row)
         probation_start = criterion_row.probation_start if on_probation else None
-
-        # A failing check still inside its grace period is not yet counting against the seal: the
-        # daily check reads `fail` but the debounced status is still `pass`. Both columns are read
-        # here rather than the served `status`, which is the debounced one and so is `pass` in
-        # exactly this case - that is what makes `in_grace_period` true only alongside `pass`, as
-        # #1789 specifies. Grace does not apply during probation: a failure then restarts the
-        # probation clock outright, so there is nothing left for grace to protect.
-        in_grace_period = (
-            grace_period is not None
-            and criterion_row.observed_status == CriterionStatus.FAIL
-            and criterion_row.confirmed_status == CriterionStatus.PASS
-            and criterion_row.probation_start is None
-        )
 
         return cls(
             criterion=criterion.value,

@@ -64,10 +64,7 @@ class FeedReliabilitySummaryImpl(FeedReliabilitySummary):
             return None
 
         evaluated_ats = [c.evaluated_at for c in feed.seal_criteria if c.evaluated_at is not None]
-        serving_probation = {
-            c.criterion: is_serving_probation(c.criterion, c.probation_start, c.observed_status)
-            for c in feed.seal_criteria
-        }
+        serving_probation = {c.criterion: is_serving_probation(c) for c in feed.seal_criteria}
         on_probation = roll_up_on_probation(
             (CriterionStatus(c.confirmed_status), serving_probation[c.criterion]) for c in feed.seal_criteria
         )

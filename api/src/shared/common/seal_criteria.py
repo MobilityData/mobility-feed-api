@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Dict, Final, Iterable, Optional, Tuple, TypeAlias
 
 from shared.common.error_handling import raise_internal_http_error, unknown_seal_criterion
+from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
 
 # A criterion named by its `SealCriterionName` value, as it arrives in a payload and as it
 # is stored in `seal_criterion.criterion`.
@@ -129,20 +130,24 @@ PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
 )
 
 
-def is_serving_probation(
-    criterion: str | SealCriterionName,
-    probation_start: Optional[datetime],
-    observed_status: str | CriterionStatus | None,
-) -> bool:
-    """Whether `criterion` is currently serving probation.
-
-    Probation is a clean-run requirement, so a criterion whose most recent check observed a failure
-    is not serving it: that failure restarts the clock, and the criterion is reported as failing
-    rather than as recovering. Exempt criteria never serve probation whatever the row says.
-    """
-    if probation_start is None or probation_period_for(criterion) is None:
+def is_in_grace_period(row: SealCriterionOrm) -> bool:
+    """Whether the criterion is holding an unconfirmed failure inside its grace period."""
+    if grace_period_for(row.criterion) is None:
         return False
-    return observed_status != CriterionStatus.FAIL
+    return (
+        row.probation_start is None
+        and row.confirmed_status == CriterionStatus.PASS
+        and row.first_observed_failure_at is not None
+    )
+
+
+def is_serving_probation(row: SealCriterionOrm) -> bool:
+    """
+    Whether the criterion is serving probation, which starts only once it stops failing.
+    """
+    if row.probation_start is None or probation_period_for(row.criterion) is None:
+        return False
+    return row.confirmed_status == CriterionStatus.PASS
 
 
 def roll_up_on_probation(
