@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
@@ -11,6 +12,8 @@ class FeedFilter(Filter):
     stable_id: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
     producer_url__ilike: Optional[str]  # case insensitive
+    created_at__gte: Optional[datetime] = None
+    created_at__lte: Optional[datetime] = None
 
     def __init__(self, *args, **kwargs):
         kwargs_normalized = normalize_str_parameter("status", **kwargs)
