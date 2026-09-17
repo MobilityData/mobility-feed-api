@@ -16,6 +16,7 @@
 import hashlib
 import logging
 import os
+import re
 import ssl
 import time
 import urllib3.exceptions
@@ -532,6 +533,65 @@ def create_http_pmtiles_builder_task(
         project_id,
         gcp_region,
         queue_name,
+    )
+
+
+def create_http_parquet_builder_task(
+    feed_stable_id: str,
+    dataset_stable_id: str,
+    force: bool = False,
+) -> None:
+    """
+    Create a task to render a dataset as Parquet.
+
+    The task is named after the dataset so Cloud Tasks itself rejects an obvious
+    duplicate enqueue. That is a courtesy, not the guarantee: delivery is at-least-once
+    and a name is only reserved for about an hour after a task completes, so the
+    builder claims the dataset in the database before doing any work. `force` varies
+    the name because a completed task's name cannot be reused within that window.
+    """
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+    from shared.common.gcp_utils import create_http_task_with_name
+    import json
+
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {
+            "feed_stable_id": feed_stable_id,
+            "dataset_stable_id": dataset_stable_id,
+            "force": force,
+        }
+    ).encode()
+    queue_name = os.getenv("PARQUET_BUILDER_QUEUE")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+    gcp_env = os.getenv("ENVIRONMENT")
+
+    if not queue_name:
+        logging.warning(
+            "PARQUET_BUILDER_QUEUE is not set; skipping parquet build task for %s",
+            dataset_stable_id,
+        )
+        return
+
+    proto_time = timestamp_pb2.Timestamp()
+    proto_time.GetCurrentTime()
+    # Cloud Tasks names allow letters, digits, hyphens and underscores only.
+    suffix = "-force" if force else ""
+    task_name = f"parquet-{re.sub(r'[^A-Za-z0-9_-]', '-', dataset_stable_id)}{suffix}"
+
+    create_http_task_with_name(
+        client=client,
+        body=body,
+        url=f"https://{gcp_region}-{project_id}.cloudfunctions.net/parquet-builder-{gcp_env}",
+        project_id=project_id,
+        gcp_region=gcp_region,
+        queue_name=queue_name,
+        task_name=None if force else task_name,
+        task_time=proto_time,
+        http_method=tasks_v2.HttpMethod.POST,
+        timeout_s=1800,
     )
 
 

@@ -24,6 +24,9 @@ tags:
   - name: "early-access"
     description: >-
       Early access programs (e.g. a Summit or GBFS validator beta) grant feature flags in bulk, including to members who have never signed in. This is the only enrollment path — there is no self-service join endpoint anywhere in the public API.
+  - name: "parquet"
+    description: >-
+      On-demand Parquet renderings of GTFS datasets. A dataset is converted once into one Parquet file per GTFS table, published publicly with a manifest describing the set, and served over HTTP range requests so a client can query it in place without downloading or unpacking the feed. Conversion is asynchronous: ask for the state, start one if it is absent, and poll until it is ready.
 paths:
   /v1/operations/feeds:
     get:
@@ -940,6 +943,110 @@ paths:
           description: Unauthorized.
         "404":
           description: Program not found.
+  /v1/operations/gtfs_feeds/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS feed's latest dataset stands
+      description: >-
+        Whether this feed's latest dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query the feed in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS feed not found, or it has no dataset yet. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS feed's latest dataset
+      description: >-
+        Begin rendering this feed's latest dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS feed not found, or it has no dataset yet.
+        "500":
+          description: Internal server error.
+  /v1/operations/gtfs_datasets/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/dataset_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS dataset stands
+      description: >-
+        Whether this dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query it in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS dataset not found. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS dataset
+      description: >-
+        Begin rendering this dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS dataset not found.
+        "500":
+          description: Internal server error.
 components:
   schemas:
     Redirect:
@@ -3377,6 +3484,125 @@ components:
               value: true
             - feature_flag_id: "max_results"
               value: 50
+    ParquetTable:
+      x-operation: true
+      type: object
+      description: >-
+        One GTFS table published as a single Parquet file. The same tables are described by the `manifest.json` written beside the files, which is what a browser reads; this copy spares a caller that already has the status response a second request.
+      required:
+        - name
+      properties:
+        name:
+          description: >-
+            The table name, which is the GTFS file stem (`stops` for stops.txt). The value `locations` is the flattened form of locations.geojson, the one GTFS file that is not a CSV. The file itself is always `{base_url}/{name}.parquet`.
+          type: string
+          example: stops
+        rows:
+          description: Number of rows in the table.
+          type: integer
+          format: int64
+          example: 4821
+        bytes:
+          description: Size of the Parquet file in bytes.
+          type: integer
+          format: int64
+          example: 148213
+    ParquetDatasetState:
+      x-operation: true
+      type: object
+      description: >-
+        Where a dataset's Parquet rendering stands. Which fields are set depends on `status`: `base_url` and `tables` for `ready`, the progress fields for `preparing`, `message` for `failed`, and nothing beyond the identifiers for `absent`. The progress fields are named as the GTFS Garage viewer names its own load reports, so a client can pass them straight through.
+      required:
+        - status
+        - feed_stable_id
+      properties:
+        status:
+          description: >-
+            `absent` when no conversion has ever been requested - an ordinary starting state, not an error. `preparing` while one is queued or running, `ready` once the files are published, `failed` when the last attempt did not finish.
+          type: string
+          enum: [absent, preparing, ready, failed]
+          example: preparing
+        feed_stable_id:
+          description: The stable ID of the feed the dataset belongs to.
+          type: string
+          example: mdb-1210
+        dataset_stable_id:
+          description: >-
+            The stable ID of the dataset. When the request addressed a feed, this is the feed's latest dataset, resolved at request time.
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        base_url:
+          description: >-
+            Public URL prefix the Parquet files are served from, without a trailing slash. Each table is this plus `/{name}.parquet`, and `{base_url}/manifest.json` describes the set. Null unless `status` is `ready`. The files are public and answer HTTP range requests; no query string is ever appended, so this can be used verbatim as a client's base URL.
+          type: string
+          format: url
+          nullable: true
+          example: https://files.mobilitydatabase.org/mdb-1210/mdb-1210-202402121801/parquet
+        tables:
+          description: >-
+            The tables this dataset contains. Null unless `status` is `ready`. Supplying this saves a browser probing for every GTFS table name in turn.
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ParquetTable"
+        phase:
+          description: >-
+            The step currently running, in the order they happen: `download` fetches the dataset archive, `extract` unpacks it, `convert` rewrites each table as Parquet, `upload` publishes the results, `summarise` records the manifest. Null unless `status` is `preparing`.
+          type: string
+          enum:
+            - start
+            - download
+            - upload
+            - extract
+            - convert
+            - summarise
+            - done
+          nullable: true
+          example: convert
+        done:
+          description: >-
+            Progress within the current phase: **bytes transferred** during `download`, and a count of files or tables otherwise. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        total:
+          description: >-
+            The target `done` is counting towards, in the same unit, or 0 when it is not knowable in advance - a download whose response carries no Content-Length, for instance. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 32
+        detail:
+          description: >-
+            The file or table currently being worked on; empty when there is none. Null unless `status` is `preparing`.
+          type: string
+          nullable: true
+          example: stop_times
+        message:
+          description: >-
+            Why the last attempt failed, in terms an operator can act on. Shown verbatim by the viewer, so it should name the actual cause. Null unless `status` is `failed`.
+          type: string
+          nullable: true
+          example: Conversion ran out of memory
+        generated_at:
+          description: When the current set of files finished generating. Null unless `status` is `ready`.
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-09-16T14:22:31Z"
+    ParquetGenerateRequest:
+      x-operation: true
+      type: object
+      description: Options for a Parquet generation request.
+      properties:
+        force:
+          description: >-
+            Regenerate even if the files already exist, replacing them. Has no effect on a conversion that is already running: that one is reported as-is rather than restarted.
+          type: boolean
+          default: false
+          example: false
   parameters:
     early_access_format_param:
       x-operation: true
@@ -3492,6 +3718,15 @@ components:
           - desc
         default: desc
         example: asc
+    dataset_id_path_param:
+      x-operation: true
+      name: id
+      in: path
+      description: The dataset ID of the requested GTFS dataset.
+      required: True
+      schema:
+        type: string
+        example: mdb-1210-202402121801
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
