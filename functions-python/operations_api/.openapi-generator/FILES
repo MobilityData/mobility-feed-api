@@ -5,6 +5,8 @@ src/feeds_gen/apis/licenses_api.py
 src/feeds_gen/apis/licenses_api_base.py
 src/feeds_gen/apis/operations_api.py
 src/feeds_gen/apis/operations_api_base.py
+src/feeds_gen/apis/parquet_api.py
+src/feeds_gen/apis/parquet_api_base.py
 src/feeds_gen/apis/users_api.py
 src/feeds_gen/apis/users_api_base.py
 src/feeds_gen/main.py
@@ -67,6 +69,9 @@ src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
 src/feeds_gen/models/operation_user_profile.py
+src/feeds_gen/models/parquet_dataset_state.py
+src/feeds_gen/models/parquet_generate_request.py
+src/feeds_gen/models/parquet_table.py
 src/feeds_gen/models/propagate_license_affected_feed.py
 src/feeds_gen/models/propagate_license_request.py
 src/feeds_gen/models/propagate_license_response.py

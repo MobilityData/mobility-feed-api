@@ -1,0 +1,31 @@
+{
+  "name": "parquet-builder",
+  "description": "The Parquet Builder function renders a GTFS dataset as one Parquet file per table",
+  "entry_point": "build_parquet_handler",
+  "timeout": 1680,
+  "memory": "16Gi",
+  "trigger_http": true,
+  "include_folders": ["helpers"],
+  "include_api_folders": ["database_gen", "database", "common"],
+  "environment_variables": [
+    {
+      "key": "DATASETS_BUCKET_NAME"
+    },
+    {
+      "key": "PUBLIC_HOSTED_DATASETS_URL"
+    },
+    {
+      "key": "LOGGING_LEVEL"
+    }
+  ],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALL",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 20,
+  "min_instance_count": 0,
+  "available_cpu": 4
+}

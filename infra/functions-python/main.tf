@@ -71,6 +71,9 @@ locals {
 
   function_gtfs_file_data_extractor_config = jsondecode(file("${path.module}/../../functions-python/gtfs_file_data_extractor/function_config.json"))
   function_gtfs_file_data_extractor_zip    = "${path.module}/../../functions-python/gtfs_file_data_extractor/.dist/gtfs_file_data_extractor.zip"
+
+  function_parquet_builder_config = jsondecode(file("${path.module}/../../functions-python/parquet_builder/function_config.json"))
+  function_parquet_builder_zip    = "${path.module}/../../functions-python/parquet_builder/.dist/parquet_builder.zip"
 }
 
 locals {
@@ -84,7 +87,8 @@ locals {
     local.function_tasks_executor_config.secret_environment_variables,
     local.function_pmtiles_builder_config.secret_environment_variables,
     local.function_gtfs_datasets_comparer_config.secret_environment_variables,
-    local.function_gtfs_file_data_extractor_config.secret_environment_variables
+    local.function_gtfs_file_data_extractor_config.secret_environment_variables,
+    local.function_parquet_builder_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -249,6 +253,13 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "pmtiles-${substr(filebase64sha256(local.function_pmtiles_builder_zip), 0, 10)}.zip"
   source = local.function_pmtiles_builder_zip
+}
+
+# 18. Parquet Builder
+resource "google_storage_bucket_object" "parquet_builder_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "parquet-builder-${substr(filebase64sha256(local.function_parquet_builder_zip), 0, 10)}.zip"
+  source = local.function_parquet_builder_zip
 }
 
 # 16. GTFS Change Tracker
@@ -868,6 +879,9 @@ resource "google_cloudfunctions2_function" "operations_api" {
       GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      PARQUET_BUILDER_QUEUE         = google_cloud_tasks_queue.parquet_builder_task_queue.name
+      DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL    = local.public_hosted_datasets_url
     }
     available_memory                 = local.function_operations_api_config.memory
     timeout_seconds                  = local.function_operations_api_config.timeout
@@ -1238,6 +1252,25 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" 
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Grant execution permission to the service account to the parquet_builder function.
+# The operations-api function enqueues the Cloud Task, and the task is dispatched with
+# an OIDC token for this same service account.
+resource "google_cloudfunctions2_function_iam_member" "parquet_builder_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.parquet_builder.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloud_run_service_iam_member" "parquet_builder_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.parquet_builder.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 # Grant execution permission to batchfunctions service account to the gtfs_datasets_comparer function
 resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker_batch_sa" {
   project        = var.project_id
@@ -1402,6 +1435,28 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   }
 }
 
+# Task queue to invoke the parquet_builder function.
+# max_concurrent_dispatches is low because each build holds several GB: the cap is
+# memory across concurrent instances, not throughput.
+resource "google_cloud_tasks_queue" "parquet_builder_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "parquet-builder-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # One attempt. A conversion that fails does so deterministically - a corrupt
+    # archive is still corrupt - and the builder records the reason and returns 200
+    # rather than letting Cloud Tasks retry it. Retrying would also fight the
+    # database claim the builder takes for the duration.
+    max_attempts = 1
+  }
+}
+
 # Task queue to invoke gtfs_datasets_comparer function for backfill changelog tasks
 resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_backfill_task_queue" {
   project  = var.project_id
@@ -1538,6 +1593,57 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
 
     dynamic "secret_environment_variables" {
       for_each = local.function_pmtiles_builder_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+
+# 18. functions/parquet_builder cloud function
+resource "google_cloudfunctions2_function" "parquet_builder" {
+  name        = "${local.function_parquet_builder_config.name}-${var.environment}"
+  project     = var.project_id
+  description = local.function_parquet_builder_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_parquet_builder_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.parquet_builder_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT                = var.environment
+      PROJECT_ID                 = var.project_id
+      GCP_REGION                 = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL      = google_service_account.functions_service_account.email
+      DATASETS_BUCKET_NAME       = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+    }
+    available_memory                 = local.function_parquet_builder_config.memory
+    timeout_seconds                  = local.function_parquet_builder_config.timeout
+    available_cpu                    = local.function_parquet_builder_config.available_cpu
+    max_instance_request_concurrency = local.function_parquet_builder_config.max_instance_request_concurrency
+    max_instance_count               = local.function_parquet_builder_config.max_instance_count
+    min_instance_count               = local.function_parquet_builder_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_parquet_builder_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
