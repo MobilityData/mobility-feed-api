@@ -71,6 +71,7 @@ class FakeBlob:
 
     def upload_from_filename(self, path):
         self._store.uploaded[self.name] = Path(path).read_bytes()
+        self._store.events.append(("upload", self.name))
 
     def make_public(self):
         self.public = True
@@ -78,6 +79,7 @@ class FakeBlob:
 
     def delete(self):
         self._store.deleted.append(self.name)
+        self._store.events.append(("delete", self.name))
 
 
 class FakeBucket:
@@ -86,6 +88,7 @@ class FakeBucket:
         self.uploaded = {}
         self.deleted = []
         self.made_public = set()
+        self.events = []
         self._archive = archive
         self._existing = list(existing)
 
@@ -261,6 +264,69 @@ class TestSuccessfulBuild(BuildTestCase):
         result = self.build()
 
         self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+
+
+class TestPublishIsNotObservablyPartial(BuildTestCase):
+    """A reader must never find a dataset advertising tables that are not there yet.
+
+    Reported from the operations web app: a feed loaded with "No tables found", then
+    with one table, then with seven of eleven, and only became correct once every
+    object had landed. The manifest was being uploaded in the middle of the
+    alphabetical sequence, and a rebuild cleared the whole prefix before replacing it.
+    """
+
+    def _events(self):
+        prefix = f"{FEED}/{DATASET}/parquet/"
+        return [(kind, name[len(prefix) :]) for kind, name in self.bucket.events]
+
+    def test_the_manifest_is_published_last(self):
+        """It is the readiness marker for anyone reading the bucket directly."""
+        self.build()
+
+        uploads = [name for kind, name in self._events() if kind == "upload"]
+        self.assertEqual(
+            uploads[-1],
+            "manifest.json",
+            f"manifest must be the final upload, got order {uploads}",
+        )
+
+    def test_nothing_is_deleted_before_the_new_set_is_up(self):
+        """Clearing first leaves an already-published dataset unreadable meanwhile."""
+        self.bucket._existing = [f"{FEED}/{DATASET}/parquet/gone.parquet"]
+
+        self.build()
+
+        kinds = [kind for kind, _ in self._events()]
+        self.assertIn("delete", kinds)
+        self.assertLess(
+            max(i for i, k in enumerate(kinds) if k == "upload"),
+            min(i for i, k in enumerate(kinds) if k == "delete"),
+            "every upload must precede every delete",
+        )
+
+    def test_a_rebuild_never_removes_a_table_it_is_replacing(self):
+        """The live objects stay readable, overwritten in place, for the whole build."""
+        self.bucket._existing = [f"{FEED}/{DATASET}/parquet/agency.parquet"]
+
+        self.build()
+
+        self.assertNotIn(
+            f"{FEED}/{DATASET}/parquet/agency.parquet",
+            self.bucket.deleted,
+            "a table present in both the old and new set must never be deleted",
+        )
+
+    def test_ready_is_recorded_only_after_every_object_has_landed(self):
+        recorded = []
+        self.tracker.mark_completed.side_effect = lambda *a, **k: recorded.append(
+            len(self.bucket.events)
+        )
+
+        self.build()
+
+        self.assertEqual(
+            recorded, [len(self.bucket.events)], "ready was published mid-publish"
+        )
 
 
 class TestFailure(BuildTestCase):

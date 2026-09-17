@@ -42,7 +42,12 @@ import functions_framework
 from google.cloud import storage
 from sqlalchemy.orm import Session
 
-from converter import PARQUET_CONVERTER_VERSION, convert_to_parquet, extract_feed
+from converter import (
+    MANIFEST,
+    PARQUET_CONVERTER_VERSION,
+    convert_to_parquet,
+    extract_feed,
+)
 from progress import (
     PHASE_CONVERT,
     PHASE_DONE,
@@ -249,17 +254,29 @@ def _extract(archive: Path, workdir: Path, progress, logger) -> Path:
 def _upload(
     bucket, feed_stable_id, dataset_stable_id, out_dir: Path, progress, logger
 ) -> str:
-    """Publish the Parquet set, replacing whatever was there before."""
+    """Publish the Parquet set so a reader never observes a partial one.
+
+    Two orderings matter here, and getting either wrong shows up as a feed that loads
+    with some of its tables missing:
+
+      * The manifest goes up **last**. It is what a reader holding only the bucket URL
+        uses to learn which tables exist, so publishing it early advertises files that
+        have not arrived - the reader then asks for every table and finds the handful
+        uploaded so far.
+      * Nothing is deleted **before** the new set is up. A rebuild used to clear the
+        prefix first, which left a dataset that was already published unreadable for
+        the whole upload, and a reader that had been told the dataset was ready has
+        stopped asking by then and never finds out.
+
+    Stale objects are pruned afterwards instead. Between the upload and the prune the
+    prefix may hold a table the new set does not, which is harmless: a reader is driven
+    by the manifest or by the API's table list, and neither mentions it.
+    """
     dest_prefix = f"{feed_stable_id}/{dataset_stable_id}/{PARQUET_PREFIX}"
+    existing = {blob.name for blob in bucket.list_blobs(prefix=dest_prefix + "/")}
 
-    # Cleared first so a rebuild that produces fewer tables cannot leave a stale one
-    # behind for a reader to find.
-    for stale in bucket.list_blobs(prefix=dest_prefix + "/"):
-        stale.delete()
-
-    files = sorted(out_dir.iterdir())
-    for index, path in enumerate(files, start=1):
-        progress(PHASE_UPLOAD, index, len(files), path.name)
+    def publish_file(path: Path, index: int, total: int) -> str:
+        progress(PHASE_UPLOAD, index, total, path.name)
         blob = bucket.blob(f"{dest_prefix}/{path.name}")
         blob.upload_from_filename(str(path))
         try:
@@ -268,10 +285,26 @@ def _upload(
             # Uniform bucket-level access would make this unnecessary and impossible at
             # the same time; the objects are public by bucket policy in that case.
             logger.warning("Could not make %s public: %s", blob.name, error)
-    progress.flush(phase=PHASE_UPLOAD, done=len(files), total=len(files))
+        return blob.name
+
+    tables = sorted(path for path in out_dir.iterdir() if path.name != MANIFEST)
+    manifest = out_dir / MANIFEST
+    total = len(tables) + (1 if manifest.exists() else 0)
+
+    written = set()
+    for index, path in enumerate(tables, start=1):
+        written.add(publish_file(path, index, total))
+    if manifest.exists():
+        written.add(publish_file(manifest, total, total))
+
+    progress.flush(phase=PHASE_UPLOAD, done=total, total=total)
+
+    for name in sorted(existing - written):
+        bucket.blob(name).delete()
+        logger.info("Removed stale object %s", name)
 
     public_base = os.getenv("PUBLIC_HOSTED_DATASETS_URL", "").rstrip("/")
-    logger.info("Uploaded %s files to gs://%s/%s", len(files), bucket.name, dest_prefix)
+    logger.info("Uploaded %s files to gs://%s/%s", total, bucket.name, dest_prefix)
     return f"{public_base}/{dest_prefix}"
 
 

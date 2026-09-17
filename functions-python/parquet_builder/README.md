@@ -47,6 +47,21 @@ Objects are made public. They have to be: the reader builds each file's URL from
 base URL's origin and path only, discarding any query string, so a signed URL cannot
 survive the round trip.
 
+**The publish order is part of the contract.** Tables go up first, `manifest.json`
+last, and stale objects are pruned only afterwards. The manifest is what a reader
+holding just the bucket URL uses to learn which tables exist, so publishing it earlier
+advertises files that have not arrived - the reader asks for every table and finds only
+the handful uploaded so far. Nothing is deleted before the new set is up either: a
+rebuild that cleared the prefix first left an already-published dataset unreadable for
+the length of the upload, and a reader that has been told the dataset is ready has
+stopped polling by then and never finds out. Both orderings are pinned by
+`TestPublishIsNotObservablyPartial` in `tests/test_main.py`.
+
+One case is not covered by this and cannot be, short of publishing to a throwaway
+prefix and copying: on a **first** build there is no manifest and no `ready` status yet,
+so a client that goes straight to the bucket and probes for table names can still catch
+a partial set. Clients driven by the Operations API or by the manifest never do.
+
 `manifest.json`:
 
 ```json
