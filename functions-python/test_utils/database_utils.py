@@ -14,7 +14,10 @@
 #  limitations under the License.
 #
 
+import os
 from typing import Final
+
+from dotenv import load_dotenv
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -27,12 +30,22 @@ import logging
 logging.basicConfig()
 logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 
-default_db_url: Final[str] = (
-    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+# Test database URLs are per worktree: scripts/worktree-env.sh publishes Postgres
+# on a different host port in each git worktree so several stacks - and several
+# test runs - can be active at once, and scripts/api-tests.sh copies the
+# resulting values into the .env next to these tests. The literals are the
+# defaults for a checkout without that override, and for CI, which never
+# creates one.
+load_dotenv()
+
+default_db_url: Final[str] = os.getenv(
+    "FEEDS_DATABASE_URL_TEST",
+    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest",
 )
 
-default_users_db_url: Final[str] = (
-    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseUsersTest"
+default_users_db_url: Final[str] = os.getenv(
+    "USERS_DATABASE_URL_TEST",
+    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseUsersTest",
 )
 
 excluded_tables: Final[list[str]] = [

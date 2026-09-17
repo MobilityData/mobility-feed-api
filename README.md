@@ -91,8 +91,29 @@ pip3 install -r requirements_dev.txt
 - Generates an instance of the database locally using docker-compose
 
 ```bash
-docker-compose --env-file ./config/.env.local  up -d --force-recreate
+scripts/docker-localdb-rebuild-data.sh
 ```
+
+  Prefer this over a bare `docker compose up`. Each git worktree gets its own
+  Compose project and its own published Postgres ports (generated once into
+  `config/.env.worktree` by `scripts/worktree-env.sh`), so several worktrees can
+  run their databases - and their test suites - at the same time. A bare
+  `docker compose up` does not load that file and will fall back to the shared
+  default ports, colliding with whichever worktree already holds them.
+
+- Releases the Docker resources again when you are done with a worktree
+
+```bash
+scripts/docker-localdb-cleanup.sh            # this worktree only
+scripts/docker-localdb-cleanup.sh --all      # also reclaim idle leftovers of deleted worktrees
+```
+
+  Worth knowing: every Compose project creates its own Docker network, and
+  Docker's default address pool only fits about 31 of them. Worktrees that are
+  deleted without being torn down leak a network each; once the pool is
+  exhausted, every `docker compose up` fails with "all predefined address pools
+  have been fully subnetted", which shows up as a flood of connection errors
+  from liquibase and the db-gen scripts.
 
 - Generates the api and database stubs on the first run and every time the schema changes
 
