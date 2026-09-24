@@ -1,5 +1,58 @@
-import {buildGithubIssueBody} from "../impl/feed-form-impl";
-import {FeedSubmissionFormRequestBody} from "../impl/types";
+import { createGithubIssue, buildGithubIssueBody } from "../../impl/utils/github-issue";
+import axios from "axios";
+import * as logger from "firebase-functions/logger";
+import { isValidZipUrl, isValidZipDownload } from "../../impl/utils/url-parse";
+import {FeedSubmissionFormRequestBody} from "../../impl/types";
+import {sampleRequestBodyGTFS} from "../../impl/__mocks__/feed-submission-form-request-body.mock";
+
+jest.mock("axios");
+jest.mock("firebase-functions/logger");
+jest.mock("../../impl/utils/url-parse");
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedIsValidZipUrl = isValidZipUrl as jest.Mock;
+const mockedIsValidZipDownload = isValidZipDownload as jest.Mock;
+
+describe("createGithubIssue", () => {
+  const formData = {
+    sampleRequestBodyGTFS
+  } as any;
+  const spreadsheetId = "sheet123";
+  const githubToken = "token123";
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedIsValidZipUrl.mockReturnValue(true);
+    mockedIsValidZipDownload.mockResolvedValue(true);
+  });
+
+  it("creates an issue and returns the URL", async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { html_url: "https://github.com/issue/1" } });
+    const url = await createGithubIssue(formData, spreadsheetId, githubToken);
+    expect(url).toBe("https://github.com/issue/1");
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      expect.stringContaining("github.com/repos"),
+      expect.objectContaining({ title: expect.any(String) }),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: expect.any(String) }) })
+    );
+  });
+
+  it("returns empty string and logs error on failure", async () => {
+    mockedAxios.post.mockRejectedValueOnce(new Error("fail"));
+    const url = await createGithubIssue(formData, spreadsheetId, githubToken);
+    expect(url).toBe("");
+    expect(logger.error).toHaveBeenCalled();
+  });
+
+  it("adds 'invalid' label if zip is invalid", async () => {
+    mockedIsValidZipUrl.mockReturnValue(false);
+    mockedIsValidZipDownload.mockResolvedValue(false);
+    mockedAxios.post.mockResolvedValueOnce({ data: { html_url: "https://github.com/issue/2" } });
+    await createGithubIssue(formData, spreadsheetId, githubToken);
+    const call = mockedAxios.post.mock.calls[0][1] as any;
+    expect(call.labels).toContain("invalid");
+  });
+});
 
 describe("buildGithubIssueBody", () => {
   const spreadsheetId = "testSpreadsheetId";
@@ -203,3 +256,4 @@ describe("buildGithubIssueBody", () => {
     expect(buildGithubIssueBody(formData, spreadsheetId)).toBe(expectedContent);
   });
 });
+
