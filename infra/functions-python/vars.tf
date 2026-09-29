@@ -105,7 +105,10 @@ variable "reconcile_announcements_schedule" {
 variable "seal_orchestrator_schedule" {
     type        = string
     description = "Cron schedule for the nightly Seal of Reliability orchestrator job"
-    default     = "0 4 * * *" # Daily at 04:00 UTC
+    # Daily at 09:00 UTC. Deliberately after process-validation-report has finished writing the
+    # night's reports to the database - it works through them at about 80/hour and does not finish
+    # until roughly 08:30.
+    default     = "0 9 * * *"
 }
 
 variable "purge_early_access_invites_schedule" {
