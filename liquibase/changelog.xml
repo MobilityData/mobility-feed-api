@@ -140,6 +140,8 @@
     <!-- Index the unindexed FK gtfsfile.gtfs_dataset_id; the seal criteria scan it per dataset (issue #1831). -->
     <!-- Created CONCURRENTLY, so it needs its own transaction: hence the XML wrapper, as in feat_1432_indexes.xml -->
     <include file="changes/feat_1831_indexes.xml" relativeToChangelogFile="true"/>
+    <!-- Remove Sao Paulo feeds as requested by feed owner -->
+    <include file="changes/remove_sao_paulo_feeds.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
