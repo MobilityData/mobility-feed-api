@@ -23,6 +23,7 @@ from feeds_gen.apis.operations_api import router as FeedsApiRouter
 from feeds_gen.apis.early_access_api import router as EarlyAccessApiRouter
 from feeds_gen.apis.licenses_api import router as LicenseApiRouter
 from feeds_gen.apis.users_api import router as UsersApiRouter
+from feeds_gen.apis.parquet_api import router as ParquetApiRouter
 import functions_framework
 import asyncio
 
@@ -58,6 +59,7 @@ app.include_router(FeedsApiRouter)
 app.include_router(EarlyAccessApiRouter)
 app.include_router(LicenseApiRouter)
 app.include_router(UsersApiRouter)
+app.include_router(ParquetApiRouter)
 
 
 def build_scope_from_wsgi(request: Request) -> dict:

@@ -27,6 +27,14 @@ docker compose --env-file ./config/.env.local up -d liquibase-test
 ```
 ./scripts/api-operations-update-schema.sh
 ```
+- Generate a dataset's Parquet locally, with no GCP access, to work on the
+  `/v1/operations/{gtfs_feeds,gtfs_datasets}/{id}/parquet` endpoints or the viewer that
+  consumes them:
+```
+./scripts/parquet-generate-local.sh <feed-id | dataset-id | feed.zip | folder/> [--serve]
+```
+  See [parquet_builder](../parquet_builder/README.md) for those endpoints and the full
+  local testing guide.
 
 
 ## Development process

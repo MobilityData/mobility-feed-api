@@ -86,7 +86,10 @@ resource "google_storage_bucket" "datasets_bucket" {
   }
   cors {
     origin = ["*"]
-    method = ["GET"]
+    # HEAD as well as GET: a browser reading Parquet over range requests probes with
+    # HEAD first, and GCS matches CORS methods literally rather than treating HEAD as
+    # a kind of GET.
+    method          = ["GET", "HEAD"]
     response_header = ["*"]
   }
 }

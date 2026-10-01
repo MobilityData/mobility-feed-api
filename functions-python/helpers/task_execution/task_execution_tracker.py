@@ -48,6 +48,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -57,6 +58,13 @@ STATUS_IN_PROGRESS = "in_progress"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
 STATUS_TRIGGERED = "triggered"
+
+# How long a claim taken by `try_acquire` stays valid without a heartbeat. A worker
+# killed mid-run (OOM, timeout) cannot release its own claim, so the claim has to
+# expire on its own or the entity could never be retried. Keep this comfortably
+# above the worker's own timeout, so an instance GCP has not finished killing can
+# never have its work started a second time underneath it.
+DEFAULT_LEASE_SECONDS = 1800
 
 # Cap on concatenated list fields in get_summary()'s metadata_summary. The two tables
 # hold every entity's own metadata regardless; this only bounds the summary's size.
@@ -264,6 +272,135 @@ class TaskExecutionTracker:
             synchronize_session=False,
         )
         self.db_session.flush()
+
+    # ------------------------------------------------------------------
+    # Exclusive claims
+    # ------------------------------------------------------------------
+
+    def try_acquire(
+        self,
+        entity_id: Optional[str],
+        execution_ref: Optional[str] = None,
+        lease_seconds: int = DEFAULT_LEASE_SECONDS,
+    ) -> bool:
+        """Atomically claim this entity for work. True iff this caller now owns it.
+
+        `mark_triggered` is an upsert that always writes, so two callers racing on the
+        same entity both "succeed" — use this instead wherever the work must not run
+        twice at once. Cloud Tasks delivers at least once, so the worker itself has to
+        claim, not just the caller that enqueued it.
+
+        The guarantee is Postgres's: a single INSERT .. ON CONFLICT DO UPDATE .. WHERE
+        takes the row lock, and a conflicting statement re-evaluates the predicate
+        against the committed row. When the predicate is false nothing is written and
+        nothing is returned, so exactly one concurrent caller sees a row come back.
+
+        A claim is granted when the entity is untracked, was merely `triggered`
+        (enqueued, not yet started), previously `failed`, or is `in_progress` with an
+        expired lease. A `completed` entity is never reclaimed — call
+        `release_for_retry` first to redo finished work.
+        """
+        task_run_id = self._resolve_task_run_id()
+        expired = TaskExecutionLog.triggered_at < func.now() - text(
+            "make_interval(secs => :lease_seconds)"
+        ).bindparams(lease_seconds=lease_seconds)
+
+        stmt = (
+            insert(TaskExecutionLog)
+            .values(
+                task_run_id=task_run_id,
+                task_name=self.task_name,
+                entity_id=entity_id,
+                run_id=self.run_id,
+                status=STATUS_IN_PROGRESS,
+                execution_ref=execution_ref,
+                error_message=None,
+                triggered_at=func.now(),
+            )
+            .on_conflict_do_update(
+                constraint="task_execution_log_task_name_entity_id_run_id_key",
+                set_={
+                    "status": STATUS_IN_PROGRESS,
+                    "execution_ref": execution_ref,
+                    "error_message": None,
+                    "triggered_at": func.now(),
+                    "completed_at": None,
+                },
+                # Against the existing row, never the proposed one: this is what makes
+                # the statement a lock rather than an upsert.
+                where=or_(
+                    TaskExecutionLog.status.in_([STATUS_TRIGGERED, STATUS_FAILED]),
+                    and_(
+                        TaskExecutionLog.status == STATUS_IN_PROGRESS,
+                        expired,
+                    ),
+                ),
+            )
+            .returning(TaskExecutionLog.id)
+        )
+        acquired = self.db_session.execute(stmt).scalar_one_or_none() is not None
+        self.db_session.flush()
+        logging.info(
+            "TaskExecutionTracker: claim on entity=%s run=%s/%s %s",
+            entity_id,
+            self.task_name,
+            self.run_id,
+            "granted" if acquired else "refused (held elsewhere)",
+        )
+        return acquired
+
+    def heartbeat(
+        self, entity_id: Optional[str], metadata: Optional[dict[str, Any]] = None
+    ) -> None:
+        """Extend a held claim, optionally recording where the work has got to.
+
+        Without this a job that legitimately runs longer than the lease would have its
+        claim stolen while it is still working. Callers should heartbeat at whatever
+        cadence they already report progress at, rather than adding writes for it.
+        """
+        values: dict[Any, Any] = {"triggered_at": func.now()}
+        if metadata is not None:
+            values[TaskExecutionLog.metadata_] = metadata
+        self._entity_query(entity_id).filter(
+            TaskExecutionLog.status == STATUS_IN_PROGRESS
+        ).update(values, synchronize_session=False)
+        self.db_session.flush()
+
+    def release_for_retry(self, entity_id: Optional[str]) -> bool:
+        """Make a completed entity claimable again. True if one was released.
+
+        The deliberate route back for work that is finished but has to be redone —
+        a forced regeneration, say. Only touches `completed`, so it can never wrench a
+        claim away from a worker that currently holds one.
+        """
+        released = (
+            self._entity_query(entity_id)
+            .filter(TaskExecutionLog.status == STATUS_COMPLETED)
+            .update(
+                {"status": STATUS_FAILED, "completed_at": None},
+                synchronize_session=False,
+            )
+        )
+        self.db_session.flush()
+        return bool(released)
+
+    def get_entity(self, entity_id: Optional[str]) -> Optional[TaskExecutionLog]:
+        """The tracking row for one entity, or None when it is untracked.
+
+        `is_triggered` answers a narrower question — it counts only `triggered` and
+        `completed`, so an entity actively `in_progress` reads as untracked through it.
+        Anything that needs to tell running from absent must read the row.
+        """
+        return self._entity_query(entity_id).one_or_none()
+
+    def _entity_query(self, entity_id: Optional[str]):
+        query = self.db_session.query(TaskExecutionLog).filter(
+            TaskExecutionLog.task_name == self.task_name,
+            TaskExecutionLog.run_id == self.run_id,
+        )
+        if entity_id is None:
+            return query.filter(TaskExecutionLog.entity_id.is_(None))
+        return query.filter(TaskExecutionLog.entity_id == entity_id)
 
     # ------------------------------------------------------------------
     # Reporting
