@@ -142,6 +142,8 @@
     <include file="changes/feat_1831_indexes.xml" relativeToChangelogFile="true"/>
     <!-- Remove Sao Paulo feeds as requested by feed owner -->
     <include file="changes/remove_sao_paulo_feeds.sql" relativeToChangelogFile="true"/>
+    <!-- Remove blank GTFS-RT entity types and constrain entitytype.name to vp/tu/sa. -->
+    <include file="changes/fix_empty_entity_types.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
