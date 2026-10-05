@@ -458,7 +458,6 @@ def test_delete_gtfsrealtimefeed_cascadeto_feedreference(test_database):
 def test_delete_gtfsrealtimefeed_cascadeto_entitytypes(test_database):
     with test_database.start_db_session() as session:
         gtfsrtfeed = Gtfsrealtimefeed(id="f1")
-        # entitytype.name is constrained to the vp/tu/sa enum.
         entitytype = Entitytype(name="vp")
         session.add_all([gtfsrtfeed, gtfsrtfeed])
         gtfsrtfeed.entitytypes.append(entitytype)

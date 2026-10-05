@@ -349,11 +349,7 @@ def test_entity_types_overwrite(client: TestClient):
     ],
 )
 def test_entity_types_normalization(client: TestClient, feed_id: str, expected_entity_types: set):
-    """A blank, padded or partly invalid entity_type cell must never reach the API.
-
-    A blank Entitytype name fails the vp/tu/sa enum in the generated models and turns every
-    response carrying the feed into a 500.
-    """
+    """A blank, padded or partly invalid entity_type cell must never reach the API."""
     response = client.request(
         "GET",
         f"/v1/gtfs_rt_feeds/{feed_id}",

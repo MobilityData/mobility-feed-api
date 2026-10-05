@@ -107,13 +107,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
 
     def normalize_entity_types(self, row, stable_id) -> list[str]:
         """
-        Parse the `entity_type` cell into a list of valid entity type names.
-
-        The cell is a `|` or `-` separated list. Tokens are trimmed and lowercased, blanks are
-        dropped and anything that is not a member of `EntityType` is discarded with a warning.
-        An unparseable cell therefore yields an empty list rather than a blank entity type: a
-        blank name is rejected by the API's `vp`/`tu`/`sa` enum and makes every response
-        carrying the feed fail.
+        Parse the `|` or `-` separated `entity_type` cell into a list of valid entity type names.
         """
         raw_value = self.get_safe_value(row, "entity_type", "")
         valid_names = {entity_type.value for entity_type in EntityType}
@@ -135,8 +129,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         """
         entity_type_names = self.normalize_entity_types(row, stable_id)
         if not entity_type_names:
-            # An empty cell leaves the stored entity types alone, like the other
-            # operator-owned columns in this file.
+            # An empty cell leaves the stored entity types alone.
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
             return
 
