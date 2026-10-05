@@ -68,6 +68,7 @@ from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 from tasks.users.reconcile_announcements_from_brevo import (
     reconcile_announcements_from_brevo_handler,
 )
+from tasks.parquet.purge_expired_parquet import purge_expired_parquet_handler
 from tasks.users.purge_early_access_invites import purge_early_access_invites_handler
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
@@ -233,6 +234,18 @@ tasks = {
             "Parameters: dry_run (default true), limit (default null)."
         ),
         "handler": reconcile_announcements_from_brevo_handler,
+    },
+    "purge_expired_parquet": {
+        "description": (
+            "Deletes generated Parquet sets past the retention their build recorded, "
+            "counted from when they were built. Removes the GCS objects and the "
+            "task_execution_log row together: the API reports a dataset as ready from "
+            "that row alone, so deleting the files without it would advertise a "
+            "base_url whose contents are gone. Once purged the dataset reports absent "
+            "and rebuilds on the next request. Parameters: dry_run (default true), "
+            "limit (default none)."
+        ),
+        "handler": purge_expired_parquet_handler,
     },
     "purge_early_access_invites": {
         "description": (

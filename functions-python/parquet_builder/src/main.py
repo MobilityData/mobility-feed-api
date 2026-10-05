@@ -33,8 +33,9 @@ Two things about this function are deliberate and easy to undo by accident:
 import json
 import logging
 import os
+import shutil
 import sys
-import tempfile
+import zipfile
 from pathlib import Path
 
 import flask
@@ -45,8 +46,16 @@ from sqlalchemy.orm import Session
 from converter import (
     MANIFEST,
     PARQUET_CONVERTER_VERSION,
-    convert_to_parquet,
+    ConvertedTable,
+    SourceFacts,
+    TailReader,
+    convert_table,
     extract_feed,
+    open_connection,
+    register_table,
+    table_name_for,
+    write_manifest,
+    zip_member_sizes_from_file,
 )
 from progress import (
     PHASE_CONVERT,
@@ -58,7 +67,10 @@ from progress import (
     PHASE_UPLOAD,
     ThrottledProgress,
 )
+from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.helpers.ephemeral_workdir import EphemeralOrDebugWorkdir
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
@@ -67,6 +79,55 @@ init_logger()
 
 TASK_NAME = "parquet_generation"
 PARQUET_PREFIX = "parquet"
+WORKDIR_PREFIX = "parquet_"
+
+# Everything large goes here. It is a declared in-memory volume in deployed
+# environments, so its size is already subtracted from the process budget below.
+TMPDIR = os.getenv("PARQUET_TMPDIR", "/tmp/in-memory")
+
+# DuckDB's own default reads the host's RAM rather than the cgroup, so left alone it
+# spills far too late to help. Sized well under what the limiter leaves us.
+DUCKDB_MEMORY_LIMIT = os.getenv("PARQUET_DUCKDB_MEMORY_LIMIT", "2GB")
+
+# How much of an archive's tail to fetch when recovering compressed sizes. A GTFS zip
+# has tens of members, so its central directory is a few kilobytes; 1 MiB is slack.
+CENTRAL_DIRECTORY_TAIL = 1024 * 1024
+
+# How long a generated set lives when the caller does not say. The single source of
+# truth: the API deliberately declares bounds but no default, so an omitted value
+# arrives here as None rather than as someone else's idea of 30.
+DEFAULT_RETENTION_DAYS = 30
+MAX_RETENTION_DAYS = 60
+
+# Must run before anything allocates: turns an overshoot into a catchable MemoryError
+# instead of the kernel killing the container with no traceback and no response.
+limit_gcp_memory(TMPDIR)
+
+
+def _retention_days(value) -> int:
+    """How long this set should live, defaulted and bounded.
+
+    The API validates the range too, but this is not a duplicated check: the builder is
+    reachable from Cloud Tasks and from the CLI below, neither of which goes through the
+    schema, and a bad value here would otherwise be written into the tracking row and
+    honoured by the sweep.
+    """
+    if value is None:
+        return DEFAULT_RETENTION_DAYS
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        logging.warning("Ignoring unusable retention_days %r", value)
+        return DEFAULT_RETENTION_DAYS
+    if days < 1 or days > MAX_RETENTION_DAYS:
+        logging.warning(
+            "retention_days %s is outside 1..%s; using %s",
+            days,
+            MAX_RETENTION_DAYS,
+            DEFAULT_RETENTION_DAYS,
+        )
+        return DEFAULT_RETENTION_DAYS
+    return days
 
 
 @functions_framework.http
@@ -76,6 +137,7 @@ def build_parquet_handler(request: flask.Request) -> dict:
     feed_stable_id = payload.get("feed_stable_id")
     dataset_stable_id = payload.get("dataset_stable_id")
     force = bool(payload.get("force", False))
+    retention_days = _retention_days(payload.get("retention_days"))
 
     if not (feed_stable_id and dataset_stable_id):
         return {
@@ -105,6 +167,7 @@ def build_parquet_handler(request: flask.Request) -> dict:
             dataset_stable_id=dataset_stable_id,
             bucket_name=bucket_name,
             force=force,
+            retention_days=retention_days,
         )
     except Exception as error:
         # Deliberately a 200: see the module docstring.
@@ -122,6 +185,7 @@ def build_parquet(
     dataset_stable_id: str,
     bucket_name: str,
     force: bool = False,
+    retention_days: int = DEFAULT_RETENTION_DAYS,
     db_session: Session = None,
 ) -> dict:
     """Claim the dataset, convert it, publish it, and record what was written."""
@@ -159,40 +223,44 @@ def build_parquet(
     progress.flush(phase=PHASE_START, done=0, total=0, detail="")
 
     try:
-        with tempfile.TemporaryDirectory(
-            prefix=f"{dataset_stable_id}-"
+        with EphemeralOrDebugWorkdir(
+            owner_prefix=WORKDIR_PREFIX,
+            dir=TMPDIR,
+            prefix=f"{dataset_stable_id}_",
         ) as workdir_name:
             workdir = Path(workdir_name)
             bucket = storage.Client().get_bucket(bucket_name)
 
-            archive = _download_archive(
-                bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+            plan = _plan_sources(
+                bucket,
+                feed_stable_id,
+                dataset_stable_id,
+                workdir,
+                progress,
+                logger,
+                db_session,
             )
-            data_dir = _extract(archive, workdir, progress, logger)
-
-            out_dir = workdir / PARQUET_PREFIX
-            tables = convert_to_parquet(
-                data_dir=data_dir,
-                destination=out_dir,
-                on_progress=progress,
+            tables, base_url = _convert_and_publish(
+                bucket=bucket,
+                feed_stable_id=feed_stable_id,
+                dataset_stable_id=dataset_stable_id,
+                workdir=workdir,
+                plan=plan,
+                progress=progress,
                 logger=logger,
-            )
-            progress.flush(phase=PHASE_CONVERT, done=len(tables), total=len(tables))
-
-            base_url = _upload(
-                bucket, feed_stable_id, dataset_stable_id, out_dir, progress, logger
             )
 
             progress.flush(phase=PHASE_SUMMARISE, done=0, total=0, detail="")
-            manifest = {
+            metadata = {
                 "phase": PHASE_DONE,
                 "done": len(tables),
                 "total": len(tables),
                 "detail": "",
                 "base_url": base_url,
+                "retention_days": retention_days,
                 "tables": [table.as_manifest_entry() for table in tables],
             }
-            tracker.mark_completed(dataset_stable_id, metadata=manifest)
+            tracker.mark_completed(dataset_stable_id, metadata=metadata)
             db_session.commit()
 
             logger.info(
@@ -211,6 +279,263 @@ def build_parquet(
         tracker.mark_failed(dataset_stable_id, error_message=str(error))
         db_session.commit()
         raise
+
+
+class SourcePlan:
+    """Where this build's CSVs come from, resolved once up front.
+
+    `sources` is deliberately a list of (table, fetch) rather than files on disk: the
+    whole point is that only one source exists locally at a time, so materialising is
+    deferred to the moment each table is converted.
+    """
+
+    def __init__(self, kind: str, source_bytes, compressed_sizes: dict, sources: list):
+        self.facts = SourceFacts(
+            kind=kind, bytes=source_bytes, compressed_sizes=compressed_sizes
+        )
+        self.sources = sources
+
+
+def _plan_sources(
+    bucket,
+    feed_stable_id: str,
+    dataset_stable_id: str,
+    workdir: Path,
+    progress,
+    logger,
+    db_session: Session,
+) -> SourcePlan:
+    """Prefer the files `batch_process_dataset` already extracted; fall back to the zip.
+
+    Reading `extracted/` avoids ever holding the archive and the whole feed at once.
+    The dataset's `Gtfsfile` rows are the index - they name every extracted file and
+    its size without a bucket listing - and their absence is the signal that this
+    dataset predates extraction (or that it failed), in which case the archive is the
+    only source there is.
+    """
+    dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(Gtfsdataset.stable_id == dataset_stable_id)
+        .one_or_none()
+    )
+    files = list(dataset.gtfsfiles) if dataset else []
+
+    if files:
+        return _plan_from_extracted(
+            bucket, feed_stable_id, dataset_stable_id, dataset, files, workdir, logger
+        )
+
+    logger.info(
+        "No extracted files recorded for %s; falling back to the archive",
+        dataset_stable_id,
+    )
+    return _plan_from_archive(
+        bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+    )
+
+
+def _plan_from_extracted(
+    bucket, feed_stable_id, dataset_stable_id, dataset, files, workdir, logger
+) -> SourcePlan:
+    prefix = f"{feed_stable_id}/{dataset_stable_id}/extracted"
+    local_dir = workdir / "extracted"
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    sources = []
+    for record in files:
+        # `file_name` is the archive-relative path, so a feed wrapped in a folder is
+        # recorded as "feed/stops.txt". The table is named after the basename.
+        name = Path(record.file_name).name
+        table = table_name_for(Path(name))
+        if table is None:
+            continue
+        blob_path = f"{prefix}/{record.file_name}"
+        sources.append(
+            (table, _fetch_blob(bucket, blob_path, local_dir / name, logger))
+        )
+
+    archive_blob = bucket.blob(
+        f"{feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+    )
+    return SourcePlan(
+        kind="zip",
+        source_bytes=_archive_size(dataset, archive_blob, logger),
+        compressed_sizes=_compressed_sizes_from_blob(archive_blob, logger),
+        sources=sorted(sources, key=lambda item: item[0]),
+    )
+
+
+def _plan_from_archive(
+    bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+) -> SourcePlan:
+    """Fall back to the archive, still extracting one member at a time.
+
+    The archive stays on disk for the whole build, which is the right trade: it is
+    compressed, so holding it costs a fraction of what holding every extracted CSV
+    would, and extracting on demand keeps peak residency at one table.
+    """
+    archive = _download_archive(
+        bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+    )
+    with open(archive, "rb") as handle:
+        compressed = zip_member_sizes_from_file(handle)
+
+    data_dir = workdir / "extracted"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as zf:
+        members = [member for member in zf.infolist() if not member.is_dir()]
+
+    sources = []
+    for member in members:
+        # Flattened: producers differ on whether the files sit at the archive root or
+        # inside a folder, and the table is named after the basename either way.
+        name = Path(member.filename).name
+        table = table_name_for(Path(name))
+        if table is None:
+            continue
+        sources.append(
+            (table, _extract_member(archive, member.filename, data_dir / name))
+        )
+
+    return SourcePlan(
+        kind="zip",
+        source_bytes=archive.stat().st_size,
+        compressed_sizes=compressed,
+        sources=sorted(sources, key=lambda item: item[0]),
+    )
+
+
+def _extract_member(archive: Path, member_name: str, target: Path):
+    """A callable that unpacks one member when the converter is ready for it."""
+
+    def fetch() -> Path:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive) as zf, zf.open(member_name) as src, open(
+            target, "wb"
+        ) as dst:
+            shutil.copyfileobj(src, dst)
+        return target
+
+    return fetch
+
+
+def _fetch_blob(bucket, blob_path: str, target: Path, logger):
+    """A callable that downloads one object when the converter is ready for it."""
+
+    def fetch() -> Path:
+        blob = bucket.blob(blob_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        blob.download_to_filename(str(target))
+        return target
+
+    return fetch
+
+
+def _archive_size(dataset, archive_blob, logger):
+    """The archive's size, without downloading it."""
+    recorded = getattr(dataset, "zipped_size_bytes", None)
+    if recorded:
+        return int(recorded)
+    try:
+        archive_blob.reload()
+        return int(archive_blob.size or 0)
+    except Exception as error:
+        logger.warning("Could not read the archive's size: %s", error)
+        return None
+
+
+def _compressed_sizes_from_blob(archive_blob, logger) -> dict:
+    """Per-member compressed sizes, read from the archive's tail rather than all of it.
+
+    These exist only in the zip's central directory, so reading `extracted/` would
+    otherwise lose them and the load report's Zipped column would be blank for every
+    dataset built this way. The directory sits at the end of the file, so a ranged read
+    of the last megabyte is enough.
+    """
+    try:
+        archive_blob.reload()
+        size = int(archive_blob.size or 0)
+        if not size:
+            return {}
+        start = max(0, size - CENTRAL_DIRECTORY_TAIL)
+        tail = archive_blob.download_as_bytes(start=start, end=size - 1)
+        return zip_member_sizes_from_file(TailReader(tail, size))
+    except Exception as error:
+        logger.warning("Could not read compressed sizes from the archive: %s", error)
+        return {}
+
+
+def _convert_and_publish(
+    bucket, feed_stable_id, dataset_stable_id, workdir, plan, progress, logger
+):
+    """Convert and publish one table at a time, holding no more than one of each.
+
+    Each table is fetched, converted, uploaded and deleted before the next begins, so
+    peak memory tracks the largest single table rather than the whole feed. The
+    manifest still goes up last - it is what tells a reader the set is complete.
+    """
+    dest_prefix = f"{feed_stable_id}/{dataset_stable_id}/{PARQUET_PREFIX}"
+    existing = {blob.name for blob in bucket.list_blobs(prefix=dest_prefix + "/")}
+    written = set()
+
+    out_dir = workdir / PARQUET_PREFIX
+    out_dir.mkdir(parents=True, exist_ok=True)
+    con = open_connection(temp_dir=workdir / "duckdb", memory_limit=DUCKDB_MEMORY_LIMIT)
+    tables: list[ConvertedTable] = []
+    try:
+        total = len(plan.sources)
+        for index, (table, fetch) in enumerate(plan.sources, start=1):
+            progress(PHASE_CONVERT, index, total, table)
+            source = fetch()
+            try:
+                if not register_table(con, table, source, logger):
+                    continue
+                entry = convert_table(
+                    con,
+                    table,
+                    source,
+                    out_dir,
+                    plan.facts.compressed_sizes.get(source.name),
+                )
+            finally:
+                source.unlink(missing_ok=True)
+
+            parquet = out_dir / entry.file
+            written.add(_publish(bucket, dest_prefix, parquet, logger))
+            parquet.unlink(missing_ok=True)
+            tables.append(entry)
+    finally:
+        con.close()
+
+    if not tables:
+        raise ValueError(f"No GTFS tables could be converted for {dataset_stable_id}")
+
+    progress.flush(phase=PHASE_CONVERT, done=len(tables), total=len(tables))
+
+    progress(PHASE_UPLOAD, 1, 1, MANIFEST)
+    manifest = write_manifest(out_dir, tables, plan.facts)
+    written.add(_publish(bucket, dest_prefix, manifest, logger))
+    manifest.unlink(missing_ok=True)
+    progress.flush(phase=PHASE_UPLOAD, done=1, total=1, detail=MANIFEST)
+
+    for name in sorted(existing - written):
+        bucket.blob(name).delete()
+        logger.info("Removed stale object %s", name)
+
+    public_base = os.getenv("PUBLIC_HOSTED_DATASETS_URL", "").rstrip("/")
+    return tables, f"{public_base}/{dest_prefix}"
+
+
+def _publish(bucket, dest_prefix: str, path: Path, logger) -> str:
+    blob = bucket.blob(f"{dest_prefix}/{path.name}")
+    blob.upload_from_filename(str(path))
+    try:
+        blob.make_public()
+    except Exception as error:
+        # Uniform bucket-level access would make this unnecessary and impossible at the
+        # same time; the objects are public by bucket policy in that case.
+        logger.warning("Could not make %s public: %s", blob.name, error)
+    return blob.name
 
 
 def _download_archive(
@@ -249,63 +574,6 @@ def _extract(archive: Path, workdir: Path, progress, logger) -> Path:
     progress.flush(phase=PHASE_EXTRACT, done=count, total=count)
     logger.info("Extracted %s files", count)
     return data_dir
-
-
-def _upload(
-    bucket, feed_stable_id, dataset_stable_id, out_dir: Path, progress, logger
-) -> str:
-    """Publish the Parquet set so a reader never observes a partial one.
-
-    Two orderings matter here, and getting either wrong shows up as a feed that loads
-    with some of its tables missing:
-
-      * The manifest goes up **last**. It is what a reader holding only the bucket URL
-        uses to learn which tables exist, so publishing it early advertises files that
-        have not arrived - the reader then asks for every table and finds the handful
-        uploaded so far.
-      * Nothing is deleted **before** the new set is up. A rebuild used to clear the
-        prefix first, which left a dataset that was already published unreadable for
-        the whole upload, and a reader that had been told the dataset was ready has
-        stopped asking by then and never finds out.
-
-    Stale objects are pruned afterwards instead. Between the upload and the prune the
-    prefix may hold a table the new set does not, which is harmless: a reader is driven
-    by the manifest or by the API's table list, and neither mentions it.
-    """
-    dest_prefix = f"{feed_stable_id}/{dataset_stable_id}/{PARQUET_PREFIX}"
-    existing = {blob.name for blob in bucket.list_blobs(prefix=dest_prefix + "/")}
-
-    def publish_file(path: Path, index: int, total: int) -> str:
-        progress(PHASE_UPLOAD, index, total, path.name)
-        blob = bucket.blob(f"{dest_prefix}/{path.name}")
-        blob.upload_from_filename(str(path))
-        try:
-            blob.make_public()
-        except Exception as error:
-            # Uniform bucket-level access would make this unnecessary and impossible at
-            # the same time; the objects are public by bucket policy in that case.
-            logger.warning("Could not make %s public: %s", blob.name, error)
-        return blob.name
-
-    tables = sorted(path for path in out_dir.iterdir() if path.name != MANIFEST)
-    manifest = out_dir / MANIFEST
-    total = len(tables) + (1 if manifest.exists() else 0)
-
-    written = set()
-    for index, path in enumerate(tables, start=1):
-        written.add(publish_file(path, index, total))
-    if manifest.exists():
-        written.add(publish_file(manifest, total, total))
-
-    progress.flush(phase=PHASE_UPLOAD, done=total, total=total)
-
-    for name in sorted(existing - written):
-        bucket.blob(name).delete()
-        logger.info("Removed stale object %s", name)
-
-    public_base = os.getenv("PUBLIC_HOSTED_DATASETS_URL", "").rstrip("/")
-    logger.info("Uploaded %s files to gs://%s/%s", total, bucket.name, dest_prefix)
-    return f"{public_base}/{dest_prefix}"
 
 
 def main():  # pragma: no cover

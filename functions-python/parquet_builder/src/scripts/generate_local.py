@@ -45,8 +45,15 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Optional
 
-from converter import MANIFEST, convert_to_parquet, extract_feed
+from converter import (
+    MANIFEST,
+    SourceFacts,
+    convert_to_parquet,
+    extract_feed,
+    zip_member_sizes,
+)
 
 # Datasets are public over HTTPS, which is what lets this avoid credentials entirely.
 DEFAULT_HOST = "https://files.mobilitydatabase.org"
@@ -97,24 +104,46 @@ def download(url: str, target: Path) -> Path:
     return target
 
 
-def resolve_source(source: str, workdir: Path, host: str) -> Path:
-    """Get the feed onto disk as a directory of GTFS files, however it was named."""
+def _from_archive(archive: Path, workdir: Path) -> tuple[Path, SourceFacts]:
+    """Unpack, and record what the archive can tell us before it is discarded.
+
+    The compressed sizes have to be read here: they exist only in the zip's directory,
+    so a manifest written without them reports a dash in the Zipped column for every
+    file - which is how a local build ends up describing itself differently from a real
+    one, for no reason a reader could see.
+    """
+    facts = SourceFacts(
+        kind="zip",
+        bytes=archive.stat().st_size,
+        compressed_sizes=zip_member_sizes(archive),
+    )
+    return extract_feed(archive, workdir / "extracted", on_progress=_progress), facts
+
+
+def resolve_source(
+    source: str, workdir: Path, host: str
+) -> tuple[Path, Optional[SourceFacts]]:
+    """Get the feed onto disk as a directory of GTFS files, however it was named.
+
+    Returns the directory and, for an archive, the facts only the archive carries.
+    None means a plain folder, which the converter describes for itself.
+    """
     candidate = Path(source).expanduser()
 
     if candidate.is_dir():
         _log(f"  source    {candidate} (directory)")
-        return candidate
+        return candidate, None
 
     if candidate.is_file():
         _log(f"  source    {candidate} (archive)")
-        return extract_feed(candidate, workdir / "extracted", on_progress=_progress)
+        return _from_archive(candidate, workdir)
 
     if candidate.suffix == ".zip" or "/" in source or "\\" in source:
         # Looks like a path the user expected to exist, rather than an id.
         raise SystemExit(f"No such file or directory: {source}")
 
     archive = download(archive_url(source, host), workdir / f"{source}.zip")
-    return extract_feed(archive, workdir / "extracted", on_progress=_progress)
+    return _from_archive(archive, workdir)
 
 
 def generate(source: str, out_dir: Path, host: str, keep: bool) -> list:
@@ -126,8 +155,10 @@ def generate(source: str, out_dir: Path, host: str, keep: bool) -> list:
 
     with tempfile.TemporaryDirectory(prefix="parquet-local-") as tmp:
         workdir = Path(tmp)
-        data_dir = resolve_source(source, workdir, host)
-        tables = convert_to_parquet(data_dir, out_dir, on_progress=_progress)
+        data_dir, facts = resolve_source(source, workdir, host)
+        tables = convert_to_parquet(
+            data_dir, out_dir, on_progress=_progress, source=facts
+        )
 
     total = sum(t.bytes for t in tables)
     _log("")

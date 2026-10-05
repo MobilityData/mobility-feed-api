@@ -34,7 +34,6 @@ from sqlalchemy.orm import Session
 from feeds_gen.apis.parquet_api_base import BaseParquetApi
 from feeds_gen.models.parquet_dataset_state import ParquetDatasetState
 from feeds_gen.models.parquet_generate_request import ParquetGenerateRequest
-from feeds_gen.models.parquet_table import ParquetTable
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.task_execution.task_execution_tracker import (
@@ -47,7 +46,7 @@ from shared.helpers.utils import create_http_parquet_builder_task
 # Must match functions-python/parquet_builder/src/converter.py. Bumping the converter
 # invalidates previously written artifacts by moving them to a different run.
 TASK_NAME = "parquet_generation"
-PARQUET_CONVERTER_VERSION = "1"
+PARQUET_CONVERTER_VERSION = "2"
 
 STATUS_ABSENT = "absent"
 STATUS_PREPARING = "preparing"
@@ -74,7 +73,9 @@ class ParquetApiImpl(BaseParquetApi):
         parquet_generate_request: Optional[ParquetGenerateRequest] = None,
     ) -> ParquetDatasetState:
         return self.handle_generate(
-            feed_stable_id=id, force=_force(parquet_generate_request)
+            feed_stable_id=id,
+            force=_force(parquet_generate_request),
+            retention_days=_retention_days(parquet_generate_request),
         )
 
     def generate_gtfs_dataset_parquet(
@@ -83,7 +84,9 @@ class ParquetApiImpl(BaseParquetApi):
         parquet_generate_request: Optional[ParquetGenerateRequest] = None,
     ) -> ParquetDatasetState:
         return self.handle_generate(
-            dataset_stable_id=id, force=_force(parquet_generate_request)
+            dataset_stable_id=id,
+            force=_force(parquet_generate_request),
+            retention_days=_retention_days(parquet_generate_request),
         )
 
     # ------------------------------------------------------------------
@@ -106,6 +109,7 @@ class ParquetApiImpl(BaseParquetApi):
         feed_stable_id: Optional[str] = None,
         dataset_stable_id: Optional[str] = None,
         force: bool = False,
+        retention_days: Optional[int] = None,
         db_session: Session = None,
     ) -> ParquetDatasetState:
         feed, dataset = _resolve(db_session, feed_stable_id, dataset_stable_id)
@@ -126,7 +130,10 @@ class ParquetApiImpl(BaseParquetApi):
 
         try:
             create_http_parquet_builder_task(
-                feed.stable_id, dataset.stable_id, force=force
+                feed.stable_id,
+                dataset.stable_id,
+                force=force,
+                retention_days=retention_days,
             )
         except Exception as error:
             logging.error(
@@ -165,6 +172,15 @@ class ParquetApiImpl(BaseParquetApi):
 
 def _force(request: Optional[ParquetGenerateRequest]) -> bool:
     return bool(request.force) if request and request.force is not None else False
+
+
+def _retention_days(request: Optional[ParquetGenerateRequest]) -> Optional[int]:
+    """None when the caller did not ask for one.
+
+    Passed through rather than defaulted here: the schema declares the bounds but no
+    default, so the builder stays the single place that decides how long a set lives.
+    """
+    return request.retention_days if request else None
 
 
 def _resolve(
@@ -221,17 +237,12 @@ def _state_of(db_session: Session, feed, dataset) -> ParquetDatasetState:
     metadata = row.metadata_ or {}
 
     if row.status == STATUS_COMPLETED:
+        # No table list: a reader handed one skips `manifest.json`, and the manifest
+        # is where the sizes and counts live. The builder still records the tables in
+        # the tracking row for diagnostics; they are simply not served.
         return ParquetDatasetState(
             status=STATUS_READY,
             base_url=metadata.get("base_url"),
-            tables=[
-                ParquetTable(
-                    name=table.get("name"),
-                    rows=table.get("rows"),
-                    bytes=table.get("bytes"),
-                )
-                for table in metadata.get("tables", [])
-            ],
             generated_at=row.completed_at,
             **base,
         )

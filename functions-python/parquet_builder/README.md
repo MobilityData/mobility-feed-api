@@ -62,17 +62,33 @@ prefix and copying: on a **first** build there is no manifest and no `ready` sta
 so a client that goes straight to the bucket and probes for table names can still catch
 a partial set. Clients driven by the Operations API or by the manifest never do.
 
-`manifest.json`:
+`manifest.json` - the dataset's description of itself, and the only place a reader
+learns what it holds:
 
 ```json
 {
-  "version": 1,
-  "converter_version": "1",
+  "version": 2,
+  "generated_at": "2026-09-17T22:41:03+00:00",
+  "converter_version": "2",
+  "source":  { "kind": "zip", "bytes": 4821334 },
+  "totals":  { "uncompressed_bytes": 18422910, "stored_bytes": 903411 },
   "tables": [
-    { "name": "stops", "file": "stops.parquet", "rows": 4821, "bytes": 148213 }
+    { "name": "stops", "file": "stops.parquet", "rows": 4821, "columns": 12,
+      "bytes": 481223, "compressed_bytes": 92210, "parquet_bytes": 41880 }
   ]
 }
 ```
+
+**`bytes` is the source size, not the Parquet size.** In version 1 it meant the
+opposite, which is why the version was bumped rather than the field added to: a reader
+has to know which it is holding. `compressed_bytes` is what the file weighed inside the
+archive and is null for a feed converted from a folder; `parquet_bytes` is the converted
+size. The sizes are captured during conversion because they cannot be recovered
+afterwards - the CSVs are deleted and the archive is gone.
+
+The Operations API deliberately does **not** repeat this table list. The reader skips
+`manifest.json` entirely when it is handed a list, and the manifest is where the sizes
+and counts live, so serving one would suppress the load report it draws from them.
 
 ### Response
 
@@ -101,10 +117,12 @@ Table names are the GTFS file stem (`stops.txt` → `stops`), plus `locations` f
 from `locations.geojson`. A file with no header row is skipped; a header with no data
 rows is kept, since an empty `frequencies.txt` is a legitimate part of a feed.
 
-`PARQUET_CONVERTER_VERSION` in `src/converter.py` is the run id of the tracking rows.
+`PARQUET_CONVERTER_VERSION` in `src/converter.py` is the run id of the tracking rows,
+and must match the constant of the same name in the Operations API implementation.
 Bump it when the output changes in a way that makes previously written files wrong: a
 bump invalidates every dataset's artifacts rather than serving files a newer reader no
-longer matches.
+longer matches. It went to `"2"` with manifest v2, so datasets built before that report
+as `absent` and rebuild on first request.
 
 ## Concurrency
 

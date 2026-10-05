@@ -540,6 +540,7 @@ def create_http_parquet_builder_task(
     feed_stable_id: str,
     dataset_stable_id: str,
     force: bool = False,
+    retention_days: Optional[int] = None,
 ) -> None:
     """
     Create a task to render a dataset as Parquet.
@@ -561,6 +562,8 @@ def create_http_parquet_builder_task(
             "feed_stable_id": feed_stable_id,
             "dataset_stable_id": dataset_stable_id,
             "force": force,
+            # Omitted when the caller did not ask, so the builder applies its default.
+            "retention_days": retention_days,
         }
     ).encode()
     queue_name = os.getenv("PARQUET_BUILDER_QUEUE")

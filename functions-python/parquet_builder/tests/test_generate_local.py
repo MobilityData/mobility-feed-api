@@ -94,6 +94,43 @@ class TestGenerate(unittest.TestCase):
             self.assertEqual([t.name for t in tables], ["agency", "stops"])
             self.assertTrue((out / "manifest.json").exists())
 
+    def test_an_archive_source_is_described_as_one(self):
+        """A local build must describe itself exactly as a real one does.
+
+        Regression: the script unpacked the zip and then converted the resulting folder
+        without passing the archive's facts, so every manifest it wrote claimed
+        `kind: folder` and lost the zipped sizes - a difference between local and
+        deployed output with no visible cause.
+        """
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            archive = tmp / "feed.zip"
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("stops.txt", "stop_id,stop_name\n" + "S1,First\n" * 500)
+            out = tmp / "out"
+
+            generate(str(archive), out, ENV_HOSTS["prod"], keep=False)
+
+            manifest = json.loads((out / "manifest.json").read_text())
+            assert manifest["source"]["kind"] == "zip"
+            assert manifest["source"]["bytes"] == archive.stat().st_size
+            stops = manifest["tables"][0]
+            assert stops["compressed_bytes"] < stops["bytes"]
+
+    def test_a_directory_source_is_described_as_one(self):
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            data = tmp / "extracted"
+            data.mkdir()
+            (data / "agency.txt").write_text(AGENCY)
+            out = tmp / "out"
+
+            generate(str(data), out, ENV_HOSTS["prod"], keep=False)
+
+            manifest = json.loads((out / "manifest.json").read_text())
+            assert manifest["source"]["kind"] == "folder"
+            assert manifest["tables"][0]["compressed_bytes"] is None
+
     def test_converts_a_directory(self):
         with TemporaryDirectory() as tmp:
             tmp = Path(tmp)

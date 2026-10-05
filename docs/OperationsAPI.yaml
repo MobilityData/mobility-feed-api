@@ -993,6 +993,9 @@ paths:
                 $ref: "#/components/schemas/ParquetDatasetState"
         "404":
           description: GTFS feed not found, or it has no dataset yet.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
         "500":
           description: Internal server error.
   /v1/operations/gtfs_datasets/{id}/parquet:
@@ -1045,6 +1048,9 @@ paths:
                 $ref: "#/components/schemas/ParquetDatasetState"
         "404":
           description: GTFS dataset not found.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
         "500":
           description: Internal server error.
 components:
@@ -3484,34 +3490,11 @@ components:
               value: true
             - feature_flag_id: "max_results"
               value: 50
-    ParquetTable:
-      x-operation: true
-      type: object
-      description: >-
-        One GTFS table published as a single Parquet file. The same tables are described by the `manifest.json` written beside the files, which is what a browser reads; this copy spares a caller that already has the status response a second request.
-      required:
-        - name
-      properties:
-        name:
-          description: >-
-            The table name, which is the GTFS file stem (`stops` for stops.txt). The value `locations` is the flattened form of locations.geojson, the one GTFS file that is not a CSV. The file itself is always `{base_url}/{name}.parquet`.
-          type: string
-          example: stops
-        rows:
-          description: Number of rows in the table.
-          type: integer
-          format: int64
-          example: 4821
-        bytes:
-          description: Size of the Parquet file in bytes.
-          type: integer
-          format: int64
-          example: 148213
     ParquetDatasetState:
       x-operation: true
       type: object
       description: >-
-        Where a dataset's Parquet rendering stands. Which fields are set depends on `status`: `base_url` and `tables` for `ready`, the progress fields for `preparing`, `message` for `failed`, and nothing beyond the identifiers for `absent`. The progress fields are named as the GTFS Garage viewer names its own load reports, so a client can pass them straight through.
+        Where a dataset's Parquet rendering stands. Which fields are set depends on `status`: `base_url` for `ready`, the progress fields for `preparing`, `message` for `failed`, and nothing beyond the identifiers for `absent`. What the dataset contains - its tables, their row and column counts, and what each weighed before and after conversion - is read from `{base_url}/manifest.json`, which is the one place that answer lives. The progress fields are named as the GTFS Garage viewer names its own load reports, so a client can pass them straight through.
       required:
         - status
         - feed_stable_id
@@ -3534,18 +3517,11 @@ components:
           example: mdb-1210-202402121801
         base_url:
           description: >-
-            Public URL prefix the Parquet files are served from, without a trailing slash. Each table is this plus `/{name}.parquet`, and `{base_url}/manifest.json` describes the set. Null unless `status` is `ready`. The files are public and answer HTTP range requests; no query string is ever appended, so this can be used verbatim as a client's base URL.
+            Public URL prefix the Parquet files are served from, without a trailing slash. `{base_url}/manifest.json` is the dataset's description of itself - which tables exist, their row and column counts, and what each weighed before and after conversion - and each table is `{base_url}/{name}.parquet`. Null unless `status` is `ready`. The files are public and answer HTTP range requests; no query string is ever appended, so this can be used verbatim as a client's base URL. This response deliberately does not repeat the table list: a reader given one skips the manifest, and with it the sizes it carries.
           type: string
           format: url
           nullable: true
           example: https://files.mobilitydatabase.org/mdb-1210/mdb-1210-202402121801/parquet
-        tables:
-          description: >-
-            The tables this dataset contains. Null unless `status` is `ready`. Supplying this saves a browser probing for every GTFS table name in turn.
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/ParquetTable"
         phase:
           description: >-
             The step currently running, in the order they happen: `download` fetches the dataset archive, `extract` unpacks it, `convert` rewrites each table as Parquet, `upload` publishes the results, `summarise` records the manifest. Null unless `status` is `preparing`.
@@ -3603,6 +3579,13 @@ components:
           type: boolean
           default: false
           example: false
+        retention_days:
+          description: >-
+            How long the generated files should be kept, counted from when they are built and not extended by use. Omit it and the builder's own default of 30 days applies; that default deliberately lives in one place rather than being restated here. Once the files expire they are deleted and the dataset reports `absent` again, so the next request rebuilds them.
+          type: integer
+          minimum: 1
+          maximum: 60
+          example: 7
   parameters:
     early_access_format_param:
       x-operation: true

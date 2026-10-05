@@ -27,7 +27,13 @@ from pathlib import Path
 
 import pytest
 
-from converter import MANIFEST, convert_to_parquet
+from converter import (
+    MANIFEST,
+    SourceFacts,
+    convert_to_parquet,
+    extract_feed,
+    zip_member_sizes,
+)
 
 duckdb = pytest.importorskip("duckdb")
 
@@ -156,6 +162,18 @@ def test_a_header_only_file_is_still_a_table(feed, tmp_path):
     ]
 
 
+def test_apple_double_resource_forks_are_not_tables(feed, tmp_path):
+    """`__MACOSX/._stops.txt` flattens to something that looks like a table."""
+    (feed / "._stops.txt").write_text(STOPS)
+    (feed / ".DS_Store").write_text("junk")
+    out = tmp_path / "parquet"
+
+    tables = convert_to_parquet(feed, out)
+
+    assert [t.name for t in tables] == ["agency", "routes", "stops"]
+    assert not (out / "._stops.parquet").exists()
+
+
 def test_locations_geojson_becomes_a_table_with_stable_columns(feed, tmp_path):
     """Polygon and MultiPolygon in one feed must not change the column set."""
     (feed / "locations.geojson").write_text(LOCATIONS)
@@ -201,12 +219,89 @@ def test_manifest_describes_what_was_written(feed, tmp_path):
 
     manifest = json.loads((out / MANIFEST).read_text())
 
-    assert manifest["version"] == 1
+    assert manifest["version"] == 2
     assert [t["name"] for t in manifest["tables"]] == [t.name for t in tables]
     stops = next(t for t in manifest["tables"] if t["name"] == "stops")
     assert stops["file"] == "stops.parquet"
     assert stops["rows"] == 2
-    assert stops["bytes"] == (out / "stops.parquet").stat().st_size
+    assert stops["columns"] == 5
+
+
+def test_bytes_is_the_source_size_and_parquet_bytes_the_converted_one(feed, tmp_path):
+    """The v1 -> v2 trap: `bytes` used to mean the Parquet size and now means the
+    source's. Asserting both, and that they differ, is what catches a swap."""
+    out = tmp_path / "parquet"
+    convert_to_parquet(feed, out)
+
+    manifest = json.loads((out / MANIFEST).read_text())
+    stops = next(t for t in manifest["tables"] if t["name"] == "stops")
+
+    assert stops["bytes"] == (feed / "stops.txt").stat().st_size
+    assert stops["parquet_bytes"] == (out / "stops.parquet").stat().st_size
+    assert stops["bytes"] != stops["parquet_bytes"]
+
+
+def test_the_totals_add_up(feed, tmp_path):
+    out = tmp_path / "parquet"
+    convert_to_parquet(feed, out)
+
+    manifest = json.loads((out / MANIFEST).read_text())
+    entries = manifest["tables"]
+
+    assert manifest["totals"]["stored_bytes"] == sum(
+        t["parquet_bytes"] for t in entries
+    )
+    assert manifest["totals"]["uncompressed_bytes"] == sum(t["bytes"] for t in entries)
+
+
+def test_a_folder_source_reports_no_compressed_sizes(feed, tmp_path):
+    """A member's compressed size exists only inside an archive."""
+    out = tmp_path / "parquet"
+    convert_to_parquet(feed, out)
+
+    manifest = json.loads((out / MANIFEST).read_text())
+
+    assert manifest["source"]["kind"] == "folder"
+    assert manifest["source"]["bytes"] > 0
+    assert all(t["compressed_bytes"] is None for t in manifest["tables"])
+
+
+def test_a_zip_source_records_what_each_file_weighed_inside_it(tmp_path):
+    """The Zipped column can never come back if this is not captured up front."""
+    import zipfile
+
+    archive = tmp_path / "feed.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Repetitive content so compression is unambiguously smaller.
+        zf.writestr("stops.txt", "stop_id,stop_name\n" + "S1,First\n" * 500)
+        zf.writestr("agency.txt", AGENCY)
+
+    data_dir = extract_feed(archive, tmp_path / "extracted")
+    out = tmp_path / "parquet"
+    convert_to_parquet(
+        data_dir,
+        out,
+        source=SourceFacts(
+            kind="zip",
+            bytes=archive.stat().st_size,
+            compressed_sizes=zip_member_sizes(archive),
+        ),
+    )
+
+    manifest = json.loads((out / MANIFEST).read_text())
+    assert manifest["source"]["kind"] == "zip"
+    assert manifest["source"]["bytes"] == archive.stat().st_size
+
+    stops = next(t for t in manifest["tables"] if t["name"] == "stops")
+    assert stops["compressed_bytes"] > 0
+    assert stops["compressed_bytes"] < stops["bytes"], "a zipped file should be smaller"
+
+
+def test_zip_member_sizes_is_empty_for_a_non_archive(tmp_path):
+    not_a_zip = tmp_path / "feed.zip"
+    not_a_zip.write_text("definitely not a zip")
+
+    assert zip_member_sizes(not_a_zip) == {}
 
 
 def test_row_counts_are_reported(feed, tmp_path):

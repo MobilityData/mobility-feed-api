@@ -130,7 +130,7 @@ class TestStatus(ParquetStateTestCase):
             "completed",
             metadata={
                 "base_url": BASE_URL,
-                "tables": [{"name": "stops", "rows": 4821, "bytes": 148213}],
+                "tables": [{"name": "stops", "rows": 4821, "parquet_bytes": 148213}],
             },
             completed_at=GENERATED_AT,
         )
@@ -139,9 +139,26 @@ class TestStatus(ParquetStateTestCase):
 
         self.assertEqual(state.status, "ready")
         self.assertEqual(state.base_url, BASE_URL)
-        self.assertEqual([t.name for t in state.tables], ["stops"])
-        self.assertEqual(state.tables[0].rows, 4821)
         self.assertEqual(state.generated_at, GENERATED_AT)
+
+    def test_the_table_list_is_not_served(self):
+        """A reader handed one skips manifest.json, and with it every size it carries.
+
+        The builder still records the tables in the tracking row for diagnostics; this
+        asserts they stay there rather than reaching the response.
+        """
+        self.tracker.get_entity.return_value = _row(
+            "completed",
+            metadata={"base_url": BASE_URL, "tables": [{"name": "stops"}]},
+            completed_at=GENERATED_AT,
+        )
+
+        state = self.status()
+
+        self.assertFalse(
+            hasattr(state, "tables"),
+            "ParquetDatasetState must not carry a table list",
+        )
 
     def test_failed_reports_the_reason_verbatim(self):
         """The viewer shows this to an operator, so a generic string would waste it."""
@@ -170,7 +187,9 @@ class TestGenerate(ParquetStateTestCase):
     def test_absent_enqueues_and_reports_preparing_immediately(self):
         state = self.generate()
 
-        self.enqueue.assert_called_once_with(FEED, DATASET, force=False)
+        self.enqueue.assert_called_once_with(
+            FEED, DATASET, force=False, retention_days=None
+        )
         # Not `absent` again: a client polling at 500ms would otherwise ask twice.
         self.assertEqual(state.status, "preparing")
         self.assertEqual(state.phase, "start")
@@ -212,7 +231,7 @@ class TestGenerate(ParquetStateTestCase):
 
     def test_ready_is_returned_without_rebuilding(self):
         self.tracker.get_entity.return_value = _row(
-            "completed", metadata={"base_url": BASE_URL, "tables": []}
+            "completed", metadata={"base_url": BASE_URL}
         )
 
         state = self.generate()
@@ -222,19 +241,23 @@ class TestGenerate(ParquetStateTestCase):
 
     def test_force_rebuilds_a_ready_dataset(self):
         self.tracker.get_entity.return_value = _row(
-            "completed", metadata={"base_url": BASE_URL, "tables": []}
+            "completed", metadata={"base_url": BASE_URL}
         )
 
         self.generate(force=True)
 
-        self.enqueue.assert_called_once_with(FEED, DATASET, force=True)
+        self.enqueue.assert_called_once_with(
+            FEED, DATASET, force=True, retention_days=None
+        )
 
     def test_a_failed_dataset_is_retried(self):
         self.tracker.get_entity.return_value = _row("failed", error_message="boom")
 
         state = self.generate()
 
-        self.enqueue.assert_called_once_with(FEED, DATASET, force=False)
+        self.enqueue.assert_called_once_with(
+            FEED, DATASET, force=False, retention_days=None
+        )
         self.assertEqual(state.status, "preparing")
 
     def test_an_enqueue_failure_is_a_500_not_a_silent_success(self):
@@ -289,6 +312,37 @@ class TestResolution(unittest.TestCase):
 
         self.assertIs(resolved_feed, feed)
         self.assertIs(resolved_dataset, dataset)
+
+
+class TestRetentionPassthrough(ParquetStateTestCase):
+    """The API declares the bounds; the builder owns the default."""
+
+    def test_an_omitted_value_is_passed_through_as_none(self):
+        self.generate()
+
+        self.assertIsNone(self.enqueue.call_args.kwargs["retention_days"])
+
+    def test_a_callers_value_reaches_the_builder(self):
+        self.api.handle_generate(
+            dataset_stable_id=DATASET, retention_days=7, db_session=MagicMock()
+        )
+
+        self.assertEqual(self.enqueue.call_args.kwargs["retention_days"], 7)
+
+
+class TestRetentionUnwrapping(unittest.TestCase):
+    def test_absent_body_yields_none(self):
+        self.assertIsNone(parquet_api_impl._retention_days(None))
+
+    def test_absent_field_yields_none(self):
+        request = MagicMock()
+        request.retention_days = None
+        self.assertIsNone(parquet_api_impl._retention_days(request))
+
+    def test_a_value_is_returned_unchanged(self):
+        request = MagicMock()
+        request.retention_days = 45
+        self.assertEqual(parquet_api_impl._retention_days(request), 45)
 
 
 class TestForceFlag(unittest.TestCase):

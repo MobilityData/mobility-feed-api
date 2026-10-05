@@ -15,23 +15,30 @@ class EphemeralOrDebugWorkdir:
         removes sibling directories older than a TTL (default 3600s / override via WORKDIR_MAX_AGE_SECONDS),
         and deletes the created directory on exit.
 
-    Only directories whose names start with the fixed CLEANUP_PREFIX are considered for cleanup
+    Only directories whose names start with this instance's `owner_prefix` are considered
+    for cleanup
     to avoid deleting unrelated folders that might exist under the same root.
 
     The final on-disk directory name always starts with the hardcoded prefix 'pmtiles_'.
     The caller-supplied prefix (if any) is appended verbatim after that.
     """
 
-    CLEANUP_PREFIX = "pmtiles_"
-
     def __init__(
         self,
+        owner_prefix: str,
         dir: str | None = None,
         prefix: str | None = None,
         logger: logging.Logger | None = None,
     ):
+        """`owner_prefix` names the function these directories belong to.
+
+        Required rather than defaulted, and the only thing stopping one function from
+        deleting another's work: the root is a shared convention (`/tmp/in-memory`), so
+        a sweep that matched everything under it would be a cross-function data race.
+        """
         import tempfile
 
+        self.owner_prefix = owner_prefix
         self._debug_dir = os.getenv("DEBUG_WORKDIR") or None
         self._root = dir or os.getenv("WORKDIR_ROOT", "/tmp/in-memory")
         self._logger = logger or get_logger("Workdir")
@@ -50,14 +57,14 @@ class EphemeralOrDebugWorkdir:
         self._cleanup_old()
 
         # Simple prefix: fixed manager prefix + raw user prefix (if any)
-        combined_prefix = self.CLEANUP_PREFIX + (prefix or "")
+        combined_prefix = self.owner_prefix + (prefix or "")
 
         self._temp = tempfile.TemporaryDirectory(dir=self._root, prefix=combined_prefix)
         self.name = self._temp.name
 
     def _cleanup_old(self):
         """
-        Delete stale work directories created by this manager (names starting with CLEANUP_PREFIX)
+        Delete stale work directories created by this manager (names starting with owner_prefix)
         whose modification time is older than the configured TTL.
         """
         import time
@@ -78,7 +85,7 @@ class EphemeralOrDebugWorkdir:
             try:
                 if not entry.is_dir(follow_symlinks=False):
                     continue
-                if not entry.name.startswith(self.CLEANUP_PREFIX):
+                if not entry.name.startswith(self.owner_prefix):
                     continue
                 try:
                     age = now - entry.stat(follow_symlinks=False).st_mtime

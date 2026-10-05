@@ -67,7 +67,14 @@ class FakeBlob:
         pass
 
     def download_to_filename(self, path):
+        self._store.downloaded.append(self.name)
         Path(path).write_bytes(self._payload)
+
+    def download_as_bytes(self, start=None, end=None):
+        """Serve a byte range, as GCS does for the archive's central directory."""
+        self._store.ranged.append((self.name, start, end))
+        data = self._payload or b""
+        return data[start : (end + 1 if end is not None else None)]
 
     def upload_from_filename(self, path):
         self._store.uploaded[self.name] = Path(path).read_bytes()
@@ -89,13 +96,18 @@ class FakeBucket:
         self.deleted = []
         self.made_public = set()
         self.events = []
+        self.downloaded = []
+        self.ranged = []
+        # Blobs under <feed>/<dataset>/extracted/, as batch_process_dataset leaves them.
+        self.extracted = {}
         self._archive = archive
         self._existing = list(existing)
 
     def blob(self, name):
         archive_path = f"{FEED}/{DATASET}/{DATASET}.zip"
-        payload = self._archive if name == archive_path else None
-        return FakeBlob(name, self, payload)
+        if name == archive_path:
+            return FakeBlob(name, self, self._archive)
+        return FakeBlob(name, self, self.extracted.get(name))
 
     def list_blobs(self, prefix):
         return [FakeBlob(n, self) for n in self._existing if n.startswith(prefix)]
@@ -107,6 +119,10 @@ class BuildTestCase(unittest.TestCase):
         self.tracker = MagicMock()
         self.tracker.try_acquire.return_value = True
         self.session = MagicMock()
+        # Default: no extracted files recorded, so the archive path is taken.
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            None
+        )
 
         client = MagicMock()
         client.get_bucket.return_value = self.bucket
@@ -226,14 +242,10 @@ class TestSuccessfulBuild(BuildTestCase):
             call.kwargs["metadata"]["phase"]
             for call in self.tracker.heartbeat.call_args_list
         ]
-        for expected in (
-            "start",
-            "download",
-            "extract",
-            "convert",
-            "upload",
-            "summarise",
-        ):
+        # No `extract` phase any more: unzipping is per-member inside `convert`, so
+        # there is no longer a stage during which the feed is being unpacked and
+        # nothing else. Reporting one would describe work that does not happen.
+        for expected in ("start", "download", "convert", "upload", "summarise"):
             self.assertIn(expected, phases, f"no {expected} reading was published")
 
     def test_download_progress_is_reported_in_bytes(self):
@@ -264,6 +276,72 @@ class TestSuccessfulBuild(BuildTestCase):
         result = self.build()
 
         self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+
+
+class TestStreamsOneFileAtATime(BuildTestCase):
+    """Peak memory is the point of the per-file flow, so it is asserted directly.
+
+    `/tmp` in Cloud Functions gen2 is RAM-backed tmpfs, so a file left on disk costs the
+    same as a file held in memory. Converting the whole feed and then uploading it held
+    the archive, every CSV and every Parquet at once; this keeps at most one of each.
+    """
+
+    def _residency(self):
+        """Watch the workdir while the build runs, recording what coexists."""
+        seen = []
+        real_convert = main.convert_table
+
+        def spy(con, table, source, destination, compressed_bytes=None):
+            root = source.parent.parent
+            live = [p for p in root.rglob("*") if p.is_file()]
+            seen.append(
+                {
+                    "csv": [p.name for p in live if p.suffix in (".txt", ".geojson")],
+                    "parquet": [p.name for p in live if p.suffix == ".parquet"],
+                    "zip": [p.name for p in live if p.suffix == ".zip"],
+                }
+            )
+            return real_convert(con, table, source, destination, compressed_bytes)
+
+        with patch.object(main, "convert_table", side_effect=spy):
+            self.build()
+        return seen
+
+    def test_only_one_source_file_is_ever_resident(self):
+        snapshots = self._residency()
+
+        self.assertTrue(snapshots, "no tables were converted")
+        worst = max(len(s["csv"]) for s in snapshots)
+        self.assertEqual(
+            worst, 1, f"more than one CSV was on disk at once: {snapshots}"
+        )
+
+    def test_parquet_files_do_not_accumulate(self):
+        snapshots = self._residency()
+
+        worst = max(len(s["parquet"]) for s in snapshots)
+        self.assertLessEqual(
+            worst,
+            1,
+            f"converted files accumulated instead of being published: {snapshots}",
+        )
+
+    def test_the_archive_is_kept_but_never_unpacked_wholesale(self):
+        """The deliberate trade on the fallback path.
+
+        Holding the compressed archive and extracting one member at a time costs far
+        less than extracting every CSV up front, so the zip staying resident is correct
+        - what must not happen is the CSVs piling up beside it.
+        """
+        snapshots = self._residency()
+
+        self.assertTrue(all(len(s["csv"]) <= 1 for s in snapshots), snapshots)
+
+    def test_everything_is_cleaned_up_afterwards(self):
+        self.build()
+
+        leftovers = [p for p in Path(main.TMPDIR).glob("parquet_*") if p.is_dir()]
+        self.assertEqual(leftovers, [], f"workdirs left behind: {leftovers}")
 
 
 class TestPublishIsNotObservablyPartial(BuildTestCase):
@@ -329,6 +407,175 @@ class TestPublishIsNotObservablyPartial(BuildTestCase):
         )
 
 
+class TestReadsPreExtractedFiles(BuildTestCase):
+    """The fast path: use what `batch_process_dataset` already unpacked.
+
+    Both paths must produce the same artifact - a dataset should not describe itself
+    differently depending on which route the builder happened to take.
+    """
+
+    def _with_extracted(self, names, dataset_id=DATASET):
+        """Point the DB at Gtfsfile rows and seed the matching blobs."""
+        records = []
+        for name in names:
+            record = MagicMock()
+            record.file_name = name
+            records.append(record)
+            body = AGENCY if name.endswith("agency.txt") else STOPS
+            self.bucket.extracted[f"{FEED}/{dataset_id}/extracted/{name}"] = (
+                body.encode()
+            )
+
+        dataset = MagicMock()
+        dataset.gtfsfiles = records
+        dataset.zipped_size_bytes = 4321
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset
+        )
+        return dataset
+
+    def test_converts_from_extracted_without_downloading_the_archive(self):
+        self._with_extracted(["agency.txt", "stops.txt"])
+
+        result = self.build()
+
+        self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+        self.assertNotIn(
+            f"{FEED}/{DATASET}/{DATASET}.zip",
+            self.bucket.downloaded,
+            "the archive was downloaded despite extracted files being available",
+        )
+
+    def test_archive_relative_paths_are_flattened(self):
+        """`extracted/` preserves the archive's own layout, folders and all."""
+        self._with_extracted(["feed/agency.txt", "feed/stops.txt"])
+
+        result = self.build()
+
+        self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+
+    def test_non_gtfs_members_are_ignored(self):
+        self._with_extracted(
+            ["agency.txt", "stops.txt", "__MACOSX/._stops.txt", "licence.pdf"]
+        )
+
+        result = self.build()
+
+        self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+
+    def test_compressed_sizes_come_from_the_archive_tail(self):
+        """Read by range, not by downloading the archive - the numbers exist nowhere else."""
+        self._with_extracted(["agency.txt", "stops.txt"])
+
+        self.build()
+
+        manifest = json.loads(
+            self.bucket.uploaded[f"{FEED}/{DATASET}/parquet/manifest.json"]
+        )
+        self.assertEqual(manifest["source"]["kind"], "zip")
+        self.assertTrue(
+            any(t["compressed_bytes"] for t in manifest["tables"]),
+            f"no compressed sizes recovered: {manifest['tables']}",
+        )
+        self.assertTrue(self.bucket.ranged, "the tail was never fetched")
+
+    def test_the_recorded_archive_size_is_used_when_present(self):
+        self._with_extracted(["agency.txt"])
+
+        self.build()
+
+        manifest = json.loads(
+            self.bucket.uploaded[f"{FEED}/{DATASET}/parquet/manifest.json"]
+        )
+        self.assertEqual(manifest["source"]["bytes"], 4321)
+
+    def test_falls_back_to_the_archive_when_nothing_was_extracted(self):
+        """Datasets processed before extraction existed still have to build."""
+        dataset = MagicMock()
+        dataset.gtfsfiles = []
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset
+        )
+
+        result = self.build()
+
+        self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+        self.assertIn(f"{FEED}/{DATASET}/{DATASET}.zip", self.bucket.downloaded)
+
+
+class TestBothPathsAgree(BuildTestCase):
+    """A dataset must not describe itself differently depending on the route taken."""
+
+    def _manifest(self):
+        return json.loads(
+            self.bucket.uploaded[f"{FEED}/{DATASET}/parquet/manifest.json"]
+        )
+
+    def _use_extracted(self):
+        records = []
+        for name, body in (("agency.txt", AGENCY), ("stops.txt", STOPS)):
+            record = MagicMock()
+            record.file_name = name
+            records.append(record)
+            self.bucket.extracted[f"{FEED}/{DATASET}/extracted/{name}"] = body.encode()
+        dataset = MagicMock()
+        dataset.gtfsfiles = records
+        dataset.zipped_size_bytes = None  # force both paths to size the archive alike
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset
+        )
+
+    def test_extracted_and_archive_paths_produce_the_same_manifest(self):
+        self.build()  # no Gtfsfile rows -> archive path
+        from_archive = self._manifest()
+
+        self.setUp()
+        self._use_extracted()
+        self.build()
+        from_extracted = self._manifest()
+
+        volatile = {"generated_at"}
+        self.assertEqual(
+            {k: v for k, v in from_archive.items() if k not in volatile},
+            {k: v for k, v in from_extracted.items() if k not in volatile},
+            "the two source paths disagree about the same dataset",
+        )
+
+
+class TestRetention(BuildTestCase):
+    """The builder owns the default, so a caller that says nothing still gets one."""
+
+    def _recorded(self):
+        _, kwargs = self.tracker.mark_completed.call_args
+        return kwargs["metadata"]["retention_days"]
+
+    def test_an_omitted_value_uses_the_builders_default(self):
+        self.build()
+
+        self.assertEqual(self._recorded(), main.DEFAULT_RETENTION_DAYS)
+
+    def test_a_callers_value_is_honoured(self):
+        self.build(retention_days=7)
+
+        self.assertEqual(self._recorded(), 7)
+
+    def test_out_of_range_values_fall_back_rather_than_being_stored(self):
+        """The API bounds this too, but Cloud Tasks and the CLI do not go through it,
+        and a bad value here would be written to the row and obeyed by the sweep."""
+        for bad in (0, -1, main.MAX_RETENTION_DAYS + 1, "abc", 3.7e9):
+            with self.subTest(bad=bad):
+                self.assertEqual(main._retention_days(bad), main.DEFAULT_RETENTION_DAYS)
+
+    def test_the_boundaries_are_accepted(self):
+        self.assertEqual(main._retention_days(1), 1)
+        self.assertEqual(
+            main._retention_days(main.MAX_RETENTION_DAYS), main.MAX_RETENTION_DAYS
+        )
+
+    def test_none_means_the_default(self):
+        self.assertEqual(main._retention_days(None), main.DEFAULT_RETENTION_DAYS)
+
+
 class TestFailure(BuildTestCase):
     def test_a_missing_archive_is_recorded_and_released(self):
         self.bucket._archive = None
@@ -345,9 +592,7 @@ class TestFailure(BuildTestCase):
         )
 
     def test_a_conversion_failure_releases_the_claim(self):
-        with patch.object(
-            main, "convert_to_parquet", side_effect=RuntimeError("no memory")
-        ):
+        with patch.object(main, "convert_table", side_effect=RuntimeError("no memory")):
             with self.assertRaises(RuntimeError):
                 self.build()
 

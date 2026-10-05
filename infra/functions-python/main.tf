@@ -750,6 +750,31 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
 # invite_retention_days so we never hold the email of someone who never registered.
 # Runs with dry_run=false so it actually deletes. Disabled (paused) outside prod, like
 # the other tasks_executor schedulers.
+# Generated Parquet is derived data with a retention its build recorded. This sweeps
+# the expired sets, removing the objects and the tracking row together so the API stops
+# advertising them rather than pointing at files that are gone.
+resource "google_cloud_scheduler_job" "purge_expired_parquet_scheduler" {
+  name        = "purge-expired-parquet-${var.environment}"
+  description = "Nightly purge of Parquet sets past their retention"
+  time_zone   = "Etc/UTC"
+  schedule    = var.purge_expired_parquet_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"purge_expired_parquet\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
 resource "google_cloud_scheduler_job" "purge_early_access_invites_scheduler" {
   name        = "purge-early-access-invites-${var.environment}"
   description = "Nightly purge of expired early access invited emails"
@@ -1630,6 +1655,13 @@ resource "google_cloudfunctions2_function" "parquet_builder" {
       SERVICE_ACCOUNT_EMAIL      = google_service_account.functions_service_account.email
       DATASETS_BUCKET_NAME       = "${var.datasets_bucket_name}-${var.environment}"
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+      # Everything large is written here, on the in-memory volume mounted below.
+      # limit_gcp_memory subtracts the volume's size from the process budget, so a
+      # conversion that overshoots raises MemoryError instead of being SIGKILLed.
+      PARQUET_TMPDIR = "/tmp/in-memory"
+      # Well under what the limiter leaves us. DuckDB's own default reads the host's
+      # RAM rather than the cgroup, so unset it spills far too late to help.
+      PARQUET_DUCKDB_MEMORY_LIMIT = "2GB"
     }
     available_memory                 = local.function_parquet_builder_config.memory
     timeout_seconds                  = local.function_parquet_builder_config.timeout
@@ -1654,6 +1686,48 @@ resource "google_cloudfunctions2_function" "parquet_builder" {
   }
 }
 
+
+# google_cloudfunctions2_function does not expose volume mounts in its schema, so the
+# in-memory volume is attached to the underlying Cloud Run service after deploy.
+# Unlike the comparer's equivalent, triggers_replace includes the size: the idempotency
+# check below matches volume *names* only, so without this a resize would be silently
+# ignored.
+resource "terraform_data" "parquet_builder_volume_mount" {
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.parquet_builder.name
+    region        = var.gcp_region
+    project       = var.project_id
+    size          = var.parquet_builder_in_memory_size
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.parquet_builder.name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted; removing it so the size limit is re-applied."
+        gcloud run services update ${google_cloudfunctions2_function.parquet_builder.name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          --remove-volume-mount volume=in-memory \
+          --remove-volume in-memory \
+          --quiet
+      fi
+
+      gcloud run services update ${google_cloudfunctions2_function.parquet_builder.name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --add-volume name=in-memory,type=in-memory,size-limit=${var.parquet_builder_in_memory_size} \
+        --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory \
+        --quiet
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.parquet_builder]
+}
 
 # 16. functions/gtfs_datasets_comparer cloud function
 resource "google_cloudfunctions2_function" "gtfs_datasets_comparer" {
