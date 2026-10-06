@@ -7,6 +7,7 @@ import pytz
 
 from scripts.load_dataset_on_create import publish_all
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
+from shared.common.entity_type_enum import EntityType
 from shared.common.license_utils import assign_license_by_url
 from shared.database.database import generate_unique_id
 from shared.database_gen.sqlacodegen_models import (
@@ -104,25 +105,43 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             )
             feed.locations = [location]
 
+    def normalize_entity_types(self, row, stable_id) -> list[str]:
+        """
+        Parse the `|` or `-` separated `entity_type` cell into a list of valid entity type names.
+        """
+        raw_value = self.get_safe_value(row, "entity_type", "")
+        valid_names = {entity_type.value for entity_type in EntityType}
+        entity_type_names = []
+        for token in raw_value.replace("|", "-").split("-"):
+            name = token.strip().lower()
+            if not name:
+                continue
+            if name not in valid_names:
+                self.logger.warning(f"Skipping unknown entity type {token!r} for feed {stable_id}")
+                continue
+            if name not in entity_type_names:
+                entity_type_names.append(name)
+        return entity_type_names
+
     def process_entity_types(self, session: "Session", feed: Gtfsrealtimefeed, row, stable_id):
         """
         Process the entity types for the feed
         """
-        entity_types = self.get_safe_value(row, "entity_type", "").replace("|", "-").split("-")
-        if len(entity_types) > 0:
-            if any(entity_types):
-                feed.entitytypes.clear()
-            for entity_type_name in entity_types:
-                entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
-
-                if not entity_type:
-                    entity_type = Entitytype(name=entity_type_name)
-                if all(entity_type.name != entity.name for entity in feed.entitytypes):
-                    feed.entitytypes.append(entity_type)
-                    session.flush()
-        else:
+        entity_type_names = self.normalize_entity_types(row, stable_id)
+        if not entity_type_names:
+            # An empty cell leaves the stored entity types alone.
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
-            feed.entitytypes.clear()
+            return
+
+        feed.entitytypes.clear()
+        for entity_type_name in entity_type_names:
+            entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
+
+            if not entity_type:
+                entity_type = Entitytype(name=entity_type_name)
+            if all(entity_type.name != entity.name for entity in feed.entitytypes):
+                feed.entitytypes.append(entity_type)
+                session.flush()
 
     def inherit_static_feed_locations(self, gtfs_rt_feed, matched_feeds):
         """
