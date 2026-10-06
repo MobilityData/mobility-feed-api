@@ -1796,7 +1796,7 @@ components:
     GtfsFeedContinuousCoverageResponse:
       type: object
       description: >
-        `latest_state` is the feed's latest dataset measured against the one before it; `latest_failure` is the same measurement at the criterion's last observed failure. Both have the structure of an `items[]` entry, and either can be null. Together they name at most four datasets, shared when the latest state is itself the failure.
+        `latest_state` is the feed's latest dataset measured against the one before it; `latest_failure` is the same at the criterion's last observed failure. Each carries both datasets of the comparison, and either can be null.
       required:
         - feed_id
         - items
@@ -1809,9 +1809,9 @@ components:
           description: Unique identifier of the GTFS feed.
           example: mdb-123
         latest_state:
-          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
         latest_failure:
-          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
         total:
           type: integer
           description: Total number of matching datasets regardless of limit and offset.
@@ -1830,13 +1830,24 @@ components:
             One entry per dataset, ordered by downloaded_at from newest to oldest. The first entry of the unpaged list is the feed's current coverage; it is marked with `is_latest`.
           items:
             $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+    GtfsFeedContinuousCoverageBoundary:
+      type: object
+      description: >
+        Two successive datasets: `newer` and the one downloaded immediately before it. `older` is null when `newer` is the feed's first dataset.
+      required:
+        - newer
+      properties:
+        newer:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+        older:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
     GtfsFeedContinuousCoverage:
       type: object
       description: >
         The coverage one dataset contributes, and how it lines up with the dataset downloaded just before it.
 
 
-        Three windows are reported. `service_window` is the service dates the validator derived from `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's `feed_info.txt` declares; `coverage_window` is the one the calculation actually used, with `coverage_window_source` naming which of the two it came from. Any of them may be absent when the dataset did not supply the underlying files.
+        Three windows are reported. `service_window` is the service dates the validator derived from `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's `feed_info.txt` declares; `coverage_window` is the one the criterion measures by - the declared window, falling back to the validated one - with `coverage_window_source` naming which of the two it came from. Any of them may be absent when the dataset did not supply the underlying files.
       required:
         - dataset_id
         - is_latest
@@ -1865,14 +1876,12 @@ components:
           description: >
             Which input `coverage_window` was taken from.
 
-            * `service_dates` - the service dates derived by the validator from `calendar.txt` and
-              `calendar_dates.txt`.
-            * `feed_info` - the dates declared in `feed_info.txt`, used only when the service dates
-              are missing.
+            * `feed_info` - the dates declared in `feed_info.txt`. * `service_dates` - the service dates derived by the validator from `calendar.txt` and
+              `calendar_dates.txt`, used when the dataset declares no range.
           enum:
             - service_dates
             - feed_info
-          example: service_dates
+          example: feed_info
         within_max_coverage_window:
           type: boolean
           nullable: true
@@ -2363,6 +2372,126 @@ components:
         commit_hash:
           type: string
           example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
+    GtfsFeedValidationReportsResponse:
+      type: object
+      description: >
+        The feed's validation history, one entry per dataset. `latest` is the entry for the feed's current dataset, whatever page or filter was requested, and is null when the feed has no validated dataset.
+      required:
+        - feed_id
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest:
+          $ref: "#/components/schemas/GtfsFeedValidationReport"
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: One entry per dataset, ordered by validated_at from newest to oldest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationReport"
+    GtfsFeedValidationReport:
+      type: object
+      description: >
+        The most recent validation report of one dataset. `total_*` counts every notice raised; `unique_*` counts the distinct codes behind them.
+      required:
+        - dataset_id
+        - is_latest
+        - notices
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the validated dataset.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: Whether this is the feed's latest dataset.
+          example: true
+        validated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-28T00:29:00Z"
+        validator_version:
+          type: string
+          nullable: true
+          example: 4.2.0
+        total_error:
+          type: integer
+          nullable: true
+          example: 10
+        total_warning:
+          type: integer
+          nullable: true
+          example: 20
+        total_info:
+          type: integer
+          nullable: true
+          example: 30
+        unique_error_count:
+          type: integer
+          nullable: true
+          example: 1
+        unique_warning_count:
+          type: integer
+          nullable: true
+          example: 2
+        unique_info_count:
+          type: integer
+          nullable: true
+          example: 3
+        url_json:
+          type: string
+          nullable: true
+          description: JSON validation report URL.
+        url_html:
+          type: string
+          nullable: true
+          description: HTML validation report URL.
+        notices:
+          type: array
+          description: >
+            The notice codes raised, newest report only, ordered by severity then by count. Filtered by the `severity` query parameter when one is given.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationNotice"
+    GtfsFeedValidationNotice:
+      type: object
+      required:
+        - code
+        - severity
+        - total
+      properties:
+        code:
+          type: string
+          description: Validator notice code.
+          example: invalid_phone_number
+        severity:
+          type: string
+          enum:
+            - ERROR
+            - WARNING
+            - INFO
+          example: ERROR
+        total:
+          type: integer
+          description: How many times this code was raised.
+          example: 10
     ValidationReport:
       description: Validation report
       type: object
