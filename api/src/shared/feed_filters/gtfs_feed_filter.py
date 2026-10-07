@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
@@ -25,6 +26,8 @@ class GtfsFeedFilter(Filter):
     stable_id: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
     producer_url__ilike: Optional[str]  # case insensitive
+    created_at__gte: Optional[datetime] = None
+    created_at__lte: Optional[datetime] = None
     location: Optional[LocationFilter]
 
     class Constants(Filter.Constants):
