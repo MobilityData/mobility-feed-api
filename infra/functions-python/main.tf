@@ -750,31 +750,6 @@ resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_schedu
 # invite_retention_days so we never hold the email of someone who never registered.
 # Runs with dry_run=false so it actually deletes. Disabled (paused) outside prod, like
 # the other tasks_executor schedulers.
-# Generated Parquet is derived data with a retention its build recorded. This sweeps
-# the expired sets, removing the objects and the tracking row together so the API stops
-# advertising them rather than pointing at files that are gone.
-resource "google_cloud_scheduler_job" "purge_expired_parquet_scheduler" {
-  name        = "purge-expired-parquet-${var.environment}"
-  description = "Nightly purge of Parquet sets past their retention"
-  time_zone   = "Etc/UTC"
-  schedule    = var.purge_expired_parquet_schedule
-  region      = var.gcp_region
-  paused      = var.environment == "prod" ? false : true
-  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
-  http_target {
-    http_method = "POST"
-    uri         = google_cloudfunctions2_function.tasks_executor.url
-    oidc_token {
-      service_account_email = google_service_account.functions_service_account.email
-    }
-    headers = {
-      "Content-Type" = "application/json"
-    }
-    body = base64encode("{\"task\": \"purge_expired_parquet\", \"payload\": {\"dry_run\": false}}")
-  }
-  attempt_deadline = "320s"
-}
-
 resource "google_cloud_scheduler_job" "purge_early_access_invites_scheduler" {
   name        = "purge-early-access-invites-${var.environment}"
   description = "Nightly purge of expired early access invited emails"
@@ -1689,15 +1664,16 @@ resource "google_cloudfunctions2_function" "parquet_builder" {
 
 # google_cloudfunctions2_function does not expose volume mounts in its schema, so the
 # in-memory volume is attached to the underlying Cloud Run service after deploy.
-# Unlike the comparer's equivalent, triggers_replace includes the size: the idempotency
-# check below matches volume *names* only, so without this a resize would be silently
-# ignored.
+# triggers_replace includes `source_zip` because a new deployment replaces the Cloud
+# Run revision without this volume, and `size` because the idempotency check below
+# matches volume names only.
 resource "terraform_data" "parquet_builder_volume_mount" {
   triggers_replace = {
     function_name = google_cloudfunctions2_function.parquet_builder.name
     region        = var.gcp_region
     project       = var.project_id
     size          = var.parquet_builder_in_memory_size
+    source_zip    = google_storage_bucket_object.parquet_builder_zip.name
   }
 
   provisioner "local-exec" {

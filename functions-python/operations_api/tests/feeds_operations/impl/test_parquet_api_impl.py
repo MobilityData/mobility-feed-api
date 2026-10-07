@@ -21,7 +21,7 @@ to the state a viewer renders, which is pure logic.
 """
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
@@ -183,6 +183,51 @@ class TestStatus(ParquetStateTestCase):
         self.enqueue.assert_not_called()
 
 
+class TestExpiry(ParquetStateTestCase):
+    """The files go on the bucket's schedule; the row is what dates the set."""
+
+    def _ready(self, expires_at):
+        metadata = {"base_url": f"https://files.test/{FEED}/{DATASET}/parquet"}
+        if expires_at is not None:
+            metadata["expires_at"] = expires_at
+        self.tracker.get_entity.return_value = _row("completed", metadata=metadata)
+        return self.status()
+
+    def test_a_past_expiry_reads_absent(self):
+        """Not `ready`: the objects are gone, or about to be."""
+        past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+        state = self._ready(past)
+
+        self.assertEqual(state.status, "absent")
+        self.assertIsNone(state.base_url)
+
+    def test_a_future_expiry_still_reads_ready(self):
+        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+        state = self._ready(future)
+
+        self.assertEqual(state.status, "ready")
+
+    def test_a_row_without_an_expiry_never_expires(self):
+        """Rows written before the field existed keep working."""
+        self.assertEqual(self._ready(None).status, "ready")
+
+    def test_an_unparsable_expiry_is_ignored_rather_than_fatal(self):
+        self.assertEqual(self._ready("not a date").status, "ready")
+
+    def test_a_naive_timestamp_is_read_as_utc(self):
+        """Everything written is tz-aware, but a naive value must not crash the read."""
+        past = (datetime.now(timezone.utc) - timedelta(days=1)).replace(tzinfo=None)
+
+        self.assertEqual(self._ready(past.isoformat()).status, "absent")
+
+    def test_expiry_never_starts_work(self):
+        self._ready((datetime.now(timezone.utc) - timedelta(days=1)).isoformat())
+
+        self.enqueue.assert_not_called()
+
+
 class TestGenerate(ParquetStateTestCase):
     def test_absent_enqueues_and_reports_preparing_immediately(self):
         state = self.generate()
@@ -201,13 +246,39 @@ class TestGenerate(ParquetStateTestCase):
         self.tracker.mark_triggered.assert_called_once()
         self.assertEqual(self.tracker.mark_triggered.call_args.args[0], DATASET)
 
-    def test_nothing_is_recorded_when_the_enqueue_fails(self):
+    def test_the_marker_is_written_before_the_task_is_dispatched(self):
+        """An unconditional upsert cannot follow a dispatch the worker may already have
+        picked up."""
+        order = []
+        self.tracker.mark_triggered.side_effect = lambda *a, **k: order.append("mark")
+        self.enqueue.side_effect = lambda *a, **k: order.append("enqueue")
+
+        self.generate()
+
+        self.assertEqual(order, ["mark", "enqueue"])
+
+    def test_a_failed_enqueue_leaves_the_dataset_retriable(self):
+        """`preparing` is the one state this endpoint refuses to re-trigger."""
         self.enqueue.side_effect = RuntimeError("queue unreachable")
 
         with self.assertRaises(HTTPException):
             self.generate()
 
-        self.tracker.mark_triggered.assert_not_called()
+        self.tracker.mark_failed.assert_called_once()
+        self.assertEqual(self.tracker.mark_failed.call_args.args[0], DATASET)
+        self.assertIn(
+            "queue unreachable",
+            self.tracker.mark_failed.call_args.kwargs["error_message"],
+        )
+
+    def test_a_compensation_that_also_fails_still_surfaces_the_500(self):
+        self.enqueue.side_effect = RuntimeError("queue unreachable")
+        self.tracker.mark_failed.side_effect = RuntimeError("database gone too")
+
+        with self.assertRaises(HTTPException) as caught:
+            self.generate()
+
+        self.assertEqual(caught.exception.status_code, 500)
 
     def test_a_running_build_is_reported_not_duplicated(self):
         self.tracker.get_entity.return_value = _row(

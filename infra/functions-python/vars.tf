@@ -180,12 +180,6 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
-variable "purge_expired_parquet_schedule" {
-  type        = string
-  description = "Cron schedule for the expired-Parquet purge"
-  default     = "0 4 * * *"
-}
-
 variable "parquet_builder_in_memory_size" {
   type        = string
   description = "Size limit for the parquet_builder in-memory volume. Carved out of the function's total memory, not added to it: limit_gcp_memory subtracts it from the process budget."

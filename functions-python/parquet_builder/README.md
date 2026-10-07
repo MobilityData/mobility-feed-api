@@ -124,6 +124,30 @@ bump invalidates every dataset's artifacts rather than serving files a newer rea
 longer matches. It went to `"2"` with manifest v2, so datasets built before that report
 as `absent` and rebuild on first request.
 
+## Retention
+
+Each build stamps every object it publishes with a `customTime` of
+`now + retention_days` (default 30, 1..60 per request), and the datasets bucket carries
+one lifecycle rule - `daysSinceCustomTime: 0`, Delete - that removes an object once its
+own `customTime` has passed. One rule, a different date per file, no scheduled job.
+
+The same timestamp goes into the tracking row as `expires_at`, and the Operations API
+reports an expired row as `absent`. That is deliberate rather than redundant: lifecycle
+deletion is asynchronous and GCS gives no promptness guarantee, so the row cannot be
+relied on to vanish with the files. Reporting `absent` from the row is what makes the
+dataset rebuild on the next request, and it happens on the date rather than whenever the
+bucket gets round to the delete. The window in between - `absent` reported while the
+files are still there - is harmless; a rebuild overwrites them.
+
+**The builder must stay the only writer of `customTime` in this bucket.** The lifecycle
+rule is bucket-wide and matched solely by the presence of that field (the condition is
+never satisfied for an object without it, and `matchesPrefix` cannot express
+`*/parquet/`). Anything else that starts setting `customTime` there becomes deletable by
+this rule.
+
+Nothing deletes the `task_execution_log` rows; they are small, and one row per converter
+version per dataset already accumulates by design.
+
 ## Concurrency
 
 A dataset is never converted twice at once. Cloud Tasks delivers at least once, so the
@@ -247,13 +271,17 @@ specified in `docs/OperationsAPI.yaml`.
 ```json
 { "status": "absent",    "feed_stable_id": "mdb-1210", "dataset_stable_id": "mdb-1210-202402121801" }
 { "status": "preparing", "phase": "convert", "done": 12, "total": 32, "detail": "stop_times" }
-{ "status": "ready",     "base_url": "https://.../parquet", "tables": [{"name": "stops"}] }
+{ "status": "ready",     "base_url": "https://.../parquet", "generated_at": "2026-09-16T14:22:31Z" }
 { "status": "failed",    "message": "Conversion ran out of memory" }
 ```
 
 `absent` means no conversion has been requested yet, which is an ordinary starting
 state rather than an error - a **404 means the feed or dataset does not exist**, and a
 client has to be able to tell the two apart. `GET` never starts work; `POST` does.
+
+No table list is served here, by design: `ready` carries only `base_url`, and a reader
+handed a table list skips `manifest.json` - which is where the row counts and sizes
+live, and with them the load report the viewer draws from them.
 
 `done` and `total` are **bytes** during the `download` phase and counts otherwise;
 `total` is `0` when it is not knowable in advance.

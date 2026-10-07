@@ -30,6 +30,7 @@ import pytest
 from converter import (
     MANIFEST,
     SourceFacts,
+    _ident,
     convert_to_parquet,
     extract_feed,
     zip_member_sizes,
@@ -100,6 +101,24 @@ def test_one_parquet_per_table_named_after_the_file_stem(feed, tmp_path):
         "routes.parquet",
         "stops.parquet",
     ]
+
+
+def test_a_table_name_cannot_escape_its_identifier(feed, tmp_path):
+    """Table names come from archive member filenames, which a producer controls."""
+    hostile = 'stops" AS SELECT 1; DROP TABLE agency; --'
+    (feed / f"{hostile}.txt").write_text(AGENCY)
+
+    out = tmp_path / "parquet"
+    tables = convert_to_parquet(feed, out)
+
+    assert hostile in [t.name for t in tables]
+    assert "agency" in [t.name for t in tables]
+    assert (out / f"{hostile}.parquet").exists()
+
+
+def test_ident_doubles_embedded_quotes():
+    assert _ident("stops") == '"stops"'
+    assert _ident('a"b') == '"a""b"'
 
 
 def test_every_column_is_text(feed, tmp_path):

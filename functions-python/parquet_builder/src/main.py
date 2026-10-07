@@ -36,6 +36,7 @@ import os
 import shutil
 import sys
 import zipfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import flask
@@ -213,11 +214,21 @@ def build_parquet(
             "dataset": dataset_stable_id,
         }
 
+    # Committed on its own: `ThrottledProgress` swallows failures from the callback
+    # below, so the claim cannot depend on the first progress write to reach the
+    # database.
+    db_session.commit()
+
     def publish(state: dict) -> None:
         # Renews the claim as well as recording the reading, so a long build holds its
         # lock by reporting rather than by a separate keepalive.
-        tracker.heartbeat(dataset_stable_id, metadata=state)
-        db_session.commit()
+        try:
+            tracker.heartbeat(dataset_stable_id, metadata=state)
+            db_session.commit()
+        except Exception:
+            # The caller logs and carries on, so leave the session usable.
+            db_session.rollback()
+            raise
 
     progress = ThrottledProgress(publish=publish, logger=logger)
     progress.flush(phase=PHASE_START, done=0, total=0, detail="")
@@ -240,6 +251,11 @@ def build_parquet(
                 logger,
                 db_session,
             )
+            # One timestamp for both halves of the expiry: the objects carry it as
+            # `customTime` for the bucket's lifecycle rule, and the row carries it so
+            # the API can stop advertising the set on the same date.
+            expires_at = datetime.now(timezone.utc) + timedelta(days=retention_days)
+
             tables, base_url = _convert_and_publish(
                 bucket=bucket,
                 feed_stable_id=feed_stable_id,
@@ -248,6 +264,7 @@ def build_parquet(
                 plan=plan,
                 progress=progress,
                 logger=logger,
+                expires_at=expires_at,
             )
 
             progress.flush(phase=PHASE_SUMMARISE, done=0, total=0, detail="")
@@ -258,6 +275,7 @@ def build_parquet(
                 "detail": "",
                 "base_url": base_url,
                 "retention_days": retention_days,
+                "expires_at": expires_at.isoformat(),
                 "tables": [table.as_manifest_entry() for table in tables],
             }
             tracker.mark_completed(dataset_stable_id, metadata=metadata)
@@ -274,10 +292,21 @@ def build_parquet(
             }
     except Exception as error:
         logger.exception("Parquet build failed for %s", dataset_stable_id)
+        # The failure may have come from a commit, which leaves the session refusing
+        # every statement until it is rolled back - `mark_failed` included.
+        db_session.rollback()
         # Releases the claim as well as recording why, so the dataset can be retried
         # without waiting out the lease.
-        tracker.mark_failed(dataset_stable_id, error_message=str(error))
-        db_session.commit()
+        try:
+            tracker.mark_failed(dataset_stable_id, error_message=str(error))
+            db_session.commit()
+        except Exception:
+            logger.exception(
+                "Could not record the failure for %s; the claim will expire with its "
+                "lease",
+                dataset_stable_id,
+            )
+            db_session.rollback()
         raise
 
 
@@ -466,7 +495,14 @@ def _compressed_sizes_from_blob(archive_blob, logger) -> dict:
 
 
 def _convert_and_publish(
-    bucket, feed_stable_id, dataset_stable_id, workdir, plan, progress, logger
+    bucket,
+    feed_stable_id,
+    dataset_stable_id,
+    workdir,
+    plan,
+    progress,
+    logger,
+    expires_at,
 ):
     """Convert and publish one table at a time, holding no more than one of each.
 
@@ -501,7 +537,7 @@ def _convert_and_publish(
                 source.unlink(missing_ok=True)
 
             parquet = out_dir / entry.file
-            written.add(_publish(bucket, dest_prefix, parquet, logger))
+            written.add(_publish(bucket, dest_prefix, parquet, logger, expires_at))
             parquet.unlink(missing_ok=True)
             tables.append(entry)
     finally:
@@ -514,7 +550,7 @@ def _convert_and_publish(
 
     progress(PHASE_UPLOAD, 1, 1, MANIFEST)
     manifest = write_manifest(out_dir, tables, plan.facts)
-    written.add(_publish(bucket, dest_prefix, manifest, logger))
+    written.add(_publish(bucket, dest_prefix, manifest, logger, expires_at))
     manifest.unlink(missing_ok=True)
     progress.flush(phase=PHASE_UPLOAD, done=1, total=1, detail=MANIFEST)
 
@@ -526,15 +562,31 @@ def _convert_and_publish(
     return tables, f"{public_base}/{dest_prefix}"
 
 
-def _publish(bucket, dest_prefix: str, path: Path, logger) -> str:
+def _uniform_access(bucket) -> bool:
+    """True when the bucket grants access by policy, so per-object ACLs do not apply."""
+    try:
+        return bool(bucket.iam_configuration.uniform_bucket_level_access_enabled)
+    except Exception:
+        return False
+
+
+def _publish(bucket, dest_prefix: str, path: Path, logger, expires_at) -> str:
     blob = bucket.blob(f"{dest_prefix}/{path.name}")
+    # The date the bucket's lifecycle rule deletes this object. Set on the upload, so
+    # it costs no extra request; GCS ignores it until a rule names customTime.
+    blob.custom_time = expires_at
     blob.upload_from_filename(str(path))
     try:
         blob.make_public()
     except Exception as error:
-        # Uniform bucket-level access would make this unnecessary and impossible at the
-        # same time; the objects are public by bucket policy in that case.
-        logger.warning("Could not make %s public: %s", blob.name, error)
+        # Only harmless under uniform bucket-level access, where ACLs do not apply and
+        # the objects are public by policy. Elsewhere the file is published but
+        # unreadable, and the build would report `ready` on a base_url that 403s.
+        if not _uniform_access(bucket):
+            raise
+        logger.debug(
+            "Skipping ACL on %s: bucket uses uniform access (%s)", blob.name, error
+        )
     return blob.name
 
 

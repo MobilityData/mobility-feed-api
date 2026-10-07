@@ -25,6 +25,7 @@ The GET never starts work. Starting is the POST, which a client calls once.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -128,25 +129,12 @@ class ParquetApiImpl(BaseParquetApi):
         if state.status == STATUS_READY and not force:
             return state
 
-        try:
-            create_http_parquet_builder_task(
-                feed.stable_id,
-                dataset.stable_id,
-                force=force,
-                retention_days=retention_days,
-            )
-        except Exception as error:
-            logging.error(
-                "Failed to enqueue Parquet build for %s: %s", dataset.stable_id, error
-            )
-            raise HTTPException(
-                status_code=500, detail=f"Could not start the conversion: {error}"
-            )
-
-        # Record the enqueue so the very next poll reads `preparing` rather than
-        # `absent` again. The worker still has to claim the dataset itself before doing
-        # anything - `try_acquire` takes over from a merely triggered row - so this is
-        # a status marker, not a lock.
+        # Written before the dispatch, so the next poll reads `preparing` rather than
+        # `absent`. It has to come first: `mark_triggered` is an unconditional upsert,
+        # and Cloud Tasks can deliver before this request finishes, so writing it
+        # afterwards could push a row the worker already moved to `in_progress` back to
+        # the claimable `triggered`. A status marker, not a lock - the worker still
+        # claims the dataset through `try_acquire`.
         tracker = TaskExecutionTracker(
             task_name=TASK_NAME,
             run_id=PARQUET_CONVERTER_VERSION,
@@ -158,6 +146,34 @@ class ParquetApiImpl(BaseParquetApi):
             metadata={"phase": "start", "done": 0, "total": 0, "detail": ""},
         )
         db_session.commit()
+
+        try:
+            create_http_parquet_builder_task(
+                feed.stable_id,
+                dataset.stable_id,
+                force=force,
+                retention_days=retention_days,
+            )
+        except Exception as error:
+            logging.error(
+                "Failed to enqueue Parquet build for %s: %s", dataset.stable_id, error
+            )
+            # The marker describes work that will never arrive. Left as `triggered` it
+            # reports `preparing`, the one state this endpoint refuses to re-trigger.
+            try:
+                tracker.mark_failed(
+                    dataset.stable_id,
+                    error_message=f"Could not start the conversion: {error}",
+                )
+                db_session.commit()
+            except Exception:
+                logging.exception(
+                    "Could not clear the trigger marker for %s", dataset.stable_id
+                )
+                db_session.rollback()
+            raise HTTPException(
+                status_code=500, detail=f"Could not start the conversion: {error}"
+            )
 
         return ParquetDatasetState(
             status=STATUS_PREPARING,
@@ -215,6 +231,27 @@ def _resolve(
     return feed, feed.latest_dataset
 
 
+def _is_expired(metadata: dict) -> bool:
+    """True once the set has passed the expiry its build recorded.
+
+    The objects are deleted by the bucket's lifecycle rule, on GCS's own schedule and
+    with no promptness guarantee, so the row cannot be trusted to disappear with them.
+    Reading the expiry here is what makes the dataset report `absent` on the date and
+    rebuild on the next request. Rows written without an expiry never expire.
+    """
+    raw = metadata.get("expires_at")
+    if not raw:
+        return False
+    try:
+        expires_at = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        logging.warning("Ignoring unparsable expires_at %r", raw)
+        return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return expires_at <= datetime.now(timezone.utc)
+
+
 def _state_of(db_session: Session, feed, dataset) -> ParquetDatasetState:
     """Turn the tracking row into the state a viewer can act on."""
     tracker = TaskExecutionTracker(
@@ -237,6 +274,11 @@ def _state_of(db_session: Session, feed, dataset) -> ParquetDatasetState:
     metadata = row.metadata_ or {}
 
     if row.status == STATUS_COMPLETED:
+        if _is_expired(metadata):
+            # The files are gone, or about to be. `absent` is also what lets the next
+            # request rebuild: `handle_generate` re-triggers it, which `try_acquire`
+            # accepts, where a `completed` row would have been refused.
+            return ParquetDatasetState(status=STATUS_ABSENT, **base)
         # No table list: a reader handed one skips `manifest.json`, and the manifest
         # is where the sizes and counts live. The builder still records the tables in
         # the tracking row for diagnostics; they are simply not served.

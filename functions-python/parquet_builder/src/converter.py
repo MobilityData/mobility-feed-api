@@ -227,6 +227,15 @@ def _quote(path: Path) -> str:
     return str(path).replace("'", "''")
 
 
+def _ident(name: str) -> str:
+    """Quote an identifier for DuckDB, doubling any embedded quote.
+
+    Table names come from archive member filenames, which can contain anything a
+    filesystem accepts - a double quote included.
+    """
+    return '"' + name.replace('"', '""') + '"'
+
+
 def _has_header(path: Path) -> bool:
     """True when the file opens with something that could be a header row.
 
@@ -298,7 +307,7 @@ def register_table(con, table: str, source: Path, logger: logging.Logger) -> boo
         return False
     try:
         con.execute(f"""
-            CREATE VIEW "{table}" AS
+            CREATE VIEW {_ident(table)} AS
             SELECT * FROM read_csv(
                 '{_quote(source)}',
                 ALL_VARCHAR = TRUE,
@@ -320,7 +329,7 @@ def _register_locations(con, source: Path, logger: logging.Logger) -> bool:
     """
     try:
         con.execute(f"""
-            CREATE VIEW "{LOCATIONS_TABLE}" AS
+            CREATE VIEW {_ident(LOCATIONS_TABLE)} AS
             SELECT
                 CAST(json_extract_string(feature, '$.id') AS VARCHAR) AS id,
                 CAST(json_extract_string(feature, '$.properties.stop_name') AS VARCHAR)
@@ -341,10 +350,10 @@ def _register_locations(con, source: Path, logger: logging.Logger) -> bool:
         # A view is lazy, so one over malformed JSON is created happily and only fails
         # later, mid-conversion. Reading a row forces the parse while it can still be
         # handled as "this feed has no zones" rather than as a failed build.
-        con.execute(f'SELECT * FROM "{LOCATIONS_TABLE}" LIMIT 1').fetchall()
+        con.execute(f"SELECT * FROM {_ident(LOCATIONS_TABLE)} LIMIT 1").fetchall()
     except Exception as error:
         logger.warning("Ignoring unusable %s: %s", LOCATIONS_GEOJSON, error)
-        con.execute(f'DROP VIEW IF EXISTS "{LOCATIONS_TABLE}"')
+        con.execute(f"DROP VIEW IF EXISTS {_ident(LOCATIONS_TABLE)}")
         return False
     return True
 
@@ -364,7 +373,7 @@ def convert_table(
     destination.mkdir(parents=True, exist_ok=True)
     target = destination / f"{table}.parquet"
     con.execute(
-        f"""COPY (SELECT * FROM "{table}") TO '{_quote(target)}' """
+        f"""COPY (SELECT * FROM {_ident(table)}) TO '{_quote(target)}' """
         f"""(FORMAT PARQUET, COMPRESSION ZSTD)"""
     )
     # Counted off the file rather than the source view: Parquet carries its row count
@@ -373,9 +382,9 @@ def convert_table(
     rows = con.execute(
         f"SELECT count(*) FROM read_parquet('{_quote(target)}')"
     ).fetchone()[0]
-    columns = con.execute(f'DESCRIBE "{table}"').fetchall()
+    columns = con.execute(f"DESCRIBE {_ident(table)}").fetchall()
     size = _size_of(source)
-    con.execute(f'DROP VIEW IF EXISTS "{table}"')
+    con.execute(f"DROP VIEW IF EXISTS {_ident(table)}")
     return ConvertedTable(
         name=table,
         file=target.name,

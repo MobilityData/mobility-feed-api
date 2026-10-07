@@ -16,7 +16,6 @@
 import hashlib
 import logging
 import os
-import re
 import ssl
 import time
 import urllib3.exceptions
@@ -545,11 +544,12 @@ def create_http_parquet_builder_task(
     """
     Create a task to render a dataset as Parquet.
 
-    The task is named after the dataset so Cloud Tasks itself rejects an obvious
-    duplicate enqueue. That is a courtesy, not the guarantee: delivery is at-least-once
-    and a name is only reserved for about an hour after a task completes, so the
-    builder claims the dataset in the database before doing any work. `force` varies
-    the name because a completed task's name cannot be reused within that window.
+    Raises if the task could not be created: the caller marks the dataset as queued on
+    the strength of this call.
+
+    The task is unnamed. A name after the dataset stays reserved for about an hour after
+    the task completes, so a retry after a failed conversion would be dropped as a
+    duplicate. Deduplication is the builder's database claim.
     """
     from google.cloud import tasks_v2
     from google.protobuf import timestamp_pb2
@@ -580,9 +580,6 @@ def create_http_parquet_builder_task(
 
     proto_time = timestamp_pb2.Timestamp()
     proto_time.GetCurrentTime()
-    # Cloud Tasks names allow letters, digits, hyphens and underscores only.
-    suffix = "-force" if force else ""
-    task_name = f"parquet-{re.sub(r'[^A-Za-z0-9_-]', '-', dataset_stable_id)}{suffix}"
 
     create_http_task_with_name(
         client=client,
@@ -591,10 +588,11 @@ def create_http_parquet_builder_task(
         project_id=project_id,
         gcp_region=gcp_region,
         queue_name=queue_name,
-        task_name=None if force else task_name,
+        task_name=None,
         task_time=proto_time,
         http_method=tasks_v2.HttpMethod.POST,
         timeout_s=1800,
+        raise_on_error=True,
     )
 
 

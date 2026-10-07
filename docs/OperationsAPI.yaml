@@ -3710,7 +3710,7 @@ components:
           example: false
         retention_days:
           description: >-
-            How long the generated files should be kept, counted from when they are built and not extended by use. Omit it and the builder's own default of 30 days applies; that default deliberately lives in one place rather than being restated here. Once the files expire they are deleted and the dataset reports `absent` again, so the next request rebuilds them.
+            How long the generated files should be kept, counted from when they are built and not extended by use. Omit it and the builder's own default of 30 days applies; that default deliberately lives in one place rather than being restated here. On that date the dataset reports `absent` again, so the next request rebuilds it. The files themselves are removed by the storage bucket's own lifecycle rule shortly afterwards, on its schedule rather than at a guaranteed moment.
           type: integer
           minimum: 1
           maximum: 60

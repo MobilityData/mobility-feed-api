@@ -23,6 +23,8 @@ asserted about.
 import io
 import json
 import unittest
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -59,6 +61,7 @@ class FakeBlob:
         self._payload = payload
         self.size = len(payload) if payload else 0
         self.public = False
+        self.custom_time = None
 
     def exists(self):
         return self._payload is not None
@@ -78,9 +81,12 @@ class FakeBlob:
 
     def upload_from_filename(self, path):
         self._store.uploaded[self.name] = Path(path).read_bytes()
+        self._store.custom_times[self.name] = self.custom_time
         self._store.events.append(("upload", self.name))
 
     def make_public(self):
+        if self._store.acl_error is not None:
+            raise self._store.acl_error
         self.public = True
         self._store.made_public.add(self.name)
 
@@ -93,6 +99,8 @@ class FakeBucket:
     def __init__(self, archive: bytes, existing=()):
         self.name = BUCKET
         self.uploaded = {}
+        # customTime as it stood at upload, per object.
+        self.custom_times = {}
         self.deleted = []
         self.made_public = set()
         self.events = []
@@ -102,6 +110,11 @@ class FakeBucket:
         self.extracted = {}
         self._archive = archive
         self._existing = list(existing)
+        # Raised by make_public when set, standing in for a bucket that refuses ACLs.
+        self.acl_error = None
+        self.iam_configuration = SimpleNamespace(
+            uniform_bucket_level_access_enabled=False
+        )
 
     def blob(self, name):
         archive_path = f"{FEED}/{DATASET}/{DATASET}.zip"
@@ -575,6 +588,103 @@ class TestRetention(BuildTestCase):
     def test_none_means_the_default(self):
         self.assertEqual(main._retention_days(None), main.DEFAULT_RETENTION_DAYS)
 
+    def test_every_object_carries_the_expiry_as_custom_time(self):
+        """The bucket's lifecycle rule deletes on customTime, so an object without one
+        would never expire."""
+        before = datetime.now(timezone.utc)
+        self.build(retention_days=7)
+
+        self.assertEqual(
+            set(self.bucket.custom_times),
+            set(self.bucket.uploaded),
+            "an object was published without an expiry",
+        )
+        for name, stamped in self.bucket.custom_times.items():
+            with self.subTest(name=name):
+                self.assertIsNotNone(stamped)
+                delta = stamped - before
+                self.assertGreater(delta, timedelta(days=7) - timedelta(minutes=1))
+                self.assertLess(delta, timedelta(days=7) + timedelta(minutes=1))
+
+    def test_the_manifest_expires_with_the_tables(self):
+        """A manifest outliving its tables would advertise files that are gone."""
+        self.build()
+
+        stamps = set(self.bucket.custom_times.values())
+        self.assertEqual(len(stamps), 1, f"the set does not expire together: {stamps}")
+
+    def test_a_shorter_retention_expires_sooner(self):
+        self.build(retention_days=7)
+        short = min(self.bucket.custom_times.values())
+
+        self.setUp()
+        self.build(retention_days=30)
+        long = min(self.bucket.custom_times.values())
+
+        self.assertLess(short, long)
+
+    def test_the_row_records_the_same_instant_as_the_objects(self):
+        """Two sources of truth for one date would drift; the API reads the row."""
+        self.build()
+
+        recorded = datetime.fromisoformat(
+            self.tracker.mark_completed.call_args.kwargs["metadata"]["expires_at"]
+        )
+        self.assertEqual(recorded, next(iter(self.bucket.custom_times.values())))
+
+
+class TestClaimDurability(BuildTestCase):
+    """The claim is what stops a second worker; it cannot ride on a best-effort write."""
+
+    def setUp(self):
+        super().setUp()
+        self.events = []
+        self.session.commit.side_effect = lambda: self.events.append("commit")
+        self.tracker.heartbeat.side_effect = lambda *a, **k: self.events.append(
+            "heartbeat"
+        )
+
+    def test_the_claim_is_committed_before_any_progress_write(self):
+        self.build()
+
+        self.assertEqual(
+            self.events[0],
+            "commit",
+            f"the claim was not committed first: {self.events[:3]}",
+        )
+        self.assertLess(self.events.index("commit"), self.events.index("heartbeat"))
+
+    def test_a_progress_write_that_fails_leaves_the_session_usable(self):
+        """Progress is a courtesy, so the failure is swallowed - but not the rollback."""
+        self.tracker.heartbeat.side_effect = RuntimeError("connection reset")
+
+        result = self.build()
+
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(self.session.rollback.called, "the session was left poisoned")
+        self.tracker.mark_completed.assert_called_once()
+
+
+class TestPublicReadability(BuildTestCase):
+    def test_an_acl_failure_fails_the_build(self):
+        """A published but unreadable file must not be reported as `ready`."""
+        self.bucket.acl_error = RuntimeError("403 forbidden")
+
+        with self.assertRaises(RuntimeError):
+            self.build()
+
+        self.tracker.mark_completed.assert_not_called()
+        self.tracker.mark_failed.assert_called_once()
+
+    def test_uniform_bucket_level_access_needs_no_acl(self):
+        """There the objects are public by policy, and per-object ACLs are rejected."""
+        self.bucket.acl_error = RuntimeError("cannot use ACL API")
+        self.bucket.iam_configuration.uniform_bucket_level_access_enabled = True
+
+        result = self.build()
+
+        self.assertEqual(result["status"], "success")
+
 
 class TestFailure(BuildTestCase):
     def test_a_missing_archive_is_recorded_and_released(self):
@@ -599,6 +709,23 @@ class TestFailure(BuildTestCase):
         self.tracker.mark_failed.assert_called_once()
         self.tracker.mark_completed.assert_not_called()
         self.assertEqual(self.bucket.uploaded, {})
+
+    def test_a_failure_in_the_commit_itself_is_still_recorded(self):
+        """Recording a failure must not need a session the failure has just broken."""
+        completed = []
+        self.tracker.mark_completed.side_effect = lambda *a, **k: completed.append(1)
+
+        def commit():
+            if completed:
+                raise RuntimeError("could not commit")
+
+        self.session.commit.side_effect = commit
+
+        with self.assertRaises(RuntimeError):
+            self.build()
+
+        self.assertTrue(self.session.rollback.called)
+        self.tracker.mark_failed.assert_called_once()
 
 
 if __name__ == "__main__":
