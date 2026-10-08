@@ -3,7 +3,7 @@
   "description": "The Parquet Builder function renders a GTFS dataset as one Parquet file per table",
   "entry_point": "build_parquet_handler",
   "timeout": 1680,
-  "memory": "16Gi",
+  "memory": "10Gi",
   "trigger_http": true,
   "include_folders": [
     "helpers"

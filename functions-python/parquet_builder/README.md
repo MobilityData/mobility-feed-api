@@ -160,6 +160,59 @@ longer than the function's own 1680s timeout, so an instance GCP has not finishe
 killing cannot have its work started underneath it. A build killed by OOM or timeout
 leaves its claim to expire; one that fails normally releases it immediately.
 
+## Memory
+
+The function's allocation is **split**, not shared: the in-memory volume is carved out of
+the total rather than added to it.
+
+```
+cgroup limit (function_config.json "memory")   10240 MiB
+  - in-memory volume at PARQUET_TMPDIR        -  4096 MiB   parquet_builder_in_memory_size
+  - MEMORY_MARGIN_MB                          -   200 MiB
+  = RLIMIT_AS set on the Python process          5944 MiB
+```
+
+`limit_gcp_memory` (`shared/common/gcp_memory_utils.py`) does that subtraction at import,
+before anything allocates, and sets `RLIMIT_AS`. The point is that an overshoot raises a
+catchable `MemoryError` with a traceback instead of the kernel killing the container
+silently. It reads the volume's *declared* size, so the 4Gi is subtracted whether or not a
+byte is written to it. Both numbers are logged on every cold start:
+
+```
+Process memory limit: 10240.00 MiB, total tmpfs size: 4096.00 MiB, available: 6144.00 MiB
+RLIMIT_AS set to 5944.00 MiB
+```
+
+If `total tmpfs size` reads `0.00 MiB`, the volume did not get mounted and the process is
+running with the full cgroup limit as its budget. That is a broken deploy, not a safe one.
+
+Three consumers, bounded differently:
+
+| Consumer | Bound | Overshoot |
+|---|---|---|
+| The workdir under `PARQUET_TMPDIR` | 4Gi, by the volume's own `size-limit` | `ENOSPC` |
+| DuckDB | `PARQUET_DUCKDB_MEMORY_LIMIT`, 2GB | spills, see below |
+| The Python process | `RLIMIT_AS` | `MemoryError` |
+
+**The tmpfs is the real limit, not the total.** DuckDB's spill directory is inside the
+workdir, so spilling does not release memory from the container - it moves bytes out of
+DuckDB's budget and into the tmpfs. A feed whose largest single CSV plus its Parquet plus
+the spill exceeds 4Gi fails with `ENOSPC` no matter how much total memory the function has.
+Raising the total without raising the volume does not help that case.
+
+What keeps usage low is that the conversion streams: one source file and one Parquet output
+exist at a time, each deleted before the next begins, so peak tracks the largest single
+table rather than the whole feed. The only exception is the archive-fallback path, where
+the `.zip` stays resident for the build.
+
+The current total is sized from measurement rather than guessed: the worst container
+utilisation observed on dev after streaming was introduced is about 3.6 GiB, including a
+130-second build whose Python heap peaked at 138 MB. Note that the `Function metrics` log
+line reports `tracemalloc` for `memory:`, which sees Python allocations only - not DuckDB's
+C++ heap and not tmpfs pages. Use the `rss` figure on that same line, or Cloud Monitoring's
+`run.googleapis.com/container/memory/utilizations`, when sizing. There is no telemetry from
+qa or prod yet, so the largest feeds in the catalogue may not have been converted.
+
 # GCP environment variables
 
 - `DATASETS_BUCKET_NAME`: bucket where datasets are stored, including the environment
@@ -167,6 +220,13 @@ leaves its claim to expire; one that fails normally releases it immediately.
 - `PUBLIC_HOSTED_DATASETS_URL`: public URL prefix the artifacts are served from; used
   to build the `base_url` reported back to callers.
 - `FEEDS_DATABASE_URL` (secret): used for the claim and for progress reporting.
+- `PARQUET_TMPDIR`: the in-memory volume everything large is written to
+  (default `/tmp/in-memory`). `limit_gcp_memory` reads its size to compute the process
+  budget, so this must point at the mounted volume.
+- `PARQUET_DUCKDB_MEMORY_LIMIT`: DuckDB's own budget (default `2GB`). Set explicitly
+  because DuckDB otherwise sizes itself from the host's RAM rather than the cgroup, and
+  so would spill far too late to help.
+- `MEMORY_MARGIN_MB`: margin subtracted before `RLIMIT_AS` is set (default `200`).
 
 # Local testing
 

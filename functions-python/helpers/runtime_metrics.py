@@ -1,8 +1,30 @@
 import functools
+import resource
+import sys
 import time
 import tracemalloc
 import psutil
 import logging
+
+MB = 1024**2
+
+
+def _max_rss_bytes() -> int:
+    """Peak resident set size of this process, in bytes.
+
+    `tracemalloc` only sees blocks Python itself allocated, so for a function whose
+    heavy lifting happens in a C extension (DuckDB, for one) it reports the smallest
+    consumer and misses the one that decides the instance's memory allocation. RSS
+    covers both.
+
+    This is the process high-water mark and it never resets, so on a warm instance it
+    spans earlier requests too. It therefore over-reports rather than under-reports,
+    which is the right direction for a number used to size a container.
+
+    `ru_maxrss` is kilobytes on Linux and bytes on macOS.
+    """
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak if sys.platform == "darwin" else peak * 1024
 
 
 def track_metrics(metrics=("time", "memory", "cpu")):
@@ -48,7 +70,19 @@ def track_metrics(metrics=("time", "memory", "cpu")):
                     tracemalloc.stop()
                     if metrics_message:
                         metrics_message += ", "
-                    metrics_message += f"memory: {current / (1024 ** 2):.2f} MB (peak: {peak / (1024 ** 2):.2f} MB)"
+                    metrics_message += (
+                        f"memory: {current / MB:.2f} MB (peak: {peak / MB:.2f} MB)"
+                    )
+                    # Kept beside the tracemalloc figures rather than replacing them, so
+                    # the log line stays comparable with what is already in Cloud Logging.
+                    try:
+                        rss = process.memory_info().rss
+                        metrics_message += (
+                            f", rss: {rss / MB:.2f} MB"
+                            f" (process peak: {_max_rss_bytes() / MB:.2f} MB)"
+                        )
+                    except Exception as error:
+                        logger.debug("Could not read RSS: %s", error)
                 if "cpu" in metrics:
                     cpu_after = process.cpu_percent(interval=None)
                     if metrics_message:
