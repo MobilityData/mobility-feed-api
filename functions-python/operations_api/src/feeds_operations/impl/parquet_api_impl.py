@@ -30,13 +30,16 @@ from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import StrictStr
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from feeds_gen.apis.parquet_api_base import BaseParquetApi
 from feeds_gen.models.parquet_dataset_state import ParquetDatasetState
 from feeds_gen.models.parquet_generate_request import ParquetGenerateRequest
+from shared.common.config_reader import get_config_value
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed, Gtfsfile
+from shared.helpers.sizing import Size, Tier, choose_size, describe, first_known
 from shared.helpers.task_execution.task_execution_tracker import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -48,6 +51,25 @@ from shared.helpers.utils import create_http_parquet_builder_task
 # invalidates previously written artifacts by moving them to a different run.
 TASK_NAME = "parquet_generation"
 PARQUET_CONVERTER_VERSION = "2"
+
+# Routing table for the build workers. The measure is the largest single uncompressed
+# file in the dataset, because the builder's in-memory volume holds one at a time, so
+# that file is what decides whether a build fits. Totals are the wrong signal: a feed of
+# many medium files is cheaper than one with a single huge one.
+SIZE_TIERS = (
+    Tier(size=Size.M, max_bytes=1_500_000_000),
+    Tier(size=Size.L, max_bytes=None),
+)
+
+# A feed can be pinned to a size by hand through `config_value_feed`. A pinned size is
+# used as given; the measurement below is not consulted at all.
+SIZE_CONFIG_NAMESPACE = "parquet_builder"
+SIZE_CONFIG_KEY = "size"
+
+# Used only when a dataset has no per-file rows and no recorded unzipped total. GTFS
+# compresses roughly 5-15x; the low end is deliberate, since overestimating the content
+# of an archive routes up rather than down.
+COMPRESSION_RATIO = 5
 
 STATUS_ABSENT = "absent"
 STATUS_PREPARING = "preparing"
@@ -153,6 +175,7 @@ class ParquetApiImpl(BaseParquetApi):
                 dataset.stable_id,
                 force=force,
                 retention_days=retention_days,
+                size=_size_for(db_session, feed, dataset),
             )
         except Exception as error:
             logging.error(
@@ -229,6 +252,103 @@ def _resolve(
     if feed.latest_dataset is None:
         raise HTTPException(status_code=404, detail="GTFS feed has no dataset yet")
     return feed, feed.latest_dataset
+
+
+def _largest_file_bytes(db_session: Session, dataset) -> Optional[int]:
+    """The biggest single uncompressed file in the dataset, or None if unrecorded.
+
+    One indexed aggregate on `gtfsfile`, which carries an index on `gtfs_dataset_id`.
+    Returns None rather than 0 for a dataset with no file rows, so the caller can tell
+    "no files recorded" from "files recorded, all empty".
+    """
+    try:
+        return (
+            db_session.query(func.max(Gtfsfile.file_size_bytes))
+            .filter(Gtfsfile.gtfs_dataset_id == dataset.id)
+            .scalar()
+        )
+    except Exception as error:
+        logging.warning("Could not measure %s: %s", dataset.stable_id, error)
+        return None
+
+
+def _measure(db_session: Session, dataset) -> tuple[Optional[int], str]:
+    """How heavy this build is, and which rung of the fallback produced the answer.
+
+    The size columns are nullable and were added without a backfill, so a dataset
+    processed before #1284 has none of them. Each rung is a worse approximation than the
+    one above, and all of them err upwards: `unzipped_size_bytes` is the sum rather than
+    the maximum, and the compressed estimate uses the low end of the ratio.
+    """
+    largest = _largest_file_bytes(db_session, dataset)
+    if largest:
+        return int(largest), "largest file"
+
+    total = first_known(getattr(dataset, "unzipped_size_bytes", None))
+    if total:
+        return total, "unzipped total"
+
+    zipped = first_known(getattr(dataset, "zipped_size_bytes", None))
+    if zipped:
+        return zipped * COMPRESSION_RATIO, "estimated from the archive"
+
+    return None, "unknown"
+
+
+def _size_override(db_session: Session, feed) -> Optional[Size]:
+    """An operator's pin for this feed, if one is set."""
+    try:
+        raw = get_config_value(
+            SIZE_CONFIG_NAMESPACE,
+            SIZE_CONFIG_KEY,
+            feed_id=feed.id,
+            db_session=db_session,
+        )
+    except Exception as error:
+        logging.warning(
+            "Could not read the size override for %s: %s", feed.stable_id, error
+        )
+        return None
+    return Size.parse(raw)
+
+
+def _size_for(db_session: Session, feed, dataset) -> Size:
+    """Which worker should build this dataset.
+
+    A configured size settles it, so the measurement is skipped entirely rather than
+    computed and discarded.
+    """
+    override = _size_override(db_session, feed)
+    if override is not None:
+        logging.info(
+            "Routing %s to %s: pinned on feed %s",
+            dataset.stable_id,
+            override.value,
+            feed.stable_id,
+        )
+        return override
+
+    measure, basis = _measure(db_session, dataset)
+    size = choose_size(measure, SIZE_TIERS)
+
+    if measure is None:
+        logging.warning(
+            "No recorded size for %s (%s); routing to %s. Run the "
+            "rebuild_missing_dataset_files task to record them.",
+            dataset.stable_id,
+            basis,
+            size.value,
+        )
+    else:
+        logging.info(
+            "Routing %s to %s: %s bytes by %s, table [%s]",
+            dataset.stable_id,
+            size.value,
+            measure,
+            basis,
+            describe(SIZE_TIERS),
+        )
+    return size
 
 
 def _is_expired(metadata: dict) -> bool:

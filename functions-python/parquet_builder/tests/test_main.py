@@ -22,6 +22,7 @@ asserted about.
 
 import io
 import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -45,12 +46,16 @@ AGENCY = "agency_id,agency_name,agency_url,agency_timezone\n1,T,https://e.org,UT
 STOPS = "stop_id,stop_name\nS1,First\n"
 
 
-def _zip_bytes(nested: bool = False) -> bytes:
+def _zip_bytes(nested: bool = False, reverse: bool = False) -> bytes:
+    """`reverse` writes stops before agency, so archive order and table order differ."""
     buffer = io.BytesIO()
     prefix = "feed/" if nested else ""
+    members = [(f"{prefix}agency.txt", AGENCY), (f"{prefix}stops.txt", STOPS)]
+    if reverse:
+        members.reverse()
     with zipfile.ZipFile(buffer, "w") as zf:
-        zf.writestr(f"{prefix}agency.txt", AGENCY)
-        zf.writestr(f"{prefix}stops.txt", STOPS)
+        for name, body in members:
+            zf.writestr(name, body)
     return buffer.getvalue()
 
 
@@ -84,6 +89,14 @@ class FakeBlob:
         self._store.custom_times[self.name] = self.custom_time
         self._store.events.append(("upload", self.name))
 
+    def open(self, mode="rb", chunk_size=None):
+        """Stand-in for `BlobReader`: seekable, and never writes to the workdir."""
+        assert mode == "rb"
+        if self._payload is None:
+            raise FileNotFoundError(self.name)
+        self._store.opened.append(self.name)
+        return io.BytesIO(self._payload)
+
     def make_public(self):
         if self._store.acl_error is not None:
             raise self._store.acl_error
@@ -105,6 +118,8 @@ class FakeBucket:
         self.made_public = set()
         self.events = []
         self.downloaded = []
+        # Blobs read through open("rb") rather than downloaded to the workdir.
+        self.opened = []
         self.ranged = []
         # Blobs under <feed>/<dataset>/extracted/, as batch_process_dataset leaves them.
         self.extracted = {}
@@ -256,24 +271,21 @@ class TestSuccessfulBuild(BuildTestCase):
             call.kwargs["metadata"]["phase"]
             for call in self.tracker.heartbeat.call_args_list
         ]
-        # No `extract` phase any more: unzipping is per-member inside `convert`, so
-        # there is no longer a stage during which the feed is being unpacked and
-        # nothing else. Reporting one would describe work that does not happen.
-        for expected in ("start", "download", "convert", "upload", "summarise"):
+        # Neither `extract` nor `download` appears any more. Unzipping is per-member
+        # inside `convert`, and the archive is read over the network as those members
+        # are asked for, so neither is a stage the build passes through.
+        for expected in ("start", "convert", "upload", "summarise"):
             self.assertIn(expected, phases, f"no {expected} reading was published")
 
-    def test_download_progress_is_reported_in_bytes(self):
-        """The reader formats this phase's numbers as a size, not a count."""
+    def test_no_download_phase_is_reported(self):
+        """Nothing is downloaded, so reporting the phase would describe absent work."""
         self.build()
 
-        downloads = [
-            call.kwargs["metadata"]
+        phases = [
+            call.kwargs["metadata"]["phase"]
             for call in self.tracker.heartbeat.call_args_list
-            if call.kwargs["metadata"]["phase"] == "download"
         ]
-        self.assertTrue(downloads)
-        self.assertEqual(downloads[-1]["total"], len(_zip_bytes()))
-        self.assertEqual(downloads[-1]["done"], len(_zip_bytes()))
+        self.assertNotIn("download", phases)
 
     def test_a_stale_previous_build_is_cleared_first(self):
         """A rebuild with fewer tables must not leave an orphan behind."""
@@ -456,8 +468,8 @@ class TestReadsPreExtractedFiles(BuildTestCase):
         self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
         self.assertNotIn(
             f"{FEED}/{DATASET}/{DATASET}.zip",
-            self.bucket.downloaded,
-            "the archive was downloaded despite extracted files being available",
+            self.bucket.opened,
+            "the archive was read despite extracted files being available",
         )
 
     def test_a_recorded_file_the_bucket_lacks_falls_back_to_the_archive(self):
@@ -477,7 +489,7 @@ class TestReadsPreExtractedFiles(BuildTestCase):
         self.assertEqual(result["status"], "success")
         self.assertIn(
             f"{FEED}/{DATASET}/{DATASET}.zip",
-            self.bucket.downloaded,
+            self.bucket.opened,
             "the archive was not used despite the extracted set being incomplete",
         )
         # The archive holds both tables, so nothing is lost by taking that route.
@@ -552,7 +564,91 @@ class TestReadsPreExtractedFiles(BuildTestCase):
         result = self.build()
 
         self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
-        self.assertIn(f"{FEED}/{DATASET}/{DATASET}.zip", self.bucket.downloaded)
+        self.assertIn(f"{FEED}/{DATASET}/{DATASET}.zip", self.bucket.opened)
+
+
+class TestArchiveIsStreamed(BuildTestCase):
+    """The archive is read over the network, never written to the volume.
+
+    Downloading it cost its full size on the in-memory volume for the whole build, on
+    top of whichever member was being converted. A 1 GiB archive holding a 4 GiB table
+    exhausted the volume before conversion started.
+    """
+
+    def _archive_only(self):
+        """No Gtfsfile rows, so the build takes the archive path."""
+        dataset = MagicMock()
+        dataset.gtfsfiles = []
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset
+        )
+
+    def test_the_archive_is_never_written_to_the_workdir(self):
+        self._archive_only()
+
+        self.build()
+
+        self.assertIn(f"{FEED}/{DATASET}/{DATASET}.zip", self.bucket.opened)
+        self.assertEqual(
+            self.bucket.downloaded, [], "the archive was written to the volume"
+        )
+
+    def test_members_are_read_in_archive_order_not_table_order(self):
+        """A backward seek throws the reader's buffer away and refetches.
+
+        The fixture writes stops before agency, so archive order and alphabetical order
+        disagree and a plan built in the wrong one is visible.
+        """
+        self.bucket._archive = _zip_bytes(reverse=True)
+        self._archive_only()
+
+        plan = main._plan_from_archive(
+            self.bucket, FEED, DATASET, Path(tempfile.mkdtemp()), MagicMock()
+        )
+        try:
+            self.assertEqual([table for table, _ in plan.sources], ["stops", "agency"])
+        finally:
+            plan.close()
+
+    def test_tables_are_still_reported_by_name(self):
+        """Conversion order is an IO detail; the manifest must not depend on it."""
+        self.bucket._archive = _zip_bytes(reverse=True)
+        self._archive_only()
+
+        result = self.build()
+
+        self.assertEqual(result["tables"], ["agency", "stops"])
+        manifest = json.loads(
+            self.bucket.uploaded[f"{FEED}/{DATASET}/parquet/manifest.json"]
+        )
+        self.assertEqual([t["name"] for t in manifest["tables"]], ["agency", "stops"])
+
+    def test_compressed_sizes_come_from_the_directory_already_read(self):
+        """The central directory is in hand, so the tail is not fetched a second time."""
+        self._archive_only()
+
+        self.build()
+
+        manifest = json.loads(
+            self.bucket.uploaded[f"{FEED}/{DATASET}/parquet/manifest.json"]
+        )
+        for table in manifest["tables"]:
+            self.assertIsNotNone(
+                table["compressed_bytes"], f"{table['name']} lost its zipped size"
+            )
+        self.assertEqual(self.bucket.ranged, [], "the archive tail was re-read")
+
+    def test_the_handle_is_released_when_the_build_fails(self):
+        self._archive_only()
+
+        with patch.object(main, "convert_table", side_effect=RuntimeError("no memory")):
+            with self.assertRaises(RuntimeError):
+                self.build()
+
+        # Nothing to assert on GCS here; the point is that the failure path runs
+        # plan.close() rather than leaking the reader, which the build would otherwise
+        # hold until the instance is recycled.
+        self.tracker.mark_failed.assert_called_once()
 
 
 class TestBothPathsAgree(BuildTestCase):

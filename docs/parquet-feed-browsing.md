@@ -313,17 +313,19 @@ order from the order they occur; the order below is what actually happens.
 | `phase` | When | `done` / `total` | `detail` |
 |---|---|---|---|
 | `start` | Claim taken, nothing done yet | `0 / 0` | `""` |
-| `download` | Fetching the dataset archive. **Only on the archive path** - skipped entirely when the feed was already extracted by `batch_process_dataset` | **bytes**, `total: 0` when the size is unknown | `<dataset>.zip` |
 | `convert` | Rewriting each table as Parquet | table index / table count | table name, e.g. `stop_times` |
 | `upload` | Publishing `manifest.json` | `1 / 1` | `manifest.json` |
 | `summarise` | Recording the result | `0 / 0` | `""` |
 
 `total: 0` means "not knowable in advance", not "nothing to do".
 
-Two phases a client will never observe, despite being in the enum: `extract` (the
-function that emitted it is no longer called - members are unpacked lazily inside
-`convert`) and `done` (written only together with completion, at which point the API
-reports `ready` and suppresses `phase` altogether).
+Three phases a client will never observe, despite being in the enum:
+
+- `download` - the archive is read over the network with ranged requests as members are
+  needed, so there is no stage during which it is being fetched and nothing else.
+- `extract` - members are unpacked lazily inside `convert`.
+- `done` - written only together with completion, at which point the API reports `ready`
+  and suppresses `phase` altogether.
 
 ---
 
@@ -467,9 +469,9 @@ until they are reconciled.
 
 `functions-python/parquet_builder/README.md` has the full local walkthrough, including the
 case where the Operations API itself is what you want to exercise. The short version is
-that Cloud Tasks does not dispatch locally - `PARQUET_BUILDER_QUEUE` is unset, so the
-enqueue is a logged no-op and the dataset sits at `preparing` - which means the builder
-has to be invoked by hand in the queue's place.
+that Cloud Tasks does not dispatch locally - the `PARQUET_BUILDER_QUEUE_M`/`_L` vars are
+unset, so the enqueue is a logged no-op and the dataset sits at `preparing` - which means
+the builder has to be invoked by hand in the queue's place.
 
 To skip the API entirely and just get Parquet files a browser can read:
 

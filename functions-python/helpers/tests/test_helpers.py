@@ -272,7 +272,8 @@ class TestParquetBuilderTask(unittest.TestCase):
     """The enqueue is what the Operations API records `preparing` on the strength of."""
 
     ENV = {
-        "PARQUET_BUILDER_QUEUE": "parquet-queue",
+        "PARQUET_BUILDER_QUEUE_M": "parquet-queue-m",
+        "PARQUET_BUILDER_QUEUE_L": "parquet-queue-l",
         "PROJECT_ID": "my-project",
         "GCP_REGION": "northamerica-northeast1",
         "ENVIRONMENT": "dev",
@@ -302,9 +303,9 @@ class TestParquetBuilderTask(unittest.TestCase):
         self.assertEqual(
             kwargs["url"],
             "https://northamerica-northeast1-my-project.cloudfunctions.net/"
-            "parquet-builder-dev",
+            "parquet-builder-l-dev",
         )
-        self.assertEqual(kwargs["queue_name"], "parquet-queue")
+        self.assertEqual(kwargs["queue_name"], "parquet-queue-l")
 
     @patch.dict(os.environ, ENV, clear=False)
     @patch("shared.common.gcp_utils.create_http_task_with_name")
@@ -341,7 +342,7 @@ class TestParquetBuilderTask(unittest.TestCase):
 
     @patch.dict(
         os.environ,
-        {k: v for k, v in ENV.items() if k != "PARQUET_BUILDER_QUEUE"},
+        {k: v for k, v in ENV.items() if k != "PARQUET_BUILDER_QUEUE_L"},
         clear=True,
     )
     @patch("shared.common.gcp_utils.create_http_task_with_name")
@@ -357,6 +358,46 @@ class TestParquetBuilderTask(unittest.TestCase):
         create_http_parquet_builder_task("mdb-1210", "mdb-1210-202402121801")
 
         mock_create_task.assert_not_called()
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_each_size_has_its_own_queue_and_target(
+        self, mock_client_cls, mock_create_task
+    ):
+        """Separate queues are the point: large builds must not fill the dispatch
+        slots in front of small ones."""
+        from utils import create_http_parquet_builder_task
+        from sizing import Size
+
+        mock_client_cls.return_value = MagicMock()
+
+        for size, queue, target in (
+            (Size.M, "parquet-queue-m", "parquet-builder-m-dev"),
+            (Size.L, "parquet-queue-l", "parquet-builder-l-dev"),
+        ):
+            with self.subTest(size=size):
+                mock_create_task.reset_mock()
+                create_http_parquet_builder_task("mdb-1210", "mdb-1210-1", size=size)
+
+                _, kwargs = mock_create_task.call_args
+                self.assertEqual(kwargs["queue_name"], queue)
+                self.assertTrue(kwargs["url"].endswith(target), kwargs["url"])
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_no_size_routes_to_the_largest(self, mock_client_cls, mock_create_task):
+        """A caller that has not measured anything must not land on a worker that
+        cannot finish the job."""
+        from utils import create_http_parquet_builder_task
+
+        mock_client_cls.return_value = MagicMock()
+
+        create_http_parquet_builder_task("mdb-1210", "mdb-1210-1")
+
+        _, kwargs = mock_create_task.call_args
+        self.assertEqual(kwargs["queue_name"], "parquet-queue-l")
 
 
 class TestCreateHttpTaskWithName(unittest.TestCase):

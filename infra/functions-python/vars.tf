@@ -180,10 +180,16 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
+variable "parquet_builder_in_memory_size_m" {
+  type        = string
+  description = "Size limit for the in-memory volume on the small (m) parquet_builder. Carved out of that variant's total memory, not added to it. Must exceed the largest single uncompressed GTFS file routed to it plus its Parquet output; feeds above the routing threshold go to l instead."
+  default     = "2Gi"
+}
+
 variable "parquet_builder_in_memory_size" {
   type        = string
-  description = "Size limit for the parquet_builder in-memory volume. Carved out of the function's total memory, not added to it: limit_gcp_memory subtracts it from the process budget."
-  default     = "4Gi"
+  description = "Size limit for the parquet_builder in-memory volume. Carved out of the function's total memory, not added to it: limit_gcp_memory subtracts it from the process budget. Must exceed the largest single uncompressed GTFS file plus its Parquet output, and on the archive path the compressed archive as well, or extraction fails with ENOSPC."
+  default     = "8Gi"
 }
 
 variable "gtfs_datasets_comparer_in_memory_size" {

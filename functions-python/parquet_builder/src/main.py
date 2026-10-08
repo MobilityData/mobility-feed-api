@@ -52,7 +52,6 @@ from converter import (
     SourceFacts,
     TailReader,
     convert_table,
-    extract_feed,
     open_connection,
     register_table,
     table_name_for,
@@ -62,8 +61,6 @@ from converter import (
 from progress import (
     PHASE_CONVERT,
     PHASE_DONE,
-    PHASE_DOWNLOAD,
-    PHASE_EXTRACT,
     PHASE_START,
     PHASE_SUMMARISE,
     PHASE_UPLOAD,
@@ -94,6 +91,10 @@ DUCKDB_MEMORY_LIMIT = os.getenv("PARQUET_DUCKDB_MEMORY_LIMIT", "2GB")
 # How much of an archive's tail to fetch when recovering compressed sizes. A GTFS zip
 # has tens of members, so its central directory is a few kilobytes; 1 MiB is slack.
 CENTRAL_DIRECTORY_TAIL = 1024 * 1024
+# What the archive reader buffers per range request. Buffered in process memory, not on
+# the volume, so this trades requests against RLIMIT_AS rather than against the tmpfs.
+# Well under the library's 40 MiB default, which would be charged to the heap in full.
+ARCHIVE_CHUNK_SIZE = 8 * 1024 * 1024
 
 # How long a generated set lives when the caller does not say. The single source of
 # truth: the API deliberately declares bounds but no default, so an omitted value
@@ -319,11 +320,26 @@ class SourcePlan:
     deferred to the moment each table is converted.
     """
 
-    def __init__(self, kind: str, source_bytes, compressed_sizes: dict, sources: list):
+    def __init__(
+        self,
+        kind: str,
+        source_bytes,
+        compressed_sizes: dict,
+        sources: list,
+        closer=None,
+    ):
         self.facts = SourceFacts(
             kind=kind, bytes=source_bytes, compressed_sizes=compressed_sizes
         )
         self.sources = sources
+        # The archive plan reads members from a remote handle that has to outlive the
+        # plan, so releasing it is the plan's job rather than the planner's.
+        self._closer = closer
+
+    def close(self) -> None:
+        if self._closer is not None:
+            self._closer()
+            self._closer = None
 
 
 def _plan_sources(
@@ -364,7 +380,7 @@ def _plan_sources(
         dataset_stable_id,
     )
     return _plan_from_archive(
-        bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+        bucket, feed_stable_id, dataset_stable_id, workdir, logger
     )
 
 
@@ -429,53 +445,73 @@ def _plan_from_extracted(
 
 
 def _plan_from_archive(
-    bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
+    bucket, feed_stable_id, dataset_stable_id, workdir, logger
 ) -> SourcePlan:
-    """Fall back to the archive, still extracting one member at a time.
+    """Fall back to the archive, read over the network rather than downloaded.
 
-    The archive stays on disk for the whole build, which is the right trade: it is
-    compressed, so holding it costs a fraction of what holding every extracted CSV
-    would, and extracting on demand keeps peak residency at one table.
+    The archive is never written to the workdir. `Blob.open("rb")` is a seekable
+    reader, which is all `zipfile` needs, so members are pulled with ranged requests as
+    the converter asks for them. Downloading it instead used to cost its full size on
+    the in-memory volume for the whole build, on top of the member being converted -
+    for a 1 GiB archive holding a 4 GiB table, enough to exhaust the volume before
+    conversion started.
     """
-    archive = _download_archive(
-        bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
-    )
-    with open(archive, "rb") as handle:
-        compressed = zip_member_sizes_from_file(handle)
+    blob_path = f"{feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+    archive_blob = bucket.blob(blob_path)
+    if not archive_blob.exists():
+        raise FileNotFoundError(
+            f"Dataset archive not found at gs://{bucket.name}/{blob_path}"
+        )
+
+    archive_blob.reload()
+    handle = archive_blob.open("rb", chunk_size=ARCHIVE_CHUNK_SIZE)
+    try:
+        zf = zipfile.ZipFile(handle)
+        members = [member for member in zf.infolist() if not member.is_dir()]
+    except Exception:
+        handle.close()
+        raise
 
     data_dir = workdir / "extracted"
     data_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(archive) as zf:
-        members = [member for member in zf.infolist() if not member.is_dir()]
 
     sources = []
-    for member in members:
+    # In archive order, not table order: a backward seek throws the reader's buffer
+    # away, so converting alphabetically would refetch most of the file.
+    for member in sorted(members, key=lambda m: m.header_offset):
         # Flattened: producers differ on whether the files sit at the archive root or
         # inside a folder, and the table is named after the basename either way.
         name = Path(member.filename).name
         table = table_name_for(Path(name))
         if table is None:
             continue
-        sources.append(
-            (table, _extract_member(archive, member.filename, data_dir / name))
-        )
+        sources.append((table, _extract_member(zf, member.filename, data_dir / name)))
+
+    def close():
+        zf.close()
+        handle.close()
 
     return SourcePlan(
         kind="zip",
-        source_bytes=archive.stat().st_size,
-        compressed_sizes=compressed,
-        sources=sorted(sources, key=lambda item: item[0]),
+        # The central directory is already in hand, so the compressed sizes cost
+        # nothing here - no second ranged read of the tail.
+        source_bytes=int(archive_blob.size or 0),
+        compressed_sizes={Path(m.filename).name: m.compress_size for m in members},
+        sources=sources,
+        closer=close,
     )
 
 
-def _extract_member(archive: Path, member_name: str, target: Path):
-    """A callable that unpacks one member when the converter is ready for it."""
+def _extract_member(zf: zipfile.ZipFile, member_name: str, target: Path):
+    """A callable that unpacks one member when the converter is ready for it.
+
+    Reads from the archive handle the plan holds open rather than reopening it, so a
+    remote archive is not re-read per member.
+    """
 
     def fetch() -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive) as zf, zf.open(member_name) as src, open(
-            target, "wb"
-        ) as dst:
+        with zf.open(member_name) as src, open(target, "wb") as dst:
             shutil.copyfileobj(src, dst)
         return target
 
@@ -576,6 +612,11 @@ def _convert_and_publish(
             tables.append(entry)
     finally:
         con.close()
+        plan.close()
+
+    # Converted in archive order for the reader's sake; reported by name so the manifest
+    # does not depend on which path produced it.
+    tables.sort(key=lambda entry: entry.name)
 
     if not tables:
         raise ValueError(f"No GTFS tables could be converted for {dataset_stable_id}")
@@ -622,44 +663,6 @@ def _publish(bucket, dest_prefix: str, path: Path, logger, expires_at) -> str:
             "Skipping ACL on %s: bucket uses uniform access (%s)", blob.name, error
         )
     return blob.name
-
-
-def _download_archive(
-    bucket, feed_stable_id, dataset_stable_id, workdir, progress, logger
-) -> Path:
-    """Fetch the dataset archive, reporting bytes as it goes."""
-    blob_path = f"{feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
-    blob = bucket.blob(blob_path)
-    if not blob.exists():
-        raise FileNotFoundError(
-            f"Dataset archive not found at gs://{bucket.name}/{blob_path}"
-        )
-
-    blob.reload()
-    # `download` counts bytes, not files, which is what the viewer's wording expects
-    # for this phase. 0 when the size is unknown, as a missing Content-Length would be.
-    total = int(blob.size or 0)
-    progress(PHASE_DOWNLOAD, 0, total, f"{dataset_stable_id}.zip")
-
-    archive = workdir / f"{dataset_stable_id}.zip"
-    blob.download_to_filename(str(archive))
-    progress.flush(
-        phase=PHASE_DOWNLOAD,
-        done=archive.stat().st_size,
-        total=total,
-        detail=f"{dataset_stable_id}.zip",
-    )
-    logger.info("Downloaded gs://%s/%s", bucket.name, blob_path)
-    return archive
-
-
-def _extract(archive: Path, workdir: Path, progress, logger) -> Path:
-    """Unpack the archive, reporting one event per member."""
-    data_dir = extract_feed(archive, workdir / "extracted", on_progress=progress)
-    count = len(list(data_dir.iterdir()))
-    progress.flush(phase=PHASE_EXTRACT, done=count, total=count)
-    logger.info("Extracted %s files", count)
-    return data_dir
 
 
 def main():  # pragma: no cover

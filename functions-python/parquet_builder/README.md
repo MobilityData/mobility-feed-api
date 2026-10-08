@@ -160,17 +160,83 @@ longer than the function's own 1680s timeout, so an instance GCP has not finishe
 killing cannot have its work started underneath it. A build killed by OOM or timeout
 leaves its claim to expire; one that fails normally releases it immediately.
 
+## Worker sizes
+
+The builder is deployed twice from one source zip, as `parquet-builder-m-<env>` and
+`parquet-builder-l-<env>`, each with its own Cloud Tasks queue. The Operations API picks
+one at enqueue time.
+
+| Size | Memory | CPU | Volume | DuckDB | Routed when |
+|---|---|---|---|---|---|
+| `m` | 4Gi | 2 | 2Gi | 1GB | largest single uncompressed file < 1.5 GB |
+
+A feed pinned through config bypasses the table entirely; see below.
+| `l` | 16Gi | 4 | 8Gi | 2GB | otherwise, or the size is unknown |
+
+**The measure is the largest single file, not the archive or the feed total.** The volume
+holds one source at a time, so that file is what decides whether a build fits. A total
+would misjudge a feed of many medium files, and the compressed size misjudges almost
+everything: mdb-2014 is a 1.08 GiB archive containing a 4.07 GiB `stop_times.txt`.
+
+It comes from `max(gtfsfile.file_size_bytes)` for the dataset. Those rows are absent for
+datasets processed before they existed, so the measure falls back to
+`unzipped_size_bytes`, then to `zipped_size_bytes` times a conservative ratio, then to
+nothing. **An unknown size routes to `l`**, never `m` - guessing small turns a missing row
+into an OOM. The log line says which rung answered; if it says `unknown`, run the
+`rebuild_missing_dataset_files` task to record them.
+
+Separate queues are the point rather than a side effect. `max_concurrent_dispatches` caps
+memory across concurrent instances, so a single queue has to be sized for the heaviest job
+and a run of large builds leaves the short ones waiting behind them.
+
+### Pinning a feed by hand
+
+A feed is pinned through the generic config tables, namespace `parquet_builder`, key
+`size`, value `"m"` or `"l"`. The key itself is registered by
+`liquibase/changes/feat_parquet_builder_size.sql` - no new table, just the `config_key`
+row that `config_value_feed`'s foreign key needs - so setting an override is one insert:
+
+```sql
+INSERT INTO config_value_feed (feed_id, feed_stable_id, namespace, key, value)
+SELECT id, stable_id, 'parquet_builder', 'size', '"l"'::jsonb
+  FROM feed WHERE stable_id = 'mdb-2014'
+ON CONFLICT (feed_id, namespace, key) DO UPDATE SET value = EXCLUDED.value;
+```
+
+With no per-feed row, every feed is routed purely by measurement. The key carries no
+`default_value` on purpose: setting one would move the whole catalogue at once, which
+belongs in the routing table in `parquet_api_impl.py` instead.
+
+**A pinned size decides on its own.** The measurement is not consulted at all - not even
+computed - so a pin can send a feed either way. That is the point: the routing table is a
+heuristic over one number, and whoever pinned the feed has looked at it. The flip side is
+that pinning a feed below what it needs will fail it with `ENOSPC` or `MemoryError`, so
+check the build after changing one.
+
+An unrecognised value is logged and ignored rather than failing the request.
+
+There is no endpoint or UI for `config_value_feed`, so this is SQL for now.
+
+The routing logic is `functions-python/helpers/sizing.py`, written to be reused: it takes
+the tiers and the measure from the caller, so `pmtiles_builder` and `reverse_geolocation`
+can adopt it without copying.
+
 ## Memory
 
 The function's allocation is **split**, not shared: the in-memory volume is carved out of
 the total rather than added to it.
 
+Per variant, taking `l` as the example:
+
 ```
-cgroup limit (function_config.json "memory")   10240 MiB
-  - in-memory volume at PARQUET_TMPDIR        -  4096 MiB   parquet_builder_in_memory_size
+cgroup limit (the variant's "memory")          16384 MiB
+  - in-memory volume at PARQUET_TMPDIR        -  8192 MiB   parquet_builder_in_memory_size
   - MEMORY_MARGIN_MB                          -   200 MiB
-  = RLIMIT_AS set on the Python process          5944 MiB
+  = RLIMIT_AS set on the Python process          7992 MiB
 ```
+
+`m` is the same arithmetic over 4Gi and a 2Gi volume, giving a 1944 MiB process budget.
+Its small volume is only viable because the archive is streamed rather than written there.
 
 `limit_gcp_memory` (`shared/common/gcp_memory_utils.py`) does that subtraction at import,
 before anything allocates, and sets `RLIMIT_AS`. The point is that an overshoot raises a
@@ -179,8 +245,8 @@ silently. It reads the volume's *declared* size, so the 4Gi is subtracted whethe
 byte is written to it. Both numbers are logged on every cold start:
 
 ```
-Process memory limit: 10240.00 MiB, total tmpfs size: 4096.00 MiB, available: 6144.00 MiB
-RLIMIT_AS set to 5944.00 MiB
+Process memory limit: 16384.00 MiB, total tmpfs size: 8192.00 MiB, available: 8192.00 MiB
+RLIMIT_AS set to 7992.00 MiB
 ```
 
 If `total tmpfs size` reads `0.00 MiB`, the volume did not get mounted and the process is
@@ -190,24 +256,45 @@ Three consumers, bounded differently:
 
 | Consumer | Bound | Overshoot |
 |---|---|---|
-| The workdir under `PARQUET_TMPDIR` | 4Gi, by the volume's own `size-limit` | `ENOSPC` |
+| The workdir under `PARQUET_TMPDIR` | 8Gi, by the volume's own `size-limit` | `ENOSPC` |
 | DuckDB | `PARQUET_DUCKDB_MEMORY_LIMIT`, 2GB | spills, see below |
 | The Python process | `RLIMIT_AS` | `MemoryError` |
 
 **The tmpfs is the real limit, not the total.** DuckDB's spill directory is inside the
 workdir, so spilling does not release memory from the container - it moves bytes out of
 DuckDB's budget and into the tmpfs. A feed whose largest single CSV plus its Parquet plus
-the spill exceeds 4Gi fails with `ENOSPC` no matter how much total memory the function has.
-Raising the total without raising the volume does not help that case.
+the spill exceeds the volume fails with `ENOSPC` no matter how much total memory the
+function has. Raising the total without raising the volume does not help that case.
+
+Size the volume from the **largest single uncompressed file** in the feed, not from the
+archive or the feed total. The archive path needs more again, because the `.zip` stays
+resident for the whole build:
+
+```
+both paths:  largest file + its Parquet + DuckDB spill
+```
+
+The worked example is mdb-2014, whose 1.08 GiB archive holds a 4.07 GiB `stop_times.txt`
+and a 2.04 GiB `shapes.txt`. It once needed 1.08 + 4.07 = 5.15 GiB before conversion
+started, and failed with `ENOSPC` on a 4Gi volume; now that the archive is streamed the
+same feed needs 4.07 GiB plus its output. Read those numbers off any archive without
+downloading it using
+`zip_member_sizes_from_file` with `TailReader` over a ranged read of the last 1 MiB, which
+is what the builder itself does to record compressed sizes.
 
 What keeps usage low is that the conversion streams: one source file and one Parquet output
 exist at a time, each deleted before the next begins, so peak tracks the largest single
-table rather than the whole feed. The only exception is the archive-fallback path, where
-the `.zip` stays resident for the build.
+table rather than the whole feed. This holds on both paths - the archive is read over the
+network through `Blob.open("rb")`, a seekable reader that `zipfile` drives directly, so it
+is never written to the volume. Members are converted in archive order rather than table
+order, because a backward seek discards the reader's buffer and refetches; the manifest is
+sorted by name afterwards so it does not depend on which path produced it.
 
-The current total is sized from measurement rather than guessed: the worst container
-utilisation observed on dev after streaming was introduced is about 3.6 GiB, including a
-130-second build whose Python heap peaked at 138 MB. Note that the `Function metrics` log
+Sizing from observed averages is a trap here: feed sizes span orders of magnitude, so a
+sample that happens to exclude the largest feeds will suggest a volume that cannot build
+them at all. The process budget is the part that measurement does settle - the largest
+observed `process peak` is about 1.8 GiB against the 7992 MiB limit. Note that the
+`Function metrics` log
 line reports `tracemalloc` for `memory:`, which sees Python allocations only - not DuckDB's
 C++ heap and not tmpfs pages. Use the `rss` figure on that same line, or Cloud Monitoring's
 `run.googleapis.com/container/memory/utilizations`, when sizing. There is no telemetry from
@@ -278,8 +365,8 @@ cd <path-to-operations-web> && yarn dev
 ## Exercising the whole path, including the Operations API
 
 Only needed when the endpoints themselves are what is being tested. Cloud Tasks does
-not dispatch locally - `PARQUET_BUILDER_QUEUE` is unset, so the enqueue is a logged
-no-op - which means the builder is invoked by hand in place of the queue.
+not dispatch locally - the `PARQUET_BUILDER_QUEUE_M`/`_L` vars are unset, so the enqueue
+is a logged no-op - which means the builder is invoked by hand in place of the queue.
 
 ```bash
 # 1. Database and Operations API (http://localhost:8081)

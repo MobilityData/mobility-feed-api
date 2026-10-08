@@ -70,6 +70,13 @@ class ParquetStateTestCase(unittest.TestCase):
         self._enqueue_patch = patch.object(
             parquet_api_impl, "create_http_parquet_builder_task"
         )
+        # Routing has its own tests; here it is pinned so the flow assertions do not
+        # depend on what a MagicMock session reports as a file size.
+        self._size_patch = patch.object(
+            parquet_api_impl, "_size_for", return_value=parquet_api_impl.Size.L
+        )
+        self._size_patch.start()
+        self.addCleanup(self._size_patch.stop)
         self._resolve_patch.start()
         self._tracker_patch.start()
         self.enqueue = self._enqueue_patch.start()
@@ -233,7 +240,11 @@ class TestGenerate(ParquetStateTestCase):
         state = self.generate()
 
         self.enqueue.assert_called_once_with(
-            FEED, DATASET, force=False, retention_days=None
+            FEED,
+            DATASET,
+            force=False,
+            retention_days=None,
+            size=parquet_api_impl.Size.L,
         )
         # Not `absent` again: a client polling at 500ms would otherwise ask twice.
         self.assertEqual(state.status, "preparing")
@@ -318,7 +329,7 @@ class TestGenerate(ParquetStateTestCase):
         self.generate(force=True)
 
         self.enqueue.assert_called_once_with(
-            FEED, DATASET, force=True, retention_days=None
+            FEED, DATASET, force=True, retention_days=None, size=parquet_api_impl.Size.L
         )
 
     def test_a_failed_dataset_is_retried(self):
@@ -327,7 +338,11 @@ class TestGenerate(ParquetStateTestCase):
         state = self.generate()
 
         self.enqueue.assert_called_once_with(
-            FEED, DATASET, force=False, retention_days=None
+            FEED,
+            DATASET,
+            force=False,
+            retention_days=None,
+            size=parquet_api_impl.Size.L,
         )
         self.assertEqual(state.status, "preparing")
 
@@ -338,6 +353,115 @@ class TestGenerate(ParquetStateTestCase):
             self.generate()
 
         self.assertEqual(caught.exception.status_code, 500)
+
+
+class TestSizeRouting(unittest.TestCase):
+    """Which worker a build is sent to, and why."""
+
+    GB = 1024**3
+
+    def setUp(self):
+        self._override = None
+
+    def _session(self, largest=None, override=None):
+        session = MagicMock()
+        session.query.return_value.filter.return_value.scalar.return_value = largest
+        self._override = override
+        return session
+
+    def _dataset(self, unzipped=None, zipped=None):
+        dataset = MagicMock()
+        dataset.id = "dataset-uuid"
+        dataset.stable_id = DATASET
+        dataset.unzipped_size_bytes = unzipped
+        dataset.zipped_size_bytes = zipped
+        return dataset
+
+    def _size_for(self, session, dataset):
+        feed = MagicMock()
+        feed.id = "feed-uuid"
+        feed.stable_id = FEED
+        with patch.object(
+            parquet_api_impl, "get_config_value", return_value=self._override
+        ):
+            return parquet_api_impl._size_for(session, feed, dataset)
+
+    def test_a_small_feed_goes_to_the_small_worker(self):
+        size = self._size_for(self._session(largest=10 * 1024**2), self._dataset())
+
+        self.assertEqual(size, parquet_api_impl.Size.M)
+
+    def test_a_feed_with_one_huge_file_goes_to_the_large_worker(self):
+        """mdb-2014's shape: a modest archive hiding a 4 GiB stop_times."""
+        size = self._size_for(self._session(largest=4 * self.GB), self._dataset())
+
+        self.assertEqual(size, parquet_api_impl.Size.L)
+
+    def test_it_falls_back_to_the_unzipped_total(self):
+        """No per-file rows. The total overestimates, which routes up, not down."""
+        size = self._size_for(
+            self._session(largest=None), self._dataset(unzipped=6 * self.GB)
+        )
+
+        self.assertEqual(size, parquet_api_impl.Size.L)
+
+    def test_it_falls_back_to_an_estimate_from_the_archive(self):
+        """Neither per-file rows nor a total; only the compressed size is known."""
+        size = self._size_for(
+            self._session(largest=None), self._dataset(zipped=1 * self.GB)
+        )
+
+        self.assertEqual(size, parquet_api_impl.Size.L)
+
+    def test_an_unmeasurable_dataset_goes_to_the_large_worker(self):
+        """Datasets predating #1284 have none of the size columns populated."""
+        size = self._size_for(self._session(largest=None), self._dataset())
+
+        self.assertEqual(size, parquet_api_impl.Size.L)
+
+    def test_a_failed_measurement_does_not_fail_the_request(self):
+        session = MagicMock()
+        session.query.side_effect = RuntimeError("database gone")
+
+        self.assertEqual(
+            self._size_for(session, self._dataset()), parquet_api_impl.Size.L
+        )
+
+    def test_an_override_raises_the_size(self):
+        size = self._size_for(
+            self._session(largest=10 * 1024**2, override="l"), self._dataset()
+        )
+
+        self.assertEqual(size, parquet_api_impl.Size.L)
+
+    def test_an_override_can_lower_the_size(self):
+        size = self._size_for(
+            self._session(largest=4 * self.GB, override="m"), self._dataset()
+        )
+
+        self.assertEqual(size, parquet_api_impl.Size.M)
+
+    def test_an_override_skips_the_measurement_entirely(self):
+        """No point costing a query for an answer that cannot change the outcome."""
+        session = self._session(override="m")
+        session.query.side_effect = AssertionError("the dataset was measured")
+
+        self.assertEqual(
+            self._size_for(session, self._dataset()), parquet_api_impl.Size.M
+        )
+
+    def test_an_unreadable_override_is_ignored(self):
+        feed = MagicMock()
+        feed.id = "feed-uuid"
+        feed.stable_id = FEED
+        session = self._session(largest=10 * 1024**2)
+
+        with patch.object(
+            parquet_api_impl, "get_config_value", side_effect=RuntimeError("no config")
+        ):
+            size = parquet_api_impl._size_for(session, feed, self._dataset())
+
+        self.assertEqual(size, parquet_api_impl.Size.M)
 
 
 class TestResolution(unittest.TestCase):
