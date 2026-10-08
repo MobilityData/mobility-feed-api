@@ -123,7 +123,8 @@ class FakeBucket:
         return FakeBlob(name, self, self.extracted.get(name))
 
     def list_blobs(self, prefix):
-        return [FakeBlob(n, self) for n in self._existing if n.startswith(prefix)]
+        names = set(self._existing) | set(self.extracted)
+        return [FakeBlob(n, self) for n in sorted(names) if n.startswith(prefix)]
 
 
 class BuildTestCase(unittest.TestCase):
@@ -458,6 +459,44 @@ class TestReadsPreExtractedFiles(BuildTestCase):
             self.bucket.downloaded,
             "the archive was downloaded despite extracted files being available",
         )
+
+    def test_a_recorded_file_the_bucket_lacks_falls_back_to_the_archive(self):
+        """The Gtfsfile rows are an index, not a guarantee.
+
+        `rebuild_missing_dataset_files` exists because a dataset can be recorded with
+        files the bucket no longer holds. This used to raise NotFound from inside the
+        conversion and lose the whole build.
+        """
+        dataset = self._with_extracted(["agency.txt"])
+        phantom = MagicMock()
+        phantom.file_name = "feed_info.txt"
+        dataset.gtfsfiles = list(dataset.gtfsfiles) + [phantom]
+
+        result = self.build()
+
+        self.assertEqual(result["status"], "success")
+        self.assertIn(
+            f"{FEED}/{DATASET}/{DATASET}.zip",
+            self.bucket.downloaded,
+            "the archive was not used despite the extracted set being incomplete",
+        )
+        # The archive holds both tables, so nothing is lost by taking that route.
+        self.assertEqual(sorted(result["tables"]), ["agency", "stops"])
+
+    def test_an_incomplete_extracted_set_is_never_converted_on_its_own(self):
+        """Publishing the subset would assert a partial feed is the whole feed."""
+        dataset = self._with_extracted(["agency.txt"])
+        phantom = MagicMock()
+        phantom.file_name = "stop_times.txt"
+        dataset.gtfsfiles = list(dataset.gtfsfiles) + [phantom]
+        # No archive to fall back to either.
+        self.bucket._archive = None
+        self.bucket.blob = lambda name: FakeBlob(name, self.bucket, None)
+
+        with self.assertRaises(FileNotFoundError):
+            self.build()
+
+        self.assertEqual(self.bucket.uploaded, {}, "a partial set was published")
 
     def test_archive_relative_paths_are_flattened(self):
         """`extracted/` preserves the archive's own layout, folders and all."""

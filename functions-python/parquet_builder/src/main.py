@@ -38,6 +38,7 @@ import sys
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 
 import flask
 import functions_framework
@@ -350,9 +351,13 @@ def _plan_sources(
     files = list(dataset.gtfsfiles) if dataset else []
 
     if files:
-        return _plan_from_extracted(
+        plan = _plan_from_extracted(
             bucket, feed_stable_id, dataset_stable_id, dataset, files, workdir, logger
         )
+        if plan is not None:
+            return plan
+        # The index named files the bucket does not have. Fall through to the archive,
+        # which is the authoritative copy.
 
     logger.info(
         "No extracted files recorded for %s; falling back to the archive",
@@ -365,10 +370,39 @@ def _plan_sources(
 
 def _plan_from_extracted(
     bucket, feed_stable_id, dataset_stable_id, dataset, files, workdir, logger
-) -> SourcePlan:
+) -> Optional[SourcePlan]:
+    """Plan from `extracted/`, or None when the bucket does not match the index.
+
+    The `Gtfsfile` rows are an index, not a guarantee: `rebuild_missing_dataset_files`
+    exists because a dataset can be recorded with files the bucket no longer holds. A
+    missing object used to surface as a `NotFound` from inside the conversion, which
+    lost the whole build to one absent file, so the set is checked up front instead.
+
+    Returning None rather than converting the subset is deliberate. The manifest
+    asserts it describes the dataset, so quietly dropping `feed_info` or `stop_times`
+    would publish a feed that looks complete and is not.
+    """
     prefix = f"{feed_stable_id}/{dataset_stable_id}/extracted"
     local_dir = workdir / "extracted"
     local_dir.mkdir(parents=True, exist_ok=True)
+
+    # One listing rather than an existence check per file.
+    present = {blob.name for blob in bucket.list_blobs(prefix=prefix + "/")}
+    missing = [
+        record.file_name
+        for record in files
+        if f"{prefix}/{record.file_name}" not in present
+    ]
+    if missing:
+        logger.warning(
+            "%s records %s extracted file(s) the bucket does not have (%s); using the "
+            "archive instead. Run the rebuild_missing_dataset_files task to repair the "
+            "extracted copies.",
+            dataset_stable_id,
+            len(missing),
+            ", ".join(sorted(missing)[:5]),
+        )
+        return None
 
     sources = []
     for record in files:
