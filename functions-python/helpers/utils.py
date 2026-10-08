@@ -18,10 +18,13 @@ import logging
 import os
 import ssl
 import time
+import zipfile
 import urllib3.exceptions
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from logging import Logger
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 import urllib3
@@ -142,6 +145,41 @@ def create_feed_ssl_context(trusted_certs: bool = False):
     return ctx
 
 
+def get_feed_credentials(stable_id: str) -> Optional[str]:
+    """Return the API credential for a feed from the FEEDS_CREDENTIALS env var, or None."""
+    try:
+        import json
+
+        feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
+        return feeds_credentials.get(stable_id, None)
+    except Exception as exc:
+        logging.warning("Could not parse FEEDS_CREDENTIALS: %s", exc)
+        return None
+
+
+def _get_http_headers_override(feed_id: Optional[str]) -> Optional[dict]:
+    """Return the feed_download/http_headers config override, or None.
+
+    Returns None when the config database is unreachable so that callers fall back to
+    the default headers instead of failing. This keeps the local verifier script usable
+    without a database.
+    """
+    try:
+        from shared.common.config_reader import get_config_value
+
+        return get_config_value(
+            namespace="feed_download", key="http_headers", feed_id=feed_id
+        )
+    except Exception as exc:
+        logging.warning(
+            "Could not read feed_download/http_headers for feed %s, "
+            "falling back to default headers: %s",
+            feed_id,
+            exc,
+        )
+        return None
+
+
 def build_feed_request_params(
     url: str,
     feed_id: Optional[str] = None,
@@ -161,11 +199,7 @@ def build_feed_request_params(
     Returns:
         (headers, resolved_url) ready to pass to any HTTP method.
     """
-    from shared.common.config_reader import get_config_value
-
-    headers = get_config_value(
-        namespace="feed_download", key="http_headers", feed_id=feed_id
-    )
+    headers = _get_http_headers_override(feed_id)
     if headers is None:
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
@@ -247,6 +281,201 @@ def _sanitize_error_message(
     if message and resolved_url != producer_url:
         return message.replace(resolved_url, producer_url)
     return message
+
+
+REDACTED = "***REDACTED***"
+
+_SECRET_HEADER_NAMES = frozenset(
+    {
+        "authorization",
+        "proxy-authorization",
+        "cookie",
+        "set-cookie",
+        "x-api-key",
+        "api-key",
+        "apikey",
+        "token",
+        "access-token",
+        "x-access-token",
+        "x-auth-token",
+    }
+)
+
+
+def _is_secret_name(name: str, api_key_parameter_name: Optional[str] = None) -> bool:
+    """Return True when a header or query parameter name carries a credential.
+
+    Underscores and hyphens are treated as equivalent so that both api_key and api-key
+    are matched.
+    """
+    lowered = name.strip().lower()
+    if lowered.replace("_", "-") in _SECRET_HEADER_NAMES:
+        return True
+    if not api_key_parameter_name:
+        return False
+    return lowered.replace("_", "-") == api_key_parameter_name.strip().lower().replace(
+        "_", "-"
+    )
+
+
+def sanitize_headers(
+    headers: Optional[dict], api_key_parameter_name: Optional[str] = None
+) -> Optional[dict]:
+    """Return a copy of headers with credential values replaced by REDACTED.
+
+    Names are always preserved, only values are redacted.
+    """
+    if headers is None:
+        return None
+    return {
+        name: (
+            REDACTED if _is_secret_name(name, api_key_parameter_name) else str(value)
+        )
+        for name, value in headers.items()
+    }
+
+
+def sanitize_url(
+    url: Optional[str], api_key_parameter_name: Optional[str] = None
+) -> Optional[str]:
+    """Return url with credential query-parameter values and userinfo redacted."""
+    if not url:
+        return url
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return REDACTED
+
+    netloc = parsed.netloc
+    if "@" in netloc:
+        netloc = f"{REDACTED}@{netloc.rsplit('@', 1)[1]}"
+
+    query = parsed.query
+    if query:
+        query = urlencode(
+            [
+                (
+                    name,
+                    (
+                        REDACTED
+                        if _is_secret_name(name, api_key_parameter_name)
+                        else value
+                    ),
+                )
+                for name, value in parse_qsl(query, keep_blank_values=True)
+            ],
+            safe="*",
+        )
+
+    return urlunsplit((parsed.scheme, netloc, parsed.path, query, parsed.fragment))
+
+
+_EXTERNAL_IP_URL = "https://checkip.amazonaws.com"
+_external_ip_cache: Optional[str] = None
+
+
+def get_external_ip(timeout_seconds: int = 3) -> Optional[str]:
+    """Return the egress IP address of this process, or None if it cannot be determined.
+
+    The result is cached for the lifetime of the process. Never raises.
+    """
+    global _external_ip_cache
+    if _external_ip_cache is not None:
+        return _external_ip_cache
+    try:
+        with urllib3.PoolManager() as http:
+            response = http.request(
+                "GET",
+                _EXTERNAL_IP_URL,
+                timeout=urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds),
+                retries=False,
+            )
+            if response.status == 200:
+                _external_ip_cache = response.data.decode("utf-8").strip() or None
+    except Exception as exc:
+        logging.warning("Could not determine external IP address: %s", exc)
+    return _external_ip_cache
+
+
+@dataclass
+class FeedRequestDiagnostics:
+    """Request and response detail for a feed download attempt, safe to log and store."""
+
+    request_url: Optional[str] = None
+    resolved_url: Optional[str] = None
+    request_headers: Optional[dict] = None
+    response_headers: Optional[dict] = None
+    status_code: Optional[int] = None
+    latency_ms: Optional[int] = None
+    redirect_urls: Optional[list] = None
+    external_ip: Optional[str] = None
+    content_type: Optional[str] = None
+    is_zip: Optional[bool] = None
+    downloaded_bytes: Optional[int] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+
+    @property
+    def success(self) -> bool:
+        return (
+            self.error_type is None
+            and self.status_code is not None
+            and 200 <= self.status_code < 300
+        )
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+class FeedDownloadError(Exception):
+    """Raised when a feed download fails, carrying the diagnostics of the attempt."""
+
+    def __init__(self, message: str, diagnostics: FeedRequestDiagnostics):
+        super().__init__(message)
+        self.diagnostics = diagnostics
+
+
+@dataclass
+class FeedDownloadResult:
+    """Outcome of a successful feed download."""
+
+    file_hash: Optional[str]
+    is_zip: Optional[bool]
+    diagnostics: FeedRequestDiagnostics
+
+
+def build_availability_check(
+    diagnostics: FeedRequestDiagnostics,
+    feed_id: str,
+    source: str,
+    request_type: str = "http_get",
+    checked_at: Optional[datetime] = None,
+):
+    """Map diagnostics onto a GtfsFeedAvailabilityCheck row.
+
+    source is one of 'availability_check' or 'dataset_download'.
+    """
+    from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
+
+    return GtfsFeedAvailabilityCheck(
+        feed_id=feed_id,
+        checked_at=checked_at or datetime.now(timezone.utc),
+        request_url=diagnostics.request_url,
+        resolved_url=diagnostics.resolved_url,
+        request_type=request_type,
+        status_code=diagnostics.status_code,
+        latency_ms=diagnostics.latency_ms,
+        error_message=diagnostics.error_message,
+        error_type=diagnostics.error_type,
+        success=diagnostics.success,
+        content_type=diagnostics.content_type,
+        is_zip=diagnostics.is_zip,
+        source=source,
+        request_headers=diagnostics.request_headers,
+        response_headers=diagnostics.response_headers,
+        redirect_urls=diagnostics.redirect_urls,
+        external_ip=diagnostics.external_ip,
+    )
 
 
 def _execute_http_request(
@@ -410,6 +639,7 @@ def perform_request(
         feed_id=feed_id,
         checked_at=checked_at,
         request_url=producer_url,
+        resolved_url=sanitize_url(resolved_url, api_key_parameter_name),
         request_type=request_type,
         status_code=status_code,
         latency_ms=latency_ms,
@@ -418,7 +648,134 @@ def perform_request(
         success=success,
         content_type=content_type,
         is_zip=is_zip,
+        source="availability_check",
+        request_headers=sanitize_headers(headers, api_key_parameter_name),
+        response_headers=sanitize_headers(dict(resp_headers) if resp_headers else None),
+        redirect_urls=[
+            sanitize_url(u, api_key_parameter_name) for u in (redirect_urls or [])
+        ],
     )
+
+
+def download_feed(
+    url,
+    file_path,
+    hash_algorithm="sha256",
+    chunk_size=8192,
+    feed_id=None,
+    authentication_type=0,
+    api_key_parameter_name=None,
+    credentials=None,
+    logger=None,
+    trusted_certs=False,  # If True, disables SSL verification
+    max_bytes: Optional[int] = None,
+    timeout_seconds: Optional[int] = None,
+) -> FeedDownloadResult:
+    """Download a feed to file_path and return its hash along with request diagnostics.
+
+    max_bytes stops the download once that many bytes have been read, which lets callers
+    inspect the response without storing the whole dataset. The returned hash is None in
+    that case because the file is incomplete.
+
+    Raises FeedDownloadError carrying a FeedRequestDiagnostics on any failure.
+    """
+    logger = logger or logging.getLogger(__name__)
+    producer_url = url
+    resolved_url = url
+    hash_object = hashlib.new(hash_algorithm)
+    diagnostics = FeedRequestDiagnostics(
+        request_url=sanitize_url(producer_url, api_key_parameter_name)
+    )
+    truncated = False
+
+    try:
+        ctx = create_feed_ssl_context(trusted_certs=trusted_certs)
+
+        headers, resolved_url = build_feed_request_params(
+            producer_url,
+            feed_id=feed_id,
+            authentication_type=authentication_type,
+            api_key_parameter_name=api_key_parameter_name,
+            credentials=credentials,
+        )
+        diagnostics.resolved_url = sanitize_url(resolved_url, api_key_parameter_name)
+        diagnostics.request_headers = sanitize_headers(headers, api_key_parameter_name)
+
+        timeout = (
+            urllib3.Timeout(connect=timeout_seconds, read=timeout_seconds)
+            if timeout_seconds
+            else None
+        )
+        request_kwargs = {"timeout": timeout} if timeout else {}
+
+        with urllib3.PoolManager(ssl_context=ctx) as http:
+            start = time.monotonic()
+            with http.request(
+                "GET",
+                resolved_url,
+                preload_content=False,
+                headers=headers,
+                redirect=True,
+                **request_kwargs,
+            ) as r, open(file_path, "wb") as out_file:
+                diagnostics.latency_ms = int((time.monotonic() - start) * 1000)
+                diagnostics.status_code = r.status
+                diagnostics.response_headers = sanitize_headers(dict(r.headers))
+                diagnostics.redirect_urls = [
+                    sanitize_url(h.redirect_location, api_key_parameter_name)
+                    for h in (r.retries.history or [])
+                    if h.redirect_location
+                ]
+                diagnostics.content_type = _parse_content_type(
+                    r.headers.get("Content-Type")
+                )
+
+                if not 200 <= r.status < 300:
+                    raise ValueError(f"Invalid HTTP response code: [{r.status}]")
+
+                logger.info(f"HTTP response code: [{r.status}]")
+                total = 0
+                while True:
+                    data = r.read(chunk_size)
+                    if not data:
+                        break
+                    hash_object.update(data)
+                    out_file.write(data)
+                    total += len(data)
+                    if max_bytes is not None and total >= max_bytes:
+                        truncated = True
+                        break
+                r.release_conn()
+                diagnostics.downloaded_bytes = total
+
+        diagnostics.is_zip = zipfile.is_zipfile(file_path) or (
+            _is_zip_from_content_type(diagnostics.content_type) or False
+        )
+        return FeedDownloadResult(
+            file_hash=None if truncated else hash_object.hexdigest(),
+            is_zip=diagnostics.is_zip,
+            diagnostics=diagnostics,
+        )
+    except Exception as exc:
+        diagnostics.error_type = type(exc).__name__
+        # Collapse the credential-bearing resolved URL onto the producer URL, then the
+        # producer URL onto its sanitized form, so neither can leak through the message.
+        message = _sanitize_error_message(str(exc), resolved_url, producer_url)
+        if message and producer_url != diagnostics.request_url:
+            message = message.replace(producer_url, diagnostics.request_url)
+        diagnostics.error_message = message
+        diagnostics.external_ip = get_external_ip()
+        logger.warning(
+            "Feed download failed for %s: %s",
+            diagnostics.request_url,
+            diagnostics.as_dict(),
+        )
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                logger.error(f"Delete file: [{file_path}]")
+        raise FeedDownloadError(str(exc), diagnostics) from exc
 
 
 def download_and_get_hash(
@@ -436,44 +793,18 @@ def download_and_get_hash(
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
-    logger = logger or logging.getLogger(__name__)
-    try:
-        hash_object = hashlib.new(hash_algorithm)
-
-        ctx = create_feed_ssl_context(trusted_certs=trusted_certs)
-
-        headers, url = build_feed_request_params(
-            url,
-            feed_id=feed_id,
-            authentication_type=authentication_type,
-            api_key_parameter_name=api_key_parameter_name,
-            credentials=credentials,
-        )
-
-        with urllib3.PoolManager(ssl_context=ctx) as http:
-            with http.request(
-                "GET", url, preload_content=False, headers=headers, redirect=True
-            ) as r, open(file_path, "wb") as out_file:
-                if 200 <= r.status < 300:
-                    logger.info(f"HTTP response code: [{r.status}]")
-                    while True:
-                        data = r.read(chunk_size)
-                        if not data:
-                            break
-                        hash_object.update(data)
-                        out_file.write(data)
-                    r.release_conn()
-                else:
-                    raise ValueError(f"Invalid HTTP response code: [{r.status}]")
-        return hash_object.hexdigest()
-    except Exception as e:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                logger.error(f"Delete file: [{file_path}]")
-
-        raise e
+    return download_feed(
+        url,
+        file_path,
+        hash_algorithm=hash_algorithm,
+        chunk_size=chunk_size,
+        feed_id=feed_id,
+        authentication_type=authentication_type,
+        api_key_parameter_name=api_key_parameter_name,
+        credentials=credentials,
+        logger=logger,
+        trusted_certs=trusted_certs,
+    ).file_hash
 
 
 def create_http_task(

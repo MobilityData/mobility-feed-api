@@ -18,6 +18,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
+import os
+import tempfile
+import uuid
 from datetime import datetime
 from typing import Annotated, Final, Optional
 
@@ -32,6 +35,9 @@ from feeds_gen.models.data_type import DataType
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
 from feeds_gen.models.gtfs_feed_availability_response import (
     GtfsFeedAvailabilityResponse,
+)
+from feeds_gen.models.gtfs_feed_download_debug_response import (
+    GtfsFeedDownloadDebugResponse,
 )
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
@@ -67,6 +73,11 @@ from shared.db_models.gtfs_feed_availability_check_impl import (
     GtfsFeedAvailabilityCheckImpl,
 )
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
+from shared.helpers.utils import (
+    FeedDownloadError,
+    download_feed,
+    get_feed_credentials,
+)
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
@@ -297,6 +308,71 @@ class OperationsApiImpl(BaseOperationsApi):
             offset=offset,
             limit=limit,
             checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def debug_gtfs_feed_download(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        max_bytes: Optional[int] = 52428800,
+        timeout_seconds: Optional[int] = 60,
+        db_session: Session = None,
+    ) -> GtfsFeedDownloadDebugResponse:
+        """Download the feed through the shared download path and return the diagnostics."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        if not gtfs_feed.producer_url:
+            raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+
+        temp_file = os.path.join(
+            tempfile.gettempdir(), f"download_debug_{uuid.uuid4()}.zip"
+        )
+        truncated = False
+        try:
+            try:
+                result = download_feed(
+                    gtfs_feed.producer_url,
+                    file_path=temp_file,
+                    feed_id=gtfs_feed.id,
+                    authentication_type=gtfs_feed.authentication_type or 0,
+                    api_key_parameter_name=gtfs_feed.api_key_parameter_name,
+                    credentials=get_feed_credentials(gtfs_feed.stable_id),
+                    max_bytes=max_bytes,
+                    timeout_seconds=timeout_seconds,
+                )
+                diagnostics = result.diagnostics
+                truncated = result.file_hash is None
+            except FeedDownloadError as exc:
+                diagnostics = exc.diagnostics
+        finally:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except OSError as exc:
+                    logging.warning("Could not remove %s: %s", temp_file, exc)
+
+        return GtfsFeedDownloadDebugResponse(
+            feed_id=gtfs_feed.stable_id,
+            producer_url=diagnostics.request_url,
+            resolved_url=diagnostics.resolved_url,
+            success=diagnostics.success,
+            status_code=diagnostics.status_code,
+            latency_ms=diagnostics.latency_ms,
+            request_headers=diagnostics.request_headers,
+            response_headers=diagnostics.response_headers,
+            redirect_urls=diagnostics.redirect_urls,
+            external_ip=diagnostics.external_ip,
+            content_type=diagnostics.content_type,
+            is_zip=diagnostics.is_zip,
+            downloaded_bytes=diagnostics.downloaded_bytes,
+            truncated=truncated,
+            error_type=diagnostics.error_type,
+            error_message=diagnostics.error_message,
         )
 
     @with_db_session
