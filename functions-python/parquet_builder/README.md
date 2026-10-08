@@ -256,32 +256,10 @@ tests convert are real zips built in-process.
 
 # Operations API endpoints
 
+The endpoints a client drives to request and follow a build, the states they report, and
+what a client fetches once a set is ready, are documented in
+[docs/parquet-feed-browsing.md](../../docs/parquet-feed-browsing.md) - including the
+authentication the spec gets wrong and the CORS requirement the browser reader depends on.
+
 Implemented in `functions-python/operations_api/src/feeds_operations/impl/parquet_api_impl.py`,
 specified in `docs/OperationsAPI.yaml`.
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/v1/operations/gtfs_feeds/{id}/parquet` | State of the feed's latest dataset |
-| POST | `/v1/operations/gtfs_feeds/{id}/parquet` | Start a build for it |
-| GET | `/v1/operations/gtfs_datasets/{id}/parquet` | State of one dataset |
-| POST | `/v1/operations/gtfs_datasets/{id}/parquet` | Start a build for it |
-
-`GET` returns **200 for every state**, including `absent`:
-
-```json
-{ "status": "absent",    "feed_stable_id": "mdb-1210", "dataset_stable_id": "mdb-1210-202402121801" }
-{ "status": "preparing", "phase": "convert", "done": 12, "total": 32, "detail": "stop_times" }
-{ "status": "ready",     "base_url": "https://.../parquet", "generated_at": "2026-09-16T14:22:31Z" }
-{ "status": "failed",    "message": "Conversion ran out of memory" }
-```
-
-`absent` means no conversion has been requested yet, which is an ordinary starting
-state rather than an error - a **404 means the feed or dataset does not exist**, and a
-client has to be able to tell the two apart. `GET` never starts work; `POST` does.
-
-No table list is served here, by design: `ready` carries only `base_url`, and a reader
-handed a table list skips `manifest.json` - which is where the row counts and sizes
-live, and with them the load report the viewer draws from them.
-
-`done` and `total` are **bytes** during the `download` phase and counts otherwise;
-`total` is `0` when it is not knowable in advance.
