@@ -42,6 +42,8 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfe
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import (
+    FeedDownloadError,
+    build_availability_check,
     download_and_get_hash,
     get_hash_from_file,
     download_from_gcs,
@@ -139,18 +141,39 @@ class DatasetProcessor:
         """
         Downloads the content of a URL and return the hash of the file
         """
-        file_hash = download_and_get_hash(
-            self.producer_url,
-            file_path=temporary_file_path,
-            feed_id=feed_id,
-            authentication_type=self.authentication_type,
-            api_key_parameter_name=self.api_key_parameter_name,
-            credentials=self.feed_credentials,
-            logger=self.logger,
-        )
+        try:
+            file_hash = download_and_get_hash(
+                self.producer_url,
+                file_path=temporary_file_path,
+                feed_id=feed_id,
+                authentication_type=self.authentication_type,
+                api_key_parameter_name=self.api_key_parameter_name,
+                credentials=self.feed_credentials,
+                logger=self.logger,
+            )
+        except FeedDownloadError as exc:
+            if feed_id:
+                self.record_download_failure(feed_id, exc.diagnostics)
+            raise
         self.logger.info("hash is: %s", file_hash)
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
+
+    @with_db_session
+    def record_download_failure(self, feed_id, diagnostics, db_session: Session = None):
+        """
+        Stores the diagnostics of a failed download in gtfs_feed_availability_check.
+        Never raises: a storage failure must not mask the original download error.
+        """
+        try:
+            db_session.add(
+                build_availability_check(
+                    diagnostics, feed_id=feed_id, source="dataset_download"
+                )
+            )
+            db_session.commit()
+        except Exception as exc:
+            self.logger.error("Could not store download diagnostics: %s", exc)
 
     def upload_dataset_zip_to_storage(
         self,

@@ -144,6 +144,8 @@
     <include file="changes/remove_sao_paulo_feeds.sql" relativeToChangelogFile="true"/>
     <!-- Remove blank GTFS-RT entity types and constrain entitytype.name to vp/tu/sa. -->
     <include file="changes/fix_empty_entity_types.sql" relativeToChangelogFile="true"/>
+    <!-- Request/response debugging columns on gtfs_feed_availability_check. -->
+    <include file="changes/feat_download_debug.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

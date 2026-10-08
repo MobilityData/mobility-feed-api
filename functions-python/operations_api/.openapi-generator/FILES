@@ -45,6 +45,7 @@ src/feeds_gen/models/gtfs_feed_continuous_coverage.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_boundary.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_file.py
 src/feeds_gen/models/gtfs_feed_continuous_coverage_response.py
+src/feeds_gen/models/gtfs_feed_download_debug_response.py
 src/feeds_gen/models/gtfs_feed_validation_notice.py
 src/feeds_gen/models/gtfs_feed_validation_report.py
 src/feeds_gen/models/gtfs_feed_validation_reports_response.py

@@ -202,6 +202,35 @@ paths:
           description: GTFS feed not found.
         500:
           description: Internal server error.
+  /v1/operations/gtfs_feeds/{id}/download_debug:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    post:
+      description: >
+        Downloads the GTFS feed through the same code path used by the nightly dataset
+        download and returns the request and response detail of that attempt. Credential
+        values in headers and URLs are redacted. Nothing is stored.
+      tags:
+        - "operations"
+      operationId: debugGtfsFeedDownload
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/download_debug_max_bytes"
+        - $ref: "#/components/parameters/download_debug_timeout_seconds"
+      responses:
+        200:
+          description: Diagnostics for the download attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadDebugResponse"
+        400:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -1680,6 +1709,92 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+    GtfsFeedDownloadDebugResponse:
+      type: object
+      description: >
+        Request and response detail of a single feed download attempt. Credential values
+        in headers and URLs are replaced with a redaction marker.
+      required:
+        - feed_id
+        - producer_url
+        - success
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        producer_url:
+          type: string
+          description: Feed URL that was requested, with credentials redacted.
+          example: https://example.com/gtfs.zip
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        success:
+          type: boolean
+          description: Whether the download returned a 2xx response.
+          example: false
+        status_code:
+          type: integer
+          nullable: true
+          description: HTTP status code of the final response.
+          example: 403
+        latency_ms:
+          type: integer
+          nullable: true
+          description: Time to first response, in milliseconds.
+          example: 1840
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it could be determined.
+          example: 34.95.1.1
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: text/html
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the downloaded content is a ZIP file.
+        downloaded_bytes:
+          type: integer
+          nullable: true
+          description: Number of bytes read before the download completed or hit the byte cap.
+          example: 2038
+        truncated:
+          type: boolean
+          description: Whether the download stopped at the byte cap rather than at the end of the file.
+          example: false
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the download failed.
+          example: ValueError
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the download failed, with credentials redacted.
     GtfsFeedContinuousCoverageResponse:
       type: object
       description: >
@@ -3576,6 +3691,30 @@ components:
         minimum: 0
         default: 0
         example: 0
+    download_debug_max_bytes:
+      x-operation: true
+      name: max_bytes
+      in: query
+      description: Stop reading the feed after this many bytes. Keeps large feeds from exhausting the instance.
+      required: false
+      schema:
+        type: integer
+        minimum: 1024
+        maximum: 52428800
+        default: 52428800
+        example: 1048576
+    download_debug_timeout_seconds:
+      x-operation: true
+      name: timeout_seconds
+      in: query
+      description: Connect and read timeout for the download, in seconds.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 300
+        default: 60
+        example: 30
     limit_query_param_availability_endpoint:
       x-operation: true
       name: limit
