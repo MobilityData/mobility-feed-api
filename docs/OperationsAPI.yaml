@@ -3681,9 +3681,9 @@ components:
           example: s
         variant_basis:
           description: >-
-            Where that size came from. `measured` from the dataset's own size, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand.
+            Where that size came from. `measured` from the dataset's own size, `unknown` when the dataset has no recorded sizes at all and the largest worker was used as the safe default, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand. `unknown` is the one to act on: it means the dataset's file sizes were never recorded, so every build of it goes to the largest worker regardless of how small it is. Running the `rebuild_missing_dataset_files` task records them.
           type: string
-          enum: [measured, auto, operator]
+          enum: [measured, unknown, auto, operator]
           nullable: true
           example: measured
         override_at_attempt:

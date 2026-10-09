@@ -46,7 +46,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Iterable, Optional, Sequence
 
 from sqlalchemy import func
 
@@ -67,6 +67,12 @@ class Basis(Enum):
     MEASURED = "measured"
     OPERATOR = "operator"
     AUTO = "auto"
+    # No measurement existed, so the largest tier was used as the safe default. Distinct
+    # from MEASURED on purpose: both send a job to a size, but only one of them is
+    # evidence. Reporting the fallback as "measured" tells an operator the dataset was
+    # weighed and found large, when the truth is that it was never weighed at all - and
+    # that is the case a person can fix, by recording the sizes.
+    UNKNOWN = "unknown"
 
 
 class FailureKind(Enum):
@@ -320,6 +326,7 @@ def measure_dataset(
     db_session: "Session",
     dataset,
     compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
+    archive_bytes: Optional[Callable[[], Optional[int]]] = None,
 ) -> tuple[Optional[int], str]:
     """How heavy a dataset is, and which rung of the fallback produced the answer.
 
@@ -327,6 +334,15 @@ def measure_dataset(
     processed before #1284 has none of them. Each rung is a worse approximation than the
     one above, and all of them err upwards: `unzipped_size_bytes` is the sum rather than
     the maximum, and the compressed estimate uses the low end of the ratio.
+
+    `archive_bytes` is the last rung: a callable returning the stored archive's own size.
+    Nothing in the database knowing how big a dataset is does not mean nobody does - the
+    file is sitting in the bucket with its size in the object metadata, and reading it is
+    one request. Without this rung a 540 KB feed routes to the largest worker purely
+    because a column was never backfilled, which is the expensive way to be wrong.
+
+    It is a callable, not a number, so the lookup only happens when the cheaper rungs
+    have all missed, and optional so this module stays free of any storage dependency.
     """
     largest = largest_file_bytes(db_session, dataset)
     if largest:
@@ -339,6 +355,15 @@ def measure_dataset(
     zipped = first_known(getattr(dataset, "zipped_size_bytes", None))
     if zipped:
         return zipped * compression_ratio, "estimated from the archive"
+
+    if archive_bytes is not None:
+        try:
+            stored = first_known(archive_bytes())
+        except Exception as error:
+            logging.warning("Could not read the stored archive's size: %s", error)
+            stored = None
+        if stored:
+            return stored * compression_ratio, "estimated from the stored archive"
 
     return None, "unknown"
 
@@ -416,6 +441,7 @@ def size_for_dataset(
     namespace: str,
     key: str = "size",
     compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
+    archive_bytes: Optional[Callable[[], Optional[int]]] = None,
 ) -> Routing:
     """Which worker should handle this dataset, and where that came from.
 
@@ -442,7 +468,9 @@ def size_for_dataset(
         )
         return Routing(size=override.size, basis=basis)
 
-    measure, how = measure_dataset(db_session, dataset, compression_ratio)
+    measure, how = measure_dataset(
+        db_session, dataset, compression_ratio, archive_bytes=archive_bytes
+    )
     size = choose_size(measure, tiers)
 
     if measure is None:
@@ -462,7 +490,9 @@ def size_for_dataset(
             how,
             describe(tiers),
         )
-    return Routing(size=size, basis=Basis.MEASURED)
+    return Routing(
+        size=size, basis=Basis.MEASURED if measure is not None else Basis.UNKNOWN
+    )
 
 
 def set_size_override(

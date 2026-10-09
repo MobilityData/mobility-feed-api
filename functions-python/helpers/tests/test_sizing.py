@@ -205,6 +205,47 @@ class TestMeasureDataset(unittest.TestCase):
 
         self.assertEqual(measure, 900)
 
+    def test_it_falls_back_to_the_stored_archive(self):
+        """Nothing in the database knowing the size does not mean nobody does."""
+        measure, how = measure_dataset(
+            _session(), _dataset(), archive_bytes=lambda: 547_334
+        )
+
+        self.assertEqual(measure, 547_334 * 5)
+        self.assertEqual(how, "estimated from the stored archive")
+
+    def test_the_stored_archive_is_only_read_as_a_last_resort(self):
+        """It costs a request, so the cheaper rungs have to miss first."""
+        calls = []
+
+        def read():
+            calls.append(1)
+            return 999
+
+        measure, how = measure_dataset(
+            _session(largest=4096), _dataset(), archive_bytes=read
+        )
+
+        self.assertEqual(how, "largest file")
+        self.assertEqual(calls, [])
+
+    def test_an_unreadable_stored_archive_is_not_fatal(self):
+        """A bucket that cannot be reached routes to the largest worker, as before."""
+
+        def boom():
+            raise RuntimeError("no such bucket")
+
+        measure, how = measure_dataset(_session(), _dataset(), archive_bytes=boom)
+
+        self.assertIsNone(measure)
+        self.assertEqual(how, "unknown")
+
+    def test_a_stored_archive_of_zero_reads_as_unknown(self):
+        measure, how = measure_dataset(_session(), _dataset(), archive_bytes=lambda: 0)
+
+        self.assertIsNone(measure)
+        self.assertEqual(how, "unknown")
+
     def test_nothing_recorded(self):
         self.assertEqual(measure_dataset(_session(), _dataset()), (None, "unknown"))
 
@@ -406,6 +447,14 @@ class TestConfiguredSize(unittest.TestCase):
 
         self.assertEqual(routing.size, Size.S)
         self.assertEqual(routing.basis, Basis.MEASURED)
+
+    def test_an_unmeasurable_dataset_is_not_reported_as_measured(self):
+        """`l (measured)` on a dataset that was never weighed reads as "it is big", when
+        it means "nobody knows" - and only the second is something a person can fix."""
+        routing = self._route(None)
+
+        self.assertEqual(routing.size, LARGEST)
+        self.assertEqual(routing.basis, Basis.UNKNOWN)
 
     def test_a_locked_override_routes_like_any_other(self):
         """The lock decides whether the value may be moved, not where it sends a build."""

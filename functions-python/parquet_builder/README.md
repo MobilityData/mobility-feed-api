@@ -205,11 +205,34 @@ would misjudge a feed of many medium files, and the compressed size misjudges al
 everything: mdb-2014 is a 1.08 GiB archive containing a 4.07 GiB `stop_times.txt`.
 
 It comes from `max(gtfsfile.file_size_bytes)` for the dataset. Those rows are absent for
-datasets processed before they existed, so the measure falls back to
-`unzipped_size_bytes`, then to `zipped_size_bytes` times a conservative ratio, then to
-nothing. **An unknown size routes to `l`**, never `m` - guessing small turns a missing row
-into an OOM. The log line says which rung answered; if it says `unknown`, run the
+datasets processed before they existed, so the measure falls back down a ladder, each
+rung a worse approximation than the one above and all of them erring upwards:
+
+| rung | source |
+|---|---|
+| `largest file` | `max(gtfsfile.file_size_bytes)` - the real measure |
+| `unzipped total` | `unzipped_size_bytes`, a sum rather than a maximum |
+| `estimated from the archive` | `zipped_size_bytes` times a conservative ratio |
+| `estimated from the stored archive` | the archive object's own size in GCS, times the same ratio |
+| `unknown` | nothing is known |
+
+The last-but-one rung exists because nothing in the *database* knowing a dataset's size
+does not mean nobody does: the archive is in the bucket with its size in its object
+metadata, and reading it is one request. Without it, mdb-440 - a 540 KB feed - routed to
+the 16Gi worker purely because a column was never backfilled. The lookup is a callable
+the Operations API supplies, so it only happens when the cheaper rungs have all missed
+and `sizing.py` keeps no storage dependency of its own.
+
+**An unknown size routes to `l`**, never `m` - guessing small turns a missing row into an
+OOM. The log line says which rung answered; if it says `unknown`, run the
 `rebuild_missing_dataset_files` task to record them.
+
+That case is reported as `variant_basis: unknown`, not `measured`. The distinction is the
+point: both send the build to a size, but only `measured` is evidence. A dataset that was
+never weighed shows `l (unknown)`, which says the sizes are missing rather than that the
+feed is large - and that is the one an operator can fix. A whole catalogue reading
+`unknown` means tiering is doing nothing and every build, however small, is paying for the
+largest worker.
 
 Separate queues are the point rather than a side effect. `max_concurrent_dispatches` caps
 memory across concurrent instances, so a single queue has to be sized for the heaviest job

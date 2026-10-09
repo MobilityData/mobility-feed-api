@@ -25,10 +25,12 @@ The GET never starts work. Starting is the POST, which a client calls once.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
+from google.cloud import storage
 from pydantic import StrictStr
 from sqlalchemy.orm import Session
 
@@ -245,8 +247,41 @@ def _enqueue_sizing(db_session: Session, feed, dataset) -> dict:
     return {
         "size": routing.size,
         "variant_basis": routing.basis.value,
-        "override": routing.size.value if routing.basis is not Basis.MEASURED else None,
+        # Only an override is an override. Both of the other bases are the routing
+        # deciding for itself, whether or not it had a measurement to decide on.
+        "override": (
+            routing.size.value
+            if routing.basis in (Basis.OPERATOR, Basis.AUTO)
+            else None
+        ),
     }
+
+
+def _stored_archive_bytes(feed_stable_id: str, dataset_stable_id: str):
+    """The archive object's own size, as the last rung of the measurement.
+
+    Only called when the database has no size for the dataset at all. That happens for
+    anything processed before the size columns existed, and the consequence without this
+    is severe out of proportion to the cause: a 540 KB feed routed to the 16Gi worker
+    because a column was never backfilled. The object is right there with its size in its
+    metadata, so one request answers it.
+
+    The builder resolves the archive the same way (`_archive_size`), which is why this
+    does not need its own notion of where a dataset lives.
+    """
+
+    def read() -> Optional[int]:
+        bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+        if not bucket_name:
+            return None
+        blob = (
+            storage.Client()
+            .bucket(bucket_name)
+            .get_blob(f"{feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip")
+        )
+        return int(blob.size) if blob and blob.size else None
+
+    return read
 
 
 def _size_for(db_session: Session, feed, dataset) -> Routing:
@@ -263,6 +298,7 @@ def _size_for(db_session: Session, feed, dataset) -> Routing:
         namespace=SIZE_CONFIG_NAMESPACE,
         key=SIZE_CONFIG_KEY,
         compression_ratio=COMPRESSION_RATIO,
+        archive_bytes=_stored_archive_bytes(feed.stable_id, dataset.stable_id),
     )
 
 
