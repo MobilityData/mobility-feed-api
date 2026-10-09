@@ -41,7 +41,7 @@ from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 from shared.common.gcp_utils import create_web_revalidation_task
-from ephemeral_workdir import EphemeralOrDebugWorkdir
+from shared.helpers.ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
 
@@ -91,7 +91,9 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
         workdir_root = os.getenv("WORKDIR_ROOT", "/tmp/in-memory")
         # Use combined context manager that also cleans old directories
         with EphemeralOrDebugWorkdir(
-            dir=workdir_root, prefix=f"{dataset_stable_id}_"
+            owner_prefix="pmtiles_",
+            dir=workdir_root,
+            prefix=f"{dataset_stable_id}_",
         ) as workdir:
             result: dict[str, object] = {
                 "params": {

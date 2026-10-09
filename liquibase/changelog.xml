@@ -144,6 +144,10 @@
     <include file="changes/remove_sao_paulo_feeds.sql" relativeToChangelogFile="true"/>
     <!-- Remove blank GTFS-RT entity types and constrain entitytype.name to vp/tu/sa. -->
     <include file="changes/fix_empty_entity_types.sql" relativeToChangelogFile="true"/>
+    <!-- Append-only per-attempt history, for retry caps and sizing stats. -->
+    <include file="changes/feat_task_execution_attempt.sql" relativeToChangelogFile="true"/>
+    <!-- Register the per-feed Parquet worker size key in config_key. -->
+    <include file="changes/feat_parquet_builder_size.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

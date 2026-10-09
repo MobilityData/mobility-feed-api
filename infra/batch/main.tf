@@ -84,9 +84,25 @@ resource "google_storage_bucket" "datasets_bucket" {
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
+  # Deletes objects on the date their own `customTime` names, which is how generated
+  # Parquet expires - the builder stamps each file with its retention date on upload.
+  # The condition is never satisfied for an object with no customTime, so this rule
+  # reaches nothing else in the bucket. The Parquet builder must stay the only writer
+  # of that field here: anything else that sets it becomes deletable by this rule.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      days_since_custom_time = 0
+    }
+  }
   cors {
     origin = ["*"]
-    method = ["GET"]
+    # HEAD as well as GET: a browser reading Parquet over range requests probes with
+    # HEAD first, and GCS matches CORS methods literally rather than treating HEAD as
+    # a kind of GET.
+    method          = ["GET", "HEAD"]
     response_header = ["*"]
   }
 }

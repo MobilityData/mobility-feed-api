@@ -71,6 +71,54 @@ locals {
 
   function_gtfs_file_data_extractor_config = jsondecode(file("${path.module}/../../functions-python/gtfs_file_data_extractor/function_config.json"))
   function_gtfs_file_data_extractor_zip    = "${path.module}/../../functions-python/gtfs_file_data_extractor/.dist/gtfs_file_data_extractor.zip"
+
+  function_parquet_builder_config = jsondecode(file("${path.module}/../../functions-python/parquet_builder/function_config.json"))
+  # Parquet builds are routed to one of these by the Operations API, on the largest
+  # single uncompressed file in the dataset. The bands are measured, not guessed: of
+  # 4277 feeds the median archive is 0.2 MB and only 31 exceed 100 MB, while about ten
+  # have a single member over 1 GB and the worst has one of 4.8 GB.
+  #
+  # Two rules set the numbers:
+  #  - `volume` must hold the largest member plus its Parquet output. It is carved OUT
+  #    of `memory`, not added to it: limit_gcp_memory subtracts it to set RLIMIT_AS.
+  #  - the process budget left over (memory - volume - 200MiB) tracks `duckdb_memory`
+  #    plus ~330 MB, because RSS stops growing once DuckDB hits its cap. It does not
+  #    scale with the feed, which is why the volume is what changes between rungs.
+  parquet_builder_sizes = {
+    s = {
+      # 3Gi, for a 1848 MiB budget. At 2Gi the budget was 824 MiB and DuckDB died with
+      # OutOfMemoryException on a 41.7 MB feed: measured VMS is ~816 MB on a 0.7 MB
+      # feed, so there was nothing left. Baseline VMS is ~550 MB before any work.
+      memory         = "3Gi"
+      cpu            = "1"
+      volume         = "1Gi"
+      duckdb_memory  = "512MB"
+      max_instances  = 60
+      max_dispatches = 40
+    }
+    m = {
+      # 7Gi, for a 3896 MiB budget. At 6Gi it worked, but peak VMS reached 2297 MB of a
+      # 2872 MiB budget (80%) on a 1332 MB member, and the band admits up to 1.5 GB.
+      memory         = "7Gi"
+      cpu            = "2"
+      volume         = "3Gi"
+      duckdb_memory  = "1GB"
+      max_instances  = 40
+      max_dispatches = 20
+    }
+    l = {
+      # 16Gi, for a 7992 MiB budget. Measured peak VMS is 5571 MB (70%); peak RSS is
+      # only 2496 MB, which is why sizing this from RSS put it at 3896 MiB and killed
+      # mdb-2014 with MemoryError. VMS runs ~2.2-2.8x the DuckDB cap - size from that.
+      memory         = "16Gi"
+      cpu            = "4"
+      volume         = "8Gi"
+      duckdb_memory  = "2GB"
+      max_instances  = local.function_parquet_builder_config.max_instance_count
+      max_dispatches = 5
+    }
+  }
+  function_parquet_builder_zip = "${path.module}/../../functions-python/parquet_builder/.dist/parquet_builder.zip"
 }
 
 locals {
@@ -84,7 +132,8 @@ locals {
     local.function_tasks_executor_config.secret_environment_variables,
     local.function_pmtiles_builder_config.secret_environment_variables,
     local.function_gtfs_datasets_comparer_config.secret_environment_variables,
-    local.function_gtfs_file_data_extractor_config.secret_environment_variables
+    local.function_gtfs_file_data_extractor_config.secret_environment_variables,
+    local.function_parquet_builder_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -249,6 +298,13 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "pmtiles-${substr(filebase64sha256(local.function_pmtiles_builder_zip), 0, 10)}.zip"
   source = local.function_pmtiles_builder_zip
+}
+
+# 18. Parquet Builder
+resource "google_storage_bucket_object" "parquet_builder_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "parquet-builder-${substr(filebase64sha256(local.function_parquet_builder_zip), 0, 10)}.zip"
+  source = local.function_parquet_builder_zip
 }
 
 # 16. GTFS Change Tracker
@@ -868,6 +924,11 @@ resource "google_cloudfunctions2_function" "operations_api" {
       GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      PARQUET_BUILDER_QUEUE_S       = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M       = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L       = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
+      DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL    = local.public_hosted_datasets_url
     }
     available_memory                 = local.function_operations_api_config.memory
     timeout_seconds                  = local.function_operations_api_config.timeout
@@ -1238,6 +1299,27 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" 
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Grant execution permission to the service account to the parquet_builder function.
+# The operations-api function enqueues the Cloud Task, and the task is dispatched with
+# an OIDC token for this same service account.
+resource "google_cloudfunctions2_function_iam_member" "parquet_builder_invoker" {
+  for_each       = local.parquet_builder_sizes
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.parquet_builder[each.key].name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloud_run_service_iam_member" "parquet_builder_cloud_run_invoker" {
+  for_each = local.parquet_builder_sizes
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.parquet_builder[each.key].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 # Grant execution permission to batchfunctions service account to the gtfs_datasets_comparer function
 resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker_batch_sa" {
   project        = var.project_id
@@ -1402,6 +1484,31 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   }
 }
 
+# One task queue per worker size. Separate queues are the point rather than a side
+# effect: with a single queue a run of large builds fills every dispatch slot and the
+# short ones wait behind them, and the concurrency cap has to be set for the heaviest
+# job. max_concurrent_dispatches caps memory across concurrent instances, not throughput,
+# so the cheap worker can run far more of them.
+resource "google_cloud_tasks_queue" "parquet_builder_task_queue" {
+  for_each = local.parquet_builder_sizes
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "parquet-builder-queue-${each.key}-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = each.value.max_dispatches
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # One attempt. A conversion that fails does so deterministically - a corrupt
+    # archive is still corrupt - and the builder records the reason and returns 200
+    # rather than letting Cloud Tasks retry it. Retrying would also fight the
+    # database claim the builder takes for the duration.
+    max_attempts = 1
+  }
+}
+
 # Task queue to invoke gtfs_datasets_comparer function for backfill changelog tasks
 resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_backfill_task_queue" {
   project  = var.project_id
@@ -1548,6 +1655,115 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
   }
 }
 
+
+# 18. functions/parquet_builder cloud function
+resource "google_cloudfunctions2_function" "parquet_builder" {
+  for_each    = local.parquet_builder_sizes
+  name        = "${local.function_parquet_builder_config.name}-${each.key}-${var.environment}"
+  project     = var.project_id
+  description = local.function_parquet_builder_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_parquet_builder_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.parquet_builder_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT                = var.environment
+      PROJECT_ID                 = var.project_id
+      GCP_REGION                 = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL      = google_service_account.functions_service_account.email
+      DATASETS_BUCKET_NAME       = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+      # Everything large is written here, on the in-memory volume mounted below.
+      # limit_gcp_memory subtracts the volume's size from the process budget, so a
+      # conversion that overshoots raises MemoryError instead of being SIGKILLed.
+      PARQUET_TMPDIR = "/tmp/in-memory"
+      # Well under what the limiter leaves us. DuckDB's own default reads the host's
+      # RAM rather than the cgroup, so unset it spills far too late to help.
+      PARQUET_DUCKDB_MEMORY_LIMIT = each.value.duckdb_memory
+      # The builder re-queues its own work one rung up when it runs out of resources, so
+      # it needs the queues the Operations API uses. Without these the enqueue is a
+      # logged no-op and the escalation would silently do nothing.
+      PARQUET_BUILDER_QUEUE_S = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
+    }
+    available_memory                 = each.value.memory
+    timeout_seconds                  = local.function_parquet_builder_config.timeout
+    available_cpu                    = each.value.cpu
+    max_instance_request_concurrency = local.function_parquet_builder_config.max_instance_request_concurrency
+    max_instance_count               = each.value.max_instances
+    min_instance_count               = local.function_parquet_builder_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_parquet_builder_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+
+# google_cloudfunctions2_function does not expose volume mounts in its schema, so the
+# in-memory volume is attached to the underlying Cloud Run service after deploy.
+# triggers_replace includes `source_zip` because a new deployment replaces the Cloud
+# Run revision without this volume, and `size` because the idempotency check below
+# matches volume names only.
+resource "terraform_data" "parquet_builder_volume_mount" {
+  for_each = local.parquet_builder_sizes
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.parquet_builder[each.key].name
+    region        = var.gcp_region
+    project       = var.project_id
+    size          = each.value.volume
+    source_zip    = google_storage_bucket_object.parquet_builder_zip.name
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted; removing it so the size limit is re-applied."
+        gcloud run services update ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          --remove-volume-mount volume=in-memory \
+          --remove-volume in-memory \
+          --quiet
+      fi
+
+      gcloud run services update ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --add-volume name=in-memory,type=in-memory,size-limit=${each.value.volume} \
+        --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory \
+        --quiet
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.parquet_builder]
+}
 
 # 16. functions/gtfs_datasets_comparer cloud function
 resource "google_cloudfunctions2_function" "gtfs_datasets_comparer" {
