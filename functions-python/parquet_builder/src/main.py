@@ -68,18 +68,29 @@ from progress import (
 )
 from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, TaskExecutionAttempt
 from shared.helpers.ephemeral_workdir import EphemeralOrDebugWorkdir
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.runtime_metrics import MemorySampler
+from shared.helpers.parquet_policy import (
+    DOWNSIZE_HEADROOM,
+    DOWNSIZE_STREAK,
+    SIZE_CONFIG_NAMESPACE,
+    SIZE_TIERS,
+)
 from shared.helpers.sizing import (
+    SOURCE_AUTO,
     Basis,
     Size,
-    Tier,
     classify_failure,
+    demote,
     escalate,
+    fits_within,
     function_name,
-    set_size_override,
+    record_size_override,
+    size_override,
+    tier_for,
 )
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 from shared.helpers.utils import create_http_parquet_builder_task
@@ -88,14 +99,6 @@ init_logger()
 
 TASK_NAME = "parquet_generation"
 BUILDER_BASE = "parquet-builder"
-SIZE_CONFIG_NAMESPACE = "parquet_builder"
-# Must match SIZE_TIERS in the Operations API implementation: the API routes a build and
-# this escalates one, and a disagreement would bounce a dataset between two workers.
-SIZE_TIERS = (
-    Tier(size=Size.S, max_bytes=256_000_000),
-    Tier(size=Size.M, max_bytes=1_500_000_000),
-    Tier(size=Size.L, max_bytes=None),
-)
 # Two escalations is the whole ladder: x -> m -> l. A third attempt would only repeat the
 # largest worker, so the cap is the ladder's length rather than a tuning knob.
 MAX_ATTEMPTS = 3
@@ -126,7 +129,7 @@ MAX_RETENTION_DAYS = 60
 
 # Must run before anything allocates: turns an overshoot into a catchable MemoryError
 # instead of the kernel killing the container with no traceback and no response.
-limit_gcp_memory(TMPDIR)
+MEMORY_BUDGET = limit_gcp_memory(TMPDIR)
 
 
 def _retention_days(value) -> int:
@@ -155,24 +158,22 @@ def _retention_days(value) -> int:
     return days
 
 
-def _memory_metrics() -> dict:
-    """Peak resident and address-space usage, or an empty dict where unavailable.
+def _attempt_metadata(tables=None) -> dict:
+    """What this build had to work with, beside what it used.
 
-    VMS is the figure that matters: `RLIMIT_AS` caps address space, and it runs two to
-    three times RSS, so sizing from RSS under-provisions a worker by about half.
+    An attempt that records only usage cannot answer whether that usage was comfortable,
+    and reconstructing the budget afterwards from the deployment means trusting the
+    deployment has not moved since. `largest_member_bytes` is the measure the routing
+    table is written in, taken from the files the build actually opened rather than from
+    the database columns - those columns are exactly what an override exists to correct.
     """
-    try:
-        import resource
-
-        import psutil
-
-        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        return {
-            "peak_rss_bytes": peak if sys.platform == "darwin" else peak * 1024,
-            "peak_vms_bytes": psutil.Process().memory_info().vms,
-        }
-    except Exception:  # pragma: no cover - metrics must never fail a build
-        return {}
+    budget = MEMORY_BUDGET
+    sizes = [table.bytes for table in (tables or []) if table.bytes]
+    return {
+        "rlimit_as_bytes": getattr(budget, "rlimit_as_bytes", None),
+        "volume_bytes": getattr(budget, "volume_bytes", None),
+        "largest_member_bytes": max(sizes) if sizes else None,
+    }
 
 
 def _dataset_row(db_session, dataset_stable_id: str):
@@ -242,7 +243,17 @@ def _escalate_after_failure(
         )
         return None
 
-    set_size_override(db_session, feed, target, SIZE_CONFIG_NAMESPACE)
+    # Only when it disagrees with the measurement: an override that merely restates the
+    # measured tier pins the feed to it for good, and this dataset is already on its way
+    # to `target` through the task below either way.
+    record_size_override(
+        db_session,
+        feed,
+        dataset,
+        target,
+        tiers=SIZE_TIERS,
+        namespace=SIZE_CONFIG_NAMESPACE,
+    )
     db_session.commit()
     logger.info(
         "Escalating %s from %s to %s after %s",
@@ -261,6 +272,118 @@ def _escalate_after_failure(
         override=target.value,
     )
     return target
+
+
+def _recent_attempts(db_session, feed, limit: int) -> list:
+    """This feed's most recent attempts, newest first, across all of its datasets.
+
+    Attempts are recorded against a dataset, but a size override belongs to the feed, so
+    the question "has this feed been comfortable lately" spans its datasets. `run_id` is
+    pinned to the converter version deliberately: a new converter is a different
+    workload, and evidence gathered under the old one should not carry over.
+    """
+    dataset_ids = [
+        row[0]
+        for row in db_session.query(Gtfsdataset.stable_id)
+        .filter(Gtfsdataset.feed_id == feed.id)
+        .all()
+    ]
+    if not dataset_ids:
+        return []
+    return (
+        db_session.query(TaskExecutionAttempt)
+        .filter(
+            TaskExecutionAttempt.task_name == TASK_NAME,
+            TaskExecutionAttempt.run_id == PARQUET_CONVERTER_VERSION,
+            TaskExecutionAttempt.entity_id.in_(dataset_ids),
+        )
+        .order_by(TaskExecutionAttempt.finished_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def _downsize_after_success(
+    db_session, dataset_stable_id: str, variant: Optional[Size], logger
+) -> Optional[Size]:
+    """Lower this feed's override one rung when its recent builds say it can be.
+
+    The mirror of `_escalate_after_failure`, and deliberately not its equal. Escalation
+    acts on a single failure, because being too small costs a build that cannot finish.
+    Being too large only costs money, so coming down waits for `DOWNSIZE_STREAK` builds
+    in a row that each left `DOWNSIZE_HEADROOM` of the smaller worker unused, on both
+    memory and disk.
+
+    Nothing is re-queued. This build has already succeeded; the decision applies to the
+    feed's next one.
+
+    Every failure here is swallowed: an economy must never cost a build that worked.
+    """
+    try:
+        if variant is None:
+            return None
+
+        target = demote(variant, SIZE_TIERS)
+        if target is None:
+            return None
+
+        dataset = _dataset_row(db_session, dataset_stable_id)
+        feed = getattr(dataset, "feed", None) if dataset is not None else None
+        if feed is None:
+            return None
+
+        current, source = size_override(db_session, feed, SIZE_CONFIG_NAMESPACE)
+        # No override means the feed already routes on its measurement, which is as low
+        # as it goes. A person's pin is theirs to remove. And an override that disagrees
+        # with the worker that just ran is a state this cannot reason about.
+        if current is None or source != SOURCE_AUTO or current is not variant:
+            return None
+
+        tier = tier_for(target, SIZE_TIERS)
+        if tier is None:
+            return None
+
+        attempts = _recent_attempts(db_session, feed, DOWNSIZE_STREAK)
+        if len(attempts) < DOWNSIZE_STREAK:
+            return None
+
+        for attempt in attempts:
+            metadata = attempt.metadata_ or {}
+            if (
+                attempt.status != "completed"
+                or attempt.variant != variant.value
+                or not fits_within(
+                    tier,
+                    peak_vms_bytes=attempt.peak_vms_bytes,
+                    largest_member_bytes=metadata.get("largest_member_bytes"),
+                    headroom=DOWNSIZE_HEADROOM,
+                )
+            ):
+                return None
+
+        record_size_override(
+            db_session,
+            feed,
+            dataset,
+            target,
+            tiers=SIZE_TIERS,
+            namespace=SIZE_CONFIG_NAMESPACE,
+        )
+        db_session.commit()
+        logger.info(
+            "Lowering %s from %s to %s: %s builds in a row under %.0f%% of %s",
+            feed.stable_id,
+            variant.value,
+            target.value,
+            DOWNSIZE_STREAK,
+            DOWNSIZE_HEADROOM * 100,
+            target.value,
+        )
+        return target
+    except Exception:
+        logger.exception("Could not review the worker size for %s", dataset_stable_id)
+        db_session.rollback()
+        return None
 
 
 @functions_framework.http
@@ -356,6 +479,10 @@ def build_parquet(
             "dataset": dataset_stable_id,
         }
 
+    # Started only once the claim is held, so a request that turns out to be a duplicate
+    # does not leave a sampler thread behind on a warm instance.
+    sampler = MemorySampler().start()
+
     # Committed on its own: `ThrottledProgress` swallows failures from the callback
     # below, so the claim cannot depend on the first progress write to reach the
     # database.
@@ -428,9 +555,13 @@ def build_parquet(
                 variant=variant.value if variant else None,
                 variant_basis=variant_basis,
                 override_at_attempt=override,
-                metrics=_memory_metrics(),
+                metrics=sampler.stop(),
+                metadata=_attempt_metadata(tables),
             )
             db_session.commit()
+
+            # After the commit, so this build counts towards its own streak.
+            _downsize_after_success(db_session, dataset_stable_id, variant, logger)
 
             logger.info(
                 "Built %s Parquet tables for %s", len(tables), dataset_stable_id
@@ -486,7 +617,8 @@ def build_parquet(
                 escalated_to=escalated_to.value if escalated_to else None,
                 failure_kind=classify_failure(error).value,
                 error=error,
-                metrics=_memory_metrics(),
+                metrics=sampler.stop(),
+                metadata=_attempt_metadata(),
             )
             db_session.commit()
         except Exception:

@@ -37,7 +37,13 @@ from feeds_gen.models.parquet_dataset_state import ParquetDatasetState
 from feeds_gen.models.parquet_generate_request import ParquetGenerateRequest
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
-from shared.helpers.sizing import Basis, Routing, Size, Tier, size_for_dataset
+from shared.helpers.parquet_policy import (
+    COMPRESSION_RATIO,
+    SIZE_CONFIG_KEY,
+    SIZE_CONFIG_NAMESPACE,
+    SIZE_TIERS,
+)
+from shared.helpers.sizing import Basis, Routing, size_for_dataset
 from shared.helpers.task_execution.task_execution_tracker import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -49,32 +55,6 @@ from shared.helpers.utils import create_http_parquet_builder_task
 # invalidates previously written artifacts by moving them to a different run.
 TASK_NAME = "parquet_generation"
 PARQUET_CONVERTER_VERSION = "2"
-
-# Routing table for the build workers. The measure is the largest single uncompressed
-# file in the dataset, because the builder's in-memory volume holds one at a time, so
-# that file is what decides whether a build fits. Totals are the wrong signal: a feed of
-# many medium files is cheaper than one with a single huge one, and the compressed size
-# is wrong by a factor that runs from 4x to 13x across the catalogue.
-#
-# The bands come from measuring it: of 4277 feeds, the median archive is 0.2 MB and only
-# 31 are above 100 MB, while about ten feeds have a single member over 1 GB and the worst
-# has one of 4.8 GB. So most traffic belongs on a worker sized for a few hundred MB, and
-# the large worker exists for roughly a dozen feeds. Stats as of 2026/09.
-SIZE_TIERS = (
-    Tier(size=Size.S, max_bytes=256_000_000),
-    Tier(size=Size.M, max_bytes=1_500_000_000),
-    Tier(size=Size.L, max_bytes=None),
-)
-
-# A feed can be pinned to a size by hand through `config_value_feed`. A pinned size is
-# used as given; the measurement below is not consulted at all.
-SIZE_CONFIG_NAMESPACE = "parquet_builder"
-SIZE_CONFIG_KEY = "size"
-
-# Used only when a dataset has no per-file rows and no recorded unzipped total. GTFS
-# compresses roughly 5-15x; the low end is deliberate, since overestimating the content
-# of an archive routes up rather than down.
-COMPRESSION_RATIO = 5
 
 STATUS_ABSENT = "absent"
 STATUS_PREPARING = "preparing"

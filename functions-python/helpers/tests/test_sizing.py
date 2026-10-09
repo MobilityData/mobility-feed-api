@@ -26,14 +26,18 @@ from sizing import (
     Size,
     Tier,
     choose_size,
+    demote,
     describe,
     first_known,
     function_name,
     classify_failure,
     escalate,
+    fits_within,
     measure_dataset,
     queue_env_var,
+    record_size_override,
     size_for_dataset,
+    tier_for,
 )
 
 CONFIG_VALUE = "sizing.get_config_value"
@@ -389,6 +393,133 @@ class TestConfiguredSize(unittest.TestCase):
             )
 
         self.assertEqual(routing.size, Size.M)
+
+
+class TestRecordSizeOverride(unittest.TestCase):
+    """An override is for feeds the measurement gets wrong, and only those."""
+
+    def _record(self, largest, size, existing=None):
+        feed = MagicMock()
+        feed.id = "feed-uuid"
+        feed.stable_id = "mdb-1"
+        session = _session(largest=largest)
+        with patch(CONFIG_VALUE, return_value=existing):
+            stored = record_size_override(
+                session, feed, _dataset(), size, tiers=TIERS, namespace="demo"
+            )
+        return stored, session
+
+    def test_a_size_the_measurement_would_not_pick_is_stored(self):
+        stored, session = self._record(1, Size.M)
+
+        self.assertTrue(stored)
+        session.execute.assert_called_once()
+
+    def test_a_size_it_already_picks_is_not(self):
+        """Storing it changes no decision and costs the feed its ability to move."""
+        stored, session = self._record(1, Size.S)
+
+        self.assertFalse(stored)
+        session.execute.assert_not_called()
+
+    def test_an_earlier_override_the_measurement_caught_up_with_is_cleared(self):
+        stored, session = self._record(
+            1, Size.S, existing={"size": "m", "source": "auto"}
+        )
+
+        self.assertFalse(stored)
+        session.query.return_value.filter.return_value.delete.assert_called_once()
+
+    def test_a_persons_pin_is_left_alone(self):
+        """It may agree with today's measurement and still be there on purpose."""
+        stored, session = self._record(1, Size.S, existing="s")
+
+        self.assertFalse(stored)
+        session.query.return_value.filter.return_value.delete.assert_not_called()
+
+    def test_an_unmeasurable_dataset_stores_nothing_for_the_largest(self):
+        """Unknown already routes to `l`, so an escalation there has nothing to say."""
+        stored, session = self._record(None, LARGEST)
+
+        self.assertFalse(stored)
+        session.execute.assert_not_called()
+
+
+class TestDemote(unittest.TestCase):
+    """The mirror of escalate, and the smallest rung is where it stops."""
+
+    def test_it_moves_one_rung_down(self):
+        self.assertEqual(demote(Size.L, TIERS), Size.M)
+        self.assertEqual(demote(Size.M, TIERS), Size.S)
+
+    def test_the_smallest_rung_is_terminal(self):
+        self.assertIsNone(demote(Size.S, TIERS))
+
+    def test_an_unknown_rung_is_terminal(self):
+        self.assertIsNone(demote(None, TIERS))
+        self.assertIsNone(demote(Size.L, (Tier(size=Size.S, max_bytes=None),)))
+
+
+class TestTierFor(unittest.TestCase):
+    def test_it_finds_the_row(self):
+        self.assertEqual(tier_for(Size.M, TIERS).max_bytes, 2 * GB)
+
+    def test_a_size_not_in_the_table(self):
+        self.assertIsNone(tier_for(Size.L, (Tier(size=Size.S, max_bytes=None),)))
+
+
+BUDGET = 1000
+CEILING = 500
+ONE_RUNG = Tier(size=Size.S, max_bytes=CEILING, vms_budget_bytes=BUDGET)
+
+
+class TestFitsWithin(unittest.TestCase):
+    """Both axes, because a build can exhaust either one."""
+
+    def _fits(self, vms, largest, tier=ONE_RUNG, headroom=0.6):
+        return fits_within(
+            tier,
+            peak_vms_bytes=vms,
+            largest_member_bytes=largest,
+            headroom=headroom,
+        )
+
+    def test_comfortably_inside_both(self):
+        self.assertTrue(self._fits(500, 250))
+
+    def test_memory_at_the_threshold_does_not_fit(self):
+        self.assertFalse(self._fits(600, 250))
+        self.assertTrue(self._fits(599, 250))
+
+    def test_disk_at_the_threshold_does_not_fit(self):
+        """The alternating-dataset case: memory is fine, the file is not."""
+        self.assertFalse(self._fits(500, 300))
+        self.assertTrue(self._fits(500, 299))
+
+    def test_a_missing_observation_reads_as_no(self):
+        """These columns were added after the table, so an older attempt says nothing -
+        and leaving a feed where it is costs money, while the other way costs builds."""
+        self.assertFalse(self._fits(None, 250))
+        self.assertFalse(self._fits(500, None))
+        self.assertFalse(self._fits(0, 250))
+
+    def test_a_rung_with_no_budget_recorded_reads_as_no(self):
+        self.assertFalse(
+            self._fits(500, 250, tier=Tier(size=Size.S, max_bytes=CEILING))
+        )
+
+    def test_the_catch_all_rung_is_bounded_only_by_memory(self):
+        """It accepts any file by definition, so the disk axis cannot refuse it."""
+        catch_all = Tier(size=Size.L, max_bytes=None, vms_budget_bytes=BUDGET)
+
+        self.assertTrue(self._fits(500, 10**12, tier=catch_all))
+        self.assertFalse(self._fits(900, 10**12, tier=catch_all))
+
+    def test_the_headroom_must_be_a_fraction(self):
+        for bad in (0, -0.5, 1.5):
+            with self.subTest(headroom=bad):
+                with self.assertRaises(ValueError):
+                    self._fits(500, 250, headroom=bad)
 
 
 if __name__ == "__main__":

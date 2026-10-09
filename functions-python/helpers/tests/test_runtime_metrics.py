@@ -16,10 +16,11 @@
 """The metrics line is what container sizing is read off, so it has to carry RSS."""
 
 import logging
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
-from runtime_metrics import _max_rss_bytes, track_metrics
+from runtime_metrics import MemorySampler, _max_rss_bytes, track_metrics
 
 
 def _run(metrics=("time", "memory", "cpu"), body=lambda: 42):
@@ -87,6 +88,51 @@ class TestMaxRss(unittest.TestCase):
 
         self.assertGreater(peak, 1024 * 1024, "under 1 MB means the unit is wrong")
         self.assertLess(peak, 100 * 1024**3)
+
+
+class TestMemorySampler(unittest.TestCase):
+    """A number named `peak` has to be one."""
+
+    def test_it_reports_a_peak_rather_than_the_end_state(self):
+        sampler = MemorySampler(interval=0.01).start()
+        held = [bytearray(16 * 1024 * 1024) for _ in range(8)]
+        time.sleep(0.1)
+        at_peak = sampler.peak_vms_bytes
+        del held
+        time.sleep(0.05)
+        metrics = sampler.stop()
+
+        self.assertGreaterEqual(metrics["peak_vms_bytes"], at_peak)
+        self.assertGreater(metrics["peak_rss_bytes"], 0)
+
+    def test_a_span_shorter_than_the_interval_still_reports(self):
+        """The first reading is taken on start, not on the first tick."""
+        metrics = MemorySampler(interval=60).start().stop()
+
+        self.assertGreater(metrics["peak_vms_bytes"], 0)
+
+    def test_an_unreadable_process_is_not_fatal(self):
+        with patch(
+            "runtime_metrics.psutil.Process", side_effect=RuntimeError("no /proc")
+        ):
+            metrics = MemorySampler(interval=0.01).start().stop()
+
+        self.assertIsNone(metrics["peak_vms_bytes"])
+        self.assertIsNone(metrics["peak_rss_bytes"])
+
+    def test_the_thread_does_not_outlive_the_span(self):
+        sampler = MemorySampler(interval=0.01).start()
+        thread = sampler._thread
+        sampler.stop()
+
+        self.assertTrue(thread.daemon)
+        self.assertFalse(thread.is_alive())
+
+    def test_it_works_as_a_context_manager(self):
+        with MemorySampler(interval=0.01) as sampler:
+            pass
+
+        self.assertGreater(sampler.metrics()["peak_vms_bytes"], 0)
 
 
 if __name__ == "__main__":

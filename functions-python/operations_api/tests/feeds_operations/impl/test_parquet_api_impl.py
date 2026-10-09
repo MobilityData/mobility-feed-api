@@ -80,7 +80,7 @@ class ParquetStateTestCase(unittest.TestCase):
             parquet_api_impl,
             "_size_for",
             return_value=parquet_api_impl.Routing(
-                size=parquet_api_impl.Size.L,
+                size=sizing.Size.L,
                 basis=sizing.Basis.MEASURED,
             ),
         )
@@ -253,7 +253,7 @@ class TestGenerate(ParquetStateTestCase):
             DATASET,
             force=False,
             retention_days=None,
-            size=parquet_api_impl.Size.L,
+            size=sizing.Size.L,
             variant_basis="measured",
             override=None,
         )
@@ -344,7 +344,7 @@ class TestGenerate(ParquetStateTestCase):
             DATASET,
             force=True,
             retention_days=None,
-            size=parquet_api_impl.Size.L,
+            size=sizing.Size.L,
             variant_basis="measured",
             override=None,
         )
@@ -359,7 +359,7 @@ class TestGenerate(ParquetStateTestCase):
             DATASET,
             force=False,
             retention_days=None,
-            size=parquet_api_impl.Size.L,
+            size=sizing.Size.L,
             variant_basis="measured",
             override=None,
         )
@@ -395,19 +395,19 @@ class TestSizeRouting(unittest.TestCase):
 
     def test_the_bands(self):
         for largest, expected in (
-            (10 * 1024**2, parquet_api_impl.Size.S),
-            (255_999_999, parquet_api_impl.Size.S),
-            (256_000_000, parquet_api_impl.Size.M),
-            (1_499_999_999, parquet_api_impl.Size.M),
-            (1_500_000_000, parquet_api_impl.Size.L),
-            (4 * GB_, parquet_api_impl.Size.L),
+            (10 * 1024**2, sizing.Size.S),
+            (255_999_999, sizing.Size.S),
+            (256_000_000, sizing.Size.M),
+            (1_499_999_999, sizing.Size.M),
+            (1_500_000_000, sizing.Size.L),
+            (4 * GB_, sizing.Size.L),
         ):
             with self.subTest(largest=largest):
                 self.assertEqual(self._size_for(largest), expected)
 
     def test_an_unmeasurable_dataset_goes_to_the_largest(self):
         """Datasets predating #1284 have none of the size columns populated."""
-        self.assertEqual(self._size_for(None), parquet_api_impl.Size.L)
+        self.assertEqual(self._size_for(None), sizing.Size.L)
 
     def test_it_pins_against_its_own_config_namespace(self):
         session = MagicMock()

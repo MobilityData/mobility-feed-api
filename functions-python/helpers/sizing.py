@@ -135,10 +135,17 @@ LARGEST = Size.L
 
 @dataclass(frozen=True)
 class Tier:
-    """One row of a routing table: this size, for measures below this many bytes."""
+    """One row of a routing table: what this size accepts, and what it provides.
+
+    `max_bytes` is the measure this rung takes, `None` for the catch-all, which must come
+    last. `vms_budget_bytes` is the address space the worker actually has - optional,
+    because routing does not need it; only a decision to move a job to a *different* rung
+    does, and that has to compare observed use against what that other rung allows.
+    """
 
     size: Size
-    max_bytes: Optional[int]  # None is the catch-all and must come last
+    max_bytes: Optional[int]
+    vms_budget_bytes: Optional[int] = None
 
 
 def choose_size(
@@ -190,6 +197,65 @@ def escalate(
     if index + 1 >= len(ladder):
         return None
     return ladder[index + 1]
+
+
+def demote(current: Optional[Size], tiers: Sequence[Tier]) -> Optional[Size]:
+    """The rung below `current`, or None when there is none to go to.
+
+    The mirror of `escalate`, without its attempt cap: coming down is never a retry of
+    anything, so there is no loop to bound. It applies to the next job, not this one.
+    """
+    ladder = [tier.size for tier in tiers]
+    if current is None or current not in ladder:
+        return None
+
+    index = ladder.index(current)
+    if index == 0:
+        return None
+    return ladder[index - 1]
+
+
+def tier_for(size: Size, tiers: Sequence[Tier]) -> Optional[Tier]:
+    """The row of the routing table for this size, or None if it has none."""
+    for tier in tiers:
+        if tier.size is size:
+            return tier
+    return None
+
+
+def fits_within(
+    tier: Tier,
+    *,
+    peak_vms_bytes: Optional[int],
+    largest_member_bytes: Optional[int],
+    headroom: float,
+) -> bool:
+    """Whether one observed run would have fitted `tier`, with `headroom` to spare.
+
+    Both axes, because a build can exhaust either one: address space, against what that
+    rung allows, and the largest file it had to hold, against what that rung's volume
+    accepts. `headroom` of 0.6 means each has to come in under 60% of the limit.
+
+    An observation that is missing reads as "no". These numbers were added after the
+    table existed, so an older attempt simply has nothing to say, and the direction that
+    leaves a job where it is costs money while the other costs failed builds.
+    """
+    if not 0 < headroom <= 1:
+        raise ValueError(f"headroom must be in (0, 1], got {headroom}")
+
+    budget = tier.vms_budget_bytes
+    if not peak_vms_bytes or not budget:
+        return False
+    if peak_vms_bytes >= budget * headroom:
+        return False
+
+    if not largest_member_bytes:
+        return False
+    # The catch-all rung accepts any file, so only the memory axis constrains it.
+    if tier.max_bytes is not None and largest_member_bytes >= tier.max_bytes * headroom:
+        return False
+
+    return True
 
 
 def first_known(*candidates: Optional[int]) -> Optional[int]:
@@ -290,9 +356,11 @@ def size_override(
     One row per feed holds both cases, because what differs between them is the author,
     not the value:
 
-    - a bare `"l"` is a person's, and decides outright;
-    - `{"size": "l", "source": "auto"}` is the builder's own, and only raises a measured
-      size.
+    - a bare `"l"` is a person's;
+    - `{"size": "l", "source": "auto"}` is the builder's own, written by an escalation.
+
+    Both decide outright. The source is kept so a value can be told apart from a pin,
+    which matters when clearing one.
 
     The bare form is what a human writing SQL by hand produces, so it is the one that
     needs no ceremony.
@@ -410,6 +478,63 @@ def set_size_override(
         )
     )
     db_session.execute(statement)
-    logging.info(
-        "Feed %s now requires at least the %s worker", feed.stable_id, size.value
-    )
+    logging.info("Feed %s pinned to the %s worker", feed.stable_id, size.value)
+
+
+def clear_size_override(
+    db_session: "Session", feed, namespace: str, key: str = "size"
+) -> bool:
+    """Remove the builder's own override for this feed. Returns whether a row went.
+
+    A person's pin is left alone. It may hold the same size the measurement would pick
+    today, but it was put there to survive the measurement changing, and deleting it
+    would quietly discard that.
+    """
+    from shared.database_gen.sqlacodegen_models import ConfigValueFeed
+
+    _, source = size_override(db_session, feed, namespace, key)
+    if source != SOURCE_AUTO:
+        return False
+
+    db_session.query(ConfigValueFeed).filter(
+        ConfigValueFeed.feed_id == feed.id,
+        ConfigValueFeed.namespace == namespace,
+        ConfigValueFeed.key == key,
+    ).delete(synchronize_session=False)
+    logging.info("Cleared the size override on %s", feed.stable_id)
+    return True
+
+
+def record_size_override(
+    db_session: "Session",
+    feed,
+    dataset,
+    size: Size,
+    *,
+    tiers: Sequence[Tier],
+    namespace: str,
+    key: str = "size",
+    compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
+) -> bool:
+    """Persist `size` for this feed, unless the measurement already routes there.
+
+    An override that agrees with the measurement changes no decision, and carries a cost:
+    it pins the feed, so the feed stops following its own data. A feed that shrinks keeps
+    paying for a worker it no longer needs, and the row has to be found and removed by
+    hand before it can. Storing one only where it disagrees keeps the table to the feeds
+    that are genuinely exceptions, and lets a feed leave the list on its own.
+
+    Returns whether a row is now stored.
+    """
+    measured, _ = measure_dataset(db_session, dataset, compression_ratio)
+    if choose_size(measured, tiers) == size:
+        logging.info(
+            "Not overriding %s to %s: it is already measured there",
+            feed.stable_id,
+            size.value,
+        )
+        clear_size_override(db_session, feed, namespace, key)
+        return False
+
+    set_size_override(db_session, feed, size, namespace, key)
+    return True

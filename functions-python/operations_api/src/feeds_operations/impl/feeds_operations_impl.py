@@ -66,6 +66,7 @@ from shared.database_gen.sqlacodegen_models import (
     TaskExecutionAttempt,
 )
 from shared.common.config_reader import get_config_value
+from shared.helpers.parquet_policy import SIZE_CONFIG_KEY, SIZE_CONFIG_NAMESPACE
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.db_models.gtfs_feed_availability_check_impl import (
@@ -139,11 +140,6 @@ def _strip_derived_fields(dumped: dict) -> dict:
         for field in _DERIVED_SOURCE_INFO_FIELDS:
             source_info.pop(field, None)
     return dumped
-
-
-# Shared with the Parquet builder, which writes the value these rows explain.
-SIZE_CONFIG_NAMESPACE = "parquet_builder"
-SIZE_CONFIG_KEY = "size"
 
 
 def _current_size_override(db_session, feed_id) -> Optional[str]:

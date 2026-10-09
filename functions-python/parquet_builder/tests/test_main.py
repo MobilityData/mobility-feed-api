@@ -657,7 +657,7 @@ class TestEscalationOnFailure(BuildTestCase):
     def setUp(self):
         super().setUp()
         self.enqueue = patch.object(main, "create_http_parquet_builder_task").start()
-        self.override = patch.object(main, "set_size_override").start()
+        self.override = patch.object(main, "record_size_override").start()
         self.addCleanup(patch.stopall)
         self.tracker.attempts_since_success.return_value = 1
         # A resolvable feed, as the escalation needs for the config write.
@@ -677,7 +677,7 @@ class TestEscalationOnFailure(BuildTestCase):
         self._fail_with(MemoryError())
 
         self.override.assert_called_once()
-        self.assertEqual(self.override.call_args.args[2], main.Size.M)
+        self.assertEqual(self.override.call_args.args[3], main.Size.M)
         self.enqueue.assert_called_once()
         self.assertEqual(self.enqueue.call_args.kwargs["size"], main.Size.M)
 
@@ -955,6 +955,120 @@ class TestFailure(BuildTestCase):
 
         self.assertTrue(self.session.rollback.called)
         self.tracker.mark_failed.assert_called_once()
+
+
+MIB = 1024**2
+
+
+def _attempt(
+    status="completed", variant="m", vms=500 * MIB, largest=50_000_000, metadata=True
+):
+    """One row of a feed's recent history, as the downsize rule reads it."""
+    row = MagicMock()
+    row.status = status
+    row.variant = variant
+    row.peak_vms_bytes = vms
+    row.metadata_ = {"largest_member_bytes": largest} if metadata else None
+    return row
+
+
+class TestDownsizeAfterSuccess(BuildTestCase):
+    """Coming down is only ever an economy, so it waits for a dull amount of evidence."""
+
+    def setUp(self):
+        super().setUp()
+        self.record = patch.object(main, "record_size_override").start()
+        self.override = patch.object(
+            main, "size_override", return_value=(main.Size.M, main.SOURCE_AUTO)
+        ).start()
+        self.attempts = patch.object(
+            main, "_recent_attempts", return_value=[_attempt() for _ in range(3)]
+        ).start()
+        self.dataset = MagicMock()
+        self.dataset.feed = MagicMock(id="feed-uuid", stable_id=FEED)
+        patch.object(main, "_dataset_row", return_value=self.dataset).start()
+        self.addCleanup(patch.stopall)
+
+    def _review(self, variant=main.Size.M):
+        return main._downsize_after_success(self.session, DATASET, variant, MagicMock())
+
+    def test_a_clean_streak_lowers_one_rung(self):
+        self.assertEqual(self._review(), main.Size.S)
+
+        self.assertEqual(self.record.call_args.args[3], main.Size.S)
+
+    def test_nothing_is_re_queued(self):
+        """The build already succeeded; the decision is for the feed's next one."""
+        with patch.object(main, "create_http_parquet_builder_task") as enqueue:
+            self._review()
+
+        enqueue.assert_not_called()
+
+    def test_a_streak_one_attempt_short_does_not(self):
+        self.attempts.return_value = [_attempt() for _ in range(2)]
+
+        self.assertIsNone(self._review())
+        self.record.assert_not_called()
+
+    def test_one_attempt_over_the_memory_threshold_does_not(self):
+        self.attempts.return_value = [_attempt(), _attempt(vms=1500 * MIB), _attempt()]
+
+        self.assertIsNone(self._review())
+
+    def test_one_attempt_over_the_disk_threshold_does_not(self):
+        """A feed whose datasets alternate: the large one breaks its own streak."""
+        self.attempts.return_value = [
+            _attempt(),
+            _attempt(largest=200_000_000),
+            _attempt(),
+        ]
+
+        self.assertIsNone(self._review())
+
+    def test_a_failure_in_the_streak_does_not(self):
+        self.attempts.return_value = [_attempt(), _attempt(status="failed"), _attempt()]
+
+        self.assertIsNone(self._review())
+
+    def test_an_attempt_on_another_worker_does_not(self):
+        self.attempts.return_value = [_attempt(), _attempt(variant="l"), _attempt()]
+
+        self.assertIsNone(self._review())
+
+    def test_an_attempt_recorded_before_the_evidence_existed_does_not(self):
+        self.attempts.return_value = [_attempt(), _attempt(metadata=False), _attempt()]
+
+        self.assertIsNone(self._review())
+
+    def test_a_persons_pin_is_never_touched(self):
+        self.override.return_value = (main.Size.M, "operator")
+
+        self.assertIsNone(self._review())
+        self.record.assert_not_called()
+
+    def test_a_feed_with_no_override_is_left_alone(self):
+        """It already routes on its measurement, which is as low as it goes."""
+        self.override.return_value = (None, None)
+
+        self.assertIsNone(self._review())
+
+    def test_an_override_that_disagrees_with_the_worker_is_left_alone(self):
+        self.override.return_value = (main.Size.L, main.SOURCE_AUTO)
+
+        self.assertIsNone(self._review())
+
+    def test_the_smallest_worker_is_terminal(self):
+        self.assertIsNone(self._review(variant=main.Size.S))
+        self.record.assert_not_called()
+
+    def test_an_unknown_worker_does_nothing(self):
+        self.assertIsNone(self._review(variant=None))
+
+    def test_a_failure_in_the_review_never_fails_the_build(self):
+        self.attempts.side_effect = RuntimeError("the database went away")
+
+        self.assertIsNone(self._review())
+        self.session.rollback.assert_called()
 
 
 if __name__ == "__main__":

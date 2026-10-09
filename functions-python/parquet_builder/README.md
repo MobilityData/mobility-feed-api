@@ -255,20 +255,70 @@ could overtake it, was considered and dropped: it changes the outcome only when 
 measurement is larger, and that case already resolves itself - the build fails and the
 escalation moves it up. One wasted build is not worth a second code path.
 
-Note what neither form does: **nothing ever lowers an override.** A feed moved to a large
-worker after one difficult dataset stays there until someone clears the row, even if its
-data later shrinks. Worth a periodic look at `current_size_override` across feeds.
+**The builder only writes a row where it disagrees with the measurement.** Escalating a
+feed whose dataset already measures into the target size stores nothing, and clears an
+earlier `auto` row that the measurement has since caught up with - the dataset is on its
+way to that worker through the task either way. So the table holds the feeds that are
+genuinely exceptions, and a feed leaves it as soon as its own data says the same thing.
+
+A person's pin is never cleared automatically: it may agree with today's measurement and
+still be there on purpose.
 
 An unrecognised value is logged and ignored rather than failing the request.
 
 There is no endpoint or UI for `config_value_feed`, so this is SQL for now.
 
-All of the routing mechanism is `functions-python/helpers/sizing.py`, shared so other
-functions can adopt it without copying: `choose_size` for the tier arithmetic and
-`size_for_dataset` for the whole decision - measure, read the pin, log why. The Parquet
-builder keeps only its own policy, the four constants at the top of
-`parquet_api_impl.py`: its bands, its config namespace and key, and its compression
-ratio.
+### Coming back down
+
+An `auto` override is reviewed on the success path, in `_downsize_after_success`, and
+lowered a rung when the feed's recent builds say it can be. Nothing is re-queued: the
+build in hand has already succeeded, so the new size applies to the feed's next one.
+
+The two directions are deliberately asymmetric. Escalation acts on a single failure,
+because being too small costs a build that cannot finish. Coming down is only ever an
+economy, so it waits for `DOWNSIZE_STREAK` builds in a row that each left
+`DOWNSIZE_HEADROOM` of the smaller worker unused - 3 and 60% today, both in
+`helpers/parquet_policy.py`.
+
+Each of those builds is checked on both axes, because either one can end a build:
+
+| axis | evidence | compared against |
+|---|---|---|
+| memory | peak address space during the build | that rung's `RLIMIT_AS` budget |
+| disk | largest uncompressed member actually opened | that rung's band ceiling |
+
+Both numbers come from the build itself, recorded on the attempt row - `peak_vms_bytes`,
+and `largest_member_bytes` in its `metadata`. The measurement in the database is
+deliberately not consulted: an override exists precisely because that measurement was
+wrong about this feed, so reading it again to justify undoing the override would be
+circular.
+
+Four things stop a review short, before any history is read: the feed has no override
+(it already routes on its measurement, which is as low as it goes), the override is a
+person's, the worker is already the smallest, or the override disagrees with the worker
+that just ran. An attempt recorded before this evidence existed has no
+`largest_member_bytes` and reads as unknown, which blocks the streak rather than
+permitting it - leaving a feed too large costs money, the other way costs builds.
+
+The case to watch is a feed whose datasets alternate between large and small: it could
+move down, fail on the next large one, escalate, and repeat. The disk axis usually
+catches it, because the large dataset's own build breaks the streak - but that is a
+property of the evidence, not a guarantee. `task_execution_attempt` shows it if it
+happens; the fix is a longer streak or a smaller fraction.
+
+### Where the policy lives
+
+The routing *mechanism* is `functions-python/helpers/sizing.py`, shared so other
+functions can adopt it without copying: `choose_size` for the tier arithmetic,
+`size_for_dataset` for the whole decision, `escalate` and `demote` for the ladder, and
+`fits_within` for the two-axis comparison.
+
+The Parquet builder's *policy* is `functions-python/helpers/parquet_policy.py` - its
+bands and their budgets, its config namespace and key, its compression ratio, and the
+two downsize thresholds. It is shared rather than per-function because two processes
+decide the same thing and have to agree: the Operations API routes a build when it
+enqueues one, and the builder re-routes it when one fails. A disagreement would bounce a
+dataset between two workers.
 
 One thing to look at before a second function adopts it: the measure. The largest single
 uncompressed file is right here because the volume holds one at a time, but a function
