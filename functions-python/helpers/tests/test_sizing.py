@@ -17,6 +17,8 @@
 
 import unittest
 
+from unittest.mock import MagicMock, patch
+
 from sizing import (
     LARGEST,
     Size,
@@ -25,8 +27,12 @@ from sizing import (
     describe,
     first_known,
     function_name,
+    measure_dataset,
     queue_env_var,
+    size_for_dataset,
 )
+
+CONFIG_VALUE = "sizing.get_config_value"
 
 MB = 1024**2
 GB = 1024**3
@@ -147,6 +153,110 @@ class TestLadder(unittest.TestCase):
     def test_the_largest_is_the_last_rung(self):
         self.assertEqual(LARGEST, Size.L)
         self.assertEqual([s.value for s in Size], ["x", "m", "l"])
+
+
+def _dataset(unzipped=None, zipped=None):
+    dataset = MagicMock()
+    dataset.id = "dataset-uuid"
+    dataset.stable_id = "mdb-1-202401010000"
+    dataset.unzipped_size_bytes = unzipped
+    dataset.zipped_size_bytes = zipped
+    return dataset
+
+
+def _session(largest=None):
+    session = MagicMock()
+    session.query.return_value.filter.return_value.scalar.return_value = largest
+    return session
+
+
+class TestMeasureDataset(unittest.TestCase):
+    """The size columns are nullable with no backfill, so every rung gets used."""
+
+    def test_the_largest_file_wins(self):
+        self.assertEqual(
+            measure_dataset(_session(largest=500), _dataset(unzipped=9999)),
+            (500, "largest file"),
+        )
+
+    def test_it_falls_back_to_the_unzipped_total(self):
+        """A sum, so it overestimates - which routes up, not down."""
+        self.assertEqual(
+            measure_dataset(_session(), _dataset(unzipped=800)), (800, "unzipped total")
+        )
+
+    def test_it_falls_back_to_an_estimate_from_the_archive(self):
+        measure, basis = measure_dataset(_session(), _dataset(zipped=100))
+
+        self.assertEqual(measure, 500)
+        self.assertEqual(basis, "estimated from the archive")
+
+    def test_the_ratio_is_caller_supplied(self):
+        measure, _ = measure_dataset(_session(), _dataset(zipped=100), 9)
+
+        self.assertEqual(measure, 900)
+
+    def test_nothing_recorded(self):
+        self.assertEqual(measure_dataset(_session(), _dataset()), (None, "unknown"))
+
+    def test_a_failed_query_is_not_fatal(self):
+        session = MagicMock()
+        session.query.side_effect = RuntimeError("database gone")
+
+        self.assertEqual(measure_dataset(session, _dataset()), (None, "unknown"))
+
+
+class TestSizeForDataset(unittest.TestCase):
+    def _call(self, session, dataset, override=None):
+        feed = MagicMock()
+        feed.id = "feed-uuid"
+        feed.stable_id = "mdb-1"
+        with patch(CONFIG_VALUE, return_value=override):
+            return size_for_dataset(
+                session, feed, dataset, tiers=TIERS, namespace="demo"
+            )
+
+    def test_it_routes_on_the_measurement(self):
+        self.assertEqual(self._call(_session(largest=1), _dataset()), Size.X)
+        self.assertEqual(self._call(_session(largest=3 * GB), _dataset()), Size.L)
+
+    def test_an_unmeasurable_dataset_goes_to_the_largest(self):
+        self.assertEqual(self._call(_session(), _dataset()), LARGEST)
+
+    def test_a_pin_decides_outright(self):
+        self.assertEqual(
+            self._call(_session(largest=3 * GB), _dataset(), override="x"), Size.X
+        )
+
+    def test_a_pin_skips_the_measurement(self):
+        """No point costing a query for an answer that cannot change the outcome."""
+        session = MagicMock()
+        session.query.side_effect = AssertionError("the dataset was measured")
+
+        self.assertEqual(self._call(session, _dataset(), override="m"), Size.M)
+
+    def test_an_unreadable_pin_falls_back_to_the_measurement(self):
+        feed = MagicMock()
+        with patch(CONFIG_VALUE, side_effect=RuntimeError("no config")):
+            size = size_for_dataset(
+                _session(largest=1), feed, _dataset(), tiers=TIERS, namespace="demo"
+            )
+
+        self.assertEqual(size, Size.X)
+
+    def test_the_namespace_and_key_are_the_callers(self):
+        feed = MagicMock()
+        with patch(CONFIG_VALUE, return_value=None) as config:
+            size_for_dataset(
+                _session(largest=1),
+                feed,
+                _dataset(),
+                tiers=TIERS,
+                namespace="pmtiles_builder",
+                key="worker",
+            )
+
+        self.assertEqual(config.call_args.args[:2], ("pmtiles_builder", "worker"))
 
 
 if __name__ == "__main__":

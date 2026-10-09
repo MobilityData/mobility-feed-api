@@ -233,9 +233,16 @@ An unrecognised value is logged and ignored rather than failing the request.
 
 There is no endpoint or UI for `config_value_feed`, so this is SQL for now.
 
-The routing logic is `functions-python/helpers/sizing.py`, written to be reused: it takes
-the tiers and the measure from the caller, so `pmtiles_builder` and `reverse_geolocation`
-can adopt it without copying.
+All of the routing mechanism is `functions-python/helpers/sizing.py`, shared so other
+functions can adopt it without copying: `choose_size` for the tier arithmetic and
+`size_for_dataset` for the whole decision - measure, read the pin, log why. The Parquet
+builder keeps only its own policy, the four constants at the top of
+`parquet_api_impl.py`: its bands, its config namespace and key, and its compression
+ratio.
+
+One thing to look at before a second function adopts it: the measure. The largest single
+uncompressed file is right here because the volume holds one at a time, but a function
+bounded by something else wants `choose_size` with a measure of its own.
 
 ## Memory
 

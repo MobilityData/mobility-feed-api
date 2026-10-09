@@ -21,8 +21,13 @@ account for under 7% of the compute, while every one of them is billed at the me
 largest feed needs. Deploying the same source as two differently sized functions and
 choosing between them at enqueue time is what this module exists for.
 
-It is deliberately generic: the caller supplies the tiers and the measure, so
-`pmtiles_builder` and `reverse_geolocation` can adopt it without copying the logic.
+The tier arithmetic is generic: the caller supplies the tiers and the measure.
+`size_for_dataset` builds on it for the common case of a job whose weight is a GTFS
+dataset, which is how every candidate function here is triggered.
+
+Whether the *measure* transfers is a separate question per function. The largest single
+uncompressed file is right for the Parquet builder because its volume holds one at a
+time; a function bounded by something else wants `choose_size` with its own measure.
 
 Two rules:
 
@@ -39,7 +44,19 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence
+
+from sqlalchemy import func
+
+from shared.common.config_reader import get_config_value
+from shared.database_gen.sqlacodegen_models import Gtfsfile
+
+if TYPE_CHECKING:  # pragma: no cover
+    from sqlalchemy.orm import Session
+
+# GTFS compresses roughly 5-15x. The low end is deliberate: overestimating what an
+# archive expands to routes a job up a rung rather than down.
+DEFAULT_COMPRESSION_RATIO = 5
 
 
 class Size(Enum):
@@ -139,3 +156,113 @@ def describe(tiers: Iterable[Tier]) -> str:
         )
         for tier in tiers
     )
+
+
+def largest_file_bytes(db_session: "Session", dataset) -> Optional[int]:
+    """The biggest single uncompressed file in the dataset, or None if unrecorded.
+
+    One indexed aggregate on `gtfsfile`, which carries an index on `gtfs_dataset_id`.
+    Returns None rather than 0 for a dataset with no file rows, so the caller can tell
+    "no files recorded" from "files recorded, all empty".
+    """
+    try:
+        return (
+            db_session.query(func.max(Gtfsfile.file_size_bytes))
+            .filter(Gtfsfile.gtfs_dataset_id == dataset.id)
+            .scalar()
+        )
+    except Exception as error:
+        logging.warning("Could not measure %s: %s", dataset.stable_id, error)
+        return None
+
+
+def measure_dataset(
+    db_session: "Session",
+    dataset,
+    compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
+) -> tuple[Optional[int], str]:
+    """How heavy a dataset is, and which rung of the fallback produced the answer.
+
+    The size columns are nullable and were added without a backfill, so a dataset
+    processed before #1284 has none of them. Each rung is a worse approximation than the
+    one above, and all of them err upwards: `unzipped_size_bytes` is the sum rather than
+    the maximum, and the compressed estimate uses the low end of the ratio.
+    """
+    largest = largest_file_bytes(db_session, dataset)
+    if largest:
+        return int(largest), "largest file"
+
+    total = first_known(getattr(dataset, "unzipped_size_bytes", None))
+    if total:
+        return total, "unzipped total"
+
+    zipped = first_known(getattr(dataset, "zipped_size_bytes", None))
+    if zipped:
+        return zipped * compression_ratio, "estimated from the archive"
+
+    return None, "unknown"
+
+
+def size_override(db_session: "Session", feed, namespace: str, key: str = "size"):
+    """An operator's pin for this feed, if one is set.
+
+    Read from `config_value_feed`, which needs a matching `config_key` row to exist
+    before anything can be pinned. With no row at all this is None and the measurement
+    decides.
+    """
+    try:
+        raw = get_config_value(namespace, key, feed_id=feed.id, db_session=db_session)
+    except Exception as error:
+        logging.warning(
+            "Could not read the size override for %s: %s", feed.stable_id, error
+        )
+        return None
+    return Size.parse(raw)
+
+
+def size_for_dataset(
+    db_session: "Session",
+    feed,
+    dataset,
+    *,
+    tiers: Sequence[Tier],
+    namespace: str,
+    key: str = "size",
+    compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
+) -> Size:
+    """Which worker should handle this dataset, and why, in the log.
+
+    A configured size settles it, so the measurement is skipped entirely rather than
+    computed and discarded.
+    """
+    override = size_override(db_session, feed, namespace, key)
+    if override is not None:
+        logging.info(
+            "Routing %s to %s: pinned on feed %s",
+            dataset.stable_id,
+            override.value,
+            feed.stable_id,
+        )
+        return override
+
+    measure, basis = measure_dataset(db_session, dataset, compression_ratio)
+    size = choose_size(measure, tiers)
+
+    if measure is None:
+        logging.warning(
+            "No recorded size for %s (%s); routing to %s. Run the "
+            "rebuild_missing_dataset_files task to record them.",
+            dataset.stable_id,
+            basis,
+            size.value,
+        )
+    else:
+        logging.info(
+            "Routing %s to %s: %s bytes by %s, table [%s]",
+            dataset.stable_id,
+            size.value,
+            measure,
+            basis,
+            describe(tiers),
+        )
+    return size

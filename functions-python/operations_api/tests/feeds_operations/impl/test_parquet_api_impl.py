@@ -29,6 +29,9 @@ from fastapi import HTTPException
 from feeds_operations.impl import parquet_api_impl
 from feeds_operations.impl.parquet_api_impl import ParquetApiImpl
 
+# The override lookup now lives in the shared sizing helper.
+CONFIG_VALUE = "shared.helpers.sizing.get_config_value"
+GB_ = 1024**3
 FEED = "mdb-1210"
 DATASET = "mdb-1210-202402121801"
 BASE_URL = f"https://files.example.org/{FEED}/{DATASET}/parquet"
@@ -356,138 +359,49 @@ class TestGenerate(ParquetStateTestCase):
 
 
 class TestSizeRouting(unittest.TestCase):
-    """Which worker a build is sent to, and why."""
+    """This impl owns the bands and the namespace; the mechanism is tested in helpers."""
 
     GB = 1024**3
 
-    def setUp(self):
-        self._override = None
-
-    def _session(self, largest=None, override=None):
+    def _size_for(self, largest):
         session = MagicMock()
         session.query.return_value.filter.return_value.scalar.return_value = largest
-        self._override = override
-        return session
-
-    def _dataset(self, unzipped=None, zipped=None):
         dataset = MagicMock()
         dataset.id = "dataset-uuid"
         dataset.stable_id = DATASET
-        dataset.unzipped_size_bytes = unzipped
-        dataset.zipped_size_bytes = zipped
-        return dataset
-
-    def _size_for(self, session, dataset):
+        dataset.unzipped_size_bytes = None
+        dataset.zipped_size_bytes = None
         feed = MagicMock()
         feed.id = "feed-uuid"
         feed.stable_id = FEED
-        with patch.object(
-            parquet_api_impl, "get_config_value", return_value=self._override
-        ):
+        with patch(CONFIG_VALUE, return_value=None):
             return parquet_api_impl._size_for(session, feed, dataset)
 
-    def test_a_trivial_feed_goes_to_the_smallest_worker(self):
-        """Where the great majority of the catalogue lands."""
-        size = self._size_for(self._session(largest=10 * 1024**2), self._dataset())
-
-        self.assertEqual(size, parquet_api_impl.Size.X)
-
-    def test_a_mid_size_feed_goes_to_the_middle_worker(self):
-        size = self._size_for(self._session(largest=800 * 1024**2), self._dataset())
-
-        self.assertEqual(size, parquet_api_impl.Size.M)
-
-    def test_the_band_boundaries(self):
+    def test_the_bands(self):
         for largest, expected in (
+            (10 * 1024**2, parquet_api_impl.Size.X),
             (255_999_999, parquet_api_impl.Size.X),
             (256_000_000, parquet_api_impl.Size.M),
             (1_499_999_999, parquet_api_impl.Size.M),
             (1_500_000_000, parquet_api_impl.Size.L),
+            (4 * GB_, parquet_api_impl.Size.L),
         ):
             with self.subTest(largest=largest):
-                self.assertEqual(
-                    self._size_for(self._session(largest=largest), self._dataset()),
-                    expected,
-                )
+                self.assertEqual(self._size_for(largest), expected)
 
-    def test_a_feed_with_one_huge_file_goes_to_the_large_worker(self):
-        """mdb-2014's shape: a modest archive hiding a 4 GiB stop_times."""
-        size = self._size_for(self._session(largest=4 * self.GB), self._dataset())
-
-        self.assertEqual(size, parquet_api_impl.Size.L)
-
-    def test_it_falls_back_to_the_unzipped_total(self):
-        """No per-file rows. The total overestimates, which routes up, not down."""
-        size = self._size_for(
-            self._session(largest=None), self._dataset(unzipped=6 * self.GB)
-        )
-
-        self.assertEqual(size, parquet_api_impl.Size.L)
-
-    def test_it_falls_back_to_an_estimate_from_the_archive(self):
-        """Neither per-file rows nor a total; only the compressed size is known."""
-        size = self._size_for(
-            self._session(largest=None), self._dataset(zipped=1 * self.GB)
-        )
-
-        self.assertEqual(size, parquet_api_impl.Size.L)
-
-    def test_an_unmeasurable_dataset_goes_to_the_large_worker(self):
+    def test_an_unmeasurable_dataset_goes_to_the_largest(self):
         """Datasets predating #1284 have none of the size columns populated."""
-        size = self._size_for(self._session(largest=None), self._dataset())
+        self.assertEqual(self._size_for(None), parquet_api_impl.Size.L)
 
-        self.assertEqual(size, parquet_api_impl.Size.L)
-
-    def test_a_failed_measurement_does_not_fail_the_request(self):
+    def test_it_pins_against_its_own_config_namespace(self):
         session = MagicMock()
-        session.query.side_effect = RuntimeError("database gone")
+        session.query.return_value.filter.return_value.scalar.return_value = 1
+        dataset, feed = MagicMock(), MagicMock()
+        with patch(CONFIG_VALUE, return_value="l") as config:
+            parquet_api_impl._size_for(session, feed, dataset)
 
-        self.assertEqual(
-            self._size_for(session, self._dataset()), parquet_api_impl.Size.L
-        )
-
-    def test_an_override_raises_the_size(self):
-        size = self._size_for(
-            self._session(largest=10 * 1024**2, override="l"), self._dataset()
-        )
-
-        self.assertEqual(size, parquet_api_impl.Size.L)
-
-    def test_an_override_can_skip_a_rung(self):
-        size = self._size_for(
-            self._session(largest=4 * self.GB, override="x"), self._dataset()
-        )
-
-        self.assertEqual(size, parquet_api_impl.Size.X)
-
-    def test_an_override_can_lower_the_size(self):
-        size = self._size_for(
-            self._session(largest=4 * self.GB, override="m"), self._dataset()
-        )
-
-        self.assertEqual(size, parquet_api_impl.Size.M)
-
-    def test_an_override_skips_the_measurement_entirely(self):
-        """No point costing a query for an answer that cannot change the outcome."""
-        session = self._session(override="m")
-        session.query.side_effect = AssertionError("the dataset was measured")
-
-        self.assertEqual(
-            self._size_for(session, self._dataset()), parquet_api_impl.Size.M
-        )
-
-    def test_an_unreadable_override_is_ignored(self):
-        feed = MagicMock()
-        feed.id = "feed-uuid"
-        feed.stable_id = FEED
-        session = self._session(largest=10 * 1024**2)
-
-        with patch.object(
-            parquet_api_impl, "get_config_value", side_effect=RuntimeError("no config")
-        ):
-            size = parquet_api_impl._size_for(session, feed, self._dataset())
-
-        self.assertEqual(size, parquet_api_impl.Size.X)
+        self.assertEqual(config.call_args.args[0], "parquet_builder")
+        self.assertEqual(config.call_args.args[1], "size")
 
 
 class TestResolution(unittest.TestCase):
