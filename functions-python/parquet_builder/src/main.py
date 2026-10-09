@@ -129,6 +129,7 @@ MAX_RETENTION_DAYS = 60
 # Must run before anything allocates: turns an overshoot into a catchable MemoryError
 # instead of the kernel killing the container with no traceback and no response.
 MEMORY_BUDGET = limit_gcp_memory(TMPDIR)
+MIB = 1024**2
 
 
 def _retention_days(value) -> int:
@@ -155,6 +156,26 @@ def _retention_days(value) -> int:
         )
         return DEFAULT_RETENTION_DAYS
     return days
+
+
+def _budget() -> str:
+    """The worker's resource budget, for the log line that reports it per build."""
+    budget = MEMORY_BUDGET
+    rlimit = getattr(budget, "rlimit_as_bytes", None)
+    volume = getattr(budget, "volume_bytes", None)
+    return (
+        (
+            f"{rlimit / MIB:.0f} MiB of address space"
+            if rlimit
+            else "no address-space limit"
+        )
+        + (
+            f", a {volume / MIB:.0f} MiB volume at {TMPDIR}"
+            if volume
+            else f", an unmeasured volume at {TMPDIR}"
+        )
+        + f", and a DuckDB cap of {DUCKDB_MEMORY_LIMIT}"
+    )
 
 
 def _attempt_metadata(tables=None) -> dict:
@@ -496,6 +517,13 @@ def build_parquet(
     # Started only once the claim is held, so a request that turns out to be a duplicate
     # does not leave a sampler thread behind on a warm instance.
     sampler = MemorySampler().start()
+
+    # `limit_gcp_memory` logs the same figures, but it runs at module import - during the
+    # cold start, before any request exists - so those lines carry no trace and no
+    # dataset, and pairing them with a build means joining on the instance id across
+    # whatever else that instance has served since. Restating them here costs one line
+    # per build and puts the budget in the same trace as the failure it explains.
+    logger.info("Worker %s has %s", variant.value if variant else "unknown", _budget())
 
     # Committed on its own: `ThrottledProgress` swallows failures from the callback
     # below, so the claim cannot depend on the first progress write to reach the
