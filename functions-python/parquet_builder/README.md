@@ -170,7 +170,7 @@ picks one at enqueue time.
 |---|---|---|---|---|---|---|
 | `x` | 2Gi | 1 | 1Gi | 512MB | < 256 MB | ~98% |
 | `m` | 6Gi | 2 | 3Gi | 1GB | < 1.5 GB | ~1.8% |
-| `l` | 12Gi | 4 | 8Gi | 2GB | anything larger, or unknown | ~0.2% |
+| `l` | 16Gi | 4 | 8Gi | 2GB | anything larger, or unknown | ~0.2% |
 
 A feed pinned through config bypasses the table entirely; see below.
 
@@ -183,11 +183,15 @@ Two rules set the numbers for each rung:
 
 - **the volume** must hold the largest member plus its Parquet output, and is carved out
   of the total rather than added to it;
-- **the process budget** left over tracks that rung's `PARQUET_DUCKDB_MEMORY_LIMIT` plus
-  about 330 MB. Peak RSS stops growing once DuckDB reaches its cap, so it does not scale
-  with the feed - measured at 244 MB for a 2 MB member and 2329 MB for a 4.07 GiB one,
-  both against a 2GB cap. The volume is what changes between rungs; the budget follows
-  from the cap.
+- **the process budget** left over must cover the process's *address space*, which is
+  what `RLIMIT_AS` caps. This is the trap: peak RSS for a 4.07 GiB member is 2329 MB,
+  but sizing `l`'s budget at 3896 MiB on the strength of that number made mdb-2014 die
+  with `MemoryError` inside the Parquet upload. DuckDB maps far more than it resides.
+  7992 MiB is the budget known to build it.
+
+  The `Function metrics` line reports `vms` beside `rss` for exactly this reason. Size a
+  rung from `vms`, never from `rss`, and treat the `x` and `m` budgets as provisional
+  until there is a `vms` figure for a build that filled them.
 
 **The measure is the largest single file, not the archive or the feed total.** The volume
 holds one source at a time, so that file is what decides whether a build fits. A total
@@ -252,15 +256,16 @@ the total rather than added to it.
 Per variant, taking `l` as the example:
 
 ```
-cgroup limit (the variant's "memory")          12288 MiB
+cgroup limit (the variant's "memory")          16384 MiB
   - in-memory volume at PARQUET_TMPDIR        -  8192 MiB
   - MEMORY_MARGIN_MB                          -   200 MiB
-  = RLIMIT_AS set on the Python process          3896 MiB
+  = RLIMIT_AS set on the Python process          7992 MiB
 ```
 
-The same arithmetic gives `m` 2872 MiB and `x` 824 MiB, each comfortable against the
-`duckdb_memory + 330 MB` the process actually needs. The small volumes are only viable
-because the archive is streamed rather than written to them.
+The same arithmetic gives `m` 2872 MiB and `x` 824 MiB. Those two are **not** yet
+confirmed against address space - see the warning above - and should be raised, not
+trimmed, at the first `MemoryError`. The small volumes are viable only because the
+archive is streamed rather than written to them.
 
 All three rungs live in `local.parquet_builder_sizes` in `infra/functions-python/main.tf`.
 Memory and volume are set together there on purpose: the volume is subtracted from the
@@ -274,8 +279,8 @@ silently. It reads the volume's *declared* size, so it is subtracted whether or 
 byte is written to it. Both numbers are logged on every cold start:
 
 ```
-Process memory limit: 12288.00 MiB, total tmpfs size: 8192.00 MiB, available: 4096.00 MiB
-RLIMIT_AS set to 3896.00 MiB
+Process memory limit: 16384.00 MiB, total tmpfs size: 8192.00 MiB, available: 8192.00 MiB
+RLIMIT_AS set to 7992.00 MiB
 ```
 
 If `total tmpfs size` reads `0.00 MiB`, the volume did not get mounted and the process is
@@ -322,7 +327,8 @@ sorted by name afterwards so it does not depend on which path produced it.
 Sizing from observed averages is a trap here: feed sizes span orders of magnitude, so a
 sample that happens to exclude the largest feeds will suggest a volume that cannot build
 them at all. The process budget is the part that measurement does settle - the largest
-observed `process peak` is 2329 MB on `l`, against its 3896 MiB limit. Note that the
+observed `process peak` is 2329 MB on `l`, but that is resident, not address space, and
+`RLIMIT_AS` caps the latter - read `vms` for sizing. Note that the
 `Function metrics` log
 line reports `tracemalloc` for `memory:`, which sees Python allocations only - not DuckDB's
 C++ heap and not tmpfs pages. Use the `rss` figure on that same line, or Cloud Monitoring's

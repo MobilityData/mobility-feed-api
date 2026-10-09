@@ -59,7 +59,7 @@ PARQUET_CONVERTER_VERSION = "2"
 # The bands come from measuring it: of 4277 feeds, the median archive is 0.2 MB and only
 # 31 are above 100 MB, while about ten feeds have a single member over 1 GB and the worst
 # has one of 4.8 GB. So most traffic belongs on a worker sized for a few hundred MB, and
-# the large worker exists for roughly a dozen feeds.
+# the large worker exists for roughly a dozen feeds. Stats as of 2026/09.
 SIZE_TIERS = (
     Tier(size=Size.X, max_bytes=256_000_000),
     Tier(size=Size.M, max_bytes=1_500_000_000),

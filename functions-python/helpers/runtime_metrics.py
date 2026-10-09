@@ -12,6 +12,11 @@ MB = 1024**2
 def _max_rss_bytes() -> int:
     """Peak resident set size of this process, in bytes.
 
+    Note this is *resident*, while `limit_gcp_memory` caps *address space* via
+    RLIMIT_AS. Virtual is always at least RSS and for a process mapping a database
+    engine it is far larger, so sizing a container from RSS alone under-provisions it -
+    which is why `vms` is reported beside this.
+
     `tracemalloc` only sees blocks Python itself allocated, so for a function whose
     heavy lifting happens in a C extension (DuckDB, for one) it reports the smallest
     consumer and misses the one that decides the instance's memory allocation. RSS
@@ -76,13 +81,14 @@ def track_metrics(metrics=("time", "memory", "cpu")):
                     # Kept beside the tracemalloc figures rather than replacing them, so
                     # the log line stays comparable with what is already in Cloud Logging.
                     try:
-                        rss = process.memory_info().rss
+                        info = process.memory_info()
                         metrics_message += (
-                            f", rss: {rss / MB:.2f} MB"
+                            f", rss: {info.rss / MB:.2f} MB"
                             f" (process peak: {_max_rss_bytes() / MB:.2f} MB)"
+                            f", vms: {info.vms / MB:.2f} MB"
                         )
                     except Exception as error:
-                        logger.debug("Could not read RSS: %s", error)
+                        logger.debug("Could not read memory info: %s", error)
                 if "cpu" in metrics:
                     cpu_after = process.cpu_percent(interval=None)
                     if metrics_message:

@@ -42,6 +42,9 @@ class TestMemoryReporting(unittest.TestCase):
         self.assertIn("memory:", message)
         self.assertIn("rss:", message)
         self.assertIn("process peak:", message)
+        # Address space, which is what RLIMIT_AS actually caps. Sizing a container from
+        # RSS alone under-provisions it.
+        self.assertIn("vms:", message)
 
     def test_the_existing_fields_are_unchanged(self):
         """Log history stays comparable, so nothing is renamed or dropped."""

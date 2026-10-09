@@ -86,6 +86,8 @@ locals {
   #    scale with the feed, which is why the volume is what changes between rungs.
   parquet_builder_sizes = {
     x = {
+      # Budgets below are RSS-derived and unvalidated against address space; see the
+      # note on `l`. Raise them rather than the volumes if a MemoryError appears.
       memory         = "2Gi"
       cpu            = "1"
       volume         = "1Gi"
@@ -102,7 +104,12 @@ locals {
       max_dispatches = 20
     }
     l = {
-      memory         = "12Gi"
+      # 16Gi, not the ~12Gi the measured RSS would suggest. RLIMIT_AS caps address
+      # space, not resident memory, and DuckDB maps far more than it resides: at a
+      # 3896 MiB budget mdb-2014 died with MemoryError inside the Parquet upload even
+      # though its peak RSS was 2329 MB. 7992 MiB is the budget that is known to build
+      # it. Do not trim this again without a vms figure from the metrics log.
+      memory         = "16Gi"
       cpu            = "4"
       volume         = "8Gi"
       duckdb_memory  = "2GB"
