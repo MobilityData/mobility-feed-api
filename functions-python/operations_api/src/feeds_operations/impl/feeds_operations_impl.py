@@ -142,18 +142,21 @@ def _strip_derived_fields(dumped: dict) -> dict:
     return dumped
 
 
-def _current_size_override(db_session, feed_id) -> Optional[str]:
-    """The size configured for this feed, if any, whoever set it.
+def _current_size_override(db_session, feed_id) -> tuple[Optional[str], bool]:
+    """The size configured for this feed and whether it is held, if any.
 
     An override decides which worker runs the build, so reporting it answers the question
-    this page exists for. Which of the two set it is in `variant_basis` on each attempt.
+    this page exists for. Who set it is in `variant_basis` on each attempt.
+
+    The lock matters more than it looks: a locked feed never escalates, so a run of
+    failed attempts with no `escalated_to` has no other explanation visible from here.
     """
     value = get_config_value(
         SIZE_CONFIG_NAMESPACE, SIZE_CONFIG_KEY, feed_id=feed_id, db_session=db_session
     )
     if isinstance(value, dict):
-        return value.get("size")
-    return value if isinstance(value, str) else None
+        return value.get("size"), value.get("locked") is True
+    return (value if isinstance(value, str) else None), False
 
 
 def _as_datetime(value) -> Optional[datetime]:
@@ -420,9 +423,11 @@ class OperationsApiImpl(BaseOperationsApi):
             .all()
         )
 
+        size_override, size_locked = _current_size_override(db_session, gtfs_feed.id)
         return ExecutionAttemptsResponse(
             feed_stable_id=id,
-            current_size_override=_current_size_override(db_session, gtfs_feed.id),
+            current_size_override=size_override,
+            current_size_locked=size_locked,
             total=total,
             attempts=[_execution_attempt(row) for row in attempts],
         )

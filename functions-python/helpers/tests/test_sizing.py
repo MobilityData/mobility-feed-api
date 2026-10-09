@@ -37,6 +37,7 @@ from sizing import (
     queue_env_var,
     record_size_override,
     size_for_dataset,
+    size_override,
     tier_for,
 )
 
@@ -351,6 +352,17 @@ class TestConfiguredSize(unittest.TestCase):
         """What the builder writes for itself, as opposed to a person's bare value."""
         return {"size": size, "source": "auto"}
 
+    @staticmethod
+    def _override(value):
+        """The parsed override for a stored value, without routing it."""
+        with patch(CONFIG_VALUE, return_value=value):
+            return size_override(_session(), MagicMock(), "demo")
+
+    @staticmethod
+    def _locked(size):
+        """What an operator writes to hold a size where it is."""
+        return {"size": size, "locked": True}
+
     def test_an_override_beats_a_larger_measurement(self):
         self.assertEqual(self._route(10 * GB, "s").size, Size.S)
         self.assertEqual(self._route(10 * GB, self._auto("s")).size, Size.S)
@@ -376,11 +388,33 @@ class TestConfiguredSize(unittest.TestCase):
                 self.assertEqual(routing.size, Size.S)
                 self.assertEqual(routing.basis, Basis.MEASURED)
 
+    def test_a_bare_value_is_never_locked(self):
+        """The bare form is the one a human types; locking has to be deliberate."""
+        self.assertFalse(self._override("l").locked)
+
+    def test_an_unusable_locked_flag_reads_as_unlocked(self):
+        """A typo must not freeze a feed where nothing can move it again."""
+        for value in ("true", 1, "yes", None):
+            with self.subTest(locked=value):
+                self.assertFalse(self._override({"size": "l", "locked": value}).locked)
+
+    def test_locked_is_read_from_the_object_form(self):
+        self.assertTrue(self._override({"size": "l", "locked": True}).locked)
+
     def test_nothing_configured_reads_as_measured(self):
         routing = self._route(1)
 
         self.assertEqual(routing.size, Size.S)
         self.assertEqual(routing.basis, Basis.MEASURED)
+
+    def test_a_locked_override_routes_like_any_other(self):
+        """The lock decides whether the value may be moved, not where it sends a build."""
+        routing = self._route(1, {"size": "l", "locked": True})
+
+        self.assertEqual(routing.size, Size.L)
+        # No `source` in the object: the builder always stamps its own, so this is a
+        # person's.
+        self.assertEqual(routing.basis, Basis.OPERATOR)
 
     def test_an_override_skips_the_measurement_entirely(self):
         feed = MagicMock()
@@ -397,6 +431,10 @@ class TestConfiguredSize(unittest.TestCase):
 
 class TestRecordSizeOverride(unittest.TestCase):
     """An override is for feeds the measurement gets wrong, and only those."""
+
+    @staticmethod
+    def _locked(size):
+        return {"size": size, "locked": True}
 
     def _record(self, largest, size, existing=None):
         feed = MagicMock()
@@ -430,12 +468,30 @@ class TestRecordSizeOverride(unittest.TestCase):
         self.assertFalse(stored)
         session.query.return_value.filter.return_value.delete.assert_called_once()
 
-    def test_a_persons_pin_is_left_alone(self):
-        """It may agree with today's measurement and still be there on purpose."""
+    def test_an_unlocked_pin_is_cleared_like_any_other_row(self):
+        """Who wrote a value is a record, not a claim on it. Only `locked` holds a row."""
         stored, session = self._record(1, Size.S, existing="s")
 
         self.assertFalse(stored)
+        session.query.return_value.filter.return_value.delete.assert_called_once()
+
+    def test_an_unlocked_pin_is_raised_like_any_other_row(self):
+        stored, session = self._record(1, Size.M, existing="s")
+
+        self.assertTrue(stored)
+        session.execute.assert_called_once()
+
+    def test_a_locked_override_is_never_raised(self):
+        stored, session = self._record(1, Size.M, existing=self._locked("s"))
+
+        self.assertTrue(stored, "the locked row is still the stored override")
+        session.execute.assert_not_called()
+
+    def test_a_locked_override_is_never_cleared(self):
+        stored, session = self._record(1, Size.S, existing=self._locked("s"))
+
         session.query.return_value.filter.return_value.delete.assert_not_called()
+        self.assertTrue(stored)
 
     def test_an_unmeasurable_dataset_stores_nothing_for_the_largest(self):
         """Unknown already routes to `l`, so an escalation there has nothing to say."""

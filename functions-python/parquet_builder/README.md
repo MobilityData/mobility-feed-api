@@ -222,17 +222,25 @@ One key, `size`, under namespace `parquet_builder`, registered by
 row that `config_value_feed`'s foreign key needs.
 
 One row per feed. **An override decides which worker runs the build**, in place of the
-size the dataset would otherwise measure into. Two forms, differing only in what they
-record about who wrote it:
+size the dataset would otherwise measure into. Three accepted forms:
 
-| value | set by |
-|---|---|
-| `"l"` | a person |
-| `{"size": "l", "source": "auto"}` | the builder, after a build ran out of resources |
+| value | set by | may the builder move it? |
+|---|---|---|
+| `"l"` | a person | yes |
+| `{"size": "l", "source": "auto"}` | the builder, after a build ran out of resources | yes |
+| `{"size": "l", "locked": true}` | a person, to hold the size | no |
 
-Both decide outright. The source is carried for the record - it shows up as
-`variant_basis` on each attempt - and changes nothing about the routing. The bare form is
-the one to type by hand:
+All three decide the routing outright. `source` is carried for the record - it shows up
+as `variant_basis` on each attempt - and changes nothing. It used to decide whether the
+builder could overwrite a row, which meant inferring an operator's intent from the fact
+of their authorship; `locked` is that intent stated instead.
+
+**Without `locked`, a pin is where the feed starts, not where it stays.** The healing
+will raise it after a build runs out of resources and lower it after several that
+finished with room to spare, so a value set by hand can be gone a week later. That is
+usually what you want; when it is not, lock it.
+
+The bare form is the one to type by hand:
 
 ```sql
 INSERT INTO config_value_feed (feed_id, feed_stable_id, namespace, key, value)
@@ -240,6 +248,17 @@ SELECT id, stable_id, 'parquet_builder', 'size', '"l"'::jsonb
   FROM feed WHERE stable_id = 'mdb-2014'
 ON CONFLICT (feed_id, namespace, key) DO UPDATE SET value = EXCLUDED.value;
 ```
+
+To hold it there instead, `'{"size":"l","locked":true}'::jsonb`. Only a literal `true`
+locks; anything else reads as unlocked, so a typo cannot freeze a feed where nothing can
+move it again.
+
+**A lock is a real lock.** A feed locked below what it needs fails and stays failed: the
+build runs out of resources, nothing escalates, nothing is re-queued, and the dataset is
+not produced until a person changes the value. Each attempt records the failure with
+`escalated_to` null, and `current_size_locked` on
+`GET /v1/operations/gtfs_feeds/{id}/execution_attempts` says why - without it a run of
+failed attempts with no escalation has no visible explanation.
 
 With no per-feed row, every feed is routed purely by measurement. The key carries no
 `default_value` on purpose: setting one would move the whole catalogue at once, which
@@ -261,8 +280,8 @@ earlier `auto` row that the measurement has since caught up with - the dataset i
 way to that worker through the task either way. So the table holds the feeds that are
 genuinely exceptions, and a feed leaves it as soon as its own data says the same thing.
 
-A person's pin is never cleared automatically: it may agree with today's measurement and
-still be there on purpose.
+A locked override is never cleared automatically, and never raised either; everything
+else the builder may move.
 
 An unrecognised value is logged and ignored rather than failing the request.
 
@@ -294,8 +313,8 @@ wrong about this feed, so reading it again to justify undoing the override would
 circular.
 
 Four things stop a review short, before any history is read: the feed has no override
-(it already routes on its measurement, which is as low as it goes), the override is a
-person's, the worker is already the smallest, or the override disagrees with the worker
+(it already routes on its measurement, which is as low as it goes), the override is
+locked, the worker is already the smallest, or the override disagrees with the worker
 that just ran. An attempt recorded before this evidence existed has no
 `largest_member_bytes` and reads as unknown, which blocks the streak rather than
 permitting it - leaving a feed too large costs money, the other way costs builds.

@@ -3678,7 +3678,7 @@ components:
             The worker that ran it. Read from the running service rather than from what was requested, so it is what actually happened.
           type: string
           nullable: true
-          example: x
+          example: s
         variant_basis:
           description: >-
             Where that size came from. `measured` from the dataset's own size, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand.
@@ -3752,6 +3752,12 @@ components:
           type: string
           nullable: true
           example: m
+        current_size_locked:
+          description: >-
+            Whether that override is held. An override is normally a starting point the builder may raise after a build runs out of resources, or lower after several that finished with room to spare. A locked one it will not move in either direction, so a feed locked below what it needs fails and stays failed, with no escalation, until a person changes the value - which is what this field is for. False when there is no override.
+          type: boolean
+          default: false
+          example: false
         total:
           type: integer
           example: 2

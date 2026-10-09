@@ -348,19 +348,30 @@ SOURCE_AUTO = "auto"
 SOURCE_OPERATOR = "operator"
 
 
+@dataclass(frozen=True)
+class Override:
+    """A configured size for a feed: what it is, who set it, and whether it may move."""
+
+    size: Optional[Size] = None
+    source: Optional[str] = None
+    locked: bool = False
+
+
 def size_override(
     db_session: "Session", feed, namespace: str, key: str = "size"
-) -> tuple[Optional[Size], Optional[str]]:
-    """The size configured for this feed and who set it, or `(None, None)`.
+) -> Override:
+    """The size configured for this feed, or an empty `Override`.
 
-    One row per feed holds both cases, because what differs between them is the author,
-    not the value:
+    One row per feed holds every case. Three accepted shapes:
 
-    - a bare `"l"` is a person's;
-    - `{"size": "l", "source": "auto"}` is the builder's own, written by an escalation.
+    - a bare `"l"` is a person's, and may be moved;
+    - `{"size": "l", "source": "auto"}` is the builder's own, and may be moved;
+    - `{"size": "l", "locked": true}` is held, and may not.
 
-    Both decide outright. The source is kept so a value can be told apart from a pin,
-    which matters when clearing one.
+    All three decide the routing outright. `source` is only a record of who wrote the
+    value last. It used to decide whether the builder could overwrite the row, which
+    meant inferring an operator's intent from the fact of their authorship; `locked` is
+    that intent stated, so it is chosen rather than guessed at.
 
     The bare form is what a human writing SQL by hand produces, so it is the one that
     needs no ceremony.
@@ -371,12 +382,21 @@ def size_override(
         logging.warning(
             "Could not read the size override for %s: %s", feed.stable_id, error
         )
-        return None, None
+        return Override()
 
     if isinstance(raw, dict):
-        return Size.parse(raw.get("size")), raw.get("source") or SOURCE_AUTO
+        return Override(
+            size=Size.parse(raw.get("size")),
+            # The builder always stamps its own source, so a hand-written object that
+            # omits it is a person's - which is now the common case, since `locked` can
+            # only be expressed in the object form.
+            source=raw.get("source") or SOURCE_OPERATOR,
+            # Anything but a true boolean reads as unlocked. Config values are entered by
+            # hand, and a typo must not quietly freeze a feed where nothing can move it.
+            locked=raw.get("locked") is True,
+        )
     size = Size.parse(raw)
-    return size, SOURCE_OPERATOR if size else None
+    return Override(size=size, source=SOURCE_OPERATOR if size else None)
 
 
 @dataclass(frozen=True)
@@ -409,17 +429,18 @@ def size_for_dataset(
 
     `source` is carried for the record, not to change the decision.
     """
-    override, source = size_override(db_session, feed, namespace, key)
-    if override is not None:
-        basis = Basis.AUTO if source == SOURCE_AUTO else Basis.OPERATOR
+    override = size_override(db_session, feed, namespace, key)
+    if override.size is not None:
+        basis = Basis.AUTO if override.source == SOURCE_AUTO else Basis.OPERATOR
         logging.info(
-            "Routing %s to %s: %s override on feed %s",
+            "Routing %s to %s: %s%s override on feed %s",
             dataset.stable_id,
-            override.value,
+            override.size.value,
+            "locked " if override.locked else "",
             basis.value,
             feed.stable_id,
         )
-        return Routing(size=override, basis=basis)
+        return Routing(size=override.size, basis=basis)
 
     measure, how = measure_dataset(db_session, dataset, compression_ratio)
     size = choose_size(measure, tiers)
@@ -484,16 +505,14 @@ def set_size_override(
 def clear_size_override(
     db_session: "Session", feed, namespace: str, key: str = "size"
 ) -> bool:
-    """Remove the builder's own override for this feed. Returns whether a row went.
+    """Remove this feed's size override. Returns whether a row went.
 
-    A person's pin is left alone. It may hold the same size the measurement would pick
-    today, but it was put there to survive the measurement changing, and deleting it
-    would quietly discard that.
+    A locked override stays. Everything else goes, whoever wrote it: authorship records
+    who set the value last, it is not a claim on the row.
     """
     from shared.database_gen.sqlacodegen_models import ConfigValueFeed
 
-    _, source = size_override(db_session, feed, namespace, key)
-    if source != SOURCE_AUTO:
+    if size_override(db_session, feed, namespace, key).locked:
         return False
 
     db_session.query(ConfigValueFeed).filter(
@@ -524,8 +543,22 @@ def record_size_override(
     hand before it can. Storing one only where it disagrees keeps the table to the feeds
     that are genuinely exceptions, and lets a feed leave the list on its own.
 
+    A locked override is left exactly as it is. This is the only place either direction
+    writes, so enforcing the lock here means no caller can move a locked feed by reaching
+    for the write path directly.
+
     Returns whether a row is now stored.
     """
+    existing = size_override(db_session, feed, namespace, key)
+    if existing.locked:
+        logging.info(
+            "Not moving %s to %s: it is locked to %s",
+            feed.stable_id,
+            size.value,
+            existing.size.value if existing.size else "an unreadable size",
+        )
+        return True
+
     measured, _ = measure_dataset(db_session, dataset, compression_ratio)
     if choose_size(measured, tiers) == size:
         logging.info(

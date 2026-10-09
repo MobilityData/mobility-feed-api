@@ -32,6 +32,7 @@ from unittest.mock import MagicMock, patch
 
 import flask
 import pytest
+from shared.helpers.sizing import Override
 
 import main
 
@@ -658,6 +659,9 @@ class TestEscalationOnFailure(BuildTestCase):
         super().setUp()
         self.enqueue = patch.object(main, "create_http_parquet_builder_task").start()
         self.override = patch.object(main, "record_size_override").start()
+        self.stored = patch.object(
+            main, "size_override", return_value=Override()
+        ).start()
         self.addCleanup(patch.stopall)
         self.tracker.attempts_since_success.return_value = 1
         # A resolvable feed, as the escalation needs for the config write.
@@ -692,6 +696,25 @@ class TestEscalationOnFailure(BuildTestCase):
 
         self.override.assert_not_called()
         self.enqueue.assert_not_called()
+
+    def test_a_locked_feed_does_not_escalate(self):
+        """A lock means what it says: nothing is retried and nothing is built, which is
+        why it is logged and reported rather than quietly worked around."""
+        self.stored.return_value = Override(size=main.Size.S, locked=True)
+
+        self._fail_with(OSError(28, "No space left on device"))
+
+        self.override.assert_not_called()
+        self.enqueue.assert_not_called()
+
+    def test_a_locked_feed_still_records_the_failure(self):
+        self.stored.return_value = Override(size=main.Size.S, locked=True)
+
+        self._fail_with(MemoryError())
+
+        kwargs = self.tracker.record_attempt.call_args.kwargs
+        self.assertEqual(kwargs["status"], "failed")
+        self.assertIsNone(kwargs["escalated_to"])
 
     def test_the_largest_worker_does_not_escalate(self):
         """Nothing above `l` to escalate to, so this is where the loop stops."""
@@ -960,6 +983,11 @@ class TestFailure(BuildTestCase):
 MIB = 1024**2
 
 
+def _override(size, locked=False, source="auto"):
+    """A stored override, as `_downsize_after_success` reads it."""
+    return Override(size=size, source=source, locked=locked)
+
+
 def _attempt(
     status="completed", variant="m", vms=500 * MIB, largest=50_000_000, metadata=True
 ):
@@ -979,7 +1007,7 @@ class TestDownsizeAfterSuccess(BuildTestCase):
         super().setUp()
         self.record = patch.object(main, "record_size_override").start()
         self.override = patch.object(
-            main, "size_override", return_value=(main.Size.M, main.SOURCE_AUTO)
+            main, "size_override", return_value=_override(main.Size.M)
         ).start()
         self.attempts = patch.object(
             main, "_recent_attempts", return_value=[_attempt() for _ in range(3)]
@@ -1040,20 +1068,26 @@ class TestDownsizeAfterSuccess(BuildTestCase):
 
         self.assertIsNone(self._review())
 
-    def test_a_persons_pin_is_never_touched(self):
-        self.override.return_value = (main.Size.M, "operator")
+    def test_an_unlocked_pin_is_lowered_like_any_other_override(self):
+        """Who wrote the value is a record, not a claim on it."""
+        self.override.return_value = _override(main.Size.M, source="operator")
+
+        self.assertEqual(self._review(), main.Size.S)
+
+    def test_a_locked_override_is_never_lowered(self):
+        self.override.return_value = _override(main.Size.M, locked=True)
 
         self.assertIsNone(self._review())
         self.record.assert_not_called()
 
     def test_a_feed_with_no_override_is_left_alone(self):
         """It already routes on its measurement, which is as low as it goes."""
-        self.override.return_value = (None, None)
+        self.override.return_value = Override()
 
         self.assertIsNone(self._review())
 
     def test_an_override_that_disagrees_with_the_worker_is_left_alone(self):
-        self.override.return_value = (main.Size.L, main.SOURCE_AUTO)
+        self.override.return_value = _override(main.Size.L)
 
         self.assertIsNone(self._review())
 

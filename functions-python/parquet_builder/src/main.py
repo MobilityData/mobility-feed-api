@@ -80,7 +80,6 @@ from shared.helpers.parquet_policy import (
     SIZE_TIERS,
 )
 from shared.helpers.sizing import (
-    SOURCE_AUTO,
     Basis,
     Size,
     classify_failure,
@@ -243,6 +242,20 @@ def _escalate_after_failure(
         )
         return None
 
+    # A lock means what it says: this build is not retried anywhere, and the dataset is
+    # not produced until a person changes the value. Checked before anything is written
+    # or enqueued, and reported loudly, because nothing else will raise it.
+    locked = size_override(db_session, feed, SIZE_CONFIG_NAMESPACE)
+    if locked.locked:
+        logger.warning(
+            "Not escalating %s: feed %s is locked to %s, so %s will not be retried",
+            dataset_stable_id,
+            feed.stable_id,
+            locked.size.value if locked.size else "an unreadable size",
+            kind.value,
+        )
+        return None
+
     # Only when it disagrees with the measurement: an override that merely restates the
     # measured tier pins the feed to it for good, and this dataset is already on its way
     # to `target` through the task below either way.
@@ -332,11 +345,12 @@ def _downsize_after_success(
         if feed is None:
             return None
 
-        current, source = size_override(db_session, feed, SIZE_CONFIG_NAMESPACE)
+        current = size_override(db_session, feed, SIZE_CONFIG_NAMESPACE)
         # No override means the feed already routes on its measurement, which is as low
-        # as it goes. A person's pin is theirs to remove. And an override that disagrees
-        # with the worker that just ran is a state this cannot reason about.
-        if current is None or source != SOURCE_AUTO or current is not variant:
+        # as it goes. An override that disagrees with the worker that just ran is a state
+        # this cannot reason about. A locked one is refused by `record_size_override`,
+        # but returning here keeps a locked feed out of the history query entirely.
+        if current.size is None or current.locked or current.size is not variant:
             return None
 
         tier = tier_for(target, SIZE_TIERS)
