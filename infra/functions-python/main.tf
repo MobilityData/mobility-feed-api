@@ -74,25 +74,37 @@ locals {
 
   function_parquet_builder_config = jsondecode(file("${path.module}/../../functions-python/parquet_builder/function_config.json"))
   # Parquet builds are routed to one of these by the Operations API, on the largest
-  # single uncompressed file in the dataset. Most feeds are tiny and were being billed
-  # at what the largest one needs. `l` matches the config file's own sizing; `m` is the
-  # cheap worker, and its small volume is only viable because the builder streams the
-  # archive over the network rather than writing it there.
-  # The in-memory volume is carved OUT of memory, not added to it: limit_gcp_memory
-  # subtracts it to set RLIMIT_AS, so volume must stay well under memory.
+  # single uncompressed file in the dataset. The bands are measured, not guessed: of
+  # 4277 feeds the median archive is 0.2 MB and only 31 exceed 100 MB, while about ten
+  # have a single member over 1 GB and the worst has one of 4.8 GB.
+  #
+  # Two rules set the numbers:
+  #  - `volume` must hold the largest member plus its Parquet output. It is carved OUT
+  #    of `memory`, not added to it: limit_gcp_memory subtracts it to set RLIMIT_AS.
+  #  - the process budget left over (memory - volume - 200MiB) tracks `duckdb_memory`
+  #    plus ~330 MB, because RSS stops growing once DuckDB hits its cap. It does not
+  #    scale with the feed, which is why the volume is what changes between rungs.
   parquet_builder_sizes = {
+    x = {
+      memory         = "2Gi"
+      cpu            = "1"
+      volume         = "1Gi"
+      duckdb_memory  = "512MB"
+      max_instances  = 60
+      max_dispatches = 40
+    }
     m = {
-      memory         = "4Gi"
+      memory         = "6Gi"
       cpu            = "2"
-      volume         = var.parquet_builder_in_memory_size_m
+      volume         = "3Gi"
       duckdb_memory  = "1GB"
       max_instances  = 40
       max_dispatches = 20
     }
     l = {
-      memory         = local.function_parquet_builder_config.memory
-      cpu            = local.function_parquet_builder_config.available_cpu
-      volume         = var.parquet_builder_in_memory_size
+      memory         = "12Gi"
+      cpu            = "4"
+      volume         = "8Gi"
       duckdb_memory  = "2GB"
       max_instances  = local.function_parquet_builder_config.max_instance_count
       max_dispatches = 5
@@ -904,6 +916,7 @@ resource "google_cloudfunctions2_function" "operations_api" {
       GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      PARQUET_BUILDER_QUEUE_X       = google_cloud_tasks_queue.parquet_builder_task_queue["x"].name
       PARQUET_BUILDER_QUEUE_M       = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
       PARQUET_BUILDER_QUEUE_L       = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
       DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"

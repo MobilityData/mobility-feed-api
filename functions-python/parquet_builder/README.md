@@ -162,16 +162,32 @@ leaves its claim to expire; one that fails normally releases it immediately.
 
 ## Worker sizes
 
-The builder is deployed twice from one source zip, as `parquet-builder-m-<env>` and
-`parquet-builder-l-<env>`, each with its own Cloud Tasks queue. The Operations API picks
-one at enqueue time.
+The builder is deployed three times from one source zip, as
+`parquet-builder-{x,m,l}-<env>`, each with its own Cloud Tasks queue. The Operations API
+picks one at enqueue time.
 
-| Size | Memory | CPU | Volume | DuckDB | Routed when |
-|---|---|---|---|---|---|
-| `m` | 4Gi | 2 | 2Gi | 1GB | largest single uncompressed file < 1.5 GB |
+| Size | Memory | CPU | Volume | DuckDB | Largest uncompressed file | Share of feeds |
+|---|---|---|---|---|---|---|
+| `x` | 2Gi | 1 | 1Gi | 512MB | < 256 MB | ~98% |
+| `m` | 6Gi | 2 | 3Gi | 1GB | < 1.5 GB | ~1.8% |
+| `l` | 12Gi | 4 | 8Gi | 2GB | anything larger, or unknown | ~0.2% |
 
 A feed pinned through config bypasses the table entirely; see below.
-| `l` | 16Gi | 4 | 8Gi | 2GB | otherwise, or the size is unknown |
+
+The bands are measured rather than guessed. Across 4277 feeds the median archive is
+0.2 MB and only 31 exceed 100 MB, while about ten hold a single member over 1 GB and the
+largest holds one of 4.8 GB. The catalogue is not a spectrum: it is a great many trivial
+feeds, a thin band of medium ones, and roughly a dozen large ones.
+
+Two rules set the numbers for each rung:
+
+- **the volume** must hold the largest member plus its Parquet output, and is carved out
+  of the total rather than added to it;
+- **the process budget** left over tracks that rung's `PARQUET_DUCKDB_MEMORY_LIMIT` plus
+  about 330 MB. Peak RSS stops growing once DuckDB reaches its cap, so it does not scale
+  with the feed - measured at 244 MB for a 2 MB member and 2329 MB for a 4.07 GiB one,
+  both against a 2GB cap. The volume is what changes between rungs; the budget follows
+  from the cap.
 
 **The measure is the largest single file, not the archive or the feed total.** The volume
 holds one source at a time, so that file is what decides whether a build fits. A total
@@ -229,24 +245,30 @@ the total rather than added to it.
 Per variant, taking `l` as the example:
 
 ```
-cgroup limit (the variant's "memory")          16384 MiB
-  - in-memory volume at PARQUET_TMPDIR        -  8192 MiB   parquet_builder_in_memory_size
+cgroup limit (the variant's "memory")          12288 MiB
+  - in-memory volume at PARQUET_TMPDIR        -  8192 MiB
   - MEMORY_MARGIN_MB                          -   200 MiB
-  = RLIMIT_AS set on the Python process          7992 MiB
+  = RLIMIT_AS set on the Python process          3896 MiB
 ```
 
-`m` is the same arithmetic over 4Gi and a 2Gi volume, giving a 1944 MiB process budget.
-Its small volume is only viable because the archive is streamed rather than written there.
+The same arithmetic gives `m` 2872 MiB and `x` 824 MiB, each comfortable against the
+`duckdb_memory + 330 MB` the process actually needs. The small volumes are only viable
+because the archive is streamed rather than written to them.
+
+All three rungs live in `local.parquet_builder_sizes` in `infra/functions-python/main.tf`.
+Memory and volume are set together there on purpose: the volume is subtracted from the
+total, so splitting them across files invites a rung whose process budget is accidentally
+negative.
 
 `limit_gcp_memory` (`shared/common/gcp_memory_utils.py`) does that subtraction at import,
 before anything allocates, and sets `RLIMIT_AS`. The point is that an overshoot raises a
 catchable `MemoryError` with a traceback instead of the kernel killing the container
-silently. It reads the volume's *declared* size, so the 4Gi is subtracted whether or not a
+silently. It reads the volume's *declared* size, so it is subtracted whether or not a
 byte is written to it. Both numbers are logged on every cold start:
 
 ```
-Process memory limit: 16384.00 MiB, total tmpfs size: 8192.00 MiB, available: 8192.00 MiB
-RLIMIT_AS set to 7992.00 MiB
+Process memory limit: 12288.00 MiB, total tmpfs size: 8192.00 MiB, available: 4096.00 MiB
+RLIMIT_AS set to 3896.00 MiB
 ```
 
 If `total tmpfs size` reads `0.00 MiB`, the volume did not get mounted and the process is
@@ -293,7 +315,7 @@ sorted by name afterwards so it does not depend on which path produced it.
 Sizing from observed averages is a trap here: feed sizes span orders of magnitude, so a
 sample that happens to exclude the largest feeds will suggest a volume that cannot build
 them at all. The process budget is the part that measurement does settle - the largest
-observed `process peak` is about 1.8 GiB against the 7992 MiB limit. Note that the
+observed `process peak` is 2329 MB on `l`, against its 3896 MiB limit. Note that the
 `Function metrics` log
 line reports `tracemalloc` for `memory:`, which sees Python allocations only - not DuckDB's
 C++ heap and not tmpfs pages. Use the `rss` figure on that same line, or Cloud Monitoring's

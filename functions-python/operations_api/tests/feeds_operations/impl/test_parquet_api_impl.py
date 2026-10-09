@@ -386,10 +386,29 @@ class TestSizeRouting(unittest.TestCase):
         ):
             return parquet_api_impl._size_for(session, feed, dataset)
 
-    def test_a_small_feed_goes_to_the_small_worker(self):
+    def test_a_trivial_feed_goes_to_the_smallest_worker(self):
+        """Where the great majority of the catalogue lands."""
         size = self._size_for(self._session(largest=10 * 1024**2), self._dataset())
 
+        self.assertEqual(size, parquet_api_impl.Size.X)
+
+    def test_a_mid_size_feed_goes_to_the_middle_worker(self):
+        size = self._size_for(self._session(largest=800 * 1024**2), self._dataset())
+
         self.assertEqual(size, parquet_api_impl.Size.M)
+
+    def test_the_band_boundaries(self):
+        for largest, expected in (
+            (255_999_999, parquet_api_impl.Size.X),
+            (256_000_000, parquet_api_impl.Size.M),
+            (1_499_999_999, parquet_api_impl.Size.M),
+            (1_500_000_000, parquet_api_impl.Size.L),
+        ):
+            with self.subTest(largest=largest):
+                self.assertEqual(
+                    self._size_for(self._session(largest=largest), self._dataset()),
+                    expected,
+                )
 
     def test_a_feed_with_one_huge_file_goes_to_the_large_worker(self):
         """mdb-2014's shape: a modest archive hiding a 4 GiB stop_times."""
@@ -434,6 +453,13 @@ class TestSizeRouting(unittest.TestCase):
 
         self.assertEqual(size, parquet_api_impl.Size.L)
 
+    def test_an_override_can_skip_a_rung(self):
+        size = self._size_for(
+            self._session(largest=4 * self.GB, override="x"), self._dataset()
+        )
+
+        self.assertEqual(size, parquet_api_impl.Size.X)
+
     def test_an_override_can_lower_the_size(self):
         size = self._size_for(
             self._session(largest=4 * self.GB, override="m"), self._dataset()
@@ -461,7 +487,7 @@ class TestSizeRouting(unittest.TestCase):
         ):
             size = parquet_api_impl._size_for(session, feed, self._dataset())
 
-        self.assertEqual(size, parquet_api_impl.Size.M)
+        self.assertEqual(size, parquet_api_impl.Size.X)
 
 
 class TestResolution(unittest.TestCase):

@@ -55,8 +55,15 @@ PARQUET_CONVERTER_VERSION = "2"
 # Routing table for the build workers. The measure is the largest single uncompressed
 # file in the dataset, because the builder's in-memory volume holds one at a time, so
 # that file is what decides whether a build fits. Totals are the wrong signal: a feed of
-# many medium files is cheaper than one with a single huge one.
+# many medium files is cheaper than one with a single huge one, and the compressed size
+# is wrong by a factor that runs from 4x to 13x across the catalogue.
+#
+# The bands come from measuring it: of 4277 feeds, the median archive is 0.2 MB and only
+# 31 are above 100 MB, while about ten feeds have a single member over 1 GB and the worst
+# has one of 4.8 GB. So most traffic belongs on a worker sized for a few hundred MB, and
+# the large worker exists for roughly a dozen feeds.
 SIZE_TIERS = (
+    Tier(size=Size.X, max_bytes=256_000_000),
     Tier(size=Size.M, max_bytes=1_500_000_000),
     Tier(size=Size.L, max_bytes=None),
 )

@@ -272,6 +272,7 @@ class TestParquetBuilderTask(unittest.TestCase):
     """The enqueue is what the Operations API records `preparing` on the strength of."""
 
     ENV = {
+        "PARQUET_BUILDER_QUEUE_X": "parquet-queue-x",
         "PARQUET_BUILDER_QUEUE_M": "parquet-queue-m",
         "PARQUET_BUILDER_QUEUE_L": "parquet-queue-l",
         "PROJECT_ID": "my-project",
@@ -373,6 +374,7 @@ class TestParquetBuilderTask(unittest.TestCase):
         mock_client_cls.return_value = MagicMock()
 
         for size, queue, target in (
+            (Size.X, "parquet-queue-x", "parquet-builder-x-dev"),
             (Size.M, "parquet-queue-m", "parquet-builder-m-dev"),
             (Size.L, "parquet-queue-l", "parquet-builder-l-dev"),
         ):

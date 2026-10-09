@@ -24,7 +24,7 @@ from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from sizing import Size
+    from shared.helpers.sizing import Size
 
 import requests
 import urllib3
@@ -567,7 +567,7 @@ def create_http_parquet_builder_task(
     from google.cloud import tasks_v2
     from google.protobuf import timestamp_pb2
     from shared.common.gcp_utils import create_http_task_with_name
-    from sizing import LARGEST, function_name, queue_env_var
+    from shared.helpers.sizing import LARGEST, function_name, queue_env_var
     import json
 
     size = size or LARGEST

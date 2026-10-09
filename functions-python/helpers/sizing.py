@@ -43,17 +43,11 @@ from typing import Iterable, Optional, Sequence
 
 
 class Size(Enum):
-    """Worker sizes, ordered smallest first. `value` is the routing suffix."""
+    """Worker sizes, smallest first. `value` is the routing suffix."""
 
+    X = "x"
     M = "m"
     L = "l"
-
-    @property
-    def rank(self) -> int:
-        return _RANK[self]
-
-    def __lt__(self, other: "Size") -> bool:
-        return self.rank < other.rank
 
     @classmethod
     def parse(cls, raw) -> Optional["Size"]:
@@ -70,8 +64,6 @@ class Size(Enum):
             logging.warning("Ignoring unrecognised size override %r", raw)
             return None
 
-
-_RANK = {Size.M: 0, Size.L: 1}
 
 LARGEST = Size.L
 
