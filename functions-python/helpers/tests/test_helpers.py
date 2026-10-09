@@ -302,7 +302,7 @@ class TestParquetBuilderTask(unittest.TestCase):
                 # The routing decision travels with the task so the builder can record
                 # why it ran where it did, without re-deriving it.
                 "variant_basis": None,
-                "floor": None,
+                "override": None,
             },
         )
         self.assertEqual(

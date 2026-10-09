@@ -141,9 +141,23 @@ def _strip_derived_fields(dumped: dict) -> dict:
     return dumped
 
 
-# Shared with the Parquet builder, which writes the floor these rows explain.
+# Shared with the Parquet builder, which writes the value these rows explain.
 SIZE_CONFIG_NAMESPACE = "parquet_builder"
-SIZE_FLOOR_CONFIG_KEY = "min_size"
+SIZE_CONFIG_KEY = "size"
+
+
+def _current_size_override(db_session, feed_id) -> Optional[str]:
+    """The size configured for this feed, if any, whoever set it.
+
+    An override decides which worker runs the build, so reporting it answers the question
+    this page exists for. Which of the two set it is in `variant_basis` on each attempt.
+    """
+    value = get_config_value(
+        SIZE_CONFIG_NAMESPACE, SIZE_CONFIG_KEY, feed_id=feed_id, db_session=db_session
+    )
+    if isinstance(value, dict):
+        return value.get("size")
+    return value if isinstance(value, str) else None
 
 
 def _as_datetime(value) -> Optional[datetime]:
@@ -173,7 +187,7 @@ def _execution_attempt(row) -> ExecutionAttempt:
         attempt=row.attempt,
         variant=row.variant,
         variant_basis=row.variant_basis,
-        floor_at_attempt=row.floor_at_attempt,
+        override_at_attempt=row.override_at_attempt,
         escalated_to=row.escalated_to,
         status=row.status,
         failure_kind=row.failure_kind,
@@ -412,12 +426,7 @@ class OperationsApiImpl(BaseOperationsApi):
 
         return ExecutionAttemptsResponse(
             feed_stable_id=id,
-            current_size_floor=get_config_value(
-                SIZE_CONFIG_NAMESPACE,
-                SIZE_FLOOR_CONFIG_KEY,
-                feed_id=gtfs_feed.id,
-                db_session=db_session,
-            ),
+            current_size_override=_current_size_override(db_session, gtfs_feed.id),
             total=total,
             attempts=[_execution_attempt(row) for row in attempts],
         )

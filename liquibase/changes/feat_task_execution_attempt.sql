@@ -16,12 +16,11 @@ CREATE TABLE task_execution_attempt (
     run_id           VARCHAR     NOT NULL,
     -- 1-based, counted since the entity last succeeded.
     attempt          INTEGER     NOT NULL,
-    -- Which worker ran it, and why that one was chosen. `variant` alone says what ran;
-    -- the other three are what make a move up or down legible rather than inferred from
-    -- comparing neighbouring rows.
+    -- Which worker ran it, and why. `variant` alone says what ran; the other three are
+    -- what make a change legible rather than inferred from neighbouring rows.
     variant          VARCHAR,
     variant_basis    VARCHAR,
-    floor_at_attempt VARCHAR,
+    override_at_attempt VARCHAR,
     escalated_to     VARCHAR,
     status           VARCHAR     NOT NULL,
     -- Null on success. Resource kinds are the ones an escalation may act on.

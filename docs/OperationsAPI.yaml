@@ -952,7 +952,7 @@ paths:
         One row per attempt a background task has made against any of this feed's datasets, newest first. Each row records which worker ran it, why that worker was chosen, what it cost in memory and time, and - when it failed - what ran out and whether the feed was moved to a larger worker as a result.
 
 
-        This is the audit trail behind automatic worker sizing. A build that exhausts its worker's memory or disk is retried one size up and the feed is given a floor, so the next run starts there; these rows are what show that happening, and why a feed is on a bigger worker than its size alone would suggest.
+        This is the audit trail behind automatic worker sizing. A build that exhausts its worker's memory or disk is retried one size up and the feed is given a size override, so the next run starts there; these rows are what show that happening, and why a feed is on a bigger worker than its size alone would suggest.
 
 
         The filters combine: `failure_kind=resource_memory` with a date range answers "did this feed start running out of memory after we changed something", which is the question that usually prompts opening this page.
@@ -3681,13 +3681,13 @@ components:
           example: x
         variant_basis:
           description: >-
-            Why that worker was chosen. `measured` from the dataset's own size, `floor` because an earlier failure raised it, `pinned` because an operator set it by hand.
+            Where that size came from. `measured` from the dataset's own size, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand.
           type: string
-          enum: [measured, floor, pinned]
+          enum: [measured, auto, operator]
           nullable: true
           example: measured
-        floor_at_attempt:
-          description: The minimum worker size in force for this feed when the attempt was routed.
+        override_at_attempt:
+          description: The size override in force for this feed when the attempt was routed, if any.
           type: string
           nullable: true
           example: m
@@ -3746,9 +3746,9 @@ components:
         feed_stable_id:
           type: string
           example: mdb-1210
-        current_size_floor:
+        current_size_override:
           description: >-
-            The minimum worker size currently set for this feed, if any. Set automatically when a build runs out of resources; it raises the size chosen by measurement but never lowers it, so it stops mattering once the feed's own data grows past it.
+            The worker size currently configured for this feed, if any. An override decides which worker runs the build, in place of the size the dataset would otherwise measure into. It is set either by an operator or automatically, after a build runs out of memory or disk; `variant_basis` on each attempt says which.
           type: string
           nullable: true
           example: m

@@ -549,7 +549,7 @@ def create_http_parquet_builder_task(
     retention_days: Optional[int] = None,
     size: Optional["Size"] = None,
     variant_basis: Optional[str] = None,
-    floor: Optional[str] = None,
+    override: Optional[str] = None,
 ) -> None:
     """
     Create a task to render a dataset as Parquet, on the worker sized for it.
@@ -585,7 +585,7 @@ def create_http_parquet_builder_task(
             # Why this size was chosen, carried so the builder can record the decision
             # alongside the attempt rather than having to re-derive it.
             "variant_basis": variant_basis,
-            "floor": floor,
+            "override": override,
         }
     ).encode()
     queue_env = queue_env_var(PARQUET_QUEUE_PREFIX, size)

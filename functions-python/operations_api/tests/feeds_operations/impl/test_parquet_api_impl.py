@@ -255,7 +255,7 @@ class TestGenerate(ParquetStateTestCase):
             retention_days=None,
             size=parquet_api_impl.Size.L,
             variant_basis="measured",
-            floor=None,
+            override=None,
         )
         # Not `absent` again: a client polling at 500ms would otherwise ask twice.
         self.assertEqual(state.status, "preparing")
@@ -346,7 +346,7 @@ class TestGenerate(ParquetStateTestCase):
             retention_days=None,
             size=parquet_api_impl.Size.L,
             variant_basis="measured",
-            floor=None,
+            override=None,
         )
 
     def test_a_failed_dataset_is_retried(self):
@@ -361,7 +361,7 @@ class TestGenerate(ParquetStateTestCase):
             retention_days=None,
             size=parquet_api_impl.Size.L,
             variant_basis="measured",
-            floor=None,
+            override=None,
         )
         self.assertEqual(state.status, "preparing")
 

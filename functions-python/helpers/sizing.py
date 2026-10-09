@@ -62,11 +62,11 @@ DEFAULT_COMPRESSION_RATIO = 5
 
 
 class Basis(Enum):
-    """Why a size was chosen, recorded so a move up or down is legible afterwards."""
+    """Where a size came from, recorded so a change is legible afterwards."""
 
     MEASURED = "measured"
-    FLOOR = "floor"
-    PINNED = "pinned"
+    OPERATOR = "operator"
+    AUTO = "auto"
 
 
 class FailureKind(Enum):
@@ -277,12 +277,25 @@ def measure_dataset(
     return None, "unknown"
 
 
-def size_override(db_session: "Session", feed, namespace: str, key: str = "size"):
-    """An operator's pin for this feed, if one is set.
+# Marks a value the builder wrote for itself. Anything without it was set by a person.
+SOURCE_AUTO = "auto"
+SOURCE_OPERATOR = "operator"
 
-    Read from `config_value_feed`, which needs a matching `config_key` row to exist
-    before anything can be pinned. With no row at all this is None and the measurement
-    decides.
+
+def size_override(
+    db_session: "Session", feed, namespace: str, key: str = "size"
+) -> tuple[Optional[Size], Optional[str]]:
+    """The size configured for this feed and who set it, or `(None, None)`.
+
+    One row per feed holds both cases, because what differs between them is the author,
+    not the value:
+
+    - a bare `"l"` is a person's, and decides outright;
+    - `{"size": "l", "source": "auto"}` is the builder's own, and only raises a measured
+      size.
+
+    The bare form is what a human writing SQL by hand produces, so it is the one that
+    needs no ceremony.
     """
     try:
         raw = get_config_value(namespace, key, feed_id=feed.id, db_session=db_session)
@@ -290,17 +303,20 @@ def size_override(db_session: "Session", feed, namespace: str, key: str = "size"
         logging.warning(
             "Could not read the size override for %s: %s", feed.stable_id, error
         )
-        return None
-    return Size.parse(raw)
+        return None, None
+
+    if isinstance(raw, dict):
+        return Size.parse(raw.get("size")), raw.get("source") or SOURCE_AUTO
+    size = Size.parse(raw)
+    return size, SOURCE_OPERATOR if size else None
 
 
 @dataclass(frozen=True)
 class Routing:
-    """A sizing decision: what to run on, why, and what floor was in force."""
+    """A sizing decision: what to run on, and where that came from."""
 
     size: Size
     basis: Basis
-    floor: Optional[Size] = None
 
 
 def size_for_dataset(
@@ -311,43 +327,34 @@ def size_for_dataset(
     tiers: Sequence[Tier],
     namespace: str,
     key: str = "size",
-    floor_key: str = "min_size",
     compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
 ) -> Routing:
-    """Which worker should handle this dataset, and why.
+    """Which worker should handle this dataset, and where that came from.
 
-    Three inputs, in order of authority:
+    An override decides; otherwise the measurement picks a tier. Nothing else.
 
-    - a **pin** (`key`), which decides outright. An operator set it deliberately, so the
-      measurement is not even taken.
-    - a **floor** (`floor_key`), which raises a measured size but never lowers it. This is
-      what the self-healing escalation writes, so a feed that once ran out of resources
-      keeps the larger worker until its own growth makes the floor redundant.
-    - the **measurement**, which decides everything else.
+    The override is absolute whoever wrote it. A person's is obvious enough. The
+    builder's own is absolute too, because the alternative - weighing it against the
+    measurement so a grown feed can overtake it - only changes the outcome when the
+    measurement is larger, and that case already resolves itself: the build fails and the
+    escalation moves it up. One wasted build is not worth a second code path.
+
+    `source` is carried for the record, not to change the decision.
     """
-    pin = size_override(db_session, feed, namespace, key)
-    if pin is not None:
+    override, source = size_override(db_session, feed, namespace, key)
+    if override is not None:
+        basis = Basis.AUTO if source == SOURCE_AUTO else Basis.OPERATOR
         logging.info(
-            "Routing %s to %s: pinned on feed %s",
+            "Routing %s to %s: %s override on feed %s",
             dataset.stable_id,
-            pin.value,
+            override.value,
+            basis.value,
             feed.stable_id,
         )
-        return Routing(size=pin, basis=Basis.PINNED, floor=None)
+        return Routing(size=override, basis=basis)
 
-    floor = size_override(db_session, feed, namespace, floor_key)
     measure, how = measure_dataset(db_session, dataset, compression_ratio)
-    measured = choose_size(measure, tiers)
-
-    ladder = [tier.size for tier in tiers]
-    use_floor = (
-        floor is not None
-        and floor in ladder
-        and measured in ladder
-        and ladder.index(floor) > ladder.index(measured)
-    )
-    size = floor if use_floor else measured
-    basis = Basis.FLOOR if use_floor else Basis.MEASURED
+    size = choose_size(measure, tiers)
 
     if measure is None:
         logging.warning(
@@ -359,22 +366,23 @@ def size_for_dataset(
         )
     else:
         logging.info(
-            "Routing %s to %s by %s: %s bytes by %s, table [%s]%s",
+            "Routing %s to %s: %s bytes by %s, table [%s]",
             dataset.stable_id,
             size.value,
-            basis.value,
             measure,
             how,
             describe(tiers),
-            f", floor {floor.value}" if floor else "",
         )
-    return Routing(size=size, basis=basis, floor=floor)
+    return Routing(size=size, basis=Basis.MEASURED)
 
 
-def set_size_floor(
-    db_session: "Session", feed, size: Size, namespace: str, floor_key: str = "min_size"
+def set_size_override(
+    db_session: "Session", feed, size: Size, namespace: str, key: str = "size"
 ) -> None:
-    """Record that this feed needs at least `size`, so the next run starts there.
+    """Record the size this feed should use from now on, so the next run starts there.
+
+    Written as an object so the row says the builder set it rather than a person. Both
+    forms decide outright; the source is kept for the record.
 
     Written to `config_value_feed`, which has no foreign key to `feed` and requires both
     `feed_id` and a NOT NULL `feed_stable_id`, so both are supplied. `updated_at` has a
@@ -385,19 +393,20 @@ def set_size_floor(
     from shared.database_gen.sqlacodegen_models import ConfigValueFeed
 
     now = datetime.now(timezone.utc)
+    value = {"size": size.value, "source": SOURCE_AUTO}
     statement = (
         insert(ConfigValueFeed)
         .values(
             feed_id=feed.id,
             feed_stable_id=feed.stable_id,
             namespace=namespace,
-            key=floor_key,
-            value=size.value,
+            key=key,
+            value=value,
             updated_at=now,
         )
         .on_conflict_do_update(
             index_elements=["feed_id", "namespace", "key"],
-            set_={"value": size.value, "updated_at": now},
+            set_={"value": value, "updated_at": now},
         )
     )
     db_session.execute(statement)

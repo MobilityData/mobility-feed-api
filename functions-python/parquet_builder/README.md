@@ -195,8 +195,8 @@ Two rules set the numbers for each rung:
   **VMS runs about 2.2-2.8x the DuckDB cap, and 2-3x peak RSS.** Baseline VMS is ~550 MB
   before any work. Size a rung from `vms`; sizing from `rss` under-provisions by about
   half, which is how `l` ended up at a 3896 MiB budget and killed mdb-2014 with
-  `MemoryError`, and how `x` ended up at 824 MiB and died on a 41.7 MB feed with a
-  DuckDB `OutOfMemoryException`. The `x` and `m` figures above are post-fix; both were
+  `MemoryError`, and how `s` ended up at 824 MiB and died on a 41.7 MB feed with a
+  DuckDB `OutOfMemoryException`. The `s` and `m` figures above are post-fix; both were
   raised a rung after those runs.
 
 **The measure is the largest single file, not the archive or the feed total.** The volume
@@ -217,10 +217,22 @@ and a run of large builds leaves the short ones waiting behind them.
 
 ### Pinning a feed by hand
 
-A feed is pinned through the generic config tables, namespace `parquet_builder`, key
-`size`, value `"m"` or `"l"`. The key itself is registered by
+One key, `size`, under namespace `parquet_builder`, registered by
 `liquibase/changes/feat_parquet_builder_size.sql` - no new table, just the `config_key`
-row that `config_value_feed`'s foreign key needs - so setting an override is one insert:
+row that `config_value_feed`'s foreign key needs.
+
+One row per feed. **An override decides which worker runs the build**, in place of the
+size the dataset would otherwise measure into. Two forms, differing only in what they
+record about who wrote it:
+
+| value | set by |
+|---|---|
+| `"l"` | a person |
+| `{"size": "l", "source": "auto"}` | the builder, after a build ran out of resources |
+
+Both decide outright. The source is carried for the record - it shows up as
+`variant_basis` on each attempt - and changes nothing about the routing. The bare form is
+the one to type by hand:
 
 ```sql
 INSERT INTO config_value_feed (feed_id, feed_stable_id, namespace, key, value)
@@ -233,11 +245,19 @@ With no per-feed row, every feed is routed purely by measurement. The key carrie
 `default_value` on purpose: setting one would move the whole catalogue at once, which
 belongs in the routing table in `parquet_api_impl.py` instead.
 
-**A pinned size decides on its own.** The measurement is not consulted at all - not even
-computed - so a pin can send a feed either way. That is the point: the routing table is a
-heuristic over one number, and whoever pinned the feed has looked at it. The flip side is
-that pinning a feed below what it needs will fail it with `ENOSPC` or `MemoryError`, so
-check the build after changing one.
+**An override is absolute.** The measurement is not consulted at all - not even computed
+- so an override can send a feed either way. The flip side is that setting one below what
+a feed needs will fail it with `ENOSPC` or `MemoryError`, so check the build after
+changing one.
+
+Weighing the builder's own override against the measurement instead, so a grown feed
+could overtake it, was considered and dropped: it changes the outcome only when the
+measurement is larger, and that case already resolves itself - the build fails and the
+escalation moves it up. One wasted build is not worth a second code path.
+
+Note what neither form does: **nothing ever lowers an override.** A feed moved to a large
+worker after one difficult dataset stays there until someone clears the row, even if its
+data later shrinks. Worth a periodic look at `current_size_override` across feeds.
 
 An unrecognised value is logged and ignored rather than failing the request.
 
@@ -268,7 +288,7 @@ cgroup limit (the variant's "memory")          16384 MiB
   = RLIMIT_AS set on the Python process          7992 MiB
 ```
 
-The same arithmetic gives `m` 3896 MiB and `x` 1848 MiB. The small volumes are viable
+The same arithmetic gives `m` 3896 MiB and `s` 1848 MiB. The small volumes are viable
 only because the archive is streamed rather than written to them.
 
 All three rungs live in `local.parquet_builder_sizes` in `infra/functions-python/main.tf`.

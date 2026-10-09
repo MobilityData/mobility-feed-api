@@ -328,13 +328,12 @@ class TestEscalate(unittest.TestCase):
         self.assertIsNone(escalate(None, TIERS, attempts=0, max_attempts=3))
 
 
-class TestFloor(unittest.TestCase):
-    """A floor raises a measured size and never lowers it."""
+class TestConfiguredSize(unittest.TestCase):
+    """An override decides; otherwise the measurement does. Nothing else."""
 
-    def _route(self, largest, pin=None, floor=None):
+    def _route(self, largest, value=None):
         feed = MagicMock()
-        values = {"size": pin, "min_size": floor}
-        with patch(CONFIG_VALUE, side_effect=lambda ns, key, **kw: values.get(key)):
+        with patch(CONFIG_VALUE, return_value=value):
             return size_for_dataset(
                 _session(largest=largest),
                 feed,
@@ -343,39 +342,53 @@ class TestFloor(unittest.TestCase):
                 namespace="demo",
             )
 
-    def test_a_floor_above_the_measurement_wins(self):
-        routing = self._route(1, floor="l")
+    @staticmethod
+    def _auto(size):
+        """What the builder writes for itself, as opposed to a person's bare value."""
+        return {"size": size, "source": "auto"}
 
-        self.assertEqual(routing.size, Size.L)
-        self.assertEqual(routing.basis, Basis.FLOOR)
-        self.assertEqual(routing.floor, Size.L)
+    def test_an_override_beats_a_larger_measurement(self):
+        self.assertEqual(self._route(10 * GB, "s").size, Size.S)
+        self.assertEqual(self._route(10 * GB, self._auto("s")).size, Size.S)
 
-    def test_a_floor_below_the_measurement_is_ignored(self):
-        """The feed outgrew its floor, which is how a floor stops mattering."""
-        routing = self._route(10 * GB, floor="s")
+    def test_an_override_beats_a_smaller_measurement(self):
+        self.assertEqual(self._route(1, "l").size, Size.L)
+        self.assertEqual(self._route(1, self._auto("l")).size, Size.L)
 
-        self.assertEqual(routing.size, Size.L)
-        self.assertEqual(routing.basis, Basis.MEASURED)
-        self.assertEqual(routing.floor, Size.S)
+    def test_the_source_is_recorded_but_does_not_change_the_outcome(self):
+        """Both decide outright; `basis` says who, for the record."""
+        by_person = self._route(10 * GB, "s")
+        by_builder = self._route(10 * GB, self._auto("s"))
 
-    def test_a_floor_equal_to_the_measurement_reads_as_measured(self):
-        routing = self._route(1, floor="s")
+        self.assertEqual(by_person.size, by_builder.size)
+        self.assertEqual(by_person.basis, Basis.OPERATOR)
+        self.assertEqual(by_builder.basis, Basis.AUTO)
 
-        self.assertEqual(routing.size, Size.S)
-        self.assertEqual(routing.basis, Basis.MEASURED)
+    def test_an_unusable_value_falls_back_to_the_measurement(self):
+        for value in ("xl", {"size": "xl", "source": "auto"}, {}, 3):
+            with self.subTest(value=value):
+                routing = self._route(1, value)
 
-    def test_a_pin_beats_a_floor(self):
-        """An operator decided; the floor is the machine's opinion."""
-        routing = self._route(10 * GB, pin="s", floor="l")
+                self.assertEqual(routing.size, Size.S)
+                self.assertEqual(routing.basis, Basis.MEASURED)
 
-        self.assertEqual(routing.size, Size.S)
-        self.assertEqual(routing.basis, Basis.PINNED)
-
-    def test_no_floor_reads_as_measured(self):
+    def test_nothing_configured_reads_as_measured(self):
         routing = self._route(1)
 
+        self.assertEqual(routing.size, Size.S)
         self.assertEqual(routing.basis, Basis.MEASURED)
-        self.assertIsNone(routing.floor)
+
+    def test_an_override_skips_the_measurement_entirely(self):
+        feed = MagicMock()
+        session = MagicMock()
+        session.query.side_effect = AssertionError("the dataset was measured")
+
+        with patch(CONFIG_VALUE, return_value="m"):
+            routing = size_for_dataset(
+                session, feed, _dataset(), tiers=TIERS, namespace="demo"
+            )
+
+        self.assertEqual(routing.size, Size.M)
 
 
 if __name__ == "__main__":

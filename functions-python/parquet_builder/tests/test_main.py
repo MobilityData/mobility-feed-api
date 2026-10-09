@@ -657,7 +657,7 @@ class TestEscalationOnFailure(BuildTestCase):
     def setUp(self):
         super().setUp()
         self.enqueue = patch.object(main, "create_http_parquet_builder_task").start()
-        self.floor = patch.object(main, "set_size_floor").start()
+        self.override = patch.object(main, "set_size_override").start()
         self.addCleanup(patch.stopall)
         self.tracker.attempts_since_success.return_value = 1
         # A resolvable feed, as the escalation needs for the config write.
@@ -676,8 +676,8 @@ class TestEscalationOnFailure(BuildTestCase):
     def test_a_memory_failure_escalates_one_rung(self):
         self._fail_with(MemoryError())
 
-        self.floor.assert_called_once()
-        self.assertEqual(self.floor.call_args.args[2], main.Size.M)
+        self.override.assert_called_once()
+        self.assertEqual(self.override.call_args.args[2], main.Size.M)
         self.enqueue.assert_called_once()
         self.assertEqual(self.enqueue.call_args.kwargs["size"], main.Size.M)
 
@@ -690,14 +690,14 @@ class TestEscalationOnFailure(BuildTestCase):
         """Retrying a corrupt archive on a bigger machine is just a second failure."""
         self._fail_with(ValueError("no tables could be converted"))
 
-        self.floor.assert_not_called()
+        self.override.assert_not_called()
         self.enqueue.assert_not_called()
 
     def test_the_largest_worker_does_not_escalate(self):
         """Nothing above `l` to escalate to, so this is where the loop stops."""
         self._fail_with(MemoryError(), service="parquet-builder-l-dev")
 
-        self.floor.assert_not_called()
+        self.override.assert_not_called()
         self.enqueue.assert_not_called()
 
     def test_the_attempt_cap_stops_the_loop(self):

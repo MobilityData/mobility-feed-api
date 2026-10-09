@@ -79,7 +79,7 @@ from shared.helpers.sizing import (
     classify_failure,
     escalate,
     function_name,
-    set_size_floor,
+    set_size_override,
 )
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 from shared.helpers.utils import create_http_parquet_builder_task
@@ -242,7 +242,7 @@ def _escalate_after_failure(
         )
         return None
 
-    set_size_floor(db_session, feed, target, SIZE_CONFIG_NAMESPACE)
+    set_size_override(db_session, feed, target, SIZE_CONFIG_NAMESPACE)
     db_session.commit()
     logger.info(
         "Escalating %s from %s to %s after %s",
@@ -257,8 +257,8 @@ def _escalate_after_failure(
         force=True,
         retention_days=retention_days,
         size=target,
-        variant_basis=Basis.FLOOR.value,
-        floor=target.value,
+        variant_basis=Basis.AUTO.value,
+        override=target.value,
     )
     return target
 
@@ -274,7 +274,7 @@ def build_parquet_handler(request: flask.Request) -> dict:
     # Why the Operations API routed this here. Carried for the attempt record only; the
     # worker that actually ran it comes from K_SERVICE, which cannot be wrong.
     variant_basis = payload.get("variant_basis")
-    floor = payload.get("floor")
+    override = payload.get("override")
 
     if not (feed_stable_id and dataset_stable_id):
         return {
@@ -306,7 +306,7 @@ def build_parquet_handler(request: flask.Request) -> dict:
             force=force,
             retention_days=retention_days,
             variant_basis=variant_basis,
-            floor=floor,
+            override=override,
         )
     except Exception as error:
         # Deliberately a 200: see the module docstring.
@@ -326,7 +326,7 @@ def build_parquet(
     force: bool = False,
     retention_days: int = DEFAULT_RETENTION_DAYS,
     variant_basis: str = None,
-    floor: str = None,
+    override: str = None,
     db_session: Session = None,
 ) -> dict:
     """Claim the dataset, convert it, publish it, and record what was written."""
@@ -427,7 +427,7 @@ def build_parquet(
                 started_at=started_at,
                 variant=variant.value if variant else None,
                 variant_basis=variant_basis,
-                floor_at_attempt=floor,
+                override_at_attempt=override,
                 metrics=_memory_metrics(),
             )
             db_session.commit()
@@ -482,7 +482,7 @@ def build_parquet(
                 started_at=started_at,
                 variant=variant.value if variant else None,
                 variant_basis=variant_basis,
-                floor_at_attempt=floor,
+                override_at_attempt=override,
                 escalated_to=escalated_to.value if escalated_to else None,
                 failure_kind=classify_failure(error).value,
                 error=error,

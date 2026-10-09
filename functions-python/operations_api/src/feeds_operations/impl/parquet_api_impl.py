@@ -37,7 +37,7 @@ from feeds_gen.models.parquet_dataset_state import ParquetDatasetState
 from feeds_gen.models.parquet_generate_request import ParquetGenerateRequest
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
-from shared.helpers.sizing import Routing, Size, Tier, size_for_dataset
+from shared.helpers.sizing import Basis, Routing, Size, Tier, size_for_dataset
 from shared.helpers.task_execution.task_execution_tracker import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -265,7 +265,7 @@ def _enqueue_sizing(db_session: Session, feed, dataset) -> dict:
     return {
         "size": routing.size,
         "variant_basis": routing.basis.value,
-        "floor": routing.floor.value if routing.floor else None,
+        "override": routing.size.value if routing.basis is not Basis.MEASURED else None,
     }
 
 
