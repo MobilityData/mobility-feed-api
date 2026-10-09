@@ -304,8 +304,8 @@ def _state_of(db_session: Session, feed, dataset) -> ParquetDatasetState:
         run_id=PARQUET_CONVERTER_VERSION,
         db_session=db_session,
     )
-    # Read the row rather than `is_triggered`, which counts only triggered and
-    # completed - an entity actively in progress reads as untracked through it.
+    # The row itself, not `is_handled`: that reduces it to a yes/no for dispatch, and
+    # this has to tell `preparing` from `ready` and `failed`.
     row = tracker.get_entity(dataset.stable_id)
 
     base = {

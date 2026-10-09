@@ -81,16 +81,21 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
         self.assertIn("completed_at", stmt_compiled)
 
 
-class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
-    def test_returns_true_when_triggered_row_exists(self):
+def _status_values(criterion):
+    """The statuses an `in_` criterion accepts, read off the compiled SQL."""
+    compiled = criterion.compile(compile_kwargs={"literal_binds": True})
+    return str(compiled)
+
+
+class TestTaskExecutionTrackerIsHandled(unittest.TestCase):
+    def test_returns_true_when_a_row_exists(self):
         tracker, session = _make_tracker()
         existing_row = MagicMock()
         session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
             existing_row
         )
 
-        result = tracker.is_triggered("ds-123")
-        self.assertTrue(result)
+        self.assertTrue(tracker.is_handled("ds-123"))
 
     def test_returns_false_when_no_row(self):
         tracker, session = _make_tracker()
@@ -98,8 +103,7 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
             None
         )
 
-        result = tracker.is_triggered("ds-999")
-        self.assertFalse(result)
+        self.assertFalse(tracker.is_handled("ds-999"))
 
     def test_handles_none_entity_id(self):
         tracker, session = _make_tracker()
@@ -107,8 +111,57 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
             None
         )
 
-        result = tracker.is_triggered(None)
-        self.assertFalse(result)
+        self.assertFalse(tracker.is_handled(None))
+
+    def test_in_progress_counts_as_handled(self):
+        """The whole point: an entity being worked on is not free to dispatch.
+
+        It used to answer the same as an entity nobody had ever asked for, which made
+        `in_progress` indistinguishable from absent through this method.
+        """
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
+
+        tracker.is_handled("ds-123")
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        for status in (STATUS_TRIGGERED, STATUS_IN_PROGRESS, STATUS_COMPLETED):
+            self.assertIn(status, criteria)
+
+    def test_failed_stays_dispatchable(self):
+        """A failed entity is meant to be retried, so it must not read as handled."""
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
+
+        tracker.is_handled("ds-123")
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        self.assertNotIn(STATUS_FAILED, criteria)
+
+
+class TestTaskExecutionTrackerCountAlreadyTracked(unittest.TestCase):
+    """The dry-run preview has to agree with what the real run skips."""
+
+    def test_it_counts_the_same_statuses_is_handled_accepts(self):
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.count.return_value = 3
+
+        self.assertEqual(tracker.count_already_tracked(["a", "b"]), 3)
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        for status in (STATUS_TRIGGERED, STATUS_IN_PROGRESS, STATUS_COMPLETED):
+            self.assertIn(status, criteria)
+        self.assertNotIn(STATUS_FAILED, criteria)
+
+    def test_an_empty_list_costs_no_query(self):
+        tracker, session = _make_tracker()
+
+        self.assertEqual(tracker.count_already_tracked([]), 0)
+        session.query.assert_not_called()
 
 
 class TestTaskExecutionTrackerMarkTriggered(unittest.TestCase):

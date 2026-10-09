@@ -29,7 +29,7 @@ Usage:
     )
     tracker.start_run(total_count=5000, params={"validator_endpoint": "...", "env": "staging"})
 
-    if not tracker.is_triggered(dataset_id):
+    if not tracker.is_handled(dataset_id):
         execute_workflow(...)
         tracker.mark_triggered(dataset_id, execution_ref=execution.name)
 
@@ -58,6 +58,10 @@ STATUS_IN_PROGRESS = "in_progress"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
 STATUS_TRIGGERED = "triggered"
+
+# An entity in any of these is spoken for: something has dispatched it, is working on
+# it, or has finished. Only an absent row or a `failed` one is free to dispatch.
+_HANDLED_STATUSES = (STATUS_TRIGGERED, STATUS_IN_PROGRESS, STATUS_COMPLETED)
 
 # How long a claim taken by `try_acquire` stays valid without a heartbeat. A worker
 # killed mid-run (OOM, timeout) cannot release its own claim, so the claim has to
@@ -165,8 +169,11 @@ class TaskExecutionTracker:
 
     def count_already_tracked(self, entity_ids: list[str]) -> int:
         """
-        Return how many of the given entity_ids are already tracked for this run
-        (status triggered or completed). Useful in dry-run to preview skips.
+        Return how many of the given entity_ids are already handled for this run.
+        Useful in dry-run to preview skips.
+
+        Counts the same statuses `is_handled` accepts, so a dry run predicts the number
+        of skips the real run performs.
         """
         if not entity_ids:
             return 0
@@ -175,21 +182,23 @@ class TaskExecutionTracker:
             .filter(
                 TaskExecutionLog.task_name == self.task_name,
                 TaskExecutionLog.run_id == self.run_id,
-                TaskExecutionLog.status.in_([STATUS_TRIGGERED, STATUS_COMPLETED]),
+                TaskExecutionLog.status.in_(_HANDLED_STATUSES),
                 TaskExecutionLog.entity_id.in_(entity_ids),
             )
             .count()
         )
 
-    def is_triggered(self, entity_id: Optional[str]) -> bool:
-        """
-        Return True if an execution log entry already exists for this entity
-        with status triggered or completed (i.e. should not be re-triggered).
+    def is_handled(self, entity_id: Optional[str]) -> bool:
+        """True when something already has this entity: triggered, running, or done.
+
+        The dispatchable states are the two that mean nobody has it: no row at all, and
+        `failed`. A failed entity is meant to be retried, which is why it is not counted
+        here.
         """
         query = self.db_session.query(TaskExecutionLog).filter(
             TaskExecutionLog.task_name == self.task_name,
             TaskExecutionLog.run_id == self.run_id,
-            TaskExecutionLog.status.in_([STATUS_TRIGGERED, STATUS_COMPLETED]),
+            TaskExecutionLog.status.in_(_HANDLED_STATUSES),
         )
         if entity_id is None:
             query = query.filter(TaskExecutionLog.entity_id.is_(None))
@@ -387,9 +396,9 @@ class TaskExecutionTracker:
     def get_entity(self, entity_id: Optional[str]) -> Optional[TaskExecutionLog]:
         """The tracking row for one entity, or None when it is untracked.
 
-        `is_triggered` answers a narrower question — it counts only `triggered` and
-        `completed`, so an entity actively `in_progress` reads as untracked through it.
-        Anything that needs to tell running from absent must read the row.
+        `is_handled` reduces the same row to a yes/no for dispatch. Read the row itself
+        when the states have to be told apart - reporting `preparing` separately from
+        `ready` and `failed`, for instance.
         """
         return self._entity_query(entity_id).one_or_none()
 
