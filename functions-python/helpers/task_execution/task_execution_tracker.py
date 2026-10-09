@@ -52,7 +52,11 @@ from sqlalchemy import and_, func, or_, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import TaskExecutionLog, TaskRun
+from shared.database_gen.sqlacodegen_models import (
+    TaskExecutionAttempt,
+    TaskExecutionLog,
+    TaskRun,
+)
 
 STATUS_IN_PROGRESS = "in_progress"
 STATUS_COMPLETED = "completed"
@@ -392,6 +396,103 @@ class TaskExecutionTracker:
         )
         self.db_session.flush()
         return bool(released)
+
+    # ------------------------------------------------------------------
+    # Attempt history
+    # ------------------------------------------------------------------
+
+    def record_attempt(
+        self,
+        entity_id: Optional[str],
+        *,
+        status: str,
+        started_at,
+        variant: Optional[str] = None,
+        variant_basis: Optional[str] = None,
+        floor_at_attempt: Optional[str] = None,
+        escalated_to: Optional[str] = None,
+        failure_kind: Optional[str] = None,
+        error: Optional[BaseException] = None,
+        metrics: Optional[dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Append one attempt to the history. Never updates an existing row.
+
+        `task_execution_log` answers where an entity stands now and rewrites itself to do
+        it, so it cannot answer what has happened. This can: a retry cap needs a count,
+        and sizing decisions need a distribution.
+
+        The exception is taken as an object rather than a string because
+        `str(MemoryError())` is empty - the class name is the only thing that identifies
+        it.
+        """
+        finished_at = datetime.now(timezone.utc)
+        metrics = metrics or {}
+        self.db_session.add(
+            TaskExecutionAttempt(
+                task_name=self.task_name,
+                entity_id=entity_id,
+                run_id=self.run_id,
+                attempt=self.attempts_since_success(entity_id) + 1,
+                variant=variant,
+                variant_basis=variant_basis,
+                floor_at_attempt=floor_at_attempt,
+                escalated_to=escalated_to,
+                status=status,
+                failure_kind=failure_kind,
+                error_type=type(error).__name__ if error is not None else None,
+                error_message=str(error) if error is not None else None,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=(
+                    int((finished_at - started_at).total_seconds() * 1000)
+                    if started_at
+                    else None
+                ),
+                peak_rss_bytes=metrics.get("peak_rss_bytes"),
+                peak_vms_bytes=metrics.get("peak_vms_bytes"),
+                metadata_=metadata,
+            )
+        )
+        self.db_session.flush()
+
+    def attempts_since_success(self, entity_id: Optional[str]) -> int:
+        """How many times this entity has been tried since it last succeeded.
+
+        The count an escalation is bounded by. Resets on success, so a feed that works
+        for months and then outgrows its worker gets the full allowance again rather than
+        being stuck at whatever it accumulated years ago.
+        """
+        last_success = (
+            self._attempt_query(entity_id)
+            .filter(TaskExecutionAttempt.status == STATUS_COMPLETED)
+            .order_by(TaskExecutionAttempt.finished_at.desc())
+            .first()
+        )
+        query = self._attempt_query(entity_id)
+        if last_success is not None:
+            query = query.filter(
+                TaskExecutionAttempt.finished_at > last_success.finished_at
+            )
+        return query.count()
+
+    def last_failure(self, entity_id: Optional[str]) -> Optional[TaskExecutionAttempt]:
+        """The most recent failed attempt, or None."""
+        return (
+            self._attempt_query(entity_id)
+            .filter(TaskExecutionAttempt.status == STATUS_FAILED)
+            .order_by(TaskExecutionAttempt.finished_at.desc())
+            .first()
+        )
+
+    def _attempt_query(self, entity_id: Optional[str]):
+        query = self.db_session.query(TaskExecutionAttempt).filter(
+            TaskExecutionAttempt.task_name == self.task_name,
+            TaskExecutionAttempt.run_id == self.run_id,
+        )
+        if entity_id is None:
+            return query.filter(TaskExecutionAttempt.entity_id.is_(None))
+        return query.filter(TaskExecutionAttempt.entity_id == entity_id)
 
     def get_entity(self, entity_id: Optional[str]) -> Optional[TaskExecutionLog]:
         """The tracking row for one entity, or None when it is untracked.

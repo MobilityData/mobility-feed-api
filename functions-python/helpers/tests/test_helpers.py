@@ -272,7 +272,7 @@ class TestParquetBuilderTask(unittest.TestCase):
     """The enqueue is what the Operations API records `preparing` on the strength of."""
 
     ENV = {
-        "PARQUET_BUILDER_QUEUE_X": "parquet-queue-x",
+        "PARQUET_BUILDER_QUEUE_S": "parquet-queue-s",
         "PARQUET_BUILDER_QUEUE_M": "parquet-queue-m",
         "PARQUET_BUILDER_QUEUE_L": "parquet-queue-l",
         "PROJECT_ID": "my-project",
@@ -299,6 +299,10 @@ class TestParquetBuilderTask(unittest.TestCase):
                 "dataset_stable_id": "mdb-1210-202402121801",
                 "force": False,
                 "retention_days": None,
+                # The routing decision travels with the task so the builder can record
+                # why it ran where it did, without re-deriving it.
+                "variant_basis": None,
+                "floor": None,
             },
         )
         self.assertEqual(
@@ -374,7 +378,7 @@ class TestParquetBuilderTask(unittest.TestCase):
         mock_client_cls.return_value = MagicMock()
 
         for size, queue, target in (
-            (Size.X, "parquet-queue-x", "parquet-builder-x-dev"),
+            (Size.S, "parquet-queue-s", "parquet-builder-s-dev"),
             (Size.M, "parquet-queue-m", "parquet-builder-m-dev"),
             (Size.L, "parquet-queue-l", "parquet-builder-l-dev"),
         ):

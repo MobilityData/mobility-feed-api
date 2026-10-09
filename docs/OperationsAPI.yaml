@@ -943,6 +943,43 @@ paths:
           description: Unauthorized.
         "404":
           description: Program not found.
+  /v1/operations/gtfs_feeds/{id}/execution_attempts:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: What background tasks have tried to do with this feed, and how it went
+      description: >-
+        One row per attempt a background task has made against any of this feed's datasets, newest first. Each row records which worker ran it, why that worker was chosen, what it cost in memory and time, and - when it failed - what ran out and whether the feed was moved to a larger worker as a result.
+
+
+        This is the audit trail behind automatic worker sizing. A build that exhausts its worker's memory or disk is retried one size up and the feed is given a floor, so the next run starts there; these rows are what show that happening, and why a feed is on a bigger worker than its size alone would suggest.
+
+
+        The filters combine: `failure_kind=resource_memory` with a date range answers "did this feed start running out of memory after we changed something", which is the question that usually prompts opening this page.
+      operationId: getGtfsFeedExecutionAttempts
+      tags:
+        - "operations"
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/execution_attempt_task_name"
+        - $ref: "#/components/parameters/execution_attempt_status"
+        - $ref: "#/components/parameters/execution_attempt_failure_kind"
+        - $ref: "#/components/parameters/execution_attempt_from"
+        - $ref: "#/components/parameters/execution_attempt_to"
+        - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        200:
+          description: Attempt history for the feed, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionAttemptsResponse"
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
   /v1/operations/gtfs_feeds/{id}/parquet:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -3619,6 +3656,109 @@ components:
               value: true
             - feature_flag_id: "max_results"
               value: 50
+    ExecutionAttempt:
+      x-operation: true
+      type: object
+      description: >-
+        One attempt by a background task against one dataset. Append-only: an attempt is never rewritten, so the sequence for a dataset is its full history rather than its current state.
+      properties:
+        task_name:
+          type: string
+          example: parquet_generation
+        dataset_stable_id:
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        attempt:
+          description: 1-based, counted since this dataset last succeeded.
+          type: integer
+          example: 1
+        variant:
+          description: >-
+            The worker that ran it. Read from the running service rather than from what was requested, so it is what actually happened.
+          type: string
+          nullable: true
+          example: x
+        variant_basis:
+          description: >-
+            Why that worker was chosen. `measured` from the dataset's own size, `floor` because an earlier failure raised it, `pinned` because an operator set it by hand.
+          type: string
+          enum: [measured, floor, pinned]
+          nullable: true
+          example: measured
+        floor_at_attempt:
+          description: The minimum worker size in force for this feed when the attempt was routed.
+          type: string
+          nullable: true
+          example: m
+        escalated_to:
+          description: >-
+            The worker this attempt moved the feed to. Null when nothing was escalated, which includes the cases where escalation was considered and declined - the failure was not a resource one, the largest worker was already in use, or the retry cap was spent.
+          type: string
+          nullable: true
+          example: m
+        status:
+          type: string
+          enum: [completed, failed]
+          example: failed
+        failure_kind:
+          description: What ran out. Null on success.
+          type: string
+          enum: [resource_memory, resource_disk, other]
+          nullable: true
+          example: resource_memory
+        error_type:
+          description: >-
+            The exception class. Recorded separately from the message because the most important one, `MemoryError`, carries an empty message.
+          type: string
+          nullable: true
+          example: MemoryError
+        error_message:
+          type: string
+          nullable: true
+          example: "Out of Memory Error: failed to allocate block of 262144 bytes"
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+          nullable: true
+          example: 4950
+        peak_rss_bytes:
+          description: Peak resident memory.
+          type: integer
+          format: int64
+          nullable: true
+        peak_vms_bytes:
+          description: >-
+            Peak address space, which is what the worker's limit actually caps. It runs two to three times resident memory, so a worker sized from `peak_rss_bytes` alone is under-provisioned by roughly half.
+          type: integer
+          format: int64
+          nullable: true
+    ExecutionAttemptsResponse:
+      x-operation: true
+      type: object
+      properties:
+        feed_stable_id:
+          type: string
+          example: mdb-1210
+        current_size_floor:
+          description: >-
+            The minimum worker size currently set for this feed, if any. Set automatically when a build runs out of resources; it raises the size chosen by measurement but never lowers it, so it stops mattering once the feed's own data grows past it.
+          type: string
+          nullable: true
+          example: m
+        total:
+          type: integer
+          example: 2
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionAttempt"
     ParquetDatasetState:
       x-operation: true
       type: object
@@ -3830,6 +3970,58 @@ components:
           - desc
         default: desc
         example: asc
+    execution_attempt_status:
+      x-operation: true
+      name: status
+      in: query
+      description: Return only attempts that ended this way.
+      required: false
+      schema:
+        type: string
+        enum: [completed, failed]
+        example: failed
+    execution_attempt_failure_kind:
+      x-operation: true
+      name: failure_kind
+      in: query
+      description: >-
+        Return only failures of this kind. `resource_memory` and `resource_disk` are the two that trigger an automatic move to a larger worker; `other` never does. Implies `status=failed`, since a successful attempt has no kind.
+      required: false
+      schema:
+        type: string
+        enum: [resource_memory, resource_disk, other]
+        example: resource_memory
+    execution_attempt_from:
+      x-operation: true
+      name: from
+      in: query
+      description: >-
+        Return attempts that started at or after this timestamp, in ISO 8601 date-time format. Filtered on when the attempt began rather than when it ended, so a long build is found by when it was triggered.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-01T00:00:00Z"
+    execution_attempt_to:
+      x-operation: true
+      name: to
+      in: query
+      description: Return attempts that started at or before this timestamp, in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-30T23:59:59Z"
+    execution_attempt_task_name:
+      x-operation: true
+      name: task_name
+      in: query
+      description: >-
+        Limit the history to one task, for example `parquet_generation`. Omit it to see every task that has touched the feed.
+      required: false
+      schema:
+        type: string
+        example: parquet_generation
     dataset_id_path_param:
       x-operation: true
       name: id

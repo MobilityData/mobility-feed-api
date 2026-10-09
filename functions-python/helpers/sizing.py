@@ -41,8 +41,10 @@ Two rules:
 
 from __future__ import annotations
 
+import errno
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Iterable, Optional, Sequence
 
@@ -59,10 +61,56 @@ if TYPE_CHECKING:  # pragma: no cover
 DEFAULT_COMPRESSION_RATIO = 5
 
 
+class Basis(Enum):
+    """Why a size was chosen, recorded so a move up or down is legible afterwards."""
+
+    MEASURED = "measured"
+    FLOOR = "floor"
+    PINNED = "pinned"
+
+
+class FailureKind(Enum):
+    """What ran out, when something did."""
+
+    RESOURCE_MEMORY = "resource_memory"
+    RESOURCE_DISK = "resource_disk"
+    OTHER = "other"
+
+    @property
+    def is_resource(self) -> bool:
+        return self is not FailureKind.OTHER
+
+
+# Matched on the exception's class name rather than by importing the libraries that raise
+# them, so this stays usable from any function without pulling in duckdb.
+_MEMORY_TYPES = {"MemoryError", "OutOfMemoryException"}
+_DISK_MARKERS = ("no space left on device", "errno 28")
+
+
+def classify_failure(exc: BaseException) -> FailureKind:
+    """What kind of exhaustion this failure was, if any.
+
+    Reads the exception, not a stored message, because `str(MemoryError())` is the empty
+    string - CPython raises a no-args singleton - so the failure the largest worker
+    exists for is invisible once the message has been written to a column.
+    """
+    name = type(exc).__name__
+    message = str(exc).lower()
+
+    if isinstance(exc, OSError) and getattr(exc, "errno", None) == errno.ENOSPC:
+        return FailureKind.RESOURCE_DISK
+    # DuckDB reports a full spill directory as its own IOException, not an OSError.
+    if any(marker in message for marker in _DISK_MARKERS):
+        return FailureKind.RESOURCE_DISK
+    if name in _MEMORY_TYPES or message.startswith("out of memory error"):
+        return FailureKind.RESOURCE_MEMORY
+    return FailureKind.OTHER
+
+
 class Size(Enum):
     """Worker sizes, smallest first. `value` is the routing suffix."""
 
-    X = "x"
+    S = "s"
     M = "m"
     L = "l"
 
@@ -116,6 +164,32 @@ def choose_size(
         if tier.max_bytes is None or measure < tier.max_bytes:
             return tier.size
     return LARGEST
+
+
+def escalate(
+    current: Optional[Size],
+    tiers: Sequence[Tier],
+    *,
+    attempts: int,
+    max_attempts: int,
+) -> Optional[Size]:
+    """The next rung up for a job that ran out of resources, or None to stop.
+
+    None means stop, for any of three reasons: the attempt cap is spent, the job is
+    already on the largest rung, or the current rung is unknown. All three are terminal,
+    because the alternative is a loop that re-queues forever at real cost.
+    """
+    if attempts >= max_attempts:
+        return None
+
+    ladder = [tier.size for tier in tiers]
+    if current is None or current not in ladder:
+        return None
+
+    index = ladder.index(current)
+    if index + 1 >= len(ladder):
+        return None
+    return ladder[index + 1]
 
 
 def first_known(*candidates: Optional[int]) -> Optional[int]:
@@ -220,6 +294,15 @@ def size_override(db_session: "Session", feed, namespace: str, key: str = "size"
     return Size.parse(raw)
 
 
+@dataclass(frozen=True)
+class Routing:
+    """A sizing decision: what to run on, why, and what floor was in force."""
+
+    size: Size
+    basis: Basis
+    floor: Optional[Size] = None
+
+
 def size_for_dataset(
     db_session: "Session",
     feed,
@@ -228,41 +311,96 @@ def size_for_dataset(
     tiers: Sequence[Tier],
     namespace: str,
     key: str = "size",
+    floor_key: str = "min_size",
     compression_ratio: int = DEFAULT_COMPRESSION_RATIO,
-) -> Size:
-    """Which worker should handle this dataset, and why, in the log.
+) -> Routing:
+    """Which worker should handle this dataset, and why.
 
-    A configured size settles it, so the measurement is skipped entirely rather than
-    computed and discarded.
+    Three inputs, in order of authority:
+
+    - a **pin** (`key`), which decides outright. An operator set it deliberately, so the
+      measurement is not even taken.
+    - a **floor** (`floor_key`), which raises a measured size but never lowers it. This is
+      what the self-healing escalation writes, so a feed that once ran out of resources
+      keeps the larger worker until its own growth makes the floor redundant.
+    - the **measurement**, which decides everything else.
     """
-    override = size_override(db_session, feed, namespace, key)
-    if override is not None:
+    pin = size_override(db_session, feed, namespace, key)
+    if pin is not None:
         logging.info(
             "Routing %s to %s: pinned on feed %s",
             dataset.stable_id,
-            override.value,
+            pin.value,
             feed.stable_id,
         )
-        return override
+        return Routing(size=pin, basis=Basis.PINNED, floor=None)
 
-    measure, basis = measure_dataset(db_session, dataset, compression_ratio)
-    size = choose_size(measure, tiers)
+    floor = size_override(db_session, feed, namespace, floor_key)
+    measure, how = measure_dataset(db_session, dataset, compression_ratio)
+    measured = choose_size(measure, tiers)
+
+    ladder = [tier.size for tier in tiers]
+    use_floor = (
+        floor is not None
+        and floor in ladder
+        and measured in ladder
+        and ladder.index(floor) > ladder.index(measured)
+    )
+    size = floor if use_floor else measured
+    basis = Basis.FLOOR if use_floor else Basis.MEASURED
 
     if measure is None:
         logging.warning(
             "No recorded size for %s (%s); routing to %s. Run the "
             "rebuild_missing_dataset_files task to record them.",
             dataset.stable_id,
-            basis,
+            how,
             size.value,
         )
     else:
         logging.info(
-            "Routing %s to %s: %s bytes by %s, table [%s]",
+            "Routing %s to %s by %s: %s bytes by %s, table [%s]%s",
             dataset.stable_id,
             size.value,
+            basis.value,
             measure,
-            basis,
+            how,
             describe(tiers),
+            f", floor {floor.value}" if floor else "",
         )
-    return size
+    return Routing(size=size, basis=basis, floor=floor)
+
+
+def set_size_floor(
+    db_session: "Session", feed, size: Size, namespace: str, floor_key: str = "min_size"
+) -> None:
+    """Record that this feed needs at least `size`, so the next run starts there.
+
+    Written to `config_value_feed`, which has no foreign key to `feed` and requires both
+    `feed_id` and a NOT NULL `feed_stable_id`, so both are supplied. `updated_at` has a
+    server default on insert only and is set explicitly on the update path.
+    """
+    from sqlalchemy.dialects.postgresql import insert
+
+    from shared.database_gen.sqlacodegen_models import ConfigValueFeed
+
+    now = datetime.now(timezone.utc)
+    statement = (
+        insert(ConfigValueFeed)
+        .values(
+            feed_id=feed.id,
+            feed_stable_id=feed.stable_id,
+            namespace=namespace,
+            key=floor_key,
+            value=size.value,
+            updated_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=["feed_id", "namespace", "key"],
+            set_={"value": size.value, "updated_at": now},
+        )
+    )
+    db_session.execute(statement)
+    logging.info(
+        "Feed %s now requires at least the %s worker", feed.stable_id, size.value
+    )

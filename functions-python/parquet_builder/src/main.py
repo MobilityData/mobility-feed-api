@@ -72,11 +72,33 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from shared.helpers.ephemeral_workdir import EphemeralOrDebugWorkdir
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.sizing import (
+    Basis,
+    Size,
+    Tier,
+    classify_failure,
+    escalate,
+    function_name,
+    set_size_floor,
+)
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
+from shared.helpers.utils import create_http_parquet_builder_task
 
 init_logger()
 
 TASK_NAME = "parquet_generation"
+BUILDER_BASE = "parquet-builder"
+SIZE_CONFIG_NAMESPACE = "parquet_builder"
+# Must match SIZE_TIERS in the Operations API implementation: the API routes a build and
+# this escalates one, and a disagreement would bounce a dataset between two workers.
+SIZE_TIERS = (
+    Tier(size=Size.S, max_bytes=256_000_000),
+    Tier(size=Size.M, max_bytes=1_500_000_000),
+    Tier(size=Size.L, max_bytes=None),
+)
+# Two escalations is the whole ladder: x -> m -> l. A third attempt would only repeat the
+# largest worker, so the cap is the ladder's length rather than a tuning knob.
+MAX_ATTEMPTS = 3
 PARQUET_PREFIX = "parquet"
 WORKDIR_PREFIX = "parquet_"
 
@@ -133,6 +155,114 @@ def _retention_days(value) -> int:
     return days
 
 
+def _memory_metrics() -> dict:
+    """Peak resident and address-space usage, or an empty dict where unavailable.
+
+    VMS is the figure that matters: `RLIMIT_AS` caps address space, and it runs two to
+    three times RSS, so sizing from RSS under-provisions a worker by about half.
+    """
+    try:
+        import resource
+
+        import psutil
+
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return {
+            "peak_rss_bytes": peak if sys.platform == "darwin" else peak * 1024,
+            "peak_vms_bytes": psutil.Process().memory_info().vms,
+        }
+    except Exception:  # pragma: no cover - metrics must never fail a build
+        return {}
+
+
+def _dataset_row(db_session, dataset_stable_id: str):
+    """The dataset, for its feed. None when it cannot be read."""
+    try:
+        return (
+            db_session.query(Gtfsdataset)
+            .filter(Gtfsdataset.stable_id == dataset_stable_id)
+            .one_or_none()
+        )
+    except Exception:
+        return None
+
+
+def _own_variant() -> Optional[Size]:
+    """Which worker this is, read from the name Cloud Run gave the service.
+
+    `K_SERVICE` is exactly what `sizing.function_name` builds - `parquet-builder-m-dev` -
+    so the running size is recoverable without an env var per variant, which keeps the
+    pattern free of per-function wiring.
+    """
+    service = os.getenv("K_SERVICE") or ""
+    for size in Size:
+        if service == function_name(BUILDER_BASE, size, os.getenv("ENVIRONMENT", "")):
+            return size
+    return None
+
+
+def _escalate_after_failure(
+    tracker,
+    db_session,
+    dataset,
+    dataset_stable_id: str,
+    feed_stable_id: str,
+    variant: Optional[Size],
+    error: BaseException,
+    retention_days: int,
+    logger,
+) -> Optional[Size]:
+    """Move the feed up a rung and re-queue, when the failure warrants it.
+
+    Returns the size it escalated to, or None when it declined. Declining is the common
+    case and has three reasons, all terminal: the failure was not a resource one, the
+    build was already on the largest worker, or the attempt cap is spent. Each is a stop,
+    because the alternative is a queue loop that costs money.
+    """
+    kind = classify_failure(error)
+    if not kind.is_resource:
+        return None
+
+    attempts = tracker.attempts_since_success(dataset_stable_id)
+    target = escalate(variant, SIZE_TIERS, attempts=attempts, max_attempts=MAX_ATTEMPTS)
+    if target is None:
+        logger.warning(
+            "Not escalating %s: %s on %s after %s attempt(s)",
+            dataset_stable_id,
+            kind.value,
+            variant.value if variant else "an unknown worker",
+            attempts,
+        )
+        return None
+
+    feed = getattr(dataset, "feed", None)
+    if feed is None:
+        logger.warning(
+            "Cannot escalate %s: its feed is not resolvable", dataset_stable_id
+        )
+        return None
+
+    set_size_floor(db_session, feed, target, SIZE_CONFIG_NAMESPACE)
+    db_session.commit()
+    logger.info(
+        "Escalating %s from %s to %s after %s",
+        dataset_stable_id,
+        variant.value if variant else "unknown",
+        target.value,
+        kind.value,
+    )
+    create_http_parquet_builder_task(
+        feed_stable_id,
+        dataset_stable_id,
+        force=True,
+        retention_days=retention_days,
+        size=target,
+        variant_basis=Basis.FLOOR.value,
+        floor=target.value,
+    )
+    return target
+
+
 @functions_framework.http
 def build_parquet_handler(request: flask.Request) -> dict:
     """Entrypoint for building the Parquet rendering of a GTFS dataset."""
@@ -141,6 +271,10 @@ def build_parquet_handler(request: flask.Request) -> dict:
     dataset_stable_id = payload.get("dataset_stable_id")
     force = bool(payload.get("force", False))
     retention_days = _retention_days(payload.get("retention_days"))
+    # Why the Operations API routed this here. Carried for the attempt record only; the
+    # worker that actually ran it comes from K_SERVICE, which cannot be wrong.
+    variant_basis = payload.get("variant_basis")
+    floor = payload.get("floor")
 
     if not (feed_stable_id and dataset_stable_id):
         return {
@@ -171,6 +305,8 @@ def build_parquet_handler(request: flask.Request) -> dict:
             bucket_name=bucket_name,
             force=force,
             retention_days=retention_days,
+            variant_basis=variant_basis,
+            floor=floor,
         )
     except Exception as error:
         # Deliberately a 200: see the module docstring.
@@ -189,10 +325,14 @@ def build_parquet(
     bucket_name: str,
     force: bool = False,
     retention_days: int = DEFAULT_RETENTION_DAYS,
+    variant_basis: str = None,
+    floor: str = None,
     db_session: Session = None,
 ) -> dict:
     """Claim the dataset, convert it, publish it, and record what was written."""
     logger = get_logger(build_parquet.__name__, dataset_stable_id)
+    started_at = datetime.now(timezone.utc)
+    variant = _own_variant()
     tracker = TaskExecutionTracker(
         task_name=TASK_NAME,
         run_id=PARQUET_CONVERTER_VERSION,
@@ -281,6 +421,15 @@ def build_parquet(
                 "tables": [table.as_manifest_entry() for table in tables],
             }
             tracker.mark_completed(dataset_stable_id, metadata=metadata)
+            tracker.record_attempt(
+                dataset_stable_id,
+                status="completed",
+                started_at=started_at,
+                variant=variant.value if variant else None,
+                variant_basis=variant_basis,
+                floor_at_attempt=floor,
+                metrics=_memory_metrics(),
+            )
             db_session.commit()
 
             logger.info(
@@ -308,6 +457,40 @@ def build_parquet(
                 "lease",
                 dataset_stable_id,
             )
+            db_session.rollback()
+
+        # Recording the attempt and escalating are best-effort: the build has already
+        # failed, and losing the original exception to a bookkeeping error would hide
+        # the thing worth reading.
+        escalated_to = None
+        try:
+            dataset = _dataset_row(db_session, dataset_stable_id)
+            escalated_to = _escalate_after_failure(
+                tracker,
+                db_session,
+                dataset,
+                dataset_stable_id,
+                feed_stable_id,
+                variant,
+                error,
+                retention_days,
+                logger,
+            )
+            tracker.record_attempt(
+                dataset_stable_id,
+                status="failed",
+                started_at=started_at,
+                variant=variant.value if variant else None,
+                variant_basis=variant_basis,
+                floor_at_attempt=floor,
+                escalated_to=escalated_to.value if escalated_to else None,
+                failure_kind=classify_failure(error).value,
+                error=error,
+                metrics=_memory_metrics(),
+            )
+            db_session.commit()
+        except Exception:
+            logger.exception("Could not record the attempt for %s", dataset_stable_id)
             db_session.rollback()
         raise
 

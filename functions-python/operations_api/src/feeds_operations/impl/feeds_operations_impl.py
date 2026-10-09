@@ -29,6 +29,8 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from feeds_gen.models.data_type import DataType
+from feeds_gen.models.execution_attempt import ExecutionAttempt
+from feeds_gen.models.execution_attempts_response import ExecutionAttemptsResponse
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
 from feeds_gen.models.gtfs_feed_availability_response import (
     GtfsFeedAvailabilityResponse,
@@ -57,10 +59,13 @@ from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
     t_feedsearch,
     Feed,
     Gtfsrealtimefeed,
+    TaskExecutionAttempt,
 )
+from shared.common.config_reader import get_config_value
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.db_models.gtfs_feed_availability_check_impl import (
@@ -134,6 +139,52 @@ def _strip_derived_fields(dumped: dict) -> dict:
         for field in _DERIVED_SOURCE_INFO_FIELDS:
             source_info.pop(field, None)
     return dumped
+
+
+# Shared with the Parquet builder, which writes the floor these rows explain.
+SIZE_CONFIG_NAMESPACE = "parquet_builder"
+SIZE_FLOOR_CONFIG_KEY = "min_size"
+
+
+def _as_datetime(value) -> Optional[datetime]:
+    """A query timestamp, from whatever the router handed over.
+
+    The generated router types these as `str`, so an ISO string is the usual case; an
+    unparsable one is rejected rather than silently ignored, since a filter that quietly
+    does nothing is worse than an error.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid date-time: {value}"
+        ) from None
+
+
+def _execution_attempt(row) -> ExecutionAttempt:
+    """One stored attempt, as the API reports it."""
+    return ExecutionAttempt(
+        task_name=row.task_name,
+        dataset_stable_id=row.entity_id,
+        attempt=row.attempt,
+        variant=row.variant,
+        variant_basis=row.variant_basis,
+        floor_at_attempt=row.floor_at_attempt,
+        escalated_to=row.escalated_to,
+        status=row.status,
+        failure_kind=row.failure_kind,
+        error_type=row.error_type,
+        error_message=row.error_message,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        duration_ms=row.duration_ms,
+        peak_rss_bytes=row.peak_rss_bytes,
+        peak_vms_bytes=row.peak_vms_bytes,
+    )
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -297,6 +348,78 @@ class OperationsApiImpl(BaseOperationsApi):
             offset=offset,
             limit=limit,
             checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def get_gtfs_feed_execution_attempts(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        task_name: Optional[str] = None,
+        status: Optional[str] = None,
+        failure_kind: Optional[str] = None,
+        var_from: Optional[str] = None,
+        to: Optional[str] = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        db_session: Session = None,
+    ) -> ExecutionAttemptsResponse:
+        """What background tasks have tried to do with this feed, newest first.
+
+        Attempts are recorded against a dataset, so this spans every dataset of the feed:
+        an admin looking at a feed wants its whole history, not one version's.
+        """
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+
+        # The dataset stable ids are the entity ids the attempts were recorded under.
+        dataset_ids = [
+            row[0]
+            for row in db_session.query(Gtfsdataset.stable_id)
+            .filter(Gtfsdataset.feed_id == gtfs_feed.id)
+            .all()
+        ]
+
+        query = db_session.query(TaskExecutionAttempt).filter(
+            TaskExecutionAttempt.entity_id.in_(dataset_ids or [""])
+        )
+        if task_name:
+            query = query.filter(TaskExecutionAttempt.task_name == task_name)
+        if status:
+            query = query.filter(TaskExecutionAttempt.status == status)
+        if failure_kind:
+            query = query.filter(TaskExecutionAttempt.failure_kind == failure_kind)
+        # On started_at, not finished_at: a long build should be found by when it was
+        # triggered, which is what someone looking for "what ran on Tuesday" means.
+        start = _as_datetime(var_from)
+        if start is not None:
+            query = query.filter(TaskExecutionAttempt.started_at >= start)
+        end = _as_datetime(to)
+        if end is not None:
+            query = query.filter(TaskExecutionAttempt.started_at <= end)
+
+        total = query.count()
+        attempts = (
+            query.order_by(TaskExecutionAttempt.finished_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        return ExecutionAttemptsResponse(
+            feed_stable_id=id,
+            current_size_floor=get_config_value(
+                SIZE_CONFIG_NAMESPACE,
+                SIZE_FLOOR_CONFIG_KEY,
+                feed_id=gtfs_feed.id,
+                db_session=db_session,
+            ),
+            total=total,
+            attempts=[_execution_attempt(row) for row in attempts],
         )
 
     @with_db_session

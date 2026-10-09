@@ -651,6 +651,100 @@ class TestArchiveIsStreamed(BuildTestCase):
         self.tracker.mark_failed.assert_called_once()
 
 
+class TestEscalationOnFailure(BuildTestCase):
+    """A runaway here re-queues forever at real cost, so every stop is pinned."""
+
+    def setUp(self):
+        super().setUp()
+        self.enqueue = patch.object(main, "create_http_parquet_builder_task").start()
+        self.floor = patch.object(main, "set_size_floor").start()
+        self.addCleanup(patch.stopall)
+        self.tracker.attempts_since_success.return_value = 1
+        # A resolvable feed, as the escalation needs for the config write.
+        dataset = MagicMock()
+        dataset.feed = MagicMock(id="feed-uuid", stable_id=FEED)
+        self.session.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset
+        )
+
+    def _fail_with(self, error, service="parquet-builder-s-dev"):
+        with patch.dict(main.os.environ, {"K_SERVICE": service, "ENVIRONMENT": "dev"}):
+            with patch.object(main, "convert_table", side_effect=error):
+                with self.assertRaises(type(error)):
+                    self.build()
+
+    def test_a_memory_failure_escalates_one_rung(self):
+        self._fail_with(MemoryError())
+
+        self.floor.assert_called_once()
+        self.assertEqual(self.floor.call_args.args[2], main.Size.M)
+        self.enqueue.assert_called_once()
+        self.assertEqual(self.enqueue.call_args.kwargs["size"], main.Size.M)
+
+    def test_a_disk_failure_escalates_too(self):
+        self._fail_with(OSError(28, "No space left on device"))
+
+        self.enqueue.assert_called_once()
+
+    def test_an_ordinary_failure_never_escalates(self):
+        """Retrying a corrupt archive on a bigger machine is just a second failure."""
+        self._fail_with(ValueError("no tables could be converted"))
+
+        self.floor.assert_not_called()
+        self.enqueue.assert_not_called()
+
+    def test_the_largest_worker_does_not_escalate(self):
+        """Nothing above `l` to escalate to, so this is where the loop stops."""
+        self._fail_with(MemoryError(), service="parquet-builder-l-dev")
+
+        self.floor.assert_not_called()
+        self.enqueue.assert_not_called()
+
+    def test_the_attempt_cap_stops_the_loop(self):
+        self.tracker.attempts_since_success.return_value = main.MAX_ATTEMPTS
+
+        self._fail_with(MemoryError())
+
+        self.enqueue.assert_not_called()
+
+    def test_an_unknown_worker_does_not_escalate(self):
+        """If K_SERVICE does not name a known size, guessing which rung died is worse
+        than stopping."""
+        self._fail_with(MemoryError(), service="something-else")
+
+        self.enqueue.assert_not_called()
+
+    def test_the_attempt_is_recorded_with_the_decision(self):
+        self._fail_with(MemoryError())
+
+        kwargs = self.tracker.record_attempt.call_args.kwargs
+        self.assertEqual(kwargs["status"], "failed")
+        self.assertEqual(kwargs["variant"], "s")
+        self.assertEqual(kwargs["failure_kind"], "resource_memory")
+        self.assertEqual(kwargs["escalated_to"], "m")
+        self.assertIsInstance(kwargs["error"], MemoryError)
+
+    def test_a_declined_escalation_records_no_target(self):
+        """The difference between "chose not to escalate" and "never ran"."""
+        self._fail_with(ValueError("no tables"))
+
+        kwargs = self.tracker.record_attempt.call_args.kwargs
+        self.assertIsNone(kwargs["escalated_to"])
+        self.assertEqual(kwargs["failure_kind"], "other")
+
+    def test_a_success_is_recorded_too(self):
+        with patch.dict(
+            main.os.environ,
+            {"K_SERVICE": "parquet-builder-m-dev", "ENVIRONMENT": "dev"},
+        ):
+            self.build()
+
+        kwargs = self.tracker.record_attempt.call_args.kwargs
+        self.assertEqual(kwargs["status"], "completed")
+        self.assertEqual(kwargs["variant"], "m")
+        self.enqueue.assert_not_called()
+
+
 class TestBothPathsAgree(BuildTestCase):
     """A dataset must not describe itself differently depending on the route taken."""
 

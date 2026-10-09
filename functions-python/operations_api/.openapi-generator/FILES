@@ -24,6 +24,8 @@ src/feeds_gen/models/early_access_program_report.py
 src/feeds_gen/models/early_access_report_row.py
 src/feeds_gen/models/early_access_report_summary.py
 src/feeds_gen/models/early_access_report_summary_by_source.py
+src/feeds_gen/models/execution_attempt.py
+src/feeds_gen/models/execution_attempts_response.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feature_flag_assignment.py

@@ -85,10 +85,11 @@ locals {
   #    plus ~330 MB, because RSS stops growing once DuckDB hits its cap. It does not
   #    scale with the feed, which is why the volume is what changes between rungs.
   parquet_builder_sizes = {
-    x = {
-      # Budgets below are RSS-derived and unvalidated against address space; see the
-      # note on `l`. Raise them rather than the volumes if a MemoryError appears.
-      memory         = "2Gi"
+    s = {
+      # 3Gi, for a 1848 MiB budget. At 2Gi the budget was 824 MiB and DuckDB died with
+      # OutOfMemoryException on a 41.7 MB feed: measured VMS is ~816 MB on a 0.7 MB
+      # feed, so there was nothing left. Baseline VMS is ~550 MB before any work.
+      memory         = "3Gi"
       cpu            = "1"
       volume         = "1Gi"
       duckdb_memory  = "512MB"
@@ -96,7 +97,9 @@ locals {
       max_dispatches = 40
     }
     m = {
-      memory         = "6Gi"
+      # 7Gi, for a 3896 MiB budget. At 6Gi it worked, but peak VMS reached 2297 MB of a
+      # 2872 MiB budget (80%) on a 1332 MB member, and the band admits up to 1.5 GB.
+      memory         = "7Gi"
       cpu            = "2"
       volume         = "3Gi"
       duckdb_memory  = "1GB"
@@ -104,11 +107,9 @@ locals {
       max_dispatches = 20
     }
     l = {
-      # 16Gi, not the ~12Gi the measured RSS would suggest. RLIMIT_AS caps address
-      # space, not resident memory, and DuckDB maps far more than it resides: at a
-      # 3896 MiB budget mdb-2014 died with MemoryError inside the Parquet upload even
-      # though its peak RSS was 2329 MB. 7992 MiB is the budget that is known to build
-      # it. Do not trim this again without a vms figure from the metrics log.
+      # 16Gi, for a 7992 MiB budget. Measured peak VMS is 5571 MB (70%); peak RSS is
+      # only 2496 MB, which is why sizing this from RSS put it at 3896 MiB and killed
+      # mdb-2014 with MemoryError. VMS runs ~2.2-2.8x the DuckDB cap - size from that.
       memory         = "16Gi"
       cpu            = "4"
       volume         = "8Gi"
@@ -923,7 +924,7 @@ resource "google_cloudfunctions2_function" "operations_api" {
       GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
-      PARQUET_BUILDER_QUEUE_X       = google_cloud_tasks_queue.parquet_builder_task_queue["x"].name
+      PARQUET_BUILDER_QUEUE_S       = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
       PARQUET_BUILDER_QUEUE_M       = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
       PARQUET_BUILDER_QUEUE_L       = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
       DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"
@@ -1689,6 +1690,12 @@ resource "google_cloudfunctions2_function" "parquet_builder" {
       # Well under what the limiter leaves us. DuckDB's own default reads the host's
       # RAM rather than the cgroup, so unset it spills far too late to help.
       PARQUET_DUCKDB_MEMORY_LIMIT = each.value.duckdb_memory
+      # The builder re-queues its own work one rung up when it runs out of resources, so
+      # it needs the queues the Operations API uses. Without these the enqueue is a
+      # logged no-op and the escalation would silently do nothing.
+      PARQUET_BUILDER_QUEUE_S = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
     }
     available_memory                 = each.value.memory
     timeout_seconds                  = local.function_parquet_builder_config.timeout

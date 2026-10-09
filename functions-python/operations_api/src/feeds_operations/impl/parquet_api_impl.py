@@ -37,7 +37,7 @@ from feeds_gen.models.parquet_dataset_state import ParquetDatasetState
 from feeds_gen.models.parquet_generate_request import ParquetGenerateRequest
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
-from shared.helpers.sizing import Size, Tier, size_for_dataset
+from shared.helpers.sizing import Routing, Size, Tier, size_for_dataset
 from shared.helpers.task_execution.task_execution_tracker import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -61,7 +61,7 @@ PARQUET_CONVERTER_VERSION = "2"
 # has one of 4.8 GB. So most traffic belongs on a worker sized for a few hundred MB, and
 # the large worker exists for roughly a dozen feeds. Stats as of 2026/09.
 SIZE_TIERS = (
-    Tier(size=Size.X, max_bytes=256_000_000),
+    Tier(size=Size.S, max_bytes=256_000_000),
     Tier(size=Size.M, max_bytes=1_500_000_000),
     Tier(size=Size.L, max_bytes=None),
 )
@@ -180,7 +180,7 @@ class ParquetApiImpl(BaseParquetApi):
                 dataset.stable_id,
                 force=force,
                 retention_days=retention_days,
-                size=_size_for(db_session, feed, dataset),
+                **_enqueue_sizing(db_session, feed, dataset),
             )
         except Exception as error:
             logging.error(
@@ -259,8 +259,18 @@ def _resolve(
     return feed, feed.latest_dataset
 
 
-def _size_for(db_session: Session, feed, dataset) -> Size:
-    """Which worker should build this dataset.
+def _enqueue_sizing(db_session: Session, feed, dataset) -> dict:
+    """The sizing arguments for the enqueue, flattened."""
+    routing = _size_for(db_session, feed, dataset)
+    return {
+        "size": routing.size,
+        "variant_basis": routing.basis.value,
+        "floor": routing.floor.value if routing.floor else None,
+    }
+
+
+def _size_for(db_session: Session, feed, dataset) -> Routing:
+    """Which worker should build this dataset, and why.
 
     A thin wrapper over the shared helper: everything here is the Parquet builder's own
     policy - its bands, its config namespace - and none of the mechanism.

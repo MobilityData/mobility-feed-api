@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
+from shared.helpers import sizing
 from feeds_operations.impl import parquet_api_impl
 from feeds_operations.impl.parquet_api_impl import ParquetApiImpl
 
@@ -76,7 +77,12 @@ class ParquetStateTestCase(unittest.TestCase):
         # Routing has its own tests; here it is pinned so the flow assertions do not
         # depend on what a MagicMock session reports as a file size.
         self._size_patch = patch.object(
-            parquet_api_impl, "_size_for", return_value=parquet_api_impl.Size.L
+            parquet_api_impl,
+            "_size_for",
+            return_value=parquet_api_impl.Routing(
+                size=parquet_api_impl.Size.L,
+                basis=sizing.Basis.MEASURED,
+            ),
         )
         self._size_patch.start()
         self.addCleanup(self._size_patch.stop)
@@ -248,6 +254,8 @@ class TestGenerate(ParquetStateTestCase):
             force=False,
             retention_days=None,
             size=parquet_api_impl.Size.L,
+            variant_basis="measured",
+            floor=None,
         )
         # Not `absent` again: a client polling at 500ms would otherwise ask twice.
         self.assertEqual(state.status, "preparing")
@@ -332,7 +340,13 @@ class TestGenerate(ParquetStateTestCase):
         self.generate(force=True)
 
         self.enqueue.assert_called_once_with(
-            FEED, DATASET, force=True, retention_days=None, size=parquet_api_impl.Size.L
+            FEED,
+            DATASET,
+            force=True,
+            retention_days=None,
+            size=parquet_api_impl.Size.L,
+            variant_basis="measured",
+            floor=None,
         )
 
     def test_a_failed_dataset_is_retried(self):
@@ -346,6 +360,8 @@ class TestGenerate(ParquetStateTestCase):
             force=False,
             retention_days=None,
             size=parquet_api_impl.Size.L,
+            variant_basis="measured",
+            floor=None,
         )
         self.assertEqual(state.status, "preparing")
 
@@ -375,12 +391,12 @@ class TestSizeRouting(unittest.TestCase):
         feed.id = "feed-uuid"
         feed.stable_id = FEED
         with patch(CONFIG_VALUE, return_value=None):
-            return parquet_api_impl._size_for(session, feed, dataset)
+            return parquet_api_impl._size_for(session, feed, dataset).size
 
     def test_the_bands(self):
         for largest, expected in (
-            (10 * 1024**2, parquet_api_impl.Size.X),
-            (255_999_999, parquet_api_impl.Size.X),
+            (10 * 1024**2, parquet_api_impl.Size.S),
+            (255_999_999, parquet_api_impl.Size.S),
             (256_000_000, parquet_api_impl.Size.M),
             (1_499_999_999, parquet_api_impl.Size.M),
             (1_500_000_000, parquet_api_impl.Size.L),
@@ -400,8 +416,8 @@ class TestSizeRouting(unittest.TestCase):
         with patch(CONFIG_VALUE, return_value="l") as config:
             parquet_api_impl._size_for(session, feed, dataset)
 
-        self.assertEqual(config.call_args.args[0], "parquet_builder")
-        self.assertEqual(config.call_args.args[1], "size")
+        self.assertEqual(config.call_args_list[0].args[0], "parquet_builder")
+        self.assertEqual(config.call_args_list[0].args[1], "size")
 
 
 class TestResolution(unittest.TestCase):

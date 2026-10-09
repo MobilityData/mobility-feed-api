@@ -21,12 +21,16 @@ from unittest.mock import MagicMock, patch
 
 from sizing import (
     LARGEST,
+    Basis,
+    FailureKind,
     Size,
     Tier,
     choose_size,
     describe,
     first_known,
     function_name,
+    classify_failure,
+    escalate,
     measure_dataset,
     queue_env_var,
     size_for_dataset,
@@ -37,7 +41,7 @@ CONFIG_VALUE = "sizing.get_config_value"
 MB = 1024**2
 GB = 1024**3
 TIERS = (
-    Tier(size=Size.X, max_bytes=256 * MB),
+    Tier(size=Size.S, max_bytes=256 * MB),
     Tier(size=Size.M, max_bytes=2 * GB),
     Tier(size=Size.L, max_bytes=None),
 )
@@ -45,8 +49,8 @@ TIERS = (
 
 class TestChooseSize(unittest.TestCase):
     def test_the_smallest_band_is_the_smallest_worker(self):
-        self.assertEqual(choose_size(1, TIERS), Size.X)
-        self.assertEqual(choose_size(256 * MB - 1, TIERS), Size.X)
+        self.assertEqual(choose_size(1, TIERS), Size.S)
+        self.assertEqual(choose_size(256 * MB - 1, TIERS), Size.S)
 
     def test_the_middle_band(self):
         self.assertEqual(choose_size(256 * MB, TIERS), Size.M)
@@ -70,7 +74,7 @@ class TestChooseSize(unittest.TestCase):
 
     def test_zero_is_not_treated_as_unknown(self):
         """A genuinely empty dataset is small, not unmeasured."""
-        self.assertEqual(choose_size(0, TIERS), Size.X)
+        self.assertEqual(choose_size(0, TIERS), Size.S)
 
 
 class TestOverride(unittest.TestCase):
@@ -80,7 +84,7 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(choose_size(1, TIERS, override=Size.L), Size.L)
 
     def test_it_can_skip_a_rung(self):
-        self.assertEqual(choose_size(10 * GB, TIERS, override=Size.X), Size.X)
+        self.assertEqual(choose_size(10 * GB, TIERS, override=Size.S), Size.S)
 
     def test_it_can_lower_the_measured_size(self):
         """Whoever set the config has looked at the feed; the table is a heuristic."""
@@ -90,7 +94,7 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(choose_size(None, TIERS, override=Size.M), Size.M)
 
     def test_matching_the_measured_size_changes_nothing(self):
-        self.assertEqual(choose_size(1, TIERS, override=Size.X), Size.X)
+        self.assertEqual(choose_size(1, TIERS, override=Size.S), Size.S)
 
 
 class TestParse(unittest.TestCase):
@@ -100,7 +104,7 @@ class TestParse(unittest.TestCase):
                 self.assertEqual(Size.parse(raw), Size.L)
 
     def test_accepts_every_size(self):
-        for raw, expected in (("x", Size.X), ("m", Size.M), ("l", Size.L)):
+        for raw, expected in (("s", Size.S), ("m", Size.M), ("l", Size.L)):
             with self.subTest(raw=raw):
                 self.assertEqual(Size.parse(raw), expected)
 
@@ -131,7 +135,7 @@ class TestFirstKnown(unittest.TestCase):
 class TestNaming(unittest.TestCase):
     def test_queue_env_var(self):
         self.assertEqual(
-            queue_env_var("PARQUET_BUILDER", Size.X), "PARQUET_BUILDER_QUEUE_X"
+            queue_env_var("PARQUET_BUILDER", Size.S), "PARQUET_BUILDER_QUEUE_S"
         )
         self.assertEqual(
             queue_env_var("PARQUET_BUILDER", Size.M), "PARQUET_BUILDER_QUEUE_M"
@@ -146,13 +150,13 @@ class TestNaming(unittest.TestCase):
         )
 
     def test_describe_is_loggable(self):
-        self.assertEqual(describe(TIERS), f"x<{256 * MB}, m<{2 * GB}, l:rest")
+        self.assertEqual(describe(TIERS), f"s<{256 * MB}, m<{2 * GB}, l:rest")
 
 
 class TestLadder(unittest.TestCase):
     def test_the_largest_is_the_last_rung(self):
         self.assertEqual(LARGEST, Size.L)
-        self.assertEqual([s.value for s in Size], ["x", "m", "l"])
+        self.assertEqual([s.value for s in Size], ["s", "m", "l"])
 
 
 def _dataset(unzipped=None, zipped=None):
@@ -214,10 +218,10 @@ class TestSizeForDataset(unittest.TestCase):
         with patch(CONFIG_VALUE, return_value=override):
             return size_for_dataset(
                 session, feed, dataset, tiers=TIERS, namespace="demo"
-            )
+            ).size
 
     def test_it_routes_on_the_measurement(self):
-        self.assertEqual(self._call(_session(largest=1), _dataset()), Size.X)
+        self.assertEqual(self._call(_session(largest=1), _dataset()), Size.S)
         self.assertEqual(self._call(_session(largest=3 * GB), _dataset()), Size.L)
 
     def test_an_unmeasurable_dataset_goes_to_the_largest(self):
@@ -225,7 +229,7 @@ class TestSizeForDataset(unittest.TestCase):
 
     def test_a_pin_decides_outright(self):
         self.assertEqual(
-            self._call(_session(largest=3 * GB), _dataset(), override="x"), Size.X
+            self._call(_session(largest=3 * GB), _dataset(), override="s"), Size.S
         )
 
     def test_a_pin_skips_the_measurement(self):
@@ -240,9 +244,9 @@ class TestSizeForDataset(unittest.TestCase):
         with patch(CONFIG_VALUE, side_effect=RuntimeError("no config")):
             size = size_for_dataset(
                 _session(largest=1), feed, _dataset(), tiers=TIERS, namespace="demo"
-            )
+            ).size
 
-        self.assertEqual(size, Size.X)
+        self.assertEqual(size, Size.S)
 
     def test_the_namespace_and_key_are_the_callers(self):
         feed = MagicMock()
@@ -256,7 +260,122 @@ class TestSizeForDataset(unittest.TestCase):
                 key="worker",
             )
 
-        self.assertEqual(config.call_args.args[:2], ("pmtiles_builder", "worker"))
+        self.assertEqual(
+            config.call_args_list[0].args[:2], ("pmtiles_builder", "worker")
+        )
+
+
+class TestClassifyFailure(unittest.TestCase):
+    """Read the exception, never a stored message."""
+
+    def test_a_bare_memory_error(self):
+        """The case that cannot be classified from text: its message is empty."""
+        error = MemoryError()
+
+        self.assertEqual(str(error), "")
+        self.assertEqual(classify_failure(error), FailureKind.RESOURCE_MEMORY)
+
+    def test_duckdb_out_of_memory(self):
+        class OutOfMemoryException(Exception):
+            pass
+
+        error = OutOfMemoryException("Out of Memory Error: failed to allocate 256 KiB")
+
+        self.assertEqual(classify_failure(error), FailureKind.RESOURCE_MEMORY)
+
+    def test_enospc(self):
+        error = OSError(28, "No space left on device", "/tmp/in-memory/stop_times.txt")
+
+        self.assertEqual(classify_failure(error), FailureKind.RESOURCE_DISK)
+
+    def test_duckdb_spill_filling_the_volume(self):
+        """DuckDB reports a full spill directory as its own error, not an OSError."""
+
+        class IOException(Exception):
+            pass
+
+        error = IOException("IO Error: Failed to write: No space left on device")
+
+        self.assertEqual(classify_failure(error), FailureKind.RESOURCE_DISK)
+
+    def test_anything_else(self):
+        for error in (ValueError("no tables"), FileNotFoundError("archive missing")):
+            with self.subTest(error=error):
+                self.assertEqual(classify_failure(error), FailureKind.OTHER)
+
+    def test_only_resource_kinds_are_resource(self):
+        self.assertTrue(FailureKind.RESOURCE_MEMORY.is_resource)
+        self.assertTrue(FailureKind.RESOURCE_DISK.is_resource)
+        self.assertFalse(FailureKind.OTHER.is_resource)
+
+
+class TestEscalate(unittest.TestCase):
+    """Every None is a stop, because the alternative is a queue loop."""
+
+    def test_it_moves_one_rung_up(self):
+        self.assertEqual(escalate(Size.S, TIERS, attempts=1, max_attempts=3), Size.M)
+        self.assertEqual(escalate(Size.M, TIERS, attempts=1, max_attempts=3), Size.L)
+
+    def test_the_largest_rung_is_terminal(self):
+        self.assertIsNone(escalate(Size.L, TIERS, attempts=1, max_attempts=3))
+
+    def test_the_attempt_cap_is_terminal(self):
+        self.assertIsNone(escalate(Size.S, TIERS, attempts=3, max_attempts=3))
+        self.assertIsNone(escalate(Size.S, TIERS, attempts=9, max_attempts=3))
+
+    def test_an_unknown_current_rung_is_terminal(self):
+        """Better to stop than to guess which worker just died."""
+        self.assertIsNone(escalate(None, TIERS, attempts=0, max_attempts=3))
+
+
+class TestFloor(unittest.TestCase):
+    """A floor raises a measured size and never lowers it."""
+
+    def _route(self, largest, pin=None, floor=None):
+        feed = MagicMock()
+        values = {"size": pin, "min_size": floor}
+        with patch(CONFIG_VALUE, side_effect=lambda ns, key, **kw: values.get(key)):
+            return size_for_dataset(
+                _session(largest=largest),
+                feed,
+                _dataset(),
+                tiers=TIERS,
+                namespace="demo",
+            )
+
+    def test_a_floor_above_the_measurement_wins(self):
+        routing = self._route(1, floor="l")
+
+        self.assertEqual(routing.size, Size.L)
+        self.assertEqual(routing.basis, Basis.FLOOR)
+        self.assertEqual(routing.floor, Size.L)
+
+    def test_a_floor_below_the_measurement_is_ignored(self):
+        """The feed outgrew its floor, which is how a floor stops mattering."""
+        routing = self._route(10 * GB, floor="s")
+
+        self.assertEqual(routing.size, Size.L)
+        self.assertEqual(routing.basis, Basis.MEASURED)
+        self.assertEqual(routing.floor, Size.S)
+
+    def test_a_floor_equal_to_the_measurement_reads_as_measured(self):
+        routing = self._route(1, floor="s")
+
+        self.assertEqual(routing.size, Size.S)
+        self.assertEqual(routing.basis, Basis.MEASURED)
+
+    def test_a_pin_beats_a_floor(self):
+        """An operator decided; the floor is the machine's opinion."""
+        routing = self._route(10 * GB, pin="s", floor="l")
+
+        self.assertEqual(routing.size, Size.S)
+        self.assertEqual(routing.basis, Basis.PINNED)
+
+    def test_no_floor_reads_as_measured(self):
+        routing = self._route(1)
+
+        self.assertEqual(routing.basis, Basis.MEASURED)
+        self.assertIsNone(routing.floor)
 
 
 if __name__ == "__main__":

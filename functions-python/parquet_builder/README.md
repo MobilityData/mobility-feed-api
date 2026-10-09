@@ -163,13 +163,13 @@ leaves its claim to expire; one that fails normally releases it immediately.
 ## Worker sizes
 
 The builder is deployed three times from one source zip, as
-`parquet-builder-{x,m,l}-<env>`, each with its own Cloud Tasks queue. The Operations API
+`parquet-builder-{s,m,l}-<env>`, each with its own Cloud Tasks queue. The Operations API
 picks one at enqueue time.
 
 | Size | Memory | CPU | Volume | DuckDB | Largest uncompressed file | Share of feeds |
 |---|---|---|---|---|---|---|
-| `x` | 2Gi | 1 | 1Gi | 512MB | < 256 MB | ~98% |
-| `m` | 6Gi | 2 | 3Gi | 1GB | < 1.5 GB | ~1.8% |
+| `s` | 3Gi | 1 | 1Gi | 512MB | < 256 MB | ~98% |
+| `m` | 7Gi | 2 | 3Gi | 1GB | < 1.5 GB | ~1.8% |
 | `l` | 16Gi | 4 | 8Gi | 2GB | anything larger, or unknown | ~0.2% |
 
 A feed pinned through config bypasses the table entirely; see below.
@@ -184,14 +184,20 @@ Two rules set the numbers for each rung:
 - **the volume** must hold the largest member plus its Parquet output, and is carved out
   of the total rather than added to it;
 - **the process budget** left over must cover the process's *address space*, which is
-  what `RLIMIT_AS` caps. This is the trap: peak RSS for a 4.07 GiB member is 2329 MB,
-  but sizing `l`'s budget at 3896 MiB on the strength of that number made mdb-2014 die
-  with `MemoryError` inside the Parquet upload. DuckDB maps far more than it resides.
-  7992 MiB is the budget known to build it.
+  what `RLIMIT_AS` caps - not its resident size. Measured across ten feeds:
 
-  The `Function metrics` line reports `vms` beside `rss` for exactly this reason. Size a
-  rung from `vms`, never from `rss`, and treat the `x` and `m` budgets as provisional
-  until there is a `vms` figure for a build that filled them.
+  | rung | budget | DuckDB cap | peak RSS | peak VMS | VMS of budget |
+  |---|---|---|---|---|---|
+  | `s` | 1848 MiB | 512MB | 443 MB | 816 MB | 44% |
+  | `m` | 3896 MiB | 1GB | 1056 MB | 2297 MB | 59% |
+  | `l` | 7992 MiB | 2GB | 2496 MB | 5571 MB | 70% |
+
+  **VMS runs about 2.2-2.8x the DuckDB cap, and 2-3x peak RSS.** Baseline VMS is ~550 MB
+  before any work. Size a rung from `vms`; sizing from `rss` under-provisions by about
+  half, which is how `l` ended up at a 3896 MiB budget and killed mdb-2014 with
+  `MemoryError`, and how `x` ended up at 824 MiB and died on a 41.7 MB feed with a
+  DuckDB `OutOfMemoryException`. The `x` and `m` figures above are post-fix; both were
+  raised a rung after those runs.
 
 **The measure is the largest single file, not the archive or the feed total.** The volume
 holds one source at a time, so that file is what decides whether a build fits. A total
@@ -262,10 +268,8 @@ cgroup limit (the variant's "memory")          16384 MiB
   = RLIMIT_AS set on the Python process          7992 MiB
 ```
 
-The same arithmetic gives `m` 2872 MiB and `x` 824 MiB. Those two are **not** yet
-confirmed against address space - see the warning above - and should be raised, not
-trimmed, at the first `MemoryError`. The small volumes are viable only because the
-archive is streamed rather than written to them.
+The same arithmetic gives `m` 3896 MiB and `x` 1848 MiB. The small volumes are viable
+only because the archive is streamed rather than written to them.
 
 All three rungs live in `local.parquet_builder_sizes` in `infra/functions-python/main.tf`.
 Memory and volume are set together there on purpose: the volume is subtracted from the
