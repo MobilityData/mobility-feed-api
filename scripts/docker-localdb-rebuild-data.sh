@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# This script delete the data and the local database container.
+# This script deletes the data and the local database container.
 # Then it downloads the latest csv file and populates the database applying the liquibase changes.
 # Usage:
 #       ./docker-localdb-rebuild-data.sh --populate-db
@@ -68,37 +68,47 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-container_name="database"
+# Per-worktree Compose project and host ports, so this stack can run alongside
+# other worktrees'. Generates config/.env.worktree on first use.
+# shellcheck source=./worktree-env.sh
+source "$SCRIPT_PATH/worktree-env.sh" --ensure
+
+db_service="postgres"
 docker_service="liquibase"
 docker_service_user="liquibase-user"
-data_dir="$SCRIPT_PATH/../data"
+data_volume="pgdata"
 
 if [ "$USE_TEST_DB" = true ]; then
-    container_name="database_test"
+    db_service="postgres-test"
     docker_service="liquibase-test"
     docker_service_user="liquibase-user-test"
-    data_dir="$SCRIPT_PATH/../data-test"
+    data_volume="pgdata_test"
 fi
 
-# Stop and remove the container
-docker stop $container_name
-docker rm $container_name
+worktree_env_compose_args
+compose() { docker compose "${WORKTREE_COMPOSE_ARGS[@]}" "$@"; }
 
-# delete the data
-rm -rf $data_dir
+# Stop and remove this worktree's DB container, then drop its data volume.
+# Scoped to this Compose project only - other worktrees are untouched.
+compose rm --stop --force "$db_service"
+docker volume rm --force "${COMPOSE_PROJECT_NAME:-mobility-feed-api}_${data_volume}" >/dev/null 2>&1
 
-# Add a slight delay because sometimes Docker does not seem ready after the rm.
-sleep 5
+# Start the database and block until it actually accepts TCP connections.
+if ! compose up -d --wait "$db_service"; then
+  printf "\n---------\nFailure: %s did not become healthy.\n---------\n" "$db_service"
+  compose logs --tail 40 "$db_service"
+  exit 1
+fi
 
-# Start the container and run the liquibase
-docker compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service
-# wait for the liquibase to finish
-sleep 20
-
-# Bring up the users-DB liquibase service. The users DB itself is created by
-# liquibase/init/01-create-users-db.sh on first start of the postgres container.
-docker compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service_user
-sleep 10
+# Apply the migrations as one-shot jobs. `run --rm` surfaces liquibase's real
+# exit code (and ignores the restart policy), so a failed migration stops the
+# script here instead of silently leaving an unmigrated DB for db-gen.sh.
+for service in "$docker_service" "$docker_service_user"; do
+  if ! compose run --rm "$service"; then
+    printf "\n---------\nFailure: liquibase service '%s' failed.\n---------\n" "$service"
+    exit 1
+  fi
+done
 
 # generate the models
 $SCRIPT_PATH/db-gen.sh
@@ -107,7 +117,7 @@ $SCRIPT_PATH/db-gen-user.sh
 
 if [ "$POPULATE_DB" = true ]; then
     # download the latest csv file and populate the db
-    mkdir $SCRIPT_PATH/../data/
+    mkdir -p $SCRIPT_PATH/../data/
     wget -O $SCRIPT_PATH/../data/$target_csv_file https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
     # populate licenses before feeds so that feed.license_id FK references are satisfied
     $SCRIPT_PATH/populate-licenses.sh

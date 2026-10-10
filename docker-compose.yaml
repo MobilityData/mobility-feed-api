@@ -1,14 +1,24 @@
+# The Compose project name is what isolates one git worktree's local stack from
+# another's. scripts/worktree-env.sh generates a stable per-worktree value in
+# config/.env.worktree; the fallback keeps a plain `docker compose` invocation
+# (and CI, which never creates that file) on the historical behaviour.
+name: ${COMPOSE_PROJECT_NAME:-mobility-feed-api}
+
 services:
   postgres:
-    container_name: database
     image: postgis/postgis:15-3.5
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
-      interval: 20s
+      # Must probe over TCP, not the Unix socket. During first-time init the
+      # entrypoint runs a temporary server with listen_addresses='' that answers
+      # on the socket, so a bare `pg_isready` reports healthy while TCP is still
+      # refused - releasing the liquibase services too early.
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${POSTGRES_PORT} -U ${POSTGRES_USER}" ]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -17,24 +27,29 @@ services:
       - POSTGRES_USER_DB=${POSTGRES_USER_DB}
       - PGUSER=${PGUSER}
     volumes:
-      - ./data:/var/lib/postgresql/data
+      # A named volume, not a bind mount: Docker Desktop's file sharing ignores
+      # chown on bind-mounted directories, so PGDATA stays root-owned and
+      # postgres (uid 999) refuses to start with "data directory has wrong
+      # ownership". The volume is project-scoped, so each worktree gets its own.
+      - pgdata:/var/lib/postgresql/data
       - ./liquibase/init:/docker-entrypoint-initdb.d
     expose:
       - ${POSTGRES_PORT}
     ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+      # Host port is per worktree; container port is always ${POSTGRES_PORT}.
+      - ${POSTGRES_HOST_PORT:-5432}:${POSTGRES_PORT}
     networks:
       - local
   postgres-test:
-    container_name: database_test
     image: postgis/postgis:15-3.5
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
-      interval: 20s
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${POSTGRES_PORT} -U ${POSTGRES_USER}" ]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -43,17 +58,19 @@ services:
       - POSTGRES_USER_DB=${POSTGRES_USER_TEST_DB}
       - PGUSER=${PGUSER}
     volumes:
-      - ./data-test:/var/lib/postgresql/data
+      - pgdata_test:/var/lib/postgresql/data
       - ./liquibase/init:/docker-entrypoint-initdb.d
     expose:
-      - ${POSTGRES_TEST_PORT}
+      - ${POSTGRES_PORT}
     ports:
-      - ${POSTGRES_TEST_PORT}:${POSTGRES_PORT}
+      - ${POSTGRES_TEST_PORT:-54320}:${POSTGRES_PORT}
     networks:
-      - local      
+      - local
   liquibase:
     image: liquibase/liquibase
-    restart: on-failure
+    # Capped: an uncapped on-failure policy turns a permanently broken migration
+    # (e.g. a missing JDBC driver jar) into a container that restarts forever.
+    restart: on-failure:5
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
@@ -72,7 +89,7 @@ services:
       - local
   liquibase-test:
     image: liquibase/liquibase
-    restart: on-failure
+    restart: on-failure:5
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
@@ -88,10 +105,10 @@ services:
       postgres-test:
         condition: service_healthy
     networks:
-      - local      
+      - local
   liquibase-user:
     image: liquibase/liquibase
-    restart: on-failure
+    restart: on-failure:5
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
@@ -110,7 +127,7 @@ services:
       - local
   liquibase-user-test:
     image: liquibase/liquibase
-    restart: on-failure
+    restart: on-failure:5
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
@@ -129,7 +146,6 @@ services:
       - local
   schemaspy:
     image: andrewjones/schemaspy-postgres:latest
-    container_name: schema_generation
     command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
     volumes:
       - ./docs/${SCHEMA_SPY_DOC}:/output
@@ -138,6 +154,9 @@ services:
        condition: service_completed_successfully
     networks:
       - local
+volumes:
+  pgdata:
+  pgdata_test:
 networks:
   local:
     driver: bridge

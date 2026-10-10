@@ -27,7 +27,7 @@ scripts/setup-openapi-generator.sh
 cd api && pip3 install -r requirements.txt -r requirements_dev.txt
 
 # Start local database
-docker-compose --env-file ./config/.env.local up -d --force-recreate
+scripts/docker-localdb-rebuild-data.sh   # per-worktree project + ports; prefer over bare `docker compose up`
 
 # Generate API stubs (run after schema changes)
 scripts/api-gen.sh

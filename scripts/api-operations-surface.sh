@@ -106,6 +106,9 @@ if [[ -z "$BASE_URL" ]]; then
   # 4. Test DB URLs (code reads FEEDS_DATABASE_URL / USERS_DATABASE_URL, not *_TEST).
   set -a; # shellcheck disable=SC1091
   source "$ROOT/config/.env.local"; set +a
+  # Per-worktree Compose project and host ports, if this worktree has them.
+  # shellcheck source=./worktree-env.sh
+  source "$ROOT/scripts/worktree-env.sh"
   : "${FEEDS_DATABASE_URL_TEST:?FEEDS_DATABASE_URL_TEST not set in config/.env.local}"
   FEEDS_URL="$FEEDS_DATABASE_URL_TEST"
   USERS_URL="${USERS_DATABASE_URL_TEST:-${FEEDS_URL/MobilityDatabaseTest/MobilityDatabaseUsersTest}}"
@@ -115,7 +118,13 @@ if [[ -z "$BASE_URL" ]]; then
     need docker
     DC="docker compose"; $DC version >/dev/null 2>&1 || DC="docker-compose"
     echo "Bringing up test database + migrations..."
-    $DC --env-file "$ROOT/config/.env.local" up -d postgres-test liquibase-test liquibase-user-test
+    # -f and -p are explicit: without them the Compose project name is derived
+    # from the caller's working directory, which contradicts this script's
+    # "runs from anywhere" contract and would target a different worktree.
+    worktree_env_compose_args
+    $DC "${WORKTREE_COMPOSE_ARGS[@]}" up -d --wait postgres-test
+    $DC "${WORKTREE_COMPOSE_ARGS[@]}" run --rm liquibase-test
+    $DC "${WORKTREE_COMPOSE_ARGS[@]}" run --rm liquibase-user-test
   fi
 
   # 6. Start the real Cloud Function entrypoint (functions-framework -> main).
