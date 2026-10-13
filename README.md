@@ -3,7 +3,7 @@
 ![Deploy Feeds API - QA](https://github.com/MobilityData/mobility-feed-api/workflows/Deploy%20Feeds%20API%20-%20QA/badge.svg?branch=main)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-The Mobility Feed API service a list of open mobility data sources from across the world. This repository is the effort the initial effort to convert the current [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs) in an API service. [More info about the Mobility Database can be found on the website](https://mobilitydatabase.org/).
+The Mobility Feed API service a list of open mobility data sources from across the world. This repository is the the initial effort to convert the current [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs) in an API service. [More info about the Mobility Database can be found on the website](https://mobilitydatabase.org/).
 
 The contents of the database is available in csv format [here](https://files.mobilitydatabase.org/feeds_v2.csv). This includes all feeds, including ones we automatically import from sources outside the catalogs repo.
 
