@@ -128,8 +128,9 @@ as `absent` and rebuild on first request.
 
 Each build stamps every object it publishes with a `customTime` of
 `now + retention_days` (default 30, 1..60 per request), and the datasets bucket carries
-one lifecycle rule - `daysSinceCustomTime: 0`, Delete - that removes an object once its
-own `customTime` has passed. One rule, a different date per file, no scheduled job.
+one lifecycle rule - `daysSinceCustomTime: 1` over `matchesSuffix: [.parquet,
+manifest.json]`, Delete - that removes a generated object a day past its own
+`customTime`.
 
 The same timestamp goes into the tracking row as `expires_at`, and the Operations API
 reports an expired row as `absent`. That is deliberate rather than redundant: lifecycle
@@ -139,11 +140,8 @@ dataset rebuild on the next request, and it happens on the date rather than when
 bucket gets round to the delete. The window in between - `absent` reported while the
 files are still there - is harmless; a rebuild overwrites them.
 
-**The builder must stay the only writer of `customTime` in this bucket.** The lifecycle
-rule is bucket-wide and matched solely by the presence of that field (the condition is
-never satisfied for an object without it, and `matchesPrefix` cannot express
-`*/parquet/`). Anything else that starts setting `customTime` there becomes deletable by
-this rule.
+**The builder must stay the only writer of `customTime` in this bucket.** Anything else
+that sets it on a `.parquet` or `manifest.json` becomes deletable by this rule.
 
 Nothing deletes the `task_execution_log` rows; they are small, and one row per converter
 version per dataset already accumulates by design.

@@ -84,17 +84,16 @@ resource "google_storage_bucket" "datasets_bucket" {
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
-  # Deletes objects on the date their own `customTime` names, which is how generated
-  # Parquet expires - the builder stamps each file with its retention date on upload.
-  # The condition is never satisfied for an object with no customTime, so this rule
-  # reaches nothing else in the bucket. The Parquet builder must stay the only writer
-  # of that field here: anything else that sets it becomes deletable by this rule.
+  # Matches a .parquet or manifest.json whose customTime passed more than a day ago.
+  # `no_age` is required: without it the provider sends `age = 0`, matching everything.
   lifecycle_rule {
     action {
       type = "Delete"
     }
     condition {
-      days_since_custom_time = 0
+      no_age                 = true
+      days_since_custom_time = 1
+      matches_suffix         = [".parquet", "manifest.json"]
     }
   }
   cors {
