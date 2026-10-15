@@ -44,6 +44,23 @@ variable "postgresql_user_password" {
   description = "The password for the PostgreSQL user"
 }
 
+variable "postgresql_user_database_name" {
+  type        = string
+  description = "The name of the PostgreSQL database used for user-related data (notifications, subscriptions, app users). Computed as MobilityDatabaseUsers<ENV> by CI."
+}
+
+variable "postgresql_user_app_name" {
+  type        = string
+  description = "The PostgreSQL role used by the application to access the users database. No default: must be supplied per environment (sourced from 1Password)."
+  sensitive   = true
+}
+
+variable "postgresql_user_app_password" {
+  type        = string
+  description = "Password for the users database application role."
+  sensitive   = true
+}
+
 variable "postgresql_db_instance" {
   type        = string
   description = "The db instance tier for the PostgreSQL"
@@ -52,4 +69,22 @@ variable "postgresql_db_instance" {
 variable "max_db_connections" {
   type        = string
   description = "Maximum number of database connections"
+}
+
+# ---------------------------------------------------------------------------
+# DEV users database (only created on QA instance).
+# When environment=qa, these variables provision a second users DB for DEV.
+# ---------------------------------------------------------------------------
+variable "postgresql_dev_user_app_name" {
+  type        = string
+  description = "The PostgreSQL role for DEV users database (only used when environment=qa)."
+  sensitive   = true
+  default     = ""
+}
+
+variable "postgresql_dev_user_app_password" {
+  type        = string
+  description = "Password for DEV users database application role (only used when environment=qa)."
+  sensitive   = true
+  default     = ""
 }

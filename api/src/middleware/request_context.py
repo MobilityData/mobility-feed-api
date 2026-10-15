@@ -154,7 +154,9 @@ class RequestContext:
                 self.trace_sampled = parts[1].split(";")[1] == "o=1" if len(parts[1].split(";")) > 1 else False
         # auth header is used for local development
         self.user_id = headers.get("x-goog-authenticated-user-id")
-        self.user_email = headers.get("x-goog-authenticated-user-email")
+        # x-goog-authenticated-user-email is prefixed with the identity provider,
+        # e.g. "securetoken.google.com/PROJECT_ID:user@example.com" — strip the prefix.
+        self.user_email = RequestContext.extract_user_id(headers.get("x-goog-authenticated-user-email"))
         self.is_guest = False
         self.google_public_keys = None
         if not self.iap_jwt_assertion and headers.get("authorization"):

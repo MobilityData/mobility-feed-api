@@ -25,6 +25,10 @@ from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
 from feeds_gen.apis.search_api import router as SearchApiRouter
 from feeds_gen.apis.licenses_api import router as LicensesApiRouter
+from feeds_gen.apis.locations_api import router as LocationsApiRouter
+from user_service_gen.apis.users_api import router as UsersApiRouter
+from user_service_gen.apis.notifications_api import router as NotificationsApiRouter
+from user_service_gen.apis.subscriptions_api import router as SubscriptionsApiRouter
 
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
 # returns 200 in the method response. More info, https://github.com/tiangolo/fastapi/issues/1663#issuecomment-730362611
@@ -32,6 +36,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from middleware.request_context_middleware import RequestContextMiddleware
 from utils.logger import global_logging_setup
+from utils.route_offload import offload_blocking_routes
 
 app = FastAPI(
     title="Mobility Data Catalog API",
@@ -55,6 +60,13 @@ app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
 app.include_router(LicensesApiRouter)
+app.include_router(LocationsApiRouter)
+# The user-service routes are generated as ``async def`` but call blocking
+# synchronous impls (database + Brevo HTTP). Offload them to the threadpool so a
+# slow Brevo call cannot freeze the event loop for every other request.
+app.include_router(offload_blocking_routes(UsersApiRouter))
+app.include_router(offload_blocking_routes(NotificationsApiRouter))
+app.include_router(offload_blocking_routes(SubscriptionsApiRouter))
 
 
 @app.on_event("startup")

@@ -70,11 +70,13 @@ done
 
 container_name="database"
 docker_service="liquibase"
+docker_service_user="liquibase-user"
 data_dir="$SCRIPT_PATH/../data"
 
 if [ "$USE_TEST_DB" = true ]; then
     container_name="database_test"
     docker_service="liquibase-test"
+    docker_service_user="liquibase-user-test"
     data_dir="$SCRIPT_PATH/../data-test"
 fi
 
@@ -93,25 +95,36 @@ docker compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../d
 # wait for the liquibase to finish
 sleep 20
 
+# Bring up the users-DB liquibase service. The users DB itself is created by
+# liquibase/init/01-create-users-db.sh on first start of the postgres container.
+docker compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service_user
+sleep 10
+
 # generate the models
 $SCRIPT_PATH/db-gen.sh
+$SCRIPT_PATH/db-gen-user.sh
 
 
 if [ "$POPULATE_DB" = true ]; then
     # download the latest csv file and populate the db
     mkdir $SCRIPT_PATH/../data/
     wget -O $SCRIPT_PATH/../data/$target_csv_file https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
+    # populate licenses before feeds so that feed.license_id FK references are satisfied
+    $SCRIPT_PATH/populate-licenses.sh
+    printf "\n---------\nCompleted: populating license data.\n---------\n"
     # populate db
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
     printf "\n---------\nCompleted: populating catalog data.\n---------\n"
-    $SCRIPT_PATH/populate-licenses.sh
 fi
 
 if [ "$POPULATE_TEST_DATA" = true ]; then
     # populate test data
     $SCRIPT_PATH/populate-db-test-data.sh
     printf "\n---------\nCompleted: populating test data.\n---------\n"
+    # populate dummy user test data into the users DB
+    $SCRIPT_PATH/populate-db-test-data-users.sh
+    printf "\n---------\nCompleted: populating users test data.\n---------\n"
 fi
 
 printf "\n---------\nSuccess: Rebuilding the database.\n---------\n"

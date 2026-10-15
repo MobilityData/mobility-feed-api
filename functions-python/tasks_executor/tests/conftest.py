@@ -19,12 +19,27 @@ from datetime import datetime, UTC, timedelta
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
+from shared.database.users_database import with_users_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsdataset,
     Gbfsfeed,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
+from shared.users_database_gen.sqlacodegen_models import (
+    AppUser,
+    NotificationEvent,
+    NotificationEventFeed,
+    NotificationLog,
+    NotificationSubscription,
+    NotificationType,
+)
+from shared.notifications.notification_constants import NotificationTypeId
+from test_shared.test_utils.database_utils import (
+    clean_testing_db,
+    default_db_url,
+    default_users_db_url,
+    clean_testing_users_db,
+)
 
 
 @with_db_session(db_url=default_db_url)
@@ -107,7 +122,99 @@ def populate_database(db_session: Session | None = None):
     db_session.flush()
     with_visualization_feed.visualization_dataset_id = with_visualization_dataset.id
 
+    # Feeds for feed-availability tests
+    availability_feeds = [
+        Gtfsfeed(
+            id="feed_availability_1",
+            stable_id="stable_feed_availability_1",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url="http://producer1.example.com/feed.zip",
+            created_at=now,
+        ),
+        Gtfsfeed(
+            id="feed_availability_2",
+            stable_id="stable_feed_availability_2",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url="http://producer2.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — inactive
+        Gtfsfeed(
+            id="feed_availability_inactive",
+            stable_id="stable_feed_availability_inactive",
+            data_type="gtfs",
+            status="inactive",
+            operational_status="published",
+            producer_url="http://producer3.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — deprecated
+        Gtfsfeed(
+            id="feed_availability_deprecated",
+            stable_id="stable_feed_availability_deprecated",
+            data_type="gtfs",
+            status="deprecated",
+            operational_status="published",
+            producer_url="http://producer5.example.com/feed.zip",
+            created_at=now,
+        ),
+        # Should NOT be returned — no producer_url
+        Gtfsfeed(
+            id="feed_availability_no_url",
+            stable_id="stable_feed_availability_no_url",
+            data_type="gtfs",
+            status="active",
+            operational_status="published",
+            producer_url=None,
+            created_at=now,
+        ),
+    ]
+    for feed in availability_feeds:
+        db_session.add(feed)
+
     db_session.commit()
+
+
+@with_users_db_session(db_url=default_users_db_url)
+def populate_users_database(db_session: Session | None = None):
+    """Seed baseline data into the users test database.
+
+    Provides the reference notification types and a few app users that the
+    notification dispatch tests build their subscriptions and events on top of.
+
+    Idempotent: ``clean_testing_users_db`` operates on the feeds metadata and
+    therefore does not clear users-specific tables, so we clear the
+    notification write tables and upsert the baseline rows via ``merge`` to keep
+    this safe to run on every session start.
+    """
+    db_session.query(NotificationLog).delete()
+    db_session.query(NotificationEventFeed).delete()
+    db_session.query(NotificationEvent).delete()
+    db_session.query(NotificationSubscription).delete()
+    db_session.flush()
+
+    for notification_type in (
+        NotificationType(
+            id=NotificationTypeId.FEED_URL_UPDATED, description="Feed URL updated"
+        ),
+        NotificationType(
+            id=NotificationTypeId.ADMIN_EVENT_SUMMARY, description="Admin summary"
+        ),
+        NotificationType(
+            id=NotificationTypeId.API_ANNOUNCEMENTS, description="API announcements"
+        ),
+    ):
+        db_session.merge(notification_type)
+    for app_user in (
+        AppUser(id="user-alice", email="alice@example.com", full_name="Alice"),
+        AppUser(id="user-bob", email="bob@example.com", full_name="Bob"),
+        AppUser(id="user-admin", email="admin@example.com", full_name="Admin"),
+    ):
+        db_session.merge(app_user)
 
 
 def pytest_configure(config):
@@ -124,7 +231,9 @@ def pytest_sessionstart():
     before performing collection and entering the run test loop.
     """
     clean_testing_db()
+    clean_testing_users_db()
     populate_database()
+    populate_users_database()
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -133,6 +242,7 @@ def pytest_sessionfinish(session, exitstatus):
     returning the exit status to the system.
     """
     clean_testing_db()
+    clean_testing_users_db()
 
 
 def pytest_unconfigure(config):

@@ -32,6 +32,7 @@ class FeedImpl(BaseFeedImpl, Feed):
         feed.status = feed_orm.status
         feed.official = feed_orm.official
         feed.official_updated_at = feed_orm.official_updated_at
+        feed.seasonal = feed_orm.seasonal
         feed.feed_name = feed_orm.feed_name
         feed.related_links = [FeedRelatedLinkImpl.from_orm(related_link) for related_link in feed_orm.feedrelatedlinks]
         feed.note = feed_orm.note
@@ -58,6 +59,7 @@ class FeedImpl(BaseFeedImpl, Feed):
             provider=feed_dict.get("provider"),
             feed_contact_email=feed_dict.get("feed_contact_email"),
             producer_url=feed_dict.get("producer_url"),
+            is_producer_url_unstable=feed_dict.get("is_producer_url_unstable"),
             authentication_type=(
                 None if feed_dict.get("authentication_type") is None else str(feed_dict.get("authentication_type"))
             ),
@@ -69,6 +71,7 @@ class FeedImpl(BaseFeedImpl, Feed):
             status=feed_dict.get("status"),
             official=feed_dict.get("official"),
             official_updated_at=feed_dict.get("official_updated_at"),
+            seasonal=feed_dict.get("seasonal"),
             feed_name=feed_dict.get("feed_name"),
             note=feed_dict.get("note"),
             externalids=(

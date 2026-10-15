@@ -3,8 +3,29 @@ import os
 import resource
 import shutil
 import sys
+from dataclasses import dataclass
+from typing import Optional
 
 MB_MULTIPLIER = 1024**2
+
+
+@dataclass(frozen=True)
+class MemoryBudget:
+    """What this container was given, as opposed to what it went on to use.
+
+    These three numbers are computed on the way to setting RLIMIT_AS and were previously
+    only logged. A process that records how much memory a job needed cannot say whether
+    that was comfortable without also recording what it had, and reconstructing the
+    budget afterwards from the deployment means trusting that the deployment has not
+    moved since.
+
+    Any field may be None where the figure could not be read, which is normal off
+    Cloud Run.
+    """
+
+    cgroup_limit_bytes: Optional[int] = None
+    volume_bytes: Optional[int] = None
+    rlimit_as_bytes: Optional[int] = None
 
 
 def is_filesystem_tmpfs(mount_point):
@@ -139,12 +160,20 @@ def limit_gcp_memory(mount_point):
 
     Environment Variables:
         MEMORY_MARGIN_MB: Safety margin in megabytes (default: 200)
+
+    Returns:
+        A MemoryBudget describing what was found and what was set. Fields are None where
+        a figure could not be read or no limit was applied; callers that only want the
+        side effect can ignore it.
     """
+    cgroup_limit_bytes = get_memory_limit_cgroup_bytes()
+    volume_bytes = get_tmpfs_size_bytes(mount_point)
+
     # Calculate available memory: cgroup limit - tmpfs size
     available_memory_bytes = get_available_process_memory_bytes(mount_point)
     if not available_memory_bytes or available_memory_bytes <= 0:
         logging.info("Could not find the total memory of the process. Memory limit not set.")
-        return
+        return MemoryBudget(cgroup_limit_bytes=cgroup_limit_bytes, volume_bytes=volume_bytes)
 
     # Parse and validate the memory margin
     memory_margin_mb = 200
@@ -177,9 +206,14 @@ def limit_gcp_memory(mount_point):
             "Computed RLIMIT_AS <= 0 (%.2f MiB). Skipping setrlimit.",
             mem_limit / MB_MULTIPLIER,
         )
-        return
+        return MemoryBudget(cgroup_limit_bytes=cgroup_limit_bytes, volume_bytes=volume_bytes)
 
     # Set RLIMIT_AS (address space limit) to prevent OOM kills
     # When this limit is exceeded, Python will raise MemoryError instead of being killed
     resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
     logging.info("RLIMIT_AS set to %.2f MiB", mem_limit / MB_MULTIPLIER)
+    return MemoryBudget(
+        cgroup_limit_bytes=cgroup_limit_bytes,
+        volume_bytes=volume_bytes,
+        rlimit_as_bytes=mem_limit,
+    )

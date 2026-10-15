@@ -1,0 +1,887 @@
+#
+#   MobilityData 2026
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+"""Unit tests for the pure builders, accessors and ``_send`` of
+``brevo_notification_sender`` — the bulk of which had no coverage."""
+
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+import shared.notifications.brevo_notification_sender as bns
+from shared.notifications.brevo_notification_sender import (
+    BrevoSendError,
+    EmailRecipient,
+    build_digest_html,
+    build_digest_subject,
+    build_params_admin_event_summary,
+    build_params_by_notification,
+    build_params_feed_url_updated,
+    build_single_html,
+    build_single_subject,
+    event_payload,
+    get_template_id_by_notification,
+    send_digest,
+    send_single,
+    subject_feed,
+    target_feed,
+    _int_env,
+    _send,
+    _unsubscribe_url,
+)
+from shared.notifications.notification_constants import (
+    AdminEventUpdateType,
+    FeedUrlUpdateType,
+    NotificationFeedRole,
+    NotificationTypeId,
+)
+
+
+def _feed(stable_id, role):
+    return SimpleNamespace(feed_stable_id=stable_id, role=role)
+
+
+def _event(
+    *,
+    type_id=NotificationTypeId.FEED_URL_UPDATED,
+    subtype=FeedUrlUpdateType.URL_REPLACED,
+    feeds=None,
+    payload=None,
+    source="unit_test",
+    created_at=None,
+):
+    return SimpleNamespace(
+        notification_type_id=type_id,
+        event_subtype=subtype,
+        notification_event_feeds=feeds or [],
+        payload=payload,
+        source=source,
+        created_at=created_at,
+    )
+
+
+_SUBSCRIPTION = SimpleNamespace(id="sub-1")
+
+
+# ---------------------------------------------------------------------------
+# EmailRecipient
+# ---------------------------------------------------------------------------
+
+
+def test_email_recipient_to_dict_with_and_without_name():
+    assert EmailRecipient(email="a@b.com").to_dict() == {"email": "a@b.com"}
+    assert EmailRecipient(email="a@b.com", name="A B").to_dict() == {
+        "email": "a@b.com",
+        "name": "A B",
+    }
+
+
+# ---------------------------------------------------------------------------
+# get_template_id_by_notification
+# ---------------------------------------------------------------------------
+
+
+def test_get_template_id_feed_url_updated_digest_and_single(monkeypatch):
+    monkeypatch.setenv("BREVO_TEMPLATE_FEED_URL_UPDATED", "11")
+    monkeypatch.setenv("BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST", "22")
+    assert get_template_id_by_notification(NotificationTypeId.FEED_URL_UPDATED) == 11
+    assert get_template_id_by_notification(NotificationTypeId.FEED_URL_UPDATED, digest=True) == 22
+
+
+def test_get_template_id_admin_event_summary(monkeypatch):
+    monkeypatch.setenv("BREVO_TEMPLATE_ADMIN_EVENT_SUMMARY", "33")
+    assert get_template_id_by_notification(NotificationTypeId.ADMIN_EVENT_SUMMARY) == 33
+
+
+def test_get_template_id_unknown_type_returns_none():
+    assert get_template_id_by_notification("some.unknown.type") is None
+
+
+# ---------------------------------------------------------------------------
+# Event accessors
+# ---------------------------------------------------------------------------
+
+
+def test_feed_accessors_and_payload():
+    event = _event(
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "x"},
+    )
+    assert subject_feed(event) == "mdb-1"
+    assert target_feed(event) == "mdb-2"
+    assert event_payload(event) == {"old_url": "x"}
+
+
+def test_feed_accessors_when_missing():
+    event = _event(feeds=[], payload=None)
+    assert subject_feed(event) is None
+    assert target_feed(event) is None
+    assert event_payload(event) == {}
+
+
+# ---------------------------------------------------------------------------
+# Subject builders
+# ---------------------------------------------------------------------------
+
+
+def test_build_single_subject_known_and_unknown():
+    known = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)])
+    assert build_single_subject(known) == "Feed mdb-9 has been updated"
+
+    unknown = _event(type_id="other.type")
+    assert "other.type" in build_single_subject(unknown)
+
+
+def test_build_single_subject_uses_unknown_feed_placeholder():
+    event = _event(feeds=[])
+    assert "unknown" in build_single_subject(event)
+
+
+def test_build_single_subject_prefers_provider_over_feed_id():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"provider": "City Transit"},
+    )
+    assert build_single_subject(event) == "Feed City Transit has been updated"
+
+
+def test_build_single_subject_falls_back_to_feed_id_without_provider():
+    event = _event(feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)], payload={})
+    assert build_single_subject(event) == "Feed mdb-9 has been updated"
+
+
+def test_build_digest_subject_pluralization():
+    two = [_event(), _event()]
+    assert build_digest_subject(two) == "2 feed URL updates"
+    one = [_event()]
+    assert build_digest_subject(one) == "1 feed URL update"
+
+
+def test_build_digest_subject_unknown_type_fallback():
+    events = [_event(type_id="other.type"), _event(type_id="other.type")]
+    assert build_digest_subject(events) == "2 notifications"
+    single = [_event(type_id="other.type")]
+    assert build_digest_subject(single) == "1 notification"
+
+
+# ---------------------------------------------------------------------------
+# Params builders
+# ---------------------------------------------------------------------------
+
+
+def test_build_params_feed_url_updated():
+    created = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
+    event = _event(
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={
+            "old_url": "old",
+            "new_url": "new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
+        created_at=created,
+    )
+    params = build_params_feed_url_updated([event], _SUBSCRIPTION)
+    assert params["event_count"] == 1
+    assert params["subscription_id"] == "sub-1"
+    assert params["unsubscribe_url"] == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
+    item = params["events"][0]
+    assert item["feed_stable_id"] == "mdb-1"
+    assert item["target_feed_stable_id"] == "mdb-2"
+    assert item["old_url"] == "old"
+    assert item["new_url"] == "new"
+    assert item["provider"] == "Acme Transit"
+    assert item["target_provider"] == "Acme Transit 2"
+    assert item["created_at"] == created.isoformat()
+
+
+def test_build_params_feed_url_updated_handles_missing_created_at_and_urls():
+    event = _event(feeds=[], payload={}, created_at=None, source=None)
+    item = build_params_feed_url_updated([event], _SUBSCRIPTION)["events"][0]
+    assert item["old_url"] == ""
+    assert item["new_url"] == ""
+    assert item["source"] == ""
+    assert item["created_at"] == ""
+    assert item["provider"] == ""
+    assert item["target_provider"] == ""
+
+
+def test_build_params_admin_event_summary_with_and_without_events():
+    event = _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        payload={"emails_sent": 5},
+    )
+    params = build_params_admin_event_summary([event], _SUBSCRIPTION)
+    assert params["event_count"] == 1
+    assert params["summary"] == {"emails_sent": 5}
+    # A Brevo-hosted template needs the subtype to know which report it is rendering.
+    assert params["event_subtype"] == AdminEventUpdateType.DISPATCH_SUMMARY
+    assert params["unsubscribe_url"] == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
+
+    empty = build_params_admin_event_summary([], _SUBSCRIPTION)
+    assert empty["event_count"] == 0
+    assert empty["summary"] == {}
+    assert empty["event_subtype"] is None
+
+
+# ---------------------------------------------------------------------------
+# Unsubscribe link
+# ---------------------------------------------------------------------------
+
+
+def test_unsubscribe_url_builds_capability_link():
+    assert _unsubscribe_url("sub-1") == "https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"
+
+
+def test_unsubscribe_url_none_when_no_id():
+    assert _unsubscribe_url(None) is None
+    assert _unsubscribe_url("") is None
+
+
+def test_unsubscribe_url_encodes_id_and_respects_website_env(monkeypatch):
+    monkeypatch.setenv("MOBILITY_DATABASE_WEBSITE_URL", "https://example.test/")
+    assert _unsubscribe_url("a/b c") == "https://example.test/notifications/unsubscribe?id=a%2Fb%20c"
+
+
+def test_build_params_by_notification_dispatch_and_unsupported():
+    feed_event = _event()
+    assert "events" in build_params_by_notification(NotificationTypeId.FEED_URL_UPDATED, [feed_event], _SUBSCRIPTION)
+    admin_event = _event(type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY)
+    assert "summary" in build_params_by_notification(
+        NotificationTypeId.ADMIN_EVENT_SUMMARY, [admin_event], _SUBSCRIPTION
+    )
+    with pytest.raises(ValueError):
+        build_params_by_notification("other.type", [feed_event], _SUBSCRIPTION)
+
+
+# ---------------------------------------------------------------------------
+# HTML builders
+# ---------------------------------------------------------------------------
+
+
+def test_build_single_html_redirected_and_replaced():
+    redirected = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"new_url": "https://new"},
+    )
+    html = build_single_html(redirected)
+    assert "deprecated" in html
+    assert "mdb-2" in html
+
+    replaced = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(replaced)
+    assert "has changed" in html
+    assert "https://old" in html
+
+
+def test_build_single_html_footer_has_manage_and_one_click_unsubscribe_links():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_single_html(event, _SUBSCRIPTION)
+    # "Manage subscriptions" points at the account page; "Unsubscribe" is the
+    # one-click capability link keyed on the subscription id.
+    assert 'href="https://mobilitydatabase.org/account/notifications"' in html
+    assert 'href="https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"' in html
+    assert "Unsubscribe" in html
+
+
+def test_build_single_html_without_subscription_has_no_footer_links():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_single_html(event)
+    assert "/notifications/unsubscribe" not in html
+    assert "/account/notifications" not in html
+
+
+def test_build_digest_html_footer_has_one_click_unsubscribe_link():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_digest_html([event], _SUBSCRIPTION)
+    assert 'href="https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"' in html
+
+
+def test_build_single_html_url_replaced_shows_single_view_feed_button():
+    """A plain URL update (one feed, not deprecated) must show only the single
+    "View Feed" CTA button — not the two-button deprecated/redirected layout."""
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "View Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html
+    # Must NOT fall through to the redirected two-button layout.
+    assert "Subscribe To New Feed" not in html
+    assert "View Deprecated Feed" not in html
+
+
+def test_build_single_html_feed_redirected_shows_new_and_deprecated_buttons():
+    """A deprecation-with-redirect must show BOTH CTA buttons: one to the new
+    (target) feed and one to the deprecated (subject) feed, each linking to
+    its own feed page."""
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    assert "Subscribe To New Feed" in html
+    assert "View Deprecated Feed" in html
+    assert "https://mobilitydatabase.org/feeds/mdb-2" in html  # new/target feed
+    assert "https://mobilitydatabase.org/feeds/mdb-1" in html  # deprecated/subject feed
+    # Must NOT fall through to the plain single-button layout.
+    assert "View Feed" not in html
+
+
+def test_build_single_html_shows_provider_when_present():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new", "provider": "City Transit"},
+    )
+    html = build_single_html(event)
+    assert "City Transit" in html
+    assert "mdb-9 (City Transit)" in html
+
+
+def test_build_single_html_omits_provider_when_absent():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_single_html(event)
+    # No stray empty parentheses when there's no provider name.
+    assert "()" not in html
+    assert "mdb-9 (" not in html
+
+
+def test_build_single_html_feed_redirected_shows_both_providers():
+    event = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "Acme Transit",
+            "target_provider": "Acme Transit 2",
+        },
+    )
+    html = build_single_html(event)
+    assert "mdb-1 (Acme Transit)" in html
+    assert "mdb-2 (Acme Transit 2)" in html
+
+
+def test_build_single_html_escapes_provider():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "<script>alert(1)</script>",
+        },
+    )
+    html = build_single_html(event)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_build_digest_html_shows_provider_instead_of_id():
+    """When a provider name is known, the digest table's Feed column shows it
+    in place of the stable_id — the id is still used for the link href, just
+    not displayed as the row's visible label."""
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n", "provider": "City Transit"},
+    )
+    html = build_digest_html([event])
+    assert ">City Transit</a>" in html
+    assert ">mdb-9</a>" not in html
+    assert "https://mobilitydatabase.org/feeds/mdb-9" in html  # href still uses the id
+
+
+def test_build_digest_html_falls_back_to_id_when_no_provider():
+    event = _event(
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    html = build_digest_html([event])
+    assert ">mdb-9</a>" in html
+
+
+def test_build_single_html_admin_summary():
+    event = _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        feeds=[],
+        payload={
+            "subscriptions_processed": 4,
+            "events_found": 7,
+            "emails_sent": 5,
+            "emails_failed": 2,
+            "cadence": "weekly",
+        },
+    )
+    html = build_single_html(event)
+    assert "Notification Dispatch Summary" in html
+    assert "weekly" in html
+    assert ">5</td>" in html
+    assert ">2</td>" in html
+    # Must NOT fall through to the feed url-updated layout.
+    assert "has changed" not in html
+    assert "Old URL" not in html
+
+
+def test_build_digest_html_empty():
+    assert "No feed URL changes" in build_digest_html([])
+
+
+def test_build_digest_html_admin_summary():
+    event = _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        feeds=[],
+        payload={"emails_sent": 3, "emails_failed": 1},
+    )
+    html = build_digest_html([event])
+    assert "Notification Dispatch Summary" in html
+    assert ">3</td>" in html
+    assert ">1</td>" in html
+
+
+# ---------------------------------------------------------------------------
+# admin.event_summary subtypes
+# ---------------------------------------------------------------------------
+
+
+_SEAL_PAYLOAD = {
+    "run_id": "seal-20260911T040000",
+    "status": "complete",
+    "total_feeds_evaluated": 2914,
+    "seals_granted": 3,
+    "seals_revoked": 1,
+    "feeds_changed": 5,
+    "feeds_revalidated": 5,
+    "revalidation_tasks": 1,
+    "granted_stable_ids": ["mdb-1"],
+    "revoked_stable_ids": ["mdb-9"],
+    "changed_stable_ids": ["mdb-1", "mdb-9", "mdb-42"],
+    "batches_failed": 0,
+    "batches_incomplete": 0,
+    "ids_omitted": 0,
+}
+
+
+def _seal_event(payload=None):
+    return _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.SEAL_RUN_SUMMARY,
+        feeds=[],
+        payload=payload if payload is not None else dict(_SEAL_PAYLOAD),
+    )
+
+
+def _dispatch_event():
+    return _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        feeds=[],
+        payload={"emails_sent": 5, "cadence": "daily"},
+    )
+
+
+def test_subject_names_the_subtype_not_the_type():
+    """One type carries several reports, so the subject has to say which one this is."""
+    assert build_single_subject(_seal_event()) == "Daily Seal of Reliability summary"
+    assert build_single_subject(_dispatch_event()) == "Daily notification dispatch summary"
+
+
+def test_digest_subject_names_a_subtype_only_when_every_event_agrees():
+    assert build_digest_subject([_seal_event(), _seal_event()]) == "Daily Seal of Reliability summary"
+    assert build_digest_subject([_dispatch_event()]) == "Daily notification dispatch summary"
+    # A mixed digest cannot honestly be titled either one.
+    assert build_digest_subject([_seal_event(), _dispatch_event()]) == "Daily admin summary"
+
+
+def test_build_single_html_seal_run_summary():
+    html = build_single_html(_seal_event())
+    assert "Seal of Reliability Run Summary" in html
+    assert "seal-20260911T040000" in html
+    assert "2,914" in html  # thousands_sep filter
+    # The changed feeds link to their pages, which is the point of listing them.
+    assert "https://mobilitydatabase.org/feeds/mdb-42" in html
+    # Must NOT fall through to the dispatch layout.
+    assert "Notification Dispatch Summary" not in html
+    assert "Cadence" not in html
+
+
+def test_seal_summary_reports_how_many_tasks_carried_the_revalidations():
+    """Feeds and tasks are both shown: the counts diverge by batching, never by dropping."""
+    html = build_single_html(_seal_event(dict(_SEAL_PAYLOAD, feeds_revalidated=250, revalidation_tasks=5)))
+    assert "Pages revalidated" in html
+    assert ">250</td>" in html
+    assert "Revalidation tasks enqueued" in html
+    assert ">5</td>" in html
+
+
+def test_seal_summary_omits_empty_id_lists():
+    quiet = dict(
+        _SEAL_PAYLOAD,
+        seals_granted=0,
+        seals_revoked=0,
+        granted_stable_ids=[],
+        revoked_stable_ids=[],
+        changed_stable_ids=[],
+    )
+    html = build_single_html(_seal_event(quiet))
+    assert "Seal granted" not in html
+    assert "Seal revoked" not in html
+    assert "Page revalidated" not in html
+
+
+def test_seal_summary_reports_truncated_id_lists():
+    html = build_single_html(_seal_event(dict(_SEAL_PAYLOAD, ids_omitted=42)))
+    assert "42 further feed ids not listed" in html
+
+
+def test_build_digest_html_mixes_subtypes_in_one_document():
+    html = build_digest_html([_seal_event(), _dispatch_event()])
+    assert html.count("<html") == 1
+    assert "Seal of Reliability Run Summary" in html
+    assert "Notification Dispatch Summary" in html
+
+
+def test_build_digest_html_admin_summary_multiple_events_share_one_document():
+    """Regression test: multiple admin.event_summary events batched into one
+    digest must render as ONE HTML document (one shared header/footer), not
+    N concatenated full documents stacked on top of each other."""
+    events = [
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 5, "cadence": "daily"},
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 7, "cadence": "daily"},
+        ),
+        _event(
+            type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+            feeds=[],
+            payload={"emails_sent": 9, "cadence": "daily"},
+        ),
+    ]
+    html = build_digest_html(events)
+    assert html.count("<html") == 1
+    assert html.count("</html>") == 1
+    assert html.count("<!doctype html>") == 1
+    assert html.count("<h1") == 3
+    assert ">5</td>" in html
+    assert ">7</td>" in html
+    assert ">9</td>" in html
+
+
+def test_build_digest_html_feed_url_updates():
+    event = _event(
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    html = build_digest_html([event])
+    assert "Feed URL Updates" in html
+    assert "mdb-1" in html
+
+
+def test_build_digest_html_per_row_view_feed_action():
+    """Each digest row must offer its own per-row action, not just a clickable
+    feed id: a plain update links to that feed's own page ("View"), while a
+    redirected row links to the NEW (target) feed ("Subscribe"), not the
+    deprecated one."""
+    updated = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    redirected = _event(
+        subtype=FeedUrlUpdateType.FEED_REDIRECTED,
+        feeds=[
+            _feed("mdb-1", NotificationFeedRole.SUBJECT),
+            _feed("mdb-2", NotificationFeedRole.TARGET),
+        ],
+        payload={"old_url": "https://old", "new_url": "https://new"},
+    )
+    html = build_digest_html([updated, redirected])
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-9"' in html
+    assert "View &rarr;" in html
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html  # new/target feed
+    assert "Subscribe &rarr;" in html
+
+
+# ---------------------------------------------------------------------------
+# send_single / send_digest orchestration
+# ---------------------------------------------------------------------------
+
+
+@patch.object(bns, "_send")
+def test_send_single_uses_html_fallback_when_no_template(mock_send, monkeypatch):
+    monkeypatch.delenv("BREVO_TEMPLATE_FEED_URL_UPDATED", raising=False)
+    event = _event(
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    send_single(EmailRecipient(email="a@b.com"), event, _SUBSCRIPTION)
+    mock_send.assert_called_once()
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs["template_id"] is None
+    assert kwargs["html_content"] is not None
+
+
+@patch.object(bns, "_send")
+def test_send_single_uses_template_when_configured(mock_send, monkeypatch):
+    monkeypatch.setenv("BREVO_TEMPLATE_FEED_URL_UPDATED", "77")
+    event = _event(
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "n"},
+    )
+    send_single(EmailRecipient(email="a@b.com"), event, _SUBSCRIPTION)
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs["template_id"] == 77
+    assert kwargs["html_content"] is None
+
+
+@patch.object(bns, "_send")
+def test_send_digest_empty_is_noop(mock_send):
+    send_digest(EmailRecipient(email="a@b.com"), [], _SUBSCRIPTION)
+    mock_send.assert_not_called()
+
+
+@patch.object(bns, "_send")
+def test_send_digest_html_fallback(mock_send, monkeypatch):
+    monkeypatch.delenv("BREVO_TEMPLATE_FEED_URL_UPDATED_DIGEST", raising=False)
+    events = [
+        _event(
+            feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+            payload={"old_url": "o", "new_url": "n"},
+        )
+    ]
+    send_digest(EmailRecipient(email="a@b.com"), events, _SUBSCRIPTION)
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs["template_id"] is None
+    assert kwargs["html_content"] is not None
+
+
+# ---------------------------------------------------------------------------
+# _send low-level
+# ---------------------------------------------------------------------------
+
+
+def test_send_raises_when_api_key_missing(monkeypatch):
+    monkeypatch.delenv("BREVO_API_KEY", raising=False)
+    with pytest.raises(BrevoSendError, match="BREVO_API_KEY"):
+        _send(
+            recipient=EmailRecipient(email="a@b.com"),
+            subject="s",
+            html_content="<p>x</p>",
+            template_id=None,
+            params={},
+        )
+
+
+def test_send_success(monkeypatch):
+    monkeypatch.setenv("BREVO_API_KEY", "key")
+    fake_api = MagicMock()
+    fake_api.send_transac_email.return_value = SimpleNamespace(message_id="mid-1")
+    with patch("sib_api_v3_sdk.TransactionalEmailsApi", return_value=fake_api):
+        _send(
+            recipient=EmailRecipient(email="a@b.com"),
+            subject="s",
+            html_content="<p>x</p>",
+            template_id=None,
+            params={},
+        )
+    fake_api.send_transac_email.assert_called_once()
+
+
+def test_send_wraps_api_exception(monkeypatch):
+    monkeypatch.setenv("BREVO_API_KEY", "key")
+    from sib_api_v3_sdk.rest import ApiException
+
+    fake_api = MagicMock()
+    fake_api.send_transac_email.side_effect = ApiException(status=429, reason="Too Many")
+    with patch("sib_api_v3_sdk.TransactionalEmailsApi", return_value=fake_api):
+        with pytest.raises(BrevoSendError, match="429"):
+            _send(
+                recipient=EmailRecipient(email="a@b.com"),
+                subject="s",
+                html_content="<p>x</p>",
+                template_id=None,
+                params={},
+            )
+
+
+def test_send_wraps_unexpected_exception(monkeypatch):
+    monkeypatch.setenv("BREVO_API_KEY", "key")
+    fake_api = MagicMock()
+    fake_api.send_transac_email.side_effect = RuntimeError("boom")
+    with patch("sib_api_v3_sdk.TransactionalEmailsApi", return_value=fake_api):
+        with pytest.raises(BrevoSendError, match="Unexpected error"):
+            _send(
+                recipient=EmailRecipient(email="a@b.com"),
+                subject="s",
+                html_content="<p>x</p>",
+                template_id=None,
+                params={},
+            )
+
+
+# ---------------------------------------------------------------------------
+# _int_env
+# ---------------------------------------------------------------------------
+
+
+def test_int_env_valid_invalid_and_unset(monkeypatch):
+    monkeypatch.setenv("SOME_INT", "42")
+    assert _int_env("SOME_INT") == 42
+    monkeypatch.setenv("SOME_INT", "not-a-number")
+    assert _int_env("SOME_INT") is None
+    monkeypatch.delenv("SOME_INT", raising=False)
+    assert _int_env("SOME_INT") is None
+
+
+# ---------------------------------------------------------------------------
+# HTML escaping (injection safety)
+# ---------------------------------------------------------------------------
+
+
+def test_build_single_html_escapes_injection():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-<script>", NotificationFeedRole.SUBJECT)],
+        payload={
+            "old_url": "https://x.com/a' onmouseover='alert(1)",
+            "new_url": "https://x.com/<b>",
+        },
+    )
+    html = build_single_html(event)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    # The raw single-quote attribute breakout must be escaped.
+    assert "onmouseover='alert(1)" not in html
+
+
+def test_link_only_links_http_schemes():
+    event = _event(
+        subtype=FeedUrlUpdateType.URL_REPLACED,
+        feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "o", "new_url": "javascript:alert(1)"},
+    )
+    html = build_single_html(event)
+    # A non-http(s) URL must not become a live <a href> link (rendered as plain text only).
+    assert "<a href=" not in html
+    assert 'href="javascript:' not in html
+
+
+def test_build_digest_html_escapes_values():
+    event = _event(
+        feeds=[_feed("<i>mdb</i>", NotificationFeedRole.SUBJECT)],
+        payload={"old_url": "<o>", "new_url": "<n>"},
+        source="<src>",
+    )
+    html = build_digest_html([event])
+    assert "<i>mdb</i>" not in html
+    assert "&lt;i&gt;mdb&lt;/i&gt;" in html
+    assert "<o>" not in html
+
+
+# ---------------------------------------------------------------------------
+# Jinja2 templates
+# ---------------------------------------------------------------------------
+
+
+def test_all_templates_resolve():
+    """Every template file referenced by the HTML builders must exist and load."""
+    for name in (
+        "feed_url_updated_single.html.j2",
+        "feed_url_updated_digest.html.j2",
+        "admin_event_summary.html.j2",
+    ):
+        assert bns._jinja_env.get_template(name) is not None
+
+
+def test_single_template_autoescapes_script_tag():
+    row = {
+        "feed_stable_id": "<script>alert(1)</script>",
+        "target_feed_stable_id": None,
+        "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+        "old_url": "",
+        "new_url": "",
+    }
+    html = bns._jinja_env.get_template("feed_url_updated_single.html.j2").render(row=row)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_digest_template_autoescapes_script_tag():
+    rows = [
+        {
+            "feed_stable_id": "<script>alert(1)</script>",
+            "target_feed_stable_id": None,
+            "event_subtype": FeedUrlUpdateType.URL_REPLACED,
+            "old_url": "",
+            "new_url": "",
+            "source": "",
+        }
+    ]
+    html = bns._jinja_env.get_template("feed_url_updated_digest.html.j2").render(rows=rows)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_safe_link_filter_only_links_http_schemes():
+    assert bns._safe_link_filter(None) == ""
+    assert bns._safe_link_filter("") == ""
+    assert bns._safe_link_filter("javascript:alert(1)") == "javascript:alert(1)"
+    assert bns._safe_link_filter("https://example.com") == '<a href="https://example.com">https://example.com</a>'
+
+
+def test_safe_link_filter_escapes_url():
+    result = bns._safe_link_filter("https://example.com/<script>")
+    assert "<script>" not in result
+    assert "&lt;script&gt;" in result

@@ -19,6 +19,14 @@ tags:
     description: "Mobility Database Operations"
   - name: "licenses"
     description: "Licenses of the Mobility Database"
+  - name: "users"
+    description: "User and feature flag management"
+  - name: "early-access"
+    description: >-
+      Early access programs (e.g. a Summit or GBFS validator beta) grant feature flags in bulk, including to members who have never signed in. This is the only enrollment path — there is no self-service join endpoint anywhere in the public API.
+  - name: "parquet"
+    description: >-
+      On-demand Parquet renderings of GTFS datasets. A dataset is converted once into one Parquet file per GTFS table, published publicly with a manifest describing the set, and served over HTTP range requests so a client can query it in place without downloading or unpacking the feed. Conversion is asynchronous: ask for the state, start one if it is absent, and poll until it is ready.
 paths:
   /v1/operations/feeds:
     get:
@@ -103,7 +111,6 @@ paths:
         201:
           description: >
             The feed was successfully created. No content is returned.
-
           content:
             application/json:
               schema:
@@ -111,19 +118,15 @@ paths:
         400:
           description: >
             The request was invalid.
-
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
-
         409:
           description: >
             A feed with the producer_url already exists.
-
         500:
           description: >
             An internal server error occurred.
-
     put:
       description: Update the specified GTFS feed in the Mobility Database.
       tags:
@@ -142,23 +145,18 @@ paths:
         200:
           description: >
             The feed was successfully updated. No content is returned.
-
         204:
           description: >
             The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
-
         400:
           description: >
             The request was invalid.
-
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
-
         500:
           description: >
             An internal server error occurred.
-
   /v1/operations/gtfs_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -173,11 +171,40 @@ paths:
         200:
           description: >
             Successful pull of the GTFS feeds common info for the provided ID.
-
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationGtfsFeed"
+  /v1/operations/gtfs_feeds/{id}/availability:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        Returns historical availability checks for a GTFS feed, ordered by checked_at from newest to oldest. Availability is based on scheduled lightweight HTTP checks (HEAD or ranged GET requests) and does not download or validate the full GTFS dataset.
+      tags:
+        - "operations"
+      operationId: getGtfsFeedAvailability
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/availability_from"
+        - $ref: "#/components/parameters/availability_to"
+        - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/availability_sort"
+      responses:
+        200:
+          description: Availability history for the GTFS feed, ordered by checked_at (newest first by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedAvailabilityResponse"
+        400:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -192,7 +219,6 @@ paths:
         200:
           description: >
             Successful pull of the GTFS-RT feeds common info for the provided ID.
-
           content:
             application/json:
               schema:
@@ -216,7 +242,6 @@ paths:
         201:
           description: >
             The feed was successfully created. No content is returned.
-
           content:
             application/json:
               schema:
@@ -224,15 +249,12 @@ paths:
         400:
           description: >
             The request was invalid.
-
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
-
         409:
           description: >
             A feed with the producer_url already exists.
-
         500:
           description: "An internal server error occurred.  \n"
     put:
@@ -253,23 +275,18 @@ paths:
         200:
           description: >
             The feed was successfully updated. No content is returned.
-
         204:
           description: >
             The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
-
         400:
           description: >
             The request was invalid.
-
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
-
         500:
           description: >
             An internal server error occurred.
-
   /v1/operations/licenses:
     get:
       description: Get the list of all licenses in the DB.
@@ -337,7 +354,6 @@ paths:
     post:
       description: >
         Propagate a license ID to all feeds sharing the same normalized license URL. Use dry_run=true (the default) to preview which feeds would be updated without persisting any changes.
-
       tags:
         - "licenses"
       operationId: propagateMatchLicense
@@ -377,11 +393,703 @@ paths:
         200:
           description: >
             Successful pull of the license info for the provided ID.
-
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/LicenseWithRules"
+  /v1/operations/users:
+    get:
+      summary: Search users
+      description: |
+        Returns a paginated list of users. When `search_query` is provided, filters
+        case-insensitively across email, full_name, and legacy_org_name.
+      operationId: getOperationsUsers
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: search_query
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive substring match across email, full_name, and legacy_org_name.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Paginated list of matching users.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of users matching the query, ignoring pagination.
+                  offset:
+                    type: integer
+                    description: Number of items skipped for pagination.
+                  limit:
+                    type: integer
+                    description: Maximum number of items returned.
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+  /v1/operations/users/{user_id}:
+    get:
+      summary: Get a user by ID
+      description: Returns the user profile including their currently assigned feature flags.
+      operationId: getOperationsUser
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      responses:
+        "200":
+          description: User profile with feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+  /v1/operations/users/{user_id}/feature-flags:
+    put:
+      summary: Replace a user's feature flags
+      description: |
+        Replaces the user's complete set of feature flags in a single call.
+        Flags in the list are assigned; any previously assigned flags not in the list are removed.
+        All provided flag IDs must exist.
+      operationId: putUserFeatureFlags
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutUserFeatureFlagsRequest"
+      responses:
+        "200":
+          description: Updated user profile with the new feature flag set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User or one of the provided feature flag IDs not found.
+  /v1/operations/feature-flags:
+    get:
+      summary: List all feature flags
+      description: Returns all feature flag definitions.
+      operationId: listFeatureFlags
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of feature flags.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationFeatureFlag"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create a feature flag
+      description: Creates a new feature flag definition.
+      operationId: createFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeatureFlagRequest"
+      responses:
+        "201":
+          description: Feature flag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationFeatureFlag"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+        "409":
+          description: A feature flag with this ID already exists.
+        "422":
+          description: default_value does not match the declared value_type.
+  /v1/operations/feature-flags/{id}:
+    put:
+      summary: Update a feature flag
+      description: Updates the name and/or description of an existing feature flag.
+      operationId: updateFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feature flag slug ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFeatureFlagRequest"
+      responses:
+        "200":
+          description: Updated feature flag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationFeatureFlag"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feature flag not found.
+        "422":
+          description: default_value does not match the declared value_type.
+    delete:
+      summary: Delete a feature flag
+      description: >
+        Deletes a feature flag definition. All user assignments for this flag are removed as well (cascading delete).
+      operationId: deleteFeatureFlag
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feature flag slug ID.
+      responses:
+        "204":
+          description: Feature flag deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feature flag not found.
+  /v1/operations/early-access-programs:
+    get:
+      summary: List early access programs
+      description: Returns a paginated list of early access programs.
+      operationId: listEarlyAccessPrograms
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Paginated list of early access programs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of programs, ignoring pagination.
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  programs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create an early access program
+      description: >
+        Creates a program and, atomically, the feature flags it grants. A program with no `feature_flags` entries is valid but grants nothing — the caller is expected to include at least one.
+      operationId: createEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEarlyAccessProgramRequest"
+      responses:
+        "201":
+          description: Program created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "422":
+          description: >
+            Validation error — e.g. an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+  /v1/operations/early-access-programs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The early access program's ID.
+    get:
+      summary: Get an early access program
+      description: Returns a program's own fields and its current feature flag grants.
+      operationId: getEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The early access program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+    put:
+      summary: Update an early access program
+      description: >
+        Updates the program's own fields (name, description, window, disabled, invite_retention_days) and replaces its feature flag grants. The program's own fields are a partial update - omit a field to leave it unchanged - but `feature_flags` is a full replace: omitting it, or sending an empty array, removes every grant this program makes going forward. This never touches `user_feature_flag` rows already granted to existing enrollees.
+      operationId: updateEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEarlyAccessProgramRequest"
+      responses:
+        "200":
+          description: Updated program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationEarlyAccessProgram"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: >
+            Validation error - an unknown `feature_flag_id`, or a `value` that does not match that flag's `value_type`. Nothing is written.
+    delete:
+      summary: Delete an early access program
+      description: >
+        Deletes the program and cascades to its feature flag grants, enrollments, and any outstanding invited emails. Does not touch `user_feature_flag` rows already granted — deleting a program never revokes access already given out.
+      operationId: deleteEarlyAccessProgram
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Program deleted.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/early-access-programs/{id}/invited-emails:
+    post:
+      summary: Bulk-add invited emails
+      description: >
+        Takes a JSON array of addresses and categorises every one of them against this program. Unless `dry_run` is true (the default), applies the result: an address matching an existing account is granted the program's flags immediately; an address with no matching account gets an invite row, claimed automatically the next time that email signs in. The same body is used for preview and apply so the matching rules cannot diverge between the two. Never logs the submitted list.
+
+
+        This variant takes the addresses already extracted, as JSON. To hand over a CSV file instead, post it to `.../invited-emails:upload`, which parses it server-side and returns the same categorisation. Malformed addresses are never silently skipped by either variant - they come back in `invalid` with a reason, for the operator to fix and resubmit.
+      operationId: importEarlyAccessInvitedEmails
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsRequest"
+      responses:
+        "200":
+          description: Categorisation result (preview if `dry_run` is true, applied otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: More than 5000 emails were submitted.
+    delete:
+      summary: Bulk-remove invited emails
+      description: >
+        Removes outstanding (unclaimed) invited-email rows for this program. The addresses go in the request body rather than the path, so they stay out of URLs and therefore out of proxy and access logs. Removing an invite does not touch any flag already granted from an earlier claim.
+      operationId: removeEarlyAccessInvitedEmails
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveEarlyAccessInvitedEmailsRequest"
+      responses:
+        "200":
+          description: Removal result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoveEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/early-access-programs/{id}/invited-emails:upload:
+    post:
+      summary: Bulk-add invited emails from a CSV file
+      description: >
+        Same categorisation and same `dry_run` semantics as posting JSON to `.../invited-emails`, but takes the CSV itself so an operator does not have to extract the addresses first.
+
+        Send the CSV as the raw request body with `Content-Type: text/csv`, not as a multipart upload. Addresses are read from the column headed `email`, matched case-insensitively and at any position; every other column is ignored, so a CRM export can be uploaded unedited. Quoted fields containing commas are handled, as are CRLF line endings. A file with no `email` column is a 422 rather than an empty import, so a wrong file is never mistaken for a program with no invitees. The file's contents are never logged.
+      operationId: uploadEarlyAccessInvitedEmailsCsv
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: dry_run
+          in: query
+          required: false
+          description: >
+            When true (default), categorise without persisting anything.
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        description: The CSV itself, as the raw request body.
+        content:
+          text/csv:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: Categorisation result (preview if `dry_run` is true, applied otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportEarlyAccessInvitedEmailsResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+        "422":
+          description: >
+            The file has no `email` column, is not valid UTF-8, or its `email` column holds more than 5000 addresses.
+  /v1/operations/early-access-programs/{id}/report:
+    get:
+      summary: Combined enrollment and invite report for a program
+      description: >
+        One row per person across both halves of the program: everyone already enrolled and every address still holding an outstanding invite, distinguished by `status`. Includes a summary count block. Note that an enrolled row's `email` is the account's email as it is *now*, which is not necessarily the address the invite was sent to - the invite row is deleted on claim, so the two cannot be correlated afterwards.
+      operationId: getEarlyAccessProgramReport
+      tags:
+        - "early-access"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The early access program's ID.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: status
+          in: query
+          required: false
+          description: >
+            Restrict `rows` to one half of the program: `enrolled` for people already in it, `invited` for addresses still holding an unclaimed invite. Omit for both. The `summary` block always covers the whole program regardless of this filter.
+          schema:
+            type: string
+            enum: [enrolled, invited]
+        - $ref: "#/components/parameters/early_access_format_param"
+      responses:
+        "200":
+          description: >
+            The program's combined report, as JSON or as CSV depending on `format`. In CSV the summary block is omitted and only the rows are emitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EarlyAccessProgramReport"
+            text/csv:
+              schema:
+                type: string
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Program not found.
+  /v1/operations/gtfs_feeds/{id}/execution_attempts:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: What background tasks have tried to do with this feed, and how it went
+      description: >-
+        One row per attempt a background task has made against any of this feed's datasets, newest first. Each row records which worker ran it, why that worker was chosen, what it cost in memory and time, and - when it failed - what ran out and whether the feed was moved to a larger worker as a result.
+
+
+        This is the audit trail behind automatic worker sizing. A build that exhausts its worker's memory or disk is retried one size up and the feed is given a size override, so the next run starts there; these rows are what show that happening, and why a feed is on a bigger worker than its size alone would suggest.
+
+
+        The filters combine: `failure_kind=resource_memory` with a date range answers "did this feed start running out of memory after we changed something", which is the question that usually prompts opening this page.
+      operationId: getGtfsFeedExecutionAttempts
+      tags:
+        - "operations"
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/execution_attempt_task_name"
+        - $ref: "#/components/parameters/execution_attempt_status"
+        - $ref: "#/components/parameters/execution_attempt_failure_kind"
+        - $ref: "#/components/parameters/execution_attempt_from"
+        - $ref: "#/components/parameters/execution_attempt_to"
+        - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        200:
+          description: Attempt history for the feed, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionAttemptsResponse"
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+  /v1/operations/gtfs_feeds/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS feed's latest dataset stands
+      description: >-
+        Whether this feed's latest dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query the feed in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS feed not found, or it has no dataset yet. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS feed's latest dataset
+      description: >-
+        Begin rendering this feed's latest dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS feed not found, or it has no dataset yet.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
+        "500":
+          description: Internal server error.
+  /v1/operations/gtfs_datasets/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/dataset_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS dataset stands
+      description: >-
+        Whether this dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query it in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS dataset not found. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS dataset
+      description: >-
+        Begin rendering this dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS dataset not found.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
+        "500":
+          description: Internal server error.
 components:
   schemas:
     Redirect:
@@ -454,7 +1162,6 @@ components:
             status:
               description: >
                 Describes status of the Feed. Should be one of
-
                   * `active` Feed should be used in public trip planners.
                   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
                   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -471,20 +1178,23 @@ components:
             official:
               description: >
                 A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
-
               type: boolean
               example: true
             official_updated_at:
               description: >
                 The date and time the official status was last updated, in ISO 8601 date-time format.
-
               type: string
               example: 2023-07-10T22:06:00Z
               format: date-time
+            seasonal:
+              description: >
+                Indicates whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Seasonal feeds are excluded from the rolling 7-day service coverage checks. Defaults to false when the feed has not been marked as seasonal.
+              type: boolean
+              default: false
+              example: true
             feed_name:
               description: >
                 An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
-
               type: string
               example: Bus
             note:
@@ -493,7 +1203,6 @@ components:
             related_links:
               description: >
                 A list of related links for the feed.
-
               type: array
               items:
                 $ref: "#/components/schemas/FeedRelatedLink"
@@ -503,25 +1212,21 @@ components:
         code:
           description: >
             A short code to identify the type of link.
-
           type: string
           example: next_1
         description:
           description: >
             A description of the link.
-
           type: string
           example: The URL for a future feed version with an upcoming service period.
         url:
           description: >
             The URL of the related link.
-
           type: string
           format: url
         created_at:
           description: >
             The date and time the related link was created, in ISO 8601 date-time format.
-
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
@@ -547,9 +1252,10 @@ components:
             visualization_dataset_id:
               description: >
                 The dataset ID of the dataset used to compute the visualization files.
-
               type: string
               example: mdb-1210-202402121801
+            reliability_seal:
+              $ref: "#/components/schemas/FeedReliabilitySummary"
     GbfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
@@ -568,20 +1274,17 @@ components:
             system_id:
               description: >
                 The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
-
               type: string
               example: system-1234
             provider_url:
               description: >
                 The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
-
               type: string
               format: url
               example: https://www.citybikenyc.com/
             versions:
               description: >
                 A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints.
-
               type: array
               items:
                 $ref: "#/components/schemas/GbfsVersion"
@@ -598,27 +1301,23 @@ components:
         version:
           description: >
             The version of the GBFS specification that the feed is using.  This is a string that follows the semantic versioning format.
-
           type: string
           example: 2.3
         created_at:
           description: >
             The date when the GBFS version was saved to the database.
-
           type: string
           format: date-time
           example: 2023-07-10T22:06:00Z
         last_updated_at:
           description: >
             The date when the GBFS version was last updated in the database.
-
           type: string
           format: date-time
           example: 2023-07-10T22:06:00Z
         source:
           description: >
             Indicates the origin of the version information. Possible values are:
-
               * `autodiscovery`: Retrieved directly from the main GBFS autodiscovery URL.
               * `gbfs_versions`: Retrieved from the `gbfs_versions` endpoint.
           type: string
@@ -628,7 +1327,6 @@ components:
         endpoints:
           description: >
             A list of endpoints that are available in the version.
-
           type: array
           items:
             $ref: "#/components/schemas/GbfsEndpoint"
@@ -638,12 +1336,10 @@ components:
       type: object
       description: >
         A validation report of the GBFS feed.
-
       properties:
         validated_at:
           description: >
             The date and time the GBFS feed was validated, in ISO 8601 date-time format.
-
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
@@ -654,14 +1350,12 @@ components:
         report_summary_url:
           description: >
             The URL of the JSON report of the validation summary.
-
           type: string
           format: url
           example: https://storage.googleapis.com/mobilitydata-datasets-prod/validation-reports/gbfs-1234-202402121801.json
         validator_version:
           description: >
             The version of the validator used to validate the GBFS feed.
-
           type: string
           example: 1.0.13
     GbfsEndpoint:
@@ -670,26 +1364,22 @@ components:
         name:
           description: >
             The name of the endpoint. This is a human-readable name for the endpoint.
-
           type: string
           example: system_information
         url:
           description: >
             The URL of the endpoint. This is the URL where the endpoint can be accessed.
-
           type: string
           format: url
           example: https://gbfs.citibikenyc.com/gbfs/system_information.json
         language:
           description: >
             The language of the endpoint. This is the language that the endpoint is available in for versions 2.3  and prior.
-
           type: string
           example: en
         is_feature:
           description: >
             A boolean value indicating if the endpoint is a feature. A feature is defined as an optionnal endpoint.
-
           type: boolean
           example: false
     GbfsFeeds:
@@ -720,7 +1410,6 @@ components:
                 example: vp
                 description: >
                   The type of realtime entry:
-
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
@@ -761,7 +1450,6 @@ components:
         status:
           description: >
             Describes status of the Feed. Should be one of
-
               * `active` Feed should be used in public trip planners.
               * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
               * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -784,9 +1472,14 @@ components:
           format: date-time
         official:
           description: >
-            A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
-
+            A boolean value indicating if the feed is official or not. Official feeds are provided by the transit agency or a trusted source.
           type: boolean
+          example: true
+        seasonal:
+          description: >
+            Indicates whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Seasonal feeds are excluded from the rolling 7-day service coverage checks. Defaults to false when the feed has not been marked as seasonal.
+          type: boolean
+          default: false
           example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
@@ -806,7 +1499,6 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
-
           type: string
           example: Bus
         note:
@@ -837,7 +1529,6 @@ components:
             example: vp
             description: >
               The type of realtime entry:
-
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -855,6 +1546,8 @@ components:
           items:
             type: string
             example: "mdb-20"
+        reliability_seal:
+          $ref: "#/components/schemas/FeedReliabilitySummary"
     Feeds:
       type: array
       items:
@@ -867,6 +1560,441 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/GtfsRTFeed"
+    FeedReliabilitySummary:
+      description: >
+        A summary of the feed's Seal of Reliability. `null` when the feed has never been evaluated.  Use `GET /v1/gtfs_feeds/{id}/reliability` for the per-criterion breakdown.
+      type: object
+      nullable: true
+      required:
+        - has_seal
+        - on_probation
+      properties:
+        has_seal:
+          description: >
+            Whether the feed currently holds the Seal of Reliability.
+          type: boolean
+          example: true
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: >
+            Whether at least one criterion is serving probation - the six clean months a criterion must go through, with no failure, after a confirmed failure before it can count towards the seal again. While this is true the feed cannot hold the seal even if every criterion currently passes.
+          type: boolean
+          example: true
+        probation_ends_at:
+          description: >
+            The earliest date the feed could regain the seal, in ISO 8601 date-time format: the end of the longest-running probation across its criteria. `null` when no criterion is on probation, and also when the stored probation has already elapsed without the nightly job clearing it - a stale countdown is not served.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+    FeedReliabilityReport:
+      description: >
+        The full Seal of Reliability breakdown for a GTFS feed: the same summary as the embedded `reliability_seal` object, plus one entry per criterion. All six criteria are always returned, in a stable order, so a client can render them unconditionally.
+      type: object
+      required:
+        - feed_id
+        - has_seal
+        - on_probation
+        - criteria
+      properties:
+        feed_id:
+          description: Unique identifier of the GTFS feed.
+          type: string
+          example: mdb-1210
+        has_seal:
+          description: Whether the feed currently holds the Seal of Reliability.
+          type: boolean
+          example: false
+        seal_status:
+          description: >
+            Descriptive status of the feed's seal. `has_seal` is true only when this is `granted`. `not_granted`: at least one criterion is failing. `unknown`: none is failing, but not every criterion has been evaluated yet. `never_evaluated`: none of the criteria has  been evaluated yet.
+          type: string
+          enum:
+            - granted
+            - not_granted
+            - unknown
+            - never_evaluated
+          example: granted
+        earned_at:
+          description: When the feed most recently earned the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-15T00:00:00Z
+        lost_at:
+          description: When the feed most recently lost the seal, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-20T04:00:00Z
+        evaluated_at:
+          description: When the feed's criteria were last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        on_probation:
+          description: Whether at least one criterion is serving probation. See `FeedReliabilitySummary`.
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: The earliest date the feed could regain the seal. See `FeedReliabilitySummary`.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        criteria:
+          description: One entry per criterion, always all six, in a stable order.
+          type: array
+          items:
+            $ref: "#/components/schemas/ReliabilityCriterion"
+    ReliabilityCriterion:
+      description: >
+        One criterion's contribution to the Seal of Reliability.
+
+        `status` is the criterion's debounced verdict - the one the seal is decided on, so a client can always explain the `has_seal` beside it. A criterion failing its daily check but still inside its grace period reads `pass` with `in_grace_period` true: grace is not a failing state, it is the warning before one. Conversely a criterion can read `pass` while `on_probation` is true, in which case it still does not count towards the seal. The three states a client renders are therefore: healthy (`pass`), at risk (`pass` with `in_grace_period`), and failing (`fail`) - with `on_probation` as an independent flag on top.
+      type: object
+      required:
+        - criterion
+        - status
+        - in_grace_period
+        - on_probation
+      properties:
+        criterion:
+          description: >
+            Which criterion this entry describes.
+              * `official` - the feed is provided by the agency or a trusted source.
+              * `stable` - the feed has a stable producer URL and a long enough track record.
+              * `available` - the feed URL responds to scheduled availability checks.
+              * `compliant` - the latest dataset validates with no errors.
+              * `fresh_coverage` - the latest dataset's service period extends far enough ahead.
+              * `fresh_continuous` - successive datasets cover service without gaps.
+          type: string
+          enum:
+            - official
+            - stable
+            - available
+            - compliant
+            - fresh_coverage
+            - fresh_continuous
+          example: compliant
+        status:
+          description: >
+            The criterion's debounced verdict: what it contributes to the seal, grace period already applied.
+              * `pass` - the criterion is not counting against the seal. Either its check passed,
+                or the check failed and the failure is still inside the criterion's grace period,
+                which `in_grace_period` tells apart.
+              * `fail` - the failure is confirmed and the criterion is withholding the seal.
+              * `unknown` - not produced. A run whose inputs were missing reaches no verdict and
+                leaves this value untouched, so the last verdict stands. Listed only because the
+                underlying column can hold it.
+              * `not_applicable` - the criterion does not apply to this feed (for example a
+                coverage criterion on a seasonal feed) and is withdrawn from the seal entirely.
+              * `never_evaluated` - the criterion has produced no verdict for this feed yet. It is
+                skipped when deciding the seal rather than counted as a failure.
+          type: string
+          enum:
+            - pass
+            - fail
+            - unknown
+            - not_applicable
+            - never_evaluated
+          example: fail
+        in_grace_period:
+          description: >
+            Whether the criterion's daily check is currently failing but the failure is still inside its grace period, and so is not yet counting against the seal. This is the at-risk state, and the only thing in the response that reports the raw daily check. Can only be true while `status` is `pass`, and is always false while `on_probation` is true, since a failure during probation restarts probation outright rather than being absorbed.
+          type: boolean
+          example: true
+        grace_period_ends_at:
+          description: >
+            When the grace period expires and the failure starts counting against the seal, in ISO 8601 date-time format. `null` unless `in_grace_period` is true, and also when the window has already elapsed without the nightly job acting on it.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-08-24T04:00:00Z
+        on_probation:
+          description: >
+            Whether this criterion is serving the six clean months required after a confirmed failure. While true, the criterion does not count towards the seal whatever its `status`. Never true for `official` or `stable`, which are point-in-time state checks with no track record to rebuild.
+          type: boolean
+          example: false
+        probation_ends_at:
+          description: >
+            When this criterion finishes probation, in ISO 8601 date-time format. `null` when it is not on probation, and also when the window has already elapsed without the nightly job clearing it.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2027-01-16T00:00:00Z
+        evaluated_at:
+          description: When this criterion was last evaluated, in ISO 8601 date-time format.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+        first_failure_at:
+          description: >
+            Start of the current run of failing checks, in ISO 8601 date-time format. `null` once the criterion passes again. This is what the grace period is measured from.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-25T04:00:00Z
+        last_failure_at:
+          description: >
+            The most recent failing check, in ISO 8601 date-time format. Kept as history and never cleared, so it can be set on a criterion that currently passes.
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-07-30T04:00:00Z
+    GtfsFeedAvailabilityResponse:
+      type: object
+      required:
+        - feed_id
+        - checks
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        total:
+          type: integer
+          description: Total number of matching availability checks regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 100
+        checks:
+          type: array
+          description: Availability checks matching the requested filters, ordered by checked_at from oldest to newest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedAvailabilityCheck"
+    GtfsFeedAvailabilityCheck:
+      type: object
+      required:
+        - checked_at
+        - success
+        - request_method
+      properties:
+        checked_at:
+          type: string
+          format: date-time
+          description: Timestamp when the availability check was performed.
+          example: "2026-05-14T10:00:00Z"
+        success:
+          type: boolean
+          description: Whether the feed URL was reachable using the lightweight check.
+          example: true
+        request_method:
+          type: string
+          description: HTTP method used for the availability check.
+          enum:
+            - HEAD
+            - GET
+          example: HEAD
+        status_code:
+          type: integer
+          nullable: true
+          description: Final HTTP status code returned by the feed URL, when available.
+          example: 200
+        latency_ms:
+          type: number
+          format: double
+          nullable: true
+          description: Time taken to receive the response, in milliseconds.
+          example: 845.3
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the check failed.
+          example: timeout
+    GtfsFeedContinuousCoverageResponse:
+      type: object
+      description: >
+        `latest_state` is the feed's latest dataset measured against the one before it; `latest_failure` is the same at the criterion's last observed failure. Each carries both datasets of the comparison, and either can be null.
+      required:
+        - feed_id
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest_state:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
+        latest_failure:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: >
+            One entry per dataset, ordered by downloaded_at from newest to oldest. The first entry of the unpaged list is the feed's current coverage; it is marked with `is_latest`.
+          items:
+            $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+    GtfsFeedContinuousCoverageBoundary:
+      type: object
+      description: >
+        Two successive datasets: `newer` and the one downloaded immediately before it. `older` is null when `newer` is the feed's first dataset.
+      required:
+        - newer
+      properties:
+        newer:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+        older:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+    GtfsFeedContinuousCoverage:
+      type: object
+      description: >
+        The coverage one dataset contributes, and how it lines up with the dataset downloaded just before it.
+
+
+        Three windows are reported. `service_window` is the service dates the validator derived from `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's `feed_info.txt` declares; `coverage_window` is the one the criterion measures by - the declared window, falling back to the validated one - with `coverage_window_source` naming which of the two it came from. Any of them may be absent when the dataset did not supply the underlying files.
+      required:
+        - dataset_id
+        - is_latest
+        - files
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the dataset this entry describes.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: >
+            Whether this is the feed's latest dataset. Exactly one entry in the unpaged list has this set, so a client can identify the headline entry without assuming it is on the current page.
+          example: true
+        downloaded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the dataset was downloaded.
+          example: "2026-06-28T00:29:00Z"
+        coverage_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        coverage_window_source:
+          type: string
+          nullable: true
+          description: >
+            Which input `coverage_window` was taken from.
+
+            * `feed_info` - the dates declared in `feed_info.txt`. * `service_dates` - the service dates derived by the validator from `calendar.txt` and
+              `calendar_dates.txt`, used when the dataset declares no range.
+          enum:
+            - service_dates
+            - feed_info
+          example: feed_info
+        within_max_coverage_window:
+          type: boolean
+          nullable: true
+          description: >
+            Whether `coverage_window` stays inside the maximum coverage window the seal allows (two years). Null when there is no coverage window to measure.
+          example: true
+        service_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        feed_info_window:
+          $ref: "#/components/schemas/ServiceDateWindow"
+        feed_info_matches:
+          type: boolean
+          nullable: true
+          description: >
+            Whether `feed_info_window` agrees with `service_window` on both bounds. Null when either window is missing, which is not the same as a mismatch.
+          example: true
+        previous_dataset_id:
+          type: string
+          nullable: true
+          description: >
+            Stable identifier of the dataset downloaded immediately before this one. Null for the oldest dataset of the feed. Populated even when that dataset falls outside the requested page or date range, so overlap is never reported as absent merely because of paging.
+          example: mdb-123-202604290029
+        overlap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of overlap between this dataset's coverage window and that of the dataset immediately older than it. Zero means the windows meet exactly; a gap is reported as `gap_days` instead. Null when either window is missing or there is no older dataset.
+          example: 15
+        gap_days:
+          type: integer
+          nullable: true
+          description: >
+            Days of uncovered service between the end of the older dataset's window and the start of this one. Null when the windows overlap or meet, which is the passing case.
+          example: 3
+        files:
+          type: array
+          description: >
+            The files the calculation reads, and whether each was present in this dataset. Always returned in the same order with one entry per file, so a client can render a fixed row.
+          items:
+            $ref: "#/components/schemas/GtfsFeedContinuousCoverageFile"
+    GtfsFeedContinuousCoverageFile:
+      type: object
+      required:
+        - name
+        - present
+      properties:
+        name:
+          type: string
+          description: Name of the GTFS file.
+          example: calendar.txt
+        present:
+          type: boolean
+          description: Whether the file was present in the dataset.
+          example: true
+    ServiceDateWindow:
+      type: object
+      description: A closed range of service dates, with its length in days.
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date
+          description: First date covered by the window.
+          example: "2026-09-16"
+        end:
+          type: string
+          format: date
+          description: Last date covered by the window.
+          example: "2027-07-28"
+        days:
+          type: integer
+          nullable: true
+          description: Length of the window in days, counting both bounds.
+          example: 316
     LatestDataset:
       type: object
       properties:
@@ -877,7 +2005,6 @@ components:
         hosted_url:
           description: >
             As a convenience, the URL of the latest uploaded dataset hosted by MobilityData.  It should be the same URL as the one found in the latest dataset id dataset. An alternative way to find this is to use the latest dataset id to obtain the dataset and then use its hosted_url.
-
           type: string
           format: url
           example: https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1210/mdb-1210-202402121801/mdb-1210-202402121801.zip
@@ -1006,20 +2133,26 @@ components:
       properties:
         producer_url:
           description: >
-            URL where the producer is providing the dataset.  Refer to the authentication information to know how to access this URL.
-
+            URL where the producer is providing the dataset. Refer to the authentication information to know how to access this URL.
           type: string
           format: url
           example: https://ladotbus.com/gtfs
+        is_producer_url_unstable:
+          description: >
+            Indicates whether the `producer_url` is known to be unstable, i.e. it changes over time. This may be because the URL contains a date/time, or because the transit provider has communicated that it is not permanent (e.g. it is updated monthly).
+              * true - The producer URL is unstable and changes over time.
+              * false - The producer URL is stable and unchanging over time.
+              * null (default) - There is not enough information to determine the stability of the producer URL.
+          type: boolean
+          nullable: true
+          example: true
         authentication_type:
           description: >
             Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
-
               * 0 or (empty) - No authentication required.
               * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
               * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
             When not provided, the authentication type is assumed to be 0.
-
           type: integer
           enum:
             - 0
@@ -1029,7 +2162,6 @@ components:
         authentication_info_url:
           description: >
             Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created.  This field is required for `authentication_type=1` and `authentication_type=2`.
-
           type: string
           format: url
           example: https://apidevelopers.ladottransit.com
@@ -1037,7 +2169,6 @@ components:
           type: string
           description: >
             Defines the name of the parameter to pass in the URL to provide the API key. This field is required for `authentication_type=1` and `authentication_type=2`.
-
           example: Ocp-Apim-Subscription-Key
         license_url:
           description: A URL where to find the license for the feed.
@@ -1074,7 +2205,6 @@ components:
         country_code:
           description: >
             ISO 3166-1 alpha-2 code designating the country where the system is located.  For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
-
           type: string
           example: US
         country:
@@ -1084,13 +2214,89 @@ components:
         subdivision_name:
           description: >
             ISO 3166-2 english subdivision name designating the subdivision (e.g province, state, region) where the system is located.  For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
-
           type: string
           example: California
         municipality:
           description: Primary municipality in english in which the transit system is located.
           type: string
           example: Los Angeles
+    LocationSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: The total number of matching locations regardless of limit and offset.
+        results:
+          type: array
+          description: The page of matching locations, ordered from the broadest area to the most specific and by relevance within each level.
+          items:
+            $ref: "#/components/schemas/LocationSearchResult"
+    LocationSearchResult:
+      type: object
+      properties:
+        location_id:
+          type: integer
+          description: Stable location identifier.
+          example: 175905
+        parent_location_id:
+          type: integer
+          nullable: true
+          description: Stable identifier of the nearest containing location.
+          example: 161950
+        name:
+          type: string
+          nullable: true
+          description: The primary name of the location, in English when available.
+          example: Montréal
+        alt_name:
+          type: string
+          nullable: true
+          description: An alternate or local name for the location, when available.
+          example: City of Montréal
+        location_type:
+          type: string
+          description: >
+            The type of location: `country` (has an ISO 3166-1 code), `subdivision` (has an ISO 3166-2 code) or `municipality` (a locality below the subdivision level).
+          enum:
+            - country
+            - subdivision
+            - municipality
+          example: municipality
+        country_name:
+          type: string
+          nullable: true
+          description: The name of the country that contains this location.
+          example: Canada
+        country_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-1 alpha-2 code of the country that contains this location.
+          example: CA
+        subdivision_name:
+          type: string
+          nullable: true
+          description: The name of the subdivision (e.g. state or province) that contains this location, when applicable.
+          example: Quebec
+        subdivision_code:
+          type: string
+          nullable: true
+          description: The ISO 3166-2 code of the subdivision that contains this location, when applicable.
+          example: CA-QC
+        path_names:
+          type: array
+          description: The ordered list of location names from the broadest containing area down to this location.
+          items:
+            type: string
+          example:
+            - Canada
+            - Quebec
+            - Montréal (region)
+            - Montréal
+        display_name:
+          type: string
+          nullable: true
+          description: A human-readable representation of the full location hierarchy, joined from the broadest area to this location.
+          example: Canada, Quebec, Montréal (region), Montréal
     #    Have to put the enum inline because of a bug in openapi-generator
     #    FeedStatus:
     #      description: >
@@ -1203,6 +2409,126 @@ components:
         commit_hash:
           type: string
           example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
+    GtfsFeedValidationReportsResponse:
+      type: object
+      description: >
+        The feed's validation history, one entry per dataset. `latest` is the entry for the feed's current dataset, whatever page or filter was requested, and is null when the feed has no validated dataset.
+      required:
+        - feed_id
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest:
+          $ref: "#/components/schemas/GtfsFeedValidationReport"
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: One entry per dataset, ordered by validated_at from newest to oldest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationReport"
+    GtfsFeedValidationReport:
+      type: object
+      description: >
+        The most recent validation report of one dataset. `total_*` counts every notice raised; `unique_*` counts the distinct codes behind them.
+      required:
+        - dataset_id
+        - is_latest
+        - notices
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the validated dataset.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: Whether this is the feed's latest dataset.
+          example: true
+        validated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-28T00:29:00Z"
+        validator_version:
+          type: string
+          nullable: true
+          example: 4.2.0
+        total_error:
+          type: integer
+          nullable: true
+          example: 10
+        total_warning:
+          type: integer
+          nullable: true
+          example: 20
+        total_info:
+          type: integer
+          nullable: true
+          example: 30
+        unique_error_count:
+          type: integer
+          nullable: true
+          example: 1
+        unique_warning_count:
+          type: integer
+          nullable: true
+          example: 2
+        unique_info_count:
+          type: integer
+          nullable: true
+          example: 3
+        url_json:
+          type: string
+          nullable: true
+          description: JSON validation report URL.
+        url_html:
+          type: string
+          nullable: true
+          description: HTML validation report URL.
+        notices:
+          type: array
+          description: >
+            The notice codes raised, newest report only, ordered by severity then by count. Filtered by the `severity` query parameter when one is given.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationNotice"
+    GtfsFeedValidationNotice:
+      type: object
+      required:
+        - code
+        - severity
+        - total
+      properties:
+        code:
+          type: string
+          description: Validator notice code.
+          example: invalid_phone_number
+        severity:
+          type: string
+          enum:
+            - ERROR
+            - WARNING
+            - INFO
+          example: ERROR
+        total:
+          type: integer
+          description: How many times this code was raised.
+          example: 10
     ValidationReport:
       description: Validation report
       type: object
@@ -1354,7 +2680,6 @@ components:
         match_type:
           description: >
             Type of match performed. One of:
-
               - 'exact': Direct match found in database
               - 'heuristic': Matched via pattern-based rules (CC resolver, common patterns)
               - 'fuzzy': Similarity-based match against same-host licenses
@@ -1363,7 +2688,6 @@ components:
         confidence:
           description: >
             Match confidence score (0.0-1.0), examples:
-
               - 1.0: Exact match
               - 0.99: Creative Commons resolved
               - 0.95: Pattern heuristic match
@@ -1385,7 +2709,6 @@ components:
         matched_source:
           description: >
             Source of the match. Examples:
-
               - 'db.license': Exact match from database
               - 'cc-resolver': Creative Commons license resolver
               - 'pattern-heuristics': Generic pattern matching
@@ -1398,7 +2721,6 @@ components:
         regional_id:
           description: >
             Regional/jurisdictional variant identifier for ported licenses
-
               (e.g., 'CC-BY-2.1-jp' for Japan-ported Creative Commons)
           type: string
           example: CC-BY-4.0-nl
@@ -1458,13 +2780,11 @@ components:
         dry_run:
           description: >
             When true (default), compute and return the affected feeds without persisting any changes. Set to false to apply the changes.
-
           type: boolean
           default: true
         override:
           description: >
             When false (default), only feeds whose license_id is currently unset (null) are updated. When true, feeds that already have a license_id are also updated.
-
           type: boolean
           default: false
     PropagateLicenseResponse:
@@ -1516,7 +2836,6 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
-
           type: string
           example: Bus
         note:
@@ -1544,12 +2863,16 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
         locations:
           $ref: "#/components/schemas/Locations"
         related_links:
           description: >
             A list of related links for the feed.
-
           type: array
           items:
             $ref: '#/components/schemas/FeedRelatedLink'
@@ -1558,7 +2881,6 @@ components:
           default: false
           description: >
             When true, after the feed is created, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
-
       required:
         - source_info
         - operational_status
@@ -1577,7 +2899,6 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
-
           type: string
           example: Bus
         note:
@@ -1605,6 +2926,11 @@ components:
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          default: false
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Defaults to false.
         entity_types:
           type: array
           minItems: 1
@@ -1617,13 +2943,6 @@ components:
             example: vp
             description: >
               The type of realtime entry:
-
-
-
-
-
-
-
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1638,7 +2957,6 @@ components:
         related_links:
           description: >
             A list of related links for the feed.
-
           type: array
           items:
             $ref: '#/components/schemas/FeedRelatedLink'
@@ -1647,7 +2965,6 @@ components:
           default: false
           description: >
             When true, after the feed is created, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
-
       required:
         - source_info
         - operational_status
@@ -1721,7 +3038,6 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
-
           type: string
           example: Bus
         note:
@@ -1748,13 +3064,6 @@ components:
             example: vp
             description: >
               The type of realtime entry:
-
-
-
-
-
-
-
                 * vp - vehicle positions
                 * tu - trip updates
                 * sa - service alerts
@@ -1764,22 +3073,23 @@ components:
           items:
             type: string
             example: "mdb-20"
-        operational_status_action:
+        operational_status:
           type: string
-          enum:
-            - no_change
-            - wip
-            - published
-            - unpublished
+          enum: [wip, published, unpublished]
+          description: >
+            Current operational status of the feed. Omit this field to leave the stored value unchanged; send a value to set it explicitly. Mirrors the `operational_status` returned by the feed GET endpoints, so a response can be sent straight back as an update with no change detected.
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Omit this field to leave the stored value unchanged; send true or false to set it explicitly.
         propagate_license:
           type: boolean
           default: false
           description: >
             When true, after the feed is updated, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
-
       required:
         - id
         - status
@@ -1803,7 +3113,6 @@ components:
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
-
           type: string
           example: Bus
         note:
@@ -1819,22 +3128,23 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Redirect"
-        operational_status_action:
+        operational_status:
           type: string
-          enum:
-            - no_change
-            - wip
-            - published
-            - unpublished
+          enum: [wip, published, unpublished]
+          description: >
+            Current operational status of the feed. Omit this field to leave the stored value unchanged; send a value to set it explicitly. Mirrors the `operational_status` returned by the feed GET endpoints, so a response can be sent straight back as an update with no change detected.
         official:
           type: boolean
           description: Whether this is an official feed.
+        seasonal:
+          type: boolean
+          description: >
+            Whether the feed is seasonal, i.e. it only provides service during recurring periods of the year (for example a summer-only or winter-only service). Omit this field to leave the stored value unchanged; send true or false to set it explicitly.
         propagate_license:
           type: boolean
           default: false
           description: >
             When true, after the feed is updated, propagate its license_id to all other feeds sharing the same normalized license_url where license_id is currently unset.
-
       required:
         - id
         - status
@@ -1842,13 +3152,6 @@ components:
       x-operation: true
       description: >
         Describes status of the Feed. Should be one of
-
-
-
-
-
-
-
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -1866,13 +3169,6 @@ components:
       x-operation: true
       description: >
         Describes data type of a feed. Should be one of
-
-
-
-
-
-
-
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -1882,7 +3178,701 @@ components:
         - gtfs_rt
         - gbfs
       example: gtfs
+    FeatureFlagValue:
+      x-operation: true
+      description: >
+        The value of a feature flag. The type is determined by the flag's value_type field. Possible shapes: boolean (true/false), string, number, array, or object.
+    FeatureFlagAssignment:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+      properties:
+        feature_flag_id:
+          type: string
+          description: The ID of the feature flag to assign.
+          example: "beta_editor"
+        value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: Per-user value override. null or absent means use the flag's default_value.
+    UserFeatureFlagState:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+        - value_type
+        - default_value
+      properties:
+        feature_flag_id:
+          type: string
+          description: The feature flag's unique slug.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Human-readable display name.
+          example: "Beta Editor"
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        user_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          nullable: true
+          description: The value explicitly set for this user. null means no override — the default applies.
+    OperationFeatureFlag:
+      x-operation: true
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+          example: "Beta Editor"
+        description:
+          type: string
+          nullable: true
+          description: Optional description of what this feature flag enables.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the flag was created.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+          default: false
+    CreateFeatureFlagRequest:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - value_type
+        - default_value
+      properties:
+        id:
+          type: string
+          description: Unique slug for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+        description:
+          type: string
+          nullable: true
+          description: Optional description.
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries. Cannot be changed after creation.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The flag's global default value.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+          default: false
+    UpdateFeatureFlagRequest:
+      x-operation: true
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: Updated display name.
+        description:
+          type: string
+          nullable: true
+          description: Updated description.
+        default_value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: Updated global default value. value_type cannot be changed.
+        disabled:
+          type: boolean
+          description: >
+            When true, the flag is hidden from the user-facing API. It remains visible and manageable through the Operations API.
+    EarlyAccessProgramFeatureFlagGrant:
+      x-operation: true
+      type: object
+      required:
+        - feature_flag_id
+        - value
+      properties:
+        feature_flag_id:
+          type: string
+          description: The feature flag's unique slug. Must reference an existing feature_flag row.
+          example: "isSealFilterEnabled"
+        value:
+          $ref: "#/components/schemas/FeatureFlagValue"
+          description: The value granted by this program. Must match the flag's declared value_type.
+    OperationEarlyAccessProgram:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: The program's unique identifier.
+        name:
+          type: string
+          description: The program's display name.
+          example: "Summit 2026"
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the program.
+        disabled:
+          type: boolean
+          description: When true, invited-email claims and direct grants for this program are refused.
+          default: false
+        invite_retention_days:
+          type: integer
+          description: >
+            Days an unclaimed invited email is kept before the purge task deletes it.
+          default: 90
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          nullable: true
+        feature_flags:
+          type: array
+          description: The feature flags this program currently grants.
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    CreateEarlyAccessProgramRequest:
+      x-operation: true
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "Summit 2026"
+        description:
+          type: string
+          nullable: true
+        disabled:
+          type: boolean
+          default: false
+        invite_retention_days:
+          type: integer
+          default: 90
+        feature_flags:
+          type: array
+          description: >
+            The feature flags this program grants, written atomically with the program row. A program created with no entries here is valid but grants nothing.
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    UpdateEarlyAccessProgramRequest:
+      x-operation: true
+      type: object
+      description: >
+        The program's own fields are a partial update - omit one to leave it unchanged. `feature_flags` is the exception: it is a full replace, so omitting it or sending an empty array removes every grant this program makes going forward.
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        disabled:
+          type: boolean
+        invite_retention_days:
+          type: integer
+        feature_flags:
+          type: array
+          description: >
+            The program's complete set of feature flag grants after this call - a "set" operation, not an incremental add/remove. Omitting this field, or sending an empty array, removes all of this program's grants going forward without touching flags already granted to existing enrollees.
+          items:
+            $ref: "#/components/schemas/EarlyAccessProgramFeatureFlagGrant"
+          default: []
+    ImportEarlyAccessInvitedEmailsRequest:
+      x-operation: true
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          description: >
+            Addresses to invite. Lower-cased and de-duplicated before matching. Capped at 5000 — larger submissions are rejected with 422 rather than truncated.
+          items:
+            type: string
+            format: email
+          maxItems: 5000
+        dry_run:
+          type: boolean
+          description: >
+            When true (default), compute and return the categorisation without persisting any changes. Set to false to apply — grant matched accounts immediately and create invite rows for the rest.
+          default: true
+    EarlyAccessImportCategorySummary:
+      x-operation: true
+      type: object
+      description: >
+        A count plus a short sample of the addresses in this category. Only the `invalid` category is returned in full — see ImportEarlyAccessInvitedEmailsResponse.
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+        sample:
+          type: array
+          items:
+            type: string
+            format: email
+    EarlyAccessInvalidEmailEntry:
+      x-operation: true
+      type: object
+      required:
+        - email
+        - reason
+      properties:
+        email:
+          type: string
+        reason:
+          type: string
+          description: Why this address was rejected (e.g. not a valid email format).
+    ImportEarlyAccessInvitedEmailsResponse:
+      x-operation: true
+      type: object
+      required:
+        - program_id
+        - dry_run
+        - matched_existing_account
+        - no_account_yet
+        - already_invited
+        - already_enrolled
+        - invalid
+      properties:
+        program_id:
+          type: string
+        dry_run:
+          type: boolean
+          description: Whether this was a dry run (no changes persisted).
+        matched_existing_account:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses matching an existing account. Flags are granted immediately on apply.
+        no_account_yet:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: >
+            Addresses with no matching account. An invite row is created on apply, claimed automatically the next time that email signs in.
+        already_invited:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses that already have an outstanding invite for this program. No-op.
+        already_enrolled:
+          allOf:
+            - $ref: "#/components/schemas/EarlyAccessImportCategorySummary"
+          description: Addresses already enrolled in this program. No-op.
+        invalid:
+          type: array
+          description: >
+            Addresses that were rejected, returned in full (not just a sample) so the operator can fix and resubmit them.
+          items:
+            $ref: "#/components/schemas/EarlyAccessInvalidEmailEntry"
+    RemoveEarlyAccessInvitedEmailsRequest:
+      x-operation: true
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
+    RemoveEarlyAccessInvitedEmailsResponse:
+      x-operation: true
+      type: object
+      required:
+        - removed_count
+        - not_found_count
+      properties:
+        removed_count:
+          type: integer
+          description: Number of outstanding invites removed.
+        not_found_count:
+          type: integer
+          description: >
+            Number of submitted addresses that had no outstanding invite for this program (already claimed, never invited, or already removed).
+    EarlyAccessReportRow:
+      x-operation: true
+      type: object
+      description: >
+        One person in a program's report. `status` says which half of the program they are in, and which of the remaining fields are populated.
+      required:
+        - email
+        - status
+      properties:
+        email:
+          type: string
+          format: email
+          description: >
+            For an enrolled row, the account's email as it is now; for an invited row, the address the invite was created for.
+        status:
+          type: string
+          enum: [enrolled, invited]
+        user_id:
+          type: string
+          nullable: true
+          description: Set for `enrolled` rows, null for `invited` (there is no account yet).
+        enrolled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set for `enrolled` rows only.
+        source:
+          type: string
+          enum: [invited_email, operations]
+          nullable: true
+          description: How the enrollment was created. Set for `enrolled` rows only.
+        invited_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the invite was created. Set for `invited` rows only.
+    EarlyAccessReportSummary:
+      x-operation: true
+      type: object
+      required:
+        - enrolled_count
+        - outstanding_invite_count
+        - total
+      properties:
+        enrolled_count:
+          type: integer
+          description: People already enrolled in the program.
+        outstanding_invite_count:
+          type: integer
+          description: Invited addresses not yet claimed.
+        total:
+          type: integer
+          description: enrolled_count + outstanding_invite_count.
+        by_source:
+          type: object
+          description: Enrollment counts broken down by how the enrollment was created.
+          properties:
+            invited_email:
+              type: integer
+            operations:
+              type: integer
+    EarlyAccessProgramReport:
+      x-operation: true
+      type: object
+      required:
+        - program_id
+        - summary
+        - rows
+      properties:
+        program_id:
+          type: string
+        summary:
+          $ref: "#/components/schemas/EarlyAccessReportSummary"
+        total:
+          type: integer
+          description: Total rows available, ignoring pagination.
+        offset:
+          type: integer
+        limit:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/EarlyAccessReportRow"
+          default: []
+    OperationUserProfile:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          description: The user's unique identifier.
+          example: "abc123uid"
+        email:
+          type: string
+          format: email
+          description: The user's email address.
+          example: "user@example.com"
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          description: The user's legacy organisation name.
+          example: "Acme Transit"
+        features:
+          type: array
+          description: >
+            All feature flags with their resolved state for this user. Every flag is returned (including those the user has no explicit override for); user_value holds the per-user override when set, otherwise the flag's default_value applies.
+          items:
+            $ref: "#/components/schemas/UserFeatureFlagState"
+          default: []
+    PutUserFeatureFlagsRequest:
+      x-operation: true
+      type: object
+      required:
+        - assignments
+      properties:
+        assignments:
+          type: array
+          description: Complete list of feature flag assignments for this user. Replaces the current set.
+          items:
+            $ref: "#/components/schemas/FeatureFlagAssignment"
+          example:
+            - feature_flag_id: "beta_editor"
+              value: true
+            - feature_flag_id: "max_results"
+              value: 50
+    ExecutionAttempt:
+      x-operation: true
+      type: object
+      description: >-
+        One attempt by a background task against one dataset. Append-only: an attempt is never rewritten, so the sequence for a dataset is its full history rather than its current state.
+      properties:
+        task_name:
+          type: string
+          example: parquet_generation
+        dataset_stable_id:
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        attempt:
+          description: 1-based, counted since this dataset last succeeded.
+          type: integer
+          example: 1
+        variant:
+          description: >-
+            The worker that ran it. Read from the running service rather than from what was requested, so it is what actually happened.
+          type: string
+          nullable: true
+          example: s
+        variant_basis:
+          description: >-
+            Where that size came from. `measured` from the dataset's own size, `unknown` when the dataset has no recorded sizes at all and the largest worker was used as the safe default, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand. `unknown` is the one to act on: it means the dataset's file sizes were never recorded, so every build of it goes to the largest worker regardless of how small it is. Running the `rebuild_missing_dataset_files` task records them.
+          type: string
+          enum: [measured, unknown, auto, operator]
+          nullable: true
+          example: measured
+        override_at_attempt:
+          description: The size override in force for this feed when the attempt was routed, if any.
+          type: string
+          nullable: true
+          example: m
+        escalated_to:
+          description: >-
+            The worker this attempt moved the feed to. Null when nothing was escalated, which includes the cases where escalation was considered and declined - the failure was not a resource one, the largest worker was already in use, or the retry cap was spent.
+          type: string
+          nullable: true
+          example: m
+        status:
+          type: string
+          enum: [completed, failed]
+          example: failed
+        failure_kind:
+          description: What ran out. Null on success.
+          type: string
+          enum: [resource_memory, resource_disk, other]
+          nullable: true
+          example: resource_memory
+        error_type:
+          description: >-
+            The exception class. Recorded separately from the message because the most important one, `MemoryError`, carries an empty message.
+          type: string
+          nullable: true
+          example: MemoryError
+        error_message:
+          type: string
+          nullable: true
+          example: "Out of Memory Error: failed to allocate block of 262144 bytes"
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+          nullable: true
+          example: 4950
+        peak_rss_bytes:
+          description: Peak resident memory.
+          type: integer
+          format: int64
+          nullable: true
+        peak_vms_bytes:
+          description: >-
+            Peak address space, which is what the worker's limit actually caps. It runs two to three times resident memory, so a worker sized from `peak_rss_bytes` alone is under-provisioned by roughly half.
+          type: integer
+          format: int64
+          nullable: true
+    ExecutionAttemptsResponse:
+      x-operation: true
+      type: object
+      properties:
+        feed_stable_id:
+          type: string
+          example: mdb-1210
+        current_size_override:
+          description: >-
+            The worker size currently configured for this feed, if any. An override decides which worker runs the build, in place of the size the dataset would otherwise measure into. It is set either by an operator or automatically, after a build runs out of memory or disk; `variant_basis` on each attempt says which.
+          type: string
+          nullable: true
+          example: m
+        current_size_locked:
+          description: >-
+            Whether that override is held. An override is normally a starting point the builder may raise after a build runs out of resources, or lower after several that finished with room to spare. A locked one it will not move in either direction, so a feed locked below what it needs fails and stays failed, with no escalation, until a person changes the value - which is what this field is for. False when there is no override.
+          type: boolean
+          default: false
+          example: false
+        total:
+          type: integer
+          example: 2
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionAttempt"
+    ParquetDatasetState:
+      x-operation: true
+      type: object
+      description: >-
+        Where a dataset's Parquet rendering stands. Which fields are set depends on `status`: `base_url` for `ready`, the progress fields for `preparing`, `message` for `failed`, and nothing beyond the identifiers for `absent`. What the dataset contains - its tables, their row and column counts, and what each weighed before and after conversion - is read from `{base_url}/manifest.json`, which is the one place that answer lives. The progress fields are named as the GTFS Garage viewer names its own load reports, so a client can pass them straight through.
+      required:
+        - status
+        - feed_stable_id
+      properties:
+        status:
+          description: >-
+            `absent` when no conversion has ever been requested - an ordinary starting state, not an error. `preparing` while one is queued or running, `ready` once the files are published, `failed` when the last attempt did not finish.
+          type: string
+          enum: [absent, preparing, ready, failed]
+          example: preparing
+        feed_stable_id:
+          description: The stable ID of the feed the dataset belongs to.
+          type: string
+          example: mdb-1210
+        dataset_stable_id:
+          description: >-
+            The stable ID of the dataset. When the request addressed a feed, this is the feed's latest dataset, resolved at request time.
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        base_url:
+          description: >-
+            Public URL prefix the Parquet files are served from, without a trailing slash. `{base_url}/manifest.json` is the dataset's description of itself - which tables exist, their row and column counts, and what each weighed before and after conversion - and each table is `{base_url}/{name}.parquet`. Null unless `status` is `ready`. The files are public and answer HTTP range requests; no query string is ever appended, so this can be used verbatim as a client's base URL. This response deliberately does not repeat the table list: a reader given one skips the manifest, and with it the sizes it carries.
+          type: string
+          format: url
+          nullable: true
+          example: https://files.mobilitydatabase.org/mdb-1210/mdb-1210-202402121801/parquet
+        phase:
+          description: >-
+            The step currently running, in the order they happen: `download` fetches the dataset archive, `extract` unpacks it, `convert` rewrites each table as Parquet, `upload` publishes the results, `summarise` records the manifest. Null unless `status` is `preparing`.
+          type: string
+          enum:
+            - start
+            - download
+            - upload
+            - extract
+            - convert
+            - summarise
+            - done
+          nullable: true
+          example: convert
+        done:
+          description: >-
+            Progress within the current phase: **bytes transferred** during `download`, and a count of files or tables otherwise. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        total:
+          description: >-
+            The target `done` is counting towards, in the same unit, or 0 when it is not knowable in advance - a download whose response carries no Content-Length, for instance. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 32
+        detail:
+          description: >-
+            The file or table currently being worked on; empty when there is none. Null unless `status` is `preparing`.
+          type: string
+          nullable: true
+          example: stop_times
+        message:
+          description: >-
+            Why the last attempt failed, in terms an operator can act on. Shown verbatim by the viewer, so it should name the actual cause. Null unless `status` is `failed`.
+          type: string
+          nullable: true
+          example: Conversion ran out of memory
+        generated_at:
+          description: When the current set of files finished generating. Null unless `status` is `ready`.
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-09-16T14:22:31Z"
+    ParquetGenerateRequest:
+      x-operation: true
+      type: object
+      description: Options for a Parquet generation request.
+      properties:
+        force:
+          description: >-
+            Regenerate even if the files already exist, replacing them. Has no effect on a conversion that is already running: that one is reported as-is rather than restarted.
+          type: boolean
+          default: false
+          example: false
+        retention_days:
+          description: >-
+            How long the generated files should be kept, counted from when they are built and not extended by use. Omit it and the builder's own default of 30 days applies; that default deliberately lives in one place rather than being restated here. On that date the dataset reports `absent` again, so the next request rebuilds it. The files themselves are removed by the storage bucket's own lifecycle rule shortly afterwards, on its schedule rather than at a guaranteed moment.
+          type: integer
+          minimum: 1
+          maximum: 60
+          example: 7
   parameters:
+    early_access_format_param:
+      x-operation: true
+      name: format
+      in: query
+      description: >
+        Response format. `json` (the default) returns the paginated object; `csv` returns the same rows as `text/csv` with a header row.
+      required: False
+      schema:
+        type: string
+        enum: [json, csv]
+        default: json
     feed_id_path_param:
       x-operation: true
       name: id
@@ -1941,6 +3931,112 @@ components:
         minimum: 0
         default: 0
         example: 0
+    limit_query_param_availability_endpoint:
+      x-operation: true
+      name: limit
+      in: query
+      description: The number of items to be returned. Maximum is 100.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 100
+        example: 10
+    availability_from:
+      x-operation: true
+      name: from
+      in: query
+      description: Return availability checks performed at or after this timestamp. Date should be in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-01T00:00:00Z"
+    availability_to:
+      x-operation: true
+      name: to
+      in: query
+      description: Return availability checks performed at or before this timestamp. Date should be in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-05-01T00:00:00Z"
+    availability_sort:
+      x-operation: true
+      name: sort
+      in: query
+      description: Sort order of results by checked_at. Use `desc` for newest first (default) or `asc` for oldest first.
+      required: False
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: desc
+        example: asc
+    execution_attempt_status:
+      x-operation: true
+      name: status
+      in: query
+      description: Return only attempts that ended this way.
+      required: false
+      schema:
+        type: string
+        enum: [completed, failed]
+        example: failed
+    execution_attempt_failure_kind:
+      x-operation: true
+      name: failure_kind
+      in: query
+      description: >-
+        Return only failures of this kind. `resource_memory` and `resource_disk` are the two that trigger an automatic move to a larger worker; `other` never does. Implies `status=failed`, since a successful attempt has no kind.
+      required: false
+      schema:
+        type: string
+        enum: [resource_memory, resource_disk, other]
+        example: resource_memory
+    execution_attempt_from:
+      x-operation: true
+      name: from
+      in: query
+      description: >-
+        Return attempts that started at or after this timestamp, in ISO 8601 date-time format. Filtered on when the attempt began rather than when it ended, so a long build is found by when it was triggered.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-01T00:00:00Z"
+    execution_attempt_to:
+      x-operation: true
+      name: to
+      in: query
+      description: Return attempts that started at or before this timestamp, in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-30T23:59:59Z"
+    execution_attempt_task_name:
+      x-operation: true
+      name: task_name
+      in: query
+      description: >-
+        Limit the history to one task, for example `parquet_generation`. Omit it to see every task that has touched the feed.
+      required: false
+      schema:
+        type: string
+        example: parquet_generation
+    dataset_id_path_param:
+      x-operation: true
+      name: id
+      in: path
+      description: The dataset ID of the requested GTFS dataset.
+      required: True
+      schema:
+        type: string
+        example: mdb-1210-202402121801
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

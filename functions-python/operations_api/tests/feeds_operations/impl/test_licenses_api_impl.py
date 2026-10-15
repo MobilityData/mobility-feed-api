@@ -28,7 +28,7 @@ async def test_get_license_success(db_session):
     api = LicensesApiImpl()
 
     # Act
-    result = await api.get_license(existing.id)
+    result = api.get_license(existing.id)
 
     # Assert
     assert isinstance(result, LicenseWithRules)
@@ -41,7 +41,7 @@ async def test_get_license_not_found():
     api = LicensesApiImpl()
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.get_license("non-existent-license-id")
+        api.get_license("non-existent-license-id")
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "License not found"
@@ -57,7 +57,7 @@ async def test_get_licenses_basic_pagination(db_session):
     api = LicensesApiImpl()
 
     # Act
-    result = await api.get_licenses(limit=10, offset=0)
+    result = api.get_licenses(limit=10, offset=0)
 
     # Assert
     assert isinstance(result, list)
@@ -77,7 +77,7 @@ async def test_get_licenses_with_search_query(db_session):
     fragment = existing.name[:3]
     api = LicensesApiImpl()
 
-    result = await api.get_licenses(limit=50, offset=0, search_query=fragment)
+    result = api.get_licenses(limit=50, offset=0, search_query=fragment)
 
     assert isinstance(result, list)
     # True positive: the reference license must be present
@@ -101,7 +101,7 @@ async def test_get_licenses_filter_is_spdx_true(db_session):
         pytest.skip("No SPDX licenses in test database to validate is_spdx filter")
 
     api = LicensesApiImpl()
-    result = await api.get_licenses(limit=10, offset=0, is_spdx=True)
+    result = api.get_licenses(limit=10, offset=0, is_spdx=True)
 
     assert isinstance(result, list)
     assert len(result) == spdx_count
@@ -118,7 +118,7 @@ async def test_get_licenses_filter_is_spdx_false(db_session):
         pytest.skip("No non-SPDX licenses in test database to validate is_spdx filter")
 
     api = LicensesApiImpl()
-    result = await api.get_licenses(limit=10, offset=0, is_spdx=False)
+    result = api.get_licenses(limit=10, offset=0, is_spdx=False)
 
     assert isinstance(result, list)
     assert len(result) == non_spdx_count
@@ -137,7 +137,7 @@ async def test_get_license_includes_rules(db_session):
         pytest.skip("Fixture license 'custom-test' not found in test database")
 
     api = LicensesApiImpl()
-    result = await api.get_license("custom-test")
+    result = api.get_license("custom-test")
 
     assert isinstance(result, LicenseWithRules)
     # LicenseWithRules exposes rules under the license_rules field
@@ -150,12 +150,12 @@ async def test_get_license_includes_rules(db_session):
 async def test_get_licenses_includes_rules_for_each_item(db_session):
     """Ensure that licenses returned by get_licenses can expose rule data via get_license."""
     api = LicensesApiImpl()
-    results = await api.get_licenses(limit=10, offset=0)
+    results = api.get_licenses(limit=10, offset=0)
 
     assert results
     for item in results:
         if item.id == "MIT":
-            detailed = await api.get_license("MIT")
+            detailed = api.get_license("MIT")
             assert isinstance(detailed, LicenseWithRules)
             assert detailed.license_rules is not None
             assert [r.name for r in detailed.license_rules] == ["attribution"]
@@ -187,7 +187,7 @@ async def test_get_matching_licenses_success(monkeypatch, db_session):
     )
 
     # Act
-    result = await api.get_matching_licenses(request)
+    result = api.get_matching_licenses(request)
 
     # Assert
     assert isinstance(result, list)
@@ -211,7 +211,7 @@ async def test_get_matching_licenses_propagates_http_exception(monkeypatch):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.get_matching_licenses(request)
+        api.get_matching_licenses(request)
 
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "Error retrieving matching licenses"
@@ -232,7 +232,7 @@ async def test_get_matching_licenses_unexpected_error(monkeypatch):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.get_matching_licenses(request)
+        api.get_matching_licenses(request)
 
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "Error retrieving matching licenses"

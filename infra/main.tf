@@ -96,6 +96,8 @@ module "feed-api" {
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
 
+  brevo_api_announcements_list_id = var.brevo_api_announcements_list_id
+
   source = "./feed-api"
 }
 
@@ -112,6 +114,7 @@ module "functions-python" {
   tdg_api_token = var.tdg_api_token
   web_app_revalidate_url = var.web_app_revalidate_url
   web_app_revalidate_secret = var.web_app_revalidate_secret
+  brevo_api_announcements_list_id = var.brevo_api_announcements_list_id
 }
 
 module "workflows" {

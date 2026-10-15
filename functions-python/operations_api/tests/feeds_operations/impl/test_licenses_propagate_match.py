@@ -72,7 +72,7 @@ async def test_propagate_match_license_dry_run_returns_response(monkeypatch):
         dry_run=True,
         override=False,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     assert isinstance(result, PropagateLicenseResponse)
     assert result.dry_run is True
@@ -99,7 +99,7 @@ async def test_propagate_match_license_not_dry_run_returns_response(monkeypatch)
         dry_run=False,
         override=False,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     assert isinstance(result, PropagateLicenseResponse)
     assert result.dry_run is False
@@ -125,7 +125,7 @@ async def test_propagate_match_license_invalid_license_id_returns_400(monkeypatc
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.propagate_match_license(request)
+        api.propagate_match_license(request)
 
     assert exc_info.value.status_code == 400
     assert "BAD" in exc_info.value.detail
@@ -151,7 +151,7 @@ async def test_propagate_match_license_internal_error_returns_500(monkeypatch):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.propagate_match_license(request)
+        api.propagate_match_license(request)
 
     assert exc_info.value.status_code == 500
 
@@ -181,7 +181,7 @@ async def test_propagate_match_license_override_false_returns_only_null_feeds(
         dry_run=True,
         override=False,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     assert result.total_feeds_with_same_url == 3
     assert result.affected_feeds_count == 1
@@ -215,7 +215,7 @@ async def test_propagate_match_license_override_true_includes_existing_license_f
         dry_run=True,
         override=True,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     assert result.override is True
     assert result.affected_feeds_count == 2
@@ -239,7 +239,7 @@ async def test_propagate_match_license_db_unknown_license_raises_400(db_session)
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await api.propagate_match_license(request)
+        api.propagate_match_license(request)
 
     assert exc_info.value.status_code == 400
 
@@ -267,7 +267,7 @@ async def test_propagate_match_license_dry_run_no_db_changes(db_session):
         dry_run=True,
     )
 
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     db_session.expire(feed)
     assert feed.license_id == before_license_id, "dry_run=True must not change the DB"
@@ -306,7 +306,7 @@ async def test_propagate_match_license_applies_changes_when_not_dry_run(db_sessi
         dry_run=False,
         override=False,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     db_session.expire_all()
 
@@ -365,7 +365,7 @@ async def test_propagate_match_license_override_false_skips_feeds_with_license(
         dry_run=False,
         override=False,
     )
-    result = await api.propagate_match_license(request)
+    result = api.propagate_match_license(request)
 
     db_session.expire(feed)
     assert (

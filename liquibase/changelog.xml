@@ -96,7 +96,7 @@
     <!--  Adding alt_name to the geopolygon table  -->
     <include file="changes/feat_1479.sql" relativeToChangelogFile="true"/>
     <!-- Remove filename as the primary key on databasechangelog table and add composite(id, author, filename)  -->
-    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>    
+    <include file="changes/update_liquibase_changelog.sql" relativeToChangelogFile="true"/>
     <!-- Change gtfsfile table hosted_url column type to text to accomodate longer URLs. -->
     <include file="changes/feat_1542.sql" relativeToChangelogFile="true"/>
     <!-- Add license_tag table and license_license_tags join table for tag classification of licenses. -->
@@ -111,7 +111,50 @@
     <include file="changes/feat_1657.sql" relativeToChangelogFile="true"/>
     <!-- Add table to store GTFS feed availability check results. -->
     <include file="changes/feat_1700.sql" relativeToChangelogFile="true"/>
-    <!-- Keep this at the very end to ensure all table and schema changes
-         are applied before materialized views are (re)created. -->
+    <!-- Add content_type and is_zip columns to gtfs_feed_availability_check. -->
+    <include file="changes/feat_1700_content_type.sql" relativeToChangelogFile="true"/>
+    <!-- Add gtfs_dataset_changelog table to store changelog references (issue #1633). -->
+    <include file="changes/feat_1633.sql" relativeToChangelogFile="true"/>
+    <!-- Rename gtfs_dataset_changelog (previous, current) dataset columns to (base, new) (issue #1639). -->
+    <include file="changes/feat_1639.sql" relativeToChangelogFile="true"/>
+    <!-- Add missing config keys for feed_download/http_headers -->
+    <include file="changes/hotfix_missing_config_keys.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feeds mdb-3237 to mdb-3293 and mdb-2939 -->
+    <include file="changes/hotfix_missing_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add is_producer_url_unstable column to the feed table (issue #1766). -->
+    <include file="changes/feat_1766.sql" relativeToChangelogFile="true"/>
+    <!-- Add hierarchy table for location search materialized view. -->
+    <include file="changes/feat_pt_202.sql" relativeToChangelogFile="true"/>
+    <!-- Add Seal of Reliability tables: feed_reliability_seal and seal_criterion (issue #1760). -->
+    <include file="changes/feat_1760.sql" relativeToChangelogFile="true"/>
+    <!-- Add seasonal column to the feed table (issue #1774). -->
+    <include file="changes/feat_1774.sql" relativeToChangelogFile="true"/>
+    <!-- Drop incorrectly created ad-hoc coverage/feed-city analysis tables. -->
+    <include file="changes/fix_cleanup_coverage_tables.sql" relativeToChangelogFile="true"/>
+    <!-- Add feedinfo table storing parsed feed_info.txt fields (issue #1775). -->
+    <include file="changes/feat_1775.sql" relativeToChangelogFile="true"/>
+    <!-- Seal of Reliability: positive status columns and probation_start (issue #1783). -->
+    <include file="changes/feat_1783.sql" relativeToChangelogFile="true"/>
+    <!-- Seal of Reliability: seal_criterion_snapshot, the per-day record of each criterion (issue #1809). -->
+    <include file="changes/feat_1809.sql" relativeToChangelogFile="true"/>
+    <!-- Index the unindexed FK gtfsfile.gtfs_dataset_id; the seal criteria scan it per dataset (issue #1831). -->
+    <!-- Created CONCURRENTLY, so it needs its own transaction: hence the XML wrapper, as in feat_1432_indexes.xml -->
+    <include file="changes/feat_1831_indexes.xml" relativeToChangelogFile="true"/>
+    <!-- Remove Sao Paulo feeds as requested by feed owner -->
+    <include file="changes/remove_sao_paulo_feeds.sql" relativeToChangelogFile="true"/>
+    <!-- Remove blank GTFS-RT entity types and constrain entitytype.name to vp/tu/sa. -->
+    <include file="changes/fix_empty_entity_types.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed mdb-3516 -->
+    <include file="changes/add_byron_bay_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed tld-716 -->
+    <include file="changes/add_metro_lisboa_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed mdb-2433 -->
+    <include file="changes/add_avon_transit_header.sql" relativeToChangelogFile="true"/>    
+    <!-- Append-only per-attempt history, for retry caps and sizing stats. -->
+    <include file="changes/feat_task_execution_attempt.sql" relativeToChangelogFile="true"/>
+    <!-- Register the per-feed Parquet worker size key in config_key. -->
+    <include file="changes/feat_parquet_builder_size.sql" relativeToChangelogFile="true"/>
+    <!-- Keep this after all source table and schema changes so materialized views
+         are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

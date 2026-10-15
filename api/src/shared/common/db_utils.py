@@ -450,6 +450,8 @@ def get_selectinload_options(include_extracted_location_entities: bool = False) 
             selectinload(Feed.feedrelatedlinks),
             selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
             selectinload(Feed.officialstatushistories),
+            selectinload(Feed.feed_reliability_seal),
+            selectinload(Feed.seal_criteria),
         ]
     )
     return loaders

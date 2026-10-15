@@ -18,7 +18,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
-from typing import Annotated, Optional
+from datetime import datetime
+from typing import Annotated, Final, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -28,7 +29,12 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from feeds_gen.models.data_type import DataType
+from feeds_gen.models.execution_attempt import ExecutionAttempt
+from feeds_gen.models.execution_attempts_response import ExecutionAttemptsResponse
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
+from feeds_gen.models.gtfs_feed_availability_response import (
+    GtfsFeedAvailabilityResponse,
+)
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
 )
@@ -52,17 +58,30 @@ from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
+    GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
     t_feedsearch,
     Feed,
     Gtfsrealtimefeed,
+    TaskExecutionAttempt,
 )
+from shared.common.config_reader import get_config_value
+from shared.helpers.parquet_policy import SIZE_CONFIG_KEY, SIZE_CONFIG_NAMESPACE
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
+from shared.db_models.gtfs_feed_availability_check_impl import (
+    GtfsFeedAvailabilityCheckImpl,
+)
 from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
     get_feed_by_normalized_url,
+)
+from shared.notifications.notification_event_service import (
+    emit_feed_redirected,
+    emit_url_replaced,
+    urls_differ,
 )
 from .models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeedImpl,
@@ -70,10 +89,115 @@ from .models.operation_create_request_gtfs_feed import (
 from .models.operation_create_request_gtfs_rt_feed import (
     OperationCreateRequestGtfsRtFeedImpl,
 )
+
 from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
+
+# Fields projected by `from_orm` (see UpdateRequestGtfs(Rt)FeedImpl) that are derived
+# from related rows and never written back by `to_orm`, so an update request cannot set
+# them. `license_is_spdx` is derived from the License relationship (feed.license.is_spdx);
+# comparing it would report a phantom change whenever the request omits it.
+_DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
+
+# Tri-state fields: an omitted value means "preserve the stored one", and `to_orm` skips
+# them, so the diff must not report a phantom change. The inverse case of
+# _DERIVED_SOURCE_INFO_FIELDS: those are readable but not settable, these are settable but
+# not clearable by omission. Without this, a request that never mentions one of them would
+# force the write branch of `_update_feed` -- a 200 instead of a 204, plus a needless
+# materialized view refresh and web revalidation task.
+#
+# This is what lets a feed GET response be sent straight back as an update with no change
+# detected: absence means "unchanged" for every field that has no other way to say it.
+_PRESERVE_WHEN_OMITTED_FIELDS: Final[tuple[str, ...]] = (
+    "seasonal",
+    "operational_status",
+)
+
+
+def _normalize_for_diff(value):
+    """Recursively coerce "absent" representations to None so change detection mirrors
+    the write path (`to_orm`), which persists empty/falsy values as None. Applied to both
+    sides of the diff for every field: an empty string or empty list is treated as "no
+    value" rather than a change, so None-vs-"" and None-vs-[] never register as edits.
+    """
+    if isinstance(value, dict):
+        return {key: _normalize_for_diff(item) for key, item in value.items()}
+    if isinstance(value, list):
+        normalized = [_normalize_for_diff(item) for item in value]
+        return None if not normalized else normalized
+    if value == "":
+        return None
+    return value
+
+
+def _strip_derived_fields(dumped: dict) -> dict:
+    """Drop read-only/derived fields from a dumped update model so they do not register
+    as changes (they are not settable through the update request)."""
+    source_info = dumped.get("source_info")
+    if isinstance(source_info, dict):
+        for field in _DERIVED_SOURCE_INFO_FIELDS:
+            source_info.pop(field, None)
+    return dumped
+
+
+def _current_size_override(db_session, feed_id) -> tuple[Optional[str], bool]:
+    """The size configured for this feed and whether it is held, if any.
+
+    An override decides which worker runs the build, so reporting it answers the question
+    this page exists for. Who set it is in `variant_basis` on each attempt.
+
+    The lock matters more than it looks: a locked feed never escalates, so a run of
+    failed attempts with no `escalated_to` has no other explanation visible from here.
+    """
+    value = get_config_value(
+        SIZE_CONFIG_NAMESPACE, SIZE_CONFIG_KEY, feed_id=feed_id, db_session=db_session
+    )
+    if isinstance(value, dict):
+        return value.get("size"), value.get("locked") is True
+    return (value if isinstance(value, str) else None), False
+
+
+def _as_datetime(value) -> Optional[datetime]:
+    """A query timestamp, from whatever the router handed over.
+
+    The generated router types these as `str`, so an ISO string is the usual case; an
+    unparsable one is rejected rather than silently ignored, since a filter that quietly
+    does nothing is worse than an error.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid date-time: {value}"
+        ) from None
+
+
+def _execution_attempt(row) -> ExecutionAttempt:
+    """One stored attempt, as the API reports it."""
+    return ExecutionAttempt(
+        task_name=row.task_name,
+        dataset_stable_id=row.entity_id,
+        attempt=row.attempt,
+        variant=row.variant,
+        variant_basis=row.variant_basis,
+        override_at_attempt=row.override_at_attempt,
+        escalated_to=row.escalated_to,
+        status=row.status,
+        failure_kind=row.failure_kind,
+        error_type=row.error_type,
+        error_message=row.error_message,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        duration_ms=row.duration_ms,
+        peak_rss_bytes=row.peak_rss_bytes,
+        peak_vms_bytes=row.peak_vms_bytes,
+    )
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -165,7 +289,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 status_code=500, detail=f"Internal server error: {str(e)}"
             )
 
-    async def get_feeds(
+    def get_feeds(
         self,
         search_query: Optional[str] = None,
         operation_status: Optional[str] = None,
@@ -180,7 +304,7 @@ class OperationsApiImpl(BaseOperationsApi):
         )
 
     @with_db_session
-    async def get_gtfs_feed(
+    def get_gtfs_feed(
         self,
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")
@@ -196,7 +320,120 @@ class OperationsApiImpl(BaseOperationsApi):
         return OperationGtfsFeedImpl.from_orm(gtfs_feed)
 
     @with_db_session
-    async def get_gtfs_rt_feed(
+    def get_gtfs_feed_availability(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        var_from: Optional[datetime] = None,
+        to: Optional[datetime] = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        sort: Optional[str] = "desc",
+        db_session: Session = None,
+    ) -> GtfsFeedAvailabilityResponse:
+        """Get availability check history for the specified GTFS feed."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(
+            GtfsFeedAvailabilityCheck.feed_id == gtfs_feed.id
+        )
+        if var_from is not None:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
+        if to is not None:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
+
+        total = query.count()
+        order = (
+            GtfsFeedAvailabilityCheck.checked_at.asc()
+            if sort == "asc"
+            else GtfsFeedAvailabilityCheck.checked_at.desc()
+        )
+        checks = query.order_by(order).offset(offset).limit(limit).all()
+
+        return GtfsFeedAvailabilityResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def get_gtfs_feed_execution_attempts(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        task_name: Optional[str] = None,
+        status: Optional[str] = None,
+        failure_kind: Optional[str] = None,
+        var_from: Optional[str] = None,
+        to: Optional[str] = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        db_session: Session = None,
+    ) -> ExecutionAttemptsResponse:
+        """What background tasks have tried to do with this feed, newest first.
+
+        Attempts are recorded against a dataset, so this spans every dataset of the feed:
+        an admin looking at a feed wants its whole history, not one version's.
+        """
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+
+        # The dataset stable ids are the entity ids the attempts were recorded under.
+        dataset_ids = [
+            row[0]
+            for row in db_session.query(Gtfsdataset.stable_id)
+            .filter(Gtfsdataset.feed_id == gtfs_feed.id)
+            .all()
+        ]
+
+        query = db_session.query(TaskExecutionAttempt).filter(
+            TaskExecutionAttempt.entity_id.in_(dataset_ids or [""])
+        )
+        if task_name:
+            query = query.filter(TaskExecutionAttempt.task_name == task_name)
+        if status:
+            query = query.filter(TaskExecutionAttempt.status == status)
+        if failure_kind:
+            query = query.filter(TaskExecutionAttempt.failure_kind == failure_kind)
+        # On started_at, not finished_at: a long build should be found by when it was
+        # triggered, which is what someone looking for "what ran on Tuesday" means.
+        start = _as_datetime(var_from)
+        if start is not None:
+            query = query.filter(TaskExecutionAttempt.started_at >= start)
+        end = _as_datetime(to)
+        if end is not None:
+            query = query.filter(TaskExecutionAttempt.started_at <= end)
+
+        total = query.count()
+        attempts = (
+            query.order_by(TaskExecutionAttempt.finished_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        size_override, size_locked = _current_size_override(db_session, gtfs_feed.id)
+        return ExecutionAttemptsResponse(
+            feed_stable_id=id,
+            current_size_override=size_override,
+            current_size_locked=size_locked,
+            total=total,
+            attempts=[_execution_attempt(row) for row in attempts],
+        )
+
+    @with_db_session
+    def get_gtfs_rt_feed(
         self,
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")
@@ -221,12 +458,18 @@ class OperationsApiImpl(BaseOperationsApi):
     ) -> DeepDiff:
         """Detect changes between the feed and the update request."""
         copy_feed = impl_class.from_orm(feed)
-        copy_feed.operational_status_action = (
-            update_request_feed.operational_status_action
+        current_values = _strip_derived_fields(
+            _normalize_for_diff(copy_feed.model_dump())
         )
+        requested_values = _strip_derived_fields(
+            _normalize_for_diff(update_request_feed.model_dump())
+        )
+        for field in _PRESERVE_WHEN_OMITTED_FIELDS:
+            if requested_values.get(field) is None:
+                requested_values[field] = current_values.get(field)
         diff = DeepDiff(
-            copy_feed.model_dump(),
-            update_request_feed.model_dump(),
+            current_values,
+            requested_values,
             ignore_order=True,
         )
         if diff.affected_paths:
@@ -238,7 +481,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return diff
 
     @validate_request(UpdateRequestGtfsFeed, "update_request_gtfs_feed")
-    async def update_gtfs_feed(
+    def update_gtfs_feed(
         self,
         update_request_gtfs_feed: Annotated[
             UpdateRequestGtfsFeed,
@@ -252,10 +495,10 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return await self._update_feed(update_request_gtfs_feed, DataType.GTFS)
+        return self._update_feed(update_request_gtfs_feed, DataType.GTFS)
 
     @validate_request(UpdateRequestGtfsRtFeed, "update_request_gtfs_rt_feed")
-    async def update_gtfs_rt_feed(
+    def update_gtfs_rt_feed(
         self,
         update_request_gtfs_rt_feed: Annotated[
             UpdateRequestGtfsRtFeed,
@@ -269,10 +512,10 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return await self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
+        return self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
 
     @with_db_session
-    async def _update_feed(
+    def _update_feed(
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
@@ -282,7 +525,7 @@ class OperationsApiImpl(BaseOperationsApi):
         Update the specified feed in the Mobility Database
         """
         try:
-            feed_from_db = await OperationsApiImpl.fetch_feed(
+            feed_from_db = OperationsApiImpl.fetch_feed(
                 data_type, db_session, update_request_feed
             )
 
@@ -297,11 +540,16 @@ class OperationsApiImpl(BaseOperationsApi):
                 else UpdateRequestGtfsRtFeedImpl
             )
             diff = self.detect_changes(feed_from_db, update_request_feed, impl_class)
-            if len(diff.affected_paths) > 0 or (
-                update_request_feed.operational_status_action is not None
-                and update_request_feed.operational_status_action != "no_change"
-            ):
-                await OperationsApiImpl._populate_feed_values(
+            # Every settable field, `operational_status` included, is visible to the diff, so
+            # this is the single gate: write exactly when something actually changed.
+            if len(diff.affected_paths) > 0:
+                # Capture pre-mutation state for notification events (before to_orm mutates the object).
+                old_producer_url = getattr(feed_from_db, "producer_url", None)
+                old_redirect_target_ids = {
+                    r.target_id for r in getattr(feed_from_db, "redirectingids", [])
+                }
+
+                OperationsApiImpl._populate_feed_values(
                     feed_from_db, impl_class, db_session, update_request_feed
                 )
                 if getattr(update_request_feed, "propagate_license", False):
@@ -330,6 +578,48 @@ class OperationsApiImpl(BaseOperationsApi):
                     update_request_feed.id,
                     diff.values(),
                 )
+                # Emit notification events for URL / redirect changes (best-effort, fire-and-forget).
+                feed_stable_id = update_request_feed.id
+                new_producer_url = getattr(feed_from_db, "producer_url", None)
+                if (
+                    old_producer_url
+                    and new_producer_url
+                    and urls_differ(old_producer_url, new_producer_url)
+                ):
+                    emit_url_replaced(
+                        feed_stable_id=feed_stable_id,
+                        old_url=old_producer_url,
+                        new_url=new_producer_url,
+                        source="operations_api",
+                        extra_data=(
+                            {"provider": feed_from_db.provider}
+                            if feed_from_db.provider
+                            else None
+                        ),
+                    )
+                new_redirect_target_ids = {
+                    r.target_id for r in getattr(feed_from_db, "redirectingids", [])
+                }
+                for new_target_id in new_redirect_target_ids - old_redirect_target_ids:
+                    target_feed = db_session.get(Feed, new_target_id)
+                    redirect_extra_data = {
+                        k: v
+                        for k, v in {
+                            "provider": feed_from_db.provider,
+                            "target_provider": getattr(target_feed, "provider", None),
+                        }.items()
+                        if v
+                    }
+                    emit_feed_redirected(
+                        source_stable_id=feed_stable_id,
+                        target_stable_id=getattr(
+                            target_feed, "stable_id", new_target_id
+                        ),
+                        old_url=old_producer_url,
+                        new_url=getattr(target_feed, "producer_url", None),
+                        source="operations_api",
+                        extra_data=redirect_extra_data or None,
+                    )
                 try:
                     create_web_revalidation_task([update_request_feed.id])
                 except Exception as e:
@@ -353,21 +643,12 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
     @staticmethod
-    async def _populate_feed_values(feed, impl_class, session, update_request_feed):
+    def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
-        action = update_request_feed.operational_status_action
-        # This is a temporary solution as the operational_status is not visible in the diff
-        if action is not None and not action.lower() == "no_change":
-            if action.lower() == "wip":
-                feed.operational_status = "wip"
-            elif action.lower() == "published":
-                feed.operational_status = "published"
-            elif action.lower() == "unpublished":
-                feed.operational_status = "unpublished"
         session.add(feed)
 
     @staticmethod
-    async def fetch_feed(data_type, session, update_request_feed):
+    def fetch_feed(data_type, session, update_request_feed):
         """Fetch a feed by its stable ID with eager loading.
 
         Args:
@@ -393,7 +674,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return feed
 
     @with_db_session
-    async def create_gtfs_feed(
+    def create_gtfs_feed(
         self,
         operation_create_request_gtfs_feed: Annotated[
             OperationCreateRequestGtfsFeed,
@@ -453,7 +734,7 @@ class OperationsApiImpl(BaseOperationsApi):
         return JSONResponse(status_code=201, content=jsonable_encoder(payload))
 
     @with_db_session
-    async def create_gtfs_rt_feed(
+    def create_gtfs_rt_feed(
         self,
         operation_create_request_gtfs_rt_feed: Annotated[
             OperationCreateRequestGtfsRtFeed,

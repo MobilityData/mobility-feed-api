@@ -26,13 +26,13 @@ jobs:
       labels: ubuntu-latest-4-cores
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Extract commit hash and version from git
       run: ./scripts/extract-hash-and-version.sh -e ${{ inputs.ENVIRONMENT }}
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ env.python_version }}
 
@@ -67,7 +67,7 @@ jobs:
 
     - name: Upload Test Logs
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: integration-tests-results-${{ inputs.ENVIRONMENT }}
         path: |

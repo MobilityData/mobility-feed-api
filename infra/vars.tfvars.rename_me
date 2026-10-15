@@ -25,3 +25,5 @@ tdg_api_token = {{TDG_API_TOKEN}}
 
 web_app_revalidate_url = {{WEB_APP_REVALIDATE_URL}}
 web_app_revalidate_secret = {{WEB_APP_REVALIDATE_SECRET}}
+
+brevo_api_announcements_list_id = {{BREVO_API_ANNOUNCEMENTS_LIST_ID}}

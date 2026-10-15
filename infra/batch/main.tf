@@ -44,6 +44,8 @@ locals {
   deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
 
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
+
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -82,9 +84,24 @@ resource "google_storage_bucket" "datasets_bucket" {
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
+  # Matches a .parquet or manifest.json whose customTime passed more than a day ago.
+  # `no_age` is required: without it the provider sends `age = 0`, matching everything.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      no_age                 = true
+      days_since_custom_time = 1
+      matches_suffix         = [".parquet", "manifest.json"]
+    }
+  }
   cors {
     origin = ["*"]
-    method = ["GET"]
+    # HEAD as well as GET: a browser reading Parquet over range requests probes with
+    # HEAD first, and GCS matches CORS methods literally rather than treating HEAD as
+    # a kind of GET.
+    method          = ["GET", "HEAD"]
     response_header = ["*"]
   }
 }
@@ -272,6 +289,45 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   }
 }
 
+# Task queue to invoke gtfs_datasets_comparer function
+resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "gtfs-datasets-comparer-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # Retries span ~10 minutes: initial try + 2 retries at 120s then 240s
+    max_attempts  = 3
+    min_backoff   = "120s"
+    max_backoff   = "240s"
+    max_doublings = 1
+  }
+}
+
+# Task queue to invoke gtfs_file_data_extractor function
+# The function itself is deployed by the infra/functions-python stack.
+resource "google_cloud_tasks_queue" "gtfs_file_data_extractor_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "gtfs-file-data-extractor-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts = 10
+    min_backoff  = "20s"
+    max_backoff  = "60s"
+  }
+}
+
 
 # Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
@@ -310,6 +366,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
+      GTFS_FILE_DATA_EXTRACTOR_QUEUE = google_cloud_tasks_queue.gtfs_file_data_extractor_task_queue.name
+      GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_datasets_comparer_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     dynamic "secret_environment_variables" {
@@ -469,3 +527,12 @@ resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
+
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+

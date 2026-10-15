@@ -37,7 +37,9 @@ data-test/
 
 # Ignore generated files
 api/src/feeds_gen
+api/src/user_service_gen
 database_gen
+users_database_gen
 
 # Ignore openapitools binaries
 scripts/bin
@@ -84,6 +86,10 @@ functions-python/**/*.csv
 
 # Project files
 *.code-workspace
+
+# Local build output, including the default destination of
+# scripts/parquet-generate-local.sh
+.dist/
 
 # Ignore OpenApi local backup files
 *.yaml.bak

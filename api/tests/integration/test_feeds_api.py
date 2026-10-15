@@ -984,3 +984,191 @@ def test_feeds_have_expected_license_info(
         assert body["source_info"].get("license_tags") is None
     else:
         assert sorted(body["source_info"].get("license_tags", [])) == sorted(expected_license_tags)
+
+
+# ---- GTFS Feed Availability endpoint tests ----
+
+AVAILABILITY_FEED_ID = TEST_GTFS_FEED_STABLE_IDS[0]  # mdb-1 — has availability_checks fixture data
+AVAILABILITY_CHECKS_COUNT = 5  # number of checks added in extra_test_data.json for mdb-1
+
+
+def test_gtfs_feed_availability_basic(client: TestClient):
+    """GET /v1/gtfs_feeds/{id}/availability returns 200 with expected fields."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["feed_id"] == AVAILABILITY_FEED_ID
+    assert body["total"] == AVAILABILITY_CHECKS_COUNT
+    assert body["offset"] == 0
+    assert body["limit"] == 100
+    assert len(body["checks"]) == AVAILABILITY_CHECKS_COUNT
+
+    # Verify one check has expected fields
+    check = body["checks"][0]
+    assert "checked_at" in check
+    assert "success" in check
+    assert check["request_method"] in ("HEAD", "GET")
+
+
+def test_gtfs_feed_availability_ordered_desc_by_default(client: TestClient):
+    """Checks are returned newest → oldest by default."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    checks = response.json()["checks"]
+    timestamps = [c["checked_at"] for c in checks]
+    assert timestamps == sorted(timestamps, reverse=True)
+
+
+def test_gtfs_feed_availability_ordered_asc(client: TestClient):
+    """sort=asc returns checks oldest → newest."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"sort": "asc"},
+    )
+    assert response.status_code == 200
+    checks = response.json()["checks"]
+    timestamps = [c["checked_at"] for c in checks]
+    assert timestamps == sorted(timestamps)
+
+
+def test_gtfs_feed_availability_request_method_mapping(client: TestClient):
+    """request_type http_head/http_get maps to HEAD/GET in the response."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    methods = {c["request_method"] for c in response.json()["checks"]}
+    # Test data has both HEAD and GET checks
+    assert "HEAD" in methods
+    assert "GET" in methods
+
+
+def test_gtfs_feed_availability_filter_from(client: TestClient):
+    """from filter excludes checks before the cutoff."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"from": "2025-03-01T00:00:00Z"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 3  # March, April, May checks
+    for check in body["checks"]:
+        assert check["checked_at"] >= "2025-03-01T00:00:00"
+
+
+def test_gtfs_feed_availability_filter_to(client: TestClient):
+    """to filter excludes checks after the cutoff."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"to": "2025-02-28T23:59:59Z"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2  # Jan, Feb checks
+    for check in body["checks"]:
+        assert check["checked_at"] <= "2025-02-28T23:59:59"
+
+
+def test_gtfs_feed_availability_filter_from_to(client: TestClient):
+    """from+to together filters to the intersection."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"from": "2025-02-01T00:00:00Z", "to": "2025-03-31T23:59:59Z"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2  # Feb, March checks
+
+
+def test_gtfs_feed_availability_pagination_limit(client: TestClient):
+    """limit param returns the correct number of items."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"limit": 2},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["checks"]) == 2
+    assert body["total"] == AVAILABILITY_CHECKS_COUNT
+    assert body["limit"] == 2
+    assert body["offset"] == 0
+
+
+def test_gtfs_feed_availability_pagination_offset(client: TestClient):
+    """offset param skips items correctly; total remains consistent."""
+    first_page = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"limit": 2, "offset": 0},
+    )
+    second_page = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"limit": 2, "offset": 2},
+    )
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    first = first_page.json()
+    second = second_page.json()
+
+    assert first["total"] == second["total"] == AVAILABILITY_CHECKS_COUNT
+    assert len(first["checks"]) == 2
+    assert len(second["checks"]) == 2
+    # No overlap between pages
+    first_timestamps = {c["checked_at"] for c in first["checks"]}
+    second_timestamps = {c["checked_at"] for c in second["checks"]}
+    assert first_timestamps.isdisjoint(second_timestamps)
+
+
+def test_gtfs_feed_availability_not_found(client: TestClient):
+    """Unknown feed ID returns 404."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/mdb-99999/availability",
+        headers=authHeaders,
+    )
+    assert response.status_code == 404
+
+
+def test_gtfs_feed_availability_from_after_to_returns_422(client: TestClient):
+    """from > to returns 422."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"from": "2025-06-01T00:00:00Z", "to": "2025-01-01T00:00:00Z"},
+    )
+    assert response.status_code == 422
+
+
+def test_gtfs_feed_availability_invalid_date_returns_422(client: TestClient):
+    """Invalid ISO date returns 422."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"from": "not-a-date"},
+    )
+    assert response.status_code == 422

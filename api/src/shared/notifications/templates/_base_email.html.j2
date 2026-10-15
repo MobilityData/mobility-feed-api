@@ -1,0 +1,295 @@
+<!doctype html>
+{#-
+  Shared email layout — Mobility Database notification emails
+  ═════════════════════════════════════════════════════════════
+  Every notification email template extends this layout so the brand header,
+  footer and general styles (resets, fonts, colors, responsive rules) stay
+  identical across all notification types. A child template overrides only
+  the blocks it needs:
+
+    {% extends "_base_email.html.j2" %}
+    {% block title %}...{% endblock %}
+    {% block header_label %}...{% endblock %}   top-right header label
+    {% block preheader %}...{% endblock %}      hidden inbox-preview text
+    {% block content %}...{% endblock %}        the email body (<tr> rows)
+    {% block footer_note %}...{% endblock %}    footer copy above the copyright line
+
+  Optional context variables (all conditional — templates that don't pass
+  them simply render without that part, so this layout works for both the
+  fully-featured change_tracker_email and the simpler single-purpose ones):
+    subscriptions_url : str  – shown as a "Manage subscriptions" footer link
+    unsubscribe_url   : str  – shown as an "Unsubscribe" footer link (requires subscriptions_url)
+    notification_date : str  – formatted date (e.g. "June 5, 2026"); its trailing
+                                year is used for the footer copyright line.
+                                Falls back to the current year when absent.
+-#}
+<html
+  lang="en"
+  xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>{% block title %}Mobility Database Notification{% endblock %}</title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+    <style>
+      /* Client resets */
+      body,
+      table,
+      td,
+      a {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table,
+      td {
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        -ms-interpolation-mode: bicubic;
+        border: 0;
+        height: auto;
+        line-height: 100%;
+        outline: none;
+        text-decoration: none;
+      }
+      table {
+        border-collapse: collapse !important;
+      }
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+      a {
+        color: #3959fa;
+      }
+      .mono {
+        font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+      }
+
+      @media screen and (max-width: 600px) {
+        .container {
+          width: 100% !important;
+        }
+        .px {
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }
+        .stack {
+          display: block !important;
+          width: 100% !important;
+        }
+        .summary-num {
+          font-size: 28px !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #eef0f7;
+      font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+      color: #474747;
+    "
+  >
+    <!-- Preheader (hidden) -->
+    <div
+      style="
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        mso-hide: all;
+      "
+    >
+      {%- block preheader %}{% endblock -%}
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      bgcolor="#eef0f7"
+      style="background-color: #eef0f7"
+    >
+      <tr>
+        <td align="center" style="padding: 24px 12px">
+          <!-- Container -->
+          <table
+            role="presentation"
+            class="container"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="
+              width: 600px;
+              max-width: 600px;
+              background-color: #ffffff;
+              border-radius: 10px;
+              overflow: hidden;
+              box-shadow: 0px 1px 4px 2px rgba(0, 0, 0, 0.08);
+            "
+          >
+            <!-- ============ BRAND HEADER ============ -->
+            <tr>
+              <td
+                bgcolor="#F8F5F5"
+                style="background-color: #f8f5f5; padding: 18px 32px;"
+              >
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  <tr>
+                    <td align="left" valign="middle">
+                      <table
+                        role="presentation"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                      >
+                        <tr>
+                          <td valign="middle" style="padding-right: 10px">
+                            <img
+                              src="https://mobilitydatabase.org/apple-touch-icon.png"
+                              width="32"
+                              height="32"
+                              alt="MobilityData"
+                              style="display: block; width: 32px; height: 32px"
+                            />
+                          </td>
+                          <td valign="middle">
+                            <span
+                              style="
+                                font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                                font-size: 20px;
+                                font-weight: 700;
+                                color: #3959fa;
+                                letter-spacing: 0.2px;
+                              "
+                              >Mobility Database</span
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                    <td
+                      align="right"
+                      valign="middle"
+                      style="
+                        font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                        font-size: 12px;
+                        font-weight: 500;
+                        color: rgba(71, 71, 71, 0.7);
+                        letter-spacing: 0.3px;
+                      "
+                    >
+                      {%- block header_label %}Notification{% endblock -%}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            {% block content %}{% endblock %}
+
+            <!-- ============ DIVIDER ============ -->
+            <tr>
+              <td style="padding: 20px 32px 0 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top: 1px solid rgba(0, 0, 0, 0.12); font-size: 0; line-height: 0;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- ============ FOOTER ============ -->
+            <tr>
+              <td align="center" style="padding: 16px 32px 28px 32px;">
+                {% block footer_links %}
+                {% if subscriptions_url is defined and subscriptions_url %}
+                <p style="margin: 0 0 12px 0">
+                  <a
+                    href="{{ subscriptions_url }}"
+                    target="_blank"
+                    style="
+                      display: inline-block;
+                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                      font-size: 14px;
+                      font-weight: 700;
+                      color: #5e56f7;
+                      text-decoration: none;
+                      padding: 6px 10px;
+                      margin: 0 2px;
+                      letter-spacing: 0.2px;
+                    "
+                  >
+                    {% block subscriptions_label %}Manage subscriptions{% endblock %}
+                  </a>
+                  {% if unsubscribe_url is defined and unsubscribe_url %}
+                  <a
+                    href="{{ unsubscribe_url }}"
+                    target="_blank"
+                    style="
+                      display: inline-block;
+                      font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                      font-size: 14px;
+                      font-weight: 700;
+                      color: rgba(71, 71, 71, 0.7);
+                      text-decoration: none;
+                      padding: 6px 10px;
+                      margin: 0 2px;
+                      letter-spacing: 0.2px;
+                    "
+                  >
+                    Unsubscribe
+                  </a>
+                  {% endif %}
+                </p>
+                {% endif %}
+                {% endblock %}
+                <p
+                  style="
+                    margin: 0;
+                    font-family: Mulish, 'Segoe UI', Arial, sans-serif;
+                    font-size: 11px;
+                    line-height: 1.6;
+                    color: rgba(71, 71, 71, 0.6);
+                  "
+                >
+                  {%- block footer_note %}You're receiving this because you subscribe to notifications on the Mobility Database.{% endblock %}<br />
+                  &copy; {{ (notification_date.split(", ")[-1]) if (notification_date is defined and notification_date) else current_year() }} MobilityData &nbsp;&middot;&nbsp; Montr&eacute;al, QC, Canada
+                </p>
+              </td>
+            </tr>
+          </table>
+          <!-- /Container -->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

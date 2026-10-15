@@ -98,7 +98,9 @@ docker-compose --env-file ./config/.env.local  up -d --force-recreate
 
 ```bash
 scripts/api-gen.sh
+scripts/api-user-service-gen.sh
 scripts/db-gen.sh
+scripts/db-gen-user.sh 
 ```
 
 In case you modify the database schema, you can run
@@ -178,6 +180,20 @@ Note: the tests rely on having an empty local test DB instance. If you have data
 ```bash
 ./scripts/docker-localdb-rebuild-data.sh --use-test-db
 ```
+
+### Browsing a feed locally (Parquet)
+
+To convert a GTFS feed to Parquet on this machine - no bucket, database or GCP
+credentials - and optionally serve it to a browser:
+
+```bash
+scripts/parquet-generate-local.sh mdb-1210 --serve
+```
+
+The script accepts a feed or dataset stable id, a `.zip`, or an unpacked folder. See
+[functions-python/parquet_builder](functions-python/parquet_builder/README.md) for the
+full local testing guide, including running it against the Operations API and the
+operations web app.
 
 
 ## Running with Docker

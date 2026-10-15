@@ -7,8 +7,16 @@ from google.cloud import tasks_v2
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
-from shared.helpers.utils import create_http_task, create_http_pmtiles_builder_task
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, GtfsDatasetChangelog
+from shared.helpers.utils import (
+    create_http_task,
+    create_http_pmtiles_builder_task,
+    create_http_gtfs_datasets_comparer_task,
+)
+
+# GTFS files that have a registered extractor in the gtfs_file_data_extractor
+# function. Keep in sync with that function's src/extractors/registry.py.
+EXTRACTABLE_FILES = {"feed_info.txt"}
 
 
 def create_http_reverse_geolocation_processor_task(
@@ -41,6 +49,39 @@ def create_http_reverse_geolocation_processor_task(
     )
 
 
+def create_http_gtfs_file_data_extractor_task(
+    stable_id: str,
+    dataset_stable_id: str,
+    file_name: str,
+    file_url: str,
+) -> None:
+    """
+    Create a task to extract structured data from a single GTFS file
+    (handled by the gtfs_file_data_extractor function).
+    """
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {
+            "stable_id": stable_id,
+            "dataset_id": dataset_stable_id,
+            "file_name": file_name,
+            "file_url": file_url,
+        }
+    ).encode()
+    queue_name = os.getenv("GTFS_FILE_DATA_EXTRACTOR_QUEUE")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+
+    create_http_task(
+        client,
+        body,
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/gtfs-file-data-extractor",
+        project_id,
+        gcp_region,
+        queue_name,
+    )
+
+
 @with_db_session
 def get_changed_files(
     dataset: Gtfsdataset,
@@ -48,13 +89,13 @@ def get_changed_files(
 ) -> List[str]:
     """
     Return the subset of `file_names` whose content hash changed compared to the
-    previous dataset for the same feed.
-      - If there is no previous dataset → any file that exists in the new dataset is considered "changed".
+    base dataset for the same feed.
+      - If there is no base dataset → any file that exists in the new dataset is considered "changed".
       - If the file existed before and now is missing → NOT considered changed.
       - If the file did not exist before but exists now → considered changed.
       - If hashes differ → considered changed.
     """
-    previous_dataset = (
+    base_dataset = (
         db_session.query(Gtfsdataset)
         .filter(
             Gtfsdataset.feed_id == dataset.feed_id,
@@ -66,13 +107,11 @@ def get_changed_files(
 
     new_files = list(dataset.gtfsfiles)
 
-    # No previous dataset -> everything that exists now is "changed"
-    if not previous_dataset:
+    # No base dataset -> everything that exists now is "changed"
+    if not base_dataset:
         return [f.file_name for f in new_files]
 
-    prev_map = {
-        f.file_name: getattr(f, "hash", None) for f in previous_dataset.gtfsfiles
-    }
+    prev_map = {f.file_name: getattr(f, "hash", None) for f in base_dataset.gtfsfiles}
 
     changed_files = []
     for f in new_files:
@@ -107,6 +146,16 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
             stable_id, dataset_stable_id, stops_url
         )
 
+    # Create GTFS file data extraction tasks for every extractable file present in
+    # the dataset, whether it changed or not
+    files_by_name = {file.file_name: file for file in gtfs_files}
+    for file_name in EXTRACTABLE_FILES:
+        gtfs_file = files_by_name.get(file_name)
+        if gtfs_file and gtfs_file.hosted_url:
+            create_http_gtfs_file_data_extractor_task(
+                stable_id, dataset_stable_id, file_name, gtfs_file.hosted_url
+            )
+
     routes_file = next(
         (file for file in gtfs_files if file.file_name == "routes.txt"), None
     )
@@ -135,4 +184,46 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
             f"Skipping PMTiles task for dataset {dataset_stable_id} due to constraints --> "
             f"routes.txt file size : {routes_file.file_size_bytes} bytes"
             f" and changed files: {changed_files}"
+        )
+
+    # Create GTFS change tracker task when a base dataset exists
+    base_dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(
+            Gtfsdataset.feed_id == dataset.feed_id,
+            Gtfsdataset.id != dataset.id,
+        )
+        .order_by(Gtfsdataset.downloaded_at.desc())
+        .first()
+    )
+    if base_dataset:
+        # Check the DB for an existing changelog record rather than the GCS blob presence.
+        # The unique constraint on (base_dataset_id, new_dataset_id) makes this the
+        # authoritative idempotency check. GCS blob presence could be used instead, but that
+        # would require an extra API call and could miss cases where the blob exists but the
+        # DB record does not (or vice versa).
+        changelog_exists = (
+            db_session.query(GtfsDatasetChangelog)
+            .filter_by(
+                base_dataset_id=base_dataset.id,
+                new_dataset_id=dataset.id,
+            )
+            .first()
+            is not None
+        )
+        if changelog_exists:
+            logging.info(
+                "Skipping change tracker task for dataset %s: changelog already exists.",
+                dataset_stable_id,
+            )
+        else:
+            create_http_gtfs_datasets_comparer_task(
+                feed_stable_id=stable_id,
+                base_dataset_stable_id=base_dataset.stable_id,
+                new_dataset_stable_id=dataset_stable_id,
+            )
+    else:
+        logging.info(
+            "Skipping change tracker task for dataset %s: no base dataset found.",
+            dataset_stable_id,
         )

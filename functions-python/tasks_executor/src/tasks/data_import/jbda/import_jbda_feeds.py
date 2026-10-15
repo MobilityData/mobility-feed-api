@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List, Final, TypeVar
 
@@ -37,9 +36,9 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
     Externalid,
 )
-from shared.common.gcp_utils import create_web_revalidation_task
-from shared.helpers.pub_sub import trigger_dataset_download
+from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
+    commit_changes,
     get_or_create_entity_type,
     get_or_create_feed,
 )
@@ -136,6 +135,9 @@ def _update_common_feed_fields(
     feed: Feed, list_item: dict, detail: dict, producer_url: str
 ) -> None:
     """Update common fields of a Feed (Gtfsfeed or Gtfsrealtimefeed) from JBDA list item and detail."""
+    # Only import-owned fields belong here: never assign anything in
+    # OPERATOR_OWNED_FEED_COLUMNS (data_import_utils), which an operator sets by hand
+    # and this source does not carry.
     logger.debug(
         "Updating common fields for feed id=%s stable_id=%s",
         getattr(feed, "id", None),
@@ -417,6 +419,17 @@ def _process_feed(
             if db_rt_map.get(k) != api_rt_map.get(k)
         }
         logger.info("Diff %s sched=%s rt=%s", stable_id, diff, diff_rt)
+        if "producer_url" in diff:
+            old_url, new_url = diff["producer_url"]
+            if old_url and new_url and old_url != new_url:
+                new_provider = item.get("organization_name")
+                emit_url_replaced(
+                    feed_stable_id=stable_id,
+                    old_url=old_url,
+                    new_url=new_url,
+                    source="jbda_import",
+                    extra_data={"provider": new_provider} if new_provider else None,
+                )
 
     # Apply schedule fields
     _update_common_feed_fields(gtfs_feed, item, dbody, producer_url)
@@ -592,29 +605,3 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     }
     logger.info("Import summary: %s", summary)
     return summary
-
-
-def commit_changes(
-    db_session: Session,
-    feeds_to_publish: list[Feed],
-    total_processed: int,
-    changed_feed_stable_ids: list[str] | None = None,
-):
-    """
-    Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger website cache revalidation for changed feeds.
-    """
-    try:
-        logger.info("Commit after processing items (count=%d)", total_processed)
-        db_session.commit()
-        execution_id = str(uuid.uuid4())
-        for feed in feeds_to_publish:
-            trigger_dataset_download(feed, execution_id)
-        if changed_feed_stable_ids:
-            try:
-                create_web_revalidation_task(changed_feed_stable_ids)
-            except Exception as e:
-                logger.warning("Failed to enqueue revalidation tasks: %s", e)
-    except IntegrityError:
-        db_session.rollback()
-        logger.exception("Commit failed with IntegrityError; rolled back")

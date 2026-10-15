@@ -19,6 +19,7 @@ from typing import Final
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from shared.database.users_database import with_users_db_session
 from shared.database_gen.sqlacodegen_models import Base
 from shared.database.database import Database, with_db_session
 import logging
@@ -30,6 +31,10 @@ default_db_url: Final[str] = (
     "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
 )
 
+default_users_db_url: Final[str] = (
+    "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseUsersTest"
+)
+
 excluded_tables: Final[list[str]] = [
     "databasechangelog",
     "databasechangeloglock",
@@ -38,11 +43,23 @@ excluded_tables: Final[list[str]] = [
     "spatial_ref_sys",
     # Excluding the views
     "feedsearch",
+    "geopolygonlocationsearch",
 ]
 
 
 @with_db_session(db_url=default_db_url)
 def clean_testing_db(db_session: Session):
+    """Cleans the testing database by deleting all rows from all tables, excluding those in excluded_tables."""
+    _clean_db(db_session)
+
+
+@with_users_db_session(db_url=default_users_db_url)
+def clean_testing_users_db(db_session: Session):
+    """Cleans the testing users database by deleting all rows from all tables, excluding those in excluded_tables."""
+    _clean_db(db_session)
+
+
+def _clean_db(db_session: Session):
     """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
     try:
         tables_to_delete = [

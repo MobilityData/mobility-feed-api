@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
@@ -35,9 +34,9 @@ from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Location,
 )
-from shared.common.gcp_utils import create_web_revalidation_task
-from shared.helpers.pub_sub import trigger_dataset_download
+from shared.notifications.notification_event_service import emit_url_replaced
 from tasks.data_import.data_import_utils import (
+    commit_changes,
     get_or_create_feed,
     get_or_create_entity_type,
     get_license,
@@ -263,6 +262,11 @@ def _delete_and_recreate_feed_if_type_changed(
         db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
     )
 
+    # Operator-owned columns (OPERATOR_OWNED_FEED_COLUMNS) are not in any TDG payload, so
+    # nothing upstream would ever set them again. Carry them across the delete/recreate by
+    # hand or a data_type flip silently clears them.
+    preserved_seasonal = None
+
     if existing is not None and existing.data_type != feed_type:
         logger.info(
             "TDG feed type changed for stable_id=%s: db_data_type=%s -> new_data_type=%s. Deleting and recreating.",
@@ -270,6 +274,7 @@ def _delete_and_recreate_feed_if_type_changed(
             getattr(existing, "data_type", None),
             feed_type,
         )
+        preserved_seasonal = existing.seasonal
         db_session.delete(existing)
         # flush so the new insert doesn't collide on stable_id unique constraint
         db_session.flush()
@@ -281,6 +286,13 @@ def _delete_and_recreate_feed_if_type_changed(
         feed_type,
         **get_or_create_kwargs,
     )
+    if preserved_seasonal is not None:
+        logger.info(
+            "Carrying seasonal=%s onto recreated TDG feed stable_id=%s",
+            preserved_seasonal,
+            stable_id,
+        )
+        feed.seasonal = preserved_seasonal
     return feed, is_new
 
 
@@ -349,6 +361,9 @@ def _update_common_tdg_fields(
     Update common fields for both schedule GTFS and RT from TDG dataset + resource.
     Assumes required fields were validated earlier.
     """
+    # Only import-owned fields belong here: never assign anything in
+    # OPERATOR_OWNED_FEED_COLUMNS (data_import_utils), which an operator sets by hand
+    # and this source does not carry.
     feed.feed_name = dataset.get("title")
     feed.provider = (dataset.get("publisher") or {}).get("name")
     feed.producer_url = producer_url
@@ -564,6 +579,20 @@ def _process_tdg_dataset(
                         )
                         nested.commit()
                         continue
+                    if (
+                        db_fp.get("producer_url")
+                        and db_fp["producer_url"] != api_fp["producer_url"]
+                    ):
+                        new_provider = (dataset.get("publisher") or {}).get("name")
+                        emit_url_replaced(
+                            feed_stable_id=stable_id,
+                            old_url=db_fp["producer_url"],
+                            new_url=api_fp["producer_url"],
+                            source="tdg_import",
+                            extra_data=(
+                                {"provider": new_provider} if new_provider else None
+                            ),
+                        )
 
                 _update_common_tdg_fields(
                     gtfs_feed, dataset, resource, res_url, locations, db_session
@@ -615,6 +644,20 @@ def _process_tdg_dataset(
                         processed += 1
                         nested.commit()
                         continue
+                    if (
+                        db_rt_fp.get("producer_url")
+                        and db_rt_fp["producer_url"] != api_rt_fp["producer_url"]
+                    ):
+                        new_provider = (dataset.get("publisher") or {}).get("name")
+                        emit_url_replaced(
+                            feed_stable_id=stable_id,
+                            old_url=db_rt_fp["producer_url"],
+                            new_url=api_rt_fp["producer_url"],
+                            source="tdg_import",
+                            extra_data=(
+                                {"provider": new_provider} if new_provider else None
+                            ),
+                        )
 
                 _update_common_tdg_fields(
                     rt_feed, dataset, resource, res_url, locations, db_session
@@ -788,34 +831,6 @@ def _import_tdg(db_session: Session, dry_run: bool = True) -> dict:
     }
     logger.info("TDG import summary: %s", summary)
     return summary
-
-
-def commit_changes(
-    db_session: Session,
-    feeds_to_publish: List[Feed],
-    total_processed: int,
-    changed_feed_stable_ids: List[str] | None = None,
-):
-    """
-    Commit DB changes, trigger dataset downloads for new feeds,
-    and trigger website cache revalidation for changed feeds.
-    """
-    try:
-        logger.info("Commit after processing items (count=%d)", total_processed)
-        db_session.commit()
-        execution_id = str(uuid.uuid4())
-        if os.getenv("ENVIRONMENT", "").lower() == "local":
-            return
-        for feed in feeds_to_publish:
-            trigger_dataset_download(feed, execution_id)
-        if changed_feed_stable_ids:
-            try:
-                create_web_revalidation_task(changed_feed_stable_ids)
-            except Exception as e:
-                logger.warning("Failed to enqueue revalidation tasks: %s", e)
-    except IntegrityError:
-        db_session.rollback()
-        logger.exception("Commit failed with IntegrityError; rolled back")
 
 
 def import_tdg_handler(payload: Optional[dict] = None) -> dict:

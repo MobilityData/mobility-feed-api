@@ -28,6 +28,12 @@ locals {
     "FEEDS_DATABASE_URL" = {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
     }
+    "USERS_DATABASE_URL" = {
+      secret_id = "${var.environment}_USERS_DATABASE_URL"
+    }
+    "BREVO_API_KEY" = {
+      secret_id = "${var.environment}_BREVO_API_KEY"
+    }
   }
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
@@ -78,7 +84,8 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
     }
     vpc_access {
       connector = data.google_vpc_access_connector.vpc_connector.id
-      egress = "ALL_TRAFFIC"
+      # PRIVATE_RANGES_ONLY so public egress (e.g. Brevo) bypasses the VPC, which has no Cloud NAT.
+      egress = "PRIVATE_RANGES_ONLY"
     }
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
@@ -87,6 +94,15 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         value_source {
           secret_key_ref {
             secret = "${upper(var.environment)}_FEEDS_DATABASE_URL"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "USERS_DATABASE_URL"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_USERS_DATABASE_URL"
             version = "latest"
           }
         }
@@ -103,6 +119,19 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
             version = "latest"
           }
         }
+      }
+      env {
+        name = "BREVO_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret = "${upper(var.environment)}_BREVO_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "BREVO_API_ANNOUNCEMENTS_LIST_ID"
+        value = var.brevo_api_announcements_list_id
       }
       resources {
         limits = {
@@ -138,6 +167,7 @@ resource "google_secret_manager_secret_iam_member" "policy" {
   role = "roles/secretmanager.secretAccessor"
   member =  "serviceAccount:${google_service_account.containers_service_account.email}"
 }
+
 
 resource "google_project_iam_member" "containers_service_account_roles" {
   for_each = local.service_account_role_bindings

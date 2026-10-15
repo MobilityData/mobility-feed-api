@@ -160,6 +160,48 @@ resource "google_compute_url_map" "feed_api_url_map" {
     }
 
     route_rules {
+      priority = 5
+      match_rules {
+        prefix_match = "/v1/user"
+      }
+      route_action {
+        weighted_backend_services {
+          backend_service = google_compute_backend_service.feed_api_lb_backend.id
+          weight          = 100
+        }
+        cors_policy {
+          allow_credentials = true
+          allow_headers     = ["Authorization", "Content-Type"]
+          allow_methods     = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+          allow_origins     = ["*"]
+          max_age           = 1200
+          disabled          = false
+        }
+      }
+    }
+
+    route_rules {
+      priority = 6
+      match_rules {
+        prefix_match = "/v1/notifications"
+      }
+      route_action {
+        weighted_backend_services {
+          backend_service = google_compute_backend_service.feed_api_lb_backend.id
+          weight          = 100
+        }
+        cors_policy {
+          allow_credentials = true
+          allow_headers     = ["Authorization", "Content-Type"]
+          allow_methods     = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+          allow_origins     = ["*"]
+          max_age           = 1200
+          disabled          = false
+        }
+      }
+    }
+
+    route_rules {
       priority = 10
       match_rules {
         prefix_match = "/"

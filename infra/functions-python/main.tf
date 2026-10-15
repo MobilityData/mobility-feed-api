@@ -24,47 +24,101 @@ terraform {
 
 locals {
   x_number_of_concurrent_instance = 4
-  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
-  function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
-  function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
+  deployment_timestamp            = formatdate("YYYYMMDDhhmmss", timestamp())
+  function_tokens_config          = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
+  function_tokens_zip             = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
   #  DEV and QA use the vpc connector
-  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_name    = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 
   # This is as a constant due to the existent of two independent infra modules
   batchfunctions_sa_email = "batchfunctions-service-account@${var.project_id}.iam.gserviceaccount.com"
 
   function_process_validation_report_config = jsondecode(file("${path.module}/../../functions-python/process_validation_report/function_config.json"))
-  function_process_validation_report_zip = "${path.module}/../../functions-python/process_validation_report/.dist/process_validation_report.zip"
-  public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
+  function_process_validation_report_zip    = "${path.module}/../../functions-python/process_validation_report/.dist/process_validation_report.zip"
+  public_hosted_datasets_url                = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
-  function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
+  function_gbfs_validation_report_zip    = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
 
   function_reverse_geolocation_populate_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation_populate/function_config.json"))
-  function_reverse_geolocation_populate_zip = "${path.module}/../../functions-python/reverse_geolocation_populate/.dist/reverse_geolocation_populate.zip"
+  function_reverse_geolocation_populate_zip    = "${path.module}/../../functions-python/reverse_geolocation_populate/.dist/reverse_geolocation_populate.zip"
 
   function_operations_api_config = jsondecode(file("${path.module}/../../functions-python/operations_api/function_config.json"))
-  function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
+  function_operations_api_zip    = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
 
   function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
-  function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
+  function_backfill_dataset_service_date_range_zip    = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
 
   function_reverse_geolocation_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation/function_config.json"))
-  function_reverse_geolocation_zip = "${path.module}/../../functions-python/reverse_geolocation/.dist/reverse_geolocation.zip"
+  function_reverse_geolocation_zip    = "${path.module}/../../functions-python/reverse_geolocation/.dist/reverse_geolocation.zip"
 
   function_update_feed_status_config = jsondecode(file("${path.module}/../../functions-python/update_feed_status/function_config.json"))
-  function_update_feed_status_zip = "${path.module}/../../functions-python/update_feed_status/.dist/update_feed_status.zip"
+  function_update_feed_status_zip    = "${path.module}/../../functions-python/update_feed_status/.dist/update_feed_status.zip"
 
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
-  function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
+  function_export_csv_zip    = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 
   function_tasks_executor_config = jsondecode(file("${path.module}/../../functions-python/tasks_executor/function_config.json"))
-  function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
+  function_tasks_executor_zip    = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
 
   function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
-  function_pmtiles_builder_zip = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
+  function_pmtiles_builder_zip    = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
+
+  function_gtfs_datasets_comparer_config = jsondecode(file("${path.module}/../../functions-python/gtfs_datasets_comparer/function_config.json"))
+  function_gtfs_datasets_comparer_zip    = "${path.module}/../../functions-python/gtfs_datasets_comparer/.dist/gtfs_datasets_comparer.zip"
+
+  function_gtfs_file_data_extractor_config = jsondecode(file("${path.module}/../../functions-python/gtfs_file_data_extractor/function_config.json"))
+  function_gtfs_file_data_extractor_zip    = "${path.module}/../../functions-python/gtfs_file_data_extractor/.dist/gtfs_file_data_extractor.zip"
+
+  function_parquet_builder_config = jsondecode(file("${path.module}/../../functions-python/parquet_builder/function_config.json"))
+  # Parquet builds are routed to one of these by the Operations API, on the largest
+  # single uncompressed file in the dataset. The bands are measured, not guessed: of
+  # 4277 feeds the median archive is 0.2 MB and only 31 exceed 100 MB, while about ten
+  # have a single member over 1 GB and the worst has one of 4.8 GB.
+  #
+  # Two rules set the numbers:
+  #  - `volume` must hold the largest member plus its Parquet output. It is carved OUT
+  #    of `memory`, not added to it: limit_gcp_memory subtracts it to set RLIMIT_AS.
+  #  - the process budget left over (memory - volume - 200MiB) tracks `duckdb_memory`
+  #    plus ~330 MB, because RSS stops growing once DuckDB hits its cap. It does not
+  #    scale with the feed, which is why the volume is what changes between rungs.
+  parquet_builder_sizes = {
+    s = {
+      # 3Gi, for a 1848 MiB budget. At 2Gi the budget was 824 MiB and DuckDB died with
+      # OutOfMemoryException on a 41.7 MB feed: measured VMS is ~816 MB on a 0.7 MB
+      # feed, so there was nothing left. Baseline VMS is ~550 MB before any work.
+      memory         = "3Gi"
+      cpu            = "1"
+      volume         = "1Gi"
+      duckdb_memory  = "512MB"
+      max_instances  = 60
+      max_dispatches = 40
+    }
+    m = {
+      # 7Gi, for a 3896 MiB budget. At 6Gi it worked, but peak VMS reached 2297 MB of a
+      # 2872 MiB budget (80%) on a 1332 MB member, and the band admits up to 1.5 GB.
+      memory         = "7Gi"
+      cpu            = "2"
+      volume         = "3Gi"
+      duckdb_memory  = "1GB"
+      max_instances  = 40
+      max_dispatches = 20
+    }
+    l = {
+      # 16Gi, for a 7992 MiB budget. Measured peak VMS is 5571 MB (70%); peak RSS is
+      # only 2496 MB, which is why sizing this from RSS put it at 3896 MiB and killed
+      # mdb-2014 with MemoryError. VMS runs ~2.2-2.8x the DuckDB cap - size from that.
+      memory         = "16Gi"
+      cpu            = "4"
+      volume         = "8Gi"
+      duckdb_memory  = "2GB"
+      max_instances  = local.function_parquet_builder_config.max_instance_count
+      max_dispatches = 5
+    }
+  }
+  function_parquet_builder_zip = "${path.module}/../../functions-python/parquet_builder/.dist/parquet_builder.zip"
 }
 
 locals {
@@ -76,7 +130,10 @@ locals {
     local.function_update_feed_status_config.secret_environment_variables,
     local.function_export_csv_config.secret_environment_variables,
     local.function_tasks_executor_config.secret_environment_variables,
-    local.function_pmtiles_builder_config.secret_environment_variables
+    local.function_pmtiles_builder_config.secret_environment_variables,
+    local.function_gtfs_datasets_comparer_config.secret_environment_variables,
+    local.function_gtfs_file_data_extractor_config.secret_environment_variables,
+    local.function_parquet_builder_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -123,10 +180,31 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   location = var.gcp_region
   name     = "${var.gbfs_bucket_name}-${var.environment}"
   cors {
-    origin = ["*"]
-    method = ["GET"]
+    origin          = ["*"]
+    method          = ["GET"]
     response_header = ["*"]
   }
+}
+
+resource "google_storage_bucket" "sitemap_bucket" {
+  location                    = var.gcp_region
+  name                        = "mobilitydatabase-sitemap-${var.environment}"
+  uniform_bucket_level_access = true
+  cors {
+    origin          = ["*"]
+    method          = ["GET"]
+    response_header = ["*"]
+  }
+}
+
+# Public, unauthenticated read access so sitemap.xml can be fetched directly
+# (e.g. by the Next.js web app) without a GCP identity. Uniform bucket-level
+# access is on for this bucket, so per-object ACLs (blob.make_public()) don't
+# apply here — public read has to be granted at the bucket level instead.
+resource "google_storage_bucket_iam_member" "sitemap_bucket_public_read" {
+  bucket = google_storage_bucket.sitemap_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
 }
 
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
@@ -144,7 +222,7 @@ resource "google_project_iam_member" "datasets_bucket_functions_service_account"
 # Cloud function source code zip files:
 # 1. Tokens
 resource "google_storage_bucket_object" "function_token_zip" {
-  name   = "tokens-${substr(filebase64sha256(local.function_tokens_zip),0,10)}.zip"
+  name   = "tokens-${substr(filebase64sha256(local.function_tokens_zip), 0, 10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_tokens_zip
 }
@@ -222,6 +300,27 @@ resource "google_storage_bucket_object" "pmtiles_builder_zip" {
   source = local.function_pmtiles_builder_zip
 }
 
+# 18. Parquet Builder
+resource "google_storage_bucket_object" "parquet_builder_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "parquet-builder-${substr(filebase64sha256(local.function_parquet_builder_zip), 0, 10)}.zip"
+  source = local.function_parquet_builder_zip
+}
+
+# 16. GTFS Change Tracker
+resource "google_storage_bucket_object" "gtfs_datasets_comparer_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-datasets-comparer-${substr(filebase64sha256(local.function_gtfs_datasets_comparer_zip), 0, 10)}.zip"
+  source = local.function_gtfs_datasets_comparer_zip
+}
+
+# 17. GTFS File Data Extractor
+resource "google_storage_bucket_object" "gtfs_file_data_extractor_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gtfs-file-data-extractor-${substr(filebase64sha256(local.function_gtfs_file_data_extractor_zip), 0, 10)}.zip"
+  source = local.function_gtfs_file_data_extractor_zip
+}
+
 # Web app revalidation secret
 resource "google_secret_manager_secret" "web_app_revalidate_secret" {
   project   = var.project_id
@@ -232,19 +331,20 @@ resource "google_secret_manager_secret" "web_app_revalidate_secret" {
 }
 
 resource "google_secret_manager_secret_version" "web_app_revalidate_secret_version" {
-  secret      = google_secret_manager_secret.web_app_revalidate_secret.id
-  secret_data = var.web_app_revalidate_secret
+  secret          = google_secret_manager_secret.web_app_revalidate_secret.id
+  secret_data     = var.web_app_revalidate_secret
+  deletion_policy = "DELETE" # Destroy old version when replaced to reduce cost
 }
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = local.unique_secret_dict_map
 
-  project    = var.project_id
+  project = var.project_id
   # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
-  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
-  role       = "roles/secretmanager.secretAccessor"
-  member     = "serviceAccount:${google_service_account.functions_service_account.email}"
+  secret_id = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.functions_service_account.email}"
 
   depends_on = [google_secret_manager_secret.web_app_revalidate_secret]
 }
@@ -266,12 +366,12 @@ resource "google_cloudfunctions2_function" "tokens" {
     }
   }
   service_config {
-    available_memory = local.function_tokens_config.memory
-    timeout_seconds = local.function_tokens_config.timeout
-    available_cpu = local.function_tokens_config.available_cpu
+    available_memory                 = local.function_tokens_config.memory
+    timeout_seconds                  = local.function_tokens_config.timeout
+    available_cpu                    = local.function_tokens_config.available_cpu
     max_instance_request_concurrency = local.function_tokens_config.max_instance_request_concurrency
-    max_instance_count = local.function_tokens_config.max_instance_count
-    min_instance_count = local.function_tokens_config.min_instance_count
+    max_instance_count               = local.function_tokens_config.max_instance_count
+    min_instance_count               = local.function_tokens_config.min_instance_count
     dynamic "secret_environment_variables" {
       for_each = local.function_tokens_config.secret_environment_variables
       content {
@@ -282,7 +382,7 @@ resource "google_cloudfunctions2_function" "tokens" {
       }
     }
     service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_tokens_config.ingress_settings
+    ingress_settings      = local.function_tokens_config.ingress_settings
   }
 }
 
@@ -320,8 +420,8 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
   name        = local.function_process_validation_report_config.name
   description = local.function_process_validation_report_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
-  project = var.project_id
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project     = var.project_id
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_process_validation_report_config.entry_point
@@ -333,20 +433,20 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     }
   }
   service_config {
-    available_memory = local.function_process_validation_report_config.memory
-    available_cpu    = local.function_process_validation_report_config.available_cpu
-    timeout_seconds  = local.function_process_validation_report_config.timeout
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    available_memory              = local.function_process_validation_report_config.memory
+    available_cpu                 = local.function_process_validation_report_config.available_cpu
+    timeout_seconds               = local.function_process_validation_report_config.timeout
+    vpc_connector                 = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      FILES_ENDPOINT    = local.public_hosted_datasets_url
+      ENVIRONMENT             = var.environment
+      PROJECT_ID              = var.project_id
+      GCP_REGION              = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL   = google_service_account.functions_service_account.email
+      FILES_ENDPOINT          = local.public_hosted_datasets_url
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      WEB_REVALIDATION_QUEUE  = google_cloud_tasks_queue.web_revalidation_task_queue.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
@@ -386,18 +486,18 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
   }
 
   service_config {
-    available_memory = "512Mi"
-    available_cpu    = "1"
-    timeout_seconds  = 300
-    vpc_connector    = data.google_vpc_access_connector.vpc_connector.id
+    available_memory              = "512Mi"
+    available_cpu                 = "1"
+    timeout_seconds               = 300
+    vpc_connector                 = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PYTHONNODEBUGRANGES = 0
+      PYTHONNODEBUGRANGES   = 0
     }
 
     dynamic "secret_environment_variables" {
@@ -428,7 +528,7 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   name        = "${local.function_gbfs_validation_report_config.name}-batch"
   description = local.function_gbfs_validation_report_config.description
   location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
@@ -442,24 +542,24 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PUBSUB_TOPIC_NAME = google_pubsub_topic.validate_gbfs_feed.name
-      PYTHONNODEBUGRANGES = 0
-      FEEDS_LIMIT       = lower(var.environment) == "dev" ? "10" : null
+      PUBSUB_TOPIC_NAME     = google_pubsub_topic.validate_gbfs_feed.name
+      PYTHONNODEBUGRANGES   = 0
+      FEEDS_LIMIT           = lower(var.environment) == "dev" ? "10" : null
     }
-    available_memory = "1Gi"
-    timeout_seconds = local.function_gbfs_validation_report_config.timeout
-    available_cpu = local.function_gbfs_validation_report_config.available_cpu
+    available_memory                 = "1Gi"
+    timeout_seconds                  = local.function_gbfs_validation_report_config.timeout
+    available_cpu                    = local.function_gbfs_validation_report_config.available_cpu
     max_instance_request_concurrency = local.function_gbfs_validation_report_config.max_instance_request_concurrency
-    max_instance_count = local.function_gbfs_validation_report_config.max_instance_count
-    min_instance_count = local.function_gbfs_validation_report_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_gbfs_validation_report_config.max_instance_count
+    min_instance_count               = local.function_gbfs_validation_report_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_gbfs_validation_report_config.secret_environment_variables
       content {
@@ -474,16 +574,16 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
 
 # Schedule the batch function to run daily (version extraction and validation only)
 resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
-  name = "gbfs-validator-batch-scheduler-${var.environment}"
+  name        = "gbfs-validator-batch-scheduler-${var.environment}"
   description = "Schedule the gbfs-validator-batch function for daily version extraction and validation"
-  time_zone = "Etc/UTC"
-  schedule = var.gbfs_scheduler_schedule
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
+  time_zone   = "Etc/UTC"
+  schedule    = var.gbfs_scheduler_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.gbfs_validator_batch.url
+    uri         = google_cloudfunctions2_function.gbfs_validator_batch.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -497,16 +597,16 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
 
 # Schedule the batch function to run weekly for geolocation extraction
 resource "google_cloud_scheduler_job" "gbfs_geolocation_batch_scheduler" {
-  name = "gbfs-geolocation-batch-scheduler-${var.environment}"
+  name        = "gbfs-geolocation-batch-scheduler-${var.environment}"
   description = "Schedule the gbfs-validator-batch function for weekly geolocation extraction"
-  time_zone = "Etc/UTC"
-  schedule = var.gbfs_geolocation_scheduler_schedule
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
+  time_zone   = "Etc/UTC"
+  schedule    = var.gbfs_geolocation_scheduler_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.gbfs_validator_batch.url
+    uri         = google_cloudfunctions2_function.gbfs_validator_batch.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -520,16 +620,16 @@ resource "google_cloud_scheduler_job" "gbfs_geolocation_batch_scheduler" {
 
 # Schedule the JBDA import function to run monthly
 resource "google_cloud_scheduler_job" "jbda_import_schedule" {
-  name = "jbda-import-scheduler-${var.environment}"
+  name        = "jbda-import-scheduler-${var.environment}"
   description = "Schedule the jbda import function"
-  time_zone = "Etc/UTC"
-  schedule = var.jbda_scheduler_schedule
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  time_zone   = "Etc/UTC"
+  schedule    = var.jbda_scheduler_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.tasks_executor.url
+    uri         = google_cloudfunctions2_function.tasks_executor.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -541,18 +641,41 @@ resource "google_cloud_scheduler_job" "jbda_import_schedule" {
   attempt_deadline = "320s"
 }
 
-# Schedule the TDG import function to run monthly
-resource "google_cloud_scheduler_job" "tdg_import_schedule" {
-  name = "tdg-import-scheduler-${var.environment}"
-  description = "Schedule the tdg import function"
-  time_zone = "Europe/Paris"
-  schedule  = "0 0 3 * *"
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+# Schedule the ODPT import function to run monthly
+resource "google_cloud_scheduler_job" "odpt_import_schedule" {
+  name        = "odpt-import-scheduler-${var.environment}"
+  description = "Schedule the odpt import function"
+  time_zone   = "Etc/UTC"
+  schedule    = var.odpt_scheduler_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.tasks_executor.url
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"odpt_import\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+# Schedule the TDG import function to run monthly
+resource "google_cloud_scheduler_job" "tdg_import_schedule" {
+  name        = "tdg-import-scheduler-${var.environment}"
+  description = "Schedule the tdg import function"
+  time_zone   = "Europe/Paris"
+  schedule    = "0 0 3 * *"
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -564,36 +687,167 @@ resource "google_cloud_scheduler_job" "tdg_import_schedule" {
   attempt_deadline = "320s"
 }
 
-# Schedule the Cal-ITP import function to run monthly
-resource "google_cloud_scheduler_job" "cal_itp_import_schedule" {
-  name = "cal-itp-import-scheduler-${var.environment}"
-  description = "Schedule the cal-itp import function"
-  time_zone = "Etc/UTC"
-  schedule  = "0 0 3 * *"
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+# Schedule the GTFS feed availability check to run daily
+resource "google_cloud_scheduler_job" "gtfs_feed_availability_check_schedule" {
+  name        = "gtfs-feed-availability-check-scheduler-${var.environment}"
+  description = "Daily check of active/published GTFS feed availability via HTTP HEAD"
+  time_zone   = "Etc/UTC"
+  schedule    = var.gtfs_feed_availability_check_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.tasks_executor.url
+    uri         = google_cloudfunctions2_function.tasks_executor.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
     headers = {
       "Content-Type" = "application/json"
     }
-    body = base64encode("{\"task\": \"cal_itp_import\", \"payload\": {\"dry_run\": false}}")
+    body = base64encode("{\"task\": \"check_gtfs_feed_availability\", \"payload\": {\"dry_run\": false}}")
+  }
+  # 30min*60 = 1800
+  attempt_deadline = "1800s"
+}
+
+# Schedule the notification dispatcher to run daily.
+# A single daily job covers both cadences: it always processes daily-cadence
+# subscriptions and processes weekly-cadence subscriptions on weekly_weekday
+# (Monday=0). Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "dispatch_notifications_daily_scheduler" {
+  name        = "dispatch-notifications-daily-${var.environment}"
+  description = "Daily run of the notification dispatcher (daily cadence every day, weekly cadence on weekly_weekday)"
+  time_zone   = "Etc/UTC"
+  schedule    = var.notification_dispatch_daily_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"notifications_dispatch_batch\", \"payload\": {\"cadence\": \"scheduled\", \"weekly_weekday\": ${var.notification_dispatch_weekly_weekday}, \"dry_run\": false}}")
   }
   attempt_deadline = "320s"
 }
 
+
+# Schedule the seal orchestrator to run nightly across the whole catalog.
+# Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "seal_orchestrator_scheduler" {
+  name        = "seal-orchestrator-${var.environment}"
+  description = "Nightly Seal of Reliability run across every eligible GTFS feed"
+  time_zone   = "Etc/UTC"
+  schedule    = var.seal_orchestrator_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"seal_orchestrator\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+
+# Schedule the Brevo announcements reconciliation to run daily.
+# Turn-OFF only: propagates Brevo-originated unsubscribes/blocks back into the
+# users DB for api.announcements. Runs with dry_run=false so it actually
+# reconciles. Disabled (paused) outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "reconcile_announcements_from_brevo_scheduler" {
+  name        = "reconcile-announcements-from-brevo-${var.environment}"
+  description = "Daily reconciliation of Brevo unsubscribes into the users DB (api.announcements)"
+  time_zone   = "Etc/UTC"
+  schedule    = var.reconcile_announcements_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"reconcile_announcements_from_brevo\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+
+# Schedule the early access invited-email purge to run nightly.
+# Legal/privacy: deletes early_access_invited_email rows past their program's
+# invite_retention_days so we never hold the email of someone who never registered.
+# Runs with dry_run=false so it actually deletes. Disabled (paused) outside prod, like
+# the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "purge_early_access_invites_scheduler" {
+  name        = "purge-early-access-invites-${var.environment}"
+  description = "Nightly purge of expired early access invited emails"
+  time_zone   = "Etc/UTC"
+  schedule    = var.purge_early_access_invites_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"purge_early_access_invites\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "320s"
+}
+
+# Schedule the mobilitydatabase.org sitemap generation to run daily at 08:00 UTC.
+# Overwrites sitemap.xml in the sitemap bucket on every run. Disabled (paused)
+# outside prod, like the other tasks_executor schedulers.
+resource "google_cloud_scheduler_job" "generate_sitemap_scheduler" {
+  name        = "generate-mobilitydatabase-sitemap-${var.environment}"
+  description = "Daily regeneration of the mobilitydatabase.org sitemap"
+  time_zone   = "Etc/UTC"
+  schedule    = var.generate_sitemap_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task\": \"generate_mobilitydatabase_sitemap\", \"payload\": {\"dry_run\": false}}")
+  }
+  attempt_deadline = "600s"
+}
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
   name        = "${local.function_gbfs_validation_report_config.name}-pubsub"
   description = local.function_gbfs_validation_report_config.description
   location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
   event_trigger {
     trigger_region        = var.gcp_region
     service_account_email = google_service_account.functions_service_account.email
@@ -612,24 +866,24 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     }
   }
   service_config {
-    available_memory = local.function_gbfs_validation_report_config.memory
-    timeout_seconds = local.function_gbfs_validation_report_config.timeout
-    available_cpu = local.function_gbfs_validation_report_config.available_cpu
+    available_memory                 = local.function_gbfs_validation_report_config.memory
+    timeout_seconds                  = local.function_gbfs_validation_report_config.timeout
+    available_cpu                    = local.function_gbfs_validation_report_config.available_cpu
     max_instance_request_concurrency = local.function_gbfs_validation_report_config.max_instance_request_concurrency
-    max_instance_count = local.function_gbfs_validation_report_config.max_instance_count
-    min_instance_count = local.function_gbfs_validation_report_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_gbfs_validation_report_config.max_instance_count
+    min_instance_count               = local.function_gbfs_validation_report_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
+      BUCKET_NAME           = google_storage_bucket.gbfs_snapshots_bucket.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
+      QUEUE_NAME            = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_gbfs_validation_report_config.secret_environment_variables
@@ -645,10 +899,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
 
 # 7. functions/operations_api cloud function
 resource "google_cloudfunctions2_function" "operations_api" {
-  name        = "${local.function_operations_api_config.name}"
+  name        = local.function_operations_api_config.name
   description = local.function_operations_api_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
@@ -662,25 +916,30 @@ resource "google_cloudfunctions2_function" "operations_api" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PYTHONNODEBUGRANGES = 0
-      GOOGLE_CLIENT_ID = var.operations_oauth2_client_id
+      ENVIRONMENT                   = var.environment
+      PROJECT_ID                    = var.project_id
+      GCP_REGION                    = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL         = google_service_account.functions_service_account.email
+      PYTHONNODEBUGRANGES           = 0
+      GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
-      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      PARQUET_BUILDER_QUEUE_S       = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M       = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L       = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
+      DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL    = local.public_hosted_datasets_url
     }
-    available_memory = local.function_operations_api_config.memory
-    timeout_seconds = local.function_operations_api_config.timeout
-    available_cpu = local.function_operations_api_config.available_cpu
+    available_memory                 = local.function_operations_api_config.memory
+    timeout_seconds                  = local.function_operations_api_config.timeout
+    available_cpu                    = local.function_operations_api_config.available_cpu
     max_instance_request_concurrency = local.function_operations_api_config.max_instance_request_concurrency
-    max_instance_count = local.function_operations_api_config.max_instance_count
-    min_instance_count = local.function_operations_api_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_operations_api_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_operations_api_config.max_instance_count
+    min_instance_count               = local.function_operations_api_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_operations_api_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_operations_api_config.secret_environment_variables
       content {
@@ -699,8 +958,8 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
   name        = local.function_backfill_dataset_service_date_range_config.name
   description = local.function_backfill_dataset_service_date_range_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
-  project = var.project_id
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project     = var.project_id
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_backfill_dataset_service_date_range_config.entry_point
@@ -712,19 +971,19 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
     }
   }
   service_config {
-    available_memory = local.function_backfill_dataset_service_date_range_config.memory
-    available_cpu    = local.function_backfill_dataset_service_date_range_config.available_cpu
-    timeout_seconds  = local.function_backfill_dataset_service_date_range_config.timeout
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    available_memory              = local.function_backfill_dataset_service_date_range_config.memory
+    available_cpu                 = local.function_backfill_dataset_service_date_range_config.available_cpu
+    timeout_seconds               = local.function_backfill_dataset_service_date_range_config.timeout
+    vpc_connector                 = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
       # prevents multiline logs from being truncated on GCP console
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PYTHONNODEBUGRANGES = 0
+      PYTHONNODEBUGRANGES   = 0
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_backfill_dataset_service_date_range_config.secret_environment_variables
@@ -744,7 +1003,7 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
 
 # 10. functions/export_csv cloud function
 resource "google_cloudfunctions2_function" "export_csv" {
-  name        = "${local.function_export_csv_config.name}"
+  name        = local.function_export_csv_config.name
   project     = var.project_id
   description = local.function_export_csv_config.description
   location    = var.gcp_region
@@ -752,7 +1011,7 @@ resource "google_cloudfunctions2_function" "export_csv" {
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = "${local.function_export_csv_config.entry_point}"
+    entry_point = local.function_export_csv_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -762,11 +1021,11 @@ resource "google_cloudfunctions2_function" "export_csv" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      DATASETS_BUCKET_NAME = data.google_storage_bucket.datasets_bucket.name
+      DATASETS_BUCKET_NAME  = data.google_storage_bucket.datasets_bucket.name
     }
     available_memory                 = local.function_export_csv_config.memory
     timeout_seconds                  = local.function_export_csv_config.timeout
@@ -798,8 +1057,8 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
   name        = local.function_update_feed_status_config.name
   description = local.function_update_feed_status_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
-  project = var.project_id
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project     = var.project_id
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_update_feed_status_config.entry_point
@@ -811,18 +1070,18 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
     }
   }
   service_config {
-    available_memory = local.function_update_feed_status_config.memory
-    available_cpu    = local.function_update_feed_status_config.available_cpu
-    timeout_seconds  = local.function_update_feed_status_config.timeout
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    available_memory              = local.function_update_feed_status_config.memory
+    available_cpu                 = local.function_update_feed_status_config.available_cpu
+    timeout_seconds               = local.function_update_feed_status_config.timeout
+    vpc_connector                 = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name      
+      ENVIRONMENT             = var.environment
+      PROJECT_ID              = var.project_id
+      GCP_REGION              = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL   = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
@@ -844,16 +1103,16 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
 
 
 resource "google_cloud_scheduler_job" "export_csv_scheduler" {
-  name = "export-csv-scheduler-${var.environment}"
+  name        = "export-csv-scheduler-${var.environment}"
   description = "Schedule the export_csv function"
-  time_zone = "Etc/UTC"
-  schedule = var.export_csv_schedule
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.export_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
+  time_zone   = "Etc/UTC"
+  schedule    = var.export_csv_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.export_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.export_csv.url
+    uri         = google_cloudfunctions2_function.export_csv.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -866,16 +1125,16 @@ resource "google_cloud_scheduler_job" "export_csv_scheduler" {
 }
 
 resource "google_cloud_scheduler_job" "update_feed_status_scheduler" {
-  name = "update-feed-status-${var.environment}"
+  name        = "update-feed-status-${var.environment}"
   description = "Schedule the update_feed_status function daily"
-  time_zone = "Etc/UTC"
-  schedule = var.update_feed_status_schedule
-  region = var.gcp_region
-  paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.update_feed_status, google_cloudfunctions2_function_iam_member.update_feed_status_invoker]
+  time_zone   = "Etc/UTC"
+  schedule    = var.update_feed_status_schedule
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  depends_on  = [google_cloudfunctions2_function.update_feed_status, google_cloudfunctions2_function_iam_member.update_feed_status_invoker]
   http_target {
     http_method = "POST"
-    uri = google_cloudfunctions2_function.update_feed_status.url
+    uri         = google_cloudfunctions2_function.update_feed_status.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
@@ -893,7 +1152,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   name        = local.function_reverse_geolocation_populate_config.name
   description = local.function_reverse_geolocation_populate_config.description
   location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
@@ -907,23 +1166,23 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PYTHONNODEBUGRANGES = 0
-      DB_REUSE_SESSION = "True"
+      PYTHONNODEBUGRANGES   = 0
+      DB_REUSE_SESSION      = "True"
     }
-    available_memory = local.function_reverse_geolocation_populate_config.available_memory
-    timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
-    available_cpu = local.function_reverse_geolocation_populate_config.available_cpu
+    available_memory                 = local.function_reverse_geolocation_populate_config.available_memory
+    timeout_seconds                  = local.function_reverse_geolocation_populate_config.timeout
+    available_cpu                    = local.function_reverse_geolocation_populate_config.available_cpu
     max_instance_request_concurrency = local.function_reverse_geolocation_populate_config.max_instance_request_concurrency
-    max_instance_count = local.function_reverse_geolocation_populate_config.max_instance_count
-    min_instance_count = local.function_reverse_geolocation_populate_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_reverse_geolocation_populate_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_reverse_geolocation_populate_config.max_instance_count
+    min_instance_count               = local.function_reverse_geolocation_populate_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_reverse_geolocation_populate_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_reverse_geolocation_populate_config.secret_environment_variables
       content {
@@ -958,26 +1217,26 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
   }
   service_config {
     environment_variables = {
-      PYTHONNODEBUGRANGES = 0
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      PYTHONNODEBUGRANGES       = 0
+      ENVIRONMENT               = var.environment
+      PROJECT_ID                = var.project_id
+      GCP_REGION                = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL     = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE   = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
-      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      WEB_REVALIDATION_QUEUE    = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
-    available_memory = local.function_reverse_geolocation_config.available_memory
-    timeout_seconds = 1700
-    available_cpu = local.function_reverse_geolocation_config.available_cpu
+    available_memory                 = local.function_reverse_geolocation_config.available_memory
+    timeout_seconds                  = 1700
+    available_cpu                    = local.function_reverse_geolocation_config.available_cpu
     max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
-    max_instance_count = 10
-    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = 10
+    min_instance_count               = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_reverse_geolocation_config.secret_environment_variables
       content {
@@ -999,9 +1258,9 @@ resource "google_cloud_tasks_queue" "reverse_geolocation_task_queue_processor" {
     max_dispatches_per_second = 1
   }
   retry_config {
-      max_attempts  = 10
-      min_backoff   = "20s"
-      max_backoff   = "60s"
+    max_attempts = 10
+    min_backoff  = "20s"
+    max_backoff  = "60s"
   }
 }
 
@@ -1023,6 +1282,14 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker_b
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
+resource "google_cloud_run_service_iam_member" "pmtiles_builder_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.pmtiles_builder.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # Grant execution permission to the service account to the pmtiles_builder function
 resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" {
   project        = var.project_id
@@ -1030,6 +1297,119 @@ resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" 
   cloud_function = google_cloudfunctions2_function.pmtiles_builder.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant execution permission to the service account to the parquet_builder function.
+# The operations-api function enqueues the Cloud Task, and the task is dispatched with
+# an OIDC token for this same service account.
+resource "google_cloudfunctions2_function_iam_member" "parquet_builder_invoker" {
+  for_each       = local.parquet_builder_sizes
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.parquet_builder[each.key].name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloud_run_service_iam_member" "parquet_builder_cloud_run_invoker" {
+  for_each = local.parquet_builder_sizes
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.parquet_builder[each.key].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant execution permission to batchfunctions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_datasets_comparer_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+# Grant execution permission to the functions service account to the gtfs_datasets_comparer function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_datasets_comparer_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# 17.1 functions/gtfs_file_data_extractor cloud function
+resource "google_cloudfunctions2_function" "gtfs_file_data_extractor" {
+  name        = local.function_gtfs_file_data_extractor_config.name
+  description = local.function_gtfs_file_data_extractor_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+  ]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_file_data_extractor_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_file_data_extractor_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      ENVIRONMENT         = var.environment
+      PROJECT_ID          = var.project_id
+      GCP_REGION          = var.gcp_region
+    }
+    available_memory                 = local.function_gtfs_file_data_extractor_config.available_memory
+    timeout_seconds                  = local.function_gtfs_file_data_extractor_config.timeout
+    available_cpu                    = local.function_gtfs_file_data_extractor_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_file_data_extractor_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_file_data_extractor_config.max_instance_count
+    min_instance_count               = local.function_gtfs_file_data_extractor_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_file_data_extractor_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_file_data_extractor_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# Grant execution permission to batchfunctions service account to the gtfs_file_data_extractor function
+resource "google_cloudfunctions2_function_iam_member" "gtfs_file_data_extractor_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+resource "google_cloud_run_service_iam_member" "gtfs_file_data_extractor_cloud_run_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.gtfs_file_data_extractor.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
 # 13.3 functions/reverse_geolocation - batch cloud function
@@ -1054,24 +1434,24 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   }
   service_config {
     environment_variables = {
-      PYTHONNODEBUGRANGES = 0
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
+      PYTHONNODEBUGRANGES   = 0
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
+      DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
+      QUEUE_NAME            = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
-    available_memory = local.function_reverse_geolocation_config.available_memory
-    timeout_seconds = local.function_reverse_geolocation_config.timeout
-    available_cpu = local.function_reverse_geolocation_config.available_cpu
+    available_memory                 = local.function_reverse_geolocation_config.available_memory
+    timeout_seconds                  = local.function_reverse_geolocation_config.timeout
+    available_cpu                    = local.function_reverse_geolocation_config.available_cpu
     max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
-    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
-    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_reverse_geolocation_config.max_instance_count
+    min_instance_count               = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_reverse_geolocation_config.secret_environment_variables
       content {
@@ -1100,7 +1480,52 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
     max_attempts  = 3
     min_backoff   = "120s"
     max_backoff   = "120s"
-    max_doublings = 2  # Moot here since min_backoff == max_backoff
+    max_doublings = 2 # Moot here since min_backoff == max_backoff
+  }
+}
+
+# One task queue per worker size. Separate queues are the point rather than a side
+# effect: with a single queue a run of large builds fills every dispatch slot and the
+# short ones wait behind them, and the concurrency cap has to be set for the heaviest
+# job. max_concurrent_dispatches caps memory across concurrent instances, not throughput,
+# so the cheap worker can run far more of them.
+resource "google_cloud_tasks_queue" "parquet_builder_task_queue" {
+  for_each = local.parquet_builder_sizes
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "parquet-builder-queue-${each.key}-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = each.value.max_dispatches
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # One attempt. A conversion that fails does so deterministically - a corrupt
+    # archive is still corrupt - and the builder records the reason and returns 200
+    # rather than letting Cloud Tasks retry it. Retrying would also fight the
+    # database claim the builder takes for the duration.
+    max_attempts = 1
+  }
+}
+
+# Task queue to invoke gtfs_datasets_comparer function for backfill changelog tasks
+resource "google_cloud_tasks_queue" "gtfs_datasets_comparer_backfill_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "gtfs-datasets-comparer-backfill-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # Retries span ~10 minutes: initial try + 2 retries at 120s then 240s
+    max_attempts  = 3
+    min_backoff   = "120s"
+    max_backoff   = "240s"
+    max_doublings = 1
   }
 }
 
@@ -1115,7 +1540,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = "${local.function_tasks_executor_config.entry_point}"
+    entry_point = local.function_tasks_executor_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -1125,20 +1550,26 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      BOUNDING_BOXES_PUBSUB_TOPIC_NAME = google_pubsub_topic.rebuild_missing_bounding_boxes.name
-      DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
-      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      GBFS_SNAPSHOTS_BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
-      PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
-      TASK_RUN_SYNC_QUEUE   = google_cloud_tasks_queue.task_run_sync_queue.name
-      TDG_API_TOKEN = var.tdg_api_token
-      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
-      WEB_APP_REVALIDATE_URL = var.web_app_revalidate_url
+      ENVIRONMENT                         = var.environment
+      PROJECT_ID                          = var.project_id
+      GCP_REGION                          = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL               = google_service_account.functions_service_account.email
+      BOUNDING_BOXES_PUBSUB_TOPIC_NAME    = google_pubsub_topic.rebuild_missing_bounding_boxes.name
+      DATASET_PROCESSING_TOPIC_NAME       = "datasets-batch-topic-${var.environment}"
+      MATERIALIZED_VIEW_QUEUE             = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      DATASETS_BUCKET_NAME                = "${var.datasets_bucket_name}-${var.environment}"
+      GBFS_SNAPSHOTS_BUCKET_NAME          = google_storage_bucket.gbfs_snapshots_bucket.name
+      GTFS_CHANGE_TRACKER_QUEUE           = google_cloud_tasks_queue.gtfs_datasets_comparer_backfill_task_queue.name
+      PMTILES_BUILDER_QUEUE               = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
+      TASK_RUN_SYNC_QUEUE                 = google_cloud_tasks_queue.task_run_sync_queue.name
+      TDG_API_TOKEN                       = var.tdg_api_token
+      WEB_REVALIDATION_QUEUE              = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      WEB_APP_REVALIDATE_URL              = var.web_app_revalidate_url
+      BREVO_API_ANNOUNCEMENTS_LIST_ID     = var.brevo_api_announcements_list_id
+      NOTIFICATION_DISPATCH_QUEUE         = google_cloud_tasks_queue.notifications_dispatch_queue.name
+      NOTIFICATION_DISPATCH_MONITOR_QUEUE = google_cloud_tasks_queue.notifications_dispatch_monitor_queue.name
+      SEAL_ORCHESTRATOR_QUEUE             = google_cloud_tasks_queue.seal_orchestrator_queue.name
+      SEAL_ORCHESTRATOR_MONITOR_QUEUE     = google_cloud_tasks_queue.seal_orchestrator_monitor_queue.name
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1163,7 +1594,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
 }
 
-# Grant execution permission to bathcfunctions service account to the tasks_executor function
+# Grant execution permission to batchfunctions service account to the tasks_executor function
 resource "google_cloudfunctions2_function_iam_member" "tasks_executor_invoker" {
   project        = var.project_id
   location       = var.gcp_region
@@ -1182,7 +1613,7 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = "${local.function_pmtiles_builder_config.entry_point}"
+    entry_point = local.function_pmtiles_builder_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -1192,14 +1623,14 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT = var.environment
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      ENVIRONMENT             = var.environment
+      PROJECT_ID              = var.project_id
+      GCP_REGION              = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL   = google_service_account.functions_service_account.email
+      PUBSUB_TOPIC_NAME       = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      DATASETS_BUCKET_NAME    = "${var.datasets_bucket_name}-${var.environment}"
+      WEB_REVALIDATION_QUEUE  = google_cloud_tasks_queue.web_revalidation_task_queue.name
     }
     available_memory                 = local.function_pmtiles_builder_config.memory
     timeout_seconds                  = local.function_pmtiles_builder_config.timeout
@@ -1224,6 +1655,213 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
   }
 }
 
+
+# 18. functions/parquet_builder cloud function
+resource "google_cloudfunctions2_function" "parquet_builder" {
+  for_each    = local.parquet_builder_sizes
+  name        = "${local.function_parquet_builder_config.name}-${each.key}-${var.environment}"
+  project     = var.project_id
+  description = local.function_parquet_builder_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_parquet_builder_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.parquet_builder_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT                = var.environment
+      PROJECT_ID                 = var.project_id
+      GCP_REGION                 = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL      = google_service_account.functions_service_account.email
+      DATASETS_BUCKET_NAME       = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+      # Everything large is written here, on the in-memory volume mounted below.
+      # limit_gcp_memory subtracts the volume's size from the process budget, so a
+      # conversion that overshoots raises MemoryError instead of being SIGKILLed.
+      PARQUET_TMPDIR = "/tmp/in-memory"
+      # Well under what the limiter leaves us. DuckDB's own default reads the host's
+      # RAM rather than the cgroup, so unset it spills far too late to help.
+      PARQUET_DUCKDB_MEMORY_LIMIT = each.value.duckdb_memory
+      # The builder re-queues its own work one rung up when it runs out of resources, so
+      # it needs the queues the Operations API uses. Without these the enqueue is a
+      # logged no-op and the escalation would silently do nothing.
+      PARQUET_BUILDER_QUEUE_S = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
+    }
+    available_memory                 = each.value.memory
+    timeout_seconds                  = local.function_parquet_builder_config.timeout
+    available_cpu                    = each.value.cpu
+    max_instance_request_concurrency = local.function_parquet_builder_config.max_instance_request_concurrency
+    max_instance_count               = each.value.max_instances
+    min_instance_count               = local.function_parquet_builder_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_parquet_builder_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+
+# google_cloudfunctions2_function does not expose volume mounts in its schema, so the
+# in-memory volume is attached to the underlying Cloud Run service after deploy.
+# triggers_replace includes `source_zip` because a new deployment replaces the Cloud
+# Run revision without this volume, and `size` because the idempotency check below
+# matches volume names only.
+resource "terraform_data" "parquet_builder_volume_mount" {
+  for_each = local.parquet_builder_sizes
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.parquet_builder[each.key].name
+    region        = var.gcp_region
+    project       = var.project_id
+    size          = each.value.volume
+    source_zip    = google_storage_bucket_object.parquet_builder_zip.name
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted; removing it so the size limit is re-applied."
+        gcloud run services update ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          --remove-volume-mount volume=in-memory \
+          --remove-volume in-memory \
+          --quiet
+      fi
+
+      gcloud run services update ${google_cloudfunctions2_function.parquet_builder[each.key].name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --add-volume name=in-memory,type=in-memory,size-limit=${each.value.volume} \
+        --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory \
+        --quiet
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.parquet_builder]
+}
+
+# 16. functions/gtfs_datasets_comparer cloud function
+resource "google_cloudfunctions2_function" "gtfs_datasets_comparer" {
+  name        = "${local.function_gtfs_datasets_comparer_config.name}-${var.environment}"
+  project     = var.project_id
+  description = local.function_gtfs_datasets_comparer_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_gtfs_datasets_comparer_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_datasets_comparer_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      ENVIRONMENT           = var.environment
+      PROJECT_ID            = var.project_id
+      GCP_REGION            = var.gcp_region
+      DATASETS_BUCKET_NAME  = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_MOUNT = "/mobilitydata-datasets"
+      # GTFS_DIFF_DUCKDB_TMPDIR: directs DuckDB spill files to the in-memory volume.
+      GTFS_DIFF_DUCKDB_TMPDIR = "/tmp/in-memory"
+    }
+    available_memory                 = local.function_gtfs_datasets_comparer_config.memory
+    timeout_seconds                  = local.function_gtfs_datasets_comparer_config.timeout
+    available_cpu                    = local.function_gtfs_datasets_comparer_config.available_cpu
+    max_instance_request_concurrency = local.function_gtfs_datasets_comparer_config.max_instance_request_concurrency
+    max_instance_count               = local.function_gtfs_datasets_comparer_config.max_instance_count
+    min_instance_count               = local.function_gtfs_datasets_comparer_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_gtfs_datasets_comparer_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gtfs_datasets_comparer_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# google_cloudfunctions2_function does not expose volume mounts in its schema.
+# This terraform_data resource mounts both the datasets GCS bucket and an in-memory tmpfs
+# on the underlying Cloud Run service after the function is deployed.
+resource "terraform_data" "gtfs_datasets_comparer_gcs_mount" {
+  triggers_replace = {
+    function_name = google_cloudfunctions2_function.gtfs_datasets_comparer.name
+    bucket        = "${var.datasets_bucket_name}-${var.environment}"
+    region        = var.gcp_region
+    project       = var.project_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      MOUNTS=$(gcloud run services describe ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
+        --project ${var.project_id} \
+        --region ${var.gcp_region} \
+        --format='value(spec.template.spec.volumes[].name)' 2>/dev/null)
+
+      ARGS=""
+      if echo "$MOUNTS" | grep -q "datasets-bucket"; then
+        echo "GCS volume already mounted, skipping."
+      else
+        ARGS="$ARGS --add-volume name=datasets-bucket,type=cloud-storage,bucket=${var.datasets_bucket_name}-${var.environment},readonly=true"
+        ARGS="$ARGS --add-volume-mount volume=datasets-bucket,mount-path=/mobilitydata-datasets"
+      fi
+
+      if echo "$MOUNTS" | grep -q "in-memory"; then
+        echo "In-memory volume already mounted, skipping."
+      else
+        ARGS="$ARGS --add-volume name=in-memory,type=in-memory,size-limit=${var.gtfs_datasets_comparer_in_memory_size}"
+        ARGS="$ARGS --add-volume-mount volume=in-memory,mount-path=/tmp/in-memory"
+      fi
+
+      if [ -n "$ARGS" ]; then
+        gcloud run services update ${google_cloudfunctions2_function.gtfs_datasets_comparer.name} \
+          --project ${var.project_id} \
+          --region ${var.gcp_region} \
+          $ARGS \
+          --quiet
+      fi
+    EOT
+  }
+
+  depends_on = [google_cloudfunctions2_function.gtfs_datasets_comparer]
+}
+
 # Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
 resource "google_pubsub_topic" "rebuild_missing_bounding_boxes" {
   name = "rebuild-bounding-boxes-topic"
@@ -1246,11 +1884,11 @@ resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
 }
 
 resource "google_cloud_run_service_iam_member" "tokens_cloud_run_invoker" {
-  project        = var.project_id
-  location       = var.gcp_region
-  service        = google_cloudfunctions2_function.tokens.name
-  role           = "roles/run.invoker"
-  member         = "allUsers"
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.tokens.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 # Allow Operations API function to be called by all users
@@ -1263,11 +1901,11 @@ resource "google_cloudfunctions2_function_iam_member" "operations_api_invoker" {
 }
 
 resource "google_cloud_run_service_iam_member" "operastions_cloud_run_invoker" {
-  project        = var.project_id
-  location       = var.gcp_region
-  service        = google_cloudfunctions2_function.operations_api.name
-  role           = "roles/run.invoker"
-  member         = "allUsers"
+  project  = var.project_id
+  location = var.gcp_region
+  service  = google_cloudfunctions2_function.operations_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 # Permissions on the service account used by the function and Eventarc trigger
@@ -1277,10 +1915,22 @@ resource "google_project_iam_member" "invoking" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-resource "google_project_iam_member" "event-receiving" {
+resource "google_project_iam_member" "firebase" {
   project = var.project_id
-  role    = "roles/eventarc.eventReceiver"
+  role    = "roles/firebase.admin"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "datastore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "event-receiving" {
+  project    = var.project_id
+  role       = "roles/eventarc.eventReceiver"
+  member     = "serviceAccount:${google_service_account.functions_service_account.email}"
   depends_on = [google_project_iam_member.invoking]
 }
 
@@ -1289,9 +1939,9 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   for_each = {
     datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
   }
-  bucket = each.value
+  bucket     = each.value
   depends_on = []
-  role   = "roles/storage.objectViewer"
+  role       = "roles/storage.objectViewer"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
   ]
@@ -1301,10 +1951,11 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+    sitemap_bucket        = google_storage_bucket.sitemap_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
-  bucket = each.value
-  role   = "roles/storage.objectCreator"
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.sitemap_bucket]
+  bucket     = each.value
+  role       = "roles/storage.objectCreator"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
   ]
@@ -1316,8 +1967,8 @@ resource "google_storage_bucket_iam_binding" "storage_admin" {
     datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
   }
   depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
-  bucket = each.value
-  role   = "roles/storage.admin"
+  bucket     = each.value
+  role       = "roles/storage.admin"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
   ]
@@ -1420,7 +2071,106 @@ resource "google_cloud_tasks_queue" "web_revalidation_task_queue" {
   }
 }
 
-# Task queue for the validator-update GitHub Action to schedule tasks_executor calls 24h ahead.
+# Task queue for the per-subscription notification dispatch workers (fan-out). One task per subscription is enqueued by the
+# 'notifications_dispatch_batch' producer; each runs 'process_subscription'
+# (lock-free claim-then-send). max_dispatches_per_second is a guardrail below
+# Brevo's transactional limit (sends are additionally governed by the in-process
+# token-bucket rate limiter). Cloud Tasks task names are DYNAMIC (run_id +
+# subscription_id), so the queue name only needs the standard env/timestamp
+# suffix to allow recreation without name-tombstone collisions.
+resource "google_cloud_tasks_queue" "notifications_dispatch_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "notifications-dispatch-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 20
+    max_dispatches_per_second = 10
+  }
+
+  retry_config {
+    max_attempts  = 5
+    min_backoff   = "30s"
+    max_backoff   = "300s"
+    max_doublings = 3
+  }
+}
+
+# Dedicated queue for the single notification-dispatch barrier/monitor task per
+# run. The monitor returns 503 (TaskInProgressError) while workers are still in
+# flight, relying on NATIVE Cloud Tasks retry to poll at a fixed interval until
+# the run drains, then emits exactly one admin.event_summary. Retries are
+# effectively unlimited (max_attempts = -1) with a fixed 60s backoff
+# (min == max, no doublings); the run never polls forever because the handler
+# enforces an in-process deadline guard (deadline_seconds). Isolated from the
+# worker queue so its "not drained yet" non-2xx responses don't pollute dispatch
+# metrics/alerts.
+resource "google_cloud_tasks_queue" "notifications_dispatch_monitor_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "notifications-dispatch-monitor-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = -1
+    min_backoff   = "60s"
+    max_backoff   = "60s"
+    max_doublings = 0
+  }
+}
+
+# Task queue for the per-batch seal orchestrator workers (fan-out). One task per batch
+# of ~250 feeds is enqueued by the 'seal_orchestrator' producer; each runs
+# 'update_seals' for its slice. Seal evaluation is pure DB work (no outbound HTTP), so
+# concurrency here is generous relative to the notification queue. Cloud Tasks task
+# names are DYNAMIC (run_id + batch_id), so the queue name only needs the standard
+# env/timestamp suffix to allow recreation without name-tombstone collisions.
+resource "google_cloud_tasks_queue" "seal_orchestrator_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "seal-orchestrator-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 20
+    max_dispatches_per_second = 10
+  }
+
+  retry_config {
+    max_attempts  = 5
+    min_backoff   = "30s"
+    max_backoff   = "300s"
+    max_doublings = 3
+  }
+}
+
+# Dedicated queue for the single seal-orchestrator barrier/monitor task per run. The
+# monitor returns 503 (TaskInProgressError) while batches are still in flight, relying
+# on NATIVE Cloud Tasks retry to poll at a fixed interval until the run drains or its
+# in-process deadline_seconds guard is reached — the run never polls forever because of
+# that in-handler deadline, not because of this queue's retry budget (hence the
+# effectively-unlimited max_attempts). Isolated from the worker queue so its "not
+# drained yet" non-2xx responses don't pollute worker metrics/alerts.
+resource "google_cloud_tasks_queue" "seal_orchestrator_monitor_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "seal-orchestrator-monitor-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 5
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    max_attempts  = -1
+    min_backoff   = "60s"
+    max_backoff   = "60s"
+    max_doublings = 0
+  }
+}
 # Static name (new, never previously used) avoids GCP queue-name-reuse restrictions.
 resource "google_cloud_tasks_queue" "validator_update_trigger_queue" {
   project  = var.project_id
@@ -1454,7 +2204,7 @@ resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invo
 resource "google_pubsub_topic_iam_member" "functions_publisher" {
   for_each = {
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
-    dataset_batch = data.google_pubsub_topic.datasets_batch_topic.name
+    dataset_batch      = data.google_pubsub_topic.datasets_batch_topic.name
   }
 
   project = var.project_id

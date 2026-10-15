@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd
+      http://www.liquibase.org/xml/ns/pro
+      http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
+    <!-- Add user, notification and subscription tables -->
+    <include file="changes_user/feat_1683.sql" relativeToChangelogFile="true"/>
+    <!-- Add is_registered_to_receive_api_announcements to app_user -->
+    <include file="changes_user/feat_1686.sql" relativeToChangelogFile="true"/>
+    <!-- Add migrated_at to app_user for migration tracking -->
+    <include file="changes_user/feat_1684.sql" relativeToChangelogFile="true"/>
+    <!-- Add feature_flag and user_feature_flag tables -->
+    <include file="changes_user/feat_1694.sql" relativeToChangelogFile="true"/>
+    <!-- Seed 'api.announcements' notification type (issue #1729). -->
+    <include file="changes_user/feat_1729.sql" relativeToChangelogFile="true"/>
+    <!-- Add generic notification_event + notification_event_feed (N feeds per event),
+         cadence/digest and active_since on notification_subscription,
+         event FK + retry_count on notification_log, seed feed.url_updated and
+         admin.event_summary notification types (issue #1723) -->
+    <include file="changes_user/feat_1723.sql" relativeToChangelogFile="true"/>
+    <!-- Cascade-delete notification_log rows when their notification_subscription
+         is deleted (fixes delete subscription endpoint). -->
+    <include file="changes_user/feat_notification_log_cascade.sql" relativeToChangelogFile="true"/>
+    <!-- Drop the unused notification_subscription.last_notified_at column. -->
+    <include file="changes_user/feat_remove_last_notified_at.sql" relativeToChangelogFile="true"/>
+    <!-- Add notification_subscription_feed join table (feed-scoped subscriptions,
+         issue #1778): links a subscription to the feeds it targets for
+         feed.url_updated, feed.url_availability and feed.coverage. -->
+    <include file="changes_user/feat_1778.sql" relativeToChangelogFile="true"/>
+    <!-- Add brevo_synced_at to app_user to track Brevo MDB_SUBSCRIPTION_ID
+         write-back (issue #1733). -->
+    <include file="changes_user/feat_1733.sql" relativeToChangelogFile="true"/>
+    <!-- Create the isSealFilterEnabled feature flag gating the has_seal search
+         filter (issue #1789). -->
+    <include file="changes_user/feat_1789.sql" relativeToChangelogFile="true"/>
+    <!-- Add early access program tables: bulk CSV-driven feature-flag grants,
+         including members who have never signed in (product-tasks#213). -->
+    <include file="changes_user/feat_early_access.sql" relativeToChangelogFile="true"/>
+</databaseChangeLog>

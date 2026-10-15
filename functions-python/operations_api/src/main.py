@@ -14,10 +14,16 @@
 #  limitations under the License.
 #
 
+import os
+
 from flask import Request, Response
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from feeds_gen.apis.operations_api import router as FeedsApiRouter
+from feeds_gen.apis.early_access_api import router as EarlyAccessApiRouter
 from feeds_gen.apis.licenses_api import router as LicenseApiRouter
+from feeds_gen.apis.users_api import router as UsersApiRouter
+from feeds_gen.apis.parquet_api import router as ParquetApiRouter
 import functions_framework
 import asyncio
 
@@ -34,8 +40,26 @@ app = FastAPI(
 
 # Add here middlewares that should be applied to all routes.
 app.add_middleware(RequestContextMiddleware)
+# Added last so it becomes the outermost ASGI layer (Starlette middlewares wrap
+# in reverse order of registration) and can answer CORS preflight OPTIONS
+# requests before they ever reach RequestContextMiddleware's auth check, which
+# would otherwise 401 every preflight since browsers never send Authorization
+# on an OPTIONS request.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "*").split(",")
+        if origin.strip()
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(FeedsApiRouter)
+app.include_router(EarlyAccessApiRouter)
 app.include_router(LicenseApiRouter)
+app.include_router(UsersApiRouter)
+app.include_router(ParquetApiRouter)
 
 
 def build_scope_from_wsgi(request: Request) -> dict:

@@ -186,6 +186,7 @@ excluded_tables: Final[list[str]] = [
     "spatial_ref_sys",
     # Excluding the views
     "feedsearch",
+    "geopolygonlocationsearch",
     "location_with_translations_en",
 ]
 

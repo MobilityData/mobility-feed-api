@@ -1,0 +1,691 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Mobility Database User Service
+  description: |
+    API for the Mobility Database User Service. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/).
+
+    The Mobility Database User Service API uses OAuth2 authentication.
+    To initiate a successful API request, an access token must be included as a bearer token in the HTTP header.
+  termsOfService: https://mobilitydatabase.org/terms-and-conditions
+  contact:
+    name: MobilityData
+    url: https://mobilitydata.org/
+    email: api@mobilitydata.org
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.mobilitydatabase.org/
+    description: Prod release environment
+  - url: https://api-qa.mobilitydatabase.org/
+    description: Pre-prod environment
+  - url: https://api-dev.mobilitydatabase.org/
+    description: Development environment
+  - url: http://localhost:8080/
+    description: Local development environment
+
+tags:
+  - name: "users"
+    description: "User profile management"
+  - name: "notifications"
+    description: "Notification catalog — the notification types a user can subscribe to."
+  - name: "subscriptions"
+    description: >-
+      Subscription management keyed on the subscription UUID, with **no end-user
+      authentication**. These endpoints perform no per-user identity check:
+      possession of the unguessable subscription `id` is the access capability,
+      which is what lets an email "unsubscribe" link work without the recipient
+      logging in. Note the transport is still authenticated — the call is made
+      server-side by an authorized IAP principal (a service account); the API is
+      not exposed to the open internet and every call must be authenticated.
+      Contrast with the per-user
+      `/v1/user/subscriptions*` endpoints (tag `users`), which additionally
+      require an end-user identity. See `docs/notifications-subscription-flows.md`.
+
+paths:
+  /v1/user:
+    get:
+      summary: Get the current user's profile
+      description: |
+        Returns the authenticated user's profile. If no profile exists yet, one is created automatically
+        (upsert on first call).
+      operationId: getUser
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: User profile retrieved (or created) successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "500":
+          description: Internal server error.
+    put:
+      summary: Update the current user's profile
+      description: |
+        Updates the authenticated user's profile fields. Email cannot be changed here (requires
+        re-verification).
+      operationId: updateUser
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid request body.
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "403":
+          description: Forbidden — insufficient permissions to update this profile.
+        "404":
+          description: User not found.
+        "500":
+          description: Internal server error.
+
+  /v1/notifications:
+    get:
+      summary: List available notification types
+      description: Returns all predefined notification types that users can subscribe to.
+      operationId: getNotifications
+      tags:
+        - "notifications"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: List of notification types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationType"
+        "401":
+          description: Unauthorized.
+
+  /v1/user/subscriptions:
+    get:
+      summary: List the current user's notification subscriptions
+      description: Returns all notification subscriptions for the authenticated user. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
+      operationId: getUserSubscriptions
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: List of subscriptions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationSubscription"
+        "401":
+          description: Unauthorized.
+    post:
+      summary: Create a notification subscription
+      description: >-
+        Subscribes the authenticated user to a notification type. For feed-scoped
+        types, the supplied `feed_ids` are merged into the subscription's existing
+        feed set rather than replacing it, so callers do not need to know which
+        feeds the user is already subscribed to. This feature is available to
+        selected users. To request access or learn more, contact us at api@mobilitydata.org.
+      operationId: createUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotificationSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+
+  /v1/user/subscriptions/feeds:
+    get:
+      summary: List the feeds the current user has subscriptions for
+      description: >-
+        Returns the feeds the authenticated user has at least one notification
+        subscription targeting, each with the subscriptions that target it.
+        Subscriptions of any `active` state are included (same as
+        `GET /v1/user/subscriptions`). Feed metadata is resolved from the feeds
+        database at read time; a feed that no longer exists there still appears,
+        with its metadata fields null. Returns an empty array when the user has
+        no feed-scoped subscriptions. This feature is available to selected
+        users. To request access or learn more, contact us at api@mobilitydata.org.
+      operationId: getUserSubscriptionFeeds
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: List of feeds with the subscriptions targeting them.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionFeedGroup"
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Forbidden — guest users cannot perform this action.
+  /v1/user/subscriptions/feeds/{id}:
+    get:
+      summary: Get the current user's subscriptions for a specific feed
+      description: >-
+        Returns the feed identified by its stable ID, with the authenticated
+        user's notification subscriptions that target it. Subscriptions of any
+        `active` state are included (same as `GET /v1/user/subscriptions`).
+        Returns `404` if the user has no subscription targeting the feed. If the
+        feed no longer exists in the feeds database, the group is still returned
+        with its metadata fields null.
+        users. To request access or learn more, contact us at api@mobilitydata.org.
+      operationId: getUserSubscriptionFeedById
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The feed's stable ID.
+          example: "mdb-1"
+      responses:
+        "200":
+          description: The feed with the subscriptions targeting it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionFeedGroup"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found, or the user has no subscription targeting it.
+
+  /v1/user/subscriptions/{id}:
+    patch:
+      summary: Toggle a notification subscription, or remove specific feeds from it
+      description: >-
+        Activates or deactivates a notification subscription by ID, and/or removes
+        specific feed stable IDs from a feed-scoped subscription's feed set via
+        `remove_feed_ids`. To add feeds instead, use `POST /v1/user/subscriptions`,
+        which merges into the existing feed set. A feed-scoped subscription cannot
+        exist with no feeds, so removing the last remaining feed deletes the
+        subscription entirely; the response reflects its final state. This feature
+        is available to selected users. To request access or learn more, contact us
+        at api@mobilitydata.org.
+      operationId: updateUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationSubscriptionRequest"
+      responses:
+        "200":
+          description: Subscription updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Subscription not found.
+    delete:
+      summary: Delete or disable a notification subscription
+      description: >-
+        Removes a notification subscription by ID. The announcements subscription
+        (`api.announcements`) cannot be deleted; calling this endpoint for it
+        disables the subscription (sets it inactive) instead of removing it. This feature is available to selected users. To request access or learn more, contact us at api@mobilitydata.org.
+      operationId: deleteUserSubscription
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
+      responses:
+        "204":
+          description: Subscription deleted, or disabled for the announcements type.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Subscription not found.
+
+  /v1/subscriptions/{id}:
+    get:
+      summary: Get a subscription by ID
+      description: |
+        Returns a single notification subscription identified by its ID.
+
+        **No end-user authentication** — the subscription UUID (`id`) is the
+        access capability. The call itself must still be made by an authorized IAP
+        principal (typically the website backend server-side) to render the
+        unsubscribe page, so the recipient can see which notification they are
+        about to unsubscribe from before confirming. Returns `404` for an
+        unknown/invalid ID.
+      operationId: getSubscription
+      tags:
+        - "subscriptions"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
+      responses:
+        "200":
+          description: Subscription retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSubscription"
+        "404":
+          description: Subscription not found.
+    delete:
+      summary: Unsubscribe by subscription ID
+      description: |
+        Unsubscribes using the subscription UUID (`id`). This backs the email
+        "unsubscribe" link — **no end-user authentication**, the UUID is the
+        capability. The call must still be made by an authorized IAP principal
+        (the website backend server-side); the anonymous recipient never calls
+        the API directly.
+
+        Behaviour depends on the notification type:
+        - **`api.announcements`** — never deleted; the subscription is *disabled*
+          (`active=false`), the contact is removed from the Brevo announcements
+          list, and `app_user.is_registered_to_receive_api_announcements` is
+          cleared. Kept idempotent so a repeated click still succeeds.
+        - **all other types** (e.g. `feed.url_updated`) — the subscription row is
+          hard-deleted; a second call therefore returns `404`.
+
+        Returns `404` for an unknown/invalid ID, and `502` if the email provider
+        (Brevo) cannot be reached while updating an announcements subscription.
+
+        The `id` embedded in an email is the subscription's own UUID
+        (`notification_subscription.id`) — mirrored onto the Brevo contact as the
+        `MDB_SUBSCRIPTION_ID` attribute — **not** the notification-type string
+        (`api.announcements`), which is shared by all recipients and is not a
+        valid subscription ID.
+
+        With `scope=all`, the subscription ID is used only to resolve the owning
+        user, and every subscription that user holds is unsubscribed (normal types
+        deleted; `api.announcements` disabled and removed from Brevo). With
+        `scope=one` (the default) only the single subscription identified by `id`
+        is affected.
+
+        This feature is available to selected users. To request access or learn
+        more, contact us at api@mobilitydata.org.
+      operationId: deleteSubscription
+      tags:
+        - "subscriptions"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "The subscription ID (notification_subscription.id) — a UUID that is the subscription row's own identifier, not the user ID and not the notification-type ID."
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [one, all]
+            default: one
+          description: "'one' (default) unsubscribes only the subscription identified by the path `id`. 'all' unsubscribes the owning user from every notification type, using the path `id` solely to identify that user."
+      responses:
+        "204":
+          description: Subscription deleted, or disabled for the announcements type.
+        "400":
+          description: Invalid `scope` value (must be `one` or `all`).
+        "404":
+          description: Subscription not found.
+
+components:
+  schemas:
+    UserProfile:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: The user's unique identifier.
+          example: "abc123uid"
+        email:
+          type: string
+          format: email
+          description: The user's email address. Read-only — cannot be changed via this API.
+          example: "user@example.com"
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          deprecated: true
+          description: "The user's legacy organisation name (migrated from the previous system). Deprecated: will be removed in a future version."
+          example: "Acme Transit"
+        email_verified:
+          type: boolean
+          nullable: true
+          description: Whether the user's email address has been verified.
+        is_registered_to_receive_api_announcements:
+          type: boolean
+          description: Whether the user has opted in to receive API announcement emails.
+          default: false
+        features:
+          type: array
+          description: >
+            All active feature flags for this user. Each flag's value is resolved to the
+            user's override when set, otherwise the global default. Disabled flags are not
+            included.
+          items:
+            $ref: "#/components/schemas/FeatureFlag"
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the user record was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the user record was last updated.
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Fields to update on the user's profile. Only provided fields are updated (partial update).
+        Email cannot be changed here.
+      properties:
+        full_name:
+          type: string
+          nullable: true
+          description: The user's full name.
+          example: "Jane Doe"
+        legacy_org_name:
+          type: string
+          nullable: true
+          deprecated: true
+          description: "The user's legacy organisation name (migrated from the previous system). Deprecated: will be removed in a future version."
+          example: "Acme Transit"
+        is_registered_to_receive_api_announcements:
+          type: boolean
+          description: Whether the user has opted in to receive API announcement emails.
+
+    NotificationType:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the notification type (e.g. 'feed.url_updated', 'api.announcements').
+          example: "feed.url_updated"
+        description:
+          type: string
+          nullable: true
+          description: Human-readable description of the notification type.
+          example: "Fired when a feed URL changes in-place or a feed is deprecated and redirected."
+
+    NotificationSubscription:
+      type: object
+      required:
+        - id
+        - user_id
+        - notification_id
+        - active
+        - created_at
+      properties:
+        id:
+          type: string
+          description: >-
+            Unique subscription ID (UUID v4). This is the **capability token** used
+            by the public `/v1/subscriptions/{id}` endpoints and by email
+            unsubscribe links; for `api.announcements` it is mirrored onto the
+            Brevo contact as the `MDB_SUBSCRIPTION_ID` attribute.
+        user_id:
+          type: string
+          description: The ID of the subscribed user.
+        notification_id:
+          type: string
+          description: The notification type this subscription is for.
+          example: "feed.url_updated"
+        active:
+          type: boolean
+          description: Whether the subscription is currently active.
+          default: true
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the subscription was created.
+        feeds:
+          type: array
+          nullable: true
+          description: >
+            The feeds this subscription targets (feed-scoped notification types:
+            feed.url_updated, feed.url_availability, feed.coverage), each with
+            its resolved metadata. Resolved from the feeds database at read time
+            using the stable feed IDs — not persisted on the subscription.
+            Consumers can build a human-readable description from these fields.
+          items:
+            $ref: "#/components/schemas/SubscriptionFeed"
+
+    SubscriptionFeed:
+      type: object
+      description: >
+        Metadata for a feed targeted by a notification subscription, resolved
+        from the feed's stable ID at read time (not persisted).
+      required:
+        - feed_id
+      properties:
+        feed_id:
+          type: string
+          description: The feed's stable ID.
+          example: "mdb-1"
+        data_type:
+          type: string
+          nullable: true
+          description: The feed's data type.
+          example: "gtfs"
+        provider:
+          type: string
+          nullable: true
+          description: The transit/mobility data provider name.
+          example: "Metropolitan Transit Authority"
+        feed_name:
+          type: string
+          nullable: true
+          description: The feed's display name.
+
+    FeedSubscriptionSummary:
+      type: object
+      description: >
+        A trimmed view of a notification subscription, for use nested inside a
+        `SubscriptionFeedGroup`. Omits `user_id` (the caller's own ID) and
+        `feeds` (the enclosing group already identifies the feed).
+      required:
+        - id
+        - notification_id
+        - active
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique subscription ID (UUID v4).
+        notification_id:
+          type: string
+          description: The notification type this subscription is for.
+          example: "feed.url_updated"
+        active:
+          type: boolean
+          description: Whether the subscription is currently active.
+          default: true
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the subscription was created.
+
+    SubscriptionFeedGroup:
+      type: object
+      description: >
+        A feed the authenticated user has at least one notification
+        subscription targeting, with those subscriptions. Feed metadata is
+        resolved from the feed's stable ID at read time (not persisted).
+      required:
+        - feed_id
+        - subscriptions
+      properties:
+        feed_id:
+          type: string
+          description: The feed's stable ID.
+          example: "mdb-1"
+        data_type:
+          type: string
+          nullable: true
+          description: The feed's data type.
+          example: "gtfs"
+        provider:
+          type: string
+          nullable: true
+          description: The transit/mobility data provider name.
+          example: "Metropolitan Transit Authority"
+        feed_name:
+          type: string
+          nullable: true
+          description: The feed's display name.
+        subscriptions:
+          type: array
+          description: The authenticated user's subscriptions that target this feed.
+          items:
+            $ref: "#/components/schemas/FeedSubscriptionSummary"
+
+    CreateNotificationSubscriptionRequest:
+      type: object
+      required:
+        - notification_id
+      properties:
+        notification_id:
+          type: string
+          description: The notification type to subscribe to.
+          example: "feed.url_updated"
+        feed_ids:
+          type: array
+          items:
+            type: string
+          description: >
+            Feed stable IDs to subscribe to. Required (non-empty) for the
+            feed-scoped notification types feed.url_updated,
+            feed.url_availability and feed.coverage; must be omitted or empty
+            for other types. Merged into the subscription's existing feed set
+            (union), not a replacement. Validation is enforced in code, not the
+            schema.
+          example: ["mdb-1", "mdb-42"]
+
+    UpdateNotificationSubscriptionRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+          description: Whether the subscription should be active.
+        remove_feed_ids:
+          type: array
+          items:
+            type: string
+          description: >
+            Feed stable IDs to remove from a feed-scoped subscription's feed set.
+            Only valid for feed-scoped notification types; removing a feed ID
+            that is not currently present is a no-op. Removing every remaining
+            feed ID deletes the subscription entirely (a feed-scoped subscription
+            cannot exist with no feeds). Validation is enforced in code, not the
+            schema.
+          example: ["mdb-1"]
+
+    FeatureFlag:
+      type: object
+      required:
+        - id
+        - value_type
+        - value
+      properties:
+        id:
+          type: string
+          description: Unique slug identifier for the feature flag.
+          example: "beta_editor"
+        name:
+          type: string
+          nullable: true
+          description: Optional human-readable display name.
+          example: "Beta Editor"
+        value_type:
+          type: string
+          enum: [boolean, string, numeric, array, json]
+          description: The type of value this flag carries.
+        value:
+          description: Resolved flag value — the user's override if set, otherwise the global default.
+          nullable: true
+
+  securitySchemes:
+    Authentication:
+      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+
+security:
+  - Authentication: []

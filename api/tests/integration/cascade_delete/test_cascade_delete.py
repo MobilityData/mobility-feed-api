@@ -26,6 +26,9 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Geopolygon,
     FeedLicenseChange,
+    SealCriterion,
+    SealCriterionSnapshot,
+    FeedReliabilitySeal,
 )
 
 from sqlalchemy import text
@@ -207,6 +210,85 @@ def test_delete_feed_cascadeto_feed_license_changes(test_database):
         )
 
 
+def test_delete_feed_cascadeto_seal_criterion(test_database):
+    """Deleting a feed removes its per-criterion seal state (issue #1783).
+
+    This exercises the `Feed.seal_criteria` entry in `cascade_entities`: without it,
+    SQLAlchemy would try to NULL `seal_criterion.feed_id`, which is NOT NULL and part of the
+    composite primary key, instead of letting ON DELETE CASCADE do the work.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        seal_criterion = SealCriterion(feed_id="f1", criterion="official")
+        session.add_all([feed, seal_criterion])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM seal_criterion where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_seal_criterion_snapshot(test_database):
+    """Deleting a feed removes its recorded per-day criterion state (issue #1809).
+
+    Same shape as the seal_criterion case above: feed_id is NOT NULL and part of the
+    composite primary key, so without the `Feed.seal_criterion_snapshots` entry in
+    `cascade_entities` SQLAlchemy would try to NULL it instead of letting ON DELETE CASCADE
+    remove the rows.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        log_row = SealCriterionSnapshot(
+            feed_id="f1",
+            criterion="official",
+            snapshot_date=datetime.date(2026, 6, 1),
+            observed_status="pass",
+            confirmed_status="pass",
+        )
+        session.add_all([feed, log_row])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM seal_criterion_snapshot where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
+def test_delete_feed_cascadeto_feed_reliability_seal(test_database):
+    """Deleting a feed removes its overall seal row (issue #1783).
+
+    Exercises the `Feed.feed_reliability_seal` entry in `cascade_entities`. The seal row has
+    a surrogate `id` primary key and `feed_id` as a UNIQUE foreign key, so it is a plain
+    related entity (a 1:1 with Feed), not a joined-table subclass.
+    """
+
+    with test_database.start_db_session() as session:
+        feed = Feed(id="f1")
+        seal = FeedReliabilitySeal(feed_id="f1")
+        session.add_all([feed, seal])
+        session.commit()
+
+        delete_and_assert(
+            session,
+            [
+                "SELECT COUNT(*) FROM feed where id = 'f1'",
+                "SELECT COUNT(*) FROM feed_reliability_seal where feed_id = 'f1'",
+            ],
+            feed,
+        )
+
+
 def test_delete_gbfsfeed_cascadeto_gbfsversion_cascadeto_gbfsendpoint_cascadeto_gbfsendpointhttpaccesslog(
     test_database,
 ):
@@ -376,7 +458,7 @@ def test_delete_gtfsrealtimefeed_cascadeto_feedreference(test_database):
 def test_delete_gtfsrealtimefeed_cascadeto_entitytypes(test_database):
     with test_database.start_db_session() as session:
         gtfsrtfeed = Gtfsrealtimefeed(id="f1")
-        entitytype = Entitytype(name="type1")
+        entitytype = Entitytype(name="vp")
         session.add_all([gtfsrtfeed, gtfsrtfeed])
         gtfsrtfeed.entitytypes.append(entitytype)
         session.commit()

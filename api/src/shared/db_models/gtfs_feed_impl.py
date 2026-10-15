@@ -1,6 +1,7 @@
 from shared.db_models.bounding_box_impl import BoundingBoxImpl
 from shared.db_models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
+from shared.db_models.feed_reliability_summary_impl import FeedReliabilitySummaryImpl
 from shared.db_models.latest_dataset_impl import LatestDatasetImpl
 from shared.db_models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_feed import GtfsFeed
@@ -19,6 +20,7 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
 
     @classmethod
     def from_orm(cls, feed: GtfsfeedOrm | None) -> GtfsFeed | None:
+        """Convert a GTFS feed row to a Pydantic model."""
         gtfs_feed: GtfsFeed = super().from_orm(feed)
         if not gtfs_feed:
             return None
@@ -28,4 +30,5 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
         gtfs_feed.visualization_dataset_id = (
             feed.visualization_dataset.stable_id if feed.visualization_dataset else None
         )
+        gtfs_feed.reliability_seal = FeedReliabilitySummaryImpl.from_orm(feed)
         return gtfs_feed

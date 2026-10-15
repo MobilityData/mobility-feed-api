@@ -5,6 +5,7 @@ from feeds_gen.models.source_info import SourceInfo
 import pycountry
 
 from shared.database_gen.sqlacodegen_models import t_feedsearch
+from shared.db_models.feed_reliability_summary_impl import FeedReliabilitySummaryImpl
 
 
 class SearchFeedItemResultImpl(SearchFeedItemResult):
@@ -30,10 +31,12 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             provider=feed_search_row.provider,
             feed_name=feed_search_row.feed_name,
             official=feed_search_row.official,
+            seasonal=feed_search_row.seasonal,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
+                is_producer_url_unstable=feed_search_row.is_producer_url_unstable,
                 authentication_type=(
                     int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
                 ),
@@ -72,6 +75,10 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 if feed_search_row.latest_dataset_id
                 else None
             ),
+            # The view precomputes the same seal roll-up the feed relationships give, so the badge
+            # renders from a search result without a second call. GTFS only - the other two
+            # from_orm_* variants have no seal to report.
+            reliability_seal=FeedReliabilitySummaryImpl.from_orm_search_row(feed_search_row),
         )
 
     @classmethod
@@ -88,6 +95,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             versions=feed_search_row.versions,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
+                is_producer_url_unstable=feed_search_row.is_producer_url_unstable,
                 authentication_type=(
                     int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
                 ),
@@ -114,10 +122,12 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             provider=feed_search_row.provider,
             feed_name=feed_search_row.feed_name,
             official=feed_search_row.official,
+            seasonal=feed_search_row.seasonal,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
+                is_producer_url_unstable=feed_search_row.is_producer_url_unstable,
                 authentication_type=(
                     int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
                 ),

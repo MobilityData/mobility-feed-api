@@ -68,7 +68,7 @@ class LicensesApiImpl(BaseLicensesApi):
         # Build Pydantic model from ORM object attributes
         return LicenseWithRulesImpl.from_orm(license_orm)
 
-    async def get_license(
+    def get_license(
         self,
         id: StrictStr,
     ) -> LicenseWithRules:
@@ -136,7 +136,7 @@ class LicensesApiImpl(BaseLicensesApi):
 
         return [LicenseBaseImpl.from_orm(item) for item in items]
 
-    async def get_licenses(
+    def get_licenses(
         self,
         offset: str = "0",
         limit: str = "100",
@@ -173,7 +173,7 @@ class LicensesApiImpl(BaseLicensesApi):
                 status_code=500, detail="Error retrieving matching licenses"
             )
 
-    async def get_matching_licenses(
+    def get_matching_licenses(
         self,
         get_matching_licenses_request: GetMatchingLicensesRequest,
     ) -> List[MatchingLicense]:
@@ -222,7 +222,7 @@ class LicensesApiImpl(BaseLicensesApi):
             logging.error("Error in propagate_match_license: %s", e)
             raise HTTPException(status_code=500, detail="Internal server error")
 
-    async def propagate_match_license(
+    def propagate_match_license(
         self,
         propagate_license_request: PropagateLicenseRequest,
     ) -> PropagateLicenseResponse:

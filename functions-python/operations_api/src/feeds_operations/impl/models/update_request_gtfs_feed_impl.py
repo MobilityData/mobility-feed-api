@@ -52,6 +52,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             feed_contact_email=obj.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=obj.producer_url,
+                is_producer_url_unstable=obj.is_producer_url_unstable,
                 authentication_type=(
                     None
                     if obj.authentication_type is None
@@ -73,6 +74,8 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 key=lambda x: x.external_id,
             ),
             official=obj.official,
+            seasonal=obj.seasonal,
+            operational_status=obj.operational_status,
         )
 
     @classmethod
@@ -88,6 +91,15 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
         entity.note = update_request.note
         entity.feed_contact_email = update_request.feed_contact_email
         entity.official = update_request.official
+        # Tri-state, matching the catalog CSV's empty cell (populate_db_gtfs.py): an omitted
+        # `seasonal` means "leave the stored value alone", so only an explicit true/false
+        # writes. A feed marked seasonal by hand must survive an update request from a client
+        # whose spec predates the field.
+        if update_request.seasonal is not None:
+            entity.seasonal = update_request.seasonal
+        # Tri-state as well: omitted means "leave the operational status alone".
+        if update_request.operational_status is not None:
+            entity.operational_status = update_request.operational_status
         entity.producer_url = (
             None
             if (
@@ -95,6 +107,12 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 or update_request.source_info.producer_url is None
             )
             else update_request.source_info.producer_url
+        )
+        # Nullable three-state boolean: preserve False and None (unknown), so guard only on source_info.
+        entity.is_producer_url_unstable = (
+            None
+            if update_request.source_info is None
+            else update_request.source_info.is_producer_url_unstable
         )
         entity.authentication_type = (
             None

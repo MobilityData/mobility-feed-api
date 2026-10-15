@@ -7,6 +7,7 @@ import pytz
 
 from scripts.load_dataset_on_create import publish_all
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
+from shared.common.entity_type_enum import EntityType
 from shared.common.license_utils import assign_license_by_url
 from shared.database.database import generate_unique_id
 from shared.database_gen.sqlacodegen_models import (
@@ -15,6 +16,11 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Redirectingid,
+)
+from shared.notifications.notification_event_service import (
+    emit_feed_redirected,
+    emit_url_replaced,
+    urls_differ,
 )
 from utils.data_utils import set_up_defaults
 
@@ -99,23 +105,68 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             )
             feed.locations = [location]
 
+    def normalize_entity_types(self, row, stable_id) -> list[str]:
+        """
+        Parse the `|` or `-` separated `entity_type` cell into a list of valid entity type names.
+        """
+        raw_value = self.get_safe_value(row, "entity_type", "")
+        valid_names = {entity_type.value for entity_type in EntityType}
+        entity_type_names = []
+        for token in raw_value.replace("|", "-").split("-"):
+            name = token.strip().lower()
+            if not name:
+                continue
+            if name not in valid_names:
+                self.logger.warning(f"Skipping unknown entity type {token!r} for feed {stable_id}")
+                continue
+            if name not in entity_type_names:
+                entity_type_names.append(name)
+        return entity_type_names
+
     def process_entity_types(self, session: "Session", feed: Gtfsrealtimefeed, row, stable_id):
         """
         Process the entity types for the feed
         """
-        entity_types = self.get_safe_value(row, "entity_type", "").replace("|", "-").split("-")
-        if len(entity_types) > 0:
-            for entity_type_name in entity_types:
-                entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
-
-                if not entity_type:
-                    entity_type = Entitytype(name=entity_type_name)
-                if all(entity_type.name != entity.name for entity in feed.entitytypes):
-                    feed.entitytypes.append(entity_type)
-                    session.flush()
-        else:
+        entity_type_names = self.normalize_entity_types(row, stable_id)
+        if not entity_type_names:
+            # An empty cell leaves the stored entity types alone.
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
-            feed.entitytypes.clear()
+            return
+
+        feed.entitytypes.clear()
+        for entity_type_name in entity_type_names:
+            entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
+
+            if not entity_type:
+                entity_type = Entitytype(name=entity_type_name)
+            if all(entity_type.name != entity.name for entity in feed.entitytypes):
+                feed.entitytypes.append(entity_type)
+                session.flush()
+
+    def inherit_static_feed_locations(self, gtfs_rt_feed, matched_feeds):
+        """
+        Inherit locations from referenced static GTFS feeds when the GTFS-RT
+        feed has no location metadata of its own.
+
+        Existing GTFS-RT locations are preserved. When multiple static feeds
+        are referenced, their locations are combined and deduplicated by
+        location ID.
+        """
+        if gtfs_rt_feed.locations:
+            return
+
+        inherited_locations = []
+        seen_location_ids = set()
+
+        for gtfs_feed in matched_feeds:
+            for location in gtfs_feed.locations:
+                if location.id in seen_location_ids:
+                    continue
+                seen_location_ids.add(location.id)
+                inherited_locations.append(location)
+
+        if inherited_locations:
+            gtfs_rt_feed.locations = inherited_locations
 
     def process_feed_references(self, session: "Session"):
         """
@@ -150,6 +201,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     matched_feeds.append(gtfs_feed)
 
                 gtfs_rt_feed.gtfs_feeds = matched_feeds
+                self.inherit_static_feed_locations(gtfs_rt_feed, matched_feeds)
                 session.add(gtfs_rt_feed)
                 session.flush()
                 self.logger.info(
@@ -200,6 +252,23 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         )
                         # Flush to avoid FK violation
                         session.flush()
+                        redirect_extra_data = {
+                            k: v
+                            for k, v in {
+                                "redirect_comment": comment,
+                                "provider": getattr(feed, "provider", None),
+                                "target_provider": getattr(target_feed, "provider", None),
+                            }.items()
+                            if v
+                        }
+                        emit_feed_redirected(
+                            source_stable_id=stable_id,
+                            target_stable_id=target_stable_id,
+                            old_url=getattr(feed, "producer_url", None),
+                            new_url=getattr(target_feed, "producer_url", None),
+                            source="populate_db_gtfs",
+                            extra_data=redirect_extra_data or None,
+                        )
 
     def populate_db(self, session: "Session", fetch_url: bool = True):
         """
@@ -251,14 +320,35 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
             producer_url = self.get_safe_value(row, "urls.direct_download", "")
+            new_provider = self.get_safe_value(row, "provider", "")
             if "transitfeeds" not in producer_url:  # Avoid setting transitfeeds as producer_url
+                old_producer_url = feed.producer_url
                 feed.producer_url = producer_url
+                if not is_new_feed and old_producer_url and urls_differ(old_producer_url, producer_url):
+                    emit_url_replaced(
+                        feed_stable_id=stable_id,
+                        old_url=old_producer_url,
+                        new_url=producer_url,
+                        source="populate_db_gtfs",
+                        extra_data={"provider": new_provider} if new_provider else None,
+                    )
+            # Three-state flag from the catalog CSV ("True"/"False"/empty). An empty cell leaves the DB
+            # value untouched (same as is_official), so a re-import never wipes an operator-set value.
+            is_producer_url_unstable_from_csv = self.get_safe_boolean_value(row, "is_producer_url_unstable", None)
+            if is_producer_url_unstable_from_csv is not None:
+                feed.is_producer_url_unstable = is_producer_url_unstable_from_csv
+            # Boolean flag from the catalog CSV ("True"/"False"/empty). The column defaults to FALSE, so a
+            # new/unmarked feed is non-seasonal. An empty cell leaves the current DB value untouched, so a
+            # re-import never wipes an operator-set value; only an explicit True/False overwrites it.
+            is_seasonal_from_csv = self.get_safe_boolean_value(row, "is_seasonal", None)
+            if is_seasonal_from_csv is not None:
+                feed.seasonal = is_seasonal_from_csv
             feed.authentication_type = str(int(float(self.get_safe_value(row, "urls.authentication_type", "0"))))
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")
             feed.license_url = self.get_safe_value(row, "urls.license", "")
             feed.feed_contact_email = self.get_safe_value(row, "feed_contact_email", "")
-            feed.provider = self.get_safe_value(row, "provider", "")
+            feed.provider = new_provider
 
             self.populate_location(session, feed, row, stable_id)
             if data_type == "gtfs_rt":

@@ -1,21 +1,33 @@
-from datetime import datetime
 from typing import List, Union, TypeVar, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, desc, func, nullslast, tuple_
 from sqlalchemy.orm import contains_eager, selectinload, Session
 from sqlalchemy.orm.query import Query
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
+from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
+from shared.db_models.gtfs_feed_continuous_coverage_boundary_impl import (
+    GtfsFeedContinuousCoverageBoundaryImpl,
+)
+from shared.db_models.gtfs_feed_continuous_coverage_impl import GtfsFeedContinuousCoverageImpl
+from shared.db_models.gtfs_feed_validation_report_impl import GtfsFeedValidationReportImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.feed import Feed
+from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
+from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
+from feeds_gen.models.gtfs_feed_continuous_coverage_boundary import GtfsFeedContinuousCoverageBoundary
+from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedContinuousCoverageResponse
+from feeds_gen.models.gtfs_feed_validation_report import GtfsFeedValidationReport
+from feeds_gen.models.gtfs_feed_validation_reports_response import GtfsFeedValidationReportsResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
 from shared.common.db_utils import (
@@ -25,25 +37,34 @@ from shared.common.db_utils import (
     add_official_filter,
     get_gbfs_feeds_query,
 )
+from shared.common.seal_criteria import SealCriterionName
 from shared.common.error_handling import (
+    availability_from_after_to,
+    continuous_coverage_downloaded_after_before,
     invalid_date_message,
     feed_not_found,
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
     InternalHTTPException,
     gbfs_feed_not_found,
+    validation_reports_validated_after_before,
 )
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed as FeedOrm,
     Gtfsdataset,
     Gtfsfeed,
+    GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
+    Notice,
+    SealCriterion,
+    Validationreport,
+    t_validationreportgtfsdataset,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter
-from utils.date_utils import valid_iso_date
+from utils.date_utils import parse_iso_datetime, valid_iso_date
 from utils.logger import get_logger
 
 T = TypeVar("T", bound="Feed")
@@ -171,15 +192,9 @@ class FeedsApiImpl(BaseFeedsApi):
         if not feed:
             raise_http_error(404, f"FeedOrm with id {gtfs_feed_id} not found")
 
-        # Replace Z with +00:00 to make the datetime object timezone aware
-        # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
         query = GtfsDatasetFilter(
-            downloaded_at__lte=(
-                datetime.fromisoformat(downloaded_before.replace("Z", "+00:00")) if downloaded_before else None
-            ),
-            downloaded_at__gte=(
-                datetime.fromisoformat(downloaded_after.replace("Z", "+00:00")) if downloaded_after else None
-            ),
+            downloaded_at__lte=parse_iso_datetime(downloaded_before),
+            downloaded_at__gte=parse_iso_datetime(downloaded_after),
         ).filter(DatasetsApiImpl.create_dataset_query().filter(FeedOrm.stable_id == gtfs_feed_id))
 
         if latest:
@@ -307,6 +322,365 @@ class FeedsApiImpl(BaseFeedsApi):
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
+
+    @with_db_session
+    def get_gtfs_feed_reliability(self, id: str, db_session: Session) -> FeedReliabilityReport:
+        """Returns the Seal of Reliability breakdown for a GTFS feed."""
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        # No seal row means the nightly job has not reached this feed. That is reported as a feed
+        # that simply does not hold the seal, with every criterion never evaluated, rather than a
+        # 404: the feed exists, we just have nothing to say about it yet.
+        try:
+            return FeedReliabilityReportImpl.from_orm(feed)
+        except InternalHTTPException as e:
+            # A stored criterion this build does not know about. The impl lives under shared/ and
+            # cannot depend on fastapi, so it raises InternalHTTPException for conversion here.
+            raise convert_exception(e)
+
+    @with_db_session
+    def get_gtfs_feed_availability(
+        self,
+        id: str,
+        _from: str,
+        to: str,
+        limit: int,
+        offset: int,
+        sort: str,
+        db_session: Session,
+    ) -> GtfsFeedAvailabilityResponse:
+        """Returns historical availability checks for a GTFS feed."""
+        if _from and not valid_iso_date(_from):
+            raise_http_validation_error(invalid_date_message.format("from"))
+        if to and not valid_iso_date(to):
+            raise_http_validation_error(invalid_date_message.format("to"))
+
+        from_dt = parse_iso_datetime(_from)
+        to_dt = parse_iso_datetime(to)
+
+        if from_dt and to_dt and from_dt > to_dt:
+            raise_http_validation_error(availability_from_after_to)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(GtfsFeedAvailabilityCheck.feed_id == feed.id)
+        if from_dt:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= from_dt)
+        if to_dt:
+            query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to_dt)
+
+        total = query.count()
+        order = (
+            GtfsFeedAvailabilityCheck.checked_at.asc() if sort == "asc" else GtfsFeedAvailabilityCheck.checked_at.desc()
+        )
+        checks = query.order_by(order).offset(offset).limit(limit).all()
+
+        return GtfsFeedAvailabilityResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def get_gtfs_feed_continuous_coverage(
+        self,
+        id: str,
+        downloaded_after: str,
+        downloaded_before: str,
+        limit: int,
+        offset: int,
+        db_session: Session,
+    ) -> GtfsFeedContinuousCoverageResponse:
+        """Returns the continuous coverage history for a GTFS feed."""
+        if downloaded_after and not valid_iso_date(downloaded_after):
+            raise_http_validation_error(invalid_date_message.format("downloaded_after"))
+        if downloaded_before and not valid_iso_date(downloaded_before):
+            raise_http_validation_error(invalid_date_message.format("downloaded_before"))
+
+        after_dt = parse_iso_datetime(downloaded_after)
+        before_dt = parse_iso_datetime(downloaded_before)
+
+        if after_dt and before_dt and after_dt > before_dt:
+            raise_http_validation_error(continuous_coverage_downloaded_after_before)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        # Kept separate from the filtered query: the dataset immediately older than the page is
+        # looked up here, and it may well be one the date filters excluded.
+        feed_datasets = db_session.query(Gtfsdataset).filter(Gtfsdataset.feed_id == feed.id)
+
+        query = feed_datasets
+        if after_dt:
+            query = query.filter(Gtfsdataset.downloaded_at >= after_dt)
+        if before_dt:
+            query = query.filter(Gtfsdataset.downloaded_at <= before_dt)
+
+        total = query.count()
+        page = (
+            query.order_by(*self._continuous_coverage_order())
+            .offset(offset)
+            .limit(limit)
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .all()
+        )
+
+        # Each item's overlap is measured against the dataset downloaded just before it. Within the
+        # page that is usually the next item, but the oldest item's neighbour lies outside the page,
+        # and any item bordering a null-`downloaded_at` run can't trust its positional neighbour
+        # either - `_predecessor` falls back to a real lookup in both cases.
+        predecessors = [
+            self._predecessor(feed_datasets, dataset, next_dataset)
+            for dataset, next_dataset in zip(page, page[1:] + [None])
+        ]
+
+        return GtfsFeedContinuousCoverageResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            latest_state=self._latest_continuous_coverage(feed, feed_datasets),
+            latest_failure=self._latest_failure_continuous_coverage(feed, feed_datasets),
+            items=[
+                GtfsFeedContinuousCoverageImpl.from_orm(
+                    dataset,
+                    previous_dataset=previous,
+                    is_latest=dataset.id == feed.latest_dataset_id,
+                )
+                for dataset, previous in zip(page, predecessors)
+            ],
+        )
+
+    @staticmethod
+    def _latest_continuous_coverage(
+        feed: Gtfsfeed, feed_datasets: Query
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_state`: the feed's latest dataset and the one before it, whatever page was asked for."""
+        if feed.latest_dataset_id is None:
+            return None
+        latest_dataset = (
+            feed_datasets.filter(Gtfsdataset.id == feed.latest_dataset_id)
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .first()
+        )
+        return FeedsApiImpl._continuous_coverage_for(feed, feed_datasets, latest_dataset)
+
+    @staticmethod
+    @with_db_session()
+    def _latest_failure_continuous_coverage(
+        feed: Gtfsfeed, feed_datasets: Query, db_session: Session
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_failure`: the boundary as of the criterion's `last_observed_failure_at`."""
+        failed_at = (
+            db_session.query(SealCriterion.last_observed_failure_at)
+            .filter(
+                SealCriterion.feed_id == feed.id,
+                SealCriterion.criterion == SealCriterionName.FRESH_CONTINUOUS.value,
+            )
+            .scalar()
+        )
+        if failed_at is None:
+            return None
+        failing_dataset = (
+            feed_datasets.filter(Gtfsdataset.downloaded_at <= failed_at)
+            .order_by(*FeedsApiImpl._continuous_coverage_order())
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .first()
+        )
+        return FeedsApiImpl._continuous_coverage_for(feed, feed_datasets, failing_dataset)
+
+    @staticmethod
+    def _continuous_coverage_for(
+        feed: Gtfsfeed, feed_datasets: Query, dataset: Optional[Gtfsdataset]
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """One boundary: `dataset` and the dataset downloaded before it, both in full."""
+        if dataset is None:
+            return None
+        previous = FeedsApiImpl._previous_dataset(feed_datasets, dataset)
+        return GtfsFeedContinuousCoverageBoundaryImpl.from_orm(
+            dataset,
+            previous_dataset=previous,
+            is_latest=dataset.id == feed.latest_dataset_id,
+        )
+
+    @staticmethod
+    def _continuous_coverage_order() -> tuple:
+        """Newest dataset first, with a deterministic tiebreak.
+
+        `downloaded_at` is nullable, and a dataset with no download timestamp cannot be placed in a
+        chronological chain at all, so those sort last rather than ahead of everything. `stable_id`
+        breaks ties so that paging over datasets sharing a timestamp cannot repeat or skip a row.
+        """
+        return nullslast(desc(Gtfsdataset.downloaded_at)), desc(Gtfsdataset.stable_id)
+
+    @staticmethod
+    def _previous_dataset(feed_datasets: Query, dataset: Gtfsdataset) -> Optional[Gtfsdataset]:
+        """The feed's dataset downloaded immediately before `dataset`, ignoring any date filter.
+
+        Returns None for a dataset with no download timestamp: there is no "before" to look for, and
+        ordering it against timestamped datasets would invent a neighbour.
+        """
+        if dataset.downloaded_at is None:
+            return None
+        return (
+            feed_datasets.filter(Gtfsdataset.downloaded_at < dataset.downloaded_at)
+            .order_by(*FeedsApiImpl._continuous_coverage_order())
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
+            .first()
+        )
+
+    @staticmethod
+    def _predecessor(
+        feed_datasets: Query, dataset: Gtfsdataset, positional_next: Optional[Gtfsdataset]
+    ) -> Optional[Gtfsdataset]:
+        """The predecessor to use for one page row.
+
+        The next row in the page is a valid predecessor only when both it and `dataset` have a
+        real `downloaded_at` - `_continuous_coverage_order`'s `nullslast` sorts undated datasets to
+        the end of the page, so a positional neighbour next to one of them is not necessarily who
+        was downloaded immediately before it. Falling back to `_previous_dataset` covers that case
+        and the page's actual last row (`positional_next is None`) alike.
+        """
+        if (
+            dataset.downloaded_at is not None
+            and positional_next is not None
+            and positional_next.downloaded_at is not None
+        ):
+            return positional_next
+        return FeedsApiImpl._previous_dataset(feed_datasets, dataset)
+
+    @with_db_session
+    def get_gtfs_feed_validation_reports(
+        self,
+        id: str,
+        validated_after: str,
+        validated_before: str,
+        min_errors: int,
+        min_warnings: int,
+        severity: List[str],
+        limit: int,
+        offset: int,
+        db_session: Session,
+    ) -> GtfsFeedValidationReportsResponse:
+        """Returns the validation history for a GTFS feed, one entry per dataset."""
+        if validated_after and not valid_iso_date(validated_after):
+            raise_http_validation_error(invalid_date_message.format("validated_after"))
+        if validated_before and not valid_iso_date(validated_before):
+            raise_http_validation_error(invalid_date_message.format("validated_before"))
+
+        after_dt = parse_iso_datetime(validated_after)
+        before_dt = parse_iso_datetime(validated_before)
+        if after_dt and before_dt and after_dt > before_dt:
+            raise_http_validation_error(validation_reports_validated_after_before)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        query = self._latest_reports_query(db_session, feed)
+        if after_dt:
+            query = query.filter(Validationreport.validated_at >= after_dt)
+        if before_dt:
+            query = query.filter(Validationreport.validated_at <= before_dt)
+        if min_errors is not None:
+            query = query.filter(Validationreport.total_error >= min_errors)
+        if min_warnings is not None:
+            query = query.filter(Validationreport.total_warning >= min_warnings)
+
+        total = query.count()
+        page = (
+            query.order_by(nullslast(desc(Validationreport.validated_at)), desc(Validationreport.id))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        notices = self._notices_by_report(db_session, page, severity)
+
+        return GtfsFeedValidationReportsResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            latest=self._latest_validation_report(db_session, feed, severity),
+            items=[
+                GtfsFeedValidationReportImpl.from_orm(
+                    row.dataset_stable_id,
+                    row.Validationreport,
+                    notices.get((row.dataset_id, row.Validationreport.id), ()),
+                    is_latest=row.dataset_id == feed.latest_dataset_id,
+                )
+                for row in page
+            ],
+        )
+
+    @staticmethod
+    def _latest_reports_query(db_session: Session, feed: Gtfsfeed, dataset_id: Optional[str] = None) -> Query:
+        """One row per dataset of the feed: the dataset and its most recent validation report."""
+        ranked = (
+            db_session.query(
+                Gtfsdataset.id.label("dataset_id"),
+                Gtfsdataset.stable_id.label("dataset_stable_id"),
+                Validationreport.id.label("report_id"),
+                func.row_number()
+                .over(
+                    partition_by=Gtfsdataset.id,
+                    order_by=(nullslast(desc(Validationreport.validated_at)), desc(Validationreport.id)),
+                )
+                .label("rank"),
+            )
+            .select_from(Gtfsdataset)
+            .join(t_validationreportgtfsdataset, t_validationreportgtfsdataset.c.dataset_id == Gtfsdataset.id)
+            .join(Validationreport, Validationreport.id == t_validationreportgtfsdataset.c.validation_report_id)
+            .filter(Gtfsdataset.feed_id == feed.id)
+            .subquery()
+        )
+        query = (
+            db_session.query(ranked.c.dataset_id, ranked.c.dataset_stable_id, Validationreport)
+            .join(Validationreport, Validationreport.id == ranked.c.report_id)
+            .filter(ranked.c.rank == 1)
+        )
+        return query.filter(ranked.c.dataset_id == dataset_id) if dataset_id else query
+
+    @staticmethod
+    def _notices_by_report(db_session: Session, page: list, severity: Optional[List[str]]) -> dict:
+        """The notices of every report on the page, in one query, keyed by (dataset, report)."""
+        pairs = [(row.dataset_id, row.Validationreport.id) for row in page]
+        if not pairs:
+            return {}
+        query = db_session.query(Notice).filter(
+            tuple_(Notice.dataset_id, Notice.validation_report_id).in_(pairs),
+        )
+        if severity:
+            query = query.filter(Notice.severity.in_(severity))
+        grouped = {}
+        for notice in query.all():
+            grouped.setdefault((notice.dataset_id, notice.validation_report_id), []).append(notice)
+        return grouped
+
+    @staticmethod
+    def _latest_validation_report(
+        db_session: Session, feed: Gtfsfeed, severity: Optional[List[str]]
+    ) -> Optional[GtfsFeedValidationReport]:
+        """`latest`: the feed's current dataset, whatever page or filter was requested."""
+        if feed.latest_dataset_id is None:
+            return None
+        row = FeedsApiImpl._latest_reports_query(db_session, feed, dataset_id=feed.latest_dataset_id).first()
+        if row is None:
+            return None
+        notices = FeedsApiImpl._notices_by_report(db_session, [row], severity)
+        return GtfsFeedValidationReportImpl.from_orm(
+            row.dataset_stable_id,
+            row.Validationreport,
+            notices.get((row.dataset_id, row.Validationreport.id), ()),
+            is_latest=True,
+        )
 
     @with_db_session
     def get_gbfs_feed(

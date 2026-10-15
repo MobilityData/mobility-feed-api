@@ -55,6 +55,165 @@ def test_is_official_overwrite(client: TestClient, values):
     assert json_response["official"] is expected_official, values["assert_fail_message"]
 
 
+@pytest.mark.parametrize(
+    "values",
+    [
+        {
+            "feed_id": "mdb-40",
+            "expected_is_producer_url_unstable": True,
+            "assert_fail_message": "mdb-40, is_producer_url_unstable changed from TRUE to empty. Should retain True.",
+        },
+        {
+            "feed_id": "mdb-50",
+            "expected_is_producer_url_unstable": False,
+            "assert_fail_message": "mdb-50, is_producer_url_unstable changed from FALSE to empty. Should retain False.",
+        },
+        {
+            "feed_id": "mdb-1562",
+            "expected_is_producer_url_unstable": True,
+            "assert_fail_message": "mdb-1562, is_producer_url_unstable FALSE->TRUE should change to True.",
+        },
+        {
+            "feed_id": "mdb-1563",
+            "expected_is_producer_url_unstable": False,
+            "assert_fail_message": "mdb-1563, is_producer_url_unstable TRUE->FALSE should change to False.",
+        },
+    ],
+    ids=[
+        "unstable_change_true_to_empty",
+        "unstable_change_false_to_empty",
+        "unstable_change_false_to_true",
+        "unstable_change_true_to_false",
+    ],
+)
+def test_is_producer_url_unstable_overwrite(client: TestClient, values):
+    """An empty CSV cell must retain the stored value; an explicit True/False must overwrite it."""
+    feed_id = values["feed_id"]
+    expected = values["expected_is_producer_url_unstable"]
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["source_info"]["is_producer_url_unstable"] is expected, values["assert_fail_message"]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {
+            "feed_id": "mdb-702",
+            "assert_fail_message": "mdb-702 has an empty is_producer_url_unstable cell; must stay null, not False.",
+        },
+        {
+            "feed_id": "mdb-1",
+            "assert_fail_message": "mdb-1's CSV has no is_producer_url_unstable column; must default to null.",
+        },
+    ],
+    ids=[
+        "unstable_empty_cell_stays_null",
+        "unstable_absent_column_stays_null",
+    ],
+)
+def test_is_producer_url_unstable_defaults_null(client: TestClient, values):
+    """An empty cell or a missing column must leave is_producer_url_unstable as null (never coerced to False)."""
+    feed_id = values["feed_id"]
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    # Robust to either representation: key present with null, or key omitted.
+    assert json_response["source_info"].get("is_producer_url_unstable") is None, values["assert_fail_message"]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {
+            "feed_id": "mdb-40",
+            "expected_seasonal": True,
+            "assert_fail_message": "mdb-40, is_seasonal changed from TRUE to empty. Should retain True.",
+        },
+        {
+            "feed_id": "mdb-50",
+            "expected_seasonal": False,
+            "assert_fail_message": "mdb-50, is_seasonal changed from FALSE to empty. Should retain False.",
+        },
+        {
+            "feed_id": "mdb-1562",
+            "expected_seasonal": True,
+            "assert_fail_message": "mdb-1562, is_seasonal FALSE->TRUE should change to True.",
+        },
+        {
+            "feed_id": "mdb-1563",
+            "expected_seasonal": False,
+            "assert_fail_message": "mdb-1563, is_seasonal TRUE->FALSE should change to False.",
+        },
+    ],
+    ids=[
+        "seasonal_change_true_to_empty",
+        "seasonal_change_false_to_empty",
+        "seasonal_change_false_to_true",
+        "seasonal_change_true_to_false",
+    ],
+)
+def test_is_seasonal_overwrite(client: TestClient, values):
+    """An empty CSV cell must retain the stored value; an explicit True/False must overwrite it."""
+    feed_id = values["feed_id"]
+    expected = values["expected_seasonal"]
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["seasonal"] is expected, values["assert_fail_message"]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {
+            "feed_id": "mdb-702",
+            "assert_fail_message": "mdb-702 has an empty is_seasonal cell; must default to False.",
+        },
+        {
+            "feed_id": "mdb-1",
+            "assert_fail_message": "mdb-1's CSV has no is_seasonal column; must default to False.",
+        },
+    ],
+    ids=[
+        "seasonal_empty_cell_defaults_false",
+        "seasonal_absent_column_defaults_false",
+    ],
+)
+def test_is_seasonal_defaults_false(client: TestClient, values):
+    """An empty cell or a missing column must default seasonal to False (never null)."""
+    feed_id = values["feed_id"]
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id=feed_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["seasonal"] is False, values["assert_fail_message"]
+
+
 def test_is_feed_reference_overwrite(client: TestClient):
     feed_id = "mdb-1562"
     response = client.request(
@@ -73,3 +232,140 @@ def test_is_feed_reference_overwrite(client: TestClient):
     )
     json_response = response.json()
     assert json_response["feed_references"] == ["mdb-50"]
+
+
+def test_new_gtfs_rt_feed_inherits_existing_static_feed_location(client: TestClient):
+    """
+    Regression test for mobility-database-catalogs #1567.
+
+    A newly imported GTFS-RT feed with no location fields of its own should not
+    remain locationless when its static_reference points to a GTFS feed that
+    already has location metadata.
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-99991",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    feed = response.json()
+
+    # First prove that static_reference was resolved successfully.
+    assert feed["feed_references"] == ["mdb-50"]
+
+    # mdb-50 already has CA / Ontario / Barrie in the layered populate fixture.
+    # The suspected bug is that this location is not synchronized when the
+    # GTFS-RT -> GTFS relationship is subsequently established.
+    assert len(feed["locations"]) == 1
+    assert feed["locations"][0]["country_code"] == "CA"
+    assert feed["locations"][0]["subdivision_name"] == "Ontario"
+    assert feed["locations"][0]["municipality"] == "Barrie"
+
+
+def test_gtfs_rt_feed_with_existing_location_is_not_overwritten(client: TestClient):
+    """
+    A GTFS-RT location explicitly present in the catalogue must not be replaced
+    by the location of its referenced static GTFS feed.
+    """
+    expected_locations = {
+        "mdb-1562": ("CA", "BC", "Vancouver"),
+        "mdb-1563": ("US", "SomeState", "SomeCity"),
+    }
+
+    for feed_id, expected in expected_locations.items():
+        response = client.request(
+            "GET",
+            f"/v1/gtfs_rt_feeds/{feed_id}",
+            headers=authHeaders,
+        )
+
+        assert response.status_code == 200
+        feed = response.json()
+
+        assert feed["feed_references"] == ["mdb-50"]
+        assert len(feed["locations"]) == 1
+        assert feed["locations"][0]["country_code"] == expected[0]
+        assert feed["locations"][0]["subdivision_name"] == expected[1]
+        assert feed["locations"][0]["municipality"] == expected[2]
+
+
+def test_locationless_gtfs_rt_feed_inherits_union_of_static_feed_locations(
+    client: TestClient,
+):
+    """
+    Multiple static references contribute a deduplicated union of locations to
+    a locationless GTFS-RT feed.
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-99992",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    feed = response.json()
+
+    assert set(feed["feed_references"]) == {"mdb-40", "mdb-50"}
+
+    locations = {
+        (
+            location["country_code"],
+            location["subdivision_name"],
+            location["municipality"],
+        )
+        for location in feed["locations"]
+    }
+
+    assert locations == {
+        ("CA", "Ontario", "London"),
+        ("CA", "Ontario", "Barrie"),
+    }
+
+
+def test_entity_types_overwrite(client: TestClient):
+    """A later catalog row must replace, not add to, GTFS-RT entity types."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/mdb-1562",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["entity_types"] == ["sa"]
+
+
+@pytest.mark.parametrize(
+    "feed_id,expected_entity_types",
+    [
+        ("mdb-99993", set()),
+        ("mdb-99994", {"vp", "sa"}),
+        ("mdb-99995", {"tu"}),
+    ],
+    ids=[
+        "entity_types_blank_cell",
+        "entity_types_padded_and_mixed_case",
+        "entity_types_unknown_token_dropped",
+    ],
+)
+def test_entity_types_normalization(client: TestClient, feed_id: str, expected_entity_types: set):
+    """A blank, padded or partly invalid entity_type cell must never reach the API."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_rt_feeds/{feed_id}",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert set(response.json()["entity_types"]) == expected_entity_types
+
+
+def test_no_blank_entity_types_in_db(test_database):
+    """The populate script must not create blank Entitytype rows."""
+    from shared.database_gen.sqlacodegen_models import Entitytype
+
+    with test_database.start_db_session() as session:
+        names = [name for (name,) in session.query(Entitytype.name).all()]
+
+    assert all(name and name.strip() for name in names), f"Blank entity type names found: {names!r}"
+    assert set(names) <= {"vp", "tu", "sa"}, f"Unexpected entity type names: {names!r}"

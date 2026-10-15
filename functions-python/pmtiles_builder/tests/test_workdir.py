@@ -3,7 +3,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from src.main import EphemeralOrDebugWorkdir
+from shared.helpers.ephemeral_workdir import EphemeralOrDebugWorkdir
 
 
 def _backdate(path: Path, seconds_ago: int):
@@ -30,7 +30,7 @@ def test_old_prefixed_dir_deleted_and_root_auto_removed(monkeypatch):
         fresh_prefixed.mkdir()
         _backdate(fresh_prefixed, 1)
 
-        with EphemeralOrDebugWorkdir(dir=root) as new_dir:
+        with EphemeralOrDebugWorkdir(owner_prefix="pmtiles_", dir=root) as new_dir:
             assert not stale_dir.exists()
             assert keep_other.exists()
             assert fresh_prefixed.exists()
@@ -59,7 +59,7 @@ def test_fresh_prefixed_dir_retained(monkeypatch, tmp_path):
     recent_dir.mkdir()
     _backdate(recent_dir, 10)  # Younger than TTL
 
-    with EphemeralOrDebugWorkdir(dir=str(root)):
+    with EphemeralOrDebugWorkdir(owner_prefix="pmtiles_", dir=str(root)):
         assert recent_dir.exists()
 
     # Recent directory still present
@@ -88,7 +88,7 @@ def test_debug_workdir_preserved(monkeypatch, tmp_path):
     stale_dir.mkdir()
     _backdate(stale_dir, 10)
 
-    with EphemeralOrDebugWorkdir(dir=str(root)) as returned:
+    with EphemeralOrDebugWorkdir(owner_prefix="pmtiles_", dir=str(root)) as returned:
         # returned path should be the debug dir
         assert returned == str(debug_dir)
         assert Path(returned).exists()
@@ -112,7 +112,7 @@ def test_debug_mode_skips_cleanup(monkeypatch, tmp_path):
     old_prefixed.mkdir()
     _backdate(old_prefixed, 1000)
 
-    with EphemeralOrDebugWorkdir(dir=str(root)):
+    with EphemeralOrDebugWorkdir(owner_prefix="pmtiles_", dir=str(root)):
         # cleanup should be skipped, so old_prefixed still present
         assert old_prefixed.exists()
     # still present after exit

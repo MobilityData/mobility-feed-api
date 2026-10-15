@@ -27,6 +27,7 @@ gtfs_rt_feed_orm = Gtfsrealtimefeed(
     stable_id="id",
     data_type="gtfs_rt",
     status="active",
+    seasonal=False,
     externalids=[
         Externalid(
             associated_id="associated_id",
