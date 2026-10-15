@@ -268,6 +268,183 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(args[5], "pmtiles-queue")
 
 
+class TestParquetBuilderTask(unittest.TestCase):
+    """The enqueue is what the Operations API records `preparing` on the strength of."""
+
+    ENV = {
+        "PARQUET_BUILDER_QUEUE_S": "parquet-queue-s",
+        "PARQUET_BUILDER_QUEUE_M": "parquet-queue-m",
+        "PARQUET_BUILDER_QUEUE_L": "parquet-queue-l",
+        "PROJECT_ID": "my-project",
+        "GCP_REGION": "northamerica-northeast1",
+        "ENVIRONMENT": "dev",
+    }
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_sends_the_build_request(self, mock_client_cls, mock_create_task):
+        from utils import create_http_parquet_builder_task
+        import json
+
+        mock_client_cls.return_value = MagicMock()
+
+        create_http_parquet_builder_task("mdb-1210", "mdb-1210-202402121801")
+
+        _, kwargs = mock_create_task.call_args
+        self.assertEqual(
+            json.loads(kwargs["body"].decode("utf-8")),
+            {
+                "feed_stable_id": "mdb-1210",
+                "dataset_stable_id": "mdb-1210-202402121801",
+                "force": False,
+                "retention_days": None,
+                # The routing decision travels with the task so the builder can record
+                # why it ran where it did, without re-deriving it.
+                "variant_basis": None,
+                "override": None,
+            },
+        )
+        self.assertEqual(
+            kwargs["url"],
+            "https://northamerica-northeast1-my-project.cloudfunctions.net/"
+            "parquet-builder-l-dev",
+        )
+        self.assertEqual(kwargs["queue_name"], "parquet-queue-l")
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_the_task_is_unnamed_so_a_retry_is_never_deduplicated_away(
+        self, mock_client_cls, mock_create_task
+    ):
+        """A name stays reserved after the task completes, so a retry looks like a
+        duplicate and is dropped."""
+        from utils import create_http_parquet_builder_task
+
+        mock_client_cls.return_value = MagicMock()
+
+        create_http_parquet_builder_task("mdb-1210", "mdb-1210-202402121801")
+
+        _, kwargs = mock_create_task.call_args
+        self.assertIsNone(kwargs["task_name"])
+        self.assertTrue(kwargs["raise_on_error"])
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_a_failed_enqueue_reaches_the_caller(
+        self, mock_client_cls, mock_create_task
+    ):
+        """Silence here would leave the dataset reporting `preparing` forever."""
+        from utils import create_http_parquet_builder_task
+
+        mock_client_cls.return_value = MagicMock()
+        mock_create_task.side_effect = RuntimeError("queue unavailable")
+
+        with self.assertRaises(RuntimeError):
+            create_http_parquet_builder_task("mdb-1210", "mdb-1210-202402121801")
+
+    @patch.dict(
+        os.environ,
+        {k: v for k, v in ENV.items() if k != "PARQUET_BUILDER_QUEUE_L"},
+        clear=True,
+    )
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_no_queue_configured_is_a_logged_no_op(
+        self, mock_client_cls, mock_create_task
+    ):
+        """Local runs have no queue; the builder is invoked by hand there."""
+        from utils import create_http_parquet_builder_task
+
+        mock_client_cls.return_value = MagicMock()
+
+        create_http_parquet_builder_task("mdb-1210", "mdb-1210-202402121801")
+
+        mock_create_task.assert_not_called()
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_each_size_has_its_own_queue_and_target(
+        self, mock_client_cls, mock_create_task
+    ):
+        """Separate queues are the point: large builds must not fill the dispatch
+        slots in front of small ones."""
+        from utils import create_http_parquet_builder_task
+        from sizing import Size
+
+        mock_client_cls.return_value = MagicMock()
+
+        for size, queue, target in (
+            (Size.S, "parquet-queue-s", "parquet-builder-s-dev"),
+            (Size.M, "parquet-queue-m", "parquet-builder-m-dev"),
+            (Size.L, "parquet-queue-l", "parquet-builder-l-dev"),
+        ):
+            with self.subTest(size=size):
+                mock_create_task.reset_mock()
+                create_http_parquet_builder_task("mdb-1210", "mdb-1210-1", size=size)
+
+                _, kwargs = mock_create_task.call_args
+                self.assertEqual(kwargs["queue_name"], queue)
+                self.assertTrue(kwargs["url"].endswith(target), kwargs["url"])
+
+    @patch.dict(os.environ, ENV, clear=False)
+    @patch("shared.common.gcp_utils.create_http_task_with_name")
+    @patch("google.cloud.tasks_v2.CloudTasksClient")
+    def test_no_size_routes_to_the_largest(self, mock_client_cls, mock_create_task):
+        """A caller that has not measured anything must not land on a worker that
+        cannot finish the job."""
+        from utils import create_http_parquet_builder_task
+
+        mock_client_cls.return_value = MagicMock()
+
+        create_http_parquet_builder_task("mdb-1210", "mdb-1210-1")
+
+        _, kwargs = mock_create_task.call_args
+        self.assertEqual(kwargs["queue_name"], "parquet-queue-l")
+
+
+class TestCreateHttpTaskWithName(unittest.TestCase):
+    def _call(self, client, **kwargs):
+        from shared.common.gcp_utils import create_http_task_with_name
+        from google.cloud import tasks_v2
+
+        return create_http_task_with_name(
+            client=client,
+            body=b"{}",
+            url="https://example.test/f",
+            project_id="my-project",
+            gcp_region="northamerica-northeast1",
+            queue_name="a-queue",
+            task_name=None,
+            task_time=None,
+            http_method=tasks_v2.HttpMethod.POST,
+            **kwargs,
+        )
+
+    def test_errors_are_swallowed_by_default(self):
+        client = MagicMock()
+        client.create_task.side_effect = RuntimeError("queue unavailable")
+
+        self._call(client)
+
+    def test_raise_on_error_propagates(self):
+        client = MagicMock()
+        client.create_task.side_effect = RuntimeError("queue unavailable")
+
+        with self.assertRaises(RuntimeError):
+            self._call(client, raise_on_error=True)
+
+    def test_an_existing_task_is_never_an_error(self):
+        """The task this one duplicates is already queued, which is the point."""
+        client = MagicMock()
+        client.create_task.side_effect = RuntimeError("Requested entity already exists")
+
+        self._call(client, raise_on_error=True)
+
+
 class TestDetectEncoding(unittest.TestCase):
     def test_utf8_encoding(self):
         with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as f:

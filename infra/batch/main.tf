@@ -84,9 +84,24 @@ resource "google_storage_bucket" "datasets_bucket" {
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
+  # Matches a .parquet or manifest.json whose customTime passed more than a day ago.
+  # `no_age` is required: without it the provider sends `age = 0`, matching everything.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      no_age                 = true
+      days_since_custom_time = 1
+      matches_suffix         = [".parquet", "manifest.json"]
+    }
+  }
   cors {
     origin = ["*"]
-    method = ["GET"]
+    # HEAD as well as GET: a browser reading Parquet over range requests probes with
+    # HEAD first, and GCS matches CORS methods literally rather than treating HEAD as
+    # a kind of GET.
+    method          = ["GET", "HEAD"]
     response_header = ["*"]
   }
 }

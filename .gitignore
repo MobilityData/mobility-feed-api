@@ -87,5 +87,9 @@ functions-python/**/*.csv
 # Project files
 *.code-workspace
 
+# Local build output, including the default destination of
+# scripts/parquet-generate-local.sh
+.dist/
+
 # Ignore OpenApi local backup files
 *.yaml.bak

@@ -30,158 +30,158 @@ variable "environment" {
 }
 
 variable "python_runtime" {
-  type = string
+  type        = string
   description = "Python runtime version"
-  default = "python311"
+  default     = "python311"
 }
 
 variable "datasets_bucket_name" {
   type        = string
   description = "Name of the bucket where the datasets are stored"
-  default = "mobilitydata-datasets"
+  default     = "mobilitydata-datasets"
 }
 
 variable "public_hosted_datasets_dns" {
-  type = string
+  type        = string
   description = "Public hosted DNS for datasets"
-  default = "files.mobilitydatabase.org"
+  default     = "files.mobilitydatabase.org"
 }
 
 variable "validator_endpoint" {
-  type = string
+  type        = string
   description = "URL of the web validator"
-  default = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
+  default     = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
 }
 
 variable "gbfs_bucket_name" {
-    type        = string
-    description = "Name of the bucket where the GBFS feeds are stored"
-    default     = "mobilitydata-gbfs-snapshots"
+  type        = string
+  description = "Name of the bucket where the GBFS feeds are stored"
+  default     = "mobilitydata-gbfs-snapshots"
 }
 
 variable "gbfs_scheduler_schedule" {
-    type        = string
-    description = "Schedule for the GBFS validator daily job (version extraction and validation, Mon–Sat only)"
-    default     = "0 0 * * 1-6" # At 00:00 Mon–Sat (Sunday is handled by the weekly geolocation job)
+  type        = string
+  description = "Schedule for the GBFS validator daily job (version extraction and validation, Mon–Sat only)"
+  default     = "0 0 * * 1-6" # At 00:00 Mon–Sat (Sunday is handled by the weekly geolocation job)
 }
 
 variable "gbfs_geolocation_scheduler_schedule" {
-    type        = string
-    description = "Schedule for the GBFS geolocation extraction weekly job"
-    default     = "0 0 * * 0" # At 00:00 every Sunday
+  type        = string
+  description = "Schedule for the GBFS geolocation extraction weekly job"
+  default     = "0 0 * * 0" # At 00:00 every Sunday
 }
 
 
 variable "jbda_scheduler_schedule" {
-    type        = string
-    description = "Schedule for the JBDA scheduler job"
-    default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
+  type        = string
+  description = "Schedule for the JBDA scheduler job"
+  default     = "0 0 3 * *" # At 00:00 on the 3rd day of every month
 }
 
 variable "odpt_scheduler_schedule" {
-    type        = string
-    description = "Schedule for the ODPT scheduler job"
-    default     = "0 0 5 * *" # At 00:00 on the 5th day of every month
+  type        = string
+  description = "Schedule for the ODPT scheduler job"
+  default     = "0 0 5 * *" # At 00:00 on the 5th day of every month
 }
 
 variable "gtfs_feed_availability_check_schedule" {
-    type        = string
-    description = "Cron schedule for the GTFS feed availability check job"
-    default     = "0 2 * * *" # Daily at 02:00 UTC
+  type        = string
+  description = "Cron schedule for the GTFS feed availability check job"
+  default     = "0 2 * * *" # Daily at 02:00 UTC
 }
 
 variable "notification_dispatch_daily_schedule" {
-    type        = string
-    description = "Cron schedule for the daily notification dispatcher job"
-    default     = "0 8 * * *" # Daily at 08:00 UTC
+  type        = string
+  description = "Cron schedule for the daily notification dispatcher job"
+  default     = "0 8 * * *" # Daily at 08:00 UTC
 }
 
 variable "reconcile_announcements_schedule" {
-    type        = string
-    description = "Cron schedule for the Brevo announcements reconciliation job"
-    default     = "0 3 * * *" # Daily at 03:00 UTC
+  type        = string
+  description = "Cron schedule for the Brevo announcements reconciliation job"
+  default     = "0 3 * * *" # Daily at 03:00 UTC
 }
 
 variable "seal_orchestrator_schedule" {
-    type        = string
-    description = "Cron schedule for the nightly Seal of Reliability orchestrator job"
-    # Daily at 09:00 UTC. Deliberately after process-validation-report has finished writing the
-    # night's reports to the database - it works through them at about 80/hour and does not finish
-    # until roughly 08:30.
-    default     = "0 9 * * *"
+  type        = string
+  description = "Cron schedule for the nightly Seal of Reliability orchestrator job"
+  # Daily at 09:00 UTC. Deliberately after process-validation-report has finished writing the
+  # night's reports to the database - it works through them at about 80/hour and does not finish
+  # until roughly 08:30.
+  default = "0 9 * * *"
 }
 
 variable "purge_early_access_invites_schedule" {
-    type        = string
-    description = "Cron schedule for the nightly early access invited-email purge job"
-    default     = "0 5 * * *" # Daily at 05:00 UTC
+  type        = string
+  description = "Cron schedule for the nightly early access invited-email purge job"
+  default     = "0 5 * * *" # Daily at 05:00 UTC
 }
 
 variable "notification_dispatch_weekly_weekday" {
-    type        = number
-    description = "Weekday the weekly digest is sent by the daily dispatcher (Monday=0 .. Sunday=6)"
-    default     = 0 # Monday
+  type        = number
+  description = "Weekday the weekly digest is sent by the daily dispatcher (Monday=0 .. Sunday=6)"
+  default     = 0 # Monday
 }
 
 variable "tdg_api_token" {
-    type        = string
-    description = "TDG API key"
+  type        = string
+  description = "TDG API key"
 }
 
 variable "web_app_revalidate_url" {
-    type        = string
+  type        = string
   description = "URL of the website revalidation endpoint for cache invalidation"
-    default     = ""
+  default     = ""
 }
 
 variable "web_app_revalidate_secret" {
-    type        = string
+  type        = string
   description = "Secret token used to authenticate requests to the website revalidation endpoint"
-    sensitive   = true
-    default     = ""
+  sensitive   = true
+  default     = ""
 }
 
 variable "transitland_scraping_schedule" {
-    type        = string
-    description = "Schedule Transitland scraping job"
-    default = "0 15 3 * *" # Runs at 00:00 JST on the 3rd day of every month
+  type        = string
+  description = "Schedule Transitland scraping job"
+  default     = "0 15 3 * *" # Runs at 00:00 JST on the 3rd day of every month
 }
 
 variable "transitland_api_key" {
-    type        = string
-    description = "Transitland API key"
+  type        = string
+  description = "Transitland API key"
 }
 
 variable "operations_oauth2_client_id" {
-  type = string
+  type        = string
   description = "value of the OAuth2 client id for the Operations API"
 }
 
 variable "export_csv_schedule" {
-    type        = string
-    description = "Schedule the export_csv function"
-    default = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
+  type        = string
+  description = "Schedule the export_csv function"
+  default     = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
 }
 
 variable "update_feed_status_schedule" {
-    type        = string
-    description = "Schedule the update_feed_status function"
-    default     = "0 4 * * *" # At 4am every day.
+  type        = string
+  description = "Schedule the update_feed_status function"
+  default     = "0 4 * * *" # At 4am every day.
 }
 
 variable "generate_sitemap_schedule" {
-    type        = string
-    description = "Schedule the mobilitydatabase.org sitemap generation task"
-    default     = "0 8 * * *" # At 08:00 UTC every day.
+  type        = string
+  description = "Schedule the mobilitydatabase.org sitemap generation task"
+  default     = "0 8 * * *" # At 08:00 UTC every day.
 }
 
 variable "brevo_api_announcements_list_id" {
-    type        = string
-    description = "Brevo list ID for API announcements"
-    default     = ""
+  type        = string
+  description = "Brevo list ID for API announcements"
+  default     = ""
 }
 variable "gtfs_datasets_comparer_in_memory_size" {
-    type        = string
-    description = "Size limit for the gtfs_datasets_comparer in-memory tmpfs volume"
-    default     = "3Gi"
+  type        = string
+  description = "Size limit for the gtfs_datasets_comparer in-memory tmpfs volume"
+  default     = "3Gi"
 }

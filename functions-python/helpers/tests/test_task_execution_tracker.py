@@ -16,7 +16,7 @@
 
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 from task_execution.task_execution_tracker import (
@@ -81,16 +81,21 @@ class TestTaskExecutionTrackerStartRun(unittest.TestCase):
         self.assertIn("completed_at", stmt_compiled)
 
 
-class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
-    def test_returns_true_when_triggered_row_exists(self):
+def _status_values(criterion):
+    """The statuses an `in_` criterion accepts, read off the compiled SQL."""
+    compiled = criterion.compile(compile_kwargs={"literal_binds": True})
+    return str(compiled)
+
+
+class TestTaskExecutionTrackerIsHandled(unittest.TestCase):
+    def test_returns_true_when_a_row_exists(self):
         tracker, session = _make_tracker()
         existing_row = MagicMock()
         session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
             existing_row
         )
 
-        result = tracker.is_triggered("ds-123")
-        self.assertTrue(result)
+        self.assertTrue(tracker.is_handled("ds-123"))
 
     def test_returns_false_when_no_row(self):
         tracker, session = _make_tracker()
@@ -98,8 +103,7 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
             None
         )
 
-        result = tracker.is_triggered("ds-999")
-        self.assertFalse(result)
+        self.assertFalse(tracker.is_handled("ds-999"))
 
     def test_handles_none_entity_id(self):
         tracker, session = _make_tracker()
@@ -107,8 +111,57 @@ class TestTaskExecutionTrackerIsTriggered(unittest.TestCase):
             None
         )
 
-        result = tracker.is_triggered(None)
-        self.assertFalse(result)
+        self.assertFalse(tracker.is_handled(None))
+
+    def test_in_progress_counts_as_handled(self):
+        """The whole point: an entity being worked on is not free to dispatch.
+
+        It used to answer the same as an entity nobody had ever asked for, which made
+        `in_progress` indistinguishable from absent through this method.
+        """
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
+
+        tracker.is_handled("ds-123")
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        for status in (STATUS_TRIGGERED, STATUS_IN_PROGRESS, STATUS_COMPLETED):
+            self.assertIn(status, criteria)
+
+    def test_failed_stays_dispatchable(self):
+        """A failed entity is meant to be retried, so it must not read as handled."""
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
+
+        tracker.is_handled("ds-123")
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        self.assertNotIn(STATUS_FAILED, criteria)
+
+
+class TestTaskExecutionTrackerCountAlreadyTracked(unittest.TestCase):
+    """The dry-run preview has to agree with what the real run skips."""
+
+    def test_it_counts_the_same_statuses_is_handled_accepts(self):
+        tracker, session = _make_tracker()
+        session.query.return_value.filter.return_value.count.return_value = 3
+
+        self.assertEqual(tracker.count_already_tracked(["a", "b"]), 3)
+
+        criteria = _status_values(session.query.return_value.filter.call_args.args[2])
+        for status in (STATUS_TRIGGERED, STATUS_IN_PROGRESS, STATUS_COMPLETED):
+            self.assertIn(status, criteria)
+        self.assertNotIn(STATUS_FAILED, criteria)
+
+    def test_an_empty_list_costs_no_query(self):
+        tracker, session = _make_tracker()
+
+        self.assertEqual(tracker.count_already_tracked([]), 0)
+        session.query.assert_not_called()
 
 
 class TestTaskExecutionTrackerMarkTriggered(unittest.TestCase):
@@ -331,3 +384,193 @@ class TestAggregateMetadata(unittest.TestCase):
         )
         self.assertNotIn("x", result)
         self.assertEqual(result["total"], 9)
+
+
+# ----------------------------------------------------------------------------
+# Exclusive claims
+#
+# Against a real Postgres, deliberately: the guarantee `try_acquire` provides is a
+# Postgres one - a conditional upsert re-evaluated against the committed row under a
+# row lock - and a mocked session would assert the shape of the statement while
+# proving nothing about the exclusion it exists for.
+# ----------------------------------------------------------------------------
+
+import threading  # noqa: E402
+
+import sqlalchemy  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+
+from task_execution.task_execution_tracker import DEFAULT_LEASE_SECONDS  # noqa: E402
+from shared.database_gen.sqlacodegen_models import TaskExecutionLog  # noqa: E402
+
+TEST_DB_URL = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
+CLAIM_TASK = "test_try_acquire"
+
+
+def _engine_or_skip():
+    try:
+        engine = sqlalchemy.create_engine(TEST_DB_URL)
+        with engine.connect():
+            pass
+        return engine
+    except Exception as error:  # pragma: no cover - depends on the local environment
+        raise unittest.SkipTest(f"test database unavailable: {error}")
+
+
+class TestTryAcquire(unittest.TestCase):
+    """One worker at a time, and a claim that cannot be lost forever."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.engine = _engine_or_skip()
+        cls.Session = sessionmaker(bind=cls.engine)
+
+    def setUp(self):
+        self.entity = f"dataset-{uuid.uuid4()}"
+        self.run_id = f"v{uuid.uuid4()}"
+        self.session = self.Session()
+        self.tracker = self._tracker(self.session)
+        self.tracker.start_run()
+        self.session.commit()
+
+    def tearDown(self):
+        self.session.query(TaskExecutionLog).filter(
+            TaskExecutionLog.task_name == CLAIM_TASK,
+            TaskExecutionLog.run_id == self.run_id,
+        ).delete(synchronize_session=False)
+        self.session.commit()
+        self.session.close()
+
+    def _tracker(self, session):
+        return TaskExecutionTracker(
+            task_name=CLAIM_TASK, run_id=self.run_id, db_session=session
+        )
+
+    def _row(self):
+        return self.tracker.get_entity(self.entity)
+
+    def _set_status(self, status, triggered_at=None):
+        values = {"status": status}
+        if triggered_at is not None:
+            values["triggered_at"] = triggered_at
+        self.session.query(TaskExecutionLog).filter(
+            TaskExecutionLog.task_name == CLAIM_TASK,
+            TaskExecutionLog.run_id == self.run_id,
+            TaskExecutionLog.entity_id == self.entity,
+        ).update(values, synchronize_session=False)
+        self.session.commit()
+
+    def test_claims_an_untracked_entity(self):
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+        self.session.commit()
+        self.assertEqual(self._row().status, STATUS_IN_PROGRESS)
+
+    def test_refuses_a_second_claim_while_held(self):
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+        self.session.commit()
+
+        other = self.Session()
+        try:
+            self.assertFalse(self._tracker(other).try_acquire(self.entity))
+            other.commit()
+        finally:
+            other.close()
+
+    def test_takes_over_from_a_merely_triggered_row(self):
+        """The API records the enqueue; the worker that runs it must still claim."""
+        self.tracker.mark_triggered(self.entity)
+        self.session.commit()
+
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+
+    def test_reclaims_a_failed_entity(self):
+        self.tracker.try_acquire(self.entity)
+        self.tracker.mark_failed(self.entity, error_message="boom")
+        self.session.commit()
+
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+        self.session.commit()
+        self.assertIsNone(
+            self._row().error_message, "a retry starts without the old error"
+        )
+
+    def test_never_reclaims_a_completed_entity(self):
+        self.tracker.try_acquire(self.entity)
+        self.tracker.mark_completed(self.entity, metadata={"base_url": "x"})
+        self.session.commit()
+
+        self.assertFalse(self.tracker.try_acquire(self.entity))
+
+    def test_release_for_retry_reopens_a_completed_entity(self):
+        self.tracker.try_acquire(self.entity)
+        self.tracker.mark_completed(self.entity)
+        self.session.commit()
+
+        self.assertTrue(self.tracker.release_for_retry(self.entity))
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+
+    def test_release_for_retry_cannot_steal_a_running_claim(self):
+        self.tracker.try_acquire(self.entity)
+        self.session.commit()
+
+        self.assertFalse(self.tracker.release_for_retry(self.entity))
+        self.session.commit()
+        self.assertEqual(self._row().status, STATUS_IN_PROGRESS)
+
+    def test_reclaims_a_claim_whose_lease_expired(self):
+        """A worker killed mid-run cannot release its own claim."""
+        self.tracker.try_acquire(self.entity)
+        self.session.commit()
+        self._set_status(
+            STATUS_IN_PROGRESS,
+            triggered_at=datetime.now(timezone.utc)
+            - timedelta(seconds=DEFAULT_LEASE_SECONDS + 60),
+        )
+
+        self.assertTrue(self.tracker.try_acquire(self.entity))
+
+    def test_a_heartbeat_keeps_a_long_build_from_losing_its_claim(self):
+        self.tracker.try_acquire(self.entity)
+        self.session.commit()
+        self._set_status(
+            STATUS_IN_PROGRESS,
+            triggered_at=datetime.now(timezone.utc)
+            - timedelta(seconds=DEFAULT_LEASE_SECONDS + 60),
+        )
+
+        self.tracker.heartbeat(self.entity, metadata={"phase": "convert"})
+        self.session.commit()
+
+        self.assertFalse(
+            self.tracker.try_acquire(self.entity),
+            "a heartbeat must renew the lease, not merely record progress",
+        )
+        self.assertEqual(self._row().metadata_, {"phase": "convert"})
+
+    def test_exactly_one_of_two_racing_workers_wins(self):
+        """The case the whole mechanism exists for."""
+        results = []
+        barrier = threading.Barrier(2)
+
+        def claim():
+            session = self.Session()
+            try:
+                barrier.wait(timeout=10)
+                won = self._tracker(session).try_acquire(self.entity)
+                session.commit()
+                results.append(won)
+            except Exception as error:  # pragma: no cover - surfaced via the assert
+                results.append(error)
+            finally:
+                session.close()
+
+        threads = [threading.Thread(target=claim) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=20)
+
+        self.assertEqual(
+            results.count(True), 1, f"exactly one worker may win, got {results}"
+        )
+        self.assertEqual(results.count(False), 1, f"got {results}")
