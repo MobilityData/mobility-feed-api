@@ -205,6 +205,33 @@ paths:
           description: GTFS feed not found.
         500:
           description: Internal server error.
+  /v1/operations/gtfs_feeds/{id}/download_debug:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    post:
+      description: >
+        Downloads the GTFS feed through the same code path used by the nightly dataset download and returns the request and response detail of that attempt. Credential values in headers and URLs are redacted. Nothing is stored.
+      tags:
+        - "operations"
+      operationId: debugGtfsFeedDownload
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/download_debug_max_bytes"
+        - $ref: "#/components/parameters/download_debug_timeout_seconds"
+      responses:
+        200:
+          description: Diagnostics for the download attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadDebugResponse"
+        400:
+          description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -3931,6 +3958,30 @@ components:
         minimum: 0
         default: 0
         example: 0
+    download_debug_max_bytes:
+      x-operation: true
+      name: max_bytes
+      in: query
+      description: Stop reading the feed after this many bytes. Keeps large feeds from exhausting the instance.
+      required: false
+      schema:
+        type: integer
+        minimum: 1024
+        maximum: 52428800
+        default: 52428800
+        example: 1048576
+    download_debug_timeout_seconds:
+      x-operation: true
+      name: timeout_seconds
+      in: query
+      description: Connect and read timeout for the download, in seconds.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 300
+        default: 60
+        example: 30
     limit_query_param_availability_endpoint:
       x-operation: true
       name: limit
