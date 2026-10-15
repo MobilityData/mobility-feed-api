@@ -148,6 +148,8 @@
     <include file="changes/add_byron_bay_header.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feed tld-716 -->
     <include file="changes/add_metro_lisboa_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed mdb-2433 -->
+    <include file="changes/add_avon_transit_header.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
