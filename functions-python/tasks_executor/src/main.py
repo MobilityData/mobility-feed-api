@@ -68,6 +68,7 @@ from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 from tasks.users.reconcile_announcements_from_brevo import (
     reconcile_announcements_from_brevo_handler,
 )
+from tasks.task_execution_stats import task_execution_stats_handler
 from tasks.users.purge_early_access_invites import purge_early_access_invites_handler
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
@@ -233,6 +234,18 @@ tasks = {
             "Parameters: dry_run (default true), limit (default null)."
         ),
         "handler": reconcile_announcements_from_brevo_handler,
+    },
+    "task_execution_stats": {
+        "description": (
+            "Aggregates task_execution_attempt for one task over a window: attempts, "
+            "completions and failures by worker variant, peak address space and RSS per "
+            "variant, duration percentiles, failure counts by kind, and the entities "
+            "that needed more than one attempt. Read-only. Exists because worker sizing "
+            "has to come from a distribution, not from whichever build someone last "
+            "looked at; it reports, it does not retune. Parameters: task_name "
+            "(required), window_days (default 30), limit (default 20)."
+        ),
+        "handler": task_execution_stats_handler,
     },
     "purge_early_access_invites": {
         "description": (

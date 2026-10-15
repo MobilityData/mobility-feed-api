@@ -21,7 +21,10 @@ import time
 import urllib3.exceptions
 from datetime import date, datetime, timezone
 from logging import Logger
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from shared.helpers.sizing import Size
 
 import requests
 import urllib3
@@ -532,6 +535,95 @@ def create_http_pmtiles_builder_task(
         project_id,
         gcp_region,
         queue_name,
+    )
+
+
+PARQUET_BUILDER_BASE = "parquet-builder"
+PARQUET_QUEUE_PREFIX = "PARQUET_BUILDER"
+
+
+def create_http_parquet_builder_task(
+    feed_stable_id: str,
+    dataset_stable_id: str,
+    force: bool = False,
+    retention_days: Optional[int] = None,
+    size: Optional["Size"] = None,
+    variant_basis: Optional[str] = None,
+    override: Optional[str] = None,
+) -> None:
+    """
+    Create a task to render a dataset as Parquet, on the worker sized for it.
+
+    Raises if the task could not be created: the caller marks the dataset as queued on
+    the strength of this call.
+
+    `size` selects both the queue and the target function. Each size has its own queue
+    so a run of large builds cannot fill the dispatch slots in front of the small ones.
+    Defaults to the largest, so a caller that has not measured anything is never routed
+    to a worker that cannot finish the job.
+
+    The task is unnamed. A name after the dataset stays reserved for about an hour after
+    the task completes, so a retry after a failed conversion would be dropped as a
+    duplicate. Deduplication is the builder's database claim.
+    """
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+    from shared.common.gcp_utils import create_http_task_with_name
+    from shared.helpers.sizing import LARGEST, function_name, queue_env_var
+    import json
+
+    size = size or LARGEST
+
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {
+            "feed_stable_id": feed_stable_id,
+            "dataset_stable_id": dataset_stable_id,
+            "force": force,
+            # Omitted when the caller did not ask, so the builder applies its default.
+            "retention_days": retention_days,
+            # Why this size was chosen, carried so the builder can record the decision
+            # alongside the attempt rather than having to re-derive it.
+            "variant_basis": variant_basis,
+            "override": override,
+        }
+    ).encode()
+    queue_env = queue_env_var(PARQUET_QUEUE_PREFIX, size)
+    queue_name = os.getenv(queue_env)
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+    gcp_env = os.getenv("ENVIRONMENT")
+
+    if not queue_name:
+        logging.warning(
+            "%s is not set; skipping parquet build task for %s",
+            queue_env,
+            dataset_stable_id,
+        )
+        return
+
+    proto_time = timestamp_pb2.Timestamp()
+    proto_time.GetCurrentTime()
+    target = function_name(PARQUET_BUILDER_BASE, size, gcp_env)
+
+    logging.info(
+        "Enqueuing parquet build for %s on the %s worker (%s)",
+        dataset_stable_id,
+        size.value,
+        target,
+    )
+    create_http_task_with_name(
+        client=client,
+        body=body,
+        url=f"https://{gcp_region}-{project_id}.cloudfunctions.net/{target}",
+        project_id=project_id,
+        gcp_region=gcp_region,
+        queue_name=queue_name,
+        task_name=None,
+        task_time=proto_time,
+        http_method=tasks_v2.HttpMethod.POST,
+        timeout_s=1800,
+        raise_on_error=True,
     )
 
 

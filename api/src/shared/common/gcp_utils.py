@@ -258,8 +258,13 @@ def create_http_task_with_name(
     task_time,
     http_method: any,  # tasks_v2.HttpMethod
     timeout_s: int = 1800,  # 30 minutes
+    raise_on_error: bool = False,
 ):
-    """Creates a GCP Cloud Task."""
+    """Creates a GCP Cloud Task.
+
+    `raise_on_error` is for callers that record state on the strength of the enqueue.
+    Off by default: the original callers are fire-and-forget.
+    """
     from google.cloud import tasks_v2
     from google.protobuf import duration_pb2
 
@@ -290,3 +295,5 @@ def create_http_task_with_name(
             logging.info("Task already exists for %s, skipping.", task_name)
         else:
             logging.error("Error creating task: %s", e)
+            if raise_on_error:
+                raise
