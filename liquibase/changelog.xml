@@ -146,6 +146,10 @@
     <include file="changes/fix_empty_entity_types.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feed mdb-3516 -->
     <include file="changes/add_byron_bay_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed tld-716 -->
+    <include file="changes/add_metro_lisboa_header.sql" relativeToChangelogFile="true"/>
+    <!-- Add feed_download/http_headers override for feed mdb-2433 -->
+    <include file="changes/add_avon_transit_header.sql" relativeToChangelogFile="true"/>    
     <!-- Append-only per-attempt history, for retry caps and sizing stats. -->
     <include file="changes/feat_task_execution_attempt.sql" relativeToChangelogFile="true"/>
     <!-- Register the per-feed Parquet worker size key in config_key. -->
