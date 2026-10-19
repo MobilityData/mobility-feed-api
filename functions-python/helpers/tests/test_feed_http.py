@@ -113,6 +113,28 @@ class TestBuildFeedRequestParams(unittest.TestCase):
         self.assertEqual(headers["User-Agent"], "CustomAgent/1.0")
         self.assertNotIn("Referer", headers)
 
+    @patch("shared.common.config_reader.get_config_value")
+    def test_explicit_headers_skip_config_and_default(self, mock_get_config):
+        explicit = {"User-Agent": "curl/8.0"}
+        headers, _ = build_feed_request_params(
+            "http://example.com/feed.zip", feed_id="feed-1", headers=explicit
+        )
+        self.assertEqual(headers, {"User-Agent": "curl/8.0"})
+        mock_get_config.assert_not_called()
+
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_explicit_headers_are_not_mutated_by_auth(self, _):
+        explicit = {"User-Agent": "curl/8.0"}
+        headers, _ = build_feed_request_params(
+            "http://example.com/feed.zip",
+            authentication_type="2",
+            api_key_parameter_name="X-API-Key",
+            credentials="token123",
+            headers=explicit,
+        )
+        self.assertEqual(headers["X-API-Key"], "token123")
+        self.assertEqual(explicit, {"User-Agent": "curl/8.0"})
+
     @patch("shared.common.config_reader.get_config_value", return_value=None)
     def test_none_authentication_type_treated_as_zero(self, _):
         headers, url = build_feed_request_params(

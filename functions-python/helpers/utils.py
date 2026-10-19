@@ -164,8 +164,7 @@ def _get_http_headers_override(feed_id: Optional[str]) -> Optional[dict]:
     """Return the feed_download/http_headers config override, or None.
 
     Returns None when the config database is unreachable so that callers fall back to
-    the default headers instead of failing. This keeps the local verifier script usable
-    without a database.
+    the default headers instead of failing.
     """
     try:
         from shared.common.config_reader import get_config_value
@@ -189,11 +188,13 @@ def build_feed_request_params(
     authentication_type=0,
     api_key_parameter_name: Optional[str] = None,
     credentials: Optional[str] = None,
+    headers: Optional[dict] = None,
 ) -> tuple:
     """
     Build HTTP request headers and resolve the final URL for a feed request.
 
     Handles:
+    - Explicit headers passed by the caller, which skip the config DB lookup
     - Per-feed User-Agent overrides via config DB (feed_download/http_headers)
     - Default mobile browser User-Agent + Referer fallback
     - Auth type 1: API key appended as a URL query parameter
@@ -202,7 +203,10 @@ def build_feed_request_params(
     Returns:
         (headers, resolved_url) ready to pass to any HTTP method.
     """
-    headers = _get_http_headers_override(feed_id)
+    if headers is not None:
+        headers = dict(headers)
+    else:
+        headers = _get_http_headers_override(feed_id)
     if headers is None:
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
@@ -673,12 +677,15 @@ def download_feed(
     trusted_certs=False,  # If True, disables SSL verification
     max_bytes: Optional[int] = None,
     timeout_seconds: Optional[int] = None,
+    headers: Optional[dict] = None,
 ) -> FeedDownloadResult:
     """Download a feed to file_path and return its hash along with request diagnostics.
 
     max_bytes stops the download once that many bytes have been read, which lets callers
     inspect the response without storing the whole dataset. The returned hash is None in
     that case because the file is incomplete.
+
+    headers, when given, replaces the default and config DB request headers.
 
     Raises FeedDownloadError carrying a FeedRequestDiagnostics on any failure.
     """
@@ -700,6 +707,7 @@ def download_feed(
             authentication_type=authentication_type,
             api_key_parameter_name=api_key_parameter_name,
             credentials=credentials,
+            headers=headers,
         )
         diagnostics.resolved_url = sanitize_url(resolved_url, api_key_parameter_name)
         diagnostics.request_headers = sanitize_headers(headers, api_key_parameter_name)

@@ -19,13 +19,13 @@
 
 # Downloads a GTFS feed using the same shared code as the nightly dataset download and
 # prints the request and response detail of the attempt, with credentials redacted.
-# No database is required: when the config database is unreachable the download falls back
-# to the default headers.
+# No database is used. To reproduce a production feed_download/http_headers override, pass
+# its headers with --header; they replace the default headers.
 
 # Usage:
-#   download-verifier.sh --url <producer url> [--feed_id <uuid>] [--with_upload] [--no_install_venv]
+#   download-verifier.sh --url <producer url> [--header "<Name: value>"]... [--with_upload] [--no_install_venv]
 # Example:
-#   download-verifier.sh --url https://example.com/gtfs.zip
+#   download-verifier.sh --url https://example.com/gtfs.zip --header "User-Agent: curl/8.0"
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
@@ -39,14 +39,14 @@ display_usage() {
   echo "Options:"
   echo "  -h|--help                 Display help content."
   echo "  --url <URL>               Producer URL of the feed to download. Required."
-  echo "  --feed_id <UUID>          Feed UUID, to apply the per-feed http_headers config override."
+  echo "  --header <Name: value>    Request header, repeatable. Replaces the default headers."
   echo "  --with_upload             Also verify the upload path using the GCP storage emulator."
   echo "  --no_install_venv         Do not reinstall the python virtual environment."
   exit 1
 }
 
 url=''
-feed_id=''
+headers=()
 with_upload=false
 no_install_venv=false
 
@@ -63,8 +63,8 @@ while [[ $# -gt 0 ]]; do
     shift # past argument
     shift # past value
     ;;
-  --feed_id)
-    feed_id="$2"
+  --header)
+    headers+=("$2")
     shift # past argument
     shift # past value
     ;;
@@ -113,9 +113,9 @@ fi
 export PYTHONPATH="$FUNCTION_PATH/src"
 
 args=(--url "$url")
-if [ -n "$feed_id" ]; then
-  args+=(--feed_id "$feed_id")
-fi
+for header in "${headers[@]}"; do
+  args+=(--header "$header")
+done
 if [ "$with_upload" != "true" ]; then
   args+=(--skip-upload)
 fi
