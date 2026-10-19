@@ -1857,6 +1857,92 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+    GtfsFeedDownloadDebugResponse:
+      type: object
+      description: >
+        Request and response detail of a single feed download attempt. Credential values
+        in headers and URLs are replaced with a redaction marker.
+      required:
+        - feed_id
+        - producer_url
+        - success
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        producer_url:
+          type: string
+          description: Feed URL that was requested, with credentials redacted.
+          example: https://example.com/gtfs.zip
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        success:
+          type: boolean
+          description: Whether the download returned a 2xx response.
+          example: false
+        status_code:
+          type: integer
+          nullable: true
+          description: HTTP status code of the final response.
+          example: 403
+        latency_ms:
+          type: integer
+          nullable: true
+          description: Time to first response, in milliseconds.
+          example: 1840
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it could be determined.
+          example: 34.95.1.1
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: text/html
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the downloaded content is a ZIP file.
+        downloaded_bytes:
+          type: integer
+          nullable: true
+          description: Number of bytes read before the download completed or hit the byte cap.
+          example: 2038
+        truncated:
+          type: boolean
+          description: Whether the download stopped at the byte cap rather than at the end of the file.
+          example: false
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the download failed.
+          example: ValueError
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the download failed, with credentials redacted.
     GtfsFeedContinuousCoverageResponse:
       type: object
       description: >
