@@ -18,10 +18,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
-import os
-import tempfile
-import uuid
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Annotated, Final, Optional
 
 from deepdiff import DeepDiff
@@ -38,8 +36,14 @@ from feeds_gen.models.get_feeds200_response import GetFeeds200Response
 from feeds_gen.models.gtfs_feed_availability_response import (
     GtfsFeedAvailabilityResponse,
 )
+from feeds_gen.models.gtfs_feed_download_debug_request import (
+    GtfsFeedDownloadDebugRequest,
+)
 from feeds_gen.models.gtfs_feed_download_debug_response import (
     GtfsFeedDownloadDebugResponse,
+)
+from feeds_gen.models.gtfs_feed_download_dry_run_response import (
+    GtfsFeedDownloadDryRunResponse,
 )
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
@@ -78,7 +82,11 @@ from shared.common.gcp_utils import create_web_revalidation_task
 from shared.db_models.gtfs_feed_availability_check_impl import (
     GtfsFeedAvailabilityCheckImpl,
 )
-from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
+from shared.helpers.pub_sub import (
+    DATASET_BATCH_TOPIC,
+    get_execution_id,
+    trigger_dataset_download,
+)
 from shared.helpers.utils import (
     FeedDownloadError,
     download_feed,
@@ -211,6 +219,50 @@ def _execution_attempt(row) -> ExecutionAttempt:
     )
 
 
+# Availability-check source batch_process_dataset records dry runs under.
+DOWNLOAD_DRY_RUN_SOURCE: Final = "dataset_download_dry_run"
+
+# Stop reading well inside the function's 540 second timeout, so a slow download still
+# returns its diagnostics instead of the request being cut off with nothing.
+_DOWNLOAD_DEBUG_DEADLINE_SECONDS: Final = 480
+
+# RFC 9110 field-name token. Values only need to be free of line breaks, which would
+# let a caller smuggle extra headers into the request.
+_HEADER_NAME_RE: Final = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
+
+def _validate_debug_headers(headers: Optional[dict]) -> None:
+    """Reject custom download headers that requests would refuse mid-download."""
+    for name, value in (headers or {}).items():
+        if not _HEADER_NAME_RE.match(name):
+            raise HTTPException(status_code=400, detail=f"Invalid header name {name!r}")
+        if "\r" in value or "\n" in value:
+            raise HTTPException(
+                status_code=400, detail=f"Header {name!r} contains a line break"
+            )
+
+
+def _queue_nightly_download(gtfs_feed, headers: Optional[dict]) -> JSONResponse:
+    """Queue one dry-run download on batch_process_dataset and say where its result lands."""
+    # trigger_dataset_download silently skips without a topic; say so instead of
+    # leaving the caller polling for a result that will never come.
+    if not DATASET_BATCH_TOPIC:
+        raise HTTPException(
+            status_code=503,
+            detail="Dataset processing is not configured in this environment",
+        )
+    execution_id = get_execution_id(get_request_context(), "download-dry-run")
+    queued_at = datetime.now(timezone.utc)
+    trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
+    payload = GtfsFeedDownloadDryRunResponse(
+        feed_id=gtfs_feed.stable_id,
+        execution_id=execution_id,
+        queued_at=queued_at,
+        source=DOWNLOAD_DRY_RUN_SOURCE,
+    )
+    return JSONResponse(status_code=202, content=jsonable_encoder(payload))
+
+
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
 
@@ -338,6 +390,7 @@ class OperationsApiImpl(BaseOperationsApi):
         ],
         var_from: Optional[datetime] = None,
         to: Optional[datetime] = None,
+        source: Optional[str] = None,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
         sort: Optional[str] = "desc",
@@ -357,6 +410,8 @@ class OperationsApiImpl(BaseOperationsApi):
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
         if to is not None:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
+        if source is not None:
+            query = query.filter(GtfsFeedAvailabilityCheck.source == source)
 
         total = query.count()
         order = (
@@ -449,11 +504,23 @@ class OperationsApiImpl(BaseOperationsApi):
         id: Annotated[
             StrictStr, Field(description="The feed ID of the requested feed.")
         ],
-        max_bytes: Optional[int] = 52428800,
-        timeout_seconds: Optional[int] = 60,
+        max_bytes: Optional[int] = None,
+        timeout_seconds: Optional[int] = None,
+        gtfs_feed_download_debug_request: Optional[GtfsFeedDownloadDebugRequest] = None,
         db_session: Session = None,
     ) -> GtfsFeedDownloadDebugResponse:
-        """Download the feed through the shared download path and return the diagnostics."""
+        """Download the feed through the shared download path, here or on the nightly job."""
+        request = gtfs_feed_download_debug_request
+        headers = request.headers if request else None
+        run_on = (request.run_on if request else None) or "api"
+        _validate_debug_headers(headers)
+        if run_on == "nightly_job" and (
+            max_bytes is not None or timeout_seconds is not None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="max_bytes and timeout_seconds apply only to run_on=api",
+            )
         gtfs_feed = (
             db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
         )
@@ -461,33 +528,31 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(status_code=404, detail="GTFS feed not found")
         if not gtfs_feed.producer_url:
             raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+        if run_on == "nightly_job":
+            return _queue_nightly_download(gtfs_feed, headers)
 
-        temp_file = os.path.join(
-            tempfile.gettempdir(), f"download_debug_{uuid.uuid4()}.zip"
-        )
-        truncated = False
+        # Streamed and hashed, never written: Cloud Run's disk is memory, and a full-size
+        # feed would otherwise exhaust the instance serving every other request.
+        stop_reason = None
+        duration_ms = None
         try:
-            try:
-                result = download_feed(
-                    gtfs_feed.producer_url,
-                    file_path=temp_file,
-                    feed_id=gtfs_feed.id,
-                    authentication_type=gtfs_feed.authentication_type or 0,
-                    api_key_parameter_name=gtfs_feed.api_key_parameter_name,
-                    credentials=get_feed_credentials(gtfs_feed.stable_id),
-                    max_bytes=max_bytes,
-                    timeout_seconds=timeout_seconds,
-                )
-                diagnostics = result.diagnostics
-                truncated = result.file_hash is None
-            except FeedDownloadError as exc:
-                diagnostics = exc.diagnostics
-        finally:
-            if os.path.exists(temp_file):
-                try:
-                    os.remove(temp_file)
-                except OSError as exc:
-                    logging.warning("Could not remove %s: %s", temp_file, exc)
+            result = download_feed(
+                gtfs_feed.producer_url,
+                file_path=None,
+                feed_id=gtfs_feed.id,
+                authentication_type=gtfs_feed.authentication_type or 0,
+                api_key_parameter_name=gtfs_feed.api_key_parameter_name,
+                credentials=get_feed_credentials(gtfs_feed.stable_id),
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+                headers=headers,
+                deadline_seconds=_DOWNLOAD_DEBUG_DEADLINE_SECONDS,
+            )
+            diagnostics = result.diagnostics
+            stop_reason = result.stop_reason
+            duration_ms = result.duration_ms
+        except FeedDownloadError as exc:
+            diagnostics = exc.diagnostics
 
         return GtfsFeedDownloadDebugResponse(
             feed_id=gtfs_feed.stable_id,
@@ -503,7 +568,9 @@ class OperationsApiImpl(BaseOperationsApi):
             content_type=diagnostics.content_type,
             is_zip=diagnostics.is_zip,
             downloaded_bytes=diagnostics.downloaded_bytes,
-            truncated=truncated,
+            truncated=stop_reason is not None,
+            stop_reason=stop_reason,
+            duration_ms=duration_ms,
             error_type=diagnostics.error_type,
             error_message=diagnostics.error_message,
         )

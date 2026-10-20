@@ -140,3 +140,31 @@ async def test_get_gtfs_feed_availability_latency_is_float():
     for check in response.checks:
         if check.latency_ms is not None:
             assert isinstance(check.latency_ms, float)
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_filter_source():
+    """source returns only the checks written by that source."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id, source="dataset_download", limit=100, offset=0
+    )
+    assert response.total == 1
+    assert [c.source for c in response.checks] == ["dataset_download"]
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_returns_diagnostics():
+    """Each check carries the request/response diagnostics recorded with it."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id, source="dataset_download", limit=100, offset=0
+    )
+    check = response.checks[0]
+    assert check.error_message == "Invalid HTTP response code: [503]"
+    assert check.content_type == "text/html"
+    assert check.is_zip is False
+    assert check.request_headers == {"User-Agent": "agent"}
+    assert check.response_headers == {"Server": "nginx"}
+    assert check.redirect_urls == ["http://cdn.example.com/feed.zip"]
+    assert check.external_ip == "34.1.2.3"

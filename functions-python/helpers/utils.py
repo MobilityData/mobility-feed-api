@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import contextlib
 import hashlib
 import logging
 import os
@@ -449,6 +450,37 @@ class FeedDownloadResult:
     file_hash: Optional[str]
     is_zip: Optional[bool]
     diagnostics: FeedRequestDiagnostics
+    # Why reading stopped before the end of the file: "max_bytes" or "deadline".
+    stop_reason: Optional[str] = None
+    # Wall time from sending the request to the last byte read.
+    duration_ms: Optional[int] = None
+
+
+# The ZIP end-of-central-directory record sits in the last 22 bytes plus at most a
+# 64 KiB comment, so this much tail is enough to tell a complete ZIP without the file.
+_ZIP_EOCD_SIGNATURE = b"PK\x05\x06"
+_ZIP_TAIL_BYTES = 65536 + 22
+
+
+class _ZipSniffer:
+    """Tracks the first and last bytes of a stream to recognise a ZIP without storing it."""
+
+    def __init__(self):
+        self.head = b""
+        self.tail = bytearray()
+
+    def update(self, data: bytes) -> None:
+        if len(self.head) < len(_ZIP_MAGIC):
+            self.head += data[: len(_ZIP_MAGIC) - len(self.head)]
+        self.tail += data
+        if len(self.tail) > _ZIP_TAIL_BYTES:
+            del self.tail[: len(self.tail) - _ZIP_TAIL_BYTES]
+
+    def is_zip(self, complete: bool) -> bool:
+        """A truncated stream can only be judged by its leading signature."""
+        if self.head != _ZIP_MAGIC:
+            return False
+        return not complete or _ZIP_EOCD_SIGNATURE in self.tail
 
 
 def build_availability_check(
@@ -666,7 +698,7 @@ def perform_request(
 
 def download_feed(
     url,
-    file_path,
+    file_path: Optional[str],
     hash_algorithm="sha256",
     chunk_size=8192,
     feed_id=None,
@@ -678,12 +710,17 @@ def download_feed(
     max_bytes: Optional[int] = None,
     timeout_seconds: Optional[int] = None,
     headers: Optional[dict] = None,
+    deadline_seconds: Optional[float] = None,
 ) -> FeedDownloadResult:
     """Download a feed to file_path and return its hash along with request diagnostics.
 
-    max_bytes stops the download once that many bytes have been read, which lets callers
-    inspect the response without storing the whole dataset. The returned hash is None in
-    that case because the file is incomplete.
+    file_path None streams and hashes the download without storing it, so a feed of any
+    size can be checked without the disk (in-memory on Cloud Run) holding it.
+
+    max_bytes stops the download once that many bytes have been read, and
+    deadline_seconds once that much time has passed, which lets callers inspect the
+    response without the whole dataset. The returned hash is None in either case because
+    the file is incomplete, and stop_reason says which limit was hit.
 
     headers, when given, replaces the default and config DB request headers.
 
@@ -696,7 +733,9 @@ def download_feed(
     diagnostics = FeedRequestDiagnostics(
         request_url=sanitize_url(producer_url, api_key_parameter_name)
     )
-    truncated = False
+    stop_reason = None
+    sniffer = _ZipSniffer()
+    duration_ms = None
 
     try:
         ctx = create_feed_ssl_context(trusted_certs=trusted_certs)
@@ -728,7 +767,9 @@ def download_feed(
                 headers=headers,
                 redirect=True,
                 **request_kwargs,
-            ) as r, open(file_path, "wb") as out_file:
+            ) as r, (
+                open(file_path, "wb") if file_path else contextlib.nullcontext()
+            ) as out_file:
                 diagnostics.latency_ms = int((time.monotonic() - start) * 1000)
                 diagnostics.status_code = r.status
                 diagnostics.response_headers = sanitize_headers(dict(r.headers))
@@ -751,21 +792,37 @@ def download_feed(
                     if not data:
                         break
                     hash_object.update(data)
-                    out_file.write(data)
+                    sniffer.update(data)
+                    if out_file is not None:
+                        out_file.write(data)
                     total += len(data)
                     if max_bytes is not None and total >= max_bytes:
-                        truncated = True
+                        stop_reason = "max_bytes"
+                        break
+                    if (
+                        deadline_seconds is not None
+                        and time.monotonic() - start >= deadline_seconds
+                    ):
+                        stop_reason = "deadline"
                         break
                 r.release_conn()
+                duration_ms = int((time.monotonic() - start) * 1000)
                 diagnostics.downloaded_bytes = total
 
-        diagnostics.is_zip = zipfile.is_zipfile(file_path) or (
+        complete = stop_reason is None
+        if file_path and complete:
+            is_zip = zipfile.is_zipfile(file_path)
+        else:
+            is_zip = sniffer.is_zip(complete)
+        diagnostics.is_zip = is_zip or (
             _is_zip_from_content_type(diagnostics.content_type) or False
         )
         return FeedDownloadResult(
-            file_hash=None if truncated else hash_object.hexdigest(),
+            file_hash=hash_object.hexdigest() if complete else None,
             is_zip=diagnostics.is_zip,
             diagnostics=diagnostics,
+            stop_reason=stop_reason,
+            duration_ms=duration_ms,
         )
     except Exception as exc:
         diagnostics.error_type = type(exc).__name__
@@ -781,7 +838,7 @@ def download_feed(
             diagnostics.request_url,
             diagnostics.as_dict(),
         )
-        if os.path.exists(file_path):
+        if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:

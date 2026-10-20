@@ -27,4 +27,13 @@ class GtfsFeedAvailabilityCheckImpl(GtfsFeedAvailabilityCheck):
             status_code=check.status_code,
             latency_ms=float(check.latency_ms) if check.latency_ms is not None else None,
             error_type=check.error_type,
+            source=check.source,
+            error_message=check.error_message,
+            content_type=check.content_type,
+            is_zip=check.is_zip,
+            resolved_url=check.resolved_url,
+            request_headers=check.request_headers,
+            response_headers=check.response_headers,
+            redirect_urls=check.redirect_urls,
+            external_ip=check.external_ip,
         )

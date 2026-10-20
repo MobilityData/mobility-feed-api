@@ -189,6 +189,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/availability_from"
         - $ref: "#/components/parameters/availability_to"
+        - $ref: "#/components/parameters/availability_source"
         - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/availability_sort"
@@ -210,7 +211,7 @@ paths:
       - $ref: "#/components/parameters/feed_id_path_param"
     post:
       description: >
-        Downloads the GTFS feed through the same code path used by the nightly dataset download and returns the request and response detail of that attempt. Credential values in headers and URLs are redacted. Nothing is stored.
+        Downloads the GTFS feed through the same code path used by the nightly dataset download. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once. That outcome is recorded as an availability check with `source = dataset_download_dry_run`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted. Nothing is stored.
       tags:
         - "operations"
       operationId: debugGtfsFeedDownload
@@ -219,6 +220,12 @@ paths:
       parameters:
         - $ref: "#/components/parameters/download_debug_max_bytes"
         - $ref: "#/components/parameters/download_debug_timeout_seconds"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GtfsFeedDownloadDebugRequest"
       responses:
         200:
           description: Diagnostics for the download attempt.
@@ -226,12 +233,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsFeedDownloadDebugResponse"
+        202:
+          description: "`run_on = nightly_job`: the download was queued on the nightly job."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadDryRunResponse"
         400:
-          description: Invalid request parameters.
+          description: Invalid request parameters, or the feed has no producer URL.
         404:
           description: GTFS feed not found.
         500:
           description: Internal server error.
+        503:
+          description: "`run_on = nightly_job` while dataset processing is not configured in this environment."
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -1857,6 +1872,97 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+        source:
+          type: string
+          nullable: true
+          description: What wrote the check; see the `source` filter of the availability endpoint.
+          example: dataset_download
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the check failed, with credentials redacted.
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: application/zip
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the response content is a ZIP file.
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it was captured.
+          example: 34.95.1.1
+    GtfsFeedDownloadDryRunResponse:
+      type: object
+      description: A download queued on the nightly dataset download job (`run_on = nightly_job`).
+      required:
+        - feed_id
+        - execution_id
+        - queued_at
+        - source
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        execution_id:
+          type: string
+          description: Execution identifier of the queued dry run, as it appears in the job's logs.
+        queued_at:
+          type: string
+          format: date-time
+          description: When the dry run was queued. Its result is the first availability check of `source` at or after this time.
+        source:
+          type: string
+          description: Availability check source the result is recorded under.
+          example: dataset_download_dry_run
+    GtfsFeedDownloadDebugRequest:
+      type: object
+      description: Options for a download debug attempt.
+      properties:
+        run_on:
+          type: string
+          enum:
+            - api
+            - nightly_job
+          default: api
+          description: >
+            Where the download runs: `api` within this request, answering with its diagnostics; `nightly_job` on the nightly dataset download job, answering 202 with where to read the result.
+        headers:
+          type: object
+          nullable: true
+          maxProperties: 50
+          additionalProperties:
+            type: string
+          description: >
+            Request headers to send instead of the defaults (the per-feed override, or the default User-Agent and Referer), as the local download verifier's --header does. The feed's API key is still applied on top. Omit to use the same headers as the nightly download.
+          example:
+            User-Agent: curl/8.0
     GtfsFeedDownloadDebugResponse:
       type: object
       description: >
@@ -1932,8 +2038,19 @@ components:
           example: 2038
         truncated:
           type: boolean
-          description: Whether the download stopped at the byte cap rather than at the end of the file.
+          description: Whether the download stopped before the end of the file, at the byte cap or the time limit.
           example: false
+        stop_reason:
+          type: string
+          nullable: true
+          enum: [max_bytes, deadline]
+          description: >
+            Why reading stopped before the end of the file: `max_bytes` when the requested byte cap was reached, `deadline` when the 480 second endpoint limit was. Null when the whole file was read.
+        duration_ms:
+          type: integer
+          nullable: true
+          description: Time from sending the request to the last byte read, in milliseconds.
+          example: 12500
         error_type:
           type: string
           nullable: true
@@ -4048,25 +4165,22 @@ components:
       x-operation: true
       name: max_bytes
       in: query
-      description: Stop reading the feed after this many bytes. Keeps large feeds from exhausting the instance.
+      description: Stop reading the feed after this many bytes, for a quicker check. Omit to read the whole file, as the nightly download does.
       required: false
       schema:
         type: integer
         minimum: 1024
-        maximum: 52428800
-        default: 52428800
         example: 1048576
     download_debug_timeout_seconds:
       x-operation: true
       name: timeout_seconds
       in: query
-      description: Connect and read timeout for the download, in seconds.
+      description: Connect and read timeout for the download, in seconds. Omit for no timeout, as the nightly download does; reading still stops at the 480 second endpoint limit.
       required: false
       schema:
         type: integer
         minimum: 1
-        maximum: 300
-        default: 60
+        maximum: 480
         example: 30
     limit_query_param_availability_endpoint:
       x-operation: true
@@ -4090,6 +4204,20 @@ components:
         type: string
         format: date-time
       example: "2026-04-01T00:00:00Z"
+    availability_source:
+      x-operation: true
+      name: source
+      in: query
+      description: >
+        Return only checks written by this source: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads) or `dataset_download_dry_run` (download_debug runs with `run_on = nightly_job`).
+      required: false
+      schema:
+        type: string
+        enum:
+          - availability_check
+          - dataset_download
+          - dataset_download_dry_run
+      example: dataset_download
     availability_to:
       x-operation: true
       name: to

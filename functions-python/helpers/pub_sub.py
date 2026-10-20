@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1 import PublisherClient
@@ -76,8 +76,13 @@ def trigger_dataset_download(
     feed: Feed | Gtfsfeed,
     execution_id: str,
     topic_name: str = DATASET_BATCH_TOPIC,
+    dry_run: bool = False,
+    headers: Optional[dict] = None,
 ) -> None:
     """Publishes the feed to the configured Pub/Sub topic.
+
+    dry_run asks batch_process_dataset to only download the feed and record the
+    diagnostics, storing no dataset; headers replace the default request headers.
 
     No-ops when no topic is configured (``DATASET_PROCESSING_TOPIC_NAME`` unset),
     e.g. local development and tests, so the caller never constructs a Pub/Sub
@@ -104,6 +109,11 @@ def trigger_dataset_download(
         "authentication_info_url": feed.authentication_info_url,
         "api_key_parameter_name": feed.api_key_parameter_name,
     }
+    # Only set when asked, so the nightly message is unchanged.
+    if dry_run:
+        message_data["dry_run"] = True
+    if headers is not None:
+        message_data["headers"] = headers
 
     try:
         # Convert to JSON string

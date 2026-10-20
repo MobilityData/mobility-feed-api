@@ -1,5 +1,8 @@
+import io
+import itertools
 import os
 import unittest
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -125,6 +128,13 @@ def _mock_response(status=200, headers=None, chunks=None):
     return response
 
 
+def _zip_bytes() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("agency.txt", "agency_id,agency_name\n1,Test\n" * 50)
+    return buffer.getvalue()
+
+
 def _mock_pool(response):
     pool = MagicMock()
     pool.request.return_value = response
@@ -233,6 +243,58 @@ class TestDownloadFeed(unittest.TestCase):
 
         self.assertIsNone(result.file_hash)
         self.assertEqual(result.diagnostics.downloaded_bytes, 10)
+        self.assertEqual(result.stop_reason, "max_bytes")
+
+    def test_no_file_path_streams_without_writing(self, _mock_config):
+        content = _zip_bytes()
+        chunks = [content[i : i + 100] for i in range(0, len(content), 100)] + [b""]
+        response = _mock_response(chunks=chunks)
+        with patch(
+            "utils.urllib3.PoolManager", return_value=_mock_pool(response)
+        ), patch("builtins.open") as mock_open:
+            result = download_feed("https://example.com/gtfs.zip", None, chunk_size=100)
+
+        mock_open.assert_not_called()
+        self.assertIsNotNone(result.file_hash)
+        self.assertIsNone(result.stop_reason)
+        self.assertTrue(result.is_zip)
+        self.assertEqual(result.diagnostics.downloaded_bytes, len(content))
+        self.assertIsNotNone(result.duration_ms)
+
+    def test_no_file_path_detects_non_zip(self, _mock_config):
+        response = _mock_response(chunks=[b"<html>login</html>", b""])
+        with patch("utils.urllib3.PoolManager", return_value=_mock_pool(response)):
+            result = download_feed("https://example.com/gtfs.zip", None)
+
+        self.assertFalse(result.is_zip)
+
+    def test_truncated_zip_is_recognised_by_its_signature(self, _mock_config):
+        content = _zip_bytes()
+        response = _mock_response(chunks=[content[:50], content[50:], b""])
+        with patch("utils.urllib3.PoolManager", return_value=_mock_pool(response)):
+            result = download_feed(
+                "https://example.com/gtfs.zip", None, chunk_size=50, max_bytes=50
+            )
+
+        self.assertEqual(result.stop_reason, "max_bytes")
+        self.assertTrue(result.is_zip)
+
+    def test_deadline_stops_reading(self, _mock_config):
+        response = _mock_response(chunks=[b"a" * 10] * 5 + [b""])
+        clock = itertools.count(start=0, step=10)
+        with patch(
+            "utils.urllib3.PoolManager", return_value=_mock_pool(response)
+        ), patch("utils.time.monotonic", side_effect=lambda: next(clock)):
+            result = download_feed(
+                "https://example.com/gtfs.zip",
+                None,
+                chunk_size=10,
+                deadline_seconds=25,
+            )
+
+        self.assertEqual(result.stop_reason, "deadline")
+        self.assertIsNone(result.file_hash)
+        self.assertLess(result.diagnostics.downloaded_bytes, 50)
 
     def test_redirect_urls_are_recorded(self, _mock_config):
         response = _mock_response(chunks=[b"data", b""])
