@@ -211,7 +211,7 @@ paths:
       - $ref: "#/components/parameters/feed_id_path_param"
     post:
       description: >
-        Downloads the GTFS feed through the same code path used by the nightly dataset download. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once. That outcome is recorded as an availability check with `source = dataset_download_dry_run`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted. Nothing is stored.
+        Downloads the GTFS feed through the same code path used by the nightly dataset download. Nothing is stored unless `dry_run` is false. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once; with `dry_run = false` that run also processes the dataset exactly as the nightly run does. That outcome is recorded as an availability check with `source = dataset_download_dry_run`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted.
       tags:
         - "operations"
       operationId: debugGtfsFeedDownload
@@ -238,7 +238,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsFeedDownloadDryRunResponse"
+                $ref: "#/components/schemas/GtfsFeedDownloadQueuedResponse"
         400:
           description: Invalid request parameters, or the feed has no producer URL.
         404:
@@ -1917,7 +1917,7 @@ components:
           nullable: true
           description: Egress IP address observed for the request, when it was captured.
           example: 34.95.1.1
-    GtfsFeedDownloadDryRunResponse:
+    GtfsFeedDownloadQueuedResponse:
       type: object
       description: A download queued on the nightly dataset download job (`run_on = nightly_job`).
       required:
@@ -1925,7 +1925,12 @@ components:
         - execution_id
         - queued_at
         - source
+        - dry_run
       properties:
+        dry_run:
+          type: boolean
+          description: Whether the queued run only downloads (true) or downloads and processes the dataset as the nightly run does (false).
+          example: true
         feed_id:
           type: string
           description: Stable identifier of the GTFS feed.
@@ -1939,7 +1944,8 @@ components:
           description: When the dry run was queued. Its result is the first availability check of `source` at or after this time.
         source:
           type: string
-          description: Availability check source the result is recorded under.
+          description: >
+            Availability check source the download outcome is recorded under: `dataset_download_dry_run` for a dry run, `dataset_download_manual` for a full run.
           example: dataset_download_dry_run
     GtfsFeedDownloadDebugRequest:
       type: object
@@ -1953,6 +1959,11 @@ components:
           default: api
           description: >
             Where the download runs: `api` within this request, answering with its diagnostics; `nightly_job` on the nightly dataset download job, answering 202 with where to read the result.
+        dry_run:
+          type: boolean
+          default: true
+          description: >
+            With `run_on = nightly_job`, false runs the complete nightly process instead of only the download: if the file changed, a new dataset is uploaded, stored and becomes the feed's latest, and its follow-up tasks run. The download outcome is recorded with `source = dataset_download_manual`. Only allowed with `run_on = nightly_job` and without `headers`, so a stored dataset is never produced with headers the nightly run would not send.
         headers:
           type: object
           nullable: true
@@ -4209,7 +4220,7 @@ components:
       name: source
       in: query
       description: >
-        Return only checks written by this source: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads) or `dataset_download_dry_run` (download_debug runs with `run_on = nightly_job`).
+        Return only checks written by this source: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads), `dataset_download_dry_run` (download_debug dry runs on the nightly job) or `dataset_download_manual` (download_debug full runs, success included).
       required: false
       schema:
         type: string
@@ -4217,6 +4228,7 @@ components:
           - availability_check
           - dataset_download
           - dataset_download_dry_run
+          - dataset_download_manual
       example: dataset_download
     availability_to:
       x-operation: true

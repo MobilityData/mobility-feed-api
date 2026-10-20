@@ -44,7 +44,6 @@ from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import (
     FeedDownloadError,
     build_availability_check,
-    download_and_get_hash,
     download_feed,
     get_external_ip,
     get_hash_from_file,
@@ -87,8 +86,12 @@ class DatasetProcessor:
         api_key_parameter_name,
         public_hosted_datasets_url,
         dataset_stable_id=None,
+        record_source: Optional[str] = None,
     ):
         self.logger = get_logger(DatasetProcessor.__name__, feed_stable_id)
+        # Set for runs someone asked for by hand: the download outcome is then recorded
+        # under this source whether it succeeds or fails, so they can read it back.
+        self.record_source = record_source
         self.producer_url = producer_url
         self.bucket_name = bucket_name
         self.latest_hash = latest_hash
@@ -144,7 +147,7 @@ class DatasetProcessor:
         Downloads the content of a URL and return the hash of the file
         """
         try:
-            file_hash = download_and_get_hash(
+            result = download_feed(
                 self.producer_url,
                 file_path=temporary_file_path,
                 feed_id=feed_id,
@@ -155,14 +158,24 @@ class DatasetProcessor:
             )
         except FeedDownloadError as exc:
             if feed_id:
-                self.record_download_failure(feed_id, exc.diagnostics)
+                self.record_download_diagnostics(
+                    feed_id,
+                    exc.diagnostics,
+                    source=self.record_source or "dataset_download",
+                )
             raise
+        if feed_id and self.record_source:
+            result.diagnostics.external_ip = get_external_ip()
+            self.record_download_diagnostics(
+                feed_id, result.diagnostics, source=self.record_source
+            )
+        file_hash = result.file_hash
         self.logger.info("hash is: %s", file_hash)
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
 
     @with_db_session
-    def record_download_failure(
+    def record_download_diagnostics(
         self,
         feed_id,
         diagnostics,
@@ -171,7 +184,8 @@ class DatasetProcessor:
     ):
         """
         Stores the diagnostics of a download in gtfs_feed_availability_check: failed
-        nightly downloads, and every dry run whatever its outcome.
+        nightly downloads, and every run asked for by hand (dry or full) whatever its
+        outcome.
         Never raises: a storage failure must not mask the original download error.
         """
         try:
@@ -207,7 +221,9 @@ class DatasetProcessor:
                 diagnostics.external_ip = get_external_ip()
             except FeedDownloadError as exc:
                 diagnostics = exc.diagnostics
-            self.record_download_failure(feed_id, diagnostics, source=DRY_RUN_SOURCE)
+            self.record_download_diagnostics(
+                feed_id, diagnostics, source=DRY_RUN_SOURCE
+            )
             return diagnostics.success
         finally:
             if os.path.exists(temp_file_path):
@@ -736,6 +752,7 @@ def process_dataset(cloud_event: CloudEvent):
             json_payload["api_key_parameter_name"],
             public_hosted_datasets_url,
             json_payload.get("dataset_stable_id"),
+            record_source=json_payload.get("record_source"),
         )
         if json_payload.get("use_bucket_latest", False):
             dataset_file = processor.process_from_bucket()

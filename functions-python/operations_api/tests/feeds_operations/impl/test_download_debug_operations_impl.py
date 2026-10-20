@@ -252,6 +252,7 @@ async def test_nightly_job_queues_a_dry_run():
     assert body["execution_id"].startswith("download-dry-run")
     download.assert_not_called()
     trigger.assert_called_once()
+    assert body["dry_run"] is True
     assert trigger.call_args.kwargs == {
         "dry_run": True,
         "headers": {"User-Agent": "curl/8.0"},
@@ -306,3 +307,59 @@ async def test_nightly_job_rejects_invalid_headers():
             )
     assert exc_info.value.status_code == 400
     trigger.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_full_run_queues_the_nightly_process():
+    """dry_run=false sends the normal nightly message, recording the outcome."""
+    api = OperationsApiImpl()
+    with patch(
+        "feeds_operations.impl.feeds_operations_impl.DATASET_BATCH_TOPIC", "topic"
+    ), patch(
+        "feeds_operations.impl.feeds_operations_impl.trigger_dataset_download"
+    ) as trigger, patch(
+        "feeds_operations.impl.feeds_operations_impl.get_request_context",
+        return_value={},
+    ):
+        response = api.debug_gtfs_feed_download(
+            id=feed_mdb_40.stable_id,
+            gtfs_feed_download_debug_request=GtfsFeedDownloadDebugRequest(
+                run_on="nightly_job", dry_run=False
+            ),
+        )
+
+    assert response.status_code == 202
+    body = json.loads(response.body)
+    assert body["dry_run"] is False
+    assert body["source"] == "dataset_download_manual"
+    assert body["execution_id"].startswith("download-manual")
+    assert trigger.call_args.kwargs == {"record_source": "dataset_download_manual"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_body",
+    [
+        {"dry_run": False},
+        {"run_on": "api", "dry_run": False},
+        {"run_on": "nightly_job", "dry_run": False, "headers": {"X-Test": "1"}},
+    ],
+)
+async def test_full_run_rejects_invalid_combinations(request_body):
+    """A full run needs the nightly job and the nightly request headers."""
+    api = OperationsApiImpl()
+    with patch(
+        "feeds_operations.impl.feeds_operations_impl.trigger_dataset_download"
+    ) as trigger, patch(
+        "feeds_operations.impl.feeds_operations_impl.download_feed"
+    ) as download:
+        with pytest.raises(HTTPException) as exc_info:
+            api.debug_gtfs_feed_download(
+                id=feed_mdb_40.stable_id,
+                gtfs_feed_download_debug_request=GtfsFeedDownloadDebugRequest(
+                    **request_body
+                ),
+            )
+    assert exc_info.value.status_code == 400
+    trigger.assert_not_called()
+    download.assert_not_called()

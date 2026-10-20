@@ -78,11 +78,14 @@ def trigger_dataset_download(
     topic_name: str = DATASET_BATCH_TOPIC,
     dry_run: bool = False,
     headers: Optional[dict] = None,
+    record_source: Optional[str] = None,
 ) -> None:
     """Publishes the feed to the configured Pub/Sub topic.
 
     dry_run asks batch_process_dataset to only download the feed and record the
     diagnostics, storing no dataset; headers replace the default request headers.
+    record_source has the job record the download outcome under that source even when
+    it succeeds, for runs asked for by hand.
 
     No-ops when no topic is configured (``DATASET_PROCESSING_TOPIC_NAME`` unset),
     e.g. local development and tests, so the caller never constructs a Pub/Sub
@@ -114,6 +117,8 @@ def trigger_dataset_download(
         message_data["dry_run"] = True
     if headers is not None:
         message_data["headers"] = headers
+    if record_source:
+        message_data["record_source"] = record_source
 
     try:
         # Convert to JSON string

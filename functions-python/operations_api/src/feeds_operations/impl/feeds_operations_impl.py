@@ -42,8 +42,8 @@ from feeds_gen.models.gtfs_feed_download_debug_request import (
 from feeds_gen.models.gtfs_feed_download_debug_response import (
     GtfsFeedDownloadDebugResponse,
 )
-from feeds_gen.models.gtfs_feed_download_dry_run_response import (
-    GtfsFeedDownloadDryRunResponse,
+from feeds_gen.models.gtfs_feed_download_queued_response import (
+    GtfsFeedDownloadQueuedResponse,
 )
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
@@ -219,8 +219,9 @@ def _execution_attempt(row) -> ExecutionAttempt:
     )
 
 
-# Availability-check source batch_process_dataset records dry runs under.
+# Availability-check sources batch_process_dataset records runs asked for by hand under.
 DOWNLOAD_DRY_RUN_SOURCE: Final = "dataset_download_dry_run"
+DOWNLOAD_MANUAL_SOURCE: Final = "dataset_download_manual"
 
 # Stop reading well inside the function's 540 second timeout, so a slow download still
 # returns its diagnostics instead of the request being cut off with nothing.
@@ -242,8 +243,14 @@ def _validate_debug_headers(headers: Optional[dict]) -> None:
             )
 
 
-def _queue_nightly_download(gtfs_feed, headers: Optional[dict]) -> JSONResponse:
-    """Queue one dry-run download on batch_process_dataset and say where its result lands."""
+def _queue_nightly_download(
+    gtfs_feed, headers: Optional[dict], dry_run: bool
+) -> JSONResponse:
+    """Queue one run on batch_process_dataset and say where its download outcome lands.
+
+    A dry run only downloads. A full run is the nightly process itself for this feed,
+    with the download outcome recorded even on success so the caller can read it back.
+    """
     # trigger_dataset_download silently skips without a topic; say so instead of
     # leaving the caller polling for a result that will never come.
     if not DATASET_BATCH_TOPIC:
@@ -251,14 +258,21 @@ def _queue_nightly_download(gtfs_feed, headers: Optional[dict]) -> JSONResponse:
             status_code=503,
             detail="Dataset processing is not configured in this environment",
         )
-    execution_id = get_execution_id(get_request_context(), "download-dry-run")
+    prefix = "download-dry-run" if dry_run else "download-manual"
+    execution_id = get_execution_id(get_request_context(), prefix)
     queued_at = datetime.now(timezone.utc)
-    trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
-    payload = GtfsFeedDownloadDryRunResponse(
+    if dry_run:
+        source = DOWNLOAD_DRY_RUN_SOURCE
+        trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
+    else:
+        source = DOWNLOAD_MANUAL_SOURCE
+        trigger_dataset_download(gtfs_feed, execution_id, record_source=source)
+    payload = GtfsFeedDownloadQueuedResponse(
         feed_id=gtfs_feed.stable_id,
         execution_id=execution_id,
         queued_at=queued_at,
-        source=DOWNLOAD_DRY_RUN_SOURCE,
+        source=source,
+        dry_run=dry_run,
     )
     return JSONResponse(status_code=202, content=jsonable_encoder(payload))
 
@@ -513,7 +527,18 @@ class OperationsApiImpl(BaseOperationsApi):
         request = gtfs_feed_download_debug_request
         headers = request.headers if request else None
         run_on = (request.run_on if request else None) or "api"
+        dry_run = request.dry_run if request and request.dry_run is not None else True
         _validate_debug_headers(headers)
+        if not dry_run and run_on != "nightly_job":
+            raise HTTPException(
+                status_code=400, detail="dry_run=false requires run_on=nightly_job"
+            )
+        if not dry_run and headers is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="headers are only allowed on dry runs, so a stored dataset "
+                "always comes from the nightly request",
+            )
         if run_on == "nightly_job" and (
             max_bytes is not None or timeout_seconds is not None
         ):
@@ -529,7 +554,7 @@ class OperationsApiImpl(BaseOperationsApi):
         if not gtfs_feed.producer_url:
             raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
         if run_on == "nightly_job":
-            return _queue_nightly_download(gtfs_feed, headers)
+            return _queue_nightly_download(gtfs_feed, headers, dry_run)
 
         # Streamed and hashed, never written: Cloud Run's disk is memory, and a full-size
         # feed would otherwise exhaust the instance serving every other request.

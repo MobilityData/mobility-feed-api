@@ -66,7 +66,7 @@ class TestDryRunDownload(unittest.TestCase):
         with patch.dict(os.environ, {"WORKING_DIR": "/tmp"}), patch(
             "main.download_feed", side_effect=fake_download
         ), patch("main.get_external_ip", return_value="34.1.2.3"), patch.object(
-            processor, "record_download_failure"
+            processor, "record_download_diagnostics"
         ) as record:
             success = processor.dry_run_download(
                 "feed-1", headers={"User-Agent": "curl/8.0"}
@@ -85,7 +85,7 @@ class TestDryRunDownload(unittest.TestCase):
         with patch(
             "main.download_feed",
             side_effect=FeedDownloadError("boom", diagnostics),
-        ), patch.object(processor, "record_download_failure") as record:
+        ), patch.object(processor, "record_download_diagnostics") as record:
             success = processor.dry_run_download("feed-1")
 
         self.assertFalse(success)
