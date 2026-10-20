@@ -205,29 +205,26 @@ class DatasetProcessor:
         """
         temp_file_path = self.generate_temp_filename()
         try:
-            try:
-                diagnostics = download_feed(
-                    self.producer_url,
-                    temp_file_path,
-                    feed_id=feed_id,
-                    authentication_type=self.authentication_type,
-                    api_key_parameter_name=self.api_key_parameter_name,
-                    credentials=self.feed_credentials,
-                    logger=self.logger,
-                    headers=headers,
-                ).diagnostics
-                # Failures already carry it; a success needs it too, to compare egress
-                # with a test run from another service.
-                diagnostics.external_ip = get_external_ip()
-            except FeedDownloadError as exc:
-                diagnostics = exc.diagnostics
-            self.record_download_diagnostics(
-                feed_id, diagnostics, source=DRY_RUN_SOURCE
-            )
-            return diagnostics.success
+            diagnostics = download_feed(
+                self.producer_url,
+                temp_file_path,
+                feed_id=feed_id,
+                authentication_type=self.authentication_type,
+                api_key_parameter_name=self.api_key_parameter_name,
+                credentials=self.feed_credentials,
+                logger=self.logger,
+                headers=headers,
+            ).diagnostics
+            # Failures already carry it; a success needs it too, to compare egress
+            # with a test run from another service.
+            diagnostics.external_ip = get_external_ip()
+        except FeedDownloadError as exc:
+            diagnostics = exc.diagnostics
         finally:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+        self.record_download_diagnostics(feed_id, diagnostics, source=DRY_RUN_SOURCE)
+        return diagnostics.success
 
     def upload_dataset_zip_to_storage(
         self,
