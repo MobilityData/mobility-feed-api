@@ -150,20 +150,23 @@ resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-# Grant permissions to the service account to publish to the pubsub topic
-resource "google_pubsub_topic_iam_binding" "functions_publisher" {
+# Grant permissions to the service account to publish to the pubsub topic.
+# A member, not a binding: infra/functions-python grants the same role on this topic to
+# its own service account (operations-api publishes here), and an authoritative binding
+# would remove that grant on every batch deploy.
+resource "google_pubsub_topic_iam_member" "functions_publisher" {
   project = var.project_id
   role    = "roles/pubsub.publisher"
   topic   = google_pubsub_topic.pubsub_topic.name
-  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Grant permissions to the service account to subscribe to the pubsub topic
-resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
+resource "google_pubsub_topic_iam_member" "functions_subscriber" {
   project = var.project_id
   role    = "roles/pubsub.subscriber"
   topic   = google_pubsub_topic.pubsub_topic.name
-  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Batch datasets function
