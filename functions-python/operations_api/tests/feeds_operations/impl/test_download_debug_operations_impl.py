@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -8,7 +8,10 @@ from conftest import feed_mdb_40
 from feeds_gen.models.gtfs_feed_download_debug_request import (
     GtfsFeedDownloadDebugRequest,
 )
-from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
+from feeds_operations.impl.feeds_operations_impl import (
+    OperationsApiImpl,
+    _queue_nightly_download,
+)
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
 from shared.helpers.utils import FeedDownloadError, FeedDownloadResult
@@ -333,7 +336,34 @@ async def test_full_run_queues_the_nightly_process():
     assert body["dry_run"] is False
     assert body["source"] == "dataset_download_manual"
     assert body["execution_id"].startswith("download-manual")
-    assert trigger.call_args.kwargs == {"record_source": "dataset_download_manual"}
+    # mdb-40 has no dataset yet, so there is no hash to compare against.
+    assert trigger.call_args.kwargs == {
+        "record_source": "dataset_download_manual",
+        "dataset_stable_id": None,
+        "dataset_hash": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_full_run_sends_the_latest_dataset_hash():
+    """An unchanged file must be recognised, so the latest hash goes with the message."""
+    feed = MagicMock(stable_id="mdb-1")
+    latest = MagicMock(stable_id="mdb-1-202610200000", hash="abc123")
+    with patch(
+        "feeds_operations.impl.feeds_operations_impl.DATASET_BATCH_TOPIC", "topic"
+    ), patch(
+        "feeds_operations.impl.feeds_operations_impl.trigger_dataset_download"
+    ) as trigger, patch(
+        "feeds_operations.impl.feeds_operations_impl.get_request_context",
+        return_value={},
+    ):
+        _queue_nightly_download(feed, None, dry_run=False, latest_dataset=latest)
+
+    assert trigger.call_args.kwargs == {
+        "record_source": "dataset_download_manual",
+        "dataset_stable_id": "mdb-1-202610200000",
+        "dataset_hash": "abc123",
+    }
 
 
 @pytest.mark.asyncio

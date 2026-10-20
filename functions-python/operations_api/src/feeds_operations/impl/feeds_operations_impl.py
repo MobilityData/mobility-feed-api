@@ -244,7 +244,10 @@ def _validate_debug_headers(headers: Optional[dict]) -> None:
 
 
 def _queue_nightly_download(
-    gtfs_feed, headers: Optional[dict], dry_run: bool
+    gtfs_feed,
+    headers: Optional[dict],
+    dry_run: bool,
+    latest_dataset: Optional[Gtfsdataset] = None,
 ) -> JSONResponse:
     """Queue one run on batch_process_dataset and say where its download outcome lands.
 
@@ -266,7 +269,15 @@ def _queue_nightly_download(
         trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
     else:
         source = DOWNLOAD_MANUAL_SOURCE
-        trigger_dataset_download(gtfs_feed, execution_id, record_source=source)
+        # The latest dataset's hash, as the nightly scheduler sends it, so an unchanged
+        # file is recognised and no new dataset is stored.
+        trigger_dataset_download(
+            gtfs_feed,
+            execution_id,
+            record_source=source,
+            dataset_stable_id=latest_dataset.stable_id if latest_dataset else None,
+            dataset_hash=latest_dataset.hash if latest_dataset else None,
+        )
     payload = GtfsFeedDownloadQueuedResponse(
         feed_id=gtfs_feed.stable_id,
         execution_id=execution_id,
@@ -554,7 +565,12 @@ class OperationsApiImpl(BaseOperationsApi):
         if not gtfs_feed.producer_url:
             raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
         if run_on == "nightly_job":
-            return _queue_nightly_download(gtfs_feed, headers, dry_run)
+            latest_dataset = (
+                db_session.get(Gtfsdataset, gtfs_feed.latest_dataset_id)
+                if gtfs_feed.latest_dataset_id
+                else None
+            )
+            return _queue_nightly_download(gtfs_feed, headers, dry_run, latest_dataset)
 
         # Streamed and hashed, never written: Cloud Run's disk is memory, and a full-size
         # feed would otherwise exhaust the instance serving every other request.

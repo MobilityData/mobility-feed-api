@@ -39,3 +39,15 @@ class TestTriggerDatasetDownload(unittest.TestCase):
         message = _published_message(record_source="dataset_download_manual")
         self.assertEqual(message["record_source"], "dataset_download_manual")
         self.assertNotIn("dry_run", message)
+
+    def test_latest_dataset_is_sent_when_known(self):
+        message = _published_message(
+            dataset_stable_id="mdb-1-202610200000", dataset_hash="abc123"
+        )
+        self.assertEqual(message["dataset_stable_id"], "mdb-1-202610200000")
+        self.assertEqual(message["dataset_hash"], "abc123")
+
+    def test_dataset_hash_stays_null_for_a_new_feed(self):
+        message = _published_message()
+        self.assertIsNone(message["dataset_hash"])
+        self.assertNotIn("dataset_stable_id", message)

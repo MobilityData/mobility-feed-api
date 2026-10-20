@@ -79,6 +79,8 @@ def trigger_dataset_download(
     dry_run: bool = False,
     headers: Optional[dict] = None,
     record_source: Optional[str] = None,
+    dataset_stable_id: Optional[str] = None,
+    dataset_hash: Optional[str] = None,
 ) -> None:
     """Publishes the feed to the configured Pub/Sub topic.
 
@@ -86,6 +88,9 @@ def trigger_dataset_download(
     diagnostics, storing no dataset; headers replace the default request headers.
     record_source has the job record the download outcome under that source even when
     it succeeds, for runs asked for by hand.
+    dataset_stable_id and dataset_hash describe the feed's latest dataset, as the nightly
+    scheduler sends them; without the hash the job treats any download as a change and
+    stores a new dataset. Left out for a new feed, which has none.
 
     No-ops when no topic is configured (``DATASET_PROCESSING_TOPIC_NAME`` unset),
     e.g. local development and tests, so the caller never constructs a Pub/Sub
@@ -107,11 +112,13 @@ def trigger_dataset_download(
         "feed_stable_id": feed.stable_id,
         "feed_id": feed.id,
         "dataset_id": None,
-        "dataset_hash": None,
+        "dataset_hash": dataset_hash,
         "authentication_type": feed.authentication_type,
         "authentication_info_url": feed.authentication_info_url,
         "api_key_parameter_name": feed.api_key_parameter_name,
     }
+    if dataset_stable_id:
+        message_data["dataset_stable_id"] = dataset_stable_id
     # Only set when asked, so the nightly message is unchanged.
     if dry_run:
         message_data["dry_run"] = True
