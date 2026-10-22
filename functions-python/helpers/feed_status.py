@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Gtfsfeed
 from typing import TYPE_CHECKING
 
@@ -20,16 +20,16 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
             Gtfsdataset.service_date_range_end,
         )
         .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
-        .filter(
-            Gtfsdataset.service_date_range_start.isnot(None),
-            Gtfsdataset.service_date_range_end.isnot(None),
-        )
         .subquery()
     )
 
     status_conditions = [
         (
-            latest_dataset_subq.c.service_date_range_end < today_utc,
+            or_(
+                latest_dataset_subq.c.service_date_range_start.is_(None),
+                latest_dataset_subq.c.service_date_range_end.is_(None),
+                latest_dataset_subq.c.service_date_range_end < today_utc,
+            ),
             "inactive",
         ),
         (
