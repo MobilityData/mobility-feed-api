@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
@@ -332,6 +333,10 @@ class TestSubscriptions(unittest.TestCase):
             notification_type_id="feed.published",
             active=True,
             created_at=FIXED_NOW,
+            # NOT NULL with DB defaults: a real row always carries them, but server_default
+            # only fires on INSERT, not on a hand-built object.
+            cadence="weekly",
+            digest=True,
         )
         defaults.update(kwargs)
         return Orm(**defaults)
@@ -556,6 +561,158 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-old", "mdb-new"})
         self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new", "mdb-old"])
 
+    # ── delivery preferences: cadence and digest ──
+    def _notification_type(self, type_id):
+        """Wire the NotificationType lookup and the AppUser lookup for a create call."""
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id=type_id) if model is NotificationType else _make_user()
+        )
+
+    def test_create_new_subscription_defaults_to_weekly_digest(self):
+        """A new row carries the documented defaults without a DB round-trip.
+
+        They are set explicitly rather than left to the column's server_default, which only
+        materializes on INSERT - the object the response is built from would otherwise
+        serialize None.
+        """
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+        self.assertEqual(result.cadence, "weekly")
+        self.assertTrue(result.digest)
+
+    def test_create_applies_supplied_preferences(self):
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="daily", digest=False),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual(result.cadence, "daily")
+        self.assertFalse(result.digest)
+
+    def test_create_rejects_immediate_cadence(self):
+        """`immediate` is not exposed: no scheduler dispatches it (see docs/notifications.md
+        Future Work)."""
+        with self.assertRaises(ValidationError):
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="immediate")
+
+    def test_create_rejects_an_unknown_cadence(self):
+        with self.assertRaises(ValidationError):
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="hourly")
+
+    def test_repeat_create_without_preferences_leaves_them_alone(self):
+        """The upsert trap: a POST that only adds a feed must not reset a stored preference.
+
+        This is why neither request schema declares an OpenAPI `default` - the generator would
+        materialize it into the model and an omitted field would arrive as 'weekly'.
+        """
+        existing = self._make_sub(notification_type_id="feed.published", cadence="daily", digest=False)
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+        self.assertEqual(existing.cadence, "daily")
+        self.assertFalse(existing.digest)
+        self.assertEqual(result.cadence, "daily")
+
+    def test_repeat_create_with_preferences_updates_them(self):
+        existing = self._make_sub(notification_type_id="feed.published", cadence="weekly", digest=True)
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="daily", digest=False),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual(existing.cadence, "daily")
+        self.assertFalse(existing.digest)
+
+    def test_create_rejects_preferences_for_announcements(self):
+        """api.announcements is delivered through Brevo and skipped by every dispatch run, so
+        a cadence on it would never be read."""
+        self._notification_type("api.announcements")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="api.announcements", cadence="daily"),
+                db_session=self.mock_session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("cadence and digest are not supported", ctx.exception.detail)
+
+    def test_update_changes_each_preference_independently(self):
+        sub = self._make_sub(notification_type_id="feed.published", cadence="weekly", digest=True)
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(cadence="daily"), db_session=self.mock_session
+        )
+        self.assertEqual(sub.cadence, "daily")
+        self.assertTrue(sub.digest, "digest was not supplied, so it is untouched")
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(digest=False), db_session=self.mock_session
+        )
+        self.assertEqual(sub.cadence, "daily", "cadence was not supplied, so it is untouched")
+        self.assertFalse(sub.digest)
+
+    def test_update_rejects_preferences_for_announcements(self):
+        sub = self._make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(digest=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_update_that_empties_a_feed_scoped_subscription_still_deletes_it(self):
+        """The delete short-circuits before preferences are applied; supplying one alongside
+        the last remove_feed_ids must not resurrect the row."""
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedOrm
+
+        sub = self._make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-1"))
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1",
+            UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"], cadence="daily"),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.delete.assert_called_once_with(sub)
+
+    def test_list_reports_the_stored_preferences(self):
+        sub = self._make_sub(cadence="daily", digest=False)
+        query = self.mock_session.query.return_value
+        query.options.return_value.filter.return_value.order_by.return_value.all.return_value = [sub]
+
+        result = self.api.get_user_subscriptions(db_session=self.mock_session)
+
+        self.assertEqual(result[0].cadence, "daily")
+        self.assertFalse(result[0].digest)
+
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):
         sub = self._make_sub(notification_type_id="api.announcements", active=True)
@@ -756,6 +913,8 @@ class TestSubscriptionFeedGroups(unittest.TestCase):
             notification_type_id="feed.url_updated",
             active=True,
             created_at=FIXED_NOW,
+            cadence="weekly",
+            digest=True,
         )
         defaults.update(kwargs)
         return Orm(**defaults)
@@ -1047,6 +1206,8 @@ class TestAdminSummaryGate(unittest.TestCase):
             notification_type_id=self.ADMIN_TYPE,
             active=True,
             created_at=FIXED_NOW,
+            cadence="weekly",
+            digest=True,
         )
         self._configure(notifications=True, admin=False, sub=sub)
         with self.assertRaises(HTTPException) as ctx:

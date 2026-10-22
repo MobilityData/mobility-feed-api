@@ -22,6 +22,9 @@ def _make_sub(**kwargs):
         notification_type_id="feed.published",
         active=True,
         created_at=FIXED_NOW,
+        # NOT NULL with DB defaults; server_default only fires on INSERT.
+        cadence="weekly",
+        digest=True,
     )
     defaults.update(kwargs)
     return NotificationSubscriptionOrm(**defaults)
@@ -50,6 +53,17 @@ class TestPublicGetSubscription(unittest.TestCase):
         self.assertEqual(result.notification_id, "api.announcements")
         self.assertFalse(result.active)
         self.assertEqual(result.created_at, FIXED_NOW)
+
+    def test_reports_the_delivery_preferences(self):
+        """The capability endpoint shares NotificationSubscriptionImpl, so exposing cadence and
+        digest on the user API surfaces them here too - an unsubscribe page can show what the
+        subscriber is currently set to."""
+        self.mock_session.get.return_value = _make_sub(cadence="daily", digest=False)
+
+        result = self.api.get_subscription("sub-1", db_session=self.mock_session)
+
+        self.assertEqual(result.cadence, "daily")
+        self.assertFalse(result.digest)
 
     def test_get_does_not_touch_brevo(self):
         self.mock_session.get.return_value = _make_sub(notification_type_id="api.announcements")

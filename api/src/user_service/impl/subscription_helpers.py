@@ -31,6 +31,7 @@ from shared.common.brevo import (
 from shared.common.feature_flags import feature_flag_enabled  # noqa: F401  (re-exported)
 from shared.database.database import generate_unique_id, with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
+from shared.notifications.notification_constants import NotificationCadence
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationSubscription as NotificationSubscriptionOrm,
@@ -52,6 +53,24 @@ NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationsEnabled"
 # NOTIFICATIONS_FEATURE_FLAG_ID gate.
 ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID = "admin.event_summary"
 ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"
+
+# The delivery preferences a new subscription starts on. These mirror the DB defaults on
+# notification_subscription (cadence 'weekly', digest true) but are set explicitly when the row
+# is built, rather than left to server_default: a server default only materializes on INSERT and
+# then has to be read back, so the in-memory object would carry None until it is refreshed - and
+# the API serializes that object. Stating them here keeps the documented default and the stored
+# one the same thing.
+DEFAULT_NOTIFICATION_CADENCE = NotificationCadence.WEEKLY
+DEFAULT_NOTIFICATION_DIGEST = True
+
+# Returned when delivery preferences are supplied for api.announcements. That type is delivered
+# through Brevo contact lists managed at opt-in time, and the dispatcher skips it entirely (see
+# find_subscriptions), so a cadence or digest setting on it would never be read by anything.
+# Rejected rather than ignored, so a caller is never left believing a preference took effect.
+ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED = (
+    "cadence and digest are not supported for notification type '{notification_type_id}'; "
+    "it is delivered through Brevo, not the notification dispatcher."
+)
 
 # Notification types that are scoped to specific feeds. A subscription to any of
 # these must carry a non-empty list of feed stable IDs (persisted in the
@@ -186,6 +205,8 @@ def set_announcements_optin(
             user_id=user.id,
             notification_type_id=ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
             created_at=datetime.now(timezone.utc),
+            cadence=DEFAULT_NOTIFICATION_CADENCE,
+            digest=DEFAULT_NOTIFICATION_DIGEST,
         )
         sub.active = True
         if existing is None:
