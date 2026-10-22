@@ -280,6 +280,17 @@
       "status_code": null,
       "latency_ms": null,
       "error_type": "connection_timeout"
+    },
+    {
+      "feed_stable_id": "mdb-1",
+      "checked_at": "2025-05-20T10:00:00+00:00",
+      "request_url": "https://example.com/gtfs.zip",
+      "request_type": "http_get",
+      "success": false,
+      "status_code": 403,
+      "latency_ms": 640,
+      "error_type": "http_error",
+      "source": "dataset_download"
     }
   ]
 }

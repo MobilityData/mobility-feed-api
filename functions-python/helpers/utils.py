@@ -492,7 +492,7 @@ def build_availability_check(
 ):
     """Map diagnostics onto a GtfsFeedAvailabilityCheck row.
 
-    source is one of 'availability_check' or 'dataset_download'.
+    source is an AvailabilityCheckSource value.
     """
     from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
 
@@ -594,6 +594,7 @@ def perform_request(
     Note: request_url is always the original producer_url (never the
     credential-bearing resolved URL) to avoid persisting secrets.
     """
+    from shared.common.availability_check_source import AvailabilityCheckSource
     from shared.database_gen.sqlacodegen_models import GtfsFeedAvailabilityCheck
 
     checked_at = datetime.now(timezone.utc)
@@ -687,7 +688,7 @@ def perform_request(
         success=success,
         content_type=content_type,
         is_zip=is_zip,
-        source="availability_check",
+        source=AvailabilityCheckSource.AVAILABILITY_CHECK.value,
         request_headers=sanitize_headers(headers, api_key_parameter_name),
         response_headers=sanitize_headers(dict(resp_headers) if resp_headers else None),
         redirect_urls=[

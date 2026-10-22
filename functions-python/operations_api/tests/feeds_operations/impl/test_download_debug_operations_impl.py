@@ -251,7 +251,7 @@ async def test_nightly_job_queues_a_dry_run():
     assert response.status_code == 202
     body = json.loads(response.body)
     assert body["feed_id"] == feed_mdb_40.stable_id
-    assert body["source"] == "dataset_download_dry_run"
+    assert body["source"] == "dataset_download_manual"
     assert body["execution_id"].startswith("download-dry-run")
     download.assert_not_called()
     trigger.assert_called_once()

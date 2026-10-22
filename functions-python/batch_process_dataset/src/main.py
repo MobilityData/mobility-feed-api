@@ -32,6 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import (
     create_refresh_materialized_view_task,
@@ -161,7 +162,8 @@ class DatasetProcessor:
                 self.record_download_diagnostics(
                     feed_id,
                     exc.diagnostics,
-                    source=self.record_source or "dataset_download",
+                    source=self.record_source
+                    or AvailabilityCheckSource.DATASET_DOWNLOAD.value,
                 )
             raise
         if feed_id and self.record_source:
@@ -179,7 +181,7 @@ class DatasetProcessor:
         self,
         feed_id,
         diagnostics,
-        source: str = "dataset_download",
+        source: str = AvailabilityCheckSource.DATASET_DOWNLOAD.value,
         db_session: Session = None,
     ):
         """
@@ -199,7 +201,7 @@ class DatasetProcessor:
     def dry_run_download(self, feed_id, headers: Optional[dict] = None) -> bool:
         """
         Downloads the feed exactly as transfer_dataset does - same function, temp file
-        and request - and records the diagnostics under DRY_RUN_SOURCE. Nothing is
+        and request - and records the diagnostics as a manual download. Nothing is
         uploaded and no dataset is created. headers, when given, replace the defaults.
         :return: whether the download succeeded
         """
@@ -223,7 +225,11 @@ class DatasetProcessor:
         finally:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-        self.record_download_diagnostics(feed_id, diagnostics, source=DRY_RUN_SOURCE)
+        self.record_download_diagnostics(
+            feed_id,
+            diagnostics,
+            source=AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value,
+        )
         return diagnostics.success
 
     def upload_dataset_zip_to_storage(
@@ -625,10 +631,6 @@ def record_trace(
         timestamp=datetime.now(),
     )
     trace_service.save(trace)
-
-
-# availability-check source of dry-run downloads, kept apart from real nightly failures.
-DRY_RUN_SOURCE = "dataset_download_dry_run"
 
 
 def process_dry_run(json_payload: dict) -> str:

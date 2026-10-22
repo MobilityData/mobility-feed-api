@@ -989,7 +989,10 @@ def test_feeds_have_expected_license_info(
 # ---- GTFS Feed Availability endpoint tests ----
 
 AVAILABILITY_FEED_ID = TEST_GTFS_FEED_STABLE_IDS[0]  # mdb-1 — has availability_checks fixture data
-AVAILABILITY_CHECKS_COUNT = 5  # number of checks added in extra_test_data.json for mdb-1
+# Daily availability checks added in extra_test_data.json for mdb-1. The fixture also has a
+# failed dataset download for mdb-1, which the public endpoint must not return.
+AVAILABILITY_CHECKS_COUNT = 5
+DATASET_DOWNLOAD_CHECKED_AT = "2025-05-20T10:00:00"
 
 
 def test_gtfs_feed_availability_basic(client: TestClient):
@@ -1140,6 +1143,20 @@ def test_gtfs_feed_availability_pagination_offset(client: TestClient):
     first_timestamps = {c["checked_at"] for c in first["checks"]}
     second_timestamps = {c["checked_at"] for c in second["checks"]}
     assert first_timestamps.isdisjoint(second_timestamps)
+
+
+def test_gtfs_feed_availability_excludes_download_diagnostics(client: TestClient):
+    """A failed dataset download recorded in the same table is not an availability check."""
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_feeds/{AVAILABILITY_FEED_ID}/availability",
+        headers=authHeaders,
+        params={"from": "2025-05-01T00:00:00Z"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert all(not c["checked_at"].startswith(DATASET_DOWNLOAD_CHECKED_AT) for c in body["checks"])
 
 
 def test_gtfs_feed_availability_not_found(client: TestClient):

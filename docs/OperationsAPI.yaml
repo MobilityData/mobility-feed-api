@@ -211,7 +211,7 @@ paths:
       - $ref: "#/components/parameters/feed_id_path_param"
     post:
       description: >
-        Downloads the GTFS feed through the same code path used by the nightly dataset download. Nothing is stored unless `dry_run` is false. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once; with `dry_run = false` that run also processes the dataset exactly as the nightly run does. That outcome is recorded as an availability check with `source = dataset_download_dry_run`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted.
+        Downloads the GTFS feed through the same code path used by the nightly dataset download. Nothing is stored unless `dry_run` is false. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once; with `dry_run = false` that run also processes the dataset exactly as the nightly run does. That outcome, dry or full, is recorded as an availability check with `source = dataset_download_manual`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted.
       tags:
         - "operations"
       operationId: debugGtfsFeedDownload
@@ -1945,8 +1945,8 @@ components:
         source:
           type: string
           description: >
-            Availability check source the download outcome is recorded under: `dataset_download_dry_run` for a dry run, `dataset_download_manual` for a full run.
-          example: dataset_download_dry_run
+            Availability check source the download outcome is recorded under: `dataset_download_manual`, for dry and full runs alike.
+          example: dataset_download_manual
     GtfsFeedDownloadDebugRequest:
       type: object
       description: Options for a download debug attempt.
@@ -4220,16 +4220,19 @@ components:
       name: source
       in: query
       description: >
-        Return only checks written by this source: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads), `dataset_download_dry_run` (download_debug dry runs on the nightly job) or `dataset_download_manual` (download_debug full runs, success included).
+        Return only checks written by these sources; repeat the parameter to combine several (`?source=dataset_download&source=dataset_download_manual`). Without it, checks from every source are returned. Sources: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads) or `dataset_download_manual` (download_debug runs on the nightly job, dry or full, success included). Only `availability_check` counts toward the public availability endpoint and the Seal of Reliability.
       required: false
+      style: form
+      explode: true
       schema:
-        type: string
-        enum:
-          - availability_check
-          - dataset_download
-          - dataset_download_dry_run
-          - dataset_download_manual
-      example: dataset_download
+        type: array
+        items:
+          type: string
+          enum:
+            - availability_check
+            - dataset_download
+            - dataset_download_manual
+      example: [dataset_download]
     availability_to:
       x-operation: true
       name: to

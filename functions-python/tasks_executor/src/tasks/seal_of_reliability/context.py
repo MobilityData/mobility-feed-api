@@ -38,6 +38,7 @@ from typing import Dict, Final, Iterator, List, Optional, Sequence
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import feed_availability_checks_filter
 from shared.common.continuous_coverage import CALENDAR_FILES
 from shared.common.seal_criteria import AVAILABILITY_LOOKBACK, CriterionNameStr
 from tasks.seal_of_reliability.history import (
@@ -391,6 +392,9 @@ def _load_availability(
 ) -> Dict[FeedIdStr, AvailabilityCheck]:
     """feed_id -> its latest availability check in the 24 hours up to `now`.
 
+    Only the sources that count as feed availability are read, so a download failure
+    recorded in the same table does not stand in for the daily check.
+
     A rolling 24-hour window rather than "the UTC day of `now`", so a check still counts when
     the availability job (02:00 UTC) and the seal run (04:00 UTC) drift apart, or when one of
     them runs late.
@@ -407,6 +411,7 @@ def _load_availability(
             GtfsFeedAvailabilityCheck.feed_id.in_(list(feed_ids)),
             GtfsFeedAvailabilityCheck.checked_at > now - AVAILABILITY_LOOKBACK,
             GtfsFeedAvailabilityCheck.checked_at <= now,
+            feed_availability_checks_filter(),
         )
         .distinct(GtfsFeedAvailabilityCheck.feed_id)
         .order_by(

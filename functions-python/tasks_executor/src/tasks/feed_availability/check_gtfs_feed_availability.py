@@ -21,6 +21,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -273,7 +274,7 @@ def check_gtfs_feed_availability(
                     error_message=str(exc),
                     error_type=type(exc).__name__,
                     success=False,
-                    source="availability_check",
+                    source=AvailabilityCheckSource.AVAILABILITY_CHECK.value,
                 )
             results.append(check)
             batch.append(check)

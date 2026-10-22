@@ -156,6 +156,8 @@
     <include file="changes/feat_parquet_builder_size.sql" relativeToChangelogFile="true"/>
     <!-- Request/response debugging columns on gtfs_feed_availability_check. -->
     <include file="changes/feat_download_debug.sql" relativeToChangelogFile="true"/>
+    <!-- Default gtfs_feed_availability_check.source to availability_check and make it NOT NULL. -->
+    <include file="changes/feat_download_debug_source_default.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

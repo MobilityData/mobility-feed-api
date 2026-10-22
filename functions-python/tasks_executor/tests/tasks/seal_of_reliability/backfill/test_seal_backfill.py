@@ -31,6 +31,7 @@ from unittest.mock import patch
 
 from sqlalchemy import delete, insert, select
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feedinfo,
@@ -1513,9 +1514,19 @@ AVAIL_END = date(2026, 5, 16)
 # day's start, so a check taken during day D falls in the window of day D+1, never day D.
 OK_CHECK = datetime(2026, 5, 11, 14, 0, tzinfo=timezone.utc)
 BAD_CHECK = datetime(2026, 5, 13, 14, 0, tzinfo=timezone.utc)
+# Download diagnostics recorded in the same table. Each is the newest row of its day, so a
+# march that read them would turn 2026-05-12 into a FAIL and 2026-05-16 into a PASS.
+FAILED_DOWNLOAD = datetime(2026, 5, 11, 16, 0, tzinfo=timezone.utc)
+MANUAL_DOWNLOAD = datetime(2026, 5, 15, 14, 0, tzinfo=timezone.utc)
 
 
-def _seed_check(db_session, feed_id, checked_at, success):
+def _seed_check(
+    db_session,
+    feed_id,
+    checked_at,
+    success,
+    source=AvailabilityCheckSource.AVAILABILITY_CHECK,
+):
     db_session.execute(
         insert(GtfsFeedAvailabilityCheck.__table__).values(
             feed_id=feed_id,
@@ -1523,6 +1534,7 @@ def _seed_check(db_session, feed_id, checked_at, success):
             request_url=f"https://example.com/{feed_id}.zip",
             request_type="http_head",
             success=success,
+            source=source.value,
         )
     )
 
@@ -1539,6 +1551,9 @@ class TestAvailabilityIsMarchedFromHistory(unittest.TestCase):
     one becomes a PASS, the failed one a FAIL, and the days whose 24-hour window holds neither
     stay UNKNOWN. A run that ignores the table fails on the first two; one that ignores the
     window and reuses a single check for the whole march fails on the third.
+
+    Two download diagnostics are seeded too and must change nothing: only the daily check
+    answers Available, in a march as in the nightly run.
     """
 
     @with_db_session(db_url=default_db_url)
@@ -1547,6 +1562,20 @@ class TestAvailabilityIsMarchedFromHistory(unittest.TestCase):
         _seed_feed(db_session, AVAIL, OLD_CREATED)
         _seed_check(db_session, AVAIL, OK_CHECK, True)
         _seed_check(db_session, AVAIL, BAD_CHECK, False)
+        _seed_check(
+            db_session,
+            AVAIL,
+            FAILED_DOWNLOAD,
+            False,
+            AvailabilityCheckSource.DATASET_DOWNLOAD,
+        )
+        _seed_check(
+            db_session,
+            AVAIL,
+            MANUAL_DOWNLOAD,
+            True,
+            AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL,
+        )
         db_session.commit()
 
     @with_db_session(db_url=default_db_url)

@@ -6,12 +6,15 @@ from unittest.mock import patch
 
 from cloudevents.http import CloudEvent
 
-from main import DRY_RUN_SOURCE, DatasetProcessor, process_dataset
+from main import DatasetProcessor, process_dataset
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.helpers.utils import (
     FeedDownloadError,
     FeedDownloadResult,
     FeedRequestDiagnostics,
 )
+
+MANUAL_SOURCE = AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value
 
 
 def _processor():
@@ -76,7 +79,7 @@ class TestDryRunDownload(unittest.TestCase):
         self.assertEqual(written["headers"], {"User-Agent": "curl/8.0"})
         self.assertFalse(os.path.exists(written["path"]))
         self.assertEqual(diagnostics.external_ip, "34.1.2.3")
-        record.assert_called_once_with("feed-1", diagnostics, source=DRY_RUN_SOURCE)
+        record.assert_called_once_with("feed-1", diagnostics, source=MANUAL_SOURCE)
 
     def test_failure_is_recorded_not_raised(self):
         processor = _processor()
@@ -89,7 +92,7 @@ class TestDryRunDownload(unittest.TestCase):
             success = processor.dry_run_download("feed-1")
 
         self.assertFalse(success)
-        record.assert_called_once_with("feed-1", diagnostics, source=DRY_RUN_SOURCE)
+        record.assert_called_once_with("feed-1", diagnostics, source=MANUAL_SOURCE)
 
 
 class TestProcessDatasetDryRun(unittest.TestCase):

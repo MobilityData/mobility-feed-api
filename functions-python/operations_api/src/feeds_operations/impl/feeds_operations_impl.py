@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final, List, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -75,6 +75,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     TaskExecutionAttempt,
 )
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.common.config_reader import get_config_value
 from shared.helpers.parquet_policy import SIZE_CONFIG_KEY, SIZE_CONFIG_NAMESPACE
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
@@ -219,9 +220,9 @@ def _execution_attempt(row) -> ExecutionAttempt:
     )
 
 
-# Availability-check sources batch_process_dataset records runs asked for by hand under.
-DOWNLOAD_DRY_RUN_SOURCE: Final = "dataset_download_dry_run"
-DOWNLOAD_MANUAL_SOURCE: Final = "dataset_download_manual"
+# Availability-check source batch_process_dataset records runs asked for by hand under,
+# dry or full.
+DOWNLOAD_MANUAL_SOURCE: Final = AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value
 
 # Stop reading well inside the function's 540 second timeout, so a slow download still
 # returns its diagnostics instead of the request being cut off with nothing.
@@ -265,16 +266,14 @@ def _queue_nightly_download(
     execution_id = get_execution_id(get_request_context(), prefix)
     queued_at = datetime.now(timezone.utc)
     if dry_run:
-        source = DOWNLOAD_DRY_RUN_SOURCE
         trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
     else:
-        source = DOWNLOAD_MANUAL_SOURCE
         # The latest dataset's hash, as the nightly scheduler sends it, so an unchanged
         # file is recognised and no new dataset is stored.
         trigger_dataset_download(
             gtfs_feed,
             execution_id,
-            record_source=source,
+            record_source=DOWNLOAD_MANUAL_SOURCE,
             dataset_stable_id=latest_dataset.stable_id if latest_dataset else None,
             dataset_hash=latest_dataset.hash if latest_dataset else None,
         )
@@ -282,7 +281,7 @@ def _queue_nightly_download(
         feed_id=gtfs_feed.stable_id,
         execution_id=execution_id,
         queued_at=queued_at,
-        source=source,
+        source=DOWNLOAD_MANUAL_SOURCE,
         dry_run=dry_run,
     )
     return JSONResponse(status_code=202, content=jsonable_encoder(payload))
@@ -415,13 +414,24 @@ class OperationsApiImpl(BaseOperationsApi):
         ],
         var_from: Optional[datetime] = None,
         to: Optional[datetime] = None,
-        source: Optional[str] = None,
+        source: Optional[List[str]] = None,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
         sort: Optional[str] = "desc",
         db_session: Session = None,
     ) -> GtfsFeedAvailabilityResponse:
-        """Get availability check history for the specified GTFS feed."""
+        """Get availability check history for the specified GTFS feed.
+
+        Unlike the public endpoint, every source is returned unless `source` narrows it.
+        """
+        known_sources = {s.value for s in AvailabilityCheckSource}
+        unknown_sources = sorted(set(source or []) - known_sources)
+        if unknown_sources:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid source {', '.join(unknown_sources)}; "
+                f"expected one of {', '.join(sorted(known_sources))}",
+            )
         gtfs_feed = (
             db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
         )
@@ -435,8 +445,8 @@ class OperationsApiImpl(BaseOperationsApi):
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
         if to is not None:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
-        if source is not None:
-            query = query.filter(GtfsFeedAvailabilityCheck.source == source)
+        if source:
+            query = query.filter(GtfsFeedAvailabilityCheck.source.in_(source))
 
         total = query.count()
         order = (
