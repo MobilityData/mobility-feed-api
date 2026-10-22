@@ -37,3 +37,6 @@ fastapi_filter
 pycountry
 shapely
 pandas
+
+# Brevo (Sendinblue) SDK for the API announcements sync check (shared/common/brevo.py)
+sib-api-v3-sdk
