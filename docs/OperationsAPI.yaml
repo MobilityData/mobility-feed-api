@@ -2076,6 +2076,52 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+        source:
+          type: string
+          nullable: true
+          description: What wrote the check; see the `source` filter of the availability endpoint.
+          example: dataset_download
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the check failed, with credentials redacted.
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: application/zip
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the response content is a ZIP file.
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it was captured.
+          example: 34.95.1.1
+      x-operation: true
     GtfsFeedContinuousCoverageResponse:
       type: object
       description: >
@@ -4383,6 +4429,162 @@ components:
           items:
             type: string
           default: []
+    GtfsFeedDownloadDebugRequest:
+      x-operation: true
+      type: object
+      description: Options for a download debug attempt.
+      properties:
+        run_on:
+          type: string
+          enum:
+            - api
+            - nightly_job
+          default: api
+          description: >
+            Where the download runs: `api` within this request, answering with its diagnostics; `nightly_job` on the nightly dataset download job, answering 202 with where to read the result.
+        dry_run:
+          type: boolean
+          default: true
+          description: >
+            With `run_on = nightly_job`, false runs the complete nightly process instead of only the download: if the file changed, a new dataset is uploaded, stored and becomes the feed's latest, and its follow-up tasks run. The download outcome is recorded with `source = dataset_download_manual`. Only allowed with `run_on = nightly_job` and without `headers`, so a stored dataset is never produced with headers the nightly run would not send.
+        headers:
+          type: object
+          nullable: true
+          maxProperties: 50
+          additionalProperties:
+            type: string
+          description: >
+            Request headers to send instead of the defaults (the per-feed override, or the default User-Agent and Referer), as the local download verifier's --header does. The feed's API key is still applied on top. Omit to use the same headers as the nightly download.
+          example:
+            User-Agent: curl/8.0
+    GtfsFeedDownloadDebugResponse:
+      x-operation: true
+      type: object
+      description: >
+        Request and response detail of a single feed download attempt. Credential values in headers and URLs are replaced with a redaction marker.
+      required:
+        - feed_id
+        - producer_url
+        - success
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        producer_url:
+          type: string
+          description: Feed URL that was requested, with credentials redacted.
+          example: https://example.com/gtfs.zip
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        success:
+          type: boolean
+          description: Whether the download returned a 2xx response.
+          example: false
+        status_code:
+          type: integer
+          nullable: true
+          description: HTTP status code of the final response.
+          example: 403
+        latency_ms:
+          type: integer
+          nullable: true
+          description: Time to first response, in milliseconds.
+          example: 1840
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it could be determined.
+          example: 34.95.1.1
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: text/html
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the downloaded content is a ZIP file.
+        downloaded_bytes:
+          type: integer
+          nullable: true
+          description: Number of bytes read before the download completed or hit the byte cap.
+          example: 2038
+        truncated:
+          type: boolean
+          description: Whether the download stopped before the end of the file, at the byte cap or the time limit.
+          example: false
+        stop_reason:
+          type: string
+          nullable: true
+          enum: [max_bytes, deadline]
+          description: >
+            Why reading stopped before the end of the file: `max_bytes` when the requested byte cap was reached, `deadline` when the 480 second endpoint limit was. Null when the whole file was read.
+        duration_ms:
+          type: integer
+          nullable: true
+          description: Time from sending the request to the last byte read, in milliseconds.
+          example: 12500
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the download failed.
+          example: ValueError
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the download failed, with credentials redacted.
+    GtfsFeedDownloadQueuedResponse:
+      x-operation: true
+      type: object
+      description: A download queued on the nightly dataset download job (`run_on = nightly_job`).
+      required:
+        - feed_id
+        - execution_id
+        - queued_at
+        - source
+        - dry_run
+      properties:
+        dry_run:
+          type: boolean
+          description: Whether the queued run only downloads (true) or downloads and processes the dataset as the nightly run does (false).
+          example: true
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        execution_id:
+          type: string
+          description: Execution identifier of the queued dry run, as it appears in the job's logs.
+        queued_at:
+          type: string
+          format: date-time
+          description: When the dry run was queued. Its result is the first availability check of `source` at or after this time.
+        source:
+          type: string
+          description: >
+            Availability check source the download outcome is recorded under: `dataset_download_manual`, for dry and full runs alike.
+          example: dataset_download_manual
   parameters:
     early_access_format_param:
       x-operation: true
