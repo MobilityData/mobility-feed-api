@@ -32,6 +32,7 @@ from google.cloud import storage
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.common.gcp_memory_utils import limit_gcp_memory
 from shared.common.gcp_utils import (
     create_refresh_materialized_view_task,
@@ -42,7 +43,10 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfe
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import (
-    download_and_get_hash,
+    FeedDownloadError,
+    build_availability_check,
+    download_feed,
+    get_external_ip,
     get_hash_from_file,
     download_from_gcs,
 )
@@ -83,8 +87,12 @@ class DatasetProcessor:
         api_key_parameter_name,
         public_hosted_datasets_url,
         dataset_stable_id=None,
+        record_source: Optional[str] = None,
     ):
         self.logger = get_logger(DatasetProcessor.__name__, feed_stable_id)
+        # Set for runs someone asked for by hand: the download outcome is then recorded
+        # under this source whether it succeeds or fails, so they can read it back.
+        self.record_source = record_source
         self.producer_url = producer_url
         self.bucket_name = bucket_name
         self.latest_hash = latest_hash
@@ -139,18 +147,90 @@ class DatasetProcessor:
         """
         Downloads the content of a URL and return the hash of the file
         """
-        file_hash = download_and_get_hash(
-            self.producer_url,
-            file_path=temporary_file_path,
-            feed_id=feed_id,
-            authentication_type=self.authentication_type,
-            api_key_parameter_name=self.api_key_parameter_name,
-            credentials=self.feed_credentials,
-            logger=self.logger,
-        )
+        try:
+            result = download_feed(
+                self.producer_url,
+                file_path=temporary_file_path,
+                feed_id=feed_id,
+                authentication_type=self.authentication_type,
+                api_key_parameter_name=self.api_key_parameter_name,
+                credentials=self.feed_credentials,
+                logger=self.logger,
+            )
+        except FeedDownloadError as exc:
+            if feed_id:
+                self.record_download_diagnostics(
+                    feed_id,
+                    exc.diagnostics,
+                    source=self.record_source
+                    or AvailabilityCheckSource.DATASET_DOWNLOAD.value,
+                )
+            raise
+        if feed_id and self.record_source:
+            result.diagnostics.external_ip = get_external_ip()
+            self.record_download_diagnostics(
+                feed_id, result.diagnostics, source=self.record_source
+            )
+        file_hash = result.file_hash
         self.logger.info("hash is: %s", file_hash)
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
+
+    @with_db_session
+    def record_download_diagnostics(
+        self,
+        feed_id,
+        diagnostics,
+        source: str = AvailabilityCheckSource.DATASET_DOWNLOAD.value,
+        db_session: Session = None,
+    ):
+        """
+        Stores the diagnostics of a download in gtfs_feed_availability_check: failed
+        nightly downloads, and every run asked for by hand (dry or full) whatever its
+        outcome.
+        Never raises: a storage failure must not mask the original download error.
+        """
+        try:
+            db_session.add(
+                build_availability_check(diagnostics, feed_id=feed_id, source=source)
+            )
+            db_session.commit()
+        except Exception as exc:
+            self.logger.error("Could not store download diagnostics: %s", exc)
+
+    def dry_run_download(self, feed_id, headers: Optional[dict] = None) -> bool:
+        """
+        Downloads the feed exactly as transfer_dataset does - same function, temp file
+        and request - and records the diagnostics as a manual download. Nothing is
+        uploaded and no dataset is created. headers, when given, replace the defaults.
+        :return: whether the download succeeded
+        """
+        temp_file_path = self.generate_temp_filename()
+        try:
+            diagnostics = download_feed(
+                self.producer_url,
+                temp_file_path,
+                feed_id=feed_id,
+                authentication_type=self.authentication_type,
+                api_key_parameter_name=self.api_key_parameter_name,
+                credentials=self.feed_credentials,
+                logger=self.logger,
+                headers=headers,
+            ).diagnostics
+            # Failures already carry it; a success needs it too, to compare egress
+            # with a test run from another service.
+            diagnostics.external_ip = get_external_ip()
+        except FeedDownloadError as exc:
+            diagnostics = exc.diagnostics
+        finally:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+        self.record_download_diagnostics(
+            feed_id,
+            diagnostics,
+            source=AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value,
+        )
+        return diagnostics.success
 
     def upload_dataset_zip_to_storage(
         self,
@@ -553,6 +633,32 @@ def record_trace(
     trace_service.save(trace)
 
 
+def process_dry_run(json_payload: dict) -> str:
+    """
+    Handles a dry-run message: one download through the nightly code path, with its
+    diagnostics recorded and nothing else. Skips the execution trace on purpose, so a
+    dry run never counts against the nightly job's maximum executions.
+    """
+    stable_id = json_payload["feed_stable_id"]
+    logger = get_logger("process_dataset", stable_id)
+    processor = DatasetProcessor(
+        json_payload["producer_url"],
+        json_payload["feed_id"],
+        stable_id,
+        json_payload["execution_id"],
+        None,
+        os.getenv("DATASETS_BUCKET_NAME"),
+        int(json_payload["authentication_type"]),
+        json_payload["api_key_parameter_name"],
+        os.getenv("PUBLIC_HOSTED_DATASETS_URL"),
+    )
+    success = processor.dry_run_download(
+        json_payload["feed_id"], headers=json_payload.get("headers")
+    )
+    logger.info("Dry run download %s", "succeeded" if success else "failed")
+    return "Dry run completed."
+
+
 @functions_framework.cloud_event
 def process_dataset(cloud_event: CloudEvent):
     """
@@ -596,6 +702,14 @@ def process_dataset(cloud_event: CloudEvent):
         logging.error(f"Function completed with error:{error_message}")
         return
 
+    if json_payload.get("dry_run"):
+        try:
+            return process_dry_run(json_payload)
+        except Exception as e:
+            error_message = f"[{stable_id}] Dry run failed: [{type(e).__name__}]: {e}"
+            logging.error(error_message)
+            return error_message
+
     try:
         try:
             maximum_executions = int(os.getenv("MAXIMUM_EXECUTIONS", "1"))
@@ -637,6 +751,7 @@ def process_dataset(cloud_event: CloudEvent):
             json_payload["api_key_parameter_name"],
             public_hosted_datasets_url,
             json_payload.get("dataset_stable_id"),
+            record_source=json_payload.get("record_source"),
         )
         if json_payload.get("use_bucket_latest", False):
             dataset_file = processor.process_from_bucket()

@@ -18,8 +18,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
-from datetime import datetime
-from typing import Annotated, Final, Optional
+import re
+from datetime import datetime, timezone
+from typing import Annotated, Final, List, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -34,6 +35,15 @@ from feeds_gen.models.execution_attempts_response import ExecutionAttemptsRespon
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
 from feeds_gen.models.gtfs_feed_availability_response import (
     GtfsFeedAvailabilityResponse,
+)
+from feeds_gen.models.gtfs_feed_download_debug_request import (
+    GtfsFeedDownloadDebugRequest,
+)
+from feeds_gen.models.gtfs_feed_download_debug_response import (
+    GtfsFeedDownloadDebugResponse,
+)
+from feeds_gen.models.gtfs_feed_download_queued_response import (
+    GtfsFeedDownloadQueuedResponse,
 )
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
@@ -65,6 +75,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     TaskExecutionAttempt,
 )
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.common.config_reader import get_config_value
 from shared.helpers.parquet_policy import SIZE_CONFIG_KEY, SIZE_CONFIG_NAMESPACE
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
@@ -72,7 +83,16 @@ from shared.common.gcp_utils import create_web_revalidation_task
 from shared.db_models.gtfs_feed_availability_check_impl import (
     GtfsFeedAvailabilityCheckImpl,
 )
-from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
+from shared.helpers.pub_sub import (
+    DATASET_BATCH_TOPIC,
+    get_execution_id,
+    trigger_dataset_download,
+)
+from shared.helpers.utils import (
+    FeedDownloadError,
+    download_feed,
+    get_feed_credentials,
+)
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
@@ -198,6 +218,73 @@ def _execution_attempt(row) -> ExecutionAttempt:
         peak_rss_bytes=row.peak_rss_bytes,
         peak_vms_bytes=row.peak_vms_bytes,
     )
+
+
+# Availability-check source batch_process_dataset records runs asked for by hand under,
+# dry or full.
+DOWNLOAD_MANUAL_SOURCE: Final = AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value
+
+# Stop reading well inside the function's 540 second timeout, so a slow download still
+# returns its diagnostics instead of the request being cut off with nothing.
+_DOWNLOAD_DEBUG_DEADLINE_SECONDS: Final = 480
+
+# RFC 9110 field-name token. Values only need to be free of line breaks, which would
+# let a caller smuggle extra headers into the request.
+_HEADER_NAME_RE: Final = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
+
+def _validate_debug_headers(headers: Optional[dict]) -> None:
+    """Reject custom download headers that requests would refuse mid-download."""
+    for name, value in (headers or {}).items():
+        if not _HEADER_NAME_RE.match(name):
+            raise HTTPException(status_code=400, detail=f"Invalid header name {name!r}")
+        if "\r" in value or "\n" in value:
+            raise HTTPException(
+                status_code=400, detail=f"Header {name!r} contains a line break"
+            )
+
+
+def _queue_nightly_download(
+    gtfs_feed,
+    headers: Optional[dict],
+    dry_run: bool,
+    latest_dataset: Optional[Gtfsdataset] = None,
+) -> JSONResponse:
+    """Queue one run on batch_process_dataset and say where its download outcome lands.
+
+    A dry run only downloads. A full run is the nightly process itself for this feed,
+    with the download outcome recorded even on success so the caller can read it back.
+    """
+    # trigger_dataset_download silently skips without a topic; say so instead of
+    # leaving the caller polling for a result that will never come.
+    if not DATASET_BATCH_TOPIC:
+        raise HTTPException(
+            status_code=503,
+            detail="Dataset processing is not configured in this environment",
+        )
+    prefix = "download-dry-run" if dry_run else "download-manual"
+    execution_id = get_execution_id(get_request_context(), prefix)
+    queued_at = datetime.now(timezone.utc)
+    if dry_run:
+        trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
+    else:
+        # The latest dataset's hash, as the nightly scheduler sends it, so an unchanged
+        # file is recognised and no new dataset is stored.
+        trigger_dataset_download(
+            gtfs_feed,
+            execution_id,
+            record_source=DOWNLOAD_MANUAL_SOURCE,
+            dataset_stable_id=latest_dataset.stable_id if latest_dataset else None,
+            dataset_hash=latest_dataset.hash if latest_dataset else None,
+        )
+    payload = GtfsFeedDownloadQueuedResponse(
+        feed_id=gtfs_feed.stable_id,
+        execution_id=execution_id,
+        queued_at=queued_at,
+        source=DOWNLOAD_MANUAL_SOURCE,
+        dry_run=dry_run,
+    )
+    return JSONResponse(status_code=202, content=jsonable_encoder(payload))
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -327,12 +414,24 @@ class OperationsApiImpl(BaseOperationsApi):
         ],
         var_from: Optional[datetime] = None,
         to: Optional[datetime] = None,
+        source: Optional[List[str]] = None,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
         sort: Optional[str] = "desc",
         db_session: Session = None,
     ) -> GtfsFeedAvailabilityResponse:
-        """Get availability check history for the specified GTFS feed."""
+        """Get availability check history for the specified GTFS feed.
+
+        Unlike the public endpoint, every source is returned unless `source` narrows it.
+        """
+        known_sources = {s.value for s in AvailabilityCheckSource}
+        unknown_sources = sorted(set(source or []) - known_sources)
+        if unknown_sources:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid source {', '.join(unknown_sources)}; "
+                f"expected one of {', '.join(sorted(known_sources))}",
+            )
         gtfs_feed = (
             db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
         )
@@ -346,6 +445,8 @@ class OperationsApiImpl(BaseOperationsApi):
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
         if to is not None:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
+        if source:
+            query = query.filter(GtfsFeedAvailabilityCheck.source.in_(source))
 
         total = query.count()
         order = (
@@ -430,6 +531,99 @@ class OperationsApiImpl(BaseOperationsApi):
             current_size_locked=size_locked,
             total=total,
             attempts=[_execution_attempt(row) for row in attempts],
+        )
+
+    @with_db_session
+    def debug_gtfs_feed_download(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        max_bytes: Optional[int] = None,
+        timeout_seconds: Optional[int] = None,
+        gtfs_feed_download_debug_request: Optional[GtfsFeedDownloadDebugRequest] = None,
+        db_session: Session = None,
+    ) -> GtfsFeedDownloadDebugResponse:
+        """Download the feed through the shared download path, here or on the nightly job."""
+        request = gtfs_feed_download_debug_request
+        headers = request.headers if request else None
+        run_on = (request.run_on if request else None) or "api"
+        dry_run = request.dry_run if request and request.dry_run is not None else True
+        _validate_debug_headers(headers)
+        if not dry_run and run_on != "nightly_job":
+            raise HTTPException(
+                status_code=400, detail="dry_run=false requires run_on=nightly_job"
+            )
+        if not dry_run and headers is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="headers are only allowed on dry runs, so a stored dataset "
+                "always comes from the nightly request",
+            )
+        if run_on == "nightly_job" and (
+            max_bytes is not None or timeout_seconds is not None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="max_bytes and timeout_seconds apply only to run_on=api",
+            )
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        if not gtfs_feed.producer_url:
+            raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+        if run_on == "nightly_job":
+            latest_dataset = (
+                db_session.get(Gtfsdataset, gtfs_feed.latest_dataset_id)
+                if gtfs_feed.latest_dataset_id
+                else None
+            )
+            return _queue_nightly_download(gtfs_feed, headers, dry_run, latest_dataset)
+
+        # Streamed and hashed, never written: Cloud Run's disk is memory, and a full-size
+        # feed would otherwise exhaust the instance serving every other request.
+        stop_reason = None
+        duration_ms = None
+        try:
+            result = download_feed(
+                gtfs_feed.producer_url,
+                file_path=None,
+                feed_id=gtfs_feed.id,
+                authentication_type=gtfs_feed.authentication_type or 0,
+                api_key_parameter_name=gtfs_feed.api_key_parameter_name,
+                credentials=get_feed_credentials(gtfs_feed.stable_id),
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+                headers=headers,
+                deadline_seconds=_DOWNLOAD_DEBUG_DEADLINE_SECONDS,
+            )
+            diagnostics = result.diagnostics
+            stop_reason = result.stop_reason
+            duration_ms = result.duration_ms
+        except FeedDownloadError as exc:
+            diagnostics = exc.diagnostics
+
+        return GtfsFeedDownloadDebugResponse(
+            feed_id=gtfs_feed.stable_id,
+            producer_url=diagnostics.request_url,
+            resolved_url=diagnostics.resolved_url,
+            success=diagnostics.success,
+            status_code=diagnostics.status_code,
+            latency_ms=diagnostics.latency_ms,
+            request_headers=diagnostics.request_headers,
+            response_headers=diagnostics.response_headers,
+            redirect_urls=diagnostics.redirect_urls,
+            external_ip=diagnostics.external_ip,
+            content_type=diagnostics.content_type,
+            is_zip=diagnostics.is_zip,
+            downloaded_bytes=diagnostics.downloaded_bytes,
+            truncated=stop_reason is not None,
+            stop_reason=stop_reason,
+            duration_ms=duration_ms,
+            error_type=diagnostics.error_type,
+            error_message=diagnostics.error_message,
         )
 
     @with_db_session

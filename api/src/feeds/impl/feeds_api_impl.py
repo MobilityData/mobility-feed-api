@@ -37,6 +37,7 @@ from shared.common.db_utils import (
     add_official_filter,
     get_gbfs_feeds_query,
 )
+from shared.common.availability_check_source import feed_availability_checks_filter
 from shared.common.seal_criteria import SealCriterionName
 from shared.common.error_handling import (
     availability_from_after_to,
@@ -367,7 +368,11 @@ class FeedsApiImpl(BaseFeedsApi):
         if not feed:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
-        query = db_session.query(GtfsFeedAvailabilityCheck).filter(GtfsFeedAvailabilityCheck.feed_id == feed.id)
+        # Only the daily check answers "was the feed available"; download diagnostics recorded in
+        # the same table are for the operations API.
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(
+            GtfsFeedAvailabilityCheck.feed_id == feed.id, feed_availability_checks_filter()
+        )
         if from_dt:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= from_dt)
         if to_dt:

@@ -20,6 +20,7 @@ from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.common.seal_criteria import (
     AVAILABILITY_LOOKBACK,
     PROBATION_PERIOD,
@@ -267,7 +268,13 @@ def _seed_previous_dataset(
     db_session.commit()
 
 
-def _seed_availability_check(db_session, feed_id: str, success, checked_at=None):
+def _seed_availability_check(
+    db_session,
+    feed_id: str,
+    success,
+    checked_at=None,
+    source=AvailabilityCheckSource.AVAILABILITY_CHECK,
+):
     """One `gtfs_feed_availability_check` row for the feed."""
     db_session.add(
         GtfsFeedAvailabilityCheck(
@@ -277,6 +284,7 @@ def _seed_availability_check(db_session, feed_id: str, success, checked_at=None)
             request_type="http_head",
             status_code=200 if success else 503,
             success=success,
+            source=source.value,
         )
     )
     db_session.commit()
@@ -440,8 +448,14 @@ class SealDbTestCase(unittest.TestCase):
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
-    def seed_availability_check(feed_id, success, checked_at=None, db_session=None):
-        _seed_availability_check(db_session, feed_id, success, checked_at)
+    def seed_availability_check(
+        feed_id,
+        success,
+        checked_at=None,
+        source=AvailabilityCheckSource.AVAILABILITY_CHECK,
+        db_session=None,
+    ):
+        _seed_availability_check(db_session, feed_id, success, checked_at, source)
 
     @staticmethod
     @with_db_session(db_url=default_db_url)
@@ -1674,6 +1688,49 @@ class TestFullRegistry(SealDbTestCase):
 
         row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
         self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
+
+    def test_download_diagnostics_do_not_stand_in_for_the_daily_check(self):
+        """Failed and hand-run downloads share the table but never decide Available.
+
+        Each is the latest row in the window, so without the source filter it would be the
+        verdict and fail a feed whose daily check passed.
+        """
+        self.satisfy_everything()
+        for hours, source in enumerate(
+            [
+                AvailabilityCheckSource.DATASET_DOWNLOAD,
+                AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL,
+            ],
+            start=1,
+        ):
+            self.seed_availability_check(
+                TRACKED,
+                success=False,
+                checked_at=NOW + timedelta(hours=hours),
+                source=source,
+            )
+
+        update_seals(
+            dry_run=False, stable_feed_ids=[TRACKED], now=NOW + timedelta(hours=4)
+        )
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.PASS.value)
+        self.assertTrue(self.seal_row(TRACKED).has_seal)
+
+    def test_download_diagnostics_alone_leave_available_unknown(self):
+        """With only download rows in the window, the daily check did not run: UNKNOWN."""
+        self.seed_dataset(TRACKED, self.FAR_FUTURE)
+        self.seed_availability_check(
+            TRACKED,
+            success=True,
+            source=AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL,
+        )
+
+        update_seals(dry_run=False, stable_feed_ids=[TRACKED], now=NOW)
+
+        row = self.criterion_rows(TRACKED)[SealCriterionName.AVAILABLE.value]
+        self.assertEqual(row.observed_status, CriterionStatus.UNKNOWN.value)
 
     def test_a_check_still_answers_a_second_run_inside_the_window(self):
         """The window is a rolling 24h, not "checks this run has not seen yet"."""

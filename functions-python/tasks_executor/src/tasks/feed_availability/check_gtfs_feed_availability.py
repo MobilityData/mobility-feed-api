@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 import logging
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -22,30 +21,19 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import AvailabilityCheckSource
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
 )
-from shared.helpers.utils import perform_request
+from shared.helpers.utils import get_feed_credentials, perform_request
 
 DEFAULT_CONCURRENCY: int = 15
 DEFAULT_TIMEOUT_SECONDS: int = 20
 DEFAULT_BATCH_SIZE: int = 50
 DEFAULT_FALLBACK_TO_GET: bool = True
-
-
-def get_feed_credentials(stable_id: str) -> Optional[str]:
-    """Return the API credential for a feed from the FEEDS_CREDENTIALS env var, or None."""
-    try:
-        import json
-
-        feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
-        return feeds_credentials.get(stable_id, None)
-    except Exception as exc:
-        logging.warning("Could not parse FEEDS_CREDENTIALS: %s", exc)
-        return None
 
 
 def get_parameters(payload: dict):
@@ -286,6 +274,7 @@ def check_gtfs_feed_availability(
                     error_message=str(exc),
                     error_type=type(exc).__name__,
                     success=False,
+                    source=AvailabilityCheckSource.AVAILABILITY_CHECK.value,
                 )
             results.append(check)
             batch.append(check)
