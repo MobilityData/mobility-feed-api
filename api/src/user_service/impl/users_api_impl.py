@@ -42,6 +42,9 @@ from user_service.impl.subscription_helpers import (
     ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID,
     ADMIN_SUMMARY_FEATURE_FLAG_ID,
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    DEFAULT_NOTIFICATION_CADENCE,
+    DEFAULT_NOTIFICATION_DIGEST,
+    ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED,
     ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
@@ -269,6 +272,10 @@ class UsersApiImpl(BaseUsersApi):
                 detail=f"feed_ids is not supported for notification type '{notification_id}'.",
             )
 
+        cadence = create_notification_subscription_request.cadence
+        digest = create_notification_subscription_request.digest
+        self._reject_delivery_preferences_for_announcements(notification_id, cadence, digest)
+
         # Every supplied feed must exist (feeds live in a separate DB, referenced by stable_id).
         if feed_ids:
             unknown_feed_ids = find_unknown_feed_ids(feed_ids)
@@ -301,8 +308,14 @@ class UsersApiImpl(BaseUsersApi):
                 user_id=user_id,
                 notification_type_id=notification_id,
                 created_at=datetime.now(timezone.utc),
+                cadence=DEFAULT_NOTIFICATION_CADENCE,
+                digest=DEFAULT_NOTIFICATION_DIGEST,
             )
             sub.active = True
+            # Apply only what was supplied, so a POST that adds a feed does not reset a
+            # preference set earlier. Left unset on a new row, the DB defaults decide
+            # (cadence 'weekly', digest true).
+            self._apply_delivery_preferences(sub, cadence, digest)
             # Merge the supplied feeds into the subscription's existing feed set (no-op for
             # non feed-scoped types, whose feed_ids is always empty here).
             self._add_subscription_feeds(sub, feed_ids)
@@ -347,6 +360,19 @@ class UsersApiImpl(BaseUsersApi):
                 db_session.delete(sub)
                 db_session.flush()
                 return result
+
+        # After the remove_feed_ids branch above, which returns early when it empties a
+        # feed-scoped subscription: there is no row left to set a preference on.
+        self._reject_delivery_preferences_for_announcements(
+            sub.notification_type_id,
+            update_notification_subscription_request.cadence,
+            update_notification_subscription_request.digest,
+        )
+        self._apply_delivery_preferences(
+            sub,
+            update_notification_subscription_request.cadence,
+            update_notification_subscription_request.digest,
+        )
 
         active = update_notification_subscription_request.active
         if active is not None:
@@ -423,6 +449,37 @@ class UsersApiImpl(BaseUsersApi):
                 status_code=403,
                 detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
             )
+
+    @staticmethod
+    def _reject_delivery_preferences_for_announcements(
+        notification_type_id: str, cadence: str | None, digest: bool | None
+    ) -> None:
+        """Refuse cadence/digest on api.announcements, which the dispatcher never reads.
+
+        Mirrors the feed_ids validation: a setting that cannot take effect is an error, not
+        something to accept quietly.
+        """
+        if notification_type_id != ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
+            return
+        if cadence is None and digest is None:
+            return
+        raise HTTPException(
+            status_code=400,
+            detail=ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED.format(notification_type_id=notification_type_id),
+        )
+
+    @staticmethod
+    def _apply_delivery_preferences(sub: NotificationSubscriptionOrm, cadence: str | None, digest: bool | None) -> None:
+        """Set the supplied delivery preferences, leaving the others as they are.
+
+        None means "not supplied", never "reset to the default" - the request models carry no
+        schema default for exactly this reason, so an omitted field is indistinguishable from
+        absent rather than arriving as 'weekly'.
+        """
+        if cadence is not None:
+            sub.cadence = cadence
+        if digest is not None:
+            sub.digest = digest
 
     @staticmethod
     def _add_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:
