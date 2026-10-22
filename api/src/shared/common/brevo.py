@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from enum import Enum
 
 import sib_api_v3_sdk
@@ -50,6 +51,17 @@ class BrevoSubscriptionStatus(Enum):
     SUBSCRIBED = "subscribed"
     UNSUBSCRIBED = "unsubscribed"
     NOT_FOUND = "not_found"
+
+
+@dataclass(frozen=True)
+class BrevoContactListState:
+    """What Brevo holds for one contact with respect to one list."""
+
+    status: BrevoSubscriptionStatus
+    in_list: bool = False
+    email_blacklisted: bool = False
+    list_unsubscribed: bool = False
+    mdb_subscription_id: str | None = None
 
 
 def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
@@ -156,3 +168,39 @@ def get_contact_subscription_status(
     if list_id is not None and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
         return BrevoSubscriptionStatus.UNSUBSCRIBED
     return BrevoSubscriptionStatus.SUBSCRIBED
+
+
+def get_contact_list_state(email: str, list_id: int) -> BrevoContactListState:
+    """Return a contact's membership of a list and its MDB_SUBSCRIPTION_ID attribute.
+
+    Read-only. ``status`` follows the same rules as ``get_contact_subscription_status``;
+    the other fields expose the raw values it is derived from, so a caller can tell
+    "unsubscribed from this list" apart from "never added to it".
+
+    Raises RuntimeError if BREVO_API_KEY is not set.
+    Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.
+    """
+    api = _get_contacts_api()
+
+    try:
+        contact = api.get_contact_info(email, _request_timeout=BREVO_REQUEST_TIMEOUT)
+    except sib_api_v3_sdk.rest.ApiException as exc:
+        if exc.status == 404:
+            return BrevoContactListState(status=BrevoSubscriptionStatus.NOT_FOUND)
+        raise
+
+    email_blacklisted = bool(contact.email_blacklisted)
+    list_unsubscribed = list_id in (contact.list_unsubscribed or [])
+    attributes = contact.attributes or {}
+    raw_subscription_id = attributes.get("MDB_SUBSCRIPTION_ID")
+    return BrevoContactListState(
+        status=(
+            BrevoSubscriptionStatus.UNSUBSCRIBED
+            if email_blacklisted or list_unsubscribed
+            else BrevoSubscriptionStatus.SUBSCRIBED
+        ),
+        in_list=list_id in (contact.list_ids or []),
+        email_blacklisted=email_blacklisted,
+        list_unsubscribed=list_unsubscribed,
+        mdb_subscription_id=str(raw_subscription_id) if raw_subscription_id else None,
+    )
