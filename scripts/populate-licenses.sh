@@ -65,11 +65,21 @@ if [[ -f "$REPO_ROOT/config/.env.local" ]]; then
   set +o allexport
 fi
 
+# Per-worktree overrides last, so this worktree's host port wins over the
+# defaults just loaded from config/.env.local.
+if [[ -f "$REPO_ROOT/config/.env.worktree" ]]; then
+  echo "INFO: Loading env vars from $REPO_ROOT/config/.env.worktree"
+  set -o allexport
+  # shellcheck disable=SC1090
+  source "$REPO_ROOT/config/.env.worktree"
+  set +o allexport
+fi
+
 # If FEEDS_DATABASE_URL is still not set, attempt to construct it from POSTGRES_* vars
 if [[ -z "${FEEDS_DATABASE_URL:-}" ]]; then
   if [[ -n "${POSTGRES_USER:-}" && -n "${POSTGRES_PASSWORD:-}" && -n "${POSTGRES_DB:-}" ]]; then
     DB_HOST="${POSTGRES_HOST:-localhost}"
-    DB_PORT="${POSTGRES_PORT:-5432}"
+    DB_PORT="${POSTGRES_HOST_PORT:-${POSTGRES_PORT:-5432}}"
     FEEDS_DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:${DB_PORT}/${POSTGRES_DB}"
     export FEEDS_DATABASE_URL
     echo "INFO: Constructed FEEDS_DATABASE_URL from POSTGRES_* variables."

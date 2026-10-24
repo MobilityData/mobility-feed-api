@@ -28,6 +28,11 @@
 #
 # Dependencies:
 #   docker, docker-compose, wget, openapi-generator (setup-openapi-generator.sh), yq (v4+)
+#
+# Each git worktree gets its own Compose project and its own published Postgres
+# ports (see scripts/worktree-env.sh), so several worktrees can run their stacks
+# and test suites concurrently. Use scripts/docker-localdb-cleanup.sh to release
+# them again.
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
@@ -43,6 +48,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
+
+# Establish this worktree's Compose project name and host ports first, so every
+# step below targets this worktree's stack and not another's.
+echo "==> Resolving per-worktree Docker/Postgres settings..."
+"$SCRIPT_PATH/worktree-env.sh" --ensure
 
 echo "==> Rebuilding main local database..."
 if [ "$POPULATE_DB" = true ]; then
