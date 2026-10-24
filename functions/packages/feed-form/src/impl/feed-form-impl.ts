@@ -327,7 +327,17 @@ async function createGithubIssue(
   if (formData.country && formData.country in countries) {
     const country = countries[formData.country as TCountryCode];
     const continent = continents[country.continent].toLowerCase();
-    if (continent != null) labels.push(continent);
+    if (continent != null) labels.push(`region/${continent}`);
+  }
+
+  if (formData.authType !== "None - 0") {
+    labels.push("auth required");
+  }
+
+  if (!isValidZipUrl(formData.feedLink)) {
+    if (!await isValidZipDownload(formData.feedLink)) {
+      labels.push("invalid");
+    }
   }
 
   try {
@@ -345,6 +355,19 @@ async function createGithubIssue(
         },
       }
     );
+
+    const issueNodeId = response.data.node_id;
+    const projectId = "PVT_kwDOAnHxDs4Ayxl6";
+    const statusFieldId = "PVTSSF_lADOAnHxDs4Ayxl6zgorIUI";
+    const backlogOptionId = "8e14ac56";
+    await addIssueToProjectV2(
+      issueNodeId,
+      githubToken,
+      projectId,
+      statusFieldId,
+      backlogOptionId
+    );
+
     return response.data.html_url;
   } catch (error) {
     logger.error("Error creating GitHub issue:", error);
@@ -441,3 +464,132 @@ export function buildGithubIssueBody(
   return content;
 }
 /* eslint-enable */
+
+/**
+ * Parses the provided URL to check if it is a valid ZIP file URL
+ * @param {string | undefined | null } url The direct download URL
+ * @return {boolean} Whether the URL is a valid ZIP file URL
+ */
+function isValidZipUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.toLowerCase().endsWith(".zip");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Checks if URL points to a valid ZIP file by making HEAD request
+ * @param {string | undefined | null } url The download URL
+ * @return {boolean} Whether the URL downloads a valid ZIP file
+ */
+async function isValidZipDownload(
+  url: string | undefined | null
+): Promise<boolean> {
+  try {
+    if (!url) return false;
+    const response = await axios.head(url, {maxRedirects: 2});
+    const contentType = response.headers["content-type"];
+    const contentDisposition = response.headers["content-disposition"];
+
+    if (contentType && contentType.includes("zip")) return true;
+    if (contentDisposition && contentDisposition.includes("zip")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Adds a GitHub issue to a project with a specific status
+ * @param {string} issueNodeId The ID of the created issue
+ * @param {string} githubToken GitHub token
+ * @param {string} projectId The ID of the project
+ * @param {string} statusFieldId The ID of the Status field
+ * @param {string} statusOptionId The ID of the status option
+ */
+async function addIssueToProjectV2(
+  issueNodeId: string,
+  githubToken: string,
+  projectId: string,
+  statusFieldId: string,
+  statusOptionId: string
+) {
+  try {
+    const addToProjectMutation = `
+      mutation($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(
+          input: {projectId: $projectId, contentId: $contentId}
+        ) {
+          item { id }
+        }
+      }
+    `;
+
+    const addToProjectResponse = await axios.post(
+      "https://api.github.com/graphql",
+      {
+        query: addToProjectMutation,
+        variables: {
+          projectId,
+          contentId: issueNodeId,
+        },
+      },
+      {
+        headers: {
+          Authorization: `bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    const itemId = addToProjectResponse.data.data.addProjectV2ItemById.item.id;
+
+    const updateStatusMutation = `
+      mutation(
+        $projectId: ID!
+        $itemId: ID!
+        $fieldId: ID!
+        $value: ProjectV2FieldValue!
+      ) {
+        updateProjectV2ItemFieldValue(
+          input: {
+            projectId: $projectId
+            itemId: $itemId
+            fieldId: $fieldId
+            value: $value
+          }
+        ) {
+          projectV2Item { id }
+        }
+      }
+    `;
+
+    await axios.post(
+      "https://api.github.com/graphql",
+      {
+        query: updateStatusMutation,
+        variables: {
+          projectId,
+          itemId,
+          fieldId: statusFieldId,
+          value: {
+            singleSelectOptionId: statusOptionId,
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    logger.info("Successfully added issue to Feed Submissions Backlog");
+  } catch (error) {
+    logger.error("Error adding issue to Feed Submissions Backlog:", error);
+  }
+}
