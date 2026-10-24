@@ -92,6 +92,20 @@ def test_feeds_gtfs_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_feeds_gtfs_get_with_status_filter(client: TestClient):
+    """GTFS feeds can be filtered by feed status."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "active")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert all(feed["status"] == "active" for feed in response.json())
+
+
 def test_feeds_gtfs_id_get(client: TestClient):
     """Test case for feeds_gtfs_id_get"""
     response = client.request(
