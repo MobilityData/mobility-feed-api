@@ -149,7 +149,7 @@
     <!-- Add feed_download/http_headers override for feed tld-716 -->
     <include file="changes/add_metro_lisboa_header.sql" relativeToChangelogFile="true"/>
     <!-- Add feed_download/http_headers override for feed mdb-2433 -->
-    <include file="changes/add_avon_transit_header.sql" relativeToChangelogFile="true"/>    
+    <include file="changes/add_avon_transit_header.sql" relativeToChangelogFile="true"/>
     <!-- Append-only per-attempt history, for retry caps and sizing stats. -->
     <include file="changes/feat_task_execution_attempt.sql" relativeToChangelogFile="true"/>
     <!-- Register the per-feed Parquet worker size key in config_key. -->
@@ -158,6 +158,8 @@
     <include file="changes/feat_download_debug.sql" relativeToChangelogFile="true"/>
     <!-- Default gtfs_feed_availability_check.source to availability_check and make it NOT NULL. -->
     <include file="changes/feat_download_debug_source_default.sql" relativeToChangelogFile="true"/>
+     <!-- Add feed_download/http_headers override for feed mdb-2053 -->
+    <include file="changes/add_ski_flex_header.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
