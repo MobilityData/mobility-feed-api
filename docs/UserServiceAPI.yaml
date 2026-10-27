@@ -430,7 +430,7 @@ components:
           description: Whether the user's email address has been verified.
         is_registered_to_receive_api_announcements:
           type: boolean
-          description: Whether the user has opted in to receive API announcement emails, i.e. has an active `api.announcements` subscription.
+          description: Whether the user has opted in to receive API announcement emails.
           default: false
         features:
           type: array
