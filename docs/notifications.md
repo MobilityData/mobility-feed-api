@@ -9,8 +9,9 @@
 5. [Retry Strategy](#retry-strategy)
 6. [Email Delivery — Brevo](#email-delivery--brevo)
 7. [Admin Event Summary](#admin-event-summary)
-8. [Subscription Management (subscribe / unsubscribe)](#subscription-management-subscribe--unsubscribe)
-9. [Future Work](#future-work)
+8. [Delivery Preferences (cadence and digest)](#delivery-preferences-cadence-and-digest)
+9. [Subscription Management (subscribe / unsubscribe)](#subscription-management-subscribe--unsubscribe)
+10. [Future Work](#future-work)
 
 ---
 
@@ -288,6 +289,29 @@ subscribers the same morning.
 Admin users subscribe with `notification_type_id='admin.event_summary'` and
 `cadence='daily'` to receive these as a daily digest. One subscription receives every subtype.
 
+## Delivery Preferences (cadence and digest)
+
+Two columns on `notification_subscription` decide *when* and *how* a subscriber is emailed,
+and both are chosen per subscription through the public API:
+
+| Field | Values | Default | Meaning |
+|---|---|---|---|
+| `cadence` | `daily` / `weekly` | `weekly` | Which dispatch run picks the subscription up (`find_subscriptions`). |
+| `digest` | `true` / `false` | `true` | `true` sends one batched email per run; `false` sends one email per event. |
+
+Set them on `POST /v1/user/subscriptions` or change them later with
+`PUT /v1/user/subscriptions/{id}`; both are returned on every subscription response, including
+the capability endpoint `GET /v1/subscriptions/{id}`. Omitting a field leaves it unchanged
+rather than resetting it, so a POST that merely adds a feed cannot silently undo a preference —
+which is why neither request schema declares an OpenAPI `default` (the generator would
+materialize it into the model and make "omitted" indistinguishable from "explicitly weekly").
+
+`cadence` and `digest` are rejected with a 400 for `api.announcements`: that type is delivered
+through Brevo contact lists and is skipped by every dispatch run, so the settings would never
+be read.
+
+`immediate` is deliberately not offered: no scheduler dispatches it yet (see Future Work).
+
 ## Subscription Management (subscribe / unsubscribe)
 
 Everything above is about **delivery** (turning events into emails). *Who is
@@ -321,6 +345,6 @@ Quick orientation:
 
 ## Future Work
 
-- **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
+- **`immediate` cadence**: Architecture is fully implemented in the dispatcher but not exposed in the public API. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes), then add `immediate` to the `cadence` enums in `docs/UserServiceAPI.yaml` and regenerate.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
 - **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.

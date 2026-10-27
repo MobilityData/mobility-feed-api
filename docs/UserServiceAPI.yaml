@@ -494,6 +494,8 @@ components:
         - notification_id
         - active
         - created_at
+        - cadence
+        - digest
       properties:
         id:
           type: string
@@ -517,6 +519,15 @@ components:
           type: string
           format: date-time
           description: Timestamp when the subscription was created.
+        cadence:
+          type: string
+          enum: [daily, weekly]
+          description: When the dispatcher delivers this subscription.
+          example: "weekly"
+        digest:
+          type: boolean
+          description: >
+            true = one batched digest email per run; false = one email per event.
         feeds:
           type: array
           nullable: true
@@ -639,6 +650,19 @@ components:
             (union), not a replacement. Validation is enforced in code, not the
             schema.
           example: ["mdb-1", "mdb-42"]
+        cadence:
+          type: string
+          enum: [daily, weekly]
+          description: >
+            When the dispatcher delivers this subscription. Defaults to `weekly` on a new
+            subscription; omit on a repeat call to leave an existing one unchanged.
+          example: "daily"
+        digest:
+          type: boolean
+          description: >
+            How the run's events are emailed: true sends one batched digest per run,
+            false sends one email per event. Defaults to true on a new subscription; omit
+            on a repeat call to leave an existing one unchanged.
 
     UpdateNotificationSubscriptionRequest:
       type: object
@@ -658,6 +682,17 @@ components:
             cannot exist with no feeds). Validation is enforced in code, not the
             schema.
           example: ["mdb-1"]
+        cadence:
+          type: string
+          enum: [daily, weekly]
+          description: >
+            When the dispatcher delivers this subscription. Omit to leave it unchanged.
+          example: "daily"
+        digest:
+          type: boolean
+          description: >
+            How the run's events are emailed: true sends one batched digest per run,
+            false sends one email per event. Omit to leave it unchanged.
 
     FeatureFlag:
       type: object
