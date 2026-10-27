@@ -35,11 +35,10 @@ FETCH = (
 BREVO = "tasks.users.reconcile_announcements_from_brevo.get_contact_subscription_status"
 
 
-def _make_user(uid, email=None, is_registered=True):
+def _make_user(uid, email=None):
     return AppUser(
         id=uid,
         email=email if email is not None else f"{uid}@example.com",
-        is_registered_to_receive_api_announcements=is_registered,
     )
 
 
@@ -96,14 +95,13 @@ class TestReconcileAnnouncementsFromBrevo(unittest.TestCase):
     # --- turn-OFF path ---
 
     def test_unsubscribed_user_reconciled(self):
-        """Brevo UNSUBSCRIBED → flag False, subscription deactivated, flushed."""
+        """Brevo UNSUBSCRIBED → subscription deactivated, flushed."""
         sub, user = _pair("u1")
 
         stats, session, _, _ = _run(
             [(sub, user)], brevo_status=BrevoSubscriptionStatus.UNSUBSCRIBED
         )
 
-        self.assertFalse(user.is_registered_to_receive_api_announcements)
         self.assertFalse(sub.active)
         session.flush.assert_called()
         self.assertEqual(stats["reconciled_unsubscribed"], 1)
@@ -117,7 +115,6 @@ class TestReconcileAnnouncementsFromBrevo(unittest.TestCase):
             [(sub, user)], brevo_status=BrevoSubscriptionStatus.SUBSCRIBED
         )
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
         self.assertTrue(sub.active)
         session.flush.assert_not_called()
         self.assertEqual(stats["still_subscribed"], 1)
@@ -131,7 +128,6 @@ class TestReconcileAnnouncementsFromBrevo(unittest.TestCase):
             [(sub, user)], brevo_status=BrevoSubscriptionStatus.NOT_FOUND
         )
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
         self.assertTrue(sub.active)
         session.flush.assert_not_called()
         self.assertEqual(stats["not_found"], 1)
@@ -154,8 +150,7 @@ class TestReconcileAnnouncementsFromBrevo(unittest.TestCase):
 
         self.assertEqual(stats["brevo_failed"], 1)
         # The failed user is untouched; the second user is still reconciled.
-        self.assertTrue(user_a.is_registered_to_receive_api_announcements)
-        self.assertFalse(user_b.is_registered_to_receive_api_announcements)
+        self.assertTrue(sub_a.active)
         self.assertFalse(sub_b.active)
         self.assertEqual(stats["reconciled_unsubscribed"], 1)
         self.assertEqual(stats["checked"], 2)
@@ -183,7 +178,6 @@ class TestReconcileAnnouncementsFromBrevo(unittest.TestCase):
         )
 
         mock_brevo.assert_called_once()  # Brevo still queried for accurate counts
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
         self.assertTrue(sub.active)
         session.flush.assert_not_called()
         self.assertEqual(stats["reconciled_unsubscribed"], 1)

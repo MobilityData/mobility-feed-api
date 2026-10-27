@@ -9,6 +9,7 @@ from shared.db_models.app_user_impl import AppUserImpl
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     FeatureFlag,
+    NotificationSubscription,
     UserFeatureFlag,
 )
 import user_service.impl.subscription_helpers as helpers
@@ -19,18 +20,26 @@ from user_service_gen.models.update_notification_subscription_request import Upd
 FIXED_NOW = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
-def _make_user(**kwargs) -> AppUser:
+def _make_user(announcements_active=None, **kwargs) -> AppUser:
+    """``announcements_active`` adds an api.announcements subscription with that state (None: no subscription)."""
     defaults = dict(
         id="uid-123",
         email="user@example.com",
         full_name="Jane Doe",
-        is_registered_to_receive_api_announcements=False,
         created_at=FIXED_NOW,
         updated_at=FIXED_NOW,
     )
     defaults.update(kwargs)
     user = AppUser(**{k: v for k, v in defaults.items() if k != "feature_flags"})
     user.user_feature_flags = defaults.get("feature_flags", [])
+    if announcements_active is not None:
+        user.notification_subscriptions = [
+            NotificationSubscription(
+                id="sub-ann",
+                notification_type_id=helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+                active=announcements_active,
+            )
+        ]
     return user
 
 
@@ -193,7 +202,7 @@ class TestUpdateUserMe(unittest.TestCase):
     def test_opt_in_creates_subscription_and_syncs_brevo(self):
         """Flipping the flag false→true creates the announcements subscription and
         writes the contact to Brevo (the disconnect this fix closes)."""
-        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user = _make_user()
         user_q = _mock_query_first(self.mock_session, user)
         user_q.filter.return_value.one_or_none.return_value = None  # no existing sub
         _set_context()
@@ -204,18 +213,38 @@ class TestUpdateUserMe(unittest.TestCase):
         ):
             result = self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
         self.assertTrue(result.is_registered_to_receive_api_announcements)
         add.assert_called_once()  # Brevo write-back happened
         self.assertEqual(add.call_args[0][:2], ("user@example.com", 42))
         self.mock_session.add.assert_called_once()  # subscription row created
+        sub = self.mock_session.add.call_args[0][0]
+        self.assertIs(sub.user, user)
+        self.assertTrue(sub.active)
+
+    def test_opt_in_reactivates_disabled_subscription(self):
+        user = _make_user(announcements_active=False)
+        existing_sub = user.notification_subscriptions[0]
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = existing_sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        add.assert_called_once()
+        self.mock_session.add.assert_not_called()
+        self.assertTrue(existing_sub.active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
 
     def test_opt_out_deactivates_subscription_and_removes_from_brevo(self):
-        """Flipping the flag true→false removes the contact from Brevo and clears
-        the flag."""
-        user = _make_user(is_registered_to_receive_api_announcements=True)
+        """Flipping the flag true→false removes the contact from Brevo and
+        disables the subscription."""
+        user = _make_user(announcements_active=True)
+        existing_sub = user.notification_subscriptions[0]
         user_q = _mock_query_first(self.mock_session, user)
-        existing_sub = MagicMock(active=True)
         user_q.filter.return_value.one_or_none.return_value = existing_sub
         _set_context()
 
@@ -227,13 +256,12 @@ class TestUpdateUserMe(unittest.TestCase):
 
         rem.assert_called_once_with("user@example.com", 42)
         self.assertFalse(existing_sub.active)
-        self.assertFalse(user.is_registered_to_receive_api_announcements)
         self.assertFalse(result.is_registered_to_receive_api_announcements)
 
     def test_flag_unchanged_does_not_touch_brevo(self):
         """Re-sending the same flag value (or updating other fields) makes no
         Brevo call."""
-        user = _make_user(is_registered_to_receive_api_announcements=True)
+        user = _make_user(announcements_active=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
@@ -251,7 +279,7 @@ class TestUpdateUserMe(unittest.TestCase):
         DB use, rolls the whole update back)."""
         import sib_api_v3_sdk
 
-        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user = _make_user()
         user_q = _mock_query_first(self.mock_session, user)
         user_q.filter.return_value.one_or_none.return_value = None
         _set_context()
@@ -266,14 +294,15 @@ class TestUpdateUserMe(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 502)
 
     def test_partial_update_leaves_other_fields_unchanged(self):
-        user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)
+        user = _make_user(full_name="Unchanged", announcements_active=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="Updated")
-        self.api.update_user(req, db_session=self.mock_session)
+        result = self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
+        self.assertTrue(user.notification_subscriptions[0].active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
 
     def test_raises_404_when_user_not_found(self):
         _mock_query_first(self.mock_session, None)
@@ -1072,10 +1101,12 @@ class TestAppUserImpl(unittest.TestCase):
             full_name="Alice",
             legacy_org_name="Acme Transit",
             email_verified=True,
-            is_registered_to_receive_api_announcements=True,
             created_at=now,
             updated_at=now,
         )
+        user.notification_subscriptions = [
+            NotificationSubscription(notification_type_id=helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, active=True)
+        ]
         profile = AppUserImpl.from_orm(user)
         self.assertEqual(profile.id, "uid-1")
         self.assertEqual(profile.email, "a@b.com")
@@ -1085,6 +1116,21 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertTrue(profile.is_registered_to_receive_api_announcements)
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)
+
+    def test_from_orm_announcements_needs_active_announcements_subscription(self):
+        cases = [
+            ([], False),
+            ([(helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, False)], False),
+            ([("feed.url_updated", True)], False),
+            ([("feed.url_updated", True), (helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, True)], True),
+        ]
+        for subs, expected in cases:
+            with self.subTest(subs=subs):
+                user = AppUser(id="uid-1", email="a@b.com", created_at=FIXED_NOW, updated_at=FIXED_NOW)
+                user.notification_subscriptions = [
+                    NotificationSubscription(notification_type_id=type_id, active=active) for type_id, active in subs
+                ]
+                self.assertEqual(AppUserImpl.from_orm(user).is_registered_to_receive_api_announcements, expected)
 
     def test_from_orm_resolves_user_override_and_default(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)

@@ -349,8 +349,8 @@ paths:
         Behaviour depends on the notification type:
         - **`api.announcements`** — never deleted; the subscription is *disabled*
           (`active=false`), the contact is removed from the Brevo announcements
-          list, and `app_user.is_registered_to_receive_api_announcements` is
-          cleared. Kept idempotent so a repeated click still succeeds.
+          list, and the user's `is_registered_to_receive_api_announcements`
+          therefore reads `false`. Kept idempotent so a repeated click still succeeds.
         - **all other types** (e.g. `feed.url_updated`) — the subscription row is
           hard-deleted; a second call therefore returns `404`.
 
@@ -430,7 +430,7 @@ components:
           description: Whether the user's email address has been verified.
         is_registered_to_receive_api_announcements:
           type: boolean
-          description: Whether the user has opted in to receive API announcement emails.
+          description: Whether the user has opted in to receive API announcement emails, i.e. has an active `api.announcements` subscription.
           default: false
         features:
           type: array
