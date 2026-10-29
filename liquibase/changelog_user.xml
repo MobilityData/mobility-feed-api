@@ -40,4 +40,7 @@
     <!-- Add early access program tables: bulk CSV-driven feature-flag grants,
          including members who have never signed in (product-tasks#213). -->
     <include file="changes_user/feat_early_access.sql" relativeToChangelogFile="true"/>
+    <!-- Drop app_user.is_registered_to_receive_api_announcements; the opt-in is the
+         active api.announcements notification_subscription (issue #1745). -->
+    <include file="changes_user/feat_1745.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

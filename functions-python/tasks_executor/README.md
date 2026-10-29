@@ -176,7 +176,7 @@ If the header is not provided, the default response content type is `application
 
 ### `migrate_firebase_users`
 
-Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_user` is **insert-only** with a single exception: the task sets `app_user.brevo_synced_at` on an existing row after it writes that user's `MDB_SUBSCRIPTION_ID` back onto the Brevo contact. It also ensures each user has an `api.announcements` `notification_subscription`. Brevo is the source of truth for `is_registered_to_receive_api_announcements`.
+Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_user` is **insert-only** with a single exception: the task sets `app_user.brevo_synced_at` on an existing row after it writes that user's `MDB_SUBSCRIPTION_ID` back onto the Brevo contact. It also ensures each user has an `api.announcements` `notification_subscription`, which is what the user's announcements opt-in is read from.
 
 ```json
 {
@@ -197,7 +197,7 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_us
 | `user_ids` | list[str] \| null | `null` | If provided, only migrate these specific Firebase UIDs |
 | `only_not_migrated` | bool | `true` | Skip users that already have a row in `app_user` with `migrated_at` set |
 
-**Brevo subscription logic**: For each new user, `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked. If the contact is `SUBSCRIBED`, `is_registered_to_receive_api_announcements` is set to `true`; `UNSUBSCRIBED` sets it to `false`; `NOT_FOUND` leaves it at the DB default (`false`).
+**Brevo subscription logic**: Brevo is the source of truth. For each user that needs a subscription or a Brevo write-back, the contact's status on `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked; it decides whether the subscription is created enabled (see below) and whether `MDB_SUBSCRIPTION_ID` is written back.
 
 **Announcements subscription association**: Every migrated user is associated with the `api.announcements` notification type via a row in `notification_subscription`. New users get the subscription created alongside their `app_user` row; existing users (including already-migrated ones) are **backfilled** a subscription if they don't already have one — without modifying their `app_user` row. The subscription is created enabled (`active=true`) for all users **except** those explicitly `UNSUBSCRIBED` on Brevo, who get a disabled (`active=false`) subscription. Users that are `NOT_FOUND` on Brevo (or whose Brevo check failed) are treated as "not unsubscribed" and therefore enabled. New-subscription counts are reported as `announcements_enabled` / `announcements_disabled`.
 
@@ -237,18 +237,16 @@ Propagates Brevo-originated unsubscribes back into the users DB for the
 `api.announcements` notification. This is the **reverse** direction of the forward
 opt-in path: when a user toggles their subscription on our side (the `update_user`
 / subscription endpoints, via `set_announcements_optin`) or `migrate_firebase_users`
-seeds it, flag + subscription + Brevo are kept consistent. But when a user clicks
+seeds it, subscription + Brevo are kept consistent. But when a user clicks
 **unsubscribe inside a Brevo email**, Brevo sets `email_blacklisted` (global) or adds
-the list to `list_unsubscribed`, and nothing propagates that back — so
-`app_user.is_registered_to_receive_api_announcements` and the
-`notification_subscription.active` row stay stale-`true`. This task closes that gap.
+the list to `list_unsubscribed`, and nothing propagates that back — so the
+`notification_subscription.active` row stays stale-`true`. This task closes that gap.
 
 It is deliberately **turn-OFF only**. For every user with an **active**
 `api.announcements` subscription, it reads `get_contact_subscription_status(email,
 BREVO_API_ANNOUNCEMENTS_LIST_ID)`. When Brevo reports `UNSUBSCRIBED` (either the
 global `email_blacklisted` flag or the announcements list appearing in
-`list_unsubscribed`), it sets `is_registered_to_receive_api_announcements = false`
-and deactivates the subscription (`active = false`). `SUBSCRIBED` / `NOT_FOUND` are
+`list_unsubscribed`), it deactivates the subscription (`active = false`). `SUBSCRIBED` / `NOT_FOUND` are
 left untouched — this task **never** re-subscribes or adds anyone to the list.
 
 It only iterates **active** announcements subscriptions (a user already turned off
