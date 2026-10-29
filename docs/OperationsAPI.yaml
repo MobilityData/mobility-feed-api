@@ -1310,7 +1310,7 @@ paths:
     get:
       summary: Check a user's API announcements sync with Brevo
       description: >
-        Compares the three places an `api.announcements` opt-in lives: the `notification_subscription` row, the `app_user` opt-in flag, and the Brevo contact (list membership and its `MDB_SUBSCRIPTION_ID` attribute). Read-only: it reports any mismatch in `issues` and never repairs it. Makes one live call to Brevo.
+        Compares the two places an `api.announcements` opt-in lives: the `notification_subscription` row and the Brevo contact (list membership and its `MDB_SUBSCRIPTION_ID` attribute). Read-only: it reports any mismatch in `issues` and never repairs it. Makes one live call to Brevo.
       operationId: getOperationsUserBrevoSync
       tags:
         - "notifications"
@@ -4375,7 +4375,7 @@ components:
           type: string
           enum: [subscribed, unsubscribed, not_found]
           description: >
-            `unsubscribed` when the contact is globally blacklisted or has unsubscribed from the announcements list; `not_found` when Brevo has no contact for the email.
+            `unsubscribed` when the contact is globally blacklisted or has unsubscribed from the announcements list; `not_found` when Brevo has no contact for the email. `subscribed` only means "exists and not unsubscribed": a contact that was never added to the announcements list is still `subscribed`, with `in_list` false.
         in_list:
           type: boolean
           description: True when the contact is a member of the announcements list.
@@ -4395,7 +4395,6 @@ components:
       required:
         - user_id
         - email
-        - app_user_opt_in
         - brevo
         - in_sync
         - issues
@@ -4415,14 +4414,11 @@ components:
           type: boolean
           nullable: true
           description: Whether that subscription is active, or null when there is no row.
-        app_user_opt_in:
-          type: boolean
-          description: The `app_user.is_registered_to_receive_api_announcements` flag.
         brevo:
           $ref: "#/components/schemas/OperationBrevoContactState"
         in_sync:
           type: boolean
-          description: True when the row, the flag and Brevo all agree.
+          description: True when the subscription row and Brevo agree.
         issues:
           type: array
           description: One human-readable line per mismatch. Empty when `in_sync` is true.

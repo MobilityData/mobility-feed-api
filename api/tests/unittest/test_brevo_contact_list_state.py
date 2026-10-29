@@ -90,3 +90,18 @@ def test_other_api_errors_propagate():
     with patch.object(brevo, "_get_contacts_api", return_value=api):
         with pytest.raises(sib_api_v3_sdk.rest.ApiException):
             brevo.get_contact_list_state("a@b.com", 42)
+
+
+def test_subscription_status_without_a_list_ignores_list_unsubscribes():
+    api = MagicMock()
+    api.get_contact_info.return_value = _contact(list_ids=[], list_unsubscribed=[42])
+    with patch.object(brevo, "_get_contacts_api", return_value=api):
+        assert brevo.get_contact_subscription_status("a@b.com") == BrevoSubscriptionStatus.SUBSCRIBED
+        assert brevo.get_contact_subscription_status("a@b.com", 42) == BrevoSubscriptionStatus.UNSUBSCRIBED
+
+
+def test_subscription_status_not_found():
+    api = MagicMock()
+    api.get_contact_info.side_effect = sib_api_v3_sdk.rest.ApiException(status=404)
+    with patch.object(brevo, "_get_contacts_api", return_value=api):
+        assert brevo.get_contact_subscription_status("a@b.com", 42) == BrevoSubscriptionStatus.NOT_FOUND

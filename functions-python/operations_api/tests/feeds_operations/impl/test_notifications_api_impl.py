@@ -96,11 +96,10 @@ def _make_subscription(
     return sub
 
 
-def _make_user(opt_in=True) -> AppUser:
+def _make_user() -> AppUser:
     return AppUser(
         id="uid-1",
         email="user@example.com",
-        is_registered_to_receive_api_announcements=opt_in,
         created_at=FIXED_NOW,
         updated_at=FIXED_NOW,
     )
@@ -293,7 +292,7 @@ class TestGetOperationsUserSubscriptions(unittest.TestCase):
 
 class TestBrevoSyncIssues(unittest.TestCase):
     def test_in_sync_when_subscribed_everywhere(self):
-        self.assertEqual(_brevo_sync_issues("sub-a", True, 1, True, _brevo()), [])
+        self.assertEqual(_brevo_sync_issues("sub-a", True, 1, _brevo()), [])
 
     def test_in_sync_when_opted_out_everywhere(self):
         brevo = _brevo(
@@ -301,28 +300,22 @@ class TestBrevoSyncIssues(unittest.TestCase):
             in_list=False,
             list_unsubscribed=True,
         )
-        self.assertEqual(_brevo_sync_issues("sub-a", False, 1, False, brevo), [])
+        self.assertEqual(_brevo_sync_issues("sub-a", False, 1, brevo), [])
 
     def test_in_sync_when_never_opted_in_and_no_contact(self):
         brevo = BrevoContactListState(status=BrevoSubscriptionStatus.NOT_FOUND)
-        issues = _brevo_sync_issues(None, None, 0, False, brevo)
+        issues = _brevo_sync_issues(None, None, 0, brevo)
         self.assertEqual(issues, ["No api.announcements subscription row."])
 
-    def test_flag_disagrees_with_row(self):
-        issues = _brevo_sync_issues("sub-a", True, 1, False, _brevo())
-        self.assertIn(
-            "Subscription active is True but the app_user opt-in flag is False.", issues
-        )
-
     def test_duplicate_rows(self):
-        issues = _brevo_sync_issues("sub-a", True, 2, True, _brevo())
+        issues = _brevo_sync_issues("sub-a", True, 2, _brevo())
         self.assertIn("2 api.announcements subscription rows; expected one.", issues)
 
     def test_opted_in_but_unsubscribed_in_brevo(self):
         brevo = _brevo(
             status=BrevoSubscriptionStatus.UNSUBSCRIBED, list_unsubscribed=True
         )
-        issues = _brevo_sync_issues("sub-a", True, 1, True, brevo)
+        issues = _brevo_sync_issues("sub-a", True, 1, brevo)
         self.assertEqual(
             issues,
             [
@@ -334,7 +327,7 @@ class TestBrevoSyncIssues(unittest.TestCase):
         brevo = _brevo(
             status=BrevoSubscriptionStatus.UNSUBSCRIBED, email_blacklisted=True
         )
-        issues = _brevo_sync_issues("sub-a", True, 1, True, brevo)
+        issues = _brevo_sync_issues("sub-a", True, 1, brevo)
         self.assertIn(
             "Opted in but the Brevo contact is blacklisted (unsubscribed from all campaigns).",
             issues,
@@ -342,17 +335,17 @@ class TestBrevoSyncIssues(unittest.TestCase):
 
     def test_opted_in_but_no_contact(self):
         brevo = BrevoContactListState(status=BrevoSubscriptionStatus.NOT_FOUND)
-        issues = _brevo_sync_issues("sub-a", True, 1, True, brevo)
+        issues = _brevo_sync_issues("sub-a", True, 1, brevo)
         self.assertEqual(issues, ["Opted in but Brevo has no contact for this email."])
 
     def test_opted_in_but_not_on_list(self):
-        issues = _brevo_sync_issues("sub-a", True, 1, True, _brevo(in_list=False))
+        issues = _brevo_sync_issues("sub-a", True, 1, _brevo(in_list=False))
         self.assertEqual(
             issues, ["Opted in but the contact is not on the announcements list."]
         )
 
     def test_opted_out_but_still_on_list(self):
-        issues = _brevo_sync_issues("sub-a", False, 1, False, _brevo())
+        issues = _brevo_sync_issues("sub-a", False, 1, _brevo())
         self.assertEqual(
             issues,
             [
@@ -362,7 +355,7 @@ class TestBrevoSyncIssues(unittest.TestCase):
 
     def test_subscription_id_attribute_mismatch(self):
         issues = _brevo_sync_issues(
-            "sub-a", True, 1, True, _brevo(mdb_subscription_id="sub-old")
+            "sub-a", True, 1, _brevo(mdb_subscription_id="sub-old")
         )
         self.assertEqual(
             issues,
@@ -370,18 +363,20 @@ class TestBrevoSyncIssues(unittest.TestCase):
         )
 
     def test_subscription_id_attribute_unset(self):
-        issues = _brevo_sync_issues(
-            "sub-a", True, 1, True, _brevo(mdb_subscription_id=None)
-        )
+        issues = _brevo_sync_issues("sub-a", True, 1, _brevo(mdb_subscription_id=None))
         self.assertEqual(
             issues,
             ["Brevo MDB_SUBSCRIPTION_ID is unset but the subscription ID is sub-a."],
         )
 
-    def test_flag_decides_when_there_is_no_row(self):
-        issues = _brevo_sync_issues(None, None, 0, True, _brevo(in_list=False))
-        self.assertIn(
-            "Opted in but the contact is not on the announcements list.", issues
+    def test_no_row_means_opted_out(self):
+        issues = _brevo_sync_issues(None, None, 0, _brevo())
+        self.assertEqual(
+            issues,
+            [
+                "No api.announcements subscription row.",
+                "Opted out but the contact is still subscribed to the announcements list in Brevo.",
+            ],
         )
 
 
@@ -393,7 +388,7 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
         self.session = MagicMock()
 
     def test_reports_in_sync(self, mock_state, _list_id):
-        self.session.get.return_value = _make_user(opt_in=True)
+        self.session.get.return_value = _make_user()
         sub = _make_subscription(
             sub_id="sub-a", notification_type_id="api.announcements"
         )
@@ -414,7 +409,7 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
         self.assertEqual(result.brevo.mdb_subscription_id, "sub-a")
 
     def test_reports_drift(self, mock_state, _list_id):
-        self.session.get.return_value = _make_user(opt_in=True)
+        self.session.get.return_value = _make_user()
         sub = _make_subscription(
             sub_id="sub-a", notification_type_id="api.announcements"
         )

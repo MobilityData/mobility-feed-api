@@ -144,38 +144,26 @@ def get_contact_subscription_status(
 ) -> BrevoSubscriptionStatus:
     """Return the Brevo subscription status for a contact.
 
-    A contact is considered UNSUBSCRIBED if:
-    - email_blacklisted is True (globally unsubscribed from all campaigns), or
-    - list_id is provided and appears in the contact's list_unsubscribed.
-
-    A contact is SUBSCRIBED if it exists in Brevo and is not unsubscribed.
-    NOT_FOUND is returned when the contact does not exist in Brevo.
+    The status rule lives in ``get_contact_list_state``; this is its ``status`` alone.
 
     Raises RuntimeError if BREVO_API_KEY is not set.
     Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.
     """
-    api = _get_contacts_api()
-
-    try:
-        contact = api.get_contact_info(email, _request_timeout=BREVO_REQUEST_TIMEOUT)
-    except sib_api_v3_sdk.rest.ApiException as exc:
-        if exc.status == 404:
-            return BrevoSubscriptionStatus.NOT_FOUND
-        raise
-
-    if contact.email_blacklisted:
-        return BrevoSubscriptionStatus.UNSUBSCRIBED
-    if list_id is not None and contact.list_unsubscribed and list_id in contact.list_unsubscribed:
-        return BrevoSubscriptionStatus.UNSUBSCRIBED
-    return BrevoSubscriptionStatus.SUBSCRIBED
+    return get_contact_list_state(email, list_id).status
 
 
-def get_contact_list_state(email: str, list_id: int) -> BrevoContactListState:
+def get_contact_list_state(email: str, list_id: int | None = None) -> BrevoContactListState:
     """Return a contact's membership of a list and its MDB_SUBSCRIPTION_ID attribute.
 
-    Read-only. ``status`` follows the same rules as ``get_contact_subscription_status``;
-    the other fields expose the raw values it is derived from, so a caller can tell
-    "unsubscribed from this list" apart from "never added to it".
+    Read-only. ``status`` is:
+    - UNSUBSCRIBED if email_blacklisted is True (globally unsubscribed from all
+      campaigns), or list_id is provided and appears in the contact's list_unsubscribed;
+    - SUBSCRIBED if the contact exists and is not unsubscribed. This does not mean it
+      is on the list: check ``in_list`` for that;
+    - NOT_FOUND when the contact does not exist in Brevo.
+    The other fields expose the raw values ``status`` is derived from, so a caller can
+    tell "unsubscribed from this list" apart from "never added to it". With no list_id,
+    the list fields are False.
 
     Raises RuntimeError if BREVO_API_KEY is not set.
     Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.

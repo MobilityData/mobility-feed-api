@@ -98,10 +98,9 @@ def _brevo_sync_issues(
     subscription_id: Optional[str],
     subscription_active: Optional[bool],
     subscription_count: int,
-    app_user_opt_in: bool,
     brevo: BrevoContactListState,
 ) -> List[str]:
-    """One line per disagreement between the subscription row, the flag and Brevo."""
+    """One line per disagreement between the subscription row and Brevo."""
     issues = []
     if subscription_id is None:
         issues.append("No api.announcements subscription row.")
@@ -109,14 +108,9 @@ def _brevo_sync_issues(
         issues.append(
             f"{subscription_count} api.announcements subscription rows; expected one."
         )
-    if subscription_id is not None and subscription_active != app_user_opt_in:
-        issues.append(
-            f"Subscription active is {subscription_active} but the app_user "
-            f"opt-in flag is {app_user_opt_in}."
-        )
 
-    # The subscription row decides what Brevo should hold; the flag only when there is no row.
-    opted_in = subscription_active if subscription_id is not None else app_user_opt_in
+    # The opt-in is the active subscription row; with no row the user is opted out.
+    opted_in = bool(subscription_active)
     subscribed_in_brevo = (
         brevo.in_list and brevo.status == BrevoSubscriptionStatus.SUBSCRIBED
     )
@@ -324,7 +318,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
         # Read everything needed into plain values first: the commit below expires the
         # ORM objects, and touching them afterwards would reopen a connection.
         email = user.email
-        app_user_opt_in = bool(user.is_registered_to_receive_api_announcements)
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
@@ -349,7 +342,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
             subscription_id,
             subscription_active,
             len(subscriptions),
-            app_user_opt_in,
             brevo,
         )
         return OperationBrevoSyncStatus(
@@ -357,7 +349,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
             email=email,
             subscription_id=subscription_id,
             subscription_active=subscription_active,
-            app_user_opt_in=app_user_opt_in,
             brevo=OperationBrevoContactState(
                 status=brevo.status.value,
                 in_list=brevo.in_list,
