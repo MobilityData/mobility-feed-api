@@ -1,8 +1,13 @@
 import logging
+from typing import Final
 
 from fastapi import HTTPException
 
 from shared.common.error_handling import InternalHTTPException
+
+location_directory_parent_required: Final[str] = "The '{}' parameter requires the '{}' parameter"
+location_directory_country_not_in_continent: Final[str] = "Country '{}' does not belong to continent '{}'"
+location_directory_not_found: Final[str] = "No feed is located at the requested location"
 
 
 def convert_exception(input_exception: InternalHTTPException) -> HTTPException:

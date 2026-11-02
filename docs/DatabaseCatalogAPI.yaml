@@ -554,6 +554,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/LocationSearchResponse"
 
+  /v1/locations/directory:
+    get:
+      description: >
+        Browse the feed location directory one level at a time: continent > country >
+        subdivision > municipality. The level is selected by the most specific parameter
+        provided; with no parameters the response lists continents.
+        <br>
+        Feed counts are based on the feeds' declared locations, only include feeds with a
+        status of `active`, `inactive`, `development` or `future`, and roll up to every
+        ancestor level (a feed located in Montréal counts toward Québec, Canada and North
+        America). A feed is counted at most once per node, even when it declares several
+        locations within that node.
+        <br>
+        Each parameter requires its parent: `country_code` requires `continent`,
+        `subdivision` requires `country_code`, and `municipality` requires `subdivision`.
+      operationId: getLocationDirectory
+      tags:
+        - "locations"
+      parameters:
+        - $ref: "#/components/parameters/location_directory_continent"
+        - $ref: "#/components/parameters/location_directory_country_code"
+        - $ref: "#/components/parameters/location_directory_subdivision"
+        - $ref: "#/components/parameters/location_directory_municipality"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The requested directory node, its breadcrumb and its children.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationDirectoryResponse"
+        400:
+          description: A parameter was provided without its parent, or the country does not belong to the continent.
+        404:
+          description: No feed is located at the requested location.
+
+  /v1/locations/directory/feeds:
+    get:
+      description: >
+        List the feeds located within a location directory node, using the same location
+        parameters, status rules and validation as `/v1/locations/directory`.
+        <br>
+        Feeds are sorted by relevance to the requested node: feeds whose most specific
+        matching declared location is closest to the requested level come first (in the
+        Québec node, a feed located in "Canada, Québec" ranks above one located in
+        "Canada, Québec, Montréal"). Ties are broken by provider, feed name and feed id.
+      operationId: getLocationDirectoryFeeds
+      tags:
+        - "locations"
+      parameters:
+        - $ref: "#/components/parameters/location_directory_continent"
+        - $ref: "#/components/parameters/location_directory_country_code"
+        - $ref: "#/components/parameters/location_directory_subdivision"
+        - $ref: "#/components/parameters/location_directory_municipality"
+        - $ref: "#/components/parameters/limit_query_param_location_directory_feeds_endpoint"
+        - $ref: "#/components/parameters/offset"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The page of feeds located within the requested node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationDirectoryFeedsResponse"
+        400:
+          description: A parameter was provided without its parent, or the country does not belong to the continent.
+
   /v1/licenses:
     get:
       description: Get the list of all licenses in the DB.
@@ -1858,6 +1927,104 @@ components:
           type: string
           example: Los Angeles
 
+    LocationDirectoryLevel:
+      type: string
+      description: >
+        A level of the location directory:
+          * `root` - the whole world; its children are continents.
+          * `continent` - a continent, derived from the ISO 3166-1 country code.
+          * `country` - a country, identified by its ISO 3166-1 alpha-2 code.
+          * `subdivision` - a first-level subdivision as declared on the feed (e.g. a state or province).
+          * `municipality` - a municipality as declared on the feed.
+      enum:
+        - root
+        - continent
+        - country
+        - subdivision
+        - municipality
+      example: subdivision
+
+    LocationDirectoryFeedCounts:
+      type: object
+      description: Number of distinct feeds per data type within a directory node.
+      properties:
+        gtfs:
+          type: integer
+          example: 42
+        gtfs_rt:
+          type: integer
+          example: 18
+        gbfs:
+          type: integer
+          example: 7
+        total:
+          type: integer
+          description: Number of distinct feeds of any data type.
+          example: 67
+
+    LocationDirectoryNode:
+      type: object
+      properties:
+        level:
+          $ref: "#/components/schemas/LocationDirectoryLevel"
+        slug:
+          type: string
+          description: >
+            URL-safe identifier of the node, used as the matching request parameter.
+            Continents use a fixed slug (`africa`, `antarctica`, `asia`, `europe`,
+            `north-america`, `oceania`, `south-america`), countries use their lowercase
+            ISO 3166-1 alpha-2 code, and subdivisions and municipalities use their name
+            lowercased, without accents, with every run of non-alphanumeric characters
+            replaced by a single hyphen (`Québec` -> `quebec`, `Saint-Jean-sur-Richelieu`
+            -> `saint-jean-sur-richelieu`).
+          example: quebec
+        code:
+          type: string
+          nullable: true
+          description: >
+            The continent code (`AF`, `AN`, `AS`, `EU`, `NA`, `OC`, `SA`) or the ISO 3166-1
+            alpha-2 country code. Null for subdivisions and municipalities.
+          example: null
+        name:
+          type: string
+          description: Display name of the node in English.
+          example: Québec
+        feed_counts:
+          $ref: "#/components/schemas/LocationDirectoryFeedCounts"
+
+    LocationDirectoryResponse:
+      type: object
+      properties:
+        level:
+          $ref: "#/components/schemas/LocationDirectoryLevel"
+        breadcrumb:
+          type: array
+          description: >
+            The path from the continent down to the requested node, inclusive. Empty at the
+            `root` level.
+          items:
+            $ref: "#/components/schemas/LocationDirectoryNode"
+        feed_counts:
+          $ref: "#/components/schemas/LocationDirectoryFeedCounts"
+        children:
+          type: array
+          description: >
+            The nodes one level below the requested node that contain at least one feed,
+            sorted by name. Empty at the `municipality` level.
+          items:
+            $ref: "#/components/schemas/LocationDirectoryNode"
+
+    LocationDirectoryFeedsResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: The total number of feeds within the node regardless of limit and offset.
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchFeedItemResult"
+
     LocationSearchResponse:
       type: object
       properties:
@@ -2605,6 +2772,54 @@ components:
       schema:
         type: boolean
         default: null
+
+    location_directory_continent:
+      name: continent
+      in: query
+      description: Continent slug (`africa`, `antarctica`, `asia`, `europe`, `north-america`, `oceania`, `south-america`).
+      required: False
+      schema:
+        type: string
+        example: north-america
+
+    location_directory_country_code:
+      name: country_code
+      in: query
+      description: ISO 3166-1 alpha-2 country code. Case-insensitive. Requires `continent`.
+      required: False
+      schema:
+        type: string
+        example: ca
+
+    location_directory_subdivision:
+      name: subdivision
+      in: query
+      description: Subdivision slug as returned by `/v1/locations/directory`. Requires `country_code`.
+      required: False
+      schema:
+        type: string
+        example: quebec
+
+    location_directory_municipality:
+      name: municipality
+      in: query
+      description: Municipality slug as returned by `/v1/locations/directory`. Requires `subdivision`.
+      required: False
+      schema:
+        type: string
+        example: montreal
+
+    limit_query_param_location_directory_feeds_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 20
+        example: 20
 
     limit_query_param_locations_endpoint:
       name: limit
