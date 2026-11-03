@@ -567,14 +567,14 @@ paths:
         America). A feed is counted at most once per node, even when it declares several
         locations within that node.
         <br>
-        Each parameter requires its parent: `country_code` requires `continent`,
-        `subdivision` requires `country_code`, and `municipality` requires `subdivision`.
+        Each parameter requires its parent: `country` requires `continent`,
+        `subdivision` requires `country`, and `municipality` requires `subdivision`.
       operationId: getLocationDirectory
       tags:
         - "locations"
       parameters:
         - $ref: "#/components/parameters/location_directory_continent"
-        - $ref: "#/components/parameters/location_directory_country_code"
+        - $ref: "#/components/parameters/location_directory_country"
         - $ref: "#/components/parameters/location_directory_subdivision"
         - $ref: "#/components/parameters/location_directory_municipality"
       security:
@@ -606,7 +606,7 @@ paths:
         - "locations"
       parameters:
         - $ref: "#/components/parameters/location_directory_continent"
-        - $ref: "#/components/parameters/location_directory_country_code"
+        - $ref: "#/components/parameters/location_directory_country"
         - $ref: "#/components/parameters/location_directory_subdivision"
         - $ref: "#/components/parameters/location_directory_municipality"
         - $ref: "#/components/parameters/limit_query_param_location_directory_feeds_endpoint"
@@ -1972,11 +1972,11 @@ components:
           description: >
             URL-safe identifier of the node, used as the matching request parameter.
             Continents use a fixed slug (`africa`, `antarctica`, `asia`, `europe`,
-            `north-america`, `oceania`, `south-america`), countries use their lowercase
-            ISO 3166-1 alpha-2 code, and subdivisions and municipalities use their name
-            lowercased, without accents, with every run of non-alphanumeric characters
-            replaced by a single hyphen (`Québec` -> `quebec`, `Saint-Jean-sur-Richelieu`
-            -> `saint-jean-sur-richelieu`).
+            `north-america`, `oceania`, `south-america`), countries use a fixed slug of
+            their short English name (`portugal`, `united-states`, `cote-d-ivoire`), and
+            subdivisions and municipalities use their name lowercased, without accents,
+            with every run of non-alphanumeric characters replaced by a single hyphen
+            (`Québec` -> `quebec`, `Saint-Jean-sur-Richelieu` -> `saint-jean-sur-richelieu`).
           example: quebec
         code:
           type: string
@@ -2782,19 +2782,19 @@ components:
         type: string
         example: north-america
 
-    location_directory_country_code:
-      name: country_code
+    location_directory_country:
+      name: country
       in: query
-      description: ISO 3166-1 alpha-2 country code. Case-insensitive. Requires `continent`.
+      description: Country slug as returned by `/v1/locations/directory`, e.g. `portugal`. Case-insensitive. Requires `continent`.
       required: False
       schema:
         type: string
-        example: ca
+        example: canada
 
     location_directory_subdivision:
       name: subdivision
       in: query
-      description: Subdivision slug as returned by `/v1/locations/directory`. Requires `country_code`.
+      description: Subdivision slug as returned by `/v1/locations/directory`. Requires `country`.
       required: False
       schema:
         type: string
