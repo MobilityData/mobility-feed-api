@@ -237,6 +237,11 @@ check GET  "/v1/operations/feature-flags" 200
 #     the by-id endpoints against -- covered by the static route guard instead)
 check GET  "/v1/operations/users?limit=1" 200
 
+# --- Notifications (list only; the by-id and per-user endpoints would need a
+#     fabricated id -- covered by the static route guard instead)
+check GET  "/v1/operations/notifications/events?limit=1" 200
+check GET  "/v1/operations/notifications/logs?limit=1" 200
+
 # --- summary ------------------------------------------------------------------
 rm -f "$BODY_FILE"
 echo
