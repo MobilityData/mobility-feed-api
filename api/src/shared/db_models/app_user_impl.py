@@ -1,3 +1,4 @@
+from shared.notifications.notification_constants import NotificationTypeId
 from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag
 from user_service_gen.models.feature_flag import FeatureFlag as FeatureFlagModel
 from user_service_gen.models.user_profile import UserProfile
@@ -40,8 +41,16 @@ class AppUserImpl(UserProfile):
             full_name=user.full_name,
             legacy_org_name=user.legacy_org_name,
             email_verified=user.email_verified,
-            is_registered_to_receive_api_announcements=user.is_registered_to_receive_api_announcements or False,
+            is_registered_to_receive_api_announcements=cls.is_registered_to_announcements(user),
             features=features,
             created_at=user.created_at,
             updated_at=user.updated_at,
+        )
+
+    @staticmethod
+    def is_registered_to_announcements(user: AppUser) -> bool:
+        """Whether the user has an active api.announcements subscription."""
+        return any(
+            sub.notification_type_id == NotificationTypeId.API_ANNOUNCEMENTS and sub.active
+            for sub in user.notification_subscriptions
         )
