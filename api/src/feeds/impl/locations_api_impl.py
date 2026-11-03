@@ -126,19 +126,19 @@ class LocationsApiImpl(BaseLocationsApi):
     def get_location_directory(
         self,
         continent: str,
-        country_code: str,
+        country: str,
         subdivision: str,
         municipality: str,
         db_session: Session,
     ) -> LocationDirectoryResponse:
         """Browse the feed location directory one level at a time, from the feeds' declared locations."""
-        return location_directory.get_location_directory(db_session, continent, country_code, subdivision, municipality)
+        return location_directory.get_location_directory(db_session, continent, country, subdivision, municipality)
 
     @with_db_session
     def get_location_directory_feeds(
         self,
         continent: str,
-        country_code: str,
+        country: str,
         subdivision: str,
         municipality: str,
         limit: int,
@@ -147,5 +147,5 @@ class LocationsApiImpl(BaseLocationsApi):
     ) -> LocationDirectoryFeedsResponse:
         """List the feeds located within a location directory node, most relevant first."""
         return location_directory.get_location_directory_feeds(
-            db_session, continent, country_code, subdivision, municipality, limit, offset
+            db_session, continent, country, subdivision, municipality, limit, offset
         )

@@ -2,8 +2,10 @@
 
 The directory is built from the feeds' declared locations (feed <-> locationfeed <-> location), not from the OSM
 geopolygons. Continents come from a static country code mapping, passed to the database as a VALUES list so that
-the aggregation stays in SQL. Subdivision and municipality slugs are computed in SQL as well: the same expression
-produces the slugs returned to clients and matches the ones they send back, so the two cannot drift apart.
+the aggregation stays in SQL. Countries are identified by a slug of their name (`portugal`) from another static
+table, and resolved to their ISO code when the request is parsed. Subdivision and municipality slugs are computed in
+SQL: the same expression produces the slugs returned to clients and matches the ones they send back, so the two
+cannot drift apart.
 """
 
 import logging
@@ -29,6 +31,7 @@ from feeds_gen.models.location_directory_node import LocationDirectoryNode
 from feeds_gen.models.location_directory_response import LocationDirectoryResponse
 from middleware.request_context import is_user_email_restricted
 from shared.common.continents import CONTINENTS, CONTINENTS_BY_SLUG, COUNTRY_CONTINENTS, Continent
+from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code
 from shared.database.sql_functions.unaccent import unaccent
 from shared.database_gen.sqlacodegen_models import Feed, Location, t_feedsearch, t_locationfeed
 from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
@@ -87,23 +90,23 @@ def _clean_param(value: Optional[str]) -> Optional[str]:
 
 def parse_directory_node(
     continent: Optional[str],
-    country_code: Optional[str],
+    country: Optional[str],
     subdivision: Optional[str],
     municipality: Optional[str],
 ) -> Optional[DirectoryNode]:
     """Validate the request parameters and return the requested node.
 
     Raises a 400 when a parameter is given without its parent or when the country is not in the continent.
-    Returns None when the continent slug is unknown: such a node exists but contains no feed.
+    Returns None when the continent or country slug is unknown: such a node exists but contains no feed.
     """
     continent = _clean_param(continent)
-    country_code = _clean_param(country_code)
+    country = _clean_param(country)
     subdivision = _clean_param(subdivision)
     municipality = _clean_param(municipality)
     for child_name, child, parent_name, parent in (
         ("municipality", municipality, "subdivision", subdivision),
-        ("subdivision", subdivision, "country_code", country_code),
-        ("country_code", country_code, "continent", continent),
+        ("subdivision", subdivision, "country", country),
+        ("country", country, "continent", continent),
     ):
         if child is not None and parent is None:
             raise_http_error(400, location_directory_parent_required.format(child_name, parent_name))
@@ -113,10 +116,13 @@ def parse_directory_node(
     matching_continent = CONTINENTS_BY_SLUG.get(continent.lower())
     if matching_continent is None:
         return None
-    if country_code is not None:
-        country_code = country_code.upper()
+    country_code = None
+    if country is not None:
+        country_code = get_country_code(country)
+        if country_code is None:
+            return None
         if COUNTRY_CONTINENTS.get(country_code) != matching_continent.code:
-            raise_http_error(400, location_directory_country_not_in_continent.format(country_code, continent))
+            raise_http_error(400, location_directory_country_not_in_continent.format(country, continent))
     return DirectoryNode(
         continent=matching_continent,
         country_code=country_code,
@@ -248,7 +254,7 @@ def _make_node(level: LocationDirectoryLevel, key: str, name: Optional[str], cou
             )
         case LocationDirectoryLevel.COUNTRY:
             return LocationDirectoryNode(
-                level=level, slug=key.lower(), code=key, name=_country_name(key, name), feed_counts=counts
+                level=level, slug=COUNTRY_SLUGS[key], code=key, name=_country_name(key, name), feed_counts=counts
             )
         case _:
             return LocationDirectoryNode(level=level, slug=key, code=None, name=name or key, feed_counts=counts)
@@ -343,11 +349,11 @@ def _warn_unmapped_country_codes(db_session: Session) -> None:
 def get_location_directory(
     db_session: Session,
     continent: Optional[str],
-    country_code: Optional[str],
+    country: Optional[str],
     subdivision: Optional[str],
     municipality: Optional[str],
 ) -> LocationDirectoryResponse:
-    node = parse_directory_node(continent, country_code, subdivision, municipality)
+    node = parse_directory_node(continent, country, subdivision, municipality)
     if node is None:
         raise_http_error(404, location_directory_not_found)
     feed_locations = _feed_locations()
@@ -373,13 +379,13 @@ def get_location_directory(
 def get_location_directory_feeds(
     db_session: Session,
     continent: Optional[str],
-    country_code: Optional[str],
+    country: Optional[str],
     subdivision: Optional[str],
     municipality: Optional[str],
     limit: int,
     offset: int,
 ) -> LocationDirectoryFeedsResponse:
-    node = parse_directory_node(continent, country_code, subdivision, municipality)
+    node = parse_directory_node(continent, country, subdivision, municipality)
     if node is None:
         return LocationDirectoryFeedsResponse(total=0, results=[])
     feed_locations = _feed_locations()
