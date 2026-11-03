@@ -15,17 +15,39 @@
 #
 
 import logging
-from typing import List, Optional
+import os
+from typing import Dict, List, Optional
 
+import google.auth.transport.requests
+import requests
 import sib_api_v3_sdk
 import urllib3
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from google.oauth2 import id_token
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.notifications_api_base import BaseNotificationsApi
 from feeds_gen.models.operation_brevo_contact_state import OperationBrevoContactState
 from feeds_gen.models.operation_brevo_sync_status import OperationBrevoSyncStatus
+from feeds_gen.models.operation_notification_dispatch_planned_run import (
+    OperationNotificationDispatchPlannedRun,
+)
+from feeds_gen.models.operation_notification_dispatch_request import (
+    OperationNotificationDispatchRequest,
+)
+from feeds_gen.models.operation_notification_dispatch_run import (
+    OperationNotificationDispatchRun,
+)
+from feeds_gen.models.operation_notification_dispatch_start import (
+    OperationNotificationDispatchStart,
+)
+from feeds_gen.models.operation_notification_test_event_request import (
+    OperationNotificationTestEventRequest,
+)
+from feeds_gen.models.operation_notification_event import OperationNotificationEvent
 from feeds_gen.models.operation_notification_event_detail import (
     OperationNotificationEventDetail,
 )
@@ -52,11 +74,20 @@ from shared.common.brevo import (
     get_announcements_list_id,
     get_contact_list_state,
 )
+from shared.database.database import with_db_session
 from shared.database.users_database import with_users_db_session
+from shared.database_gen.sqlacodegen_models import Feed
+from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 from shared.notifications.notification_constants import (
+    DISPATCH_RUN_TASK_NAME,
+    FeedUrlUpdateType,
+    NotificationFeedRole,
     NotificationLogStatus,
+    NotificationSource,
     NotificationTypeId,
+    TEST_RECIPIENT_USER_IDS_KEY,
 )
+from shared.notifications.notification_event_service import add_event
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationEvent,
@@ -73,6 +104,50 @@ _LOG_STATUSES = {
     NotificationLogStatus.FAILED,
     NotificationLogStatus.PERMANENTLY_FAILED,
 }
+
+
+# Shown as the new URL of a test `url_replaced` event when the caller gives none.
+_TEST_NEW_URL = "https://example.com/operations-test/feed.zip"
+# The dispatch batch only plans and enqueues workers, but with many subscriptions
+# the enqueue loop takes a while; stay under the function's own 540s timeout.
+_TASKS_EXECUTOR_TIMEOUT_SECONDS = 480
+
+
+@with_db_session
+def _feed_producer_urls(stable_ids: List[str], db_session=None) -> Dict[str, str]:
+    """producer_url by stable_id for the feeds that exist (feeds DB)."""
+    rows = (
+        db_session.query(Feed.stable_id, Feed.producer_url)
+        .filter(Feed.stable_id.in_(stable_ids))
+        .all()
+    )
+    return {stable_id: producer_url for stable_id, producer_url in rows}
+
+
+def _run_tasks_executor(task: str, payload: dict) -> dict:
+    """Run a tasks_executor task over HTTP, the way Cloud Scheduler triggers it:
+    a POST of ``{"task", "payload"}`` with an OIDC token for the function URL."""
+    url = os.getenv("TASKS_EXECUTOR_URL")
+    if not url:
+        logger.error("TASKS_EXECUTOR_URL is not configured.")
+        raise HTTPException(
+            status_code=500, detail="The tasks executor is not configured."
+        )
+    try:
+        token = id_token.fetch_id_token(google.auth.transport.requests.Request(), url)
+        response = requests.post(
+            url,
+            json={"task": task, "payload": payload},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=_TASKS_EXECUTOR_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error("tasks_executor task %s failed: %s", task, e)
+        raise HTTPException(
+            status_code=502, detail=f"Failed to run the {task} task."
+        ) from None
 
 
 def _logs_query(db_session):
@@ -145,7 +220,7 @@ def _brevo_sync_issues(
 
 
 class NotificationsApiImpl(BaseNotificationsApi):
-    """Implementation of the Operations notifications API (read-only)."""
+    """Implementation of the Operations notifications API."""
 
     @with_users_db_session
     def list_notification_events(
@@ -358,4 +433,133 @@ class NotificationsApiImpl(BaseNotificationsApi):
             ),
             in_sync=not issues,
             issues=issues,
+        )
+
+    @with_users_db_session
+    def create_test_notification_event(
+        self,
+        operation_notification_test_event_request: OperationNotificationTestEventRequest,
+        db_session=None,
+    ) -> OperationNotificationEvent:
+        request = operation_notification_test_event_request
+        recipient_user_ids = list(dict.fromkeys(request.recipient_user_ids or []))
+        if not recipient_user_ids:
+            raise HTTPException(
+                status_code=400, detail="recipient_user_ids must not be empty."
+            )
+        redirected = request.event_subtype == FeedUrlUpdateType.FEED_REDIRECTED
+        if redirected and not request.target_feed_stable_id:
+            raise HTTPException(
+                status_code=400,
+                detail="target_feed_stable_id is required for feed_redirected.",
+            )
+
+        stable_ids = [request.feed_stable_id]
+        if redirected:
+            stable_ids.append(request.target_feed_stable_id)
+        producer_urls = _feed_producer_urls(stable_ids)
+        missing_feeds = [s for s in stable_ids if s not in producer_urls]
+        if missing_feeds:
+            raise HTTPException(
+                status_code=404, detail=f"Feed not found: {', '.join(missing_feeds)}."
+            )
+
+        known_users = {
+            user_id
+            for (user_id,) in db_session.query(AppUser.id).filter(
+                AppUser.id.in_(recipient_user_ids)
+            )
+        }
+        unknown_users = [u for u in recipient_user_ids if u not in known_users]
+        if unknown_users:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown recipient user IDs: {', '.join(unknown_users)}.",
+            )
+
+        feeds = [(request.feed_stable_id, NotificationFeedRole.SUBJECT)]
+        if redirected:
+            feeds.append((request.target_feed_stable_id, NotificationFeedRole.TARGET))
+            default_new_url = producer_urls[request.target_feed_stable_id]
+        else:
+            default_new_url = _TEST_NEW_URL
+        event_id = add_event(
+            db_session=db_session,
+            notification_type_id=NotificationTypeId.FEED_URL_UPDATED,
+            event_subtype=request.event_subtype,
+            source=NotificationSource.OPERATIONS_TEST,
+            feeds=feeds,
+            payload={
+                "old_url": request.old_url or producer_urls[request.feed_stable_id],
+                "new_url": request.new_url or default_new_url,
+                TEST_RECIPIENT_USER_IDS_KEY: recipient_user_ids,
+            },
+        )
+        db_session.commit()
+
+        event = (
+            db_session.query(NotificationEvent)
+            .options(selectinload(NotificationEvent.notification_event_feeds))
+            .filter(NotificationEvent.id == event_id)
+            .one()
+        )
+        payload = OperationNotificationEventImpl.from_orm(event).model_dump()
+        return JSONResponse(status_code=201, content=jsonable_encoder(payload))
+
+    def start_notification_dispatch(
+        self,
+        operation_notification_dispatch_request: OperationNotificationDispatchRequest,
+    ) -> OperationNotificationDispatchStart:
+        request = operation_notification_dispatch_request
+        result = _run_tasks_executor(
+            "notifications_dispatch_batch",
+            {
+                "cadence": request.cadence,
+                "user_ids": request.user_ids or [],
+                "dry_run": bool(request.dry_run),
+                "force": bool(request.force),
+            },
+        )
+        by_cadence = result.get("by_cadence") or {}
+        return OperationNotificationDispatchStart(
+            runs=[
+                OperationNotificationDispatchPlannedRun(
+                    cadence=cadence,
+                    run_id=run["run_id"],
+                    subscriptions=run["subscriptions"],
+                    enqueued=run["enqueued"],
+                    dry_run=run["dry_run"],
+                )
+                for cadence, run in by_cadence.items()
+            ]
+        )
+
+    @with_db_session
+    def get_notification_dispatch_run(
+        self, run_id: str, db_session=None
+    ) -> OperationNotificationDispatchRun:
+        summary = TaskExecutionTracker(
+            task_name=DISPATCH_RUN_TASK_NAME,
+            run_id=run_id,
+            db_session=db_session,
+        ).get_summary()
+        if summary["run_status"] is None:
+            raise HTTPException(status_code=404, detail="Dispatch run not found.")
+        params = summary["params"] or {}
+        return OperationNotificationDispatchRun(
+            run_id=run_id,
+            status=summary["run_status"],
+            cadence=params.get("cadence"),
+            params=params,
+            created_at=summary["created_at"],
+            total=summary["total_count"] or 0,
+            triggered=summary["triggered"],
+            completed=summary["completed"],
+            failed=summary["failed"],
+            # Only the numeric sums: the workers store nothing else.
+            stats={
+                key: value
+                for key, value in summary["metadata_summary"].items()
+                if isinstance(value, (int, float))
+            },
         )

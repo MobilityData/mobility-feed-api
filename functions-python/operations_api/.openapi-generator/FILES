@@ -81,6 +81,10 @@ src/feeds_gen/models/operation_feature_flag.py
 src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
+src/feeds_gen/models/operation_notification_dispatch_planned_run.py
+src/feeds_gen/models/operation_notification_dispatch_request.py
+src/feeds_gen/models/operation_notification_dispatch_run.py
+src/feeds_gen/models/operation_notification_dispatch_start.py
 src/feeds_gen/models/operation_notification_event.py
 src/feeds_gen/models/operation_notification_event_detail.py
 src/feeds_gen/models/operation_notification_event_feed.py
@@ -88,6 +92,7 @@ src/feeds_gen/models/operation_notification_event_list.py
 src/feeds_gen/models/operation_notification_log.py
 src/feeds_gen/models/operation_notification_log_list.py
 src/feeds_gen/models/operation_notification_subscription.py
+src/feeds_gen/models/operation_notification_test_event_request.py
 src/feeds_gen/models/operation_user_profile.py
 src/feeds_gen/models/parquet_dataset_state.py
 src/feeds_gen/models/parquet_generate_request.py

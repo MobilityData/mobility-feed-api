@@ -78,7 +78,8 @@ def notifications_dispatch_handler(payload: dict) -> dict:
         _mark_entry(run_id, subscription_id, error=str(error))
         raise
 
-    _mark_entry(run_id, subscription_id)
+    # The stats ride on the tracker entry so a run's summary sums them exactly.
+    _mark_entry(run_id, subscription_id, stats=stats)
     return {"status": "ok", "subscription_id": subscription_id, **stats}
 
 
@@ -87,6 +88,7 @@ def _mark_entry(
     run_id: Optional[str],
     subscription_id: str,
     error: Optional[str] = None,
+    stats: Optional[dict] = None,
     db_session=None,
 ) -> None:
     """Record this subscription's completion in the run's TaskExecutionTracker.
@@ -101,7 +103,7 @@ def _mark_entry(
         db_session=db_session,
     )
     if error is None:
-        tracker.mark_completed(subscription_id)
+        tracker.mark_completed(subscription_id, metadata=stats)
     else:
         tracker.mark_failed(subscription_id, error_message=error)
     db_session.commit()
