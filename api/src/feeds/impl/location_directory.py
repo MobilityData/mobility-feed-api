@@ -5,7 +5,7 @@ geopolygons. Continents come from a static country code mapping, passed to the d
 the aggregation stays in SQL. Countries are identified by a slug of their name (`portugal`) from another static
 table, and resolved to their ISO code when the request is parsed. Subdivision and municipality slugs are computed in
 SQL: the same expression produces the slugs returned to clients and matches the ones they send back, so the two
-cannot drift apart.
+cannot drift apart. The feeds of a node are listed by /v1/search, which filters with `located_feeds`.
 """
 
 import logging
@@ -22,9 +22,7 @@ from feeds.impl.error_handling import (
     location_directory_parent_required,
     raise_http_error,
 )
-from feeds.impl.search_api_impl import feed_search_columns
 from feeds_gen.models.location_directory_feed_counts import LocationDirectoryFeedCounts
-from feeds_gen.models.location_directory_feeds_response import LocationDirectoryFeedsResponse
 from feeds_gen.models.location_directory_level import LocationDirectoryLevel
 from feeds_gen.models.location_directory_node import LocationDirectoryNode
 from feeds_gen.models.location_directory_response import LocationDirectoryResponse
@@ -32,8 +30,7 @@ from middleware.request_context import is_user_email_restricted
 from shared.common.continents import CONTINENTS, CONTINENTS_BY_SLUG, COUNTRY_CONTINENTS, Continent
 from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code, get_country_name
 from shared.database.sql_functions.unaccent import unaccent
-from shared.database_gen.sqlacodegen_models import Feed, Location, t_feedsearch, t_locationfeed
-from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
+from shared.database_gen.sqlacodegen_models import Feed, Location, t_locationfeed
 
 DIRECTORY_FEED_STATUSES: Final = ("active", "inactive", "development", "future")
 DIRECTORY_DATA_TYPES: Final = ("gtfs", "gtfs_rt", "gbfs")
@@ -150,9 +147,10 @@ def _feed_scope_conditions():
     ]
 
 
-def _feed_locations():
-    """One row per (feed, declared location) in scope, with its continent, slugs and depth.
+def _feed_locations(in_scope: bool = True):
+    """One row per (feed, declared location), with its continent, slugs and depth.
 
+    Only feeds in the directory's scope are kept unless `in_scope` is False.
     The depth of a location is 1 when it only declares a country, 2 with a subdivision and 3 with a municipality.
     Locations whose country code is missing from the continent mapping are left out.
     """
@@ -187,7 +185,7 @@ def _feed_locations():
         .join(t_locationfeed, t_locationfeed.c.feed_id == Feed.id)
         .join(Location, Location.id == t_locationfeed.c.location_id)
         .join(continent_map, continent_map.c.country_code == country_code)
-        .where(*_feed_scope_conditions())
+        .where(*(_feed_scope_conditions() if in_scope else []))
         .subquery("feed_location")
     )
 
@@ -373,42 +371,17 @@ def get_location_directory(
     )
 
 
-def get_location_directory_feeds(
-    db_session: Session,
-    continent: Optional[str],
-    country: Optional[str],
-    subdivision: Optional[str],
-    municipality: Optional[str],
-    limit: int,
-    offset: int,
-) -> LocationDirectoryFeedsResponse:
-    node = parse_directory_node(continent, country, subdivision, municipality)
-    if node is None:
-        return LocationDirectoryFeedsResponse(total=0, results=[])
-    feed_locations = _feed_locations()
+def located_feeds(node: DirectoryNode):
+    """Subquery of the feeds with a declared location within `node`, used by /v1/search to filter and sort.
 
-    # A feed may declare several locations within the node: rank it by the one closest to the node's level.
-    ranked_feeds = (
+    Unlike the directory counts, it applies no status or visibility rule: /v1/search applies its own filters. A feed
+    may declare several locations within the node; its `depth` is the one of the location closest to the node's level
+    (1 country, 2 subdivision, 3 municipality), so that `sort=location` ranks it by its most relevant location.
+    """
+    feed_locations = _feed_locations(in_scope=False)
+    return (
         select(feed_locations.c.feed_id, func.min(feed_locations.c.depth).label("depth"))
         .where(*_node_conditions(feed_locations, node))
         .group_by(feed_locations.c.feed_id)
-        .subquery("ranked_feed")
-    )
-    ranked_search_rows = ranked_feeds.join(t_feedsearch, t_feedsearch.c.feed_id == ranked_feeds.c.feed_id)
-    total = db_session.execute(select(func.count()).select_from(ranked_search_rows)).scalar_one()
-    rows = db_session.execute(
-        select(*feed_search_columns)
-        .select_from(ranked_search_rows)
-        .order_by(
-            ranked_feeds.c.depth.asc(),
-            t_feedsearch.c.provider.asc().nulls_last(),
-            t_feedsearch.c.feed_name.asc().nulls_last(),
-            t_feedsearch.c.feed_stable_id.asc(),
-        )
-        .limit(limit)
-        .offset(offset)
-    ).all()
-    return LocationDirectoryFeedsResponse(
-        total=total,
-        results=[SearchFeedItemResultImpl.from_orm(row) for row in rows],
+        .subquery("located_feed")
     )

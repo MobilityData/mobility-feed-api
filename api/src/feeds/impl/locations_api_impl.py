@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from feeds.impl import location_directory
 from feeds_gen.apis.locations_api_base import BaseLocationsApi
-from feeds_gen.models.location_directory_feeds_response import LocationDirectoryFeedsResponse
 from feeds_gen.models.location_directory_response import LocationDirectoryResponse
 from feeds_gen.models.location_search_response import LocationSearchResponse
 from shared.database.database import with_db_session
@@ -133,19 +132,3 @@ class LocationsApiImpl(BaseLocationsApi):
     ) -> LocationDirectoryResponse:
         """Browse the feed location directory one level at a time, from the feeds' declared locations."""
         return location_directory.get_location_directory(db_session, continent, country, subdivision, municipality)
-
-    @with_db_session
-    def get_location_directory_feeds(
-        self,
-        continent: str,
-        country: str,
-        subdivision: str,
-        municipality: str,
-        limit: int,
-        offset: int,
-        db_session: Session,
-    ) -> LocationDirectoryFeedsResponse:
-        """List the feeds located within a location directory node, most relevant first."""
-        return location_directory.get_location_directory_feeds(
-            db_session, continent, country, subdivision, municipality, limit, offset
-        )
