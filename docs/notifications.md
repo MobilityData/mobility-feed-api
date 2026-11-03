@@ -308,10 +308,9 @@ Quick orientation:
   call must be authenticated. See
   [`docs/UserServiceAPI.yaml`](./UserServiceAPI.yaml).
 - **`api.announcements` is special.** As noted above it is delivered via Brevo,
-  not this dispatcher. An opt-in is kept in sync across **three**
-  representations — the `notification_subscription` row, Brevo list membership,
-  and `app_user.is_registered_to_receive_api_announcements` — by
-  `set_announcements_optin()` in
+  not this dispatcher. An opt-in is kept in sync across **two**
+  representations — the `notification_subscription` row and Brevo list
+  membership — by `set_announcements_optin()` in
   `api/src/user_service/impl/subscription_helpers.py`. Announcements
   subscriptions are **disabled, never deleted**.
 - **The Brevo/DB link.** Each announcements contact carries the contact attribute

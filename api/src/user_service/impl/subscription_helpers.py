@@ -145,15 +145,16 @@ def set_announcements_optin(
     subscription: NotificationSubscriptionOrm | None = None,
     release_connection_before_brevo: bool = False,
 ) -> NotificationSubscriptionOrm | None:
-    """Reconcile a user's api.announcements opt-in across all three representations
-    that must agree: the notification_subscription row, Brevo list membership, and
-    app_user.is_registered_to_receive_api_announcements. Idempotent.
+    """Reconcile a user's api.announcements opt-in across the two representations
+    that must agree: the notification_subscription row and Brevo list membership.
+    The user's is_registered_to_receive_api_announcements is derived from the
+    subscription's ``active``. Idempotent.
 
     subscribe=True  → create/reactivate the subscription, add the contact to the
-                      Brevo list with its MDB_SUBSCRIPTION_ID, set the flag True.
+                      Brevo list with its MDB_SUBSCRIPTION_ID.
     subscribe=False → deactivate the subscription (api.announcements is never
                       deleted, only disabled), remove the contact from the Brevo
-                      list, set the flag False.
+                      list.
     Returns the subscription row (None only when unsubscribing a user that has no
     subscription row).
 
@@ -167,7 +168,7 @@ def set_announcements_optin(
     Only pass True when there are no pending writes you would want rolled back if
     the Brevo call fails (e.g. the delete endpoints, which only read beforehand).
     On the subscribe path the connection is always held so the whole change stays
-    atomic (a Brevo failure rolls the new subscription + flag back).
+    atomic (a Brevo failure rolls the new subscription back).
     """
     existing = subscription
     if existing is None:
@@ -184,6 +185,9 @@ def set_announcements_optin(
         sub = existing or NotificationSubscriptionOrm(
             id=generate_unique_id(),
             user_id=user.id,
+            # Also links it into user.notification_subscriptions, which the
+            # profile response reads the opt-in from.
+            user=user,
             notification_type_id=ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
             created_at=datetime.now(timezone.utc),
         )
@@ -197,7 +201,6 @@ def set_announcements_optin(
             first_name=user.full_name,
             organization=user.legacy_org_name,
         )
-        user.is_registered_to_receive_api_announcements = True
         return sub
 
     # Unsubscribe. Capture the email before any commit so we never trigger a
@@ -208,5 +211,4 @@ def set_announcements_optin(
     sync_announcements(email, subscribe=False)
     if existing is not None:
         existing.active = False
-    user.is_registered_to_receive_api_announcements = False
     return existing

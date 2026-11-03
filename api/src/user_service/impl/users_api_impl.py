@@ -90,7 +90,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -127,7 +130,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -136,16 +142,14 @@ class UsersApiImpl(BaseUsersApi):
 
         update_data = update_user_request.model_dump(exclude_unset=True)
 
-        # Detect a real change to the announcements opt-in so we can reconcile the
-        # subscription + Brevo membership below. Writing the boolean alone would
-        # leave the DB flag, the notification_subscription row, and Brevo out of
-        # sync (the historical bug this closes). Only act on an actual change so
-        # unrelated profile edits never make a (slow, failable) Brevo call.
+        # The opt-in is not a column: it is the api.announcements subscription,
+        # reconciled with Brevo below. Only act on an actual change so unrelated
+        # profile edits never make a (slow, failable) Brevo call.
         optin_field = "is_registered_to_receive_api_announcements"
         optin_target = None
         if optin_field in update_data:
-            new_value = bool(update_data[optin_field])
-            if new_value != bool(user.is_registered_to_receive_api_announcements):
+            new_value = bool(update_data.pop(optin_field))
+            if new_value != AppUserImpl.is_registered_to_announcements(user):
                 optin_target = new_value
 
         for field, value in update_data.items():
@@ -283,8 +287,7 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="User not found.")
 
         if notification_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            # Reconcile the subscription row, Brevo membership and the app_user
-            # opt-in flag together so all three stay consistent.
+            # Reconcile the subscription row and Brevo membership together.
             sub = set_announcements_optin(db_session, user, subscribe=True)
         else:
             # Idempotent: reuse an existing subscription, reactivating if needed.
@@ -374,7 +377,7 @@ class UsersApiImpl(BaseUsersApi):
             user = db_session.get(AppUser, user_id)
             # release_connection_before_brevo=True: only reads happened above, so
             # committing just returns the pooled connection before the (possibly
-            # slow) Brevo call. Also clears the app_user opt-in flag.
+            # slow) Brevo call.
             set_announcements_optin(
                 db_session,
                 user,
