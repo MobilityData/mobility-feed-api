@@ -1,10 +1,13 @@
+import re
+import unicodedata
+
 import pytest
 from fastapi import HTTPException
 
 from feeds.impl.location_directory import DirectoryNode, parse_directory_node
 from feeds_gen.models.location_directory_level import LocationDirectoryLevel
 from shared.common.continents import CONTINENTS, CONTINENTS_BY_SLUG, get_continent_code
-from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code, get_country_slug
+from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code, get_country_name, get_country_slug
 
 
 def test_continent_mapping():
@@ -32,6 +35,23 @@ def test_country_slugs():
     for slug in COUNTRY_SLUGS.values():
         assert slug == slug.strip("-") and all(c.isascii() and (c.isalnum() or c == "-") for c in slug)
         assert slug == slug.lower() and "--" not in slug
+
+
+def test_country_names():
+    assert get_country_name("se") == "Sweden"
+    assert get_country_name("KR") == "South Korea"
+    assert get_country_name("RU") == "Russia"
+    assert get_country_name("XK") == "Kosovo"
+    assert get_country_name("ZZ") is None
+    assert get_country_name(None) is None
+
+    def slugify(name):
+        unaccented = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
+        return re.sub(r"[^a-z0-9]+", "-", unaccented.lower()).strip("-")
+
+    # A pycountry upgrade that renames a country fails here instead of drifting from its URL.
+    for country_code, slug in COUNTRY_SLUGS.items():
+        assert slugify(get_country_name(country_code)) == slug, country_code
 
 
 def test_parse_root():

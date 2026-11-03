@@ -5,9 +5,13 @@ replaced by a hyphen. They were generated once from pycountry's common names and
 they end up in public URLs, so a dependency upgrade that renames a country must not change them. A few names were
 shortened or reordered to read like the usual name of the country (`russia`, `democratic-republic-of-the-congo`,
 `us-virgin-islands`). Changing a slug changes the URL of every directory page of that country.
+
+Display names come from pycountry at runtime, with the same rewordings, so they always match the slugs.
 """
 
 from typing import Dict, Final, Optional
+
+import pycountry
 
 from shared.common.continents import COUNTRY_CONTINENTS
 
@@ -266,6 +270,26 @@ COUNTRY_SLUGS: Final[Dict[str, str]] = {
 
 COUNTRY_CODES_BY_SLUG: Final[Dict[str, str]] = {slug: country_code for country_code, slug in COUNTRY_SLUGS.items()}
 
+# Display names for the countries whose slug was reworded from pycountry's name, so a name and its slug always match.
+COUNTRY_NAME_OVERRIDES: Final[Dict[str, str]] = {
+    "BN": "Brunei",
+    "BQ": "Caribbean Netherlands",
+    "CC": "Cocos Islands",
+    "CD": "Democratic Republic of the Congo",
+    "CG": "Republic of the Congo",
+    "FK": "Falkland Islands",
+    "FM": "Micronesia",
+    "MF": "Saint Martin",
+    "PS": "Palestine",
+    "RU": "Russia",
+    "SH": "Saint Helena",
+    "SX": "Sint Maarten",
+    "VA": "Vatican City",
+    "VG": "British Virgin Islands",
+    "VI": "US Virgin Islands",
+    "XK": "Kosovo",
+}
+
 
 def get_country_slug(country_code: Optional[str]) -> Optional[str]:
     """Return the slug of an ISO 3166-1 alpha-2 country code, or None when it is unknown."""
@@ -279,6 +303,19 @@ def get_country_code(slug: Optional[str]) -> Optional[str]:
     if not slug:
         return None
     return COUNTRY_CODES_BY_SLUG.get(slug.strip().lower())
+
+
+def get_country_name(country_code: Optional[str]) -> Optional[str]:
+    """Return the short English name of an ISO 3166-1 alpha-2 country code, or None when it is unknown."""
+    if not country_code:
+        return None
+    code = country_code.strip().upper()
+    if code in COUNTRY_NAME_OVERRIDES:
+        return COUNTRY_NAME_OVERRIDES[code]
+    country = pycountry.countries.get(alpha_2=code)
+    if country is None:
+        return None
+    return getattr(country, "common_name", None) or country.name
 
 
 # Every country of the continent mapping needs a slug, and two countries cannot share one.

@@ -13,7 +13,6 @@ import unicodedata
 from dataclasses import dataclass, replace
 from typing import Final, List, Optional, Set
 
-import pycountry
 from sqlalchemy import String, and_, case, column, distinct, func, or_, select, values
 from sqlalchemy.orm import Session
 
@@ -31,7 +30,7 @@ from feeds_gen.models.location_directory_node import LocationDirectoryNode
 from feeds_gen.models.location_directory_response import LocationDirectoryResponse
 from middleware.request_context import is_user_email_restricted
 from shared.common.continents import CONTINENTS, CONTINENTS_BY_SLUG, COUNTRY_CONTINENTS, Continent
-from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code
+from shared.common.country_slugs import COUNTRY_SLUGS, get_country_code, get_country_name
 from shared.database.sql_functions.unaccent import unaccent
 from shared.database_gen.sqlacodegen_models import Feed, Location, t_feedsearch, t_locationfeed
 from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
@@ -234,10 +233,8 @@ def _feed_counts(row, prefix: str = "") -> LocationDirectoryFeedCounts:
 
 
 def _country_name(country_code: str, declared_name: Optional[str]) -> str:
-    if declared_name:
-        return declared_name
-    country = pycountry.countries.get(alpha_2=country_code)
-    return country.name if country else country_code
+    # The English name, not the declared one (e.g. "Sverige"), so every country reads like its slug.
+    return get_country_name(country_code) or declared_name or country_code
 
 
 def _name_sort_key(node: LocationDirectoryNode):
