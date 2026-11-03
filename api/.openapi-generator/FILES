@@ -49,7 +49,6 @@ src/feeds_gen/models/license_rule.py
 src/feeds_gen/models/license_with_rules.py
 src/feeds_gen/models/location.py
 src/feeds_gen/models/location_directory_feed_counts.py
-src/feeds_gen/models/location_directory_feeds_response.py
 src/feeds_gen/models/location_directory_level.py
 src/feeds_gen/models/location_directory_node.py
 src/feeds_gen/models/location_directory_response.py

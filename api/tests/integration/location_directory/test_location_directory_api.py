@@ -5,19 +5,32 @@ from feeds.impl.error_handling import (
     location_directory_country_not_in_continent,
     location_directory_not_found,
     location_directory_parent_required,
+    search_location_sort_requires_location,
+    search_sort_unsupported,
 )
-from feeds_gen.models.location_directory_feeds_response import LocationDirectoryFeedsResponse
 from feeds_gen.models.location_directory_response import LocationDirectoryResponse
+from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 
 HEADERS = {"Authentication": "special-key"}
+# The statuses counted by the directory, passed to /v1/search to list the same feeds.
+DIRECTORY_STATUSES = "active,inactive,development,future"
 
 
 def _directory(client: TestClient, **params):
     return client.get("/v1/locations/directory", headers=HEADERS, params=params)
 
 
+def _search(client: TestClient, **params):
+    return client.get("/v1/search", headers=HEADERS, params=params)
+
+
 def _directory_feeds(client: TestClient, **params):
-    return client.get("/v1/locations/directory/feeds", headers=HEADERS, params=params)
+    """The feeds of a directory node, as listed by the web app: /v1/search with the directory statuses."""
+    return _search(client, status=DIRECTORY_STATUSES, sort="location", **params)
+
+
+def _feed_ids(response) -> list:
+    return [feed.id for feed in SearchFeeds200Response.model_validate(response.json()).results]
 
 
 def _counts(node) -> tuple:
@@ -177,19 +190,20 @@ def test_unknown_node_is_not_found(client: TestClient, params):
     assert feeds_response.json() == {"total": 0, "results": []}
 
 
-def test_feeds_sorted_by_relevance(client: TestClient):
+def test_search_feeds_sorted_by_location_relevance(client: TestClient):
     response = _directory_feeds(client, continent="north-america", country="canada", subdivision="quebec")
     assert response.status_code == 200
-    body = LocationDirectoryFeedsResponse.model_validate(response.json())
+    body = SearchFeeds200Response.model_validate(response.json())
 
+    # The total matches the directory counts of the node.
     assert body.total == 4
     # Located in Québec (depth 2) first, then in a municipality of Québec (depth 3); provider breaks the ties.
     assert [feed.id for feed in body.results] == ["ld-1", "ld-4", "ld-3", "ld-2"]
     assert [feed.data_type for feed in body.results] == ["gtfs", "gbfs", "gtfs_rt", "gtfs"]
 
 
-def test_feeds_country_level_ordering(client: TestClient):
-    body = LocationDirectoryFeedsResponse.model_validate(
+def test_search_feeds_country_level_ordering(client: TestClient):
+    body = SearchFeeds200Response.model_validate(
         _directory_feeds(client, continent="north-america", country="canada").json()
     )
 
@@ -199,38 +213,62 @@ def test_feeds_country_level_ordering(client: TestClient):
     assert [feed.id for feed in body.results] == ["ld-5", "ld-13", "ld-1", "ld-4", "ld-3", "ld-2", "ld-8", "ld-9"]
 
 
-def test_feeds_continent_level_ranks_by_most_relevant_location(client: TestClient):
-    body = LocationDirectoryFeedsResponse.model_validate(
-        _directory_feeds(client, continent="north-america", limit=3).json()
-    )
+def test_search_feeds_continent_level_ranks_by_most_relevant_location(client: TestClient):
+    body = SearchFeeds200Response.model_validate(_directory_feeds(client, continent="north-america", limit=3).json())
     assert body.total == 8
     assert [feed.id for feed in body.results] == ["ld-5", "ld-13", "ld-1"]
 
 
-def test_feeds_pagination(client: TestClient):
-    body = LocationDirectoryFeedsResponse.model_validate(
-        _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=2).json()
-    )
-    assert body.total == 8
-    assert [feed.id for feed in body.results] == ["ld-1", "ld-4", "ld-3"]
+def test_search_feeds_location_pagination(client: TestClient):
+    response = _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=2)
+    assert SearchFeeds200Response.model_validate(response.json()).total == 8
+    assert _feed_ids(response) == ["ld-1", "ld-4", "ld-3"]
 
-    last_page = LocationDirectoryFeedsResponse.model_validate(
-        _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=6).json()
-    )
-    assert last_page.total == 8
-    assert [feed.id for feed in last_page.results] == ["ld-8", "ld-9"]
+    last_page = _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=6)
+    assert _feed_ids(last_page) == ["ld-8", "ld-9"]
 
 
-def test_feeds_default_and_maximum_limit(client: TestClient):
-    body = LocationDirectoryFeedsResponse.model_validate(_directory_feeds(client).json())
-    # No parameter: every feed in the directory.
-    assert body.total == 10
-    assert len(body.results) == 10
+def test_search_location_filter_applies_search_statuses(client: TestClient):
+    params = {"continent": "north-america", "country": "canada", "subdivision": "quebec", "municipality": "montreal"}
+    # With the directory statuses, the deprecated feed (ld-6) is left out, as in the directory counts.
+    assert sorted(_feed_ids(_directory_feeds(client, **params))) == ["ld-2", "ld-3"]
+    # Without a status filter, search returns every published feed located there, the deprecated one included.
+    assert sorted(_feed_ids(_search(client, **params))) == ["ld-2", "ld-3", "ld-6"]
 
-    assert _directory_feeds(client, limit=101).status_code == 422
+
+def test_search_location_filter_hides_wip_feeds_like_search(client: TestClient, monkeypatch):
+    params = {"continent": "north-america", "country": "canada", "subdivision": "quebec", "municipality": "montreal"}
+    assert "ld-7" not in _feed_ids(_search(client, **params))
+    monkeypatch.setattr("feeds.impl.search_api_impl.is_user_email_restricted", lambda: False)
+    assert "ld-7" in _feed_ids(_search(client, **params))
 
 
-def test_feeds_use_search_result_shape(client: TestClient):
+def test_search_location_filter_combines_with_other_filters(client: TestClient):
+    params = {"continent": "north-america", "country": "canada", "status": DIRECTORY_STATUSES}
+    assert sorted(_feed_ids(_search(client, data_type="gtfs_rt", **params))) == ["ld-3"]
+    assert sorted(_feed_ids(_search(client, search_query="Montreal", **params))) == ["ld-2", "ld-3"]
+
+
+def test_search_without_location_is_unchanged(client: TestClient):
+    # No location filter: every published feed, including those without a mapped location (ld-12).
+    body = SearchFeeds200Response.model_validate(_search(client).json())
+    assert body.total == 12
+    assert "ld-12" in {feed.id for feed in body.results}
+
+
+def test_search_location_sort_requires_location(client: TestClient):
+    response = _search(client, sort="location")
+    assert response.status_code == 400
+    assert response.json()["detail"] == search_location_sort_requires_location
+
+
+def test_search_rejects_unknown_sort(client: TestClient):
+    response = _search(client, sort="provider")
+    assert response.status_code == 400
+    assert response.json()["detail"] == search_sort_unsupported.format("provider")
+
+
+def test_search_location_results_use_search_result_shape(client: TestClient):
     body = _directory_feeds(
         client, continent="north-america", country="canada", subdivision="quebec", municipality="montreal"
     ).json()
@@ -243,11 +281,3 @@ def test_feeds_use_search_result_shape(client: TestClient):
     assert {"country_code": "CA", "subdivision_name": "Québec", "municipality": "Montréal"}.items() <= feed[
         "locations"
     ][0].items()
-
-
-def test_feeds_exclude_deprecated_feeds(client: TestClient):
-    body = LocationDirectoryFeedsResponse.model_validate(_directory_feeds(client, limit=100).json())
-    feed_ids = {feed.id for feed in body.results}
-    assert "ld-6" not in feed_ids  # deprecated
-    assert "ld-7" not in feed_ids  # wip
-    assert "ld-12" not in feed_ids  # unmapped country code

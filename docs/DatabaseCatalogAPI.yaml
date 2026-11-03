@@ -452,6 +452,14 @@ paths:
         Query: New York Transit
         <br>
         Search Executed: 'new' & york & 'transit'
+        <br><br>
+        Location filters:
+        <br>
+        - `continent`, `country`, `subdivision` and `municipality` restrict the results to feeds with a declared
+        location within that node of `/v1/locations/directory`, using the same slugs, parent requirements and
+        validation. Unknown slugs return no feed.
+        - To list the same feeds as a directory node's counts, also pass `status=active,inactive,development,future`.
+        - `sort=location` orders the results by relevance to the requested location instead of by creation date.
         <br>
 
       operationId: searchFeeds
@@ -471,9 +479,18 @@ paths:
         - $ref: "#/components/parameters/license_ids"
         - $ref: "#/components/parameters/license_is_spdx"
         - $ref: "#/components/parameters/license_tags"
+        - $ref: "#/components/parameters/location_directory_continent"
+        - $ref: "#/components/parameters/location_directory_country"
+        - $ref: "#/components/parameters/location_directory_subdivision"
+        - $ref: "#/components/parameters/location_directory_municipality"
+        - $ref: "#/components/parameters/search_sort"
       security:
         - Authentication: []
       responses:
+        400:
+          description: >
+            A location parameter was provided without its parent, the country does not belong to the
+            continent, or `sort=location` was requested without a location.
         403:
           description: Filtering by Seal of Reliability status is not available to this caller.
         200:
@@ -569,6 +586,9 @@ paths:
         <br>
         Each parameter requires its parent: `country` requires `continent`,
         `subdivision` requires `country`, and `municipality` requires `subdivision`.
+        <br>
+        To list the feeds of a node, call `/v1/search` with the same parameters,
+        `status=active,inactive,development,future` and `sort=location`.
       operationId: getLocationDirectory
       tags:
         - "locations"
@@ -590,38 +610,6 @@ paths:
           description: A parameter was provided without its parent, or the country does not belong to the continent.
         404:
           description: No feed is located at the requested location.
-
-  /v1/locations/directory/feeds:
-    get:
-      description: >
-        List the feeds located within a location directory node, using the same location
-        parameters, status rules and validation as `/v1/locations/directory`.
-        <br>
-        Feeds are sorted by relevance to the requested node: feeds whose most specific
-        matching declared location is closest to the requested level come first (in the
-        Québec node, a feed located in "Canada, Québec" ranks above one located in
-        "Canada, Québec, Montréal"). Ties are broken by provider, feed name and feed id.
-      operationId: getLocationDirectoryFeeds
-      tags:
-        - "locations"
-      parameters:
-        - $ref: "#/components/parameters/location_directory_continent"
-        - $ref: "#/components/parameters/location_directory_country"
-        - $ref: "#/components/parameters/location_directory_subdivision"
-        - $ref: "#/components/parameters/location_directory_municipality"
-        - $ref: "#/components/parameters/limit_query_param_location_directory_feeds_endpoint"
-        - $ref: "#/components/parameters/offset"
-      security:
-        - Authentication: []
-      responses:
-        200:
-          description: The page of feeds located within the requested node.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LocationDirectoryFeedsResponse"
-        400:
-          description: A parameter was provided without its parent, or the country does not belong to the continent.
 
   /v1/licenses:
     get:
@@ -2014,17 +2002,6 @@ components:
           items:
             $ref: "#/components/schemas/LocationDirectoryNode"
 
-    LocationDirectoryFeedsResponse:
-      type: object
-      properties:
-        total:
-          type: integer
-          description: The total number of feeds within the node regardless of limit and offset.
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SearchFeedItemResult"
-
     LocationSearchResponse:
       type: object
       properties:
@@ -2809,18 +2786,6 @@ components:
         type: string
         example: montreal
 
-    limit_query_param_location_directory_feeds_endpoint:
-      name: limit
-      in: query
-      description: The number of items to be returned.
-      required: False
-      schema:
-        type: integer
-        minimum: 0
-        maximum: 100
-        default: 20
-        example: 20
-
     limit_query_param_locations_endpoint:
       name: limit
       in: query
@@ -2935,6 +2900,24 @@ components:
       required: False
       schema:
         type: string
+
+    search_sort:
+      name: sort
+      in: query
+      description: >
+        Sort order of the results.
+        `created_at` (default): newest feeds first, then by relevance to `search_query` when one is given.
+        `location`: by relevance to the requested location, which requires `continent`. Feeds whose most
+        specific matching declared location is closest to the requested level come first (when filtering on
+        Québec, a feed located in "Canada, Québec" ranks above one located in "Canada, Québec, Montréal"); ties
+        are broken by provider, feed name and feed id.
+      required: False
+      schema:
+        type: string
+        enum:
+          - created_at
+          - location
+        default: created_at
 
     version_query_param:
       name: version

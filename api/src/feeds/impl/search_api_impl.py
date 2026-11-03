@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Query, Session
@@ -9,7 +9,13 @@ from shared.database_gen.sqlacodegen_models import t_feedsearch
 from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
-from feeds.impl.error_handling import raise_http_error
+from feeds.impl.error_handling import (
+    raise_http_error,
+    search_location_sort_requires_location,
+    search_sort_unsupported,
+)
+from feeds.impl.location_directory import located_feeds, parse_directory_node
+from feeds_gen.models.location_directory_level import LocationDirectoryLevel
 from middleware.request_context import get_request_context, is_user_email_restricted
 from shared.common.error_handling import has_seal_filter_not_permitted
 from shared.common.feature_flags import feature_flag_enabled
@@ -21,6 +27,9 @@ feed_search_columns = [column for column in t_feedsearch.columns if column.name 
 # Feature flag (feature_flag.id, users DB) that grants a user the ability to filter the catalogue by
 # Seal of Reliability status. Viewing a feed's seal is public; filtering by it is not.
 SEAL_FILTER_FEATURE_FLAG_ID = "isSealFilterEnabled"
+
+SORT_BY_CREATED_AT = "created_at"
+SORT_BY_LOCATION = "location"
 
 
 class SearchApiImpl(BaseSearchApi):
@@ -66,12 +75,16 @@ class SearchApiImpl(BaseSearchApi):
         license_ids,
         license_is_spdx,
         license_tags,
+        location_feeds=None,
     ) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
         The search query is also converted to its unaccented version.
+        `location_feeds` is the `located_feeds` subquery of the requested location, if any.
         """
+        if location_feeds is not None:
+            query = query.join(location_feeds, location_feeds.c.feed_id == t_feedsearch.c.feed_id)
         query = query.filter(
             or_(
                 t_feedsearch.c.operational_status == "published",
@@ -152,6 +165,7 @@ class SearchApiImpl(BaseSearchApi):
         license_ids: str,
         license_is_spdx: bool,
         license_tags: str,
+        location_feeds=None,
     ) -> Query:
         """
         Create a search query for the database.
@@ -170,6 +184,7 @@ class SearchApiImpl(BaseSearchApi):
             license_ids,
             license_is_spdx,
             license_tags,
+            location_feeds,
         )
 
     @staticmethod
@@ -185,11 +200,12 @@ class SearchApiImpl(BaseSearchApi):
         license_ids: str,
         license_is_spdx: bool,
         license_tags: str,
+        location_feeds=None,
+        sort: str = SORT_BY_CREATED_AT,
     ) -> Query:
         """
         Create a search query for the database.
         """
-        # TODO: Add sorting and keep the rank sorting by default
         rank_expression = func.ts_rank(
             t_feedsearch.c.document, SearchApiImpl.get_parsed_search_tsquery(search_query)
         ).label("rank")
@@ -210,7 +226,15 @@ class SearchApiImpl(BaseSearchApi):
             license_ids,
             license_is_spdx,
             license_tags,
+            location_feeds,
         )
+        if sort == SORT_BY_LOCATION and location_feeds is not None:
+            return query.order_by(
+                location_feeds.c.depth.asc(),  # Most relevant declared location first
+                t_feedsearch.c.provider.asc().nulls_last(),
+                t_feedsearch.c.feed_name.asc().nulls_last(),
+                t_feedsearch.c.feed_stable_id.asc(),
+            )
         # If search query is provided, use it as secondary sort after timestamp
         if search_query and len(search_query.strip()) > 0:
             return query.order_by(
@@ -236,6 +260,11 @@ class SearchApiImpl(BaseSearchApi):
         license_ids: str,
         license_is_spdx: bool,
         license_tags: str,
+        continent: Optional[str],
+        country: Optional[str],
+        subdivision: Optional[str],
+        municipality: Optional[str],
+        sort: Optional[str],
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
@@ -244,6 +273,20 @@ class SearchApiImpl(BaseSearchApi):
         # a caller who asked only for feeds with it, which reads as data rather than as a refusal.
         if has_seal is not None and not self._seal_filter_permitted():
             raise_http_error(403, has_seal_filter_not_permitted)
+
+        sort = sort or SORT_BY_CREATED_AT
+        if sort not in (SORT_BY_CREATED_AT, SORT_BY_LOCATION):
+            raise_http_error(400, search_sort_unsupported.format(sort))
+        # Same validation as /v1/locations/directory: a parameter without its parent is rejected (400).
+        location_node = parse_directory_node(continent, country, subdivision, municipality)
+        if location_node is None:
+            # Unknown continent or country slug: no feed is located there.
+            return SearchFeeds200Response(results=[], total=0)
+        location_feeds = None
+        if location_node.level != LocationDirectoryLevel.ROOT:
+            location_feeds = located_feeds(location_node)
+        elif sort == SORT_BY_LOCATION:
+            raise_http_error(400, search_location_sort_requires_location)
 
         query = self.create_search_query(
             status,
@@ -257,6 +300,8 @@ class SearchApiImpl(BaseSearchApi):
             license_ids,
             license_is_spdx,
             license_tags,
+            location_feeds,
+            sort,
         )
         feed_rows = Database().select(
             session=db_session,
@@ -278,6 +323,7 @@ class SearchApiImpl(BaseSearchApi):
                 license_ids,
                 license_is_spdx,
                 license_tags,
+                location_feeds,
             ),
         )
         if feed_rows is None or feed_total_count is None:
