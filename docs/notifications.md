@@ -180,6 +180,31 @@ flowchart TD
 > contact lists managed at opt-in time — so it is never batched into a dispatch
 > run (including manual/forced runs).
 
+### Feed-scoped subscriptions
+
+A `feed.url_updated` subscription is scoped by its `notification_subscription_feed`
+rows: an event is delivered only when it references one of those feeds, in any
+role (so a redirect *to* a subscribed feed is delivered too). Legacy rows without
+feeds fall back to `filter_params.feed_ids`; with neither, the subscription gets
+every event of its type.
+
+### Testing from the Operations API
+
+- `POST /v1/operations/notifications/events:test` creates a `feed.url_updated`
+  event for an existing feed without changing it. The event has
+  `source=operations_test` and its payload lists `recipient_user_ids`: the
+  dispatcher delivers it to those users only (through their own subscriptions, so
+  their feed scope still applies) and to nobody else, whatever the run.
+- `POST /v1/operations/notifications/dispatch` calls `tasks_executor` with the
+  same `notifications_dispatch_batch` request the Cloud Scheduler job sends, with
+  the given `cadence`, `user_ids`, `dry_run` and `force`, and returns each run's
+  `run_id` (or, for a dry run, the planned subscription count).
+- `GET /v1/operations/notifications/dispatch/{run_id}` reads the run's
+  `TaskExecutionTracker` state; each worker stores its delivery stats on its
+  entry, so the run's `stats` are exact even when runs overlap.
+
+Test events and test runs are not excluded from the `dispatch_summary`.
+
 ## Retry Strategy
 
 Durability plus three independent retry layers:

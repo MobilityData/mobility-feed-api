@@ -97,3 +97,14 @@ class NotificationSource:
     TDG_REDIRECTS = "tdg_redirects"
     TDG_IMPORT = "tdg_import"
     SEAL_ORCHESTRATOR = "seal_orchestrator"
+    # Test events created from the Operations API. The dispatcher only delivers
+    # them to the users listed in the event's ``recipient_user_ids`` payload key.
+    OPERATIONS_TEST = "operations_test"
+
+
+# TaskExecutionTracker task_name of a distributed dispatch run. Shared so the
+# Operations API can read a run's progress.
+DISPATCH_RUN_TASK_NAME = "notifications_dispatch_run"
+
+# Payload key holding the user ids an ``operations_test`` event may be delivered to.
+TEST_RECIPIENT_USER_IDS_KEY = "recipient_user_ids"

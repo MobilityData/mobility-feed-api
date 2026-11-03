@@ -930,6 +930,9 @@ resource "google_cloudfunctions2_function" "operations_api" {
       DATASETS_BUCKET_NAME            = "${var.datasets_bucket_name}-${var.environment}"
       PUBLIC_HOSTED_DATASETS_URL      = local.public_hosted_datasets_url
       BREVO_API_ANNOUNCEMENTS_LIST_ID = var.brevo_api_announcements_list_id
+      # Notification dispatch runs are started by calling tasks_executor directly,
+      # like the Cloud Scheduler job does (project-level run.invoker covers the call).
+      TASKS_EXECUTOR_URL = google_cloudfunctions2_function.tasks_executor.url
     }
     available_memory                 = local.function_operations_api_config.memory
     timeout_seconds                  = local.function_operations_api_config.timeout

@@ -299,6 +299,29 @@ def _persist_event(
     commits when this function returns. Exceptions propagate to :func:`_emit`,
     which logs and swallows them.
     """
+    add_event(
+        db_session=db_session,
+        notification_type_id=notification_type_id,
+        event_subtype=event_subtype,
+        source=source,
+        feeds=feeds,
+        payload=payload,
+    )
+
+
+def add_event(
+    db_session,
+    notification_type_id: str,
+    event_subtype: str,
+    source: str,
+    feeds: Optional[List[Tuple[str, str]]] = None,
+    payload: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Add a notification_event (and its feed rows) to ``db_session``; return its id.
+
+    Unlike the ``emit_*`` functions this neither commits nor swallows errors: the
+    caller owns the session. Used by the Operations API to create test events.
+    """
     from shared.users_database_gen.sqlacodegen_models import (
         NotificationEvent,
         NotificationEventFeed,
@@ -331,3 +354,4 @@ def _persist_event(
         source,
         event_id,
     )
+    return event_id

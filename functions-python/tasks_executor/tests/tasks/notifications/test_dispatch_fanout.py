@@ -146,8 +146,10 @@ class TestWorkerHandler(unittest.TestCase):
         )
 
         proc_mock.assert_called_once()
-        # marked completed (no error kwarg)
-        mark_mock.assert_called_once_with("r1", "sub-1")
+        # marked completed (no error kwarg), carrying the stats for the run summary
+        mark_mock.assert_called_once_with(
+            "r1", "sub-1", stats={"emails_sent": 2, "events_claimed": 2}
+        )
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["emails_sent"], 2)
 
