@@ -96,6 +96,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limit_query_param_gtfs_feeds_endpoint"
         - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/country_code"
