@@ -39,5 +39,9 @@ class NotificationSubscriptionImpl(NotificationSubscription):
             notification_id=sub.notification_type_id,
             active=sub.active,
             created_at=sub.created_at,
+            # Delivery preferences. Both columns are NOT NULL with a DB default, so they are
+            # always present - a subscriber can see what they are set to, not just set them.
+            cadence=sub.cadence,
+            digest=sub.digest,
             feeds=feeds or None,
         )
