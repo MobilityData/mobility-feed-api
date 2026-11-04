@@ -22,6 +22,9 @@ OUT_FILE=$SCRIPT_PATH/../$FILENAME
 
 ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
+# Per-worktree host ports, if this worktree has them (config/.env.worktree).
+# shellcheck source=./worktree-env.sh
+source "$SCRIPT_PATH/worktree-env.sh"
 
 rm -rf "$SCRIPT_PATH/../api/src/shared/users_database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/shared/users_database_gen/"
@@ -33,7 +36,8 @@ then
   rm ${SCRIPT_PATH}/sqlacodegen-user.log
 fi
 
-PORT=$POSTGRES_PORT
+# Connects from the host, so it needs the published host port.
+PORT=${POSTGRES_HOST_PORT:-$POSTGRES_PORT}
 # The users DB lives on the same instance as the catalog DB in both local
 # (host postgres / postgres-test container) and prod (same Cloud SQL instance).
 DB=${POSTGRES_USER_DB:-MobilityDatabaseUsers}

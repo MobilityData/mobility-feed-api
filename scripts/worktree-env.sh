@@ -1,0 +1,166 @@
+#!/bin/bash
+#
+#  MobilityData 2026
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Per-worktree Docker/Postgres identity.
+#
+# Every git worktree gets its own Compose project name and its own published
+# Postgres host ports, so several worktrees can run their local stacks - and
+# their test suites - at the same time without colliding.
+#
+# The values live in config/.env.worktree, which is generated on first use and
+# reused afterwards so a worktree keeps the same ports across runs. That file is
+# gitignored (.gitignore: config/.env.*) and must never be committed;
+# config/.env.local is tracked and holds the defaults only.
+#
+# CI never generates this file, so CI keeps the historical 5432 / 54320.
+#
+# Usage:
+#   source scripts/worktree-env.sh          # load config/.env.worktree if it exists
+#   source scripts/worktree-env.sh --ensure # generate it first if missing
+#   scripts/worktree-env.sh --print         # show the resolved values
+#   scripts/worktree-env.sh --reset         # discard and regenerate
+
+# ${BASH_SOURCE[0]} is empty when this file is sourced from a non-bash shell
+# (zsh is the default on macOS), which would silently resolve the root one level
+# too high. Fall back to walking up from the current directory for the marker
+# files, so `source scripts/worktree-env.sh` works from any shell.
+if [ -n "${BASH_SOURCE:-}" ]; then
+  WORKTREE_ENV_SCRIPT_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
+  WORKTREE_ENV_ROOT="$(cd -- "$WORKTREE_ENV_SCRIPT_PATH/.." >/dev/null 2>&1 && pwd -P)"
+else
+  WORKTREE_ENV_ROOT="$(pwd -P)"
+  while [ "$WORKTREE_ENV_ROOT" != "/" ]; do
+    if [ -f "$WORKTREE_ENV_ROOT/docker-compose.yaml" ] && [ -f "$WORKTREE_ENV_ROOT/scripts/worktree-env.sh" ]; then
+      break
+    fi
+    WORKTREE_ENV_ROOT="$(dirname "$WORKTREE_ENV_ROOT")"
+  done
+  WORKTREE_ENV_SCRIPT_PATH="$WORKTREE_ENV_ROOT/scripts"
+fi
+if [ ! -f "$WORKTREE_ENV_ROOT/docker-compose.yaml" ]; then
+  echo "worktree-env: cannot locate the repository root (looked at $WORKTREE_ENV_ROOT)" >&2
+fi
+WORKTREE_ENV_FILE="$WORKTREE_ENV_ROOT/config/.env.worktree"
+
+# True when a TCP port on localhost is already accepting connections.
+worktree_env_port_in_use() {
+  local port="$1"
+  if command -v nc >/dev/null 2>&1; then
+    nc -z 127.0.0.1 "$port" >/dev/null 2>&1 && return 0
+  fi
+  # Also catch ports bound by a listener that refuses our probe.
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
+# First free port at or after $1. Gives up after 400 tries rather than spinning.
+worktree_env_free_port() {
+  local candidate="$1" tries=0
+  while worktree_env_port_in_use "$candidate"; do
+    candidate=$((candidate + 1))
+    tries=$((tries + 1))
+    if [ "$tries" -gt 400 ]; then
+      echo "worktree-env: no free port found near $1" >&2
+      return 1
+    fi
+  done
+  echo "$candidate"
+}
+
+worktree_env_generate() {
+  local name offset host_port test_port user pass db test_db user_db user_test_db
+
+  # Compose project names must be lowercase alphanumeric, "_" or "-".
+  name="$(basename "$WORKTREE_ENV_ROOT" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g')"
+
+  # Seed the port search from a hash of the absolute worktree path. Hashing (not
+  # "first free port") means two worktrees whose stacks are both down still tend
+  # to pick different ports, instead of both grabbing 5432 and colliding later.
+  offset=$(( $(printf '%s' "$WORKTREE_ENV_ROOT" | cksum | cut -d' ' -f1) % 200 ))
+
+  host_port="$(worktree_env_free_port $((5432 + offset)))" || return 1
+  test_port="$(worktree_env_free_port $((54320 + offset)))" || return 1
+
+  # Credentials and DB names come from the tracked defaults.
+  user="$(grep -E '^POSTGRES_USER=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+  pass="$(grep -E '^POSTGRES_PASSWORD=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+  db="$(grep -E '^POSTGRES_DB=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+  test_db="$(grep -E '^POSTGRES_TEST_DB=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+  user_db="$(grep -E '^POSTGRES_USER_DB=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+  user_test_db="$(grep -E '^POSTGRES_USER_TEST_DB=' "$WORKTREE_ENV_ROOT/config/.env.local" | cut -d= -f2-)"
+
+  mkdir -p "$WORKTREE_ENV_ROOT/config"
+  cat > "$WORKTREE_ENV_FILE" <<EOF
+# Generated by scripts/worktree-env.sh - do not commit (gitignored).
+# Per-worktree Docker Compose project and published Postgres host ports, so this
+# worktree's stack and test suite can run alongside other worktrees'.
+# Delete this file (or run scripts/worktree-env.sh --reset) to regenerate.
+COMPOSE_PROJECT_NAME=$name
+POSTGRES_HOST_PORT=$host_port
+POSTGRES_TEST_PORT=$test_port
+FEEDS_DATABASE_URL=postgresql://$user:$pass@localhost:$host_port/$db
+FEEDS_DATABASE_URL_TEST=postgresql://$user:$pass@localhost:$test_port/$test_db
+USERS_DATABASE_URL=postgresql://$user:$pass@localhost:$host_port/$user_db
+USERS_DATABASE_URL_TEST=postgresql://$user:$pass@localhost:$test_port/$user_test_db
+EOF
+  echo "worktree-env: generated $WORKTREE_ENV_FILE (project=$name, ports=$host_port/$test_port)" >&2
+}
+
+# Load the override into the environment if it exists. Never creates it.
+worktree_env_load() {
+  if [ -f "$WORKTREE_ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$WORKTREE_ENV_FILE"
+    set +a
+  fi
+}
+
+# Generate on first use, then load.
+worktree_env_ensure() {
+  [ -f "$WORKTREE_ENV_FILE" ] || worktree_env_generate || return 1
+  worktree_env_load
+}
+
+# Populates the WORKTREE_COMPOSE_ARGS array with the arguments `docker compose`
+# needs to pin both the project and the env files, so the project name never
+# depends on the caller's working directory.
+#
+# Sets a global array rather than printing, because macOS ships bash 3.2 and
+# `mapfile` (bash 4+) is not available to read the output back.
+worktree_env_compose_args() {
+  WORKTREE_COMPOSE_ARGS=(-f "$WORKTREE_ENV_ROOT/docker-compose.yaml" --env-file "$WORKTREE_ENV_ROOT/config/.env.local")
+  if [ -f "$WORKTREE_ENV_FILE" ]; then
+    WORKTREE_COMPOSE_ARGS+=(--env-file "$WORKTREE_ENV_FILE")
+  fi
+  if [ -n "$COMPOSE_PROJECT_NAME" ]; then
+    WORKTREE_COMPOSE_ARGS+=(-p "$COMPOSE_PROJECT_NAME")
+  fi
+}
+
+case "${1:-}" in
+  --ensure) worktree_env_ensure ;;
+  --reset)  rm -f "$WORKTREE_ENV_FILE"; worktree_env_ensure ;;
+  --print)
+    worktree_env_ensure
+    echo "COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME"
+    echo "POSTGRES_HOST_PORT=$POSTGRES_HOST_PORT"
+    echo "POSTGRES_TEST_PORT=$POSTGRES_TEST_PORT"
+    ;;
+  *) worktree_env_load ;;
+esac

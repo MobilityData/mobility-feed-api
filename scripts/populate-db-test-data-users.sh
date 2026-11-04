@@ -30,16 +30,24 @@ set -a
 source "$ENV_FILE"
 set +a
 
+# Per-worktree Compose project, so this targets this worktree's stack.
+# shellcheck source=./worktree-env.sh
+source "$SCRIPT_PATH/worktree-env.sh"
+worktree_env_compose_args
+
 USER_DB="${POSTGRES_USER_DB:-MobilityDatabaseUsers}"
-CONTAINER="database"
+DB_SERVICE="postgres"
 if [ "${USE_TEST_DB:-false}" = "true" ]; then
-  CONTAINER="database_test"
+  USER_DB="${POSTGRES_USER_TEST_DB:-MobilityDatabaseUsersTest}"
+  DB_SERVICE="postgres-test"
 fi
 
-echo "Loading dummy users data into $CONTAINER / $USER_DB ..."
-docker exec -i \
+# Addressed by Compose *service* name, not container name: container names are
+# project-prefixed so that several worktrees can run their stacks at once.
+echo "Loading dummy users data into $DB_SERVICE / $USER_DB ..."
+docker compose "${WORKTREE_COMPOSE_ARGS[@]}" exec -T \
   -e PGPASSWORD="$POSTGRES_PASSWORD" \
-  "$CONTAINER" \
+  "$DB_SERVICE" \
   psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$USER_DB" < "$SQL_FILE"
 
 echo "Done."
