@@ -41,6 +41,9 @@ excluded_tables: Final[list[str]] = [
     "geography_columns",
     "geometry_columns",
     "spatial_ref_sys",
+    # Reference data seeded by Liquibase
+    "continent",
+    "country_continent",
     # Excluding the views
     "feedsearch",
     "geopolygonlocationsearch",

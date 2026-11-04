@@ -5,10 +5,10 @@ from fastapi import HTTPException
 
 from shared.common.error_handling import InternalHTTPException
 
-location_directory_parent_required: Final[str] = "The '{}' parameter requires the '{}' parameter"
-location_directory_country_not_in_continent: Final[str] = "Country '{}' does not belong to continent '{}'"
-location_directory_not_found: Final[str] = "No feed is located at the requested location"
-search_location_sort_requires_location: Final[str] = "Sorting by location requires the 'continent' parameter"
+locations_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'admin_level' or 'feed_count'"
+search_location_sort_requires_location: Final[str] = (
+    "Sorting by location requires the 'continent' or 'location_id' parameter"
+)
 search_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'created_at' or 'location'"
 
 

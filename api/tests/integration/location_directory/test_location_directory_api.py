@@ -2,258 +2,299 @@ import pytest
 from fastapi.testclient import TestClient
 
 from feeds.impl.error_handling import (
-    location_directory_country_not_in_continent,
-    location_directory_not_found,
-    location_directory_parent_required,
+    locations_sort_unsupported,
     search_location_sort_requires_location,
     search_sort_unsupported,
 )
-from feeds_gen.models.location_directory_response import LocationDirectoryResponse
+from feeds_gen.models.location_search_response import LocationSearchResponse
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 
 HEADERS = {"Authentication": "special-key"}
-# The statuses counted by the directory, passed to /v1/search to list the same feeds.
+# The statuses counted in feed_counts, passed to /v1/search to list the same feeds.
 DIRECTORY_STATUSES = "active,inactive,development,future"
 
 
-def _directory(client: TestClient, **params):
-    return client.get("/v1/locations/directory", headers=HEADERS, params=params)
+def _locations(client: TestClient, **params) -> LocationSearchResponse:
+    response = client.get("/v1/locations", headers=HEADERS, params=params)
+    assert response.status_code == 200
+    return LocationSearchResponse.model_validate(response.json())
 
 
 def _search(client: TestClient, **params):
     return client.get("/v1/search", headers=HEADERS, params=params)
 
 
-def _directory_feeds(client: TestClient, **params):
-    """The feeds of a directory node, as listed by the web app: /v1/search with the directory statuses."""
-    return _search(client, status=DIRECTORY_STATUSES, sort="location", **params)
+def _location_feeds(client: TestClient, **params) -> SearchFeeds200Response:
+    """The feeds of a location, as listed by the web app: /v1/search with the counted statuses."""
+    response = _search(client, status=DIRECTORY_STATUSES, sort="location", **params)
+    assert response.status_code == 200
+    return SearchFeeds200Response.model_validate(response.json())
 
 
-def _feed_ids(response) -> list:
-    return [feed.id for feed in SearchFeeds200Response.model_validate(response.json()).results]
+def _feed_ids(body: SearchFeeds200Response) -> list:
+    return [feed.id for feed in body.results]
 
 
-def _counts(node) -> tuple:
-    counts = node.feed_counts
+def _counts(location) -> tuple:
+    counts = location.feed_counts
     return counts.gtfs, counts.gtfs_rt, counts.gbfs, counts.total
 
 
-def _children(response: LocationDirectoryResponse) -> list:
-    return [(child.slug, child.name, _counts(child)) for child in response.children]
+def _names_and_counts(body: LocationSearchResponse) -> list:
+    return [(location.name, _counts(location)) for location in body.results]
 
 
-def test_root_lists_continents_with_counts(client: TestClient):
-    response = _directory(client)
-    assert response.status_code == 200
-    body = LocationDirectoryResponse.model_validate(response.json())
+def test_continents_with_counts(client: TestClient):
+    body = _locations(client, location_type="continent", include_feed_counts=True)
 
-    assert body.level == "root"
-    assert body.breadcrumb == []
-    # Ten feeds in scope: deprecated (ld-6), wip (ld-7) and unmapped country (ld-12) feeds are left out.
-    assert _counts(body) == (8, 1, 1, 10)
-    assert _children(body) == [
-        ("europe", "Europe", (2, 0, 0, 2)),
-        ("north-america", "North America", (6, 1, 1, 8)),
+    assert body.total == 7
+    assert [location.slug for location in body.results] == [
+        "africa",
+        "antarctica",
+        "asia",
+        "europe",
+        "north-america",
+        "oceania",
+        "south-america",
     ]
-    assert [child.code for child in body.children] == ["EU", "NA"]
-    assert all(child.level == "continent" for child in body.children)
-
-
-def test_continent_lists_countries_sorted_by_name(client: TestClient):
-    body = LocationDirectoryResponse.model_validate(_directory(client, continent="europe").json())
-
-    assert body.level == "continent"
-    assert [(node.slug, node.code, node.name) for node in body.breadcrumb] == [("europe", "EU", "Europe")]
-    # XK is a user-assigned code, mapped to Europe.
-    assert _children(body) == [
-        ("france", "France", (1, 0, 0, 1)),
-        ("kosovo", "Kosovo", (1, 0, 0, 1)),
-    ]
-    assert [child.code for child in body.children] == ["FR", "XK"]
-
-
-def test_country_rolls_up_and_collapses_subdivision_spellings(client: TestClient):
-    # The country slug is case-insensitive.
-    response = _directory(client, continent="north-america", country="Canada")
-    assert response.status_code == 200
-    body = LocationDirectoryResponse.model_validate(response.json())
-
-    assert body.level == "country"
-    assert [(node.level, node.slug, node.name, _counts(node)) for node in body.breadcrumb] == [
-        ("continent", "north-america", "North America", (6, 1, 1, 8)),
-        ("country", "canada", "Canada", (6, 1, 1, 8)),
-    ]
-    # The cross-border feed ld-9 counts toward both Canada and the United States, but once toward North America.
-    assert _counts(body) == (6, 1, 1, 8)
-    # "Québec" and "Quebec" are a single node, displayed with the most frequent spelling. The municipality
-    # declared without a subdivision (Whistler) counts toward Canada but produces no subdivision.
-    assert _children(body) == [
-        ("ontario", "Ontario", (1, 0, 0, 1)),
-        ("quebec", "Québec", (2, 1, 1, 4)),
-    ]
-    assert all(child.code is None for child in body.children)
-
-
-def test_subdivision_counts_feed_once_with_several_locations(client: TestClient):
-    body = LocationDirectoryResponse.model_validate(
-        _directory(client, continent="north-america", country="canada", subdivision="quebec").json()
+    north_america = body.results[4]
+    assert north_america.location_type == "continent"
+    assert north_america.location_id is None
+    assert north_america.parent_location_id is None
+    assert north_america.country_code is None
+    assert (north_america.continent_code, north_america.continent_slug, north_america.continent_name) == (
+        "NA",
+        "north-america",
+        "North America",
     )
-
-    assert body.level == "subdivision"
-    assert [node.slug for node in body.breadcrumb] == ["north-america", "canada", "quebec"]
-    assert _counts(body) == (2, 1, 1, 4)
-    # ld-3 is located in both Montréal and Laval: it counts once toward Québec and once in each municipality.
-    assert _children(body) == [
-        ("laval", "Laval", (0, 1, 0, 1)),
-        ("montreal", "Montréal", (1, 1, 0, 2)),
-    ]
-
-
-def test_municipality_has_no_children(client: TestClient):
-    body = LocationDirectoryResponse.model_validate(
-        _directory(
-            client, continent="north-america", country="canada", subdivision="quebec", municipality="montreal"
-        ).json()
-    )
-
-    assert body.level == "municipality"
-    assert [(node.level, node.slug, node.name) for node in body.breadcrumb] == [
-        ("continent", "north-america", "North America"),
-        ("country", "canada", "Canada"),
-        ("subdivision", "quebec", "Québec"),
-        ("municipality", "montreal", "Montréal"),
-    ]
-    # The deprecated (ld-6) and wip (ld-7) feeds located in Montréal are not counted.
-    assert _counts(body) == (1, 1, 0, 2)
-    assert body.children == []
+    assert north_america.path_slugs == []
+    assert north_america.path_names == []
+    # Distinct feeds of the countries of the continent: the cross-border feed ld-4, in Canada and the United States,
+    # counts once. The deprecated (ld-5) and wip (ld-6) feeds are not counted, nor is the feed of Clipperton (ld-9),
+    # a country without continent.
+    assert _counts(north_america) == (4, 1, 1, 6)
+    assert _counts(body.results[3]) == (1, 0, 0, 1)
+    assert _counts(body.results[0]) == (0, 0, 0, 0)
 
 
-def test_wip_feeds_are_visible_to_unrestricted_users(client: TestClient, monkeypatch):
-    monkeypatch.setattr("feeds.impl.location_directory.is_user_email_restricted", lambda: False)
-    body = LocationDirectoryResponse.model_validate(
-        _directory(
-            client, continent="north-america", country="canada", subdivision="quebec", municipality="montreal"
-        ).json()
-    )
-    # ld-7 (wip) is now counted; ld-6 (deprecated) still is not.
-    assert _counts(body) == (2, 1, 0, 3)
+def test_continents_with_feeds_sorted_by_feed_count(client: TestClient):
+    body = _locations(client, location_type="continent", has_feeds=True, sort="feed_count")
+    assert body.total == 2
+    assert [location.slug for location in body.results] == ["north-america", "europe"]
+    # Counts are only returned when requested.
+    assert all(location.feed_counts is None for location in body.results)
 
 
 @pytest.mark.parametrize(
-    "params, child, parent",
+    "params, expected_slugs",
     [
-        ({"country": "canada"}, "country", "continent"),
-        ({"continent": "north-america", "subdivision": "quebec"}, "subdivision", "country"),
-        (
-            {"continent": "north-america", "country": "canada", "municipality": "montreal"},
-            "municipality",
-            "subdivision",
-        ),
+        ({"continent": "EU"}, ["europe"]),
+        ({"continent": "North-America"}, ["north-america"]),
+        ({"search_query": "north"}, ["north-america"]),
+        ({"search_query": "amer"}, ["north-america", "south-america"]),
+        # Continents are not contained in any location.
+        ({"parent_location_id": 1}, []),
+        ({"country_code": "CA"}, []),
+        ({"path": "north-america"}, []),
     ],
 )
-@pytest.mark.parametrize("endpoint", [_directory, _directory_feeds])
-def test_parameter_without_parent_is_rejected(client: TestClient, endpoint, params, child, parent):
-    response = endpoint(client, **params)
+def test_continents_filters(client: TestClient, params, expected_slugs):
+    body = _locations(client, location_type="continent", **params)
+    assert [location.slug for location in body.results] == expected_slugs
+    assert body.total == len(expected_slugs)
+
+
+def test_countries_of_a_continent(client: TestClient):
+    body = _locations(client, location_type="country", continent="north-america")
+    # By admin level: the Martinique boundary at admin level 3 comes after the countries at level 2.
+    assert [location.name for location in body.results] == ["Canada", "United States", "Martinique"]
+    canada = body.results[0]
+    assert (canada.continent_code, canada.continent_slug, canada.continent_name) == (
+        "NA",
+        "north-america",
+        "North America",
+    )
+    assert (canada.slug, canada.path_slugs) == ("canada", ["canada"])
+
+
+def test_countries_of_a_continent_with_feeds_sorted_by_feed_count(client: TestClient):
+    body = _locations(
+        client,
+        location_type="country",
+        continent="NA",
+        has_feeds=True,
+        sort="feed_count",
+        include_feed_counts=True,
+    )
+    assert body.total == 3
+    # Canada has five feeds; Martinique and the United States have one each, ordered by name.
+    assert _names_and_counts(body) == [
+        ("Canada", (3, 1, 1, 5)),
+        ("Martinique", (1, 0, 0, 1)),
+        ("United States", (1, 0, 0, 1)),
+    ]
+
+
+def test_children_by_parent_location_id(client: TestClient):
+    body = _locations(client, parent_location_id=1, include_feed_counts=True)
+    assert [(location.location_id, location.parent_location_id) for location in body.results] == [(6, 1), (2, 1)]
+    assert _names_and_counts(body) == [("Ontario", (1, 0, 0, 1)), ("Québec", (2, 1, 1, 4))]
+    quebec = body.results[1]
+    assert quebec.location_type == "subdivision"
+    assert (quebec.slug, quebec.path_slugs, quebec.path_names) == ("quebec", ["canada", "quebec"], ["Canada", "Québec"])
+
+
+def test_children_with_feeds(client: TestClient):
+    body = _locations(client, parent_location_id=6)
+    assert [location.location_id for location in body.results] == [8, 9, 7]
+
+    with_feeds = _locations(client, parent_location_id=6, has_feeds=True)
+    assert with_feeds.total == 1
+    assert [location.name for location in with_feeds.results] == ["Toronto"]
+
+
+def test_feed_counts_include_sub_areas(client: TestClient):
+    body = _locations(client, path="canada/quebec/montreal-region/montreal", include_feed_counts=True)
+    # Deprecated (ld-5) and wip (ld-6) feeds are not counted; the feed without stop count (ld-11) is.
+    assert _names_and_counts(body) == [("Montréal", (2, 1, 1, 4))]
+
+
+def test_wip_feeds_are_counted_for_unrestricted_users(client: TestClient, monkeypatch):
+    monkeypatch.setattr("feeds.impl.location_feeds.is_user_email_restricted", lambda: False)
+    montreal = _locations(client, path="canada/quebec/montreal-region/montreal", include_feed_counts=True)
+    # ld-6 (wip) is now counted; ld-5 (deprecated) still is not.
+    assert _names_and_counts(montreal) == [("Montréal", (3, 1, 1, 5))]
+    continents = _locations(client, location_type="continent", continent="north-america", include_feed_counts=True)
+    assert _counts(continents.results[0]) == (5, 1, 1, 7)
+
+
+def test_path_lookup(client: TestClient):
+    body = _locations(client, path="Canada/Quebec/Montreal-Region/Montreal")
+    assert body.total == 1
+    montreal = body.results[0]
+    assert montreal.location_id == 4
+    assert montreal.slug == "montreal"
+    assert montreal.path_slugs == ["canada", "quebec", "montreal-region", "montreal"]
+    assert montreal.path_names == ["Canada", "Québec", "Montréal (région)", "Montréal"]
+    assert montreal.continent_code == "NA"
+
+    paris = _locations(client, path="france/ile-de-france/paris").results
+    assert [(location.location_id, location.continent_slug) for location in paris] == [(22, "europe")]
+
+
+def test_path_lookup_with_slug_collision(client: TestClient):
+    # Two Springfields under Ontario: each gets its id appended, and the bare slug matches neither.
+    springfields = _locations(client, parent_location_id=6, search_query="springfield").results
+    assert [(location.slug, location.path_slugs) for location in springfields] == [
+        ("springfield-8", ["canada", "ontario", "springfield-8"]),
+        ("springfield-9", ["canada", "ontario", "springfield-9"]),
+    ]
+    assert [location.location_id for location in _locations(client, path="canada/ontario/springfield-9").results] == [9]
+    assert _locations(client, path="canada/ontario/springfield").total == 0
+
+
+def test_country_boundaries_are_deduplicated(client: TestClient):
+    body = _locations(client, location_type="country", country_code="MQ")
+    assert [(location.location_id, location.slug) for location in body.results] == [(30, "martinique")]
+    assert [location.location_id for location in _locations(client, path="martinique").results] == [30]
+
+
+def test_country_without_continent(client: TestClient):
+    clipperton = _locations(client, path="clipperton", include_feed_counts=True).results[0]
+    assert (clipperton.continent_code, clipperton.continent_slug, clipperton.continent_name) == (None, None, None)
+    assert _counts(clipperton) == (1, 0, 0, 1)
+
+
+@pytest.mark.parametrize("params", [{"continent": "atlantis"}, {"path": "atlantis"}, {"parent_location_id": 999999}])
+def test_unknown_locations_return_no_result(client: TestClient, params):
+    body = _locations(client, **params)
+    assert body.total == 0
+    assert body.results == []
+
+
+def test_locations_rejects_unknown_sort(client: TestClient):
+    response = client.get("/v1/locations", headers=HEADERS, params={"sort": "name"})
     assert response.status_code == 400
-    assert response.json()["detail"] == location_directory_parent_required.format(child, parent)
+    assert response.json()["detail"] == locations_sort_unsupported.format("name")
 
 
-@pytest.mark.parametrize("endpoint", [_directory, _directory_feeds])
-def test_country_not_in_continent_is_rejected(client: TestClient, endpoint):
-    response = endpoint(client, continent="europe", country="Canada")
-    assert response.status_code == 400
-    assert response.json()["detail"] == location_directory_country_not_in_continent.format("Canada", "europe")
-
-
-@pytest.mark.parametrize(
-    "params",
-    [
-        {"continent": "atlantis"},
-        # A known continent without any feed.
-        {"continent": "antarctica"},
-        # A valid country of the continent without any feed.
-        {"continent": "north-america", "country": "mexico"},
-        # Unknown country slugs, ISO codes included: countries are identified by their name only.
-        {"continent": "north-america", "country": "atlantis"},
-        {"continent": "north-america", "country": "ca"},
-        {"continent": "north-america", "country": "canada", "subdivision": "atlantis"},
-        {"continent": "north-america", "country": "canada", "subdivision": "quebec", "municipality": "toronto"},
-    ],
-)
-def test_unknown_node_is_not_found(client: TestClient, params):
-    response = _directory(client, **params)
-    assert response.status_code == 404
-    assert response.json()["detail"] == location_directory_not_found
-
-    feeds_response = _directory_feeds(client, **params)
-    assert feeds_response.status_code == 200
-    assert feeds_response.json() == {"total": 0, "results": []}
-
-
-def test_search_feeds_sorted_by_location_relevance(client: TestClient):
-    response = _directory_feeds(client, continent="north-america", country="canada", subdivision="quebec")
-    assert response.status_code == 200
-    body = SearchFeeds200Response.model_validate(response.json())
-
-    # The total matches the directory counts of the node.
+def test_search_by_location_sorted_by_stop_share(client: TestClient):
+    body = _location_feeds(client, location_id=4)
+    # ld-1 has all its stops in Montréal, ld-3 half of them and ld-2 a fifth; ld-11 has no stop count.
     assert body.total == 4
-    # Located in Québec (depth 2) first, then in a municipality of Québec (depth 3); provider breaks the ties.
-    assert [feed.id for feed in body.results] == ["ld-1", "ld-4", "ld-3", "ld-2"]
-    assert [feed.data_type for feed in body.results] == ["gtfs", "gbfs", "gtfs_rt", "gtfs"]
+    assert _feed_ids(body) == ["ld-1", "ld-3", "ld-2", "ld-11"]
 
 
-def test_search_feeds_country_level_ordering(client: TestClient):
-    body = SearchFeeds200Response.model_validate(
-        _directory_feeds(client, continent="north-america", country="canada").json()
-    )
-
-    assert body.total == 8
-    # Country-only locations first (ld-5, ld-13), then subdivisions (ld-1, ld-4), then municipalities, including
-    # the municipality declared without a subdivision (ld-8).
-    assert [feed.id for feed in body.results] == ["ld-5", "ld-13", "ld-1", "ld-4", "ld-3", "ld-2", "ld-8", "ld-9"]
+def test_search_by_location_includes_sub_areas(client: TestClient):
+    # Every feed of Québec has all its stops there: ties are broken by provider, then feed name.
+    assert _feed_ids(_location_feeds(client, location_id=2)) == ["ld-1", "ld-2", "ld-3", "ld-11"]
+    # Three quarters of the stops of ld-4 are in Canada.
+    assert _feed_ids(_location_feeds(client, location_id=1)) == ["ld-1", "ld-2", "ld-3", "ld-4", "ld-11"]
 
 
-def test_search_feeds_continent_level_ranks_by_most_relevant_location(client: TestClient):
-    body = SearchFeeds200Response.model_validate(_directory_feeds(client, continent="north-america", limit=3).json())
-    assert body.total == 8
-    assert [feed.id for feed in body.results] == ["ld-5", "ld-13", "ld-1"]
+def test_search_by_continent(client: TestClient):
+    body = _location_feeds(client, continent="north-america")
+    assert body.total == 6
+    assert _feed_ids(body) == ["ld-1", "ld-2", "ld-3", "ld-4", "ld-8", "ld-11"]
+    assert _feed_ids(_location_feeds(client, continent="eu")) == ["ld-7"]
 
 
-def test_search_feeds_location_pagination(client: TestClient):
-    response = _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=2)
-    assert SearchFeeds200Response.model_validate(response.json()).total == 8
-    assert _feed_ids(response) == ["ld-1", "ld-4", "ld-3"]
+def test_search_by_continent_and_location(client: TestClient):
+    assert _feed_ids(_location_feeds(client, continent="north-america", location_id=4)) == [
+        "ld-1",
+        "ld-3",
+        "ld-2",
+        "ld-11",
+    ]
+    assert _location_feeds(client, continent="europe", location_id=4).total == 0
 
-    last_page = _directory_feeds(client, continent="north-america", country="canada", limit=3, offset=6)
-    assert _feed_ids(last_page) == ["ld-8", "ld-9"]
+
+def test_search_location_pagination(client: TestClient):
+    body = _location_feeds(client, location_id=1, limit=2, offset=2)
+    assert body.total == 5
+    assert _feed_ids(body) == ["ld-3", "ld-4"]
 
 
 def test_search_location_filter_applies_search_statuses(client: TestClient):
-    params = {"continent": "north-america", "country": "canada", "subdivision": "quebec", "municipality": "montreal"}
-    # With the directory statuses, the deprecated feed (ld-6) is left out, as in the directory counts.
-    assert sorted(_feed_ids(_directory_feeds(client, **params))) == ["ld-2", "ld-3"]
     # Without a status filter, search returns every published feed located there, the deprecated one included.
-    assert sorted(_feed_ids(_search(client, **params))) == ["ld-2", "ld-3", "ld-6"]
+    response = _search(client, location_id=4, sort="location")
+    assert _feed_ids(SearchFeeds200Response.model_validate(response.json())) == [
+        "ld-1",
+        "ld-5",
+        "ld-3",
+        "ld-2",
+        "ld-11",
+    ]
 
 
 def test_search_location_filter_hides_wip_feeds_like_search(client: TestClient, monkeypatch):
-    params = {"continent": "north-america", "country": "canada", "subdivision": "quebec", "municipality": "montreal"}
-    assert "ld-7" not in _feed_ids(_search(client, **params))
+    assert "ld-6" not in _feed_ids(_location_feeds(client, location_id=4))
     monkeypatch.setattr("feeds.impl.search_api_impl.is_user_email_restricted", lambda: False)
-    assert "ld-7" in _feed_ids(_search(client, **params))
+    assert "ld-6" in _feed_ids(_location_feeds(client, location_id=4))
 
 
 def test_search_location_filter_combines_with_other_filters(client: TestClient):
-    params = {"continent": "north-america", "country": "canada", "status": DIRECTORY_STATUSES}
-    assert sorted(_feed_ids(_search(client, data_type="gtfs_rt", **params))) == ["ld-3"]
-    assert sorted(_feed_ids(_search(client, search_query="Montreal", **params))) == ["ld-2", "ld-3"]
+    response = _search(client, location_id=1, status=DIRECTORY_STATUSES, data_type="gtfs_rt")
+    assert _feed_ids(SearchFeeds200Response.model_validate(response.json())) == ["ld-2"]
+    # Feeds matching the text (here through the names of their OSM locations) within the continent.
+    response = _search(client, continent="north-america", status=DIRECTORY_STATUSES, search_query="Laval")
+    assert sorted(_feed_ids(SearchFeeds200Response.model_validate(response.json()))) == ["ld-2", "ld-3"]
+    response = _search(client, continent="europe", status=DIRECTORY_STATUSES, search_query="Laval")
+    assert _feed_ids(SearchFeeds200Response.model_validate(response.json())) == []
+
+
+@pytest.mark.parametrize("params", [{"continent": "atlantis"}, {"location_id": 999999}])
+def test_search_unknown_location_returns_no_feed(client: TestClient, params):
+    response = _search(client, sort="location", **params)
+    assert response.status_code == 200
+    assert response.json() == {"total": 0, "results": []}
 
 
 def test_search_without_location_is_unchanged(client: TestClient):
-    # No location filter: every published feed, including those without a mapped location (ld-12).
+    # No location filter: every published feed, including the one that was never geolocated (ld-10).
     body = SearchFeeds200Response.model_validate(_search(client).json())
-    assert body.total == 12
-    assert "ld-12" in {feed.id for feed in body.results}
+    assert body.total == 10
+    assert "ld-10" in _feed_ids(body)
 
 
 def test_search_location_sort_requires_location(client: TestClient):
@@ -266,18 +307,3 @@ def test_search_rejects_unknown_sort(client: TestClient):
     response = _search(client, sort="provider")
     assert response.status_code == 400
     assert response.json()["detail"] == search_sort_unsupported.format("provider")
-
-
-def test_search_location_results_use_search_result_shape(client: TestClient):
-    body = _directory_feeds(
-        client, continent="north-america", country="canada", subdivision="quebec", municipality="montreal"
-    ).json()
-
-    assert [feed["id"] for feed in body["results"]] == ["ld-3", "ld-2"]
-    feed = body["results"][1]
-    assert feed["provider"] == "B Provider"
-    assert feed["feed_name"] == "Montreal metro"
-    assert feed["status"] == "active"
-    assert {"country_code": "CA", "subdivision_name": "Québec", "municipality": "Montréal"}.items() <= feed[
-        "locations"
-    ][0].items()
