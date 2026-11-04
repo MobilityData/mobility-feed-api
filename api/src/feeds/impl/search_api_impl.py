@@ -14,8 +14,13 @@ from feeds.impl.error_handling import (
     search_location_sort_requires_location,
     search_sort_unsupported,
 )
-from feeds.impl.location_directory import located_feeds, parse_directory_node
-from feeds_gen.models.location_directory_level import LocationDirectoryLevel
+from feeds.impl.location_feeds import (
+    clean_param,
+    continent_groups,
+    located_feeds,
+    location_groups,
+    resolve_continent_code,
+)
 from middleware.request_context import get_request_context, is_user_email_restricted
 from shared.common.error_handling import has_seal_filter_not_permitted
 from shared.common.feature_flags import feature_flag_enabled
@@ -230,7 +235,7 @@ class SearchApiImpl(BaseSearchApi):
         )
         if sort == SORT_BY_LOCATION and location_feeds is not None:
             return query.order_by(
-                location_feeds.c.depth.asc(),  # Most relevant declared location first
+                location_feeds.c.stop_share.desc().nulls_last(),  # Largest share of stops in the location first
                 t_feedsearch.c.provider.asc().nulls_last(),
                 t_feedsearch.c.feed_name.asc().nulls_last(),
                 t_feedsearch.c.feed_stable_id.asc(),
@@ -261,9 +266,7 @@ class SearchApiImpl(BaseSearchApi):
         license_is_spdx: bool,
         license_tags: str,
         continent: Optional[str],
-        country: Optional[str],
-        subdivision: Optional[str],
-        municipality: Optional[str],
+        location_id: Optional[int],
         sort: Optional[str],
         db_session: "Session",
     ) -> SearchFeeds200Response:
@@ -277,16 +280,28 @@ class SearchApiImpl(BaseSearchApi):
         sort = sort or SORT_BY_CREATED_AT
         if sort not in (SORT_BY_CREATED_AT, SORT_BY_LOCATION):
             raise_http_error(400, search_sort_unsupported.format(sort))
-        # Same validation as /v1/locations/directory: a parameter without its parent is rejected (400).
-        location_node = parse_directory_node(continent, country, subdivision, municipality)
-        if location_node is None:
-            # Unknown continent or country slug: no feed is located there.
-            return SearchFeeds200Response(results=[], total=0)
-        location_feeds = None
-        if location_node.level != LocationDirectoryLevel.ROOT:
-            location_feeds = located_feeds(location_node)
-        elif sort == SORT_BY_LOCATION:
+        continent = clean_param(continent)
+        if sort == SORT_BY_LOCATION and continent is None and location_id is None:
             raise_http_error(400, search_location_sort_requires_location)
+        # The location groups of the requested location. With both parameters, the groups of the location that also
+        # contain a country of the continent: a location belongs to a single continent, so the feeds match both.
+        continent_code = None
+        if continent is not None:
+            continent_code = resolve_continent_code(db_session, continent)
+            if continent_code is None:
+                # Unknown continent: no feed is located there.
+                return SearchFeeds200Response(results=[], total=0)
+        groups = None
+        if location_id is not None:
+            # An unknown location has no group, hence no feed.
+            groups = location_groups(location_id, continent_code)
+        elif continent_code is not None:
+            groups = continent_groups(continent_code)
+        location_feeds = None
+        count_location_feeds = None
+        if groups is not None:
+            location_feeds = located_feeds(groups, with_stop_share=sort == SORT_BY_LOCATION)
+            count_location_feeds = located_feeds(groups)
 
         query = self.create_search_query(
             status,
@@ -323,7 +338,7 @@ class SearchApiImpl(BaseSearchApi):
                 license_ids,
                 license_is_spdx,
                 license_tags,
-                location_feeds,
+                count_location_feeds,
             ),
         )
         if feed_rows is None or feed_total_count is None:
