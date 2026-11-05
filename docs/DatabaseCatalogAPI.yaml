@@ -457,7 +457,8 @@ paths:
         <br>
         - `continent` restricts the results to feeds with stops in that continent, and `location_id` to feeds with
         stops in that location of `/v1/locations`, sub-areas included. Feeds are matched through their
-        reverse-geolocated stops, so a feed that was never geolocated does not match. Unknown values return no feed.
+        reverse-geolocated stops, so a feed that was never geolocated does not match. A GTFS Realtime feed that was
+        never geolocated matches the locations of the schedule feeds it references. Unknown values return no feed.
         - To list the same feeds as a location's `feed_counts`, also pass `status=active,inactive,development,future`.
         - `sort=location` orders the results by the share of each feed's stops inside the requested location instead
         of by creation date.
@@ -516,7 +517,8 @@ paths:
         <br>
         Feed counts (`include_feed_counts`, `has_feeds`, `sort=feed_count`) count distinct feeds with a
         status of `active`, `inactive`, `development` or `future` that have reverse-geolocated stops in
-        the location, sub-areas included. Work-in-progress feeds are counted only for callers allowed to
+        the location, sub-areas included. A GTFS Realtime feed that was never geolocated is counted in the
+        locations of the schedule feeds it references. Work-in-progress feeds are counted only for callers allowed to
         see them, as in `/v1/search`. To list a location's feeds, call `/v1/search` with its
         `location_id` (or `continent` for a continent), `status=active,inactive,development,future` and
         `sort=location`.
@@ -2741,7 +2743,8 @@ components:
       in: query
       description: >
         A `location_id` from `/v1/locations`: only feeds with reverse-geolocated stops in that location,
-        sub-areas included.
+        sub-areas included. A GTFS Realtime feed that was never geolocated takes the locations of the schedule
+        feeds it references.
       required: False
       schema:
         type: integer

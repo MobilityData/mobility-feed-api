@@ -19,6 +19,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Osmlocationgroup,
+    t_feedreference,
     t_osmlocationgroupgeopolygon,
 )
 from tests.test_utils.database import populate_database
@@ -97,7 +98,14 @@ FEEDS = [
     ("ld-10", Gtfsfeed, "gtfs", "active", "published", "J Provider", "Not geolocated", {}),
     # No stop count: its share of stops in a location is unknown, so it ranks last.
     ("ld-11", Gtfsfeed, "gtfs", "active", "published", "A Provider", "Montreal metro", {"g-montreal": 0}),
+    # Realtime feed never geolocated: it takes the location of the schedule feed it references (ld-7, Paris).
+    ("ld-12", Gtfsrealtimefeed, "gtfs_rt", "active", "published", "G Provider", "Paris realtime", {}),
+    # Realtime feed with its own location (Paris): it does not take the location of ld-1 (Montreal).
+    ("ld-13", Gtfsrealtimefeed, "gtfs_rt", "active", "published", "K Provider", "Paris vehicles", {"g-paris": 5}),
 ]
+
+# Feed references: (realtime feed, schedule feed).
+FEED_REFERENCES = [("ld-12", "ld-7"), ("ld-13", "ld-1")]
 
 
 def _populate_location_directory_data(db: Database):
@@ -157,6 +165,14 @@ def _populate_location_directory_data(db: Database):
         for stable_id, *_, groups in FEEDS:
             for group_id, stops_count in groups.items():
                 session.add(Feedosmlocationgroup(feed_id=f"id-{stable_id}", group_id=group_id, stops_count=stops_count))
+        session.execute(
+            insert(t_feedreference).values(
+                [
+                    {"gtfs_rt_feed_id": f"id-{realtime_id}", "gtfs_feed_id": f"id-{schedule_id}"}
+                    for realtime_id, schedule_id in FEED_REFERENCES
+                ]
+            )
+        )
         session.flush()
         session.execute(text("REFRESH MATERIALIZED VIEW feedsearch"))
         session.execute(text("REFRESH MATERIALIZED VIEW geopolygonlocationsearch"))
