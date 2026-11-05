@@ -71,9 +71,12 @@ def _normalize_location_code(location_code: str | None) -> str | None:
 
 
 def _normalize_path(path: str | None) -> str | None:
-    # Slugs are lowercase, so lowercasing the path makes the exact match case-insensitive.
+    # Leading and trailing slashes are ignored (`canada/quebec/` is `canada/quebec`), and slugs are lowercase, so
+    # lowercasing the path makes the exact match case-insensitive. A path of only slashes is no path.
     path = clean_param(path)
-    return path.lower() if path is not None else None
+    if path is None:
+        return None
+    return clean_param(path.strip("/").lower())
 
 
 def _build_locations_conditions(

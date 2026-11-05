@@ -179,6 +179,9 @@ def test_path_lookup(client: TestClient):
     assert montreal.path_names == ["Canada", "Québec", "Montréal (région)", "Montréal"]
     assert montreal.continent_code == "NA"
 
+    # Leading and trailing slashes are ignored.
+    assert [location.location_id for location in _locations(client, path="/canada/quebec/").results] == [2]
+
     paris = _locations(client, path="france/ile-de-france/paris").results
     assert [(location.location_id, location.continent_slug) for location in paris] == [(22, "europe")]
 
