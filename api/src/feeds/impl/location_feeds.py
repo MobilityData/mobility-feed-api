@@ -5,11 +5,14 @@ stops_count) -> osmlocationgroupgeopolygon (group_id, osm_id). Each group is the
 of the feed's stops, from the country down to the most local level, so the feeds linked to an osm_id already include
 the feeds of its sub-areas. Continents are not geopolygons: a feed is in a continent when one of its groups contains a
 country of that continent.
+
+GTFS Realtime feeds have no stops, so they are rarely geolocated: a realtime feed without location group takes the
+groups of the schedule feeds it references (feedreference). See `feed_location_groups`.
 """
 
 from typing import Final, Optional
 
-from sqlalchemy import Float, Select, cast, distinct, func, or_, select
+from sqlalchemy import Float, Select, Subquery, cast, distinct, func, or_, select, union_all
 from sqlalchemy.orm import Session, aliased
 
 from middleware.request_context import is_user_email_restricted
@@ -17,6 +20,7 @@ from shared.database_gen.sqlacodegen_models import (
     Continent,
     Feed,
     Feedosmlocationgroup,
+    t_feedreference as feed_reference,
     t_geopolygonlocationsearch as location_search,
     t_osmlocationgroupgeopolygon as location_group_geopolygon,
 )
@@ -60,6 +64,31 @@ def continent_groups(continent_code: str) -> Select:
     )
 
 
+def feed_location_groups(name: str = "feed_location_group") -> Subquery:
+    """Subquery of the location groups of each feed: `feed_id`, `group_id` and `stops_count`.
+
+    These are the feed's own groups (feedosmlocationgroup). A GTFS Realtime feed without group of its own takes the
+    groups of the schedule feeds it references, with their stop counts. A feed referencing several schedule feeds
+    that share a group has that group once per schedule feed.
+    """
+    own_groups = select(Feedosmlocationgroup.feed_id, Feedosmlocationgroup.group_id, Feedosmlocationgroup.stops_count)
+    schedule_group = aliased(Feedosmlocationgroup)
+    realtime_group = aliased(Feedosmlocationgroup)
+    inherited_groups = (
+        select(
+            feed_reference.c.gtfs_rt_feed_id.label("feed_id"),
+            schedule_group.group_id,
+            schedule_group.stops_count,
+        )
+        .select_from(feed_reference)
+        .join(schedule_group, schedule_group.feed_id == feed_reference.c.gtfs_feed_id)
+        .where(
+            ~select(realtime_group.feed_id).where(realtime_group.feed_id == feed_reference.c.gtfs_rt_feed_id).exists()
+        )
+    )
+    return union_all(own_groups, inherited_groups).subquery(name)
+
+
 def located_feeds(groups: Select, with_stop_share: bool = False):
     """Subquery of the feeds with stops in the given location groups, used by /v1/search to filter and sort.
 
@@ -67,25 +96,25 @@ def located_feeds(groups: Select, with_stop_share: bool = False):
     returns `stop_share`, the share of the feed's stops inside the location: the stops of its groups that are in
     `groups` over the stops of all its groups (NULL when the feed has no stop count).
     """
+    feed_group = feed_location_groups()
     if not with_stop_share:
-        return (
-            select(Feedosmlocationgroup.feed_id)
-            .where(Feedosmlocationgroup.group_id.in_(groups))
-            .distinct()
-            .subquery("located_feed")
-        )
-    feed_group = aliased(Feedosmlocationgroup)
-    in_location = Feedosmlocationgroup.group_id.in_(groups)
-    located_stops = func.coalesce(func.sum(Feedosmlocationgroup.stops_count).filter(in_location), 0)
-    all_stops = func.nullif(func.sum(Feedosmlocationgroup.stops_count), 0)
+        return select(feed_group.c.feed_id).where(feed_group.c.group_id.in_(groups)).distinct().subquery("located_feed")
+    located_feed_group = feed_location_groups("located_feed_group")
+    in_location = feed_group.c.group_id.in_(groups)
+    located_stops = func.coalesce(func.sum(feed_group.c.stops_count).filter(in_location), 0)
+    all_stops = func.nullif(func.sum(feed_group.c.stops_count), 0)
     return (
         select(
-            Feedosmlocationgroup.feed_id,
+            feed_group.c.feed_id,
             (cast(located_stops, Float) / all_stops).label("stop_share"),
         )
         # Only the feeds with a group in the location, with all their groups.
-        .where(Feedosmlocationgroup.feed_id.in_(select(feed_group.feed_id).where(feed_group.group_id.in_(groups))))
-        .group_by(Feedosmlocationgroup.feed_id)
+        .where(
+            feed_group.c.feed_id.in_(
+                select(located_feed_group.c.feed_id).where(located_feed_group.c.group_id.in_(groups))
+            )
+        )
+        .group_by(feed_group.c.feed_id)
         .subquery("located_feed")
     )
 
@@ -110,11 +139,12 @@ def feed_count_columns() -> list:
 
 
 def _location_feeds_query(*columns) -> Select:
+    feed_group = feed_location_groups()
     return (
         select(*columns)
         .select_from(location_group_geopolygon)
-        .join(Feedosmlocationgroup, Feedosmlocationgroup.group_id == location_group_geopolygon.c.group_id)
-        .join(Feed, Feed.id == Feedosmlocationgroup.feed_id)
+        .join(feed_group, feed_group.c.group_id == location_group_geopolygon.c.group_id)
+        .join(Feed, Feed.id == feed_group.c.feed_id)
     )
 
 

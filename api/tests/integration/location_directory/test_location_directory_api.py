@@ -71,9 +71,10 @@ def test_continents_with_counts(client: TestClient):
     assert north_america.path_names == []
     # Distinct feeds of the countries of the continent: the cross-border feed ld-4, in Canada and the United States,
     # counts once. The deprecated (ld-5) and wip (ld-6) feeds are not counted, nor is the feed of Clipperton (ld-9),
-    # a country without continent.
+    # a country without continent. ld-13 references ld-1 (Montréal) but has its own location, Paris.
     assert _counts(north_america) == (4, 1, 1, 6)
-    assert _counts(body.results[3]) == (1, 0, 0, 1)
+    # ld-7 and the two realtime feeds of Paris: ld-12 through its schedule feed ld-7, ld-13 through its own location.
+    assert _counts(body.results[3]) == (1, 2, 0, 3)
     assert _counts(body.results[0]) == (0, 0, 0, 0)
 
 
@@ -236,7 +237,17 @@ def test_search_by_continent(client: TestClient):
     body = _location_feeds(client, continent="north-america")
     assert body.total == 6
     assert _feed_ids(body) == ["ld-1", "ld-2", "ld-3", "ld-4", "ld-8", "ld-11"]
-    assert _feed_ids(_location_feeds(client, continent="eu")) == ["ld-7"]
+    # Paris feeds all have their stops in Europe: ties are broken by provider, then feed name.
+    assert _feed_ids(_location_feeds(client, continent="eu")) == ["ld-7", "ld-12", "ld-13"]
+
+
+def test_realtime_feed_takes_the_location_of_its_schedule_feed(client: TestClient):
+    paris = _locations(client, path="france/ile-de-france/paris", include_feed_counts=True)
+    assert _names_and_counts(paris) == [("Paris", (1, 2, 0, 3))]
+    response = _search(client, location_id=22, status=DIRECTORY_STATUSES, data_type="gtfs_rt", sort="location")
+    assert _feed_ids(SearchFeeds200Response.model_validate(response.json())) == ["ld-12", "ld-13"]
+    # A realtime feed with its own location is only there: ld-13 is not in Montréal, where its schedule feed is.
+    assert "ld-13" not in _feed_ids(_location_feeds(client, location_id=4))
 
 
 def test_search_by_continent_and_location(client: TestClient):
@@ -293,7 +304,7 @@ def test_search_unknown_location_returns_no_feed(client: TestClient, params):
 def test_search_without_location_is_unchanged(client: TestClient):
     # No location filter: every published feed, including the one that was never geolocated (ld-10).
     body = SearchFeeds200Response.model_validate(_search(client).json())
-    assert body.total == 10
+    assert body.total == 12
     assert "ld-10" in _feed_ids(body)
 
 
