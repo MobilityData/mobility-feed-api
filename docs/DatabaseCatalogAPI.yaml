@@ -585,7 +585,8 @@ paths:
           in: query
           description: >
             Return the location at this path: its `path_slugs` joined with `/`, from the country down,
-            e.g. `canada/quebec/montreal`. Case-insensitive. Returns no result when no location has that path.
+            e.g. `canada/quebec/montreal`. Case-insensitive; leading and trailing slashes are ignored. Returns no
+            result when no location has that path.
           schema:
             type: string
             example: canada/quebec/montreal

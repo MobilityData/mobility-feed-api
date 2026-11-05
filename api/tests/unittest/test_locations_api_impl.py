@@ -57,6 +57,13 @@ def test_normalize_path_trims_and_lowercases():
     assert _normalize_path(" Canada/Quebec/Montreal ") == "canada/quebec/montreal"
 
 
+def test_normalize_path_ignores_leading_and_trailing_slashes():
+    assert _normalize_path("canada/quebec/") == "canada/quebec"
+    assert _normalize_path("/canada/quebec") == "canada/quebec"
+    assert _normalize_path(" /Canada/Quebec// ") == "canada/quebec"
+    assert _normalize_path("/") is None
+
+
 def test_build_conditions_no_filters():
     conditions, normalized_query = _build_locations_conditions(None, None, None, None)
     assert conditions == []
