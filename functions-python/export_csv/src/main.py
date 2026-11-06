@@ -17,6 +17,7 @@ import argparse
 import csv
 import os
 import re
+from datetime import timezone
 from typing import Dict, Iterator, Optional
 from natsort import natsorted
 from dotenv import load_dotenv
@@ -30,8 +31,14 @@ from geoalchemy2.shape import to_shape
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 from shared.helpers.logger import init_logger
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
+from shared.database_gen.sqlacodegen_models import (
+    Gbfsfeed,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Feed,
+)
 from shared.common.db_utils import (
+    get_all_gbfs_feeds,
     get_all_gtfs_rt_feeds,
     get_all_gtfs_feeds,
     get_geopolygons,
@@ -44,9 +51,9 @@ import logging
 load_dotenv()
 csv_default_file_path = "./output.csv"
 init_logger()
-# This needs to be updated if we add fields to either `get_feed_csv_data` or
-# `get_gtfs_rt_feed_csv_data`, otherwise the extra field(s) will be excluded from
-# the generated CSV file.
+# This needs to be updated if we add fields to `get_feed_csv_data`,
+# `get_gtfs_feed_csv_data`, `get_gtfs_rt_feed_csv_data` or `get_gbfs_feed_csv_data`,
+# otherwise the extra field(s) will be excluded from the generated CSV file.
 headers = [
     "id",
     "data_type",
@@ -192,6 +199,9 @@ def fetch_feeds(db_session: Session) -> Iterator[Dict]:
             get_all_gtfs_rt_feeds, get_gtfs_rt_feed_csv_data, db_session
         )
 
+        logging.info("Processing GBFS feeds...")
+        yield from process_feeds(get_all_gbfs_feeds, get_gbfs_feed_csv_data, db_session)
+
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
@@ -321,7 +331,7 @@ def get_feed_csv_data(
 ) -> Dict:
     """
     This function takes a generic feed and returns a dictionary with the data to be written to the CSV file.
-    Any specific data (for GTFS or GTFS_RT) has to be added after this call.
+    Any specific data (for GTFS, GTFS_RT or GBFS) has to be added after this call.
     """
 
     redirect_ids = []
@@ -353,7 +363,7 @@ def get_feed_csv_data(
         )
 
     # Some of the data is set to None or "" here but will be set to the proper value
-    # later depending on the type (GTFS or GTFS_RT)
+    # later depending on the type (GTFS, GTFS_RT or GBFS)
     country_code, subdivision_name, municipality = get_location_data(
         feed, geopolygon_map
     )
@@ -441,6 +451,34 @@ def get_gtfs_rt_feed_csv_data(
     )
     if bounding_box:
         bounding_box.fill_data(data)
+
+    return data
+
+
+def get_gbfs_feed_csv_data(
+    feed: Gbfsfeed, geopolygon_map: Optional[Dict[str, Geopolygon]]
+) -> Dict:
+    """
+    This function takes a Gbfsfeed and returns a dictionary with the data to be written to the CSV file.
+    For GBFS feeds, urls.direct_download is the auto-discovery URL (gbfs.json).
+    """
+    data = get_feed_csv_data(feed, geopolygon_map)
+
+    if feed.bounding_box:
+        shape = to_shape(feed.bounding_box)
+        if shape and shape.bounds:
+            # bounding_box_generated_at is a timestamp without time zone written from the DB
+            # clock (UTC); mark it as UTC so the column format matches the GTFS rows.
+            extracted_on = feed.bounding_box_generated_at
+            if extracted_on and extracted_on.tzinfo is None:
+                extracted_on = extracted_on.replace(tzinfo=timezone.utc)
+            BoundingBox(
+                minimum_latitude=shape.bounds[1],
+                maximum_latitude=shape.bounds[3],
+                minimum_longitude=shape.bounds[0],
+                maximum_longitude=shape.bounds[2],
+                extracted_on=extracted_on,
+            ).fill_data(data)
 
     return data
 
