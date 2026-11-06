@@ -396,6 +396,17 @@ def test_location_by_id_rejects_unsupported_include(client: TestClient):
 # /v1/locations/{location_id}/children
 
 
+def test_children_with_feeds_total_on_every_page(client: TestClient):
+    # Canada's children with feeds (Ontario, Quebec): the total comes with each page, and a page past the last one
+    # still reports it.
+    first = _children(client, 1, has_feeds=True, sort="feed_count", limit=1)
+    assert (first.total, [location.location_id for location in first.results]) == (2, [2])
+    second = _children(client, 1, has_feeds=True, sort="feed_count", limit=1, offset=1)
+    assert (second.total, [location.location_id for location in second.results]) == (2, [6])
+    past_the_end = _children(client, 1, has_feeds=True, sort="feed_count", limit=1, offset=5)
+    assert (past_the_end.total, past_the_end.results) == (2, [])
+
+
 def test_children_of_a_continent(client: TestClient):
     body = _children(client, NORTH_AMERICA, include="feed_counts")
     assert body.total == 3

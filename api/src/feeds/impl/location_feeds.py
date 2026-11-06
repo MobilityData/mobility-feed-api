@@ -228,12 +228,6 @@ def location_feed_pairs(location_ids) -> Subquery:
     return union_all(*branches).subquery("location_feed")
 
 
-def located_location_ids(candidate_location_ids: Select) -> Select:
-    """The ids among `candidate_location_ids` (a select of location ids) with at least one counted feed."""
-    pairs = location_feed_pairs(candidate_location_ids.correlate(None))
-    return select(pairs.c.osm_id).distinct().correlate(None)
-
-
 def location_feed_counts(location_ids):
     """Subquery of the feed counts of the given locations (a list or a select of location ids), one row per `osm_id`.
 
