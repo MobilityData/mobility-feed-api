@@ -3,7 +3,7 @@ This cloud function reads feed data from the database, processes it to extract r
 
 ## Overview  
 The function performs the following steps:  
-1. Retrieves GTFS and GTFS-RT feeds from the database.  
+1. Retrieves GTFS, GTFS-RT and GBFS feeds from the database.  
 2. Processes each feed to extract essential details, including location, provider, URLs, and features.  
 3. Exports the processed data to a local CSV file.  
 4. Uploads the CSV file to a Google Cloud Storage bucket.  
