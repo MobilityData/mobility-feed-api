@@ -7,12 +7,18 @@ the feeds of its sub-areas. Continents are not geopolygons: they are rows of the
 (continent.location_id), and a feed is in a continent when one of its groups contains a country of that continent.
 
 GTFS Realtime feeds have no stops, so they are rarely geolocated: a realtime feed without location group takes the
-groups of the schedule feeds it references (feedreference). See `feed_location_groups`.
+groups of the schedule feeds it references (feedreference).
+
+Performance: every query below filters by location (or by feed) inside each part of its UNION ALL, own groups and
+inherited groups alike, instead of filtering a union of all feed groups. PostgreSQL cannot push a join condition into
+a UNION ALL branch that is itself a join, and it estimates the inherited part at about one row, so a filter applied to
+the whole union made it rebuild the inherited groups of every realtime feed once per location group in a nested loop:
+minutes for a continent.
 """
 
 from typing import Final, Optional
 
-from sqlalchemy import Float, Select, Subquery, and_, cast, distinct, func, or_, select, union_all
+from sqlalchemy import Float, Select, Subquery, cast, distinct, func, or_, select, union_all
 from sqlalchemy.orm import Session, aliased
 
 from middleware.request_context import is_user_email_restricted
@@ -99,29 +105,44 @@ def continent_groups(continent_location_id: int) -> Select:
     )
 
 
-def feed_location_groups(name: str = "feed_location_group") -> Subquery:
-    """Subquery of the location groups of each feed: `feed_id`, `group_id` and `stops_count`.
+def _own_feed_groups():
+    """Alias of feedosmlocationgroup for the feeds' own groups."""
+    return aliased(Feedosmlocationgroup)
 
-    These are the feed's own groups (feedosmlocationgroup). A GTFS Realtime feed without group of its own takes the
-    groups of the schedule feeds it references, with their stop counts. A feed referencing several schedule feeds
-    that share a group has that group once per schedule feed.
-    """
-    own_groups = select(Feedosmlocationgroup.feed_id, Feedosmlocationgroup.group_id, Feedosmlocationgroup.stops_count)
-    schedule_group = aliased(Feedosmlocationgroup)
+
+def _without_own_groups(realtime_feed_id):
+    """Condition: the realtime feed has no location group of its own, so it takes its schedule feeds' groups."""
     realtime_group = aliased(Feedosmlocationgroup)
-    inherited_groups = (
-        select(
-            feed_reference.c.gtfs_rt_feed_id.label("feed_id"),
-            schedule_group.group_id,
-            schedule_group.stops_count,
-        )
+    return ~select(realtime_group.feed_id).where(realtime_group.feed_id == realtime_feed_id).exists()
+
+
+def _feed_groups_in(groups: Select) -> list:
+    """(feed_id, group_id, stops_count) of the feeds' groups among `groups`: own, then inherited."""
+    own = _own_feed_groups()
+    schedule_group = aliased(Feedosmlocationgroup)
+    return [
+        select(own.feed_id, own.group_id, own.stops_count).where(own.group_id.in_(groups)),
+        select(feed_reference.c.gtfs_rt_feed_id.label("feed_id"), schedule_group.group_id, schedule_group.stops_count)
+        .select_from(schedule_group)
+        .join(feed_reference, feed_reference.c.gtfs_feed_id == schedule_group.feed_id)
+        .where(schedule_group.group_id.in_(groups), _without_own_groups(feed_reference.c.gtfs_rt_feed_id)),
+    ]
+
+
+def _groups_of_feeds(feed_ids: Select, name: str) -> Subquery:
+    """All the groups of the given feeds, own or inherited: `feed_id`, `group_id` and `stops_count`.
+
+    A realtime feed referencing several schedule feeds that share a group has that group once per schedule feed.
+    """
+    own = _own_feed_groups()
+    schedule_group = aliased(Feedosmlocationgroup)
+    return union_all(
+        select(own.feed_id, own.group_id, own.stops_count).where(own.feed_id.in_(feed_ids)),
+        select(feed_reference.c.gtfs_rt_feed_id.label("feed_id"), schedule_group.group_id, schedule_group.stops_count)
         .select_from(feed_reference)
         .join(schedule_group, schedule_group.feed_id == feed_reference.c.gtfs_feed_id)
-        .where(
-            ~select(realtime_group.feed_id).where(realtime_group.feed_id == feed_reference.c.gtfs_rt_feed_id).exists()
-        )
-    )
-    return union_all(own_groups, inherited_groups).subquery(name)
+        .where(feed_reference.c.gtfs_rt_feed_id.in_(feed_ids), _without_own_groups(feed_reference.c.gtfs_rt_feed_id)),
+    ).subquery(name)
 
 
 def located_feeds(groups: Select, with_stop_share: bool = False):
@@ -131,10 +152,11 @@ def located_feeds(groups: Select, with_stop_share: bool = False):
     returns `stop_share`, the share of the feed's stops inside the location: the stops of its groups that are in
     `groups` over the stops of all its groups (NULL when the feed has no stop count).
     """
-    feed_group = feed_location_groups()
+    feeds_in_groups = union_all(*_feed_groups_in(groups)).subquery("feed_in_location_group")
+    feed_ids = select(feeds_in_groups.c.feed_id).distinct()
     if not with_stop_share:
-        return select(feed_group.c.feed_id).where(feed_group.c.group_id.in_(groups)).distinct().subquery("located_feed")
-    located_feed_group = feed_location_groups("located_feed_group")
+        return feed_ids.subquery("located_feed")
+    feed_group = _groups_of_feeds(feed_ids, "feed_location_group")
     in_location = feed_group.c.group_id.in_(groups)
     located_stops = func.coalesce(func.sum(feed_group.c.stops_count).filter(in_location), 0)
     all_stops = func.nullif(func.sum(feed_group.c.stops_count), 0)
@@ -142,12 +164,6 @@ def located_feeds(groups: Select, with_stop_share: bool = False):
         select(
             feed_group.c.feed_id,
             (cast(located_stops, Float) / all_stops).label("stop_share"),
-        )
-        # Only the feeds with a group in the location, with all their groups.
-        .where(
-            feed_group.c.feed_id.in_(
-                select(located_feed_group.c.feed_id).where(located_feed_group.c.group_id.in_(groups))
-            )
         )
         .group_by(feed_group.c.feed_id)
         .subquery("located_feed")
@@ -162,52 +178,60 @@ def counted_feed_conditions() -> list:
     ]
 
 
-def feed_count_columns() -> list:
-    """Distinct counted feeds per data type and in total, labelled `gtfs`, `gtfs_rt`, `gbfs` and `total`."""
+def _location_memberships(location_ids) -> list:
+    """(location id, group_id) of the given locations, as (from clause, location id column, conditions).
+
+    An OSM area is a member of its groups; a continent is a member of the groups of its countries. `location_ids` is a
+    list or a select of location ids; the filter is part of each membership, so that it applies inside every branch.
+    """
+    place = location_group_geopolygon.alias("place_group")
+    continent_member = location_group_geopolygon.alias("continent_group")
+    country = _continent_countries("continent_country")
     return [
-        *(
-            func.count(distinct(Feed.id)).filter(Feed.data_type == data_type).label(data_type)
-            for data_type in FEED_DATA_TYPES
+        (place, place.c.osm_id, place.c.group_id, [place.c.osm_id.in_(location_ids)]),
+        (
+            continent_member.join(country, country.c.osm_id == continent_member.c.osm_id),
+            country.c.parent_osm_id,
+            continent_member.c.group_id,
+            [country.c.location_type == LOCATION_TYPE_COUNTRY, country.c.parent_osm_id.in_(location_ids)],
         ),
-        func.count(distinct(Feed.id)).label("total"),
     ]
 
 
-def _location_feeds_query(*columns) -> Select:
-    feed_group = feed_location_groups()
-    return (
-        select(*columns)
-        .select_from(location_group_geopolygon)
-        .join(feed_group, feed_group.c.group_id == location_group_geopolygon.c.group_id)
-        .join(Feed, Feed.id == feed_group.c.feed_id)
-    )
+def location_feed_pairs(location_ids) -> Subquery:
+    """Subquery of (`osm_id`, `feed_id`, `data_type`): the counted feeds with stops in each of the given locations.
 
-
-def has_counted_feeds():
-    """Whether the location of the enclosing geopolygonlocationsearch row has at least one counted feed.
-
-    For a continent row, whether one of its countries has one.
+    Feeds are reached through their own groups or, for a realtime feed without group, through its schedule feeds'
+    groups. Each branch joins the feed and applies the counted-feed rules itself, so the union is only aggregated,
+    never joined: a join on it could make PostgreSQL rebuild it for every row. The same feed can appear several times
+    for a location (one row per group); count it with DISTINCT.
     """
-    in_location = (
-        _location_feeds_query(location_group_geopolygon.c.osm_id)
-        .where(location_group_geopolygon.c.osm_id == location_search.c.osm_id, *counted_feed_conditions())
-        .exists()
-    )
-    country = _continent_countries("continent_country")
-    in_continent = (
-        _location_feeds_query(location_group_geopolygon.c.osm_id)
-        .join(country, country.c.osm_id == location_group_geopolygon.c.osm_id)
-        .where(
-            country.c.location_type == LOCATION_TYPE_COUNTRY,
-            country.c.parent_osm_id == location_search.c.osm_id,
-            *counted_feed_conditions(),
+    branches = []
+    for from_clause, location_id, group_id, conditions in _location_memberships(location_ids):
+        own = _own_feed_groups()
+        branches.append(
+            select(location_id.label("osm_id"), Feed.id.label("feed_id"), Feed.data_type.label("data_type"))
+            .select_from(from_clause)
+            .join(own, own.group_id == group_id)
+            .join(Feed, Feed.id == own.feed_id)
+            .where(*conditions, *counted_feed_conditions())
         )
-        .exists()
-    )
-    return or_(
-        and_(location_search.c.location_type != LOCATION_TYPE_CONTINENT, in_location),
-        and_(location_search.c.location_type == LOCATION_TYPE_CONTINENT, in_continent),
-    )
+        schedule_group = aliased(Feedosmlocationgroup)
+        branches.append(
+            select(location_id.label("osm_id"), Feed.id.label("feed_id"), Feed.data_type.label("data_type"))
+            .select_from(from_clause)
+            .join(schedule_group, schedule_group.group_id == group_id)
+            .join(feed_reference, feed_reference.c.gtfs_feed_id == schedule_group.feed_id)
+            .join(Feed, Feed.id == feed_reference.c.gtfs_rt_feed_id)
+            .where(*conditions, *counted_feed_conditions(), _without_own_groups(feed_reference.c.gtfs_rt_feed_id))
+        )
+    return union_all(*branches).subquery("location_feed")
+
+
+def located_location_ids(candidate_location_ids: Select) -> Select:
+    """The ids among `candidate_location_ids` (a select of location ids) with at least one counted feed."""
+    pairs = location_feed_pairs(candidate_location_ids.correlate(None))
+    return select(pairs.c.osm_id).distinct().correlate(None)
 
 
 def location_feed_counts(location_ids):
@@ -216,24 +240,18 @@ def location_feed_counts(location_ids):
     A continent counts the feeds of its countries, each feed once even when it has stops in several of them. Locations
     without any counted feed have no row.
     """
-    place_counts = (
-        _location_feeds_query(location_group_geopolygon.c.osm_id.label("osm_id"), *feed_count_columns())
-        .where(location_group_geopolygon.c.osm_id.in_(location_ids), *counted_feed_conditions())
-        .group_by(location_group_geopolygon.c.osm_id)
-    )
-    return union_all(place_counts, _continent_feed_counts(location_ids)).subquery("location_feed_counts")
-
-
-def _continent_feed_counts(location_ids) -> Select:
-    """The feed counts of the continents among the given location ids, one row per continent `osm_id`."""
-    country = _continent_countries("continent_country")
+    if isinstance(location_ids, Select):
+        location_ids = location_ids.correlate(None)
+    pairs = location_feed_pairs(location_ids)
     return (
-        _location_feeds_query(country.c.parent_osm_id.label("osm_id"), *feed_count_columns())
-        .join(country, country.c.osm_id == location_group_geopolygon.c.osm_id)
-        .where(
-            country.c.location_type == LOCATION_TYPE_COUNTRY,
-            country.c.parent_osm_id.in_(location_ids),
-            *counted_feed_conditions(),
+        select(
+            pairs.c.osm_id.label("osm_id"),
+            *(
+                func.count(distinct(pairs.c.feed_id)).filter(pairs.c.data_type == data_type).label(data_type)
+                for data_type in FEED_DATA_TYPES
+            ),
+            func.count(distinct(pairs.c.feed_id)).label("total"),
         )
-        .group_by(country.c.parent_osm_id)
+        .group_by(pairs.c.osm_id)
+        .subquery("location_feed_counts")
     )
