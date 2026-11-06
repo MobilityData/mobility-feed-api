@@ -161,7 +161,7 @@
      <!-- Add feed_download/http_headers override for feed mdb-2053 -->
     <include file="changes/add_ski_flex_header.sql" relativeToChangelogFile="true"/>
      <!-- Add feed_download/http_headers override for feed mdb-3619 -->
-    <include file="changes/add_ski_3619_header.sql" relativeToChangelogFile="true"/>
+    <include file="changes/add_ski_2027_header.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
