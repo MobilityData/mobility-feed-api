@@ -37,6 +37,7 @@ from starlette.middleware.cors import CORSMiddleware
 from middleware.request_context_middleware import RequestContextMiddleware
 from utils.logger import global_logging_setup
 from utils.route_offload import offload_blocking_routes
+from utils.route_order import fixed_paths_first
 
 app = FastAPI(
     title="Mobility Data Catalog API",
@@ -60,7 +61,8 @@ app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
 app.include_router(LicensesApiRouter)
-app.include_router(LocationsApiRouter)
+# /v1/locations/lookup must be matched before /v1/locations/{location_id}.
+app.include_router(fixed_paths_first(LocationsApiRouter))
 # The user-service routes are generated as ``async def`` but call blocking
 # synchronous impls (database + Brevo HTTP). Offload them to the threadpool so a
 # slow Brevo call cannot freeze the event loop for every other request.

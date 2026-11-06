@@ -455,10 +455,11 @@ paths:
         <br><br>
         Location filters:
         <br>
-        - `continent` restricts the results to feeds with stops in that continent, and `location_id` to feeds with
-        stops in that location of `/v1/locations`, sub-areas included. Feeds are matched through their
-        reverse-geolocated stops, so a feed that was never geolocated does not match. A GTFS Realtime feed that was
-        never geolocated matches the locations of the schedule feeds it references. Unknown values return no feed.
+        - `location_id` (any location of `/v1/locations`, continents included) or `location_path` (its `path`)
+        restricts the results to feeds with stops in that location, sub-areas included. Feeds are matched through
+        their reverse-geolocated stops, so a feed that was never geolocated does not match. A GTFS Realtime feed that
+        was never geolocated matches the locations of the schedule feeds it references. Unknown values return no
+        feed. Pass one of the two, not both.
         - To list the same feeds as a location's `feed_counts`, also pass `status=active,inactive,development,future`.
         - `sort=location` orders the results by the share of each feed's stops inside the requested location instead
         of by creation date.
@@ -481,15 +482,16 @@ paths:
         - $ref: "#/components/parameters/license_ids"
         - $ref: "#/components/parameters/license_is_spdx"
         - $ref: "#/components/parameters/license_tags"
-        - $ref: "#/components/parameters/location_continent"
         - $ref: "#/components/parameters/location_id_query_param"
+        - $ref: "#/components/parameters/location_path_query_param"
         - $ref: "#/components/parameters/search_sort"
       security:
         - Authentication: []
       responses:
         400:
           description: >
-            `sort=location` was requested without `continent` or `location_id`, or `sort` has an unsupported value.
+            `sort=location` was requested without `location_id` or `location_path`, both `location_id` and
+            `location_path` were given, or `sort` has an unsupported value.
         403:
           description: Filtering by Seal of Reliability status is not available to this caller.
         200:
@@ -510,22 +512,27 @@ paths:
   /v1/locations:
     get:
       description: >
-        Search locations (continents, countries, subdivisions and municipalities).
-        Results can be filtered by a free-text query and narrowed to a specific continent, country,
-        subdivision, parent location, path or location type. Matches are ordered from the broadest
-        area to the most specific, and by relevance within each level, unless `sort=feed_count` is given.
+        Search and filter locations: continents, countries, subdivisions and municipalities. Results can be
+        filtered by a free-text query, a continent, a country, a subdivision or a location type. Matches are
+        ordered from the broadest area to the most specific, and by relevance within each level, unless
+        `sort=feed_count` is given.
         <br>
-        Feed counts (`include_feed_counts`, `has_feeds`, `sort=feed_count`) count distinct feeds with a
+        To get one location, use `/v1/locations/{location_id}` or, from its path, `/v1/locations/lookup`; to list
+        a location's direct children, use `/v1/locations/{location_id}/children` or `include=children` on those
+        two endpoints. To list a location's feeds, call `/v1/search` with its `location_id` (or its `path` as
+        `location_path`), `status=active,inactive,development,future` and `sort=location`.
+        <br>
+        Every location has a `location_id` and a `path`. Countries, subdivisions and municipalities are
+        OpenStreetMap administrative areas and their `location_id` is the OSM id. Continents come from a fixed
+        country-to-continent classification; their `location_id` is negative (`-1` Africa, `-2` Antarctica,
+        `-3` Asia, `-4` Europe, `-5` North America, `-6` Oceania, `-7` South America) and they are the parent of
+        their countries.
+        <br>
+        Feed counts (`include=feed_counts`, `has_feeds`, `sort=feed_count`) count distinct feeds with a
         status of `active`, `inactive`, `development` or `future` that have reverse-geolocated stops in
         the location, sub-areas included. A GTFS Realtime feed that was never geolocated is counted in the
         locations of the schedule feeds it references. Work-in-progress feeds are counted only for callers allowed to
-        see them, as in `/v1/search`. To list a location's feeds, call `/v1/search` with its
-        `location_id` (or `continent` for a continent), `status=active,inactive,development,future` and
-        `sort=location`.
-        <br>
-        Continents come from a fixed classification and are not geopolygons. They are only returned with
-        `location_type=continent`; their `location_id`, `parent_location_id` and ISO fields are null,
-        `slug` and `continent_slug` both hold the continent slug, and `path_names` and `path_slugs` are empty.
+        see them, as in `/v1/search`.
       operationId: getLocations
       tags:
         - "locations"
@@ -542,10 +549,11 @@ paths:
           schema:
             type: string
             example: montreal
+        - $ref: "#/components/parameters/location_continent"
         - name: country_code
           in: query
           description: >
-            Limit results to locations contained within this country, given as its
+            Limit results to locations contained within this country, the country included, given as its
             ISO 3166-1 alpha-2 code. Case-insensitive.
           schema:
             type: string
@@ -553,7 +561,7 @@ paths:
         - name: subdivision_code
           in: query
           description: >
-            Limit results to locations contained within this subdivision, given as its
+            Limit results to locations contained within this subdivision, the subdivision included, given as its
             ISO 3166-2 code. Case-insensitive.
           schema:
             type: string
@@ -574,34 +582,8 @@ paths:
               - subdivision
               - municipality
             example: municipality
-        - $ref: "#/components/parameters/location_continent"
-        - name: parent_location_id
-          in: query
-          description: Limit results to the direct children of this location (the next level down).
-          schema:
-            type: integer
-            example: 61549
-        - name: path
-          in: query
-          description: >
-            Return the location at this path: its `path_slugs` joined with `/`, from the country down,
-            e.g. `canada/quebec/montreal`. Case-insensitive; leading and trailing slashes are ignored. Returns no
-            result when no location has that path.
-          schema:
-            type: string
-            example: canada/quebec/montreal
-        - name: has_feeds
-          in: query
-          description: When true, only return locations with at least one feed (see the feed count rules above).
-          schema:
-            type: boolean
-            default: false
-        - name: include_feed_counts
-          in: query
-          description: When true, include `feed_counts` in each result.
-          schema:
-            type: boolean
-            default: false
+        - $ref: "#/components/parameters/has_feeds_query_param"
+        - $ref: "#/components/parameters/locations_include"
         - $ref: "#/components/parameters/locations_sort"
       security:
         - Authentication: []
@@ -613,7 +595,108 @@ paths:
               schema:
                 $ref: "#/components/schemas/LocationSearchResponse"
         400:
-          description: "`sort` has an unsupported value."
+          description: "`sort` or `include` has an unsupported value."
+
+  /v1/locations/lookup:
+    get:
+      description: >
+        Get one location from its `path`: the slugs of the location and of every area containing it, from the
+        continent down, joined with `/` (e.g. `north-america/canada/quebec`). A continent's path is its slug
+        (`north-america`); a country without continent in the classification starts at the country. This is the
+        same location as `/v1/locations/{location_id}`, addressed by path instead of id.
+        <br>
+        With `include=children`, the response also holds the first page of the location's direct children;
+        `has_feeds`, `sort`, `limit` and `offset` then apply to the children. Paths follow OpenStreetMap names and
+        can change when a place is renamed; store the `location_id` rather than the path.
+      operationId: getLocationByPath
+      tags:
+        - "locations"
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: >
+            The location's `path`. Case-insensitive; leading and trailing slashes are ignored.
+          schema:
+            type: string
+            example: north-america/canada/quebec
+        - $ref: "#/components/parameters/location_include"
+        - $ref: "#/components/parameters/children_has_feeds_query_param"
+        - $ref: "#/components/parameters/children_sort"
+        - $ref: "#/components/parameters/limit_query_param_locations_endpoint"
+        - $ref: "#/components/parameters/offset"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The location at that path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationDetail"
+        400:
+          description: "`path` is empty, or `sort` or `include` has an unsupported value."
+        404:
+          description: No location has that path.
+
+  /v1/locations/{location_id}:
+    get:
+      description: >
+        Get one location by its `location_id`. With `include=children`, the response also holds the first page
+        of the location's direct children; `has_feeds`, `sort`, `limit` and `offset` then apply to the children.
+      operationId: getLocation
+      tags:
+        - "locations"
+      parameters:
+        - $ref: "#/components/parameters/location_id_path_param"
+        - $ref: "#/components/parameters/location_include"
+        - $ref: "#/components/parameters/children_has_feeds_query_param"
+        - $ref: "#/components/parameters/children_sort"
+        - $ref: "#/components/parameters/limit_query_param_locations_endpoint"
+        - $ref: "#/components/parameters/offset"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The location.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationDetail"
+        400:
+          description: "`sort` or `include` has an unsupported value."
+        404:
+          description: No location has that id.
+
+  /v1/locations/{location_id}/children:
+    get:
+      description: >
+        List the direct children of a location, one level down: the countries of a continent, the subdivisions
+        of a country, and so on. Depth varies by country, so the children of a subdivision can be regions or
+        municipalities.
+      operationId: getLocationChildren
+      tags:
+        - "locations"
+      parameters:
+        - $ref: "#/components/parameters/location_id_path_param"
+        - $ref: "#/components/parameters/limit_query_param_locations_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/has_feeds_query_param"
+        - $ref: "#/components/parameters/locations_include"
+        - $ref: "#/components/parameters/locations_sort"
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The children of the location.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationSearchResponse"
+        400:
+          description: "`sort` or `include` has an unsupported value."
+        404:
+          description: No location has that id.
 
   /v1/licenses:
     get:
@@ -1939,6 +2022,9 @@ components:
 
     LocationSearchResponse:
       type: object
+      required:
+        - total
+        - results
       properties:
         total:
           type: integer
@@ -1951,16 +2037,26 @@ components:
 
     LocationSearchResult:
       type: object
+      required:
+        - location_id
+        - location_type
+        - slug
+        - path
+        - path_slugs
+        - path_names
       properties:
         location_id:
           type: integer
-          nullable: true
-          description: Stable location identifier. Null for continents.
+          description: >
+            Stable location identifier: the OpenStreetMap id of the area, or a negative id for a continent
+            (`-1` to `-7`).
           example: 175905
         parent_location_id:
           type: integer
           nullable: true
-          description: Stable identifier of the nearest containing location. Null for continents and countries.
+          description: >
+            Identifier of the nearest containing location; for a country, its continent. Null for continents and
+            for countries without continent in the classification.
           example: 161950
         name:
           type: string
@@ -1990,39 +2086,35 @@ components:
             Code of the continent that contains this location (`AF`, `AN`, `AS`, `EU`, `NA`, `OC`, `SA`).
             Null when the country has no continent in the classification.
           example: NA
-        continent_slug:
-          type: string
-          nullable: true
-          description: URL-safe identifier of the continent, as accepted by the `continent` parameter.
-          example: north-america
-        continent_name:
-          type: string
-          nullable: true
-          description: English name of the continent.
-          example: North America
         slug:
           type: string
-          nullable: true
           description: >
             URL-safe identifier of the location among its siblings: its name lowercased, without accents, with
             every run of non-alphanumeric characters replaced by a single hyphen (`Montréal` -> `montreal`).
             When siblings under the same parent would share a slug, each of them gets `-<location_id>` appended.
-            A name without any ASCII letter or digit uses its `location_id` as the slug.
+            A name without any ASCII letter or digit uses its `location_id` as the slug. A continent's slug is
+            fixed (`north-america`).
           example: montreal
+        path:
+          type: string
+          description: >
+            The location's `path_slugs` joined with `/`, from the continent down, as accepted by
+            `/v1/locations/lookup` and by the `location_path` parameter of `/v1/search`. Paths follow
+            OpenStreetMap names and can change when a place is renamed; store the `location_id` instead.
+          example: north-america/canada/quebec/montreal-region/montreal
         path_slugs:
           type: array
-          description: >
-            The slugs of the locations in `path_names`, in the same order; joined with `/` they form the
-            `path` parameter. Empty for continents.
+          description: The slugs of the locations in `path_names`, in the same order.
           items:
             type: string
           example:
+            - north-america
             - canada
             - quebec
             - montreal-region
             - montreal
         feed_counts:
-          # Null unless `include_feed_counts` is true.
+          # Null unless `include` contains `feed_counts`.
           $ref: "#/components/schemas/LocationFeedCounts"
         country_name:
           type: string
@@ -2046,10 +2138,13 @@ components:
           example: CA-QC
         path_names:
           type: array
-          description: The ordered list of location names from the broadest containing area down to this location.
+          description: >
+            The ordered list of location names from the broadest containing area, the continent, down to this
+            location. A country without continent in the classification starts at the country.
           items:
             type: string
           example:
+            - North America
             - Canada
             - Quebec
             - Montréal (region)
@@ -2057,8 +2152,19 @@ components:
         display_name:
           type: string
           nullable: true
-          description: A human-readable representation of the full location hierarchy, joined from the broadest area to this location.
+          description: >
+            A human-readable representation of the location hierarchy, joined from the country (or, for a
+            continent, the continent itself) down to this location.
           example: Canada, Quebec, Montréal (region), Montréal
+
+    LocationDetail:
+      allOf:
+        - $ref: "#/components/schemas/LocationSearchResult"
+        - type: object
+          properties:
+            children:
+              # Null unless `include` contains `children`.
+              $ref: "#/components/schemas/LocationSearchResponse"
 
     #    Have to put the enum inline because of a bug in openapi-generator
     #    FeedStatus:
@@ -2732,8 +2838,9 @@ components:
       name: continent
       in: query
       description: >
-        Continent slug (`africa`, `antarctica`, `asia`, `europe`, `north-america`, `oceania`, `south-america`)
-        or code (`AF`, `AN`, `AS`, `EU`, `NA`, `OC`, `SA`). Case-insensitive.
+        Limit results to locations in this continent, the continent included, given as its slug (`africa`,
+        `antarctica`, `asia`, `europe`, `north-america`, `oceania`, `south-america`) or code (`AF`, `AN`, `AS`,
+        `EU`, `NA`, `OC`, `SA`). Case-insensitive.
       required: False
       schema:
         type: string
@@ -2743,13 +2850,99 @@ components:
       name: location_id
       in: query
       description: >
-        A `location_id` from `/v1/locations`: only feeds with reverse-geolocated stops in that location,
-        sub-areas included. A GTFS Realtime feed that was never geolocated takes the locations of the schedule
-        feeds it references.
+        A `location_id` from `/v1/locations`, continents included: only feeds with reverse-geolocated stops in
+        that location, sub-areas included. A GTFS Realtime feed that was never geolocated takes the locations of
+        the schedule feeds it references.
       required: False
       schema:
         type: integer
         example: 61549
+
+    location_path_query_param:
+      name: location_path
+      in: query
+      description: >
+        A location's `path` (e.g. `north-america/canada/quebec`), as an alternative to `location_id`: only feeds
+        with reverse-geolocated stops in that location, sub-areas included. Case-insensitive; leading and trailing
+        slashes are ignored.
+      required: False
+      schema:
+        type: string
+        example: north-america/canada/quebec
+
+    location_id_path_param:
+      name: location_id
+      in: path
+      required: True
+      description: The location's `location_id`; negative for a continent.
+      schema:
+        type: integer
+        example: 61549
+
+    has_feeds_query_param:
+      name: has_feeds
+      in: query
+      required: False
+      description: When true, only return locations with at least one feed (see the feed count rules of `/v1/locations`).
+      schema:
+        type: boolean
+        default: false
+
+    children_has_feeds_query_param:
+      name: has_feeds
+      in: query
+      required: False
+      description: With `include=children`, only return the children with at least one feed.
+      schema:
+        type: boolean
+        default: false
+
+    locations_include:
+      name: include
+      in: query
+      required: False
+      description: >
+        Optional data to add to each location: `feed_counts`, the location's feed counts per data type.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: string
+          enum:
+            - feed_counts
+
+    location_include:
+      name: include
+      in: query
+      required: False
+      description: >
+        Optional data to add, comma-separated: `feed_counts`, the feed counts of the location (and of its children
+        when they are included); `children`, the first page of the location's direct children.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: string
+          enum:
+            - feed_counts
+            - children
+
+    children_sort:
+      name: sort
+      in: query
+      description: >
+        With `include=children`, the sort order of the children.
+        `admin_level` (default): from the broadest area to the most specific, then by display name.
+        `feed_count`: most feeds first, then by display name.
+      required: False
+      schema:
+        type: string
+        enum:
+          - admin_level
+          - feed_count
+        default: admin_level
 
     locations_sort:
       name: sort
@@ -2888,7 +3081,7 @@ components:
       description: >
         Sort order of the results.
         `created_at` (default): newest feeds first, then by relevance to `search_query` when one is given.
-        `location`: by relevance to the requested location, which requires `continent` or `location_id`. Feeds
+        `location`: by relevance to the requested location, which requires `location_id` or `location_path`. Feeds
         with the largest share of their reverse-geolocated stops inside the location come first (on Montréal, a
         city bus feed with all its stops in Montréal ranks above a regional train with a fifth of them there);
         ties are broken by provider, feed name and feed id.
