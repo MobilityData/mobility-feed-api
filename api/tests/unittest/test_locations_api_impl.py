@@ -317,13 +317,15 @@ def test_get_locations_includes_feed_counts_of_the_page(restricted_user):
 
 
 def test_get_locations_sorted_by_feed_count_counts_in_the_same_query(restricted_user):
-    rows = [SimpleNamespace(**vars(_row()), gtfs=1, gtfs_rt=0, gbfs=0, total=1)]
-    session = _mock_session(_result(1), _result(rows=rows))
+    # One query filters, counts, sorts, pages and returns the total (window count).
+    rows = [SimpleNamespace(**vars(_row()), gtfs=1, gtfs_rt=0, gbfs=0, total=1, matching_locations=3)]
+    session = _mock_session(_result(rows=rows))
     response = LocationsApiImpl().get_locations(
         10, 0, None, None, None, None, None, True, ["feed_counts"], "feed_count", db_session=session
     )
     assert response.results[0].feed_counts == LocationFeedCounts(gtfs=1, gtfs_rt=0, gbfs=0, total=1)
-    assert session.execute.call_count == 2
+    assert response.total == 3
+    assert session.execute.call_count == 1
 
 
 def test_get_location_without_children():
@@ -340,15 +342,26 @@ def test_get_location_with_children_and_feed_counts(restricted_user):
     session = _mock_session(
         _result(_continent_row()),
         _result(rows=[SimpleNamespace(osm_id=-5, gtfs=1, gtfs_rt=0, gbfs=0, total=1)]),
-        _result(1),
-        _result(rows=[_row(osm_id=1, parent_osm_id=-5, name="Canada", location_type="country")]),
-        _result(rows=[]),
+        # The children with feeds, their counts and their total, in one query.
+        _result(
+            rows=[
+                SimpleNamespace(
+                    **vars(_row(osm_id=1, parent_osm_id=-5, name="Canada", location_type="country")),
+                    gtfs=1,
+                    gtfs_rt=0,
+                    gbfs=0,
+                    total=1,
+                    matching_locations=1,
+                )
+            ]
+        ),
     )
     response = LocationsApiImpl().get_location(-5, ["feed_counts,children"], True, None, 10, 0, db_session=session)
     assert response.feed_counts == LocationFeedCounts(gtfs=1, gtfs_rt=0, gbfs=0, total=1)
     assert response.children.total == 1
     assert response.children.results[0].location_id == 1
-    assert response.children.results[0].feed_counts == LocationFeedCounts(gtfs=0, gtfs_rt=0, gbfs=0, total=0)
+    assert response.children.results[0].feed_counts == LocationFeedCounts(gtfs=1, gtfs_rt=0, gbfs=0, total=1)
+    assert session.execute.call_count == 3
 
 
 def test_get_location_unknown_id():

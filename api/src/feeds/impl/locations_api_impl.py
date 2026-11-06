@@ -14,7 +14,6 @@ from feeds.impl.error_handling import (
 )
 from feeds.impl.location_feeds import (
     clean_param,
-    located_location_ids,
     location_feed_counts,
     normalize_path,
     resolve_continent_code,
@@ -152,6 +151,37 @@ def _page_feed_counts(db_session: Session, location_ids: list) -> dict:
     return {row.osm_id: _feed_counts(row) for row in db_session.execute(select(counts)).all()}
 
 
+def _location_order(sort: str, normalized_query: Optional[str], total_feeds=None) -> list:
+    """The ORDER BY of a locations page. `total_feeds` is the feed count column, required for `sort=feed_count`."""
+    if sort == SORT_BY_FEED_COUNT:
+        return [
+            func.coalesce(total_feeds, 0).desc(),
+            location_search.c.display_name.asc(),
+            location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
+        ]
+    if normalized_query is not None:
+        return [
+            location_search.c.admin_level.asc(),
+            func.ts_rank(location_search.c.document, _ts_query(normalized_query)).desc(),
+            location_search.c.display_name.asc(),
+            location_search.c.osm_id.asc(),
+        ]
+    return [location_search.c.admin_level.asc(), location_search.c.display_name.asc(), location_search.c.osm_id.asc()]
+
+
+def _location_response(rows, total: int, with_feed_counts: bool, counts_by_location_id: dict):
+    return LocationSearchResponse(
+        total=total,
+        results=[
+            LocationSearchResultImpl.from_orm(
+                row,
+                feed_counts=((counts_by_location_id.get(row.osm_id) or _feed_counts()) if with_feed_counts else None),
+            )
+            for row in rows
+        ],
+    )
+
+
 def _search_locations(
     db_session: Session,
     conditions: list,
@@ -163,13 +193,10 @@ def _search_locations(
     offset: int,
 ) -> LocationSearchResponse:
     """A page of the locations matching the conditions, with their total."""
-    conditions = list(conditions)
-    if has_feeds:
-        # Count the feeds of the candidate locations once, rather than checking each location in a subquery.
-        candidate_location_ids = select(location_search.c.osm_id)
-        if conditions:
-            candidate_location_ids = candidate_location_ids.where(and_(*conditions))
-        conditions.append(location_search.c.osm_id.in_(located_location_ids(candidate_location_ids)))
+    if has_feeds or sort == SORT_BY_FEED_COUNT:
+        return _search_locations_by_feed_counts(
+            db_session, conditions, normalized_query, has_feeds, with_feed_counts, sort, limit, offset
+        )
 
     count_query = select(func.count(location_search.c.osm_id))
     if conditions:
@@ -179,57 +206,63 @@ def _search_locations(
     locations_query = select(*_location_columns)
     if conditions:
         locations_query = locations_query.where(and_(*conditions))
-    counts = None
-    if sort == SORT_BY_FEED_COUNT:
-        # Count only the feeds of the filtered locations, before paginating.
-        filtered_location_ids = select(location_search.c.osm_id)
-        if conditions:
-            filtered_location_ids = filtered_location_ids.where(and_(*conditions))
-        counts = location_feed_counts(filtered_location_ids)
-        locations_query = (
-            locations_query.add_columns(counts.c.gtfs, counts.c.gtfs_rt, counts.c.gbfs, counts.c.total)
-            .outerjoin(counts, counts.c.osm_id == location_search.c.osm_id)
-            .order_by(
-                func.coalesce(counts.c.total, 0).desc(),
-                location_search.c.display_name.asc(),
-                location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
-            )
-        )
-    elif normalized_query is not None:
-        locations_query = locations_query.order_by(
-            location_search.c.admin_level.asc(),
-            func.ts_rank(location_search.c.document, _ts_query(normalized_query)).desc(),
-            location_search.c.display_name.asc(),
-            location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
-        )
-    else:
-        locations_query = locations_query.order_by(
-            location_search.c.admin_level.asc(),
-            location_search.c.display_name.asc(),
-            location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
-        )
-    locations_query = locations_query.limit(limit).offset(offset)
-
+    locations_query = locations_query.order_by(*_location_order(sort, normalized_query)).limit(limit).offset(offset)
     rows = db_session.execute(locations_query).all()
-    feed_counts_by_location_id = {}
-    if with_feed_counts:
-        if counts is not None:
-            feed_counts_by_location_id = {row.osm_id: _feed_counts(row) for row in rows}
-        else:
-            # Count only the feeds of the returned page.
-            feed_counts_by_location_id = _page_feed_counts(db_session, [row.osm_id for row in rows])
-    return LocationSearchResponse(
-        total=total,
-        results=[
-            LocationSearchResultImpl.from_orm(
-                row,
-                feed_counts=(
-                    (feed_counts_by_location_id.get(row.osm_id) or _feed_counts()) if with_feed_counts else None
-                ),
-            )
-            for row in rows
-        ],
+    # Count only the feeds of the returned page.
+    counts_by_location_id = _page_feed_counts(db_session, [row.osm_id for row in rows]) if with_feed_counts else {}
+    return _location_response(rows, total, with_feed_counts, counts_by_location_id)
+
+
+def _search_locations_by_feed_counts(
+    db_session: Session,
+    conditions: list,
+    normalized_query: Optional[str],
+    has_feeds: Optional[bool],
+    with_feed_counts: bool,
+    sort: str,
+    limit: int,
+    offset: int,
+) -> LocationSearchResponse:
+    """A page of the locations matching the conditions when `has_feeds` or `sort=feed_count` needs their counts.
+
+    The feeds of all the matching locations are counted once, in one query that also filters (`has_feeds` is an inner
+    join on the counts, which only hold locations with a feed), sorts, pages and returns the total (a window count).
+    """
+    candidate_location_ids = select(location_search.c.osm_id)
+    if conditions:
+        candidate_location_ids = candidate_location_ids.where(and_(*conditions))
+    counts = location_feed_counts(candidate_location_ids)
+    join = (
+        location_search.join(counts, counts.c.osm_id == location_search.c.osm_id)
+        if has_feeds
+        else location_search.outerjoin(counts, counts.c.osm_id == location_search.c.osm_id)
     )
+    locations_query = select(
+        *_location_columns,
+        counts.c.gtfs,
+        counts.c.gtfs_rt,
+        counts.c.gbfs,
+        counts.c.total,
+        func.count().over().label("matching_locations"),
+    ).select_from(join)
+    if conditions:
+        locations_query = locations_query.where(and_(*conditions))
+    locations_query = (
+        locations_query.order_by(*_location_order(sort, normalized_query, counts.c.total)).limit(limit).offset(offset)
+    )
+    rows = db_session.execute(locations_query).all()
+    if rows:
+        total = rows[0].matching_locations
+    elif offset > 0:
+        # A page past the last one has no row to carry the window count.
+        count_query = select(func.count()).select_from(join)
+        if conditions:
+            count_query = count_query.where(and_(*conditions))
+        total = db_session.execute(count_query).scalar_one()
+    else:
+        total = 0
+    counts_by_location_id = {row.osm_id: _feed_counts(row) for row in rows if row.total is not None}
+    return _location_response(rows, total, with_feed_counts, counts_by_location_id)
 
 
 def _location_exists(db_session: Session, location_id: int) -> bool:
