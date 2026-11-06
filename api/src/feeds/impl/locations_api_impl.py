@@ -14,7 +14,7 @@ from feeds.impl.error_handling import (
 )
 from feeds.impl.location_feeds import (
     clean_param,
-    has_counted_feeds,
+    located_location_ids,
     location_feed_counts,
     normalize_path,
     resolve_continent_code,
@@ -165,7 +165,11 @@ def _search_locations(
     """A page of the locations matching the conditions, with their total."""
     conditions = list(conditions)
     if has_feeds:
-        conditions.append(has_counted_feeds())
+        # Count the feeds of the candidate locations once, rather than checking each location in a subquery.
+        candidate_location_ids = select(location_search.c.osm_id)
+        if conditions:
+            candidate_location_ids = candidate_location_ids.where(and_(*conditions))
+        conditions.append(location_search.c.osm_id.in_(located_location_ids(candidate_location_ids)))
 
     count_query = select(func.count(location_search.c.osm_id))
     if conditions:
