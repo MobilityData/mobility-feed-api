@@ -6,9 +6,14 @@ from fastapi import HTTPException
 from shared.common.error_handling import InternalHTTPException
 
 locations_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'admin_level' or 'feed_count'"
+locations_include_unsupported: Final[str] = "Unsupported include '{}', expected {}"
+location_not_found: Final[str] = "Location '{}' not found"
+location_path_not_found: Final[str] = "No location has the path '{}'"
+location_path_required: Final[str] = "The 'path' parameter is required"
 search_location_sort_requires_location: Final[str] = (
-    "Sorting by location requires the 'continent' or 'location_id' parameter"
+    "Sorting by location requires the 'location_id' or 'location_path' parameter"
 )
+search_location_id_and_path: Final[str] = "Pass either 'location_id' or 'location_path', not both"
 search_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'created_at' or 'location'"
 
 

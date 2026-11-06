@@ -11,15 +11,15 @@ from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 from feeds.impl.error_handling import (
     raise_http_error,
+    search_location_id_and_path,
     search_location_sort_requires_location,
     search_sort_unsupported,
 )
 from feeds.impl.location_feeds import (
     clean_param,
-    continent_groups,
     located_feeds,
     location_groups,
-    resolve_continent_code,
+    resolve_location_id_by_path,
 )
 from middleware.request_context import get_request_context, is_user_email_restricted
 from shared.common.error_handling import has_seal_filter_not_permitted
@@ -265,8 +265,8 @@ class SearchApiImpl(BaseSearchApi):
         license_ids: str,
         license_is_spdx: bool,
         license_tags: str,
-        continent: Optional[str],
         location_id: Optional[int],
+        location_path: Optional[str],
         sort: Optional[str],
         db_session: "Session",
     ) -> SearchFeeds200Response:
@@ -280,23 +280,19 @@ class SearchApiImpl(BaseSearchApi):
         sort = sort or SORT_BY_CREATED_AT
         if sort not in (SORT_BY_CREATED_AT, SORT_BY_LOCATION):
             raise_http_error(400, search_sort_unsupported.format(sort))
-        continent = clean_param(continent)
-        if sort == SORT_BY_LOCATION and continent is None and location_id is None:
+        location_path = clean_param(location_path)
+        if location_id is not None and location_path is not None:
+            raise_http_error(400, search_location_id_and_path)
+        if sort == SORT_BY_LOCATION and location_id is None and location_path is None:
             raise_http_error(400, search_location_sort_requires_location)
-        # The location groups of the requested location. With both parameters, the groups of the location that also
-        # contain a country of the continent: a location belongs to a single continent, so the feeds match both.
-        continent_code = None
-        if continent is not None:
-            continent_code = resolve_continent_code(db_session, continent)
-            if continent_code is None:
-                # Unknown continent: no feed is located there.
+        if location_path is not None:
+            location_id = resolve_location_id_by_path(db_session, location_path)
+            if location_id is None:
+                # Unknown path: no feed is located there.
                 return SearchFeeds200Response(results=[], total=0)
-        groups = None
-        if location_id is not None:
-            # An unknown location has no group, hence no feed.
-            groups = location_groups(location_id, continent_code)
-        elif continent_code is not None:
-            groups = continent_groups(continent_code)
+        # The location groups of the requested location, or of the countries of a continent. An unknown location has
+        # no group, hence no feed.
+        groups = location_groups(location_id) if location_id is not None else None
         location_feeds = None
         count_location_feeds = None
         if groups is not None:

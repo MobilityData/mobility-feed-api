@@ -27,13 +27,13 @@ from tests.test_utils.database import populate_database
 # The continent and country_continent rows are seeded by Liquibase, but other test packages truncate every table,
 # so the rows used here are inserted again when missing. CP (Clipperton) has no continent in the classification.
 CONTINENTS = [
-    ("AF", "africa", "Africa"),
-    ("AN", "antarctica", "Antarctica"),
-    ("AS", "asia", "Asia"),
-    ("EU", "europe", "Europe"),
-    ("NA", "north-america", "North America"),
-    ("OC", "oceania", "Oceania"),
-    ("SA", "south-america", "South America"),
+    ("AF", "africa", "Africa", -1),
+    ("AN", "antarctica", "Antarctica", -2),
+    ("AS", "asia", "Asia", -3),
+    ("EU", "europe", "Europe", -4),
+    ("NA", "north-america", "North America", -5),
+    ("OC", "oceania", "Oceania", -6),
+    ("SA", "south-america", "South America", -7),
 ]
 COUNTRY_CONTINENTS = {"CA": "NA", "US": "NA", "MQ": "NA", "FR": "EU"}
 
@@ -113,7 +113,12 @@ def _populate_location_directory_data(db: Database):
     with db.start_db_session() as session:
         session.execute(
             pg_insert(Continent)
-            .values([{"code": code, "slug": slug, "name": name} for code, slug, name in CONTINENTS])
+            .values(
+                [
+                    {"code": code, "slug": slug, "name": name, "location_id": location_id}
+                    for code, slug, name, location_id in CONTINENTS
+                ]
+            )
             .on_conflict_do_nothing()
         )
         session.execute(
