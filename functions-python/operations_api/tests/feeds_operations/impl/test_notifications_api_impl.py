@@ -622,6 +622,48 @@ class TestStartNotificationDispatch(unittest.TestCase):
         self.assertEqual(len(result.runs), 1)
         self.assertEqual(result.runs[0].run_id, "daily-20260101T000000")
         self.assertEqual(result.runs[0].subscriptions, 3)
+        self.assertIsNone(result.runs[0].preview)
+
+    def test_dry_run_returns_the_preview(self, _token, post):
+        post.return_value.json.return_value = {
+            "cadences": ["all"],
+            "by_cadence": {
+                "all": {
+                    "run_id": "all-20260101T000000",
+                    "subscriptions": 1,
+                    "enqueued": 0,
+                    "dry_run": True,
+                    "preview": [
+                        {
+                            "subscription_id": "sub-1",
+                            "user_id": "uid-1",
+                            "email": "user@example.com",
+                            "notification_type_id": "feed.url_updated",
+                            "cadence": "daily",
+                            "events": [
+                                {
+                                    "id": "evt-1",
+                                    "notification_type_id": "feed.url_updated",
+                                    "event_subtype": "url_replaced",
+                                    "source": "operations_test",
+                                    "created_at": "2026-01-01T00:00:00+00:00",
+                                    "feed_stable_ids": ["mdb-1"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+        }
+
+        result = self.api.start_notification_dispatch(
+            OperationNotificationDispatchRequest(cadence="all", dry_run=True)
+        )
+
+        preview = result.runs[0].preview
+        self.assertEqual(preview[0].email, "user@example.com")
+        self.assertEqual(preview[0].events[0].id, "evt-1")
+        self.assertEqual(preview[0].events[0].feed_stable_ids, ["mdb-1"])
 
     def test_executor_failure_is_502(self, _token, post):
         post.side_effect = RuntimeError("boom")

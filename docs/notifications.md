@@ -198,7 +198,9 @@ every event of its type.
 - `POST /v1/operations/notifications/dispatch` calls `tasks_executor` with the
   same `notifications_dispatch_batch` request the Cloud Scheduler job sends, with
   the given `cadence`, `user_ids`, `dry_run` and `force`, and returns each run's
-  `run_id` (or, for a dry run, the planned subscription count).
+  `run_id`. A dry run enqueues nothing and returns, for up to 50 subscriptions,
+  the events a real run would send each one, selected by the workers' own
+  `find_events_for_subscription`.
 - `GET /v1/operations/notifications/dispatch/{run_id}` reads the run's
   `TaskExecutionTracker` state; each worker stores its delivery stats on its
   entry, so the run's `stats` are exact even when runs overlap.

@@ -529,6 +529,7 @@ class NotificationsApiImpl(BaseNotificationsApi):
                     subscriptions=run["subscriptions"],
                     enqueued=run["enqueued"],
                     dry_run=run["dry_run"],
+                    preview=run.get("preview"),
                 )
                 for cadence, run in by_cadence.items()
             ]

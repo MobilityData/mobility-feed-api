@@ -83,22 +83,86 @@ class TestPlanHandler(unittest.TestCase):
             any(n.startswith("notifications-dispatch-monitor-") for n in names)
         )
 
+    @patch(f"{_PLAN}.find_events_for_subscription")
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)
     @patch(f"{_PLAN}.find_subscriptions")
-    def test_dry_run_enqueues_nothing(self, find_mock, enqueue_mock, start_run_mock):
+    def test_dry_run_enqueues_nothing_and_previews_events(
+        self, find_mock, enqueue_mock, start_run_mock, events_mock
+    ):
         from tasks.notifications.dispatch_batch import (
             notifications_dispatch_batch_handler,
         )
 
-        find_mock.return_value = self._subs("sub-1", "sub-2")
+        subs = self._subs("sub-1", "sub-2")
+        for sub in subs:
+            sub.user_id = f"user-{sub.id}"
+            sub.user.email = f"{sub.id}@example.com"
+            sub.notification_type_id = "feed.url_updated"
+            sub.cadence = "weekly"
+        find_mock.return_value = subs
+        event = MagicMock(
+            id="evt-1",
+            notification_type_id="feed.url_updated",
+            event_subtype="url_replaced",
+            source="operations_test",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            notification_event_feeds=[MagicMock(feed_stable_id="mdb-1")],
+        )
+        events_mock.side_effect = [[event], []]
+
         result = notifications_dispatch_batch_handler(
             {"cadence": "weekly", "dry_run": True}
         )
 
         enqueue_mock.assert_not_called()
         start_run_mock.assert_not_called()
-        self.assertEqual(result["by_cadence"]["weekly"]["enqueued"], 0)
+        planned = result["by_cadence"]["weekly"]
+        self.assertEqual(planned["enqueued"], 0)
+        self.assertEqual(
+            planned["preview"][0],
+            {
+                "subscription_id": "sub-1",
+                "user_id": "user-sub-1",
+                "email": "sub-1@example.com",
+                "notification_type_id": "feed.url_updated",
+                "cadence": "weekly",
+                "events": [
+                    {
+                        "id": "evt-1",
+                        "notification_type_id": "feed.url_updated",
+                        "event_subtype": "url_replaced",
+                        "source": "operations_test",
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                        "feed_stable_ids": ["mdb-1"],
+                    }
+                ],
+            },
+        )
+        self.assertEqual(planned["preview"][1]["events"], [])
+
+    @patch(f"{_PLAN}.find_events_for_subscription", return_value=[])
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_PLAN}.find_subscriptions")
+    def test_dry_run_preview_is_capped(
+        self, find_mock, enqueue_mock, start_run_mock, events_mock
+    ):
+        from tasks.notifications.dispatch_batch import (
+            DRY_RUN_PREVIEW_LIMIT,
+            notifications_dispatch_batch_handler,
+        )
+
+        find_mock.return_value = self._subs(
+            *[f"sub-{i}" for i in range(DRY_RUN_PREVIEW_LIMIT + 5)]
+        )
+        result = notifications_dispatch_batch_handler(
+            {"cadence": "weekly", "dry_run": True}
+        )
+
+        planned = result["by_cadence"]["weekly"]
+        self.assertEqual(planned["subscriptions"], DRY_RUN_PREVIEW_LIMIT + 5)
+        self.assertEqual(len(planned["preview"]), DRY_RUN_PREVIEW_LIMIT)
 
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)

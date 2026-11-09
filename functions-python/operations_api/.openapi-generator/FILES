@@ -82,6 +82,8 @@ src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
 src/feeds_gen/models/operation_notification_dispatch_planned_run.py
+src/feeds_gen/models/operation_notification_dispatch_preview.py
+src/feeds_gen/models/operation_notification_dispatch_preview_event.py
 src/feeds_gen/models/operation_notification_dispatch_request.py
 src/feeds_gen/models/operation_notification_dispatch_run.py
 src/feeds_gen/models/operation_notification_dispatch_start.py
