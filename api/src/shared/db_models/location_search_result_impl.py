@@ -1,6 +1,31 @@
+from typing import Optional
+
+from feeds_gen.models.location_feed_counts import LocationFeedCounts
 from feeds_gen.models.location_search_result import LocationSearchResult
 
 from shared.database_gen.sqlacodegen_models import t_geopolygonlocationsearch
+
+
+def location_fields(location_row: t_geopolygonlocationsearch, feed_counts: Optional[LocationFeedCounts]) -> dict:
+    """The `LocationSearchResult` fields of a row of the geopolygon location search read model, continents included."""
+    return dict(
+        location_id=location_row.osm_id,
+        parent_location_id=location_row.parent_osm_id,
+        name=location_row.name,
+        alt_name=location_row.alt_name,
+        location_type=location_row.location_type,
+        continent_code=location_row.continent_code,
+        slug=location_row.slug,
+        path=location_row.path,
+        path_slugs=location_row.path_slugs or [],
+        feed_counts=feed_counts,
+        country_name=location_row.country_name,
+        country_code=location_row.country_code,
+        subdivision_name=location_row.subdivision_name,
+        subdivision_code=location_row.subdivision_code,
+        path_names=location_row.path_names or [],
+        display_name=location_row.display_name,
+    )
 
 
 class LocationSearchResultImpl(LocationSearchResult):
@@ -15,20 +40,8 @@ class LocationSearchResultImpl(LocationSearchResult):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, location_row: t_geopolygonlocationsearch):
+    def from_orm(cls, location_row: t_geopolygonlocationsearch, feed_counts: Optional[LocationFeedCounts] = None):
         """Create a model instance from a SQLAlchemy row object."""
         if location_row is None:
             return None
-        return cls(
-            location_id=location_row.osm_id,
-            parent_location_id=location_row.parent_osm_id,
-            name=location_row.name,
-            alt_name=location_row.alt_name,
-            location_type=location_row.location_type,
-            country_name=location_row.country_name,
-            country_code=location_row.country_code,
-            subdivision_name=location_row.subdivision_name,
-            subdivision_code=location_row.subdivision_code,
-            path_names=location_row.path_names or [],
-            display_name=location_row.display_name,
-        )
+        return cls(**location_fields(location_row, feed_counts))
