@@ -31,6 +31,7 @@ from feeds_operations.impl.notifications_api_impl import (
     _brevo_sync_issues,
 )
 from shared.common.brevo import BrevoContactListState, BrevoSubscriptionStatus
+from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationEvent,
@@ -475,7 +476,11 @@ def _test_event_request(**kwargs) -> OperationNotificationTestEventRequest:
     )
 
 
-@patch(f"{MODULE}._feed_producer_urls")
+def _feed(stable_id, producer_url, provider=None) -> Feed:
+    return Feed(stable_id=stable_id, producer_url=producer_url, provider=provider)
+
+
+@patch(f"{MODULE}._feed_details")
 @patch(f"{MODULE}.add_event")
 class TestCreateTestNotificationEvent(unittest.TestCase):
     def setUp(self):
@@ -495,7 +500,9 @@ class TestCreateTestNotificationEvent(unittest.TestCase):
         return query
 
     def test_creates_url_replaced_event_for_recipients(self, add_event, feed_urls):
-        feed_urls.return_value = {"mdb-1": "https://feed.example.com/gtfs.zip"}
+        feed_urls.return_value = {
+            "mdb-1": _feed("mdb-1", "https://feed.example.com/gtfs.zip")
+        }
         add_event.return_value = "evt-1"
         created = _make_event(source="operations_test")
         self.session.query.side_effect = self._query(created)
@@ -517,8 +524,10 @@ class TestCreateTestNotificationEvent(unittest.TestCase):
 
     def test_redirect_defaults_new_url_to_target_feed(self, add_event, feed_urls):
         feed_urls.return_value = {
-            "mdb-1": "https://old.example.com/gtfs.zip",
-            "mdb-2": "https://target.example.com/gtfs.zip",
+            "mdb-1": _feed("mdb-1", "https://old.example.com/gtfs.zip", "Old Agency"),
+            "mdb-2": _feed(
+                "mdb-2", "https://target.example.com/gtfs.zip", "New Agency"
+            ),
         }
         add_event.return_value = "evt-1"
         self.session.query.side_effect = self._query(_make_event())
@@ -535,6 +544,8 @@ class TestCreateTestNotificationEvent(unittest.TestCase):
         self.assertEqual(
             kwargs["payload"]["new_url"], "https://target.example.com/gtfs.zip"
         )
+        self.assertEqual(kwargs["payload"]["provider"], "Old Agency")
+        self.assertEqual(kwargs["payload"]["target_provider"], "New Agency")
 
     def test_empty_recipients_is_400(self, add_event, feed_urls):
         # The request model rejects an empty list; this guards the impl on its own.
@@ -566,7 +577,9 @@ class TestCreateTestNotificationEvent(unittest.TestCase):
         add_event.assert_not_called()
 
     def test_unknown_recipient_is_400(self, add_event, feed_urls):
-        feed_urls.return_value = {"mdb-1": "https://feed.example.com/gtfs.zip"}
+        feed_urls.return_value = {
+            "mdb-1": _feed("mdb-1", "https://feed.example.com/gtfs.zip")
+        }
         self.session.query.side_effect = self._query(None)
 
         with self.assertRaises(HTTPException) as ctx:

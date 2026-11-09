@@ -370,8 +370,9 @@ def test_build_single_html_shows_provider_when_present():
         payload={"old_url": "https://old", "new_url": "https://new", "provider": "City Transit"},
     )
     html = build_single_html(event)
-    assert "City Transit" in html
-    assert "mdb-9 (City Transit)" in html
+    # Subscribers see the provider's name, not the internal stable ID.
+    assert ">City Transit</a>" in html
+    assert "mdb-9" not in html.replace("/feeds/mdb-9", "")
 
 
 def test_build_single_html_omits_provider_when_absent():
@@ -401,8 +402,12 @@ def test_build_single_html_feed_redirected_shows_both_providers():
         },
     )
     html = build_single_html(event)
-    assert "mdb-1 (Acme Transit)" in html
-    assert "mdb-2 (Acme Transit 2)" in html
+    # A redirect is about feeds, not URLs: link the old and the new feed by provider.
+    assert 'Old feed: <a href="https://mobilitydatabase.org/feeds/mdb-1"' in html
+    assert ">Acme Transit</a>" in html
+    assert 'New feed: <a href="https://mobilitydatabase.org/feeds/mdb-2"' in html
+    assert ">Acme Transit 2</a>" in html
+    assert "New URL" not in html
 
 
 def test_build_single_html_escapes_provider():
@@ -629,11 +634,9 @@ def test_build_digest_html_feed_url_updates():
     assert "mdb-1" in html
 
 
-def test_build_digest_html_per_row_view_feed_action():
-    """Each digest row must offer its own per-row action, not just a clickable
-    feed id: a plain update links to that feed's own page ("View"), while a
-    redirected row links to the NEW (target) feed ("Subscribe"), not the
-    deprecated one."""
+def test_build_digest_html_splits_url_changes_and_replaced_feeds():
+    """URL changes list old and new URLs; replaced feeds list the old and the new
+    feed, each linked to its page. Neither shows the event type or source."""
     updated = _event(
         subtype=FeedUrlUpdateType.URL_REPLACED,
         feeds=[_feed("mdb-9", NotificationFeedRole.SUBJECT)],
@@ -645,13 +648,25 @@ def test_build_digest_html_per_row_view_feed_action():
             _feed("mdb-1", NotificationFeedRole.SUBJECT),
             _feed("mdb-2", NotificationFeedRole.TARGET),
         ],
-        payload={"old_url": "https://old", "new_url": "https://new"},
+        payload={
+            "old_url": "https://old",
+            "new_url": "https://new",
+            "provider": "Old Agency",
+            "target_provider": "New Agency",
+        },
     )
     html = build_digest_html([updated, redirected])
+    assert "URL changes (1)" in html
+    assert "Replaced feeds (1)" in html
+    # A feed without a provider falls back to its stable ID.
     assert 'href="https://mobilitydatabase.org/feeds/mdb-9"' in html
-    assert "View &rarr;" in html
-    assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html  # new/target feed
-    assert "Subscribe &rarr;" in html
+    assert ">mdb-9</a>" in html
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-1"' in html
+    assert ">Old Agency</a>" in html
+    assert 'href="https://mobilitydatabase.org/feeds/mdb-2"' in html
+    assert ">New Agency</a>" in html
+    assert "Type</th>" not in html
+    assert "Source</th>" not in html
 
 
 # ---------------------------------------------------------------------------
@@ -813,9 +828,9 @@ def test_link_only_links_http_schemes():
         payload={"old_url": "o", "new_url": "javascript:alert(1)"},
     )
     html = build_single_html(event)
-    # A non-http(s) URL must not become a live <a href> link (rendered as plain text only).
-    assert "<a href=" not in html
+    # A non-http(s) URL must not become a live link (rendered as plain text only).
     assert 'href="javascript:' not in html
+    assert "javascript:alert(1)" in html
 
 
 def test_build_digest_html_escapes_values():

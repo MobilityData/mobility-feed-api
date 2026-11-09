@@ -255,8 +255,19 @@ class TestOperationsTestEvents(unittest.TestCase):
     @with_users_db_session(db_url=default_users_db_url)
     def test_not_delivered_to_other_subscribers(self, db_session: Session = None):
         sub = _make_subscription(db_session, "user-bob")
-        self._test_event(db_session, ["user-alice"])
-        self.assertEqual(self._found(db_session, sub), [])
+        event = self._test_event(db_session, ["user-alice"])
+        with self.assertLogs(
+            "tasks.notifications.dispatch_notifications", level="INFO"
+        ) as logs:
+            self.assertEqual(self._found(db_session, sub), [])
+        # The drop and its reason are logged, so it can be traced in production.
+        self.assertTrue(
+            any(
+                f"dropped_not_test_recipient=['{event.id}']" in line
+                for line in logs.output
+            ),
+            logs.output,
+        )
 
     @with_users_db_session(db_url=default_users_db_url)
     def test_without_recipients_reaches_nobody(self, db_session: Session = None):

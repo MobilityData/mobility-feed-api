@@ -344,11 +344,30 @@ def apply_filter_params(
     ``operations_test`` events are only ever delivered to the users listed in
     their payload, whatever the subscription's feeds.
     """
-    events = [e for e in events if _is_test_recipient(e, subscription)]
+    candidates = len(events)
+    not_recipient, out_of_scope, kept = [], [], []
     allowed = _subscription_feed_ids(subscription)
-    if not allowed:
-        return events
-    return [e for e in events if _event_feed_ids(e) & allowed]
+    for event in events:
+        if not _is_test_recipient(event, subscription):
+            not_recipient.append(event.id)
+        elif allowed and not _event_feed_ids(event) & allowed:
+            out_of_scope.append(event.id)
+        else:
+            kept.append(event)
+    # One line per subscription, so a silently dropped event shows up in the logs
+    # with the reason (e.g. a test event whose recipients don't include this user).
+    if candidates:
+        logger.info(
+            "apply_filter_params: subscription=%s user=%s candidates=%d kept=%d "
+            "dropped_not_test_recipient=%s dropped_feed_scope=%s",
+            subscription.id,
+            subscription.user_id,
+            candidates,
+            len(kept),
+            not_recipient,
+            out_of_scope,
+        )
+    return kept
 
 
 def _is_test_recipient(

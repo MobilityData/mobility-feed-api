@@ -114,14 +114,12 @@ _TASKS_EXECUTOR_TIMEOUT_SECONDS = 480
 
 
 @with_db_session
-def _feed_producer_urls(stable_ids: List[str], db_session=None) -> Dict[str, str]:
-    """producer_url by stable_id for the feeds that exist (feeds DB)."""
-    rows = (
-        db_session.query(Feed.stable_id, Feed.producer_url)
-        .filter(Feed.stable_id.in_(stable_ids))
-        .all()
-    )
-    return {stable_id: producer_url for stable_id, producer_url in rows}
+def _feed_details(stable_ids: List[str], db_session=None) -> Dict[str, Feed]:
+    """The feeds that exist, by stable_id (feeds DB)."""
+    feeds = db_session.query(Feed).filter(Feed.stable_id.in_(stable_ids)).all()
+    for feed in feeds:
+        db_session.expunge(feed)
+    return {feed.stable_id: feed for feed in feeds}
 
 
 def _run_tasks_executor(task: str, payload: dict) -> dict:
@@ -464,8 +462,8 @@ class NotificationsApiImpl(BaseNotificationsApi):
         stable_ids = [request.feed_stable_id]
         if redirected:
             stable_ids.append(request.target_feed_stable_id)
-        producer_urls = _feed_producer_urls(stable_ids)
-        missing_feeds = [s for s in stable_ids if s not in producer_urls]
+        feed_details = _feed_details(stable_ids)
+        missing_feeds = [s for s in stable_ids if s not in feed_details]
         if missing_feeds:
             raise HTTPException(
                 status_code=404, detail=f"Feed not found: {', '.join(missing_feeds)}."
@@ -484,10 +482,16 @@ class NotificationsApiImpl(BaseNotificationsApi):
                 detail=f"Unknown recipient user IDs: {', '.join(unknown_users)}.",
             )
 
+        feed = feed_details[request.feed_stable_id]
         feeds = [(request.feed_stable_id, NotificationFeedRole.SUBJECT)]
+        # Like the real emitters, carry the provider names the email shows.
+        extra_payload = {"provider": feed.provider} if feed.provider else {}
         if redirected:
+            target = feed_details[request.target_feed_stable_id]
             feeds.append((request.target_feed_stable_id, NotificationFeedRole.TARGET))
-            default_new_url = producer_urls[request.target_feed_stable_id]
+            default_new_url = target.producer_url
+            if target.provider:
+                extra_payload["target_provider"] = target.provider
         else:
             default_new_url = _TEST_NEW_URL
         event_id = add_event(
@@ -497,9 +501,10 @@ class NotificationsApiImpl(BaseNotificationsApi):
             source=NotificationSource.OPERATIONS_TEST,
             feeds=feeds,
             payload={
-                "old_url": request.old_url or producer_urls[request.feed_stable_id],
+                "old_url": request.old_url or feed.producer_url,
                 "new_url": request.new_url or default_new_url,
                 TEST_RECIPIENT_USER_IDS_KEY: recipient_user_ids,
+                **extra_payload,
             },
         )
         db_session.commit()
