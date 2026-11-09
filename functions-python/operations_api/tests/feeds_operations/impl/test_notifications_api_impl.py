@@ -200,7 +200,7 @@ class TestGetNotificationEvent(unittest.TestCase):
 
     def test_returns_event_with_logs(self):
         event = _make_event()
-        rows = [(_make_log(), "uid-1", "feed.url_updated")]
+        rows = [(_make_log(), "uid-1", "user@example.com", "feed.url_updated")]
         self.session.query.side_effect = [_chain(event), _chain(rows)]
 
         result = self.api.get_notification_event("evt-1", db_session=self.session)
@@ -208,6 +208,7 @@ class TestGetNotificationEvent(unittest.TestCase):
         self.assertEqual(result.id, "evt-1")
         self.assertEqual(len(result.logs), 1)
         self.assertEqual(result.logs[0].user_id, "uid-1")
+        self.assertEqual(result.logs[0].user_email, "user@example.com")
         self.assertEqual(result.logs[0].notification_type_id, "feed.url_updated")
 
     def test_not_found(self):
@@ -228,6 +229,7 @@ class TestListNotificationLogs(unittest.TestCase):
             (
                 _make_log(status="failed", retry_count=2, error_message="boom"),
                 "uid-1",
+                "user@example.com",
                 "feed.url_updated",
             )
         ]
@@ -241,6 +243,7 @@ class TestListNotificationLogs(unittest.TestCase):
         self.assertEqual(log.retry_count, 2)
         self.assertEqual(log.error_message, "boom")
         self.assertEqual(log.user_id, "uid-1")
+        self.assertEqual(log.user_email, "user@example.com")
 
     def test_applies_every_filter(self):
         q = _chain([])

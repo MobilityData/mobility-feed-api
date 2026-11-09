@@ -151,21 +151,28 @@ def _run_tasks_executor(task: str, payload: dict) -> dict:
 
 
 def _logs_query(db_session):
-    """Delivery logs joined to their subscription's owner and type."""
-    return db_session.query(
-        NotificationLog,
-        NotificationSubscription.user_id,
-        NotificationSubscription.notification_type_id,
-    ).outerjoin(
-        NotificationSubscription,
-        NotificationSubscription.id == NotificationLog.subscription_id,
+    """Delivery logs joined to their subscription's owner (id and email) and type."""
+    return (
+        db_session.query(
+            NotificationLog,
+            NotificationSubscription.user_id,
+            AppUser.email,
+            NotificationSubscription.notification_type_id,
+        )
+        .outerjoin(
+            NotificationSubscription,
+            NotificationSubscription.id == NotificationLog.subscription_id,
+        )
+        .outerjoin(AppUser, AppUser.id == NotificationSubscription.user_id)
     )
 
 
 def _log_rows_to_models(rows) -> List[OperationNotificationLog]:
     return [
-        OperationNotificationLogImpl.from_orm(log, user_id, notification_type_id)
-        for log, user_id, notification_type_id in rows
+        OperationNotificationLogImpl.from_orm(
+            log, user_id, notification_type_id, user_email=user_email
+        )
+        for log, user_id, user_email, notification_type_id in rows
     ]
 
 

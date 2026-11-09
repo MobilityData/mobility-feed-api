@@ -4354,6 +4354,10 @@ components:
           type: string
           nullable: true
           description: The user who owns the subscription.
+        user_email:
+          type: string
+          nullable: true
+          description: The email of the user who owns the subscription.
         notification_type_id:
           type: string
           nullable: true
