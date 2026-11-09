@@ -19,31 +19,46 @@ WITH RECURSIVE hierarchy AS (
     WHERE GeopolygonHierarchy.parent_osm_id IS NOT NULL
       AND NOT GeopolygonHierarchy.parent_osm_id = ANY(hierarchy.visited_osm_ids)
 ),
-location_paths AS (
-    SELECT
-        hierarchy.osm_id,
-        array_agg(ancestor.name ORDER BY hierarchy.depth DESC) AS path_names,
-        string_agg(ancestor.name, ', ' ORDER BY hierarchy.depth DESC) AS display_name,
-        (array_agg(ancestor.osm_id ORDER BY hierarchy.depth DESC)
-            FILTER (WHERE ancestor.iso_3166_1_code IS NOT NULL))[1] AS country_osm_id,
-        (array_agg(ancestor.osm_id ORDER BY hierarchy.depth DESC)
-            FILTER (WHERE ancestor.iso_3166_2_code IS NOT NULL
-                AND ancestor.iso_3166_1_code IS NULL))[1] AS subdivision_osm_id
-    FROM hierarchy
-    JOIN Geopolygon ancestor ON ancestor.osm_id = hierarchy.ancestor_osm_id
-    GROUP BY hierarchy.osm_id
-),
 -- Some country codes have several boundaries (e.g. an overseas region mapped at several admin levels):
--- only the one with the lowest admin level, then the lowest osm_id, is kept as the country.
+-- only the one with the lowest admin level, then the lowest osm_id, is kept as the country. The other boundaries
+-- resolve to it (retained_osm_id) wherever they appear as a parent or an ancestor, so that their sub-areas are
+-- children of the kept country and their paths go through it.
 country_boundaries AS (
     SELECT
         gp.osm_id,
-        row_number() OVER (
-            PARTITION BY gp.iso_3166_1_code
-            ORDER BY gp.admin_level ASC NULLS LAST, gp.osm_id ASC
-        ) AS boundary_rank
+        row_number() OVER country_code_boundaries AS boundary_rank,
+        first_value(gp.osm_id) OVER country_code_boundaries AS retained_osm_id
     FROM Geopolygon gp
     WHERE gp.iso_3166_1_code IS NOT NULL
+    WINDOW country_code_boundaries AS (
+        PARTITION BY gp.iso_3166_1_code
+        ORDER BY gp.admin_level ASC NULLS LAST, gp.osm_id ASC
+    )
+),
+-- The ancestors of every geopolygon (itself included), with duplicate country boundaries resolved to the retained
+-- one and counted once, at their highest depth.
+location_ancestors AS (
+    SELECT
+        hierarchy.osm_id,
+        COALESCE(country_boundaries.retained_osm_id, hierarchy.ancestor_osm_id) AS ancestor_osm_id,
+        max(hierarchy.depth) AS depth
+    FROM hierarchy
+    LEFT JOIN country_boundaries ON country_boundaries.osm_id = hierarchy.ancestor_osm_id
+    GROUP BY hierarchy.osm_id, COALESCE(country_boundaries.retained_osm_id, hierarchy.ancestor_osm_id)
+),
+location_paths AS (
+    SELECT
+        location_ancestors.osm_id,
+        array_agg(ancestor.name ORDER BY location_ancestors.depth DESC) AS path_names,
+        string_agg(ancestor.name, ', ' ORDER BY location_ancestors.depth DESC) AS display_name,
+        (array_agg(ancestor.osm_id ORDER BY location_ancestors.depth DESC)
+            FILTER (WHERE ancestor.iso_3166_1_code IS NOT NULL))[1] AS country_osm_id,
+        (array_agg(ancestor.osm_id ORDER BY location_ancestors.depth DESC)
+            FILTER (WHERE ancestor.iso_3166_2_code IS NOT NULL
+                AND ancestor.iso_3166_1_code IS NULL))[1] AS subdivision_osm_id
+    FROM location_ancestors
+    JOIN Geopolygon ancestor ON ancestor.osm_id = location_ancestors.ancestor_osm_id
+    GROUP BY location_ancestors.osm_id
 ),
 -- Continents are not geopolygons: they come from the continent table, with their fixed negative location_id. A
 -- country's parent is its continent (NULL when the country has no continent in the classification).
@@ -52,7 +67,7 @@ locations AS (
         gp.osm_id,
         CASE
             WHEN gp.iso_3166_1_code IS NOT NULL THEN continent.location_id
-            ELSE GeopolygonHierarchy.parent_osm_id
+            ELSE COALESCE(parent_boundary.retained_osm_id, GeopolygonHierarchy.parent_osm_id)
         END AS parent_osm_id,
         gp.name,
         gp.alt_name,
@@ -77,7 +92,13 @@ locations AS (
     LEFT JOIN GeopolygonHierarchy ON GeopolygonHierarchy.osm_id = gp.osm_id
     LEFT JOIN location_paths ON location_paths.osm_id = gp.osm_id
     LEFT JOIN country_boundaries ON country_boundaries.osm_id = gp.osm_id
-    LEFT JOIN Geopolygon country ON country.osm_id = COALESCE(GeopolygonHierarchy.country_osm_id, location_paths.country_osm_id)
+    LEFT JOIN country_boundaries parent_boundary ON parent_boundary.osm_id = GeopolygonHierarchy.parent_osm_id
+    LEFT JOIN country_boundaries hierarchy_country ON hierarchy_country.osm_id = GeopolygonHierarchy.country_osm_id
+    LEFT JOIN Geopolygon country ON country.osm_id = COALESCE(
+        hierarchy_country.retained_osm_id,
+        GeopolygonHierarchy.country_osm_id,
+        location_paths.country_osm_id
+    )
     LEFT JOIN Geopolygon subdivision ON subdivision.osm_id = COALESCE(
         GeopolygonHierarchy.subdivision_osm_id,
         location_paths.subdivision_osm_id
@@ -102,19 +123,22 @@ locations AS (
         )
 ),
 -- Slugs: the name lowercased, without accents, with every run of non-alphanumeric characters replaced by a single
--- hyphen. When two or more locations share the same parent (the countries of a continent are siblings; continents,
--- countries without continent and other parentless locations form a single group) and the same base slug, each of
--- them gets '-<osm_id>' appended, so that siblings never share a slug. A continent's slug is fixed: it never gets the
--- suffix, only its colliding siblings do. Collisions are counted over every row of the view, not only the rows with
--- feeds, so a slug does not change when feeds are added or removed. A name without any ASCII letter or digit falls
--- back to the osm_id.
+-- hyphen; a name without any ASCII letter or digit falls back to the osm_id. When two or more locations share the
+-- same parent (the countries of a continent are siblings; continents, countries without continent and other
+-- parentless locations form a single group) and the same slug, each of them gets '--<osm_id>' appended. A name never
+-- produces '--' (runs of other characters collapse into one hyphen), so a suffixed slug can neither equal another
+-- location's natural slug nor another suffixed slug: siblings never share a slug. A continent's slug is fixed: it
+-- never gets the suffix, only its colliding siblings do. Collisions are counted over every row of the view, not only
+-- the rows with feeds, so a slug does not change when feeds are added or removed.
 location_base_slugs AS (
     SELECT
         locations.osm_id,
         locations.parent_osm_id,
         FALSE AS is_continent,
-        NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(locations.name), '[^a-zA-Z0-9]+', '-', 'g'))), '')
-            AS base_slug
+        COALESCE(
+            NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(locations.name), '[^a-zA-Z0-9]+', '-', 'g'))), ''),
+            locations.osm_id::text
+        ) AS base_slug
     FROM locations
 
     UNION ALL
@@ -131,23 +155,25 @@ location_slugs AS (
         location_base_slugs.osm_id,
         CASE
             WHEN location_base_slugs.is_continent THEN location_base_slugs.base_slug
-            WHEN location_base_slugs.base_slug IS NULL THEN location_base_slugs.osm_id::text
             WHEN count(*) OVER (
                 PARTITION BY location_base_slugs.parent_osm_id, location_base_slugs.base_slug
-            ) > 1 THEN location_base_slugs.base_slug || '-' || location_base_slugs.osm_id
+            ) > 1 THEN location_base_slugs.base_slug || '--' || location_base_slugs.osm_id
             ELSE location_base_slugs.base_slug
         END AS slug
     FROM location_base_slugs
 ),
 -- Ancestors that are not rows of the view (e.g. an intermediate admin level, or a duplicate country boundary) still
--- need a slug in path_slugs. They get the same base slug, and the '-<osm_id>' suffix when another geopolygon with the
--- same parent, whether a row of the view or not, has the same base slug.
+-- need a slug in path_slugs. They follow the same rules (id fallback, '--<osm_id>' suffix) among the geopolygons with
+-- the same parent, whether rows of the view or not. Duplicate country boundaries never appear as ancestors: they
+-- resolve to the retained boundary.
 geopolygon_base_slugs AS (
     SELECT
         gp.osm_id,
         GeopolygonHierarchy.parent_osm_id,
-        NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(gp.name), '[^a-zA-Z0-9]+', '-', 'g'))), '')
-            AS base_slug
+        COALESCE(
+            NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(gp.name), '[^a-zA-Z0-9]+', '-', 'g'))), ''),
+            gp.osm_id::text
+        ) AS base_slug
     FROM Geopolygon gp
     LEFT JOIN GeopolygonHierarchy ON GeopolygonHierarchy.osm_id = gp.osm_id
 ),
@@ -155,10 +181,9 @@ geopolygon_slugs AS (
     SELECT
         geopolygon_base_slugs.osm_id,
         CASE
-            WHEN geopolygon_base_slugs.base_slug IS NULL THEN geopolygon_base_slugs.osm_id::text
             WHEN count(*) OVER (
                 PARTITION BY geopolygon_base_slugs.parent_osm_id, geopolygon_base_slugs.base_slug
-            ) > 1 THEN geopolygon_base_slugs.base_slug || '-' || geopolygon_base_slugs.osm_id
+            ) > 1 THEN geopolygon_base_slugs.base_slug || '--' || geopolygon_base_slugs.osm_id
             ELSE geopolygon_base_slugs.base_slug
         END AS slug
     FROM geopolygon_base_slugs
@@ -166,13 +191,14 @@ geopolygon_slugs AS (
 -- path_slugs is aligned with path_names: same ancestors, same order.
 location_path_slugs AS (
     SELECT
-        hierarchy.osm_id,
-        array_agg(COALESCE(location_slugs.slug, geopolygon_slugs.slug) ORDER BY hierarchy.depth DESC) AS path_slugs
-    FROM hierarchy
-    JOIN locations ON locations.osm_id = hierarchy.osm_id
-    JOIN geopolygon_slugs ON geopolygon_slugs.osm_id = hierarchy.ancestor_osm_id
-    LEFT JOIN location_slugs ON location_slugs.osm_id = hierarchy.ancestor_osm_id
-    GROUP BY hierarchy.osm_id
+        location_ancestors.osm_id,
+        array_agg(COALESCE(location_slugs.slug, geopolygon_slugs.slug) ORDER BY location_ancestors.depth DESC)
+            AS path_slugs
+    FROM location_ancestors
+    JOIN locations ON locations.osm_id = location_ancestors.osm_id
+    JOIN geopolygon_slugs ON geopolygon_slugs.osm_id = location_ancestors.ancestor_osm_id
+    LEFT JOIN location_slugs ON location_slugs.osm_id = location_ancestors.ancestor_osm_id
+    GROUP BY location_ancestors.osm_id
 ),
 -- path_names and path_slugs start with the continent, when the location's country has one. display_name starts at
 -- the country.
