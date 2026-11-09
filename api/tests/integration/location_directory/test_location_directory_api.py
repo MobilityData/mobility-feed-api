@@ -271,17 +271,42 @@ def test_lookup_country_without_continent(client: TestClient):
 
 
 def test_lookup_with_slug_collision(client: TestClient):
-    # Two Springfields under Ontario: each gets its id appended, and the bare slug matches neither.
+    # Two Springfields under Ontario: each gets '--<id>' appended, and the bare slug matches neither.
     springfields = _children(client, 6).results[:2]
     assert [(location.slug, location.path) for location in springfields] == [
-        ("springfield-8", "north-america/canada/ontario/springfield-8"),
-        ("springfield-9", "north-america/canada/ontario/springfield-9"),
+        ("springfield--8", "north-america/canada/ontario/springfield--8"),
+        ("springfield--9", "north-america/canada/ontario/springfield--9"),
     ]
-    assert _lookup(client, "north-america/canada/ontario/springfield-9").location_id == 9
+    assert _lookup(client, "north-america/canada/ontario/springfield--9").location_id == 9
     response = client.get(
         "/v1/locations/lookup", headers=HEADERS, params={"path": "north-america/canada/ontario/springfield"}
     )
     assert response.status_code == 404
+
+
+def test_suffixed_slugs_never_equal_a_natural_slug(client: TestClient):
+    slugs = {location.location_id: location.slug for location in _children(client, 40).results}
+    assert slugs == {
+        41: "springfield--41",
+        42: "springfield--42",
+        # Its natural slug is what a single hyphen suffix would have given 41.
+        43: "springfield-41",
+        # No ASCII letter: the id, which collides with the place named "44".
+        44: "44--44",
+        45: "44--45",
+    }
+    for location_id, slug in slugs.items():
+        assert _lookup(client, f"north-america/united-states/slugland/{slug}").location_id == location_id
+
+
+def test_children_of_a_discarded_country_boundary_belong_to_the_kept_one(client: TestClient):
+    # Fort-de-France's parent in the hierarchy is the discarded Martinique boundary (31).
+    fort_de_france = _lookup(client, "north-america/martinique/fort-de-france")
+    assert fort_de_france.location_id == 32
+    assert fort_de_france.parent_location_id == 30
+    assert fort_de_france.path_names == ["North America", "Martinique", "Fort-de-France"]
+    assert fort_de_france.country_name == "Martinique"
+    assert [location.location_id for location in _children(client, 30).results] == [32]
 
 
 def test_country_boundaries_are_deduplicated(client: TestClient):
@@ -405,6 +430,8 @@ def test_children_with_feeds_total_on_every_page(client: TestClient):
     assert (second.total, [location.location_id for location in second.results]) == (2, [6])
     past_the_end = _children(client, 1, has_feeds=True, sort="feed_count", limit=1, offset=5)
     assert (past_the_end.total, past_the_end.results) == (2, [])
+    empty_page = _children(client, 1, has_feeds=True, sort="feed_count", limit=0)
+    assert (empty_page.total, empty_page.results) == (2, [])
 
 
 def test_children_of_a_continent(client: TestClient):

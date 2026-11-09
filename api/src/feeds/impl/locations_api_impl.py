@@ -253,8 +253,8 @@ def _search_locations_by_feed_counts(
     rows = db_session.execute(locations_query).all()
     if rows:
         total = rows[0].matching_locations
-    elif offset > 0:
-        # A page past the last one has no row to carry the window count.
+    elif offset > 0 or limit == 0:
+        # A page past the last one, or an empty page (limit=0), has no row to carry the window count.
         count_query = select(func.count()).select_from(join)
         if conditions:
             count_query = count_query.where(and_(*conditions))

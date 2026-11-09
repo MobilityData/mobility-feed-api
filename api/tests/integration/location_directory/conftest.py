@@ -58,6 +58,16 @@ GEOPOLYGONS = {
     # Two boundaries of the same country: only the lowest admin level is a location.
     30: (3, "Martinique", "MQ", None, None),
     31: (4, "Martinique", "MQ", None, None),
+    # A subdivision under the discarded boundary: it belongs to the kept one (30).
+    32: (6, "Fort-de-France", None, "MQ-FDF", 31),
+    # Slug collisions under one parent: two Springfields get '--<id>'; "Springfield 41" keeps its natural slug
+    # "springfield-41"; a name without ASCII letters falls back to its id (44) and collides with a place named "44".
+    40: (4, "Slugland", None, "US-SL", 10),
+    41: (8, "Springfield", None, None, 40),
+    42: (8, "Springfield", None, None, 40),
+    43: (8, "Springfield 41", None, None, 40),
+    44: (8, "東京", None, None, 40),
+    45: (8, "44", None, None, 40),
     # A country without continent in the classification.
     50: (2, "Clipperton", "CP", None, None),
 }
