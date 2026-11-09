@@ -42,6 +42,9 @@ from feeds_gen.models.gtfs_feed_download_debug_request import (
 from feeds_gen.models.gtfs_feed_download_debug_response import (
     GtfsFeedDownloadDebugResponse,
 )
+from feeds_gen.models.gtfs_feed_download_headers_response import (
+    GtfsFeedDownloadHeadersResponse,
+)
 from feeds_gen.models.gtfs_feed_download_queued_response import (
     GtfsFeedDownloadQueuedResponse,
 )
@@ -67,6 +70,7 @@ from feeds_gen.models.update_request_gtfs_rt_feed import (
 from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
+    ConfigValueFeed,
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
     Gtfsdataset,
@@ -90,6 +94,8 @@ from shared.helpers.pub_sub import (
 )
 from shared.helpers.utils import (
     FeedDownloadError,
+    build_feed_request_params,
+    default_request_headers,
     download_feed,
     get_feed_credentials,
 )
@@ -227,6 +233,8 @@ DOWNLOAD_MANUAL_SOURCE: Final = AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.
 # Stop reading well inside the function's 540 second timeout, so a slow download still
 # returns its diagnostics instead of the request being cut off with nothing.
 _DOWNLOAD_DEBUG_DEADLINE_SECONDS: Final = 480
+HTTP_HEADERS_NAMESPACE: Final = "feed_download"
+HTTP_HEADERS_KEY: Final = "http_headers"
 
 # RFC 9110 field-name token. Values only need to be free of line breaks, which would
 # let a caller smuggle extra headers into the request.
@@ -624,6 +632,62 @@ class OperationsApiImpl(BaseOperationsApi):
             duration_ms=duration_ms,
             error_type=diagnostics.error_type,
             error_message=diagnostics.error_message,
+        )
+
+    @with_db_session
+    def get_gtfs_feed_download_headers(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        db_session: Session = None,
+    ) -> GtfsFeedDownloadHeadersResponse:
+        """Headers the nightly download sends for the feed, and where they come from."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        if not gtfs_feed.producer_url:
+            raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+
+        # Same helper as the download, without credentials, so the API key is left out.
+        headers, _ = build_feed_request_params(
+            gtfs_feed.producer_url, feed_id=gtfs_feed.id
+        )
+        has_override = (
+            db_session.query(ConfigValueFeed.feed_id)
+            .filter(
+                ConfigValueFeed.feed_id == gtfs_feed.id,
+                ConfigValueFeed.namespace == HTTP_HEADERS_NAMESPACE,
+                ConfigValueFeed.key == HTTP_HEADERS_KEY,
+            )
+            .first()
+            is not None
+        )
+        if has_override:
+            source = "override"
+        elif (
+            get_config_value(
+                HTTP_HEADERS_NAMESPACE, HTTP_HEADERS_KEY, db_session=db_session
+            )
+            is not None
+        ):
+            source = "config_default"
+        else:
+            source = "built_in"
+
+        api_key_header = (
+            gtfs_feed.api_key_parameter_name
+            if gtfs_feed.authentication_type == "2"
+            else None
+        )
+        return GtfsFeedDownloadHeadersResponse(
+            feed_id=gtfs_feed.stable_id,
+            headers=headers,
+            source=source,
+            built_in_headers=default_request_headers(gtfs_feed.producer_url),
+            api_key_header=api_key_header,
         )
 
     @with_db_session

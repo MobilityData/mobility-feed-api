@@ -219,6 +219,7 @@ check GET  "/v1/operations/gtfs_feeds/$GTFS_ID" 200,404
 check GET  "/v1/operations/gtfs_feeds/$GTFS_ID/availability" 200,404
 check GET  "/v1/operations/gtfs_rt_feeds/$RT_ID" 200,404
 check GET  "/v1/operations/feeds/$GTFS_ID/config" 200,404
+check GET  "/v1/operations/gtfs_feeds/$GTFS_ID/download_headers" 200,400,404
 check PUT "/v1/operations/feeds/gtfs" 200,204,400 \
   "{\"id\":\"$GTFS_ID\",\"status\":\"active\",\"operational_status_action\":\"no_change\"}"
 check PUT  "/v1/operations/feeds/gtfs_rt" 200,204,400 \
