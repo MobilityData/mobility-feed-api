@@ -160,6 +160,8 @@
     <include file="changes/feat_download_debug_source_default.sql" relativeToChangelogFile="true"/>
      <!-- Add feed_download/http_headers override for feed mdb-2053 -->
     <include file="changes/add_ski_flex_header.sql" relativeToChangelogFile="true"/>
+    <!-- config_value_feed.updated_by for Operations API config edits. -->
+    <include file="changes/feat_feed_config_ops.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
