@@ -977,3 +977,65 @@ class TestUploadDatasetZipToStorage(unittest.TestCase):
             )
 
         self.assertIsNone(result)
+
+
+class TestUploadDatasetZipCdnCaching(unittest.TestCase):
+    def _processor(self):
+        return DatasetProcessor(
+            producer_url="https://example.com/feed.zip",
+            feed_id="feed_id",
+            feed_stable_id="feed_stable",
+            execution_id="exec_id",
+            latest_hash="hash",
+            bucket_name="test-bucket",
+            authentication_type=0,
+            api_key_parameter_name=None,
+            public_hosted_datasets_url="https://public.example.com",
+        )
+
+    def _upload(self, mock_storage_client):
+        import tempfile
+
+        blobs = {}
+
+        def make_blob(path):
+            blob = MagicMock()
+            blob.md5_hash = None
+            blob.cache_control = None
+            blobs[path] = blob
+            return blob
+
+        mock_storage_client.return_value.get_bucket.return_value.blob.side_effect = (
+            make_blob
+        )
+        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+            self._processor().upload_dataset_zip_to_storage(tmp.name, "ds_1")
+        return blobs
+
+    @patch("main.invalidate_cdn_cache")
+    @patch("main.storage.Client")
+    def test_cache_control_set_before_upload(self, mock_storage_client, _):
+        """Only latest.zip gets a Cache-Control; the versioned zip keeps the default."""
+        blobs = self._upload(mock_storage_client)
+
+        self.assertEqual(
+            blobs["feed_stable/latest.zip"].cache_control,
+            "public, max-age=0, s-maxage=86400",
+        )
+        self.assertIsNone(blobs["feed_stable/ds_1/ds_1.zip"].cache_control)
+
+    @patch("main.invalidate_cdn_cache")
+    @patch("main.storage.Client")
+    def test_latest_zip_invalidated_after_upload(
+        self, mock_storage_client, mock_invalidate
+    ):
+        self._upload(mock_storage_client)
+
+        mock_invalidate.assert_called_once_with("/feed_stable/latest.zip")
+
+    @patch("main.invalidate_cdn_cache", side_effect=Exception("quota exceeded"))
+    @patch("main.storage.Client")
+    def test_invalidation_failure_does_not_fail_upload(self, mock_storage_client, _):
+        blobs = self._upload(mock_storage_client)
+
+        blobs["feed_stable/latest.zip"].upload_from_filename.assert_called_once()
