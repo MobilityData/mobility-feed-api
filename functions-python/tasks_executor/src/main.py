@@ -32,6 +32,9 @@ from tasks.dataset_files.rebuild_missing_dataset_files import (
 from tasks.dataset_files.backfill_dataset_hash_md5 import (
     backfill_dataset_hash_md5_handler,
 )
+from tasks.dataset_files.backfill_latest_cache_control import (
+    backfill_latest_cache_control_handler,
+)
 from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
@@ -160,6 +163,16 @@ tasks = {
             "only_missing_hashes (default true), limit (default 10)."
         ),
         "handler": backfill_dataset_hash_md5_handler,
+    },
+    "backfill_latest_cache_control": {
+        "description": (
+            "Sets the CDN Cache-Control on the latest.zip of every feed with a latest "
+            "dataset, so files uploaded before the batch process set it get the full CDN "
+            "lifetime. Patches object metadata only. Parameters: dry_run (default true), "
+            "uploaded_before (ISO 8601, default null), limit (default null), "
+            "bucket_name (default DATASETS_BUCKET_NAME)."
+        ),
+        "handler": backfill_latest_cache_control_handler,
     },
     "update_geojson_files": {
         "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
@@ -496,9 +509,9 @@ def tasks_executor(request: flask.Request) -> flask.Response:
             csv_body = _to_csv(result)
             response = flask.make_response(csv_body, 200)
             response.headers["Content-Type"] = "text/csv; charset=utf-8"
-            response.headers["Content-Disposition"] = (
-                "attachment; filename=task_result.csv"
-            )
+            response.headers[
+                "Content-Disposition"
+            ] = "attachment; filename=task_result.csv"
             return response
 
         # Default JSON response
