@@ -495,12 +495,22 @@ resource "google_compute_backend_bucket" "files_latest_cdn_backend" {
   }
 }
 
+# The deployer can bind roles (projectIamAdmin) but not create custom ones, which the
+# role below needs. A new grant can take a minute to propagate, so the first apply in a
+# project may fail on the role with a 403; re-running it succeeds.
+resource "google_project_iam_member" "deployer_role_admin" {
+  project = var.project_id
+  role    = "roles/iam.roleAdmin"
+  member  = "serviceAccount:${var.deployer_service_account}"
+}
+
 # Lets the batch process drop a feed's cached latest.zip when it publishes a new dataset.
 resource "google_project_iam_custom_role" "batch_cdn_cache_invalidator" {
   role_id     = "batchCdnCacheInvalidator"
   title       = "Batch CDN cache invalidator"
   description = "Invalidate Cloud CDN cache entries of the datasets URL map"
   permissions = ["compute.urlMaps.invalidateCache"]
+  depends_on  = [google_project_iam_member.deployer_role_admin]
 }
 
 resource "google_project_iam_member" "batch_cdn_cache_invalidator" {
