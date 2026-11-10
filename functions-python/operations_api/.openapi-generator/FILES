@@ -3,6 +3,8 @@ src/feeds_gen/apis/early_access_api.py
 src/feeds_gen/apis/early_access_api_base.py
 src/feeds_gen/apis/licenses_api.py
 src/feeds_gen/apis/licenses_api_base.py
+src/feeds_gen/apis/notifications_api.py
+src/feeds_gen/apis/notifications_api_base.py
 src/feeds_gen/apis/operations_api.py
 src/feeds_gen/apis/operations_api_base.py
 src/feeds_gen/apis/parquet_api.py
@@ -69,6 +71,8 @@ src/feeds_gen/models/location_search_response.py
 src/feeds_gen/models/location_search_result.py
 src/feeds_gen/models/matching_license.py
 src/feeds_gen/models/metadata.py
+src/feeds_gen/models/operation_brevo_contact_state.py
+src/feeds_gen/models/operation_brevo_sync_status.py
 src/feeds_gen/models/operation_create_request_gtfs_feed.py
 src/feeds_gen/models/operation_create_request_gtfs_feed_source_info.py
 src/feeds_gen/models/operation_create_request_gtfs_rt_feed.py
@@ -77,6 +81,13 @@ src/feeds_gen/models/operation_feature_flag.py
 src/feeds_gen/models/operation_feed.py
 src/feeds_gen/models/operation_gtfs_feed.py
 src/feeds_gen/models/operation_gtfs_rt_feed.py
+src/feeds_gen/models/operation_notification_event.py
+src/feeds_gen/models/operation_notification_event_detail.py
+src/feeds_gen/models/operation_notification_event_feed.py
+src/feeds_gen/models/operation_notification_event_list.py
+src/feeds_gen/models/operation_notification_log.py
+src/feeds_gen/models/operation_notification_log_list.py
+src/feeds_gen/models/operation_notification_subscription.py
 src/feeds_gen/models/operation_user_profile.py
 src/feeds_gen/models/parquet_dataset_state.py
 src/feeds_gen/models/parquet_generate_request.py

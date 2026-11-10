@@ -24,10 +24,6 @@ Field mapping:
   app_user.legacy_org_name       <- Datastore kind 'web_api_users' (queried by uid property).organization
   app_user.registration_completed_at <- Datastore kind 'web_api_users'
     (queried by uid property).registrationCompletionTime
-  app_user.is_registered_to_receive_api_announcements <- Brevo is the source of truth:
-    SUBSCRIBED   → True
-    UNSUBSCRIBED → False
-    NOT_FOUND    → field not set (left at DB default false for new rows, untouched for existing)
   app_user.migrated_at           <- now() (set by this task, on insert)
   app_user.brevo_synced_at       <- now() (set by this task once the Brevo
     contact has been written with its MDB_SUBSCRIPTION_ID; see below)
@@ -365,13 +361,6 @@ def migrate_firebase_users(
                     ),
                     migrated_at=datetime.now(timezone.utc),
                 )
-                if (
-                    brevo_status is not None
-                    and brevo_status != BrevoSubscriptionStatus.NOT_FOUND
-                ):
-                    app_user_row.is_registered_to_receive_api_announcements = (
-                        brevo_status == BrevoSubscriptionStatus.SUBSCRIBED
-                    )
                 db_session.add(app_user_row)
                 results["inserted"] += 1
 

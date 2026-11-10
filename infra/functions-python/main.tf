@@ -916,19 +916,20 @@ resource "google_cloudfunctions2_function" "operations_api" {
   }
   service_config {
     environment_variables = {
-      ENVIRONMENT                   = var.environment
-      PROJECT_ID                    = var.project_id
-      GCP_REGION                    = var.gcp_region
-      SERVICE_ACCOUNT_EMAIL         = google_service_account.functions_service_account.email
-      PYTHONNODEBUGRANGES           = 0
-      GOOGLE_CLIENT_ID              = var.operations_oauth2_client_id
-      DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
-      WEB_REVALIDATION_QUEUE        = google_cloud_tasks_queue.web_revalidation_task_queue.name
-      PARQUET_BUILDER_QUEUE_S       = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
-      PARQUET_BUILDER_QUEUE_M       = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
-      PARQUET_BUILDER_QUEUE_L       = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
-      DATASETS_BUCKET_NAME          = "${var.datasets_bucket_name}-${var.environment}"
-      PUBLIC_HOSTED_DATASETS_URL    = local.public_hosted_datasets_url
+      ENVIRONMENT                     = var.environment
+      PROJECT_ID                      = var.project_id
+      GCP_REGION                      = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL           = google_service_account.functions_service_account.email
+      PYTHONNODEBUGRANGES             = 0
+      GOOGLE_CLIENT_ID                = var.operations_oauth2_client_id
+      DATASET_PROCESSING_TOPIC_NAME   = "datasets-batch-topic-${var.environment}"
+      WEB_REVALIDATION_QUEUE          = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      PARQUET_BUILDER_QUEUE_S         = google_cloud_tasks_queue.parquet_builder_task_queue["s"].name
+      PARQUET_BUILDER_QUEUE_M         = google_cloud_tasks_queue.parquet_builder_task_queue["m"].name
+      PARQUET_BUILDER_QUEUE_L         = google_cloud_tasks_queue.parquet_builder_task_queue["l"].name
+      DATASETS_BUCKET_NAME            = "${var.datasets_bucket_name}-${var.environment}"
+      PUBLIC_HOSTED_DATASETS_URL      = local.public_hosted_datasets_url
+      BREVO_API_ANNOUNCEMENTS_LIST_ID = var.brevo_api_announcements_list_id
     }
     available_memory                 = local.function_operations_api_config.memory
     timeout_seconds                  = local.function_operations_api_config.timeout

@@ -308,10 +308,9 @@ Quick orientation:
   call must be authenticated. See
   [`docs/UserServiceAPI.yaml`](./UserServiceAPI.yaml).
 - **`api.announcements` is special.** As noted above it is delivered via Brevo,
-  not this dispatcher. An opt-in is kept in sync across **three**
-  representations — the `notification_subscription` row, Brevo list membership,
-  and `app_user.is_registered_to_receive_api_announcements` — by
-  `set_announcements_optin()` in
+  not this dispatcher. An opt-in is kept in sync across **two**
+  representations — the `notification_subscription` row and Brevo list
+  membership — by `set_announcements_optin()` in
   `api/src/user_service/impl/subscription_helpers.py`. Announcements
   subscriptions are **disabled, never deleted**.
 - **The Brevo/DB link.** Each announcements contact carries the contact attribute
@@ -323,4 +322,4 @@ Quick orientation:
 
 - **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
-- **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
+- **Operations API visibility** (read-only, tag `notifications` in [`OperationsAPI.yaml`](./OperationsAPI.yaml)): `GET /v1/operations/notifications/events[/{id}]` for queued events and their deliveries, `GET /v1/operations/notifications/logs` for delivery status, `GET /v1/operations/users/{user_id}/subscriptions`, and `GET /v1/operations/users/{user_id}/brevo-sync` to compare the user's `api.announcements` subscription row against the Brevo contact. Delivery logs carry no dispatch run ID, so a run is inspected by its time window (`sent_after` / `sent_before`).
