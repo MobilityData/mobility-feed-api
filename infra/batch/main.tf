@@ -522,6 +522,7 @@ resource "google_compute_url_map" "files_url_map" {
     name            = "allpaths"
     default_service = google_compute_backend_bucket.files_backend.id
 
+    # Keep in sync with latest_dataset_object_name in functions-python/helpers/cdn_cache.py.
     route_rules {
       priority = 1
       match_rules {

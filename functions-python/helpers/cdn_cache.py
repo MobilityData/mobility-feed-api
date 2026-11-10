@@ -32,13 +32,23 @@ from typing import Optional
 LATEST_DATASET_CACHE_CONTROL = "public, max-age=0, s-maxage=86400"
 
 COMPUTE_API_URL = "https://compute.googleapis.com/compute/v1"
-REQUEST_TIMEOUT_SECONDS = 30
+# Short: the invalidation is fire-and-forget and runs inside dataset processing.
+REQUEST_TIMEOUT_SECONDS = 10
 MAX_ATTEMPTS = 3
+
+
+def latest_dataset_object_name(feed_stable_id: str) -> str:
+    """The name of a feed's latest dataset in the datasets bucket.
+
+    Keep in sync with the files URL map route that sends it to the CDN
+    (`path_template_match` in infra/batch/main.tf).
+    """
+    return f"{feed_stable_id}/latest.zip"
 
 
 def latest_dataset_path(feed_stable_id: str) -> str:
     """The path of a feed's latest dataset as the CDN sees it."""
-    return f"/{feed_stable_id}/latest.zip"
+    return f"/{latest_dataset_object_name(feed_stable_id)}"
 
 
 def invalidate_cdn_cache(path: str) -> Optional[str]:

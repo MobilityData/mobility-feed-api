@@ -1039,3 +1039,27 @@ class TestUploadDatasetZipCdnCaching(unittest.TestCase):
         blobs = self._upload(mock_storage_client)
 
         blobs["feed_stable/latest.zip"].upload_from_filename.assert_called_once()
+
+    @patch("main.invalidate_cdn_cache")
+    @patch("main.storage.Client")
+    def test_latest_zip_invalidated_when_versioned_upload_fails(
+        self, mock_storage_client, mock_invalidate
+    ):
+        """latest.zip is already replaced, so its cached copy must still be dropped."""
+        import tempfile
+
+        def make_blob(path):
+            blob = MagicMock()
+            blob.md5_hash = None
+            if path != "feed_stable/latest.zip":
+                blob.upload_from_filename.side_effect = Exception("503")
+            return blob
+
+        mock_storage_client.return_value.get_bucket.return_value.blob.side_effect = (
+            make_blob
+        )
+        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+            with self.assertRaises(Exception):
+                self._processor().upload_dataset_zip_to_storage(tmp.name, "ds_1")
+
+        mock_invalidate.assert_called_once_with("/feed_stable/latest.zip")

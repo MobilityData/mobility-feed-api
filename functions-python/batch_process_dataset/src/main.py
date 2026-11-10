@@ -44,6 +44,7 @@ from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Statu
 from shared.helpers.cdn_cache import (
     LATEST_DATASET_CACHE_CONTROL,
     invalidate_cdn_cache,
+    latest_dataset_object_name,
     latest_dataset_path,
 )
 from shared.helpers.logger import init_logger, get_logger
@@ -245,11 +246,11 @@ class DatasetProcessor:
     ) -> Optional[str]:
         """
         Uploads the dataset zip file to GCP storage as latest.zip and versioned zip,
-        then asks the CDN to drop its cached latest.zip.
+        asking the CDN to drop its cached latest.zip once latest.zip is replaced.
         Returns the MD5 hash (hex) of the uploaded file as provided by GCS.
         """
         bucket = storage.Client().get_bucket(self.bucket_name)
-        latest_path = f"{self.feed_stable_id}/latest.zip"
+        latest_path = latest_dataset_object_name(self.feed_stable_id)
         target_paths = [
             latest_path,
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
@@ -262,12 +263,15 @@ class DatasetProcessor:
                 # Only latest.zip is served through the CDN.
                 blob.cache_control = LATEST_DATASET_CACHE_CONTROL
             blob.upload_from_filename(source_file_path)
+            if target_path == latest_path:
+                # Right after the overwrite, so a later failure cannot leave the CDN
+                # serving the previous latest.zip.
+                self.invalidate_latest_dataset_cache()
             if public:
                 blob.make_public()
             self.logger.info(f"Uploaded {blob.public_url}")
             if blob.md5_hash:
                 md5_hash_hex = base64.b64decode(blob.md5_hash).hex()
-        self.invalidate_latest_dataset_cache()
         return md5_hash_hex
 
     def invalidate_latest_dataset_cache(self):

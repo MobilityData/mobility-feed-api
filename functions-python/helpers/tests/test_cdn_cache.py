@@ -17,12 +17,19 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from cdn_cache import invalidate_cdn_cache, latest_dataset_path
+from cdn_cache import (
+    invalidate_cdn_cache,
+    latest_dataset_object_name,
+    latest_dataset_path,
+)
 
 ENV = {"FILES_URL_MAP_NAME": "files-url-map-dev", "PROJECT_ID": "my-project"}
 
 
 class TestCdnCache(unittest.TestCase):
+    def test_latest_dataset_object_name(self):
+        self.assertEqual(latest_dataset_object_name("mdb-1"), "mdb-1/latest.zip")
+
     def test_latest_dataset_path(self):
         self.assertEqual(latest_dataset_path("mdb-1"), "/mdb-1/latest.zip")
 
