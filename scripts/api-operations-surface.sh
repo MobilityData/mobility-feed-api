@@ -218,7 +218,9 @@ RT_ID="$(jq -r '.stable_id // .id // empty' "$BODY_FILE" 2>/dev/null || true)"; 
 check GET  "/v1/operations/gtfs_feeds/$GTFS_ID" 200,404
 check GET  "/v1/operations/gtfs_feeds/$GTFS_ID/availability" 200,404
 check GET  "/v1/operations/gtfs_rt_feeds/$RT_ID" 200,404
-check PUT  "/v1/operations/feeds/gtfs" 200,204,400 \
+check GET  "/v1/operations/feeds/$GTFS_ID/config" 200,404
+check GET  "/v1/operations/gtfs_feeds/$GTFS_ID/download_headers" 200,400,404
+check PUT "/v1/operations/feeds/gtfs" 200,204,400 \
   "{\"id\":\"$GTFS_ID\",\"status\":\"active\",\"operational_status_action\":\"no_change\"}"
 check PUT  "/v1/operations/feeds/gtfs_rt" 200,204,400 \
   "{\"id\":\"$RT_ID\",\"status\":\"active\",\"entity_types\":[\"vp\"],\"operational_status_action\":\"no_change\"}"
@@ -232,6 +234,9 @@ check POST "/v1/operations/licenses:propagate_match" 200,400 \
 
 # --- Feature flags (list only; a smoke run must not create/mutate config flags)
 check GET  "/v1/operations/feature-flags" 200
+
+# --- Config (read only; a smoke run must not set a feed's config overrides)
+check GET  "/v1/operations/config/keys" 200
 
 # --- Users (list only; there is no create-user endpoint, so no real id to test
 #     the by-id endpoints against -- covered by the static route guard instead)
