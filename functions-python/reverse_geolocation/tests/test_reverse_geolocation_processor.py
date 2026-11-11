@@ -485,6 +485,64 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         mock_create_geojson_aggregate.assert_called_once()
 
     @patch("reverse_geolocation_processor.parse_request_parameters")
+    @patch("reverse_geolocation_processor.update_dataset_bounding_box")
+    @patch("reverse_geolocation_processor.reverse_geolocation")
+    @patch("reverse_geolocation_processor.create_geojson_aggregate")
+    @patch("reverse_geolocation_processor.check_maximum_executions")
+    @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.load_dataset")
+    @patch("reverse_geolocation_processor.load_feed")
+    @patch("reverse_geolocation_processor.record_execution_trace")
+    def test_valid_request_excludes_zero_zero_coordinates(
+        self,
+        _,
+        mock_load_feed,
+        mock_load_dataset,
+        mock_get_execution_id,
+        mock_check_maximum_executions,
+        mock_create_geojson_aggregate,
+        mock_reverse_geolocation,
+        mock_update_bounding_box,
+        mock_parse_request_parameters,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation_process
+
+        mock_get_execution_id.return_value = "test_execution_id"
+        mock_check_maximum_executions.return_value = None
+        # Stations at (0, 0) are placeholders and must not reach the bounding box computation
+        mock_parse_request_parameters.return_value = (
+            pd.DataFrame(
+                {
+                    "stop_lat": [0.0, 45.5, 45.6, 0.0],
+                    "stop_lon": [0.0, -73.6, -73.7, 0.0],
+                }
+            ),
+            "test_stable_id",
+            "test_dataset_id",
+            "gbfs",
+            ["test_url"],
+            True,
+            "per-point",
+            False,
+            1,
+        )
+        mock_update_bounding_box.return_value = MagicMock()
+        mock_reverse_geolocation.return_value = {"group_id": MagicMock()}
+        mock_create_geojson_aggregate.return_value = MagicMock()
+        mock_load_feed.return_value = MagicMock()
+        mock_load_dataset.return_value = MagicMock()
+        request = MagicMock(spec=Request)
+
+        response, status_code = reverse_geolocation_process(request)
+
+        self.assertEqual(200, status_code)
+        mock_update_bounding_box.assert_called_once()
+        stops_df = mock_update_bounding_box.call_args.kwargs["stops_df"]
+        self.assertEqual(len(stops_df), 2)
+        coordinates = list(zip(stops_df["stop_lat"], stops_df["stop_lon"]))
+        self.assertNotIn((0.0, 0.0), coordinates)
+
+    @patch("reverse_geolocation_processor.parse_request_parameters")
     def test_invalid_request(self, mock_parse_request_parameters):
         from reverse_geolocation_processor import reverse_geolocation_process
 
