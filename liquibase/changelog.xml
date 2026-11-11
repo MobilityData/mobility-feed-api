@@ -164,6 +164,8 @@
     <include file="changes/add_ski_2027_header.sql" relativeToChangelogFile="true"/>
     <!-- Index FK columns cascaded when a GBFS feed is deleted, so deprecated feeds delete quickly. -->
     <include file="changes/feat_gbfs_delete_fk_indexes.sql" relativeToChangelogFile="true"/>
+    <!-- config_value_feed.updated_by for Operations API config edits. -->
+    <include file="changes/feat_feed_config_ops.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>
