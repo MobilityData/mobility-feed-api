@@ -5,10 +5,10 @@ psycopg2-binary==2.9.6
 aiohttp~=3.10.5
 asyncio~=3.4.3
 urllib3~=2.6.3
-requests~=2.33.1
+requests~=2.34.2
 attrs~=23.1.0
 pluggy~=1.3.0
-certifi~=2025.8.3
+certifi~=2026.7.22
 fastapi
 uvicorn[standard]
 psutil
@@ -33,7 +33,7 @@ google-cloud-datastore
 sib-api-v3-sdk
 
 # Jinja2 templating for notification emails (shared/notifications/brevo_notification_sender.py)
-Jinja2==3.1.4
+Jinja2==3.1.6
 
 # Configuration
 python-dotenv==1.2.2
