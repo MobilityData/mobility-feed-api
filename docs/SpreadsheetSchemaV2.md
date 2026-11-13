@@ -3,6 +3,7 @@
 Table of contents
 - [GTFS Schedule Spreadsheet Schema](#gtfs-schedule-spreadsheet-schema)
 - [GTFS Realtime Spreadsheet Schema](#gtfs-realtime-spreadsheet-schema)
+- [GBFS Spreadsheet Schema](#gbfs-spreadsheet-schema)
 
 ## GTFS Schedule Spreadsheet Schema
 
@@ -60,3 +61,37 @@ Table of contents
 | <ul><li>authentication_info_url</li></ul> | URL| Conditionally required | If authentication is required, the **authentication_info_url** field contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. This field is required for `authentication_type=1` or greater.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | <ul><li>api_key_parameter_name</li></ul> |Text|Conditionally required | The **api_key_parameter_name** field defines the name of the parameter to pass in the URL to provide the API key. This field is required for `authentication_type=1` and `authentication_type=2`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |  
 | <ul><li>license_url</li></ul>         |URL| Optional     | The license information for  `direct_download_url`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+
+## GBFS Spreadsheet Schema
+
+GBFS feeds use the same columns as GTFS Schedule feeds. The columns that only apply to GTFS (`entity_type`, `static_reference`, `features` and `urls.latest`) are left empty.
+
+| Field Name          |Type|Presence| Definition
+|---------------------|-|-|-
+| id                  | Unique ID | System generated | Unique identifier for the feed.
+| data_type           | Enum | Required | The data format that the feed uses: `gbfs`.
+| provider            | Text | Required | A commonly used name for the shared mobility operator included in the feed.
+| name                | Text | Optional | An optional description of the feed.
+| note                | Text | Optional | A note to clarify complex use cases for consumers.
+| status              | Enum | Optional | Describes status of the feed, using the same values as the GTFS Schedule `status` field.
+| is_official         | Enum | Optional | Flag indicating if the source comes from the operator itself or not. <ul><li>`True`: Feed comes from the operator as an authorized source.</li><li>`False`: Feed is not from an official source.</li></ul>Feed's is_official status is assumed to be `undefined` if the cell is empty, meaning we cannot say if it's official or not.
+| redirect            | Object | Optional | When a feed is deprecated and replaced with a new URL, redirect information is provided to point to one or more new feeds.
+| <ul><li>id</li></ul> | String | Optional | New feed ID that replaces the current feed.<br>Multiple feed ids can be present, separated by a vertical bar (\|).
+| <ul><li>comment</li></ul> | String | Optional | Comment to explain redirect if needed.<br>Multiple comments can be present, separated by a vertical bar (\|).
+| location            | Object | Optional | Contains <ul><li>Text that describes the system's location in the `country_code`, `subdivision_name`, and `municipality` fields.</li><li>Latitude, longitude, date and time that describes the system's bounding box in the `bounding_box` subobject.</li></ul>
+| <ul><li>country_code</li></ul> | Text | Optional | ISO 3166-1 alpha-2 code designating the country where the system is located.
+| <ul><li>subdivision_name</li></ul> | Text | Optional | ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located.
+| <ul><li>municipality</li></ul> | Text | Optional | Primary municipality in which the system is located.
+| <ul><li>bounding_box</li></ul> | Object | System generated | Bounding box of the system based on its station or vehicle positions. Contains `minimum_latitude`, `maximum_latitude`, `minimum_longitude`, `maximum_longitude` and `extracted_on` fields. Empty if no bounding box has been generated for the system yet.
+| <ul><ul><li>minimum_latitude</li></ul></ul> | Latitude | System generated | The minimum latitude for the system's bounding box.
+| <ul><ul><li>maximum_latitude</li></ul></ul> | Latitude | System generated | The maximum latitude for the system's bounding box.
+| <ul><ul><li>minimum_longitude</li></ul></ul> | Longitude | System generated | The minimum longitude for the system's bounding box.
+| <ul><ul><li>maximum_longitude</li></ul></ul> | Longitude | System generated | The maximum longitude for the system's bounding box.
+| <ul><ul><li>extracted_on</li></ul></ul> | Date and Time | System generated | The date and timestamp the bounding box was generated on in UTC.
+| feed_contact_email  | Text | Optional | The contact information for the feed.
+| urls                | Object | Required | Contains URLs associated with the feed in the `direct_download` and `license` fields, and the authentication info for `direct_download` in the `authentication_type`, `authentication_info_url` and `api_key_parameter_name` fields.
+| <ul><li>direct_download</li></ul> | URL | Required | The system's [GBFS auto-discovery URL](https://github.com/MobilityData/gbfs/blob/master/gbfs.md#gbfsjson) (`gbfs.json`).
+| <ul><li>authentication_type</li></ul> | Enum | Optional | The type of authentication required to access the URL, using the same values as the GTFS Schedule `authentication_type` field.
+| <ul><li>authentication_info_url</li></ul> | URL | Conditionally required | If authentication is required, a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. This field is required for `authentication_type=1` or greater.
+| <ul><li>api_key_parameter_name</li></ul> | Text | Conditionally required | The name of the parameter to pass in the URL to provide the API key. This field is required for `authentication_type=1` and `authentication_type=2`.
+| <ul><li>license</li></ul> | URL | Optional | The license information for the direct download URL.
