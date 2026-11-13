@@ -10,7 +10,7 @@ from shared.db_models.search_feed_item_result_impl import SearchFeedItemResultIm
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 from feeds.impl.error_handling import raise_http_error
-from middleware.request_context import get_request_context, is_user_email_restricted
+from shared.middleware.request_context import get_request_context, is_user_email_restricted
 from shared.common.error_handling import has_seal_filter_not_permitted
 from shared.common.feature_flags import feature_flag_enabled
 from shared.database.users_database import UsersDatabase

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
-from middleware.request_context import _request_context
+from shared.middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,

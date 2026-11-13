@@ -26,7 +26,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import configure_mappers
 
-from middleware.request_context import _request_context
+from shared.middleware.request_context import _request_context
 
 # Importing the module registers the mapper_configured listener under test.
 from shared.database.users_database import UsersDatabase

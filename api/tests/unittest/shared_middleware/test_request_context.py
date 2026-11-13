@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from starlette.datastructures import Headers
 
-from middleware.request_context import RequestContext, get_request_context, _request_context
+from shared.middleware.request_context import RequestContext, get_request_context, _request_context
 
 
 class TestRequestContext(unittest.TestCase):

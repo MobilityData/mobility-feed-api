@@ -15,7 +15,7 @@
 #
 from typing import List
 
-from middleware.request_context import get_request_context
+from shared.middleware.request_context import get_request_context
 from shared.database.users_database import with_users_db_session
 from shared.db_models.notification_type_impl import NotificationTypeImpl
 from shared.users_database_gen.sqlacodegen_models import NotificationType as NotificationTypeOrm

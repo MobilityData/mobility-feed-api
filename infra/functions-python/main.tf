@@ -2008,6 +2008,10 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
+output "functions_bucket_name" {
+  value = google_storage_bucket.functions_bucket.name
+}
+
 output "tasks_executor_url" {
   value = google_cloudfunctions2_function.tasks_executor.url
 }

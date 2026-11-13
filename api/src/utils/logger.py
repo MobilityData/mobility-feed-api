@@ -4,7 +4,7 @@ import sys
 from dataclasses import dataclass, asdict
 from typing import Final, Optional
 
-from middleware.request_context import RequestContext, get_request_context
+from shared.middleware.request_context import RequestContext, get_request_context
 from shared.common.logging_utils import get_env_logging_level
 from utils.config import get_config, PROJECT_ID
 from utils.dict_utils import get_safe_value

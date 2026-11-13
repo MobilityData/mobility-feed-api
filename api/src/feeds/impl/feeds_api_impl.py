@@ -29,7 +29,7 @@ from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedCont
 from feeds_gen.models.gtfs_feed_validation_report import GtfsFeedValidationReport
 from feeds_gen.models.gtfs_feed_validation_reports_response import GtfsFeedValidationReportsResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
-from middleware.request_context import is_user_email_restricted
+from shared.middleware.request_context import is_user_email_restricted
 from shared.common.db_utils import (
     get_gtfs_feeds_query,
     get_gtfs_rt_feeds_query,

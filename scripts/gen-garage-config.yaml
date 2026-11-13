@@ -1,0 +1,6 @@
+# Documentation, https://openapi-generator.tech/docs/generators/python-fastapi/
+additionalProperties:
+  packageName: garage_gen
+  removeOperationIdPrefix: true
+  fastapiImplementationPackage: garage.impl
+  useTags: false

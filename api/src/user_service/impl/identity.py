@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from middleware.request_context import get_request_context
+from shared.middleware.request_context import get_request_context
 
 
 def require_user_id() -> str:

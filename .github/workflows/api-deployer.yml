@@ -73,6 +73,10 @@ on:
         description: 1Password reference for the website revalidation secret token
         required: false
         type: string
+      GARAGE_WEB_ORIGINS:
+        description: Comma separated web origins allowed to call the Garage API and to use its bucket
+        required: true
+        type: string
       SKIP_TESTS:
         description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
         required: true
@@ -299,6 +303,11 @@ jobs:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: garage_gen
+          path: functions-python/garage_api/src/garage_gen/
+
       - name: Build python functions
         run: |
           scripts/function-python-build.sh --all
@@ -328,6 +337,7 @@ jobs:
           echo "VALIDATOR_ENDPOINT=${{ inputs.VALIDATOR_ENDPOINT }}" >> $GITHUB_ENV
           echo "WEB_APP_REVALIDATE_URL=${{ inputs.WEB_APP_REVALIDATE_URL }}" >> $GITHUB_ENV
           echo "BREVO_API_ANNOUNCEMENTS_LIST_ID=${{ inputs.BREVO_API_ANNOUNCEMENTS_LIST_ID }}" >> $GITHUB_ENV
+          echo "GARAGE_WEB_ORIGINS=${{ inputs.GARAGE_WEB_ORIGINS }}" >> $GITHUB_ENV
 
       - name: Load secret from 1Password
         uses: 1password/load-secrets-action@v4
@@ -351,7 +361,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET,BREVO_API_ANNOUNCEMENTS_LIST_ID
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID,TDG_API_TOKEN,WEB_APP_REVALIDATE_URL,WEB_APP_REVALIDATE_SECRET,BREVO_API_ANNOUNCEMENTS_LIST_ID,GARAGE_WEB_ORIGINS
 
       - uses: hashicorp/setup-terraform@v4
         with:

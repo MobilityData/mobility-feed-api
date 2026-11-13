@@ -72,6 +72,9 @@ echo "==> Syncing Operations API schema..."
 echo "==> Generating Operations API stubs (api-operations-gen)..."
 "$SCRIPT_PATH/api-operations-gen.sh"
 
+echo "==> Generating Garage API stubs (api-garage-gen)..."
+"$SCRIPT_PATH/api-garage-gen.sh"
+
 echo "==> Setting up all Python functions..."
 "$SCRIPT_PATH/function-python-setup.sh" --all
 
