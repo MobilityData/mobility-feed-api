@@ -1237,6 +1237,91 @@ paths:
           description: Unauthorized.
         "404":
           description: Notification event not found.
+  /v1/operations/notifications/events:test:
+    post:
+      summary: Create a test notification event
+      description: >
+        Creates a `feed.url_updated` event (`url_replaced` or `feed_redirected`) for an existing feed without changing the feed. The event is tagged `source=operations_test` and is only delivered to the users in `recipient_user_ids`, and only through their own `feed.url_updated` subscriptions: a recipient subscribed to specific feeds gets it only when the event references one of them. Start a dispatch run with `POST /v1/operations/notifications/dispatch` to deliver it.
+      operationId: createTestNotificationEvent
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationNotificationTestEventRequest"
+      responses:
+        "201":
+          description: The test event that was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationEvent"
+        "400":
+          description: Invalid request, e.g. unknown recipients or a redirect without a target feed.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found.
+  /v1/operations/notifications/dispatch:
+    post:
+      summary: Start a notification dispatch run
+      description: >
+        Starts the `notifications_dispatch_batch` task the daily scheduler runs, with the given options, and returns the run it started for each resolved cadence. The task enqueues one worker per subscription and returns straight away; follow a run with `GET /v1/operations/notifications/dispatch/{run_id}`. With `dry_run` nothing is enqueued: the response gives the planned subscription count and a preview of the events each subscription would be sent.
+      operationId: startNotificationDispatch
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationNotificationDispatchRequest"
+      responses:
+        "200":
+          description: The runs that were started (or planned, for a dry run).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationDispatchStart"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+        "502":
+          description: The dispatch task could not be started.
+  /v1/operations/notifications/dispatch/{run_id}:
+    get:
+      summary: Get a notification dispatch run
+      description: Returns a dispatch run's status, its worker counts and the delivery stats summed across its workers.
+      operationId: getNotificationDispatchRun
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The run ID returned when the run was started.
+      responses:
+        "200":
+          description: The dispatch run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationDispatchRun"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Dispatch run not found.
   /v1/operations/notifications/logs:
     get:
       summary: List notification delivery logs
@@ -4403,6 +4488,10 @@ components:
           type: string
           nullable: true
           description: The user who owns the subscription.
+        user_email:
+          type: string
+          nullable: true
+          description: The email of the user who owns the subscription.
         notification_type_id:
           type: string
           nullable: true
@@ -4559,6 +4648,232 @@ components:
           items:
             type: string
           default: []
+    OperationNotificationTestEventRequest:
+      x-operation: true
+      type: object
+      required:
+        - feed_stable_id
+        - event_subtype
+        - recipient_user_ids
+      properties:
+        feed_stable_id:
+          type: string
+          description: The feed the event is about. It must exist and is not changed.
+          example: "mdb-1"
+        event_subtype:
+          type: string
+          enum:
+            - url_replaced
+            - feed_redirected
+          description: The `feed.url_updated` subtype to create.
+        target_feed_stable_id:
+          type: string
+          description: The feed the redirect points to. Required for `feed_redirected`.
+          example: "mdb-2"
+        old_url:
+          type: string
+          description: The previous URL shown in the email. Defaults to the feed's current producer URL.
+        new_url:
+          type: string
+          description: >
+            The new URL shown in the email. Defaults to the target feed's producer URL for `feed_redirected`, and to a placeholder URL for `url_replaced`.
+        recipient_user_ids:
+          type: array
+          minItems: 1
+          description: The only users the event may be delivered to. Every ID must be an existing user.
+          items:
+            type: string
+    OperationNotificationDispatchRequest:
+      x-operation: true
+      type: object
+      properties:
+        cadence:
+          type: string
+          enum:
+            - scheduled
+            - immediate
+            - daily
+            - weekly
+            - all
+          default: scheduled
+          description: >
+            Which subscriptions to process. `scheduled` is what the daily scheduler sends: daily subscriptions, plus weekly ones on the configured weekday. `all` ignores cadence.
+        user_ids:
+          type: array
+          description: Only process these users' subscriptions.
+          items:
+            type: string
+          default: []
+        dry_run:
+          type: boolean
+          default: false
+          description: Only count the subscriptions that would be processed; enqueue nothing.
+        force:
+          type: boolean
+          default: false
+          description: With `user_ids`, process those users' subscriptions whatever their cadence.
+    OperationNotificationDispatchPlannedRun:
+      x-operation: true
+      type: object
+      required:
+        - cadence
+        - run_id
+        - subscriptions
+        - enqueued
+        - dry_run
+      properties:
+        cadence:
+          type: string
+          description: The cadence this run processes.
+          example: "daily"
+        run_id:
+          type: string
+          description: The run ID. For a dry run nothing is recorded under it.
+          example: "daily-20261103T090000"
+        subscriptions:
+          type: integer
+          description: Number of subscriptions the run covers.
+        enqueued:
+          type: integer
+          description: Number of worker tasks enqueued.
+        dry_run:
+          type: boolean
+          description: Whether this was a dry run.
+        preview:
+          type: array
+          description: >
+            Dry runs only: what a real run would send each subscription, selected exactly as the dispatch workers select it. Lists at most the first 50 subscriptions; `subscriptions` gives the full count.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPreview"
+    OperationNotificationDispatchPreview:
+      x-operation: true
+      type: object
+      required:
+        - subscription_id
+        - user_id
+        - notification_type_id
+        - cadence
+        - events
+      properties:
+        subscription_id:
+          type: string
+          description: The subscription ID.
+        user_id:
+          type: string
+          description: The subscriber's user ID.
+        email:
+          type: string
+          nullable: true
+          description: The subscriber's email address.
+        notification_type_id:
+          type: string
+          description: The subscription's notification type.
+          example: "feed.url_updated"
+        cadence:
+          type: string
+          description: The subscription's cadence.
+          example: "daily"
+        events:
+          type: array
+          description: The events a real run would send this subscription. Empty when nothing is pending.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPreviewEvent"
+    OperationNotificationDispatchPreviewEvent:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - notification_type_id
+        - event_subtype
+        - feed_stable_ids
+      properties:
+        id:
+          type: string
+          description: The notification event ID.
+        notification_type_id:
+          type: string
+          description: The event's notification type.
+        event_subtype:
+          type: string
+          description: The event's subtype.
+          example: "url_replaced"
+        source:
+          type: string
+          nullable: true
+          description: The process that emitted the event, e.g. `operations_test` for test events.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the event was created.
+        feed_stable_ids:
+          type: array
+          description: The feeds the event references.
+          items:
+            type: string
+    OperationNotificationDispatchStart:
+      x-operation: true
+      type: object
+      required:
+        - runs
+      properties:
+        runs:
+          type: array
+          description: One run per resolved cadence.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPlannedRun"
+    OperationNotificationDispatchRun:
+      x-operation: true
+      type: object
+      required:
+        - run_id
+        - status
+        - total
+        - triggered
+        - completed
+        - failed
+        - stats
+      properties:
+        run_id:
+          type: string
+          description: The run ID.
+        status:
+          type: string
+          description: >
+            `in_progress` until the run's monitor has seen every worker report (or the run's deadline pass), then `completed`.
+          example: "in_progress"
+        cadence:
+          type: string
+          nullable: true
+          description: The cadence the run processes.
+        params:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: The options the run was started with.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the run was started.
+        total:
+          type: integer
+          description: Number of subscriptions in the run.
+        triggered:
+          type: integer
+          description: Workers enqueued that have not reported yet.
+        completed:
+          type: integer
+          description: Workers that finished.
+        failed:
+          type: integer
+          description: Workers that failed (Cloud Tasks retries them).
+        stats:
+          type: object
+          additionalProperties:
+            type: number
+          description: >
+            Delivery counts summed across the finished workers, e.g. `events_found`, `emails_sent`, `emails_failed`, `permanently_failed`.
     GtfsFeedDownloadDebugRequest:
       x-operation: true
       type: object

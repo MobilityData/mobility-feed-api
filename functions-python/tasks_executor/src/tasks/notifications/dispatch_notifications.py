@@ -43,11 +43,13 @@ from shared.notifications.brevo_notification_sender import (
     send_single,
 )
 from shared.notifications.notification_constants import (
+    DISPATCH_RUN_TASK_NAME,
     AdminEventUpdateType,
     NotificationCadence,
     NotificationLogStatus,
     NotificationSource,
     NotificationTypeId,
+    TEST_RECIPIENT_USER_IDS_KEY,
 )
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
@@ -66,7 +68,7 @@ _IN_RUN_RETRY_DELAYS = (1, 2, 4)  # seconds between in-run attempts
 
 # TaskExecutionTracker task_name for a distributed dispatch run (fan-out workers
 # + monitor all key off this plus a per-run run_id).
-DISPATCH_TASK_NAME = "notifications_dispatch_run"
+DISPATCH_TASK_NAME = DISPATCH_RUN_TASK_NAME
 
 # A notification_log row left in 'pending' (claimed but not completed) for longer
 # than this is treated as a crashed/abandoned claim and may be re-claimed by a
@@ -332,21 +334,61 @@ def apply_filter_params(
     events: List[NotificationEvent],
     subscription: NotificationSubscription,
 ) -> List[NotificationEvent]:
-    """Filter events against subscription.filter_params.
+    """Filter events against the feeds the subscription targets.
 
-    Supported keys:
-      ``feed_ids``: list of feed stable_ids — only return events that reference
-                    at least one of those feeds (in any role).
-      ``None`` / missing key → all events pass.
+    The subscription's feeds come from ``notification_subscription_feed``. Legacy
+    rows without join-table feeds fall back to ``filter_params.feed_ids``. An
+    event passes when it references at least one of those feeds (in any role).
+    A subscription with no feeds in either place is global: all events pass.
+
+    ``operations_test`` events are only ever delivered to the users listed in
+    their payload, whatever the subscription's feeds.
     """
-    fp = subscription.filter_params
-    if not fp:
-        return events
-    allowed_feed_ids = fp.get("feed_ids")
-    if not allowed_feed_ids:
-        return events
-    allowed = set(allowed_feed_ids)
-    return [e for e in events if _event_feed_ids(e) & allowed]
+    candidates = len(events)
+    not_recipient, out_of_scope, kept = [], [], []
+    allowed = _subscription_feed_ids(subscription)
+    for event in events:
+        if not _is_test_recipient(event, subscription):
+            not_recipient.append(event.id)
+        elif allowed and not _event_feed_ids(event) & allowed:
+            out_of_scope.append(event.id)
+        else:
+            kept.append(event)
+    # One line per subscription, so a silently dropped event shows up in the logs
+    # with the reason (e.g. a test event whose recipients don't include this user).
+    if candidates:
+        logger.info(
+            "apply_filter_params: subscription=%s user=%s candidates=%d kept=%d "
+            "dropped_not_test_recipient=%s dropped_feed_scope=%s",
+            subscription.id,
+            subscription.user_id,
+            candidates,
+            len(kept),
+            not_recipient,
+            out_of_scope,
+        )
+    return kept
+
+
+def _is_test_recipient(
+    event: NotificationEvent, subscription: NotificationSubscription
+) -> bool:
+    """False for an ``operations_test`` event not addressed to the subscriber."""
+    if event.source != NotificationSource.OPERATIONS_TEST:
+        return True
+    recipients = (event.payload or {}).get(TEST_RECIPIENT_USER_IDS_KEY) or []
+    return subscription.user_id in recipients
+
+
+def _subscription_feed_ids(subscription: NotificationSubscription) -> set:
+    """Set of feed stable_ids a subscription is scoped to (empty = all feeds)."""
+    feed_ids = {
+        f.feed_stable_id
+        for f in (getattr(subscription, "notification_subscription_feeds", None) or [])
+    }
+    if feed_ids:
+        return feed_ids
+    return set((subscription.filter_params or {}).get("feed_ids") or [])
 
 
 def _event_feed_ids(event: NotificationEvent) -> set:

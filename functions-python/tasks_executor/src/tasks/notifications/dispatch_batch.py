@@ -56,6 +56,7 @@ from tasks.notifications.dispatch_notifications import (
     DISPATCH_TASK_NAME,
     SCHEDULED_CADENCE,
     _resolve_scheduled_cadences,
+    find_events_for_subscription,
     find_subscriptions,
 )
 
@@ -63,6 +64,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MONITOR_DELAY_SECONDS = 60
 DEFAULT_DEADLINE_SECONDS = 6 * 60 * 60  # 6h wall-clock cap for a run
+# A dry run lists the pending events of at most this many subscriptions.
+DRY_RUN_PREVIEW_LIMIT = 50
 
 
 def notifications_dispatch_batch_handler(payload: dict) -> dict:
@@ -118,12 +121,21 @@ def _plan_cadence(
     )
 
     if dry_run or not subscription_ids:
-        return {
+        result = {
             "run_id": run_id,
             "subscriptions": len(subscription_ids),
             "enqueued": 0,
             "dry_run": dry_run,
         }
+        if dry_run:
+            result["preview"] = _preview(
+                db_session=db_session,
+                subscriptions=subscriptions[:DRY_RUN_PREVIEW_LIMIT],
+                status_filter=status_filter,
+                max_retries=max_retries,
+                stale_claim_seconds=stale_claim_seconds,
+            )
+        return result
 
     run_params = {
         "cadence": run_cadence,
@@ -170,6 +182,52 @@ def _plan_cadence(
         "enqueued": enqueued,
         "dry_run": False,
     }
+
+
+def _preview(
+    *,
+    db_session,
+    subscriptions: List[Any],
+    status_filter: str,
+    max_retries: int,
+    stale_claim_seconds: int,
+) -> List[Dict[str, Any]]:
+    """What a real run would send each subscription, using the workers' own (read-only)
+    event selection, so a dry run shows exactly what would go out."""
+    preview = []
+    for subscription in subscriptions:
+        events = find_events_for_subscription(
+            db_session=db_session,
+            subscription=subscription,
+            status_filter=status_filter,
+            max_retries=max_retries,
+            stale_claim_seconds=stale_claim_seconds,
+        )
+        preview.append(
+            {
+                "subscription_id": subscription.id,
+                "user_id": subscription.user_id,
+                "email": subscription.user.email if subscription.user else None,
+                "notification_type_id": subscription.notification_type_id,
+                "cadence": subscription.cadence,
+                "events": [
+                    {
+                        "id": e.id,
+                        "notification_type_id": e.notification_type_id,
+                        "event_subtype": e.event_subtype,
+                        "source": e.source,
+                        "created_at": (
+                            e.created_at.isoformat() if e.created_at else None
+                        ),
+                        "feed_stable_ids": sorted(
+                            f.feed_stable_id for f in e.notification_event_feeds or []
+                        ),
+                    }
+                    for e in events
+                ],
+            }
+        )
+    return preview
 
 
 @with_db_session
