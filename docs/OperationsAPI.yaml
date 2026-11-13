@@ -30,6 +30,9 @@ tags:
   - name: "parquet"
     description: >-
       On-demand Parquet renderings of GTFS datasets. A dataset is converted once into one Parquet file per GTFS table, published publicly with a manifest describing the set, and served over HTTP range requests so a client can query it in place without downloading or unpacking the feed. Conversion is asynchronous: ask for the state, start one if it is absent, and poll until it is ready.
+  - name: "config"
+    description: >-
+      Per-feed configuration overrides. Keys are registered in a catalog by database migrations, because each one is read by code; these endpoints only read the catalog and set, replace or remove a feed's override of a registered key. A feed without an override uses the key's default value.
 paths:
   /v1/operations/feeds:
     get:
@@ -250,6 +253,30 @@ paths:
           description: Internal server error.
         503:
           description: "`run_on = nightly_job` while dataset processing is not configured in this environment."
+  /v1/operations/gtfs_feeds/{id}/download_headers:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        The request headers the nightly dataset download sends for this GTFS feed today, worked out by the same code the download uses, and where they come from. Also returns the built-in headers the download falls back to, so an operator editing the feed's `feed_download/http_headers` override can start from either. The feed's API key header is named but its value is never returned. Read-only.
+      tags:
+        - "operations"
+      operationId: getGtfsFeedDownloadHeaders
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The feed's download headers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadHeadersResponse"
+        400:
+          description: The feed has no producer URL.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
   /v1/operations/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -1336,6 +1363,113 @@ paths:
           description: User not found.
         "502":
           description: Brevo could not be reached or returned an error.
+  /v1/operations/config/keys:
+    get:
+      summary: List the registered config keys
+      description: >
+        Returns every key in the config catalog with its description, default value and the JSON Schema its values must match. Read-only: keys are registered by database migrations, since a key has no effect until code reads it.
+      operationId: listConfigKeys
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The registered config keys, ordered by namespace and key.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConfigKey"
+        "401":
+          description: Unauthorized.
+  /v1/operations/feeds/{id}/config:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: Get a feed's configuration
+      description: >
+        Returns one entry per registered config key: the feed's override if it has one, the key's default value, and the effective value the feed uses. Works for any feed type.
+      operationId: getFeedConfig
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The feed's configuration, ordered by namespace and key.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedConfigEntry"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found.
+  /v1/operations/feeds/{id}/config/{namespace}/{key}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+      - $ref: "#/components/parameters/config_namespace_path_param"
+      - $ref: "#/components/parameters/config_key_path_param"
+    put:
+      summary: Set a feed's override of a config key
+      description: >
+        Creates the feed's override of a registered key, or replaces it. The value must match the key's `value_schema` when it has one. Send `expected_updated_at` with the `updated_at` you last read to refuse the write if someone changed the override since. The change applies the next time code reads the key, such as the next download for `feed_download/http_headers`.
+      operationId: setFeedConfigValue
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetFeedConfigValueRequest"
+      responses:
+        "200":
+          description: The override was replaced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedConfigEntry"
+        "201":
+          description: The override was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedConfigEntry"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found, or the key is not registered.
+        "409":
+          description: "`expected_updated_at` does not match the current override."
+        "422":
+          description: The value is null or does not match the key's `value_schema`.
+    delete:
+      summary: Remove a feed's override of a config key
+      description: >
+        Removes the feed's override so it falls back to the key's default value. Send `expected_updated_at` to refuse the removal if someone changed the override since you read it.
+      operationId: deleteFeedConfigValue
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/config_expected_updated_at_param"
+      responses:
+        "204":
+          description: The override was removed.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found, the key is not registered, or the feed has no override of it.
+        "409":
+          description: "`expected_updated_at` does not match the current override."
 components:
   schemas:
     Redirect:
@@ -4453,6 +4587,47 @@ components:
             Request headers to send instead of the defaults (the per-feed override, or the default User-Agent and Referer), as the local download verifier's --header does. The feed's API key is still applied on top. Omit to use the same headers as the nightly download.
           example:
             User-Agent: curl/8.0
+    GtfsFeedDownloadHeadersResponse:
+      x-operation: true
+      type: object
+      description: Request headers the nightly download sends for a GTFS feed.
+      required:
+        - feed_id
+        - headers
+        - source
+        - built_in_headers
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Headers the nightly download sends today, without the API key header.
+          example:
+            User-Agent: Mozilla/5.0
+            Referer: https://example.com/gtfs.zip
+        source:
+          type: string
+          enum:
+            - override
+            - config_default
+            - built_in
+          description: >
+            Where `headers` come from: `override` is the feed's `feed_download/http_headers` value, `config_default` is that key's default value, and `built_in` means neither is set and the download uses `built_in_headers`.
+        built_in_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Headers the download falls back to when neither the feed nor the key sets any: a mobile browser User-Agent and the feed's producer URL as Referer.
+        api_key_header:
+          type: string
+          nullable: true
+          description: >
+            Name of the header the download adds with the feed's API key, when the feed passes its key in a header. The value is never returned.
     GtfsFeedDownloadDebugResponse:
       x-operation: true
       type: object
@@ -4581,7 +4756,129 @@ components:
           description: >
             Availability check source the download outcome is recorded under: `dataset_download_manual`, for dry and full runs alike.
           example: dataset_download_manual
+    ConfigValue:
+      x-operation: true
+      description: >
+        A config value: any JSON value except null. Its shape is defined by the key's `value_schema`.
+    ConfigKey:
+      x-operation: true
+      type: object
+      required:
+        - namespace
+        - key
+      properties:
+        namespace:
+          type: string
+          example: feed_download
+        key:
+          type: string
+          example: http_headers
+        description:
+          type: string
+          nullable: true
+        default_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: Value used by feeds without an override. Null when the key has no default and the reading code decides.
+        value_schema:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: JSON Schema that override values must match. Null when any JSON value is accepted.
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    FeedConfigEntry:
+      x-operation: true
+      type: object
+      required:
+        - namespace
+        - key
+        - source
+      properties:
+        namespace:
+          type: string
+          example: feed_download
+        key:
+          type: string
+          example: http_headers
+        description:
+          type: string
+          nullable: true
+        value_schema:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: JSON Schema that override values must match. Null when any JSON value is accepted.
+        default_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+        override:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: The feed's own value, or null when it has none.
+        effective_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: >
+            The value the feed uses: the override, else the default. Null when neither exists; the code reading the key then applies its own fallback (for `feed_download/http_headers`, a default User-Agent and Referer).
+        source:
+          type: string
+          enum: [override, default, none]
+          description: Where `effective_value` comes from.
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the override was last written. Pass it back as `expected_updated_at` to detect concurrent changes.
+        updated_by:
+          type: string
+          nullable: true
+          description: Who last wrote the override through this API. Null for overrides written by migrations or by code.
+    SetFeedConfigValueRequest:
+      x-operation: true
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/ConfigValue"
+        expected_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            The override's `updated_at` as last read. When given, the write is refused with 409 if the override has changed or been removed since. Omit to write unconditionally.
   parameters:
+    config_namespace_path_param:
+      x-operation: true
+      name: namespace
+      in: path
+      description: Namespace of the config key.
+      required: True
+      schema:
+        type: string
+        example: feed_download
+    config_key_path_param:
+      x-operation: true
+      name: key
+      in: path
+      description: Name of the config key within its namespace.
+      required: True
+      schema:
+        type: string
+        example: http_headers
+    config_expected_updated_at_param:
+      x-operation: true
+      name: expected_updated_at
+      in: query
+      description: >
+        The override's `updated_at` as last read. When given, the removal is refused with 409 if the override has changed since.
+      required: False
+      schema:
+        type: string
+        format: date-time
     early_access_format_param:
       x-operation: true
       name: format

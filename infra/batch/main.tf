@@ -372,6 +372,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       GTFS_FILE_DATA_EXTRACTOR_QUEUE = google_cloud_tasks_queue.gtfs_file_data_extractor_task_queue.name
       GTFS_CHANGE_TRACKER_QUEUE = google_cloud_tasks_queue.gtfs_datasets_comparer_task_queue.name
       WEB_REVALIDATION_QUEUE = google_cloud_tasks_queue.web_revalidation_task_queue.name
+      FILES_URL_MAP_NAME = google_compute_url_map.files_url_map.name
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -478,6 +479,46 @@ resource "google_compute_backend_bucket" "files_backend" {
   enable_cdn  = false
 }
 
+# Same bucket as files_backend, behind Cloud CDN. Only <feed>/latest.zip is routed here
+# (see files_url_map), so pmtiles, parquet and the other files are never cached.
+# latest.zip carries its own Cache-Control, set on upload, and the batch process
+# invalidates it whenever it publishes a new dataset.
+resource "google_compute_backend_bucket" "files_latest_cdn_backend" {
+  name        = "datasets-latest-cdn-backend-${var.environment}"
+  bucket_name = google_storage_bucket.datasets_bucket.name
+  enable_cdn  = true
+  cdn_policy {
+    cache_mode        = "USE_ORIGIN_HEADERS"
+    serve_while_stale = 0
+    # A 404 for a feed requested just before its first upload must not outlive the upload.
+    negative_caching = false
+  }
+}
+
+# The deployer can bind roles (projectIamAdmin) but not create custom ones, which the
+# role below needs. A new grant can take a minute to propagate, so the first apply in a
+# project may fail on the role with a 403; re-running it succeeds.
+resource "google_project_iam_member" "deployer_role_admin" {
+  project = var.project_id
+  role    = "roles/iam.roleAdmin"
+  member  = "serviceAccount:${var.deployer_service_account}"
+}
+
+# Lets the batch process drop a feed's cached latest.zip when it publishes a new dataset.
+resource "google_project_iam_custom_role" "batch_cdn_cache_invalidator" {
+  role_id     = "batchCdnCacheInvalidator"
+  title       = "Batch CDN cache invalidator"
+  description = "Invalidate Cloud CDN cache entries of the datasets URL map"
+  permissions = ["compute.urlMaps.invalidateCache"]
+  depends_on  = [google_project_iam_member.deployer_role_admin]
+}
+
+resource "google_project_iam_member" "batch_cdn_cache_invalidator" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.batch_cdn_cache_invalidator.name
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_compute_url_map" "files_url_map" {
   name            = "files-url-map-${var.environment}"
   default_service = google_compute_backend_bucket.files_backend.id
@@ -490,6 +531,15 @@ resource "google_compute_url_map" "files_url_map" {
   path_matcher {
     name            = "allpaths"
     default_service = google_compute_backend_bucket.files_backend.id
+
+    # Keep in sync with latest_dataset_object_name in functions-python/helpers/cdn_cache.py.
+    route_rules {
+      priority = 1
+      match_rules {
+        path_template_match = "/{feed=*}/latest.zip"
+      }
+      service = google_compute_backend_bucket.files_latest_cdn_backend.id
+    }
   }
 }
 
