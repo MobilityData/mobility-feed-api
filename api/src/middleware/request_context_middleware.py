@@ -1,7 +1,7 @@
 import time
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from middleware.request_context import RequestContext, _request_context
+from shared.middleware.request_context import RequestContext, _request_context
 from utils.logger import HttpRequest, API_ACCESS_LOG, get_logger
 
 

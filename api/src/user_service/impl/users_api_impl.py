@@ -22,7 +22,7 @@ from fastapi import HTTPException
 
 from sqlalchemy.orm import selectinload
 
-from middleware.request_context import get_request_context
+from shared.middleware.request_context import get_request_context
 from shared.common.early_access import apply_invited_email_grants
 from shared.database.database import generate_unique_id
 from shared.database.users_database import with_users_db_session

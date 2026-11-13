@@ -133,6 +133,10 @@ jobs:
         run: |
           scripts/api-operations-gen.sh
 
+      - name: Generate Garage API code
+        run: |
+          scripts/api-garage-gen.sh
+
       - name: Set test matrix
         id: set-matrix
         run: |
@@ -181,6 +185,13 @@ jobs:
           path: functions-python/operations_api/src/feeds_gen/
           overwrite: true
 
+      - name: Upload Garage API generated code
+        uses: actions/upload-artifact@v7
+        with:
+          name: garage_gen
+          path: functions-python/garage_api/src/garage_gen/
+          overwrite: true
+
   test:
     needs: setup
     if: ${{ needs.setup.outputs.should-run-tests == 'true' }}
@@ -227,6 +238,12 @@ jobs:
         with:
           name: feeds_operations_gen
           path: functions-python/operations_api/src/feeds_gen/
+
+      - name: Download Garage API generated code
+        uses: actions/download-artifact@v8
+        with:
+          name: garage_gen
+          path: functions-python/garage_api/src/garage_gen/
 
       - name: Docker Compose DB
         run: |

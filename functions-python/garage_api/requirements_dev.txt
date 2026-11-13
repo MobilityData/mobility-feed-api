@@ -1,0 +1,6 @@
+pytest
+pytest-asyncio
+urllib3-mock
+requests-mock
+python-dotenv~=1.2.2
+httpx

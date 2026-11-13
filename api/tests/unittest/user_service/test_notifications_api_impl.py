@@ -2,7 +2,7 @@ import unittest
 import uuid
 from unittest.mock import MagicMock
 
-from middleware.request_context import _request_context
+from shared.middleware.request_context import _request_context
 from shared.database.users_database import UsersDatabase
 from shared.users_database_gen.sqlacodegen_models import (
     FeatureFlag,

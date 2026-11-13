@@ -3,16 +3,27 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import re
 from contextvars import ContextVar
-from typing import Optional
+from typing import Final, Optional
 
 import requests
 from google.auth import jwt
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
-from utils.config import get_config, PROJECT_ID
+# Shared with the Cloud Functions (symlinked through include_api_folders), so this module reads
+# its configuration from the environment directly instead of importing the API's utils package.
+PROJECT_ID: Final[str] = "PROJECT_ID"
+
+
+def get_config(key: str, default_value: str = None) -> str:
+    """
+    Get the value of an environment variable
+    """
+    return os.getenv(key, default_value)
+
 
 REQUEST_CTX_KEY = "request_context_key"
 _request_context: ContextVar[dict] = ContextVar(REQUEST_CTX_KEY, default={})

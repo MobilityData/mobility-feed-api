@@ -1,0 +1,406 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Mobility Database Garage API
+  description: |
+    API for a user's datasets in the GTFS Garage. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/).
+
+    A dataset is a GTFS file a user brings to the Garage, either by uploading it or by giving its URL.
+    The service converts it to Parquet and gives the user signed URLs to read the result. Uploads go straight
+    to storage through a signed URL and never pass through this API.
+
+    Every endpoint requires a Mobility Database access token, sent as a bearer token in the HTTP header.
+    This feature is available to selected users. To request access or learn more, contact us at
+    api@mobilitydata.org.
+  termsOfService: https://mobilitydatabase.org/terms-and-conditions
+  contact:
+    name: MobilityData
+    url: https://mobilitydata.org/
+    email: api@mobilitydata.org
+  license:
+    name: Apache License, Version 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.mobilitydatabase.org/
+    description: Prod release environment
+  - url: https://api-qa.mobilitydatabase.org/
+    description: Pre-prod environment
+  - url: https://api-dev.mobilitydatabase.org/
+    description: Development environment
+  - url: http://localhost:8080/
+    description: Local development environment
+
+tags:
+  - name: "garage"
+    description: "The authenticated user's datasets."
+
+paths:
+  /v1/garage/datasets:
+    get:
+      summary: List the user's datasets
+      description: Returns the authenticated user's datasets, newest first.
+      operationId: getUserDatasets
+      tags:
+        - "garage"
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: The user's datasets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserDataset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+    post:
+      summary: Create a dataset
+      description: |
+        Creates a dataset from an upload or from a URL.
+
+        For an upload (`source` is `upload`), `size_bytes` is required and the response carries a signed upload
+        URL, the headers the upload must send and when the URL expires. The client uploads the file to that URL,
+        and processing starts on its own once the upload finishes. Follow its status with
+        `GET /v1/garage/datasets/{id}`.
+
+        For a URL (`source` is `url`), `url` is required and the response has no upload URL.
+      operationId: createUserDataset
+      tags:
+        - "garage"
+      security:
+        - Authentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserDatasetRequest"
+      responses:
+        "201":
+          description: The dataset was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateUserDatasetResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /v1/garage/datasets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/dataset_id"
+    get:
+      summary: Get a dataset
+      description: |
+        Returns one of the user's datasets with its status and progress. Once the status is `ready`, it also
+        returns signed read URLs for the dataset's files in `files`; call it again for fresh URLs after they
+        expire.
+      operationId: getUserDataset
+      tags:
+        - "garage"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: The dataset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDataset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+    delete:
+      summary: Delete a dataset
+      description: Deletes one of the user's datasets and its files.
+      operationId: deleteUserDataset
+      tags:
+        - "garage"
+      security:
+        - Authentication: []
+      responses:
+        "204":
+          description: The dataset and its files were deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+components:
+  parameters:
+    dataset_id:
+      name: id
+      in: path
+      description: The dataset's ID.
+      required: true
+      schema:
+        type: string
+        example: 3f1c2d9e-8b7a-4c5d-9e0f-1a2b3c4d5e6f
+    limit:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 100
+        example: 10
+    offset:
+      name: offset
+      in: query
+      description: Offset of the first item to return.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
+
+  responses:
+    BadRequest:
+      description: The request is invalid, for example a missing field or a `size_bytes` over the size limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid access token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: This feature is not available to the user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No dataset with this ID belongs to the user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotImplemented:
+      description: The endpoint is not implemented yet.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    UserDataset:
+      type: object
+      description: A user's dataset.
+      required:
+        - id
+        - name
+        - source
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+          description: The dataset's ID.
+          example: 3f1c2d9e-8b7a-4c5d-9e0f-1a2b3c4d5e6f
+        name:
+          type: string
+          description: The name the user gave the dataset.
+          example: Agency schedule, spring service
+        source:
+          $ref: "#/components/schemas/UserDatasetSource"
+        status:
+          $ref: "#/components/schemas/UserDatasetStatus"
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: Conversion progress as a percentage. Set while the status is `converting`.
+          example: 40
+        error:
+          type: string
+          nullable: true
+          description: Why the dataset failed. Set when the status is `failed`.
+        size_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: The size of the source file in bytes.
+          example: 10485760
+        created_at:
+          type: string
+          format: date-time
+          description: When the dataset was created.
+        files:
+          description: |
+            Signed read URLs for the dataset's files. Returned by `GET /v1/garage/datasets/{id}` when the status
+            is `ready`; never set in the dataset list.
+          allOf:
+            - $ref: "#/components/schemas/UserDatasetFiles"
+
+    UserDatasetSource:
+      type: string
+      description: Where the dataset comes from.
+      enum:
+        - upload
+        - url
+
+    UserDatasetStatus:
+      type: string
+      description: |
+        Where the dataset stands:
+        * `pending_upload` - waiting for the upload to finish.
+        * `converting` - being converted to Parquet.
+        * `ready` - converted; its files can be read.
+        * `failed` - the conversion failed; see `error`.
+      enum:
+        - pending_upload
+        - converting
+        - ready
+        - failed
+
+    CreateUserDatasetRequest:
+      type: object
+      description: |
+        A new dataset. Send `size_bytes` when `source` is `upload`, and `url` when `source` is `url`.
+      required:
+        - name
+        - source
+      properties:
+        name:
+          type: string
+          description: A name for the dataset.
+          example: Agency schedule, spring service
+        source:
+          $ref: "#/components/schemas/UserDatasetSource"
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The size of the file to upload, in bytes. Required when `source` is `upload`.
+          example: 10485760
+        url:
+          type: string
+          format: uri
+          description: Where to fetch the dataset from. Required when `source` is `url`.
+          example: https://example.com/gtfs.zip
+
+    CreateUserDatasetResponse:
+      type: object
+      description: The created dataset, with the upload to perform when its source is `upload`.
+      required:
+        - dataset
+      properties:
+        dataset:
+          $ref: "#/components/schemas/UserDataset"
+        upload:
+          $ref: "#/components/schemas/SignedUpload"
+
+    SignedUpload:
+      type: object
+      description: A signed URL to upload the dataset's file to.
+      required:
+        - url
+        - method
+        - headers
+        - expires_at
+      properties:
+        url:
+          type: string
+          format: uri
+          description: The signed upload URL.
+        method:
+          type: string
+          description: The HTTP method the upload must use.
+          example: PUT
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Headers the upload must send exactly as given.
+          example:
+            Content-Type: application/zip
+        expires_at:
+          type: string
+          format: date-time
+          description: When the upload URL expires.
+
+    UserDatasetFiles:
+      type: object
+      description: Signed read URLs for a dataset's files.
+      required:
+        - manifest_url
+        - files
+        - expires_at
+      properties:
+        manifest_url:
+          type: string
+          format: uri
+          description: Signed read URL of the dataset's `manifest.json`.
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserDatasetFile"
+        expires_at:
+          type: string
+          format: date-time
+          description: When the URLs expire.
+
+    UserDatasetFile:
+      type: object
+      description: One Parquet file of a dataset.
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          description: The file's name.
+          example: stops.parquet
+        url:
+          type: string
+          format: uri
+          description: Signed read URL of the file.
+
+    Error:
+      type: object
+      required:
+        - details
+      properties:
+        details:
+          type: string
+          description: The error message.
+
+  securitySchemes:
+    Authentication:
+      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+
+security:
+  - Authentication: []

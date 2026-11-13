@@ -53,3 +53,8 @@ variable "function_tokens_name" {
   type = string
   description = "Tokens API function name"
 }
+
+variable "function_garage_api_name" {
+  type = string
+  description = "Garage API function name"
+}

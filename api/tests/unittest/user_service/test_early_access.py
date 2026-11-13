@@ -21,7 +21,7 @@ import uuid
 
 import pytest
 
-from middleware.request_context import _request_context
+from shared.middleware.request_context import _request_context
 from shared.common.early_access import grant_program_flags
 from shared.common.feature_flags import feature_flag_enabled
 from shared.database.users_database import UsersDatabase

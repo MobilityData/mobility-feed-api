@@ -126,8 +126,18 @@ module "workflows" {
   processing_report_cloud_task_name = module.functions-python.processing_report_cloud_task_name
 }
 
+module "garage" {
+  source      = "./garage"
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+
+  functions_bucket_name = module.functions-python.functions_bucket_name
+  garage_web_origins    = var.garage_web_origins
+}
+
 module "feed-api-load-balancer" {
-  depends_on  = [module.feed-api, module.functions-python]
+  depends_on  = [module.feed-api, module.functions-python, module.garage]
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
@@ -138,6 +148,7 @@ module "feed-api-load-balancer" {
   global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
 
   function_tokens_name = module.functions-python.function_tokens_name
+  function_garage_api_name = module.garage.function_garage_api_name
 
   source = "./load-balancer"
 }

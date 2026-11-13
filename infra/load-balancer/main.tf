@@ -68,6 +68,15 @@ resource "google_compute_region_network_endpoint_group" "feed_function_token_neg
   }
 }
 
+resource "google_compute_region_network_endpoint_group" "garage_function_neg" {
+  name                  = "garage-function-neg-${var.environment}"
+  network_endpoint_type = "SERVERLESS"
+  region                = var.gcp_region
+  cloud_function {
+    function = var.function_garage_api_name
+  }
+}
+
 resource "google_compute_region_network_endpoint_group" "feed_cloudrun_neg" {
   name                  = "feed-cloudrun-neg-${var.environment}"
   network_endpoint_type = "SERVERLESS"
@@ -89,6 +98,33 @@ resource "google_compute_backend_service" "feed_api_lb_backend" {
 
   backend {
     group = google_compute_region_network_endpoint_group.feed_cloudrun_neg.id
+  }
+
+  security_policy = google_compute_security_policy.policy_rate_limiting.name
+
+  iap {
+    oauth2_client_id     = var.oauth2_client_id
+    oauth2_client_secret = var.oauth2_client_secret
+  }
+  depends_on = [
+    google_compute_security_policy.policy_rate_limiting
+  ]
+}
+
+# Garage API backend. IAP checks the MDB token as it does for the Feeds API; the function then checks the
+# user holds the Garage feature flag.
+resource "google_compute_backend_service" "garage_api_lb_backend" {
+  provider   = google
+  name       = "garage-function-lb-backend-${var.environment}"
+  enable_cdn = false
+  log_config {
+    enable = true
+  }
+  protocol              = "HTTPS"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+
+  backend {
+    group = google_compute_region_network_endpoint_group.garage_function_neg.id
   }
 
   security_policy = google_compute_security_policy.policy_rate_limiting.name
@@ -152,6 +188,27 @@ resource "google_compute_url_map" "feed_api_url_map" {
           allow_credentials = true
           allow_headers     = ["Authorization", "Content-Type"]
           allow_methods     = ["GET", "POST"]
+          allow_origins     = ["*"]
+          max_age           = 1200
+          disabled          = false
+        }
+      }
+    }
+
+    route_rules {
+      priority = 4
+      match_rules {
+        prefix_match = "/v1/garage"
+      }
+      route_action {
+        weighted_backend_services {
+          backend_service = google_compute_backend_service.garage_api_lb_backend.id
+          weight          = 100
+        }
+        cors_policy {
+          allow_credentials = true
+          allow_headers     = ["Authorization", "Content-Type"]
+          allow_methods     = ["GET", "POST", "DELETE", "OPTIONS"]
           allow_origins     = ["*"]
           max_age           = 1200
           disabled          = false

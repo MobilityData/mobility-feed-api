@@ -96,3 +96,8 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
+
+variable "garage_web_origins" {
+    type        = string
+    description = "Comma separated web origins allowed to call the Garage API and to upload to and read from the Garage bucket"
+}
