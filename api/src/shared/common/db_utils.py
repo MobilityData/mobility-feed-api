@@ -41,6 +41,8 @@ def get_gtfs_feeds_query(
     offset: int | None = None,
     provider: str | None = None,
     producer_url: str | None = None,
+    created_after=None,
+    created_before=None,
     country_code: str | None = None,
     subdivision_name: str | None = None,
     municipality: str | None = None,
@@ -56,6 +58,8 @@ def get_gtfs_feeds_query(
         stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         location=None,
     )
 
@@ -235,6 +239,8 @@ def get_gtfs_rt_feeds_query(
     offset: int | None,
     provider: str | None,
     producer_url: str | None,
+    created_after,
+    created_before,
     entity_types: str | None,
     country_code: str | None,
     subdivision_name: str | None,
@@ -260,6 +266,8 @@ def get_gtfs_rt_feeds_query(
         stable_id=None,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         entity_types=EntityTypeFilter(name__in=entity_types_list),
         location=LocationFilter(
             country_code=country_code,
@@ -462,6 +470,8 @@ def get_gbfs_feeds_query(
     stable_id: Optional[str] = None,
     provider: Optional[str] = None,
     producer_url: Optional[str] = None,
+    created_after=None,
+    created_before=None,
     country_code: Optional[str] = None,
     subdivision_name: Optional[str] = None,
     municipality: Optional[str] = None,
@@ -472,6 +482,8 @@ def get_gbfs_feeds_query(
         stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         system_id=system_id,
         location=(
             LocationFilter(
