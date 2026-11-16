@@ -5,12 +5,11 @@ from typing import Iterator, List, Dict, Optional
 
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
-from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session, contains_eager, load_only, selectinload
+from sqlalchemy import exists, select
+from sqlalchemy.orm import aliased, joinedload, Session, contains_eager, load_only, selectinload
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 from sqlalchemy import func
-from sqlalchemy.sql import and_
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
@@ -25,6 +24,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfsversion,
     Gbfsvalidationreport,
+    License,
 )
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
@@ -468,60 +468,44 @@ def get_gbfs_feeds_query(
     system_id: Optional[str] = None,
     version: Optional[str] = None,
 ) -> Query:
+    """One row per feed, so limit/offset count feeds; collections load with selectinload."""
     gbfs_feed_filter = GbfsFeedFilter(
         stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
         system_id=system_id,
-        location=(
-            LocationFilter(
-                country_code=country_code,
-                subdivision_name__ilike=subdivision_name,
-                municipality__ilike=municipality,
-            )
-            if country_code or subdivision_name or municipality
-            else None
-        ),
-        version=(
-            GbfsVersionFilter(
-                version=version,
-            )
-            if version
-            else None
-        ),
     )
-    # Subquery: latest report per version
-    latest_report_subq = (
-        db_session.query(
-            Gbfsvalidationreport.gbfs_version_id.label("gbfs_version_id"),
-            func.max(Gbfsvalidationreport.validated_at).label("latest_validated_at"),
-        )
-        .group_by(Gbfsvalidationreport.gbfs_version_id)
-        .subquery()
-    )
+    query = gbfs_feed_filter.filter(db_session.query(Gbfsfeed))
 
-    # Join validation reports filtered by latest `validated_at`
-    query = gbfs_feed_filter.filter(
-        db_session.query(Gbfsfeed)
-        .outerjoin(Location, Gbfsfeed.locations)
-        .outerjoin(Gbfsfeed.gbfsversions)
-        .outerjoin(latest_report_subq, Gbfsversion.id == latest_report_subq.c.gbfs_version_id)
-        .outerjoin(
-            Gbfsvalidationreport,
-            and_(
-                Gbfsversion.id == Gbfsvalidationreport.gbfs_version_id,
-                Gbfsvalidationreport.validated_at == latest_report_subq.c.latest_validated_at,
-            ),
+    if country_code or subdivision_name or municipality:
+        location_filter = LocationFilter(
+            country_code=country_code,
+            subdivision_name__ilike=subdivision_name,
+            municipality__ilike=municipality,
         )
-        .options(
-            contains_eager(Gbfsfeed.gbfsversions).contains_eager(Gbfsversion.gbfsvalidationreports),
-            contains_eager(Gbfsfeed.gbfsversions).joinedload(Gbfsversion.gbfsendpoints),
-            joinedload(Feed.locations),
-            joinedload(Feed.externalids),
-            joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
-        )
+        query = query.filter(Gbfsfeed.locations.any(Location.id.in_(location_filter.filter(select(Location.id)))))
+
+    versions = Gbfsfeed.gbfsversions
+    if version:
+        version_filter = GbfsVersionFilter(version=version)
+        query = query.filter(Gbfsfeed.id.in_(version_filter.filter(select(Gbfsversion.feed_id))))
+        # Only the matching version is returned, as before.
+        versions = Gbfsfeed.gbfsversions.and_(Gbfsversion.version == version)
+
+    newer_report = aliased(Gbfsvalidationreport)
+    is_latest_report = ~exists().where(
+        newer_report.gbfs_version_id == Gbfsvalidationreport.gbfs_version_id,
+        newer_report.validated_at > Gbfsvalidationreport.validated_at,
     )
-    return query
+    return query.options(
+        selectinload(versions).selectinload(Gbfsversion.gbfsvalidationreports.and_(is_latest_report)),
+        selectinload(versions).selectinload(Gbfsversion.gbfsendpoints),
+        selectinload(Feed.locations),
+        selectinload(Feed.externalids),
+        selectinload(Feed.feedrelatedlinks),
+        selectinload(Feed.redirectingids).selectinload(Redirectingid.target),
+        joinedload(Feed.license).selectinload(License.tags),
+    ).order_by(Gbfsfeed.provider, Gbfsfeed.stable_id)
 
 
 def normalize_url(url_column) -> str:

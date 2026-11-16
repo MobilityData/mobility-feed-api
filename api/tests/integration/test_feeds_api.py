@@ -1,8 +1,9 @@
 # coding: utf-8
 import pytest
 from fastapi.testclient import TestClient
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
+from shared.database_gen.sqlacodegen_models import Gbfsfeed, Gbfsvalidationreport, Location
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
 from tests.test_utils.token import authHeaders
 from tests.test_utils.database import datasets_download_first_date
@@ -944,6 +945,47 @@ def test_gbfs_feed_id_get(client: TestClient, values):
     if values["response_code"] != 200:
         return
     assert response.json()["id"] == test_id
+
+
+def test_gbfs_feeds_latest_report_and_limit_per_feed(client: TestClient, test_database):
+    """Latest report per version is returned, and limit counts feeds even when a feed has several locations."""
+    validated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    reports = [
+        Gbfsvalidationreport(
+            id=f"gbfs-system_id_1-2.3-report-{i}",
+            gbfs_version_id="gbfs-system_id_1-2.3",
+            validated_at=validated_at + timedelta(days=i),
+            report_summary_url=f"https://example.com/report-{i}.json",
+            total_errors_count=i,
+            validator_version="1.0.0",
+        )
+        for i in range(3)
+    ]
+    report_ids = [r.id for r in reports]
+    with test_database.start_db_session() as session:
+        session.add_all(reports)
+        feed = session.query(Gbfsfeed).filter(Gbfsfeed.stable_id == "gbfs-system_id_1").one()
+        original_location_ids = {loc.id for loc in feed.locations}
+        feed.locations = session.query(Location).all()
+    try:
+        response = client.get("/v1/gbfs_feeds", headers=authHeaders, params={"version": "2.3", "limit": 2})
+        assert response.status_code == 200
+        feeds_json = response.json()
+        assert [f["id"] for f in feeds_json] == ["gbfs-system_id_1", "gbfs-system_id_2"]
+        versions = feeds_json[0]["versions"]
+        assert [v["version"] for v in versions] == ["2.3"]
+        assert versions[0]["latest_validation_report"]["report_summary_url"] == "https://example.com/report-2.json"
+
+        response = client.get("/v1/gbfs_feeds/gbfs-system_id_1", headers=authHeaders)
+        versions = {v["version"]: v for v in response.json()["versions"]}
+        assert set(versions) == {"2.3", "3.0"}
+        assert versions["3.0"]["latest_validation_report"] is None
+    finally:
+        with test_database.start_db_session() as session:
+            reports_query = session.query(Gbfsvalidationreport).filter(Gbfsvalidationreport.id.in_(report_ids))
+            reports_query.delete(synchronize_session=False)
+            feed = session.query(Gbfsfeed).filter(Gbfsfeed.stable_id == "gbfs-system_id_1").one()
+            feed.locations = [loc for loc in feed.locations if loc.id in original_location_ids]
 
 
 @pytest.mark.parametrize(
