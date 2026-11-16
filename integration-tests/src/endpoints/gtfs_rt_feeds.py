@@ -7,18 +7,19 @@ class GTFSRTFeedsEndpointTests(IntegrationTests):
 
     def test_filter_by_provider_gtfs_rt(self):
         """Test GTFS Realtime feed retrieval filtered by provider"""
-        providers = self.gtfs_rt_feeds.provider.sample(100).values
+        providers = self._sample_providers(self.gtfs_rt_feeds, 100)
         task_id = self.progress.add_task(
             "[yellow]Validating GTFS Realtime feeds by provider...[/yellow]",
             total=len(providers),
         )
 
-        for i, provider_id in enumerate(providers):
+        for i, (provider, stable_id) in enumerate(providers):
             self._test_filter_by_provider(
-                provider_id,
+                provider,
                 "v1/gtfs_rt_feeds",
                 task_id=task_id,
                 index=f"{i + 1}/{len(providers)}",
+                stable_id=stable_id,
             )
 
     # def test_filter_by_country_code_gtfs_rt(self):

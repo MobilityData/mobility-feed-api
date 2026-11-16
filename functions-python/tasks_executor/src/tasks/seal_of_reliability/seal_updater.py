@@ -26,6 +26,10 @@ records the same state under the day it was evaluated (issue #1809), one row per
 criterion and day, so past values survive and a correction can resume from a day rather than
 cold-start the window. The job takes the snapshots but never reads them: the state it needs is the
 current one.
+
+It also reports which feeds the run actually changed, in the sense the website cares about
+(`page_signature`), so the caller can bust the Feed Detail cache for those and only those. It
+reports them rather than acting on them: the same function serves dry runs and ad-hoc runs.
 """
 
 import logging
@@ -38,6 +42,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import (
+    CriterionNameStr,
     CriterionPhase,
     CriterionStatus,
     SealCriterionName,
@@ -52,12 +57,15 @@ from shared.database_gen.sqlacodegen_models import (
     SealCriterionSnapshot,
 )
 
+from tasks.seal_of_reliability.history import FeedIdStr, FeedStableIdStr
 from tasks.seal_of_reliability.context import (
     batched,
     build_contexts,
     is_seal_eligible,
+    snapshot_date_of,
 )
 from tasks.seal_of_reliability.evaluators import EVALUATORS
+from tasks.seal_of_reliability.page_signature import page_state_changed
 from tasks.seal_of_reliability.state_machine import (
     SealCriterionState,
     phase,
@@ -84,7 +92,7 @@ SNAPSHOT_STATE_COLUMNS: Tuple[str, ...] = tuple(
 )
 
 
-def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
+def _resolve_evaluators(criteria: Optional[Sequence[CriterionNameStr]]) -> List:
     """Return the evaluators to run, optionally filtered to `criteria`."""
     if criteria is None:
         return list(EVALUATORS)
@@ -96,6 +104,16 @@ def _resolve_evaluators(criteria: Optional[Sequence[str]]) -> List:
             f"Unknown criteria: {unknown}. Known criteria: {sorted(known)}"
         )
     return [evaluator for evaluator in EVALUATORS if evaluator.name.value in wanted]
+
+
+def is_partial_run(evaluators: Sequence) -> bool:
+    """Whether `evaluators` is only part of the registry, so has_seal cannot be rolled up.
+
+    Kept here, next to the registry it compares against, so that both the nightly job and
+    the backfill answer the question the same way — and so a test patching `EVALUATORS` in
+    this module alone moves both.
+    """
+    return len(evaluators) < len(EVALUATORS)
 
 
 def _validate_requested_feed_ids(
@@ -132,7 +150,7 @@ def _validate_requested_feed_ids(
 
 
 def _load_previous_states(
-    db_session: Session, feed_ids: Sequence[str]
+    db_session: Session, feed_ids: Sequence[FeedIdStr]
 ) -> Dict[Tuple[str, str], SealCriterionState]:
     """Map (feed_id, criterion) -> stored state for a batch of feeds."""
     if not feed_ids:
@@ -158,7 +176,7 @@ def _load_previous_states(
 
 
 def _load_previous_seals(
-    db_session: Session, feed_ids: Sequence[str]
+    db_session: Session, feed_ids: Sequence[FeedIdStr]
 ) -> Dict[str, bool]:
     """Map feed_id -> stored has_seal, for feeds that already have a seal row."""
     if not feed_ids:
@@ -224,17 +242,6 @@ def _upsert_criteria(
     )
 
 
-def snapshot_date_of(now: datetime) -> date:
-    """The UTC day a run evaluating at `now` takes its snapshots under.
-
-    Naive values are read as UTC rather than rejected: the entry point normalizes what an
-    operator passes, but `update_seals` is also called directly.
-    """
-    if now.tzinfo is None:
-        return now.date()
-    return now.astimezone(timezone.utc).date()
-
-
 def _snapshot_row(state: SealCriterionState, snapshot_date: date) -> dict:
     """One seal_criterion_snapshot row: the key, then the state columns read off by name.
 
@@ -264,10 +271,22 @@ def _upsert_criterion_snapshot(
     adding one — the number of runs in a day leaves no trace. Earlier days are never touched
     by a run evaluating a later one; they are the record.
     """
-    if not states:
+    _write_snapshot_rows(
+        db_session, [_snapshot_row(state, snapshot_date) for state in states]
+    )
+
+
+def _write_snapshot_rows(db_session: Session, payload: Sequence[dict]) -> None:
+    """Upsert already-built snapshot rows, which may span several days.
+
+    Split out for the backfill, whose march produces a day at a time but should not spend a
+    statement on each: it builds rows with `_snapshot_row` and writes a feed's whole march in
+    one call. Rows must be unique on (feed_id, criterion, snapshot_date) within that call, or
+    ON CONFLICT refuses to touch the same row twice — a march never repeats a day, so they are.
+    """
+    if not payload:
         return
-    payload = [_snapshot_row(state, snapshot_date) for state in states]
-    statement = insert(SNAPSHOT_TABLE).values(payload)
+    statement = insert(SNAPSHOT_TABLE).values(list(payload))
     db_session.execute(
         statement.on_conflict_do_update(
             index_elements=[
@@ -324,10 +343,10 @@ def _upsert_seals(db_session: Session, outcomes: Sequence[dict], now: datetime) 
 @with_db_session
 def update_seals(
     db_session: Session,
-    stable_feed_ids: Sequence[str],
+    stable_feed_ids: Sequence[FeedStableIdStr],
     dry_run: bool = True,
     limit: Optional[int] = None,
-    criteria: Optional[Sequence[str]] = None,
+    criteria: Optional[Sequence[CriterionNameStr]] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     now: Optional[datetime] = None,
     max_reported_feeds: int = DEFAULT_MAX_REPORTED_FEEDS,
@@ -360,7 +379,7 @@ def update_seals(
     started = time.monotonic()
     now = now or datetime.now(timezone.utc)
     evaluators = _resolve_evaluators(criteria)
-    partial_run = len(evaluators) < len(EVALUATORS)
+    partial_run = is_partial_run(evaluators)
 
     # Plain by-id load: no eligibility predicate here, since these ids were already
     # explicitly requested. Eligibility is checked in Python below, on the loaded rows.
@@ -389,13 +408,16 @@ def update_seals(
     all_states: List[SealCriterionState] = []
     outcomes: List[dict] = []
     feed_reports: List[dict] = []
+    # The feeds whose Feed Detail page would now render differently, so the website's cache of
+    # them has to be busted.
+    changed_stable_ids: List[FeedStableIdStr] = []
     unknown_count = 0
     not_applicable_count = 0
     first_evaluations = 0
 
     for batch in batched(eligible_feeds, batch_size):
         batch_ids = [feed.id for feed in batch]
-        contexts = build_contexts(db_session, batch, now)
+        contexts = build_contexts(db_session, batch, now, evaluators)
         previous_states = _load_previous_states(db_session, batch_ids)
         previous_seals = _load_previous_seals(db_session, batch_ids)
 
@@ -460,21 +482,32 @@ def update_seals(
                     }
                 )
 
-            if partial_run:
-                # No roll-up on a partial run, so there is no seal state to report.
-                feed_reports.append(
-                    {"stable_id": ctx.stable_id, "criteria": criteria_report}
-                )
-                continue
-
             # Merge in any stored criteria this run did not produce a new state for, so the
             # roll-up sees the full set even when an evaluator returned "not evaluable".
-            merged = {
+            previous_for_feed = {
                 criterion: state
                 for (owner_id, criterion), state in previous_states.items()
                 if owner_id == feed.id
             }
+            merged = dict(previous_for_feed)
             merged.update(feed_states)
+
+            if partial_run:
+                # No roll-up on a partial run, so there is no seal state to report - and none to
+                # compare either, so the criteria that were evaluated decide on their own.
+                page_changed = page_state_changed(
+                    previous_for_feed, merged, had_seal=None, has_seal=None
+                )
+                if page_changed:
+                    changed_stable_ids.append(ctx.stable_id)
+                feed_reports.append(
+                    {
+                        "stable_id": ctx.stable_id,
+                        "criteria": criteria_report,
+                        "page_changed": page_changed,
+                    }
+                )
+                continue
 
             # A feed with no seal row yet is treated as not holding one, so a first run can
             # grant the seal but can never withdraw one: nothing was held to lose.
@@ -510,6 +543,16 @@ def update_seals(
                 outcome["had_seal"],
             )
 
+            # Only the values the page renders, with every timestamp left out.
+            page_changed = page_state_changed(
+                previous_for_feed,
+                merged,
+                had_seal=outcome["had_seal"],
+                has_seal=has_seal,
+            )
+            if page_changed:
+                changed_stable_ids.append(ctx.stable_id)
+
             feed_reports.append(
                 {
                     "stable_id": ctx.stable_id,
@@ -517,6 +560,7 @@ def update_seals(
                     "has_seal": has_seal,
                     "seal_status": seal_status.value,
                     "criteria": criteria_report,
+                    "page_changed": page_changed,
                 }
             )
 
@@ -570,6 +614,8 @@ def update_seals(
         # which feed moved, and that is the first thing anyone asks of a run.
         "granted_stable_ids": [outcome["stable_id"] for outcome in granted],
         "revoked_stable_ids": [outcome["stable_id"] for outcome in revoked],
+        "feeds_changed": len(changed_stable_ids),
+        "changed_stable_ids": changed_stable_ids,
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }
     if partial_run:
@@ -582,11 +628,15 @@ def update_seals(
     report["feeds"] = feed_reports[:max_reported_feeds]
     report["feeds_omitted"] = max(0, len(feed_reports) - max_reported_feeds)
 
-    # Log without `feeds`: Cloud Logging drops a LogEntry over 256 KB, so a run naming a
-    # few hundred feeds would lose the whole log entry. The counts belong in logs; `feeds`
-    # is for the caller reading the response.
+    # Log without `feeds` or `changed_stable_ids`: Cloud Logging drops a LogEntry over 256 KB,
+    # so a run naming a few hundred feeds would lose the whole log entry. The counts belong in
+    # logs; those two are for the caller reading the response.
     logging.info(
         "Task completed: %s",
-        {key: value for key, value in report.items() if key != "feeds"},
+        {
+            key: value
+            for key, value in report.items()
+            if key not in ("feeds", "changed_stable_ids")
+        },
     )
     return report

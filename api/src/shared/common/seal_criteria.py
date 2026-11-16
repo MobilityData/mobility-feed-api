@@ -14,9 +14,14 @@ See #1761 for the algorithm and #1760 for the tables.
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Final, Iterable, Optional, Tuple
+from typing import Dict, Final, Iterable, Optional, Tuple, TypeAlias
 
 from shared.common.error_handling import raise_internal_http_error, unknown_seal_criterion
+from shared.database_gen.sqlacodegen_models import SealCriterion as SealCriterionOrm
+
+# A criterion named by its `SealCriterionName` value, as it arrives in a payload and as it
+# is stored in `seal_criterion.criterion`.
+CriterionNameStr: TypeAlias = str
 
 
 class SealCriterionName(str, Enum):
@@ -123,6 +128,41 @@ PROBATION_PERIODS: Final[Dict[SealCriterionName, Optional[timedelta]]] = {
 PROBATION_EXEMPT_CRITERIA: Final[frozenset] = frozenset(
     name.value for name, period in PROBATION_PERIODS.items() if period is None
 )
+
+
+def is_in_grace_period(row: SealCriterionOrm) -> bool:
+    """Whether the criterion is holding an unconfirmed failure inside its grace period."""
+    if grace_period_for(row.criterion) is None:
+        return False
+    return (
+        row.probation_start is None
+        and row.confirmed_status == CriterionStatus.PASS
+        and row.first_observed_failure_at is not None
+    )
+
+
+def is_serving_probation(row: SealCriterionOrm) -> bool:
+    """
+    Whether the criterion is serving probation, which starts only once it stops failing.
+    """
+    if row.probation_start is None or probation_period_for(row.criterion) is None:
+        return False
+    return row.confirmed_status == CriterionStatus.PASS
+
+
+def roll_up_on_probation(
+    criteria: Iterable[Tuple[CriterionStatus, bool]],
+) -> bool:
+    """Whether the feed as a whole is serving probation.
+
+    The feed-level form of `is_serving_probation`: a confirmed failure on any criterion cancels the
+    roll-up, because the feed is failing the seal now rather than waiting out a clean run to earn it
+    back.
+    """
+    in_scope = list(criteria)
+    if any(confirmed_status is CriterionStatus.FAIL for confirmed_status, _ in in_scope):
+        return False
+    return any(on_probation for _, on_probation in in_scope)
 
 
 def roll_up_seal_status(

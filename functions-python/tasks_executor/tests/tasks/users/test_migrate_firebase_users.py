@@ -252,54 +252,6 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         self.assertEqual(added.registration_completed_at, reg_time)
         self.assertIsNotNone(added.migrated_at)
 
-    def test_new_user_brevo_subscribed_sets_true(self):
-        """New user subscribed in Brevo → field=True on insert."""
-        user = _make_auth_user("uid2", email="b@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.SUBSCRIBED,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertTrue(added.is_registered_to_receive_api_announcements)
-
-    def test_new_user_brevo_unsubscribed_sets_false(self):
-        """New user unsubscribed in Brevo → field=False on insert."""
-        user = _make_auth_user("uid3", email="c@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.UNSUBSCRIBED,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertFalse(added.is_registered_to_receive_api_announcements)
-
-    def test_new_user_brevo_not_found_field_not_set(self):
-        """New user not in Brevo → field not set (None, DB default applies)."""
-        user = _make_auth_user("uid4", email="d@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.NOT_FOUND,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertIsNone(added.is_registered_to_receive_api_announcements)
-
     # --- Announcements subscription association ---
 
     def test_new_user_gets_enabled_announcements_subscription_when_subscribed(self):
@@ -726,7 +678,7 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
     # --- Brevo failure on new user ---
 
     def test_brevo_failure_on_new_user_does_not_abort(self):
-        """Brevo API error on new user → migration continues, field not set."""
+        """Brevo API error on new user → migration continues."""
         user = _make_auth_user("uid8", email="h@example.com")
         session = _make_db_session()
 
@@ -745,8 +697,6 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
 
         self.assertEqual(stats["brevo_failed"], 1)
         self.assertEqual(stats["inserted"], 1)
-        added: AppUser = _added_app_user(session)
-        self.assertIsNone(added.is_registered_to_receive_api_announcements)
         # Failed Brevo check is treated as "not unsubscribed" → subscription enabled.
         sub = _added_subscription(session)
         self.assertTrue(sub.active)

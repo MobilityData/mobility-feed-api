@@ -66,6 +66,7 @@ from markupsafe import Markup
 
 from shared.common.rate_limiter import RateLimiter, get_rate_limiter
 from shared.notifications.notification_constants import (
+    AdminEventUpdateType,
     NotificationFeedRole,
     NotificationTypeId,
 )
@@ -129,6 +130,11 @@ def _website_url() -> str:
 def _feed_page_url(stable_id: Optional[str]) -> Optional[str]:
     """Link to a feed's page on the Mobility Database website, or None if unknown."""
     return f"{_website_url()}/feeds/{stable_id}" if stable_id else None
+
+
+# Registered here rather than beside the other filters above, because it depends on
+# `_website_url`, which is defined after them.
+_jinja_env.filters["feed_page_url"] = _feed_page_url
 
 
 # Website route backing the one-click unsubscribe link. It reads the subscription
@@ -199,13 +205,32 @@ def get_brevo_rate_limiter() -> RateLimiter:
 
 _DIGEST_EMAIL_SUBJECT_DICTIONARY = {
     NotificationTypeId.FEED_URL_UPDATED: "%s feed URL update%s",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
+    # admin.event_summary carries several kinds of report, so a digest of them cannot name one.
+    # A digest of a single subtype gets the specific subject below instead.
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily admin summary",
 }
 
 _SINGLE_EMAIL_SUBJECT_DICTIONARY = {
     NotificationTypeId.FEED_URL_UPDATED: "Feed %s has been updated",
-    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily notification dispatch summary",
+    NotificationTypeId.ADMIN_EVENT_SUMMARY: "Daily admin summary",
 }
+
+_ADMIN_SUBJECT_BY_SUBTYPE = {
+    AdminEventUpdateType.DISPATCH_SUMMARY: "Daily notification dispatch summary",
+    AdminEventUpdateType.SEAL_RUN_SUMMARY: "Daily Seal of Reliability summary",
+}
+
+
+def _admin_subject(subtypes: List[Optional[str]]) -> Optional[str]:
+    """The subject for a set of admin.event_summary subtypes, or None if they disagree.
+
+    None means fall back to the type-level subject: a digest mixing a dispatch report and a
+    seal report cannot honestly be titled either one.
+    """
+    distinct = set(subtypes)
+    if len(distinct) != 1:
+        return None
+    return _ADMIN_SUBJECT_BY_SUBTYPE.get(distinct.pop())
 
 
 class BrevoSendError(Exception):
@@ -273,6 +298,11 @@ def event_payload(event) -> Dict[str, Any]:
 
 
 def build_single_subject(event) -> str:
+    if event.notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
+        subject = _admin_subject([event.event_subtype])
+        if subject is not None:
+            return subject
+
     template = _SINGLE_EMAIL_SUBJECT_DICTIONARY.get(event.notification_type_id)
     if template is None:
         return f"Notification for {event.notification_type_id}"
@@ -289,6 +319,11 @@ def build_single_subject(event) -> str:
 def build_digest_subject(events: List) -> str:
     count = len(events)
     type_id = events[0].notification_type_id if events else "notification"
+    if events and type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
+        subject = _admin_subject([e.event_subtype for e in events])
+        if subject is not None:
+            return subject
+
     template = _DIGEST_EMAIL_SUBJECT_DICTIONARY.get(type_id)
     if template is None:
         return f"{count} notification{'s' if count != 1 else ''}"
@@ -339,6 +374,7 @@ def build_params_admin_event_summary(events: List, subscription):
         "event_count": len(events),
         "subscription_id": subscription.id,
         "unsubscribe_url": _unsubscribe_url(subscription.id),
+        "event_subtype": summary_event.event_subtype if summary_event else None,
         "summary": event_payload(summary_event) if summary_event else {},
     }
 
@@ -382,9 +418,18 @@ def build_single_html(event, subscription=None) -> str:
     return _jinja_env.get_template("feed_url_updated_single.html.j2").render(**context)
 
 
+def _admin_summary_entry(event) -> Dict[str, Any]:
+    """One ``admin.event_summary`` event as the templates consume it.
+
+    The subtype travels beside the payload rather than inside it: it is a column on the event,
+    and the block the template picks is decided by it.
+    """
+    return {"subtype": event.event_subtype, "summary": event_payload(event)}
+
+
 def build_admin_summary_html(event) -> str:
-    """Render the dispatch-statistics summary for an ``admin.event_summary`` event."""
-    return _jinja_env.get_template("admin_event_summary.html.j2").render(summary=event_payload(event))
+    """Render the summary for one ``admin.event_summary`` event, by its subtype."""
+    return _jinja_env.get_template("admin_event_summary.html.j2").render(entry=_admin_summary_entry(event))
 
 
 def build_admin_digest_html(events: List) -> str:
@@ -392,8 +437,8 @@ def build_admin_digest_html(events: List) -> str:
     header/footer. Unlike concatenating ``build_admin_summary_html`` per event
     (each of which is a *full* HTML document), this renders exactly one
     document with one summary block per event."""
-    summaries = [event_payload(e) for e in events]
-    return _jinja_env.get_template("admin_event_summary_digest.html.j2").render(summaries=summaries)
+    entries = [_admin_summary_entry(e) for e in events]
+    return _jinja_env.get_template("admin_event_summary_digest.html.j2").render(entries=entries)
 
 
 def build_digest_html(events: List, subscription=None) -> str:

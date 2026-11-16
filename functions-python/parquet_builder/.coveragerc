@@ -1,0 +1,11 @@
+[run]
+omit =
+    */test*/*
+    */helpers/*
+    */database_gen/*
+    */shared/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

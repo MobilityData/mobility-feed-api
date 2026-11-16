@@ -140,3 +140,81 @@ async def test_get_gtfs_feed_availability_latency_is_float():
     for check in response.checks:
         if check.latency_ms is not None:
             assert isinstance(check.latency_ms, float)
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_filter_source():
+    """source returns only the checks written by that source."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id, source=["dataset_download"], limit=100, offset=0
+    )
+    assert response.total == 1
+    assert [c.source for c in response.checks] == ["dataset_download"]
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_filter_several_sources():
+    """Repeating source returns the checks of every source given."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id,
+        source=["dataset_download", "dataset_download_manual"],
+        limit=100,
+        offset=0,
+    )
+    assert [c.source for c in response.checks] == ["dataset_download"]
+
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id,
+        source=["availability_check", "dataset_download"],
+        limit=100,
+        offset=0,
+    )
+    assert response.total == len(availability_checks_mdb_40)
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_without_source_returns_every_source():
+    """Unlike the public endpoint, download diagnostics are included by default."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id, limit=100, offset=0
+    )
+    sources = [c.source for c in response.checks]
+    assert response.total == len(availability_checks_mdb_40)
+    # Rows written without a source get the column default.
+    assert sources.count("availability_check") == len(availability_checks_mdb_40) - 1
+    assert sources.count("dataset_download") == 1
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_rejects_unknown_source():
+    """An unknown source is a 400 naming it, not an empty page."""
+    api = OperationsApiImpl()
+    with pytest.raises(HTTPException) as exc_info:
+        api.get_gtfs_feed_availability(
+            id=feed_mdb_40.stable_id,
+            source=["dataset_download", "nightly"],
+            limit=100,
+            offset=0,
+        )
+    assert exc_info.value.status_code == 400
+    assert "nightly" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_get_gtfs_feed_availability_returns_diagnostics():
+    """Each check carries the request/response diagnostics recorded with it."""
+    api = OperationsApiImpl()
+    response = api.get_gtfs_feed_availability(
+        id=feed_mdb_40.stable_id, source=["dataset_download"], limit=100, offset=0
+    )
+    check = response.checks[0]
+    assert check.error_message == "Invalid HTTP response code: [503]"
+    assert check.content_type == "text/html"
+    assert check.is_zip is False
+    assert check.request_headers == {"User-Agent": "agent"}
+    assert check.response_headers == {"Server": "nginx"}
+    assert check.redirect_urls == ["http://cdn.example.com/feed.zip"]
+    assert check.external_ip == "34.1.2.3"

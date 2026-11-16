@@ -18,18 +18,17 @@
 This is the *reverse* direction of the forward opt-in path. When a user changes
 their api.announcements subscription on OUR side (the update_user / subscription
 endpoints, routed through ``set_announcements_optin``) or when
-``migrate_firebase_users`` seeds it, flag + subscription + Brevo are kept
-consistent. But when a user clicks "unsubscribe" inside a Brevo email, Brevo sets
+``migrate_firebase_users`` seeds it, subscription + Brevo are kept consistent.
+But when a user clicks "unsubscribe" inside a Brevo email, Brevo sets
 ``email_blacklisted`` (global) or adds the list to ``list_unsubscribed`` — and
-nothing propagates that back to us, so ``app_user.is_registered_to_receive_api_announcements``
-and the ``notification_subscription.active`` row stay stale-``True``.
+nothing propagates that back to us, so the ``notification_subscription.active``
+row stays stale-``True``.
 
 This task closes that gap. It is deliberately **turn-OFF only**:
   - For every user with an ACTIVE ``api.announcements`` subscription, it reads the
     Brevo contact status via ``get_contact_subscription_status(email, list_id)``.
   - When Brevo reports UNSUBSCRIBED (either the global ``email_blacklisted`` flag
-    or the announcements list appearing in ``list_unsubscribed``), it sets
-    ``app_user.is_registered_to_receive_api_announcements = False`` and deactivates
+    or the announcements list appearing in ``list_unsubscribed``), it deactivates
     the subscription (``active = False``).
   - SUBSCRIBED / NOT_FOUND are left untouched. This task NEVER re-subscribes or
     adds anyone to the list — the forward/opt-in direction is already owned by the
@@ -178,7 +177,6 @@ def reconcile_announcements_from_brevo(
                 subscription.id,
             )
             if not dry_run:
-                user.is_registered_to_receive_api_announcements = False
                 subscription.active = False
                 db_session.flush()
         elif status == BrevoSubscriptionStatus.SUBSCRIBED:

@@ -56,7 +56,7 @@ Because these are separate PostgreSQL instances, event creation is **best-effort
 | ID | Description |
 |----|-------------|
 | `feed.url_updated` | Fired when a feed URL changes in-place (`url_replaced`) or a feed is deprecated and redirected to another feed (`feed_redirected`). |
-| `admin.event_summary` | Daily digest for admin subscribers summarising dispatcher run statistics. |
+| `admin.event_summary` | Daily digest for admin subscribers. Carries several kinds of run report, one per `event_subtype`. |
 
 ### `feed.url_updated` — `event_subtype` values
 
@@ -70,6 +70,11 @@ Because these are separate PostgreSQL instances, event creation is **best-effort
 | `event_subtype` | Trigger |
 |---------------|---------|
 | `dispatch_summary` | Created after every non-dry-run dispatcher invocation. |
+| `seal_run_summary` | Created once per nightly Seal of Reliability run, by `seal_orchestrator_monitor` when the run settles. |
+
+The subtype — not the type — decides the subject line and which summary block renders
+(`_admin_summary_block.html.j2` dispatches on it). A digest that mixes subtypes falls back to a
+neutral subject and renders one block per event.
 
 
 ## Event Creation — Integration Points
@@ -84,7 +89,13 @@ These wrap the generic `_emit(notification_type_id, event_subtype, source, feeds
 `old_url`/`new_url` are stored in `payload`; the feed(s) become `notification_event_feed` rows.
 Any `extra_data` is merged into `payload`.
 
-Both functions are **fire-and-forget**: if `USERS_DATABASE_URL` is not set, or if the write fails, a warning is logged and the calling code continues normally.
+### `emit_seal_run_summary(payload)`
+
+Called once per nightly seal run by `seal_orchestrator_monitor`. Writes no
+`notification_event_feed` rows: the feeds it names are lines in a report about a run, not the
+subject of a subscription filter, so they live in `payload`.
+
+All three functions are **fire-and-forget**: if `USERS_DATABASE_URL` is not set, or if the write fails, a warning is logged and the calling code continues normally.
 
 > **Note — populate_db scripts and GitHub Actions CI**:
 > The `populate_db_gtfs.py` and `populate_db_gbfs.py` scripts run as part of the
@@ -169,6 +180,33 @@ flowchart TD
 > contact lists managed at opt-in time — so it is never batched into a dispatch
 > run (including manual/forced runs).
 
+### Feed-scoped subscriptions
+
+A `feed.url_updated` subscription is scoped by its `notification_subscription_feed`
+rows: an event is delivered only when it references one of those feeds, in any
+role (so a redirect *to* a subscribed feed is delivered too). Legacy rows without
+feeds fall back to `filter_params.feed_ids`; with neither, the subscription gets
+every event of its type.
+
+### Testing from the Operations API
+
+- `POST /v1/operations/notifications/events:test` creates a `feed.url_updated`
+  event for an existing feed without changing it. The event has
+  `source=operations_test` and its payload lists `recipient_user_ids`: the
+  dispatcher delivers it to those users only (through their own subscriptions, so
+  their feed scope still applies) and to nobody else, whatever the run.
+- `POST /v1/operations/notifications/dispatch` calls `tasks_executor` with the
+  same `notifications_dispatch_batch` request the Cloud Scheduler job sends, with
+  the given `cadence`, `user_ids`, `dry_run` and `force`, and returns each run's
+  `run_id`. A dry run enqueues nothing and returns, for up to 50 subscriptions,
+  the events a real run would send each one, selected by the workers' own
+  `find_events_for_subscription`.
+- `GET /v1/operations/notifications/dispatch/{run_id}` reads the run's
+  `TaskExecutionTracker` state; each worker stores its delivery stats on its
+  entry, so the run's `stats` are exact even when runs overlap.
+
+Test events and test runs are not excluded from the `dispatch_summary`.
+
 ## Retry Strategy
 
 Durability plus three independent retry layers:
@@ -200,6 +238,12 @@ The dispatcher sends emails via **Brevo Transactional Email API** (`sib_api_v3_s
 
 ## Admin Event Summary
 
+`admin.event_summary` carries one report per subtype. Both are emitted by the barrier task of
+their own fan-out, on the single branch that finalises the run, so a monitor redelivery cannot
+produce a second copy.
+
+### `dispatch_summary`
+
 The **monitor task** (`notifications_dispatch_monitor`) emits **exactly one**
 `notification_event` of type `admin.event_summary` / `dispatch_summary` per
 dispatch run, once every worker has reported (or the run deadline passes). It
@@ -226,8 +270,50 @@ the run's `TaskExecutionTracker` state (and the run is marked complete
 afterward), the **multiple-summary bug class is structurally impossible** — a
 monitor redelivery sees the run already `completed` and is a no-op.
 
+### `seal_run_summary`
+
+`seal_orchestrator_monitor` emits **exactly one** `admin.event_summary` /
+`seal_run_summary` per nightly Seal of Reliability run, when the run settles — whether it
+settles as complete or as failed, since a night that only half-ran is exactly the night an
+admin needs to hear about. The backfill fan-out shares that monitor and emits nothing: it
+replays history rather than announcing it.
+
+```json
+{
+  "run_id": "seal-20260911T040000",
+  "status": "complete",
+  "batches_total": 12,
+  "batches_completed": 12,
+  "batches_failed": 0,
+  "batches_incomplete": 0,
+  "total_feeds_evaluated": 2914,
+  "criterion_rows_written": 17484,
+  "seals_granted": 3,
+  "seals_revoked": 1,
+  "feeds_changed": 37,
+  "feeds_revalidated": 37,
+  "revalidation_tasks": 1,
+  "granted_stable_ids": ["mdb-1"],
+  "revoked_stable_ids": ["mdb-9"],
+  "changed_stable_ids": ["mdb-1", "mdb-9"],
+  "ids_omitted": 0
+}
+```
+
+`feeds_changed` counts the feeds whose Feed Detail page would render a different seal after the
+run — a superset of granted plus revoked, since a criterion can move without the seal changing
+hands. Every one of them is revalidated, so `feeds_revalidated` matches it unless the enqueue
+itself failed; `revalidation_tasks` is how many Cloud Tasks carried them, each holding up to
+`WEB_REVALIDATION_CHUNK_SIZE` feeds. The id lists are capped at 200 each, with the overflow
+counted in `ids_omitted` — that cap bounds the *report*, never the work.
+
+The seal run is scheduled at 04:00 UTC and the dispatcher at 08:00 UTC, so the summary reaches
+subscribers the same morning.
+
+### Subscribing
+
 Admin users subscribe with `notification_type_id='admin.event_summary'` and
-`cadence='daily'` to receive these as a daily digest.
+`cadence='daily'` to receive these as a daily digest. One subscription receives every subtype.
 
 ## Subscription Management (subscribe / unsubscribe)
 
@@ -249,10 +335,9 @@ Quick orientation:
   call must be authenticated. See
   [`docs/UserServiceAPI.yaml`](./UserServiceAPI.yaml).
 - **`api.announcements` is special.** As noted above it is delivered via Brevo,
-  not this dispatcher. An opt-in is kept in sync across **three**
-  representations — the `notification_subscription` row, Brevo list membership,
-  and `app_user.is_registered_to_receive_api_announcements` — by
-  `set_announcements_optin()` in
+  not this dispatcher. An opt-in is kept in sync across **two**
+  representations — the `notification_subscription` row and Brevo list
+  membership — by `set_announcements_optin()` in
   `api/src/user_service/impl/subscription_helpers.py`. Announcements
   subscriptions are **disabled, never deleted**.
 - **The Brevo/DB link.** Each announcements contact carries the contact attribute
@@ -264,4 +349,4 @@ Quick orientation:
 
 - **`immediate` cadence**: Architecture is fully implemented. To activate, deploy a Cloud Scheduler job calling `notifications_dispatch_batch` with `cadence='immediate'` at the desired frequency (e.g. every 15 minutes). No code changes needed.
 - **Additional notification types**: Add a new `notification_type` row, then call `_emit(notification_type_id, event_subtype, source, feeds=[...], payload={...})` in `notification_event_service.py` — no schema changes needed (feeds go in `notification_event_feed`, everything else in `payload`). The dispatcher, delivery, and retry infrastructure is reused automatically. For non-`feed.url_updated` types, add a Brevo subject/template mapping and a `build_params_*` / HTML renderer in `brevo_notification_sender.py`.
-- **Operations API endpoint**: `GET /notifications/events` (paginated, filterable by type/date/source) for ops visibility into queued events. Belongs in the operations API, not the public API.
+- **Operations API visibility** (read-only, tag `notifications` in [`OperationsAPI.yaml`](./OperationsAPI.yaml)): `GET /v1/operations/notifications/events[/{id}]` for queued events and their deliveries, `GET /v1/operations/notifications/logs` for delivery status, `GET /v1/operations/users/{user_id}/subscriptions`, and `GET /v1/operations/users/{user_id}/brevo-sync` to compare the user's `api.announcements` subscription row against the Brevo contact. Delivery logs carry no dispatch run ID, so a run is inspected by its time window (`sent_after` / `sent_before`).

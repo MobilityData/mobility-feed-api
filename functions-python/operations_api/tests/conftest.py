@@ -76,6 +76,7 @@ availability_checks_mdb_40 = [
         status_code=200,
         latency_ms=120,
         error_type=None,
+        source="availability_check",
     ),
     GtfsFeedAvailabilityCheck(
         id=uuid.UUID("11111111-0000-0000-0000-000000000002"),
@@ -87,6 +88,15 @@ availability_checks_mdb_40 = [
         status_code=503,
         latency_ms=450,
         error_type="http_error",
+        source="dataset_download",
+        error_message="Invalid HTTP response code: [503]",
+        content_type="text/html",
+        is_zip=False,
+        resolved_url="http://example.com/feed.zip",
+        request_headers={"User-Agent": "agent"},
+        response_headers={"Server": "nginx"},
+        redirect_urls=["http://cdn.example.com/feed.zip"],
+        external_ip="34.1.2.3",
     ),
     GtfsFeedAvailabilityCheck(
         id=uuid.UUID("11111111-0000-0000-0000-000000000003"),

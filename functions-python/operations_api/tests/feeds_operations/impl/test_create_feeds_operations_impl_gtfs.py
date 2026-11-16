@@ -45,7 +45,6 @@ def update_request_gtfs_feed():
             license_url=feed_mdb_40.license_url,
         ),
         redirects=[],
-        operational_status_action="no_change",
         official=True,
     )
 

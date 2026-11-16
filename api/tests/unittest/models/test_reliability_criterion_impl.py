@@ -84,12 +84,16 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.in_grace_period is False
         assert result.on_probation is False
 
-    def test_unknown_status_passes_through(self):
-        """`unknown` (inputs missing this evaluation) is reported as its own status, not a failure."""
-        row = make_row(criterion=SealCriterionName.AVAILABLE, observed_status="unknown", confirmed_status="pass")
+    def test_an_unevaluable_check_serves_the_verdict_that_still_stands(self):
+        """`unknown` is a run that reached no verdict, so it never reaches the client.
+
+        The nightly job leaves `confirmed_status` alone on such a day, and that is what the seal
+        is decided on - so the API reports it, not the fact that one run could not look.
+        """
+        row = make_row(criterion=SealCriterionName.AVAILABLE, observed_status="unknown", confirmed_status="fail")
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == CriterionStatus.UNKNOWN.value
+        assert result.status == CriterionStatus.FAIL.value
         assert result.in_grace_period is False
 
     def test_not_applicable_status_is_withdrawn(self):
@@ -111,9 +115,11 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.probation_ends_at is None
 
     def test_failing_inside_grace_period(self):
-        """A failure the grace period is still holding reports `fail` with `in_grace_period`.
+        """A failure the grace period is still holding reports `pass` with `in_grace_period`.
 
-        The seal is not withdrawn yet, and the countdown says when it would be.
+        Grace is not a failing state (#1789): the criterion still counts towards the seal, so it
+        still reads `pass`, and the flag is what marks it at risk. The countdown says when it
+        would stop passing.
         """
         first_failure = NOW - timedelta(days=10)
         row = make_row(
@@ -124,7 +130,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == CriterionStatus.FAIL.value
+        assert result.status == CriterionStatus.PASS.value
         assert result.in_grace_period is True
         assert result.grace_period_ends_at == first_failure + GRACE_PERIODS[SealCriterionName.COMPLIANT]
         assert result.first_failure_at == first_failure
@@ -134,7 +140,8 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         """A criterion with no grace period reports the failure straight away.
 
         `fresh_continuous` has no grace period, so even a row whose `confirmed_status` still reads
-        `pass` must not be served as being under grace - there would be no end date to report.
+        `pass` must not be served as being under grace - there would be no end date to report. The
+        served status is the stored `confirmed_status`, whatever the daily check said.
         """
         row = make_row(
             criterion=SealCriterionName.FRESH_CONTINUOUS,
@@ -145,7 +152,7 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
-        assert result.status == CriterionStatus.FAIL.value
+        assert result.status == CriterionStatus.PASS.value
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
 
@@ -177,22 +184,56 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
         assert result.on_probation is True
         assert result.probation_ends_at == probation_start + PROBATION_PERIOD
 
-    def test_grace_does_not_apply_during_probation(self):
-        """A failure during probation restarts probation, so grace has nothing to protect."""
+    def test_a_confirmed_failure_is_not_serving_probation(self):
+        """A criterion still failing has not begun its clean run, whatever `probation_start` says."""
         row = make_row(
             criterion=SealCriterionName.AVAILABLE,
             observed_status="fail",
-            confirmed_status="pass",
-            first_observed_failure_at=NOW - timedelta(days=2),
+            confirmed_status="fail",
+            first_observed_failure_at=NOW - timedelta(days=20),
             last_observed_failure_at=NOW,
-            probation_start=NOW - timedelta(days=1),
+            last_confirmed_failure_at=NOW,
+            probation_start=NOW + timedelta(days=1),
         )
         result = ReliabilityCriterionImpl.from_orm(row)
 
         assert result.status == CriterionStatus.FAIL.value
-        assert result.on_probation is True
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
         assert result.in_grace_period is False
         assert result.grace_period_ends_at is None
+
+    def test_an_unevaluable_run_over_a_confirmed_failure_is_not_probation(self):
+        """`unknown` on top of a confirmed failure is still a failure, not the recovery."""
+        row = make_row(
+            criterion=SealCriterionName.AVAILABLE,
+            observed_status="unknown",
+            confirmed_status="fail",
+            first_observed_failure_at=NOW - timedelta(days=20),
+            last_observed_failure_at=NOW - timedelta(days=1),
+            last_confirmed_failure_at=NOW - timedelta(days=1),
+            probation_start=NOW,
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
+
+        assert result.status == CriterionStatus.FAIL.value
+        assert result.on_probation is False
+        assert result.probation_ends_at is None
+
+    def test_an_unevaluable_run_does_not_clear_the_grace_period(self):
+        """A night that reached no verdict leaves the streak, and its countdown, standing."""
+        first_failure = NOW - timedelta(days=10)
+        row = make_row(
+            observed_status="unknown",
+            confirmed_status="pass",
+            first_observed_failure_at=first_failure,
+            last_observed_failure_at=NOW - timedelta(days=1),
+        )
+        result = ReliabilityCriterionImpl.from_orm(row)
+
+        assert result.status == CriterionStatus.PASS.value
+        assert result.in_grace_period is True
+        assert result.grace_period_ends_at == first_failure + GRACE_PERIODS[SealCriterionName.COMPLIANT]
 
     def test_official_and_stable_serve_no_probation(self):
         """`official` and `stable` are exempt, even if a probation_start is somehow stored."""
@@ -247,3 +288,21 @@ class TestReliabilityCriterionImpl(unittest.TestCase):
 
         assert result.in_grace_period is True
         assert result.grace_period_ends_at is None
+
+    def test_the_served_status_is_the_one_the_seal_is_decided_on(self):
+        """The contract #1789 sets: `status` explains `has_seal`, so it is `confirmed_status`.
+
+        A criterion whose daily check fails while the debounced verdict still passes must not be
+        served as failing, or a client cannot reconcile the criteria it is shown with the seal
+        it is shown beside them.
+        """
+        row = make_row(
+            observed_status="fail",
+            confirmed_status="pass",
+            first_observed_failure_at=NOW - timedelta(days=1),
+            last_observed_failure_at=NOW,
+        )
+        assert ReliabilityCriterionImpl.from_orm(row).status == CriterionStatus.PASS.value
+
+        row = make_row(observed_status="pass", confirmed_status="fail", last_confirmed_failure_at=NOW)
+        assert ReliabilityCriterionImpl.from_orm(row).status == CriterionStatus.FAIL.value

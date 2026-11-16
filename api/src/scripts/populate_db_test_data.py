@@ -332,6 +332,9 @@ class DatabasePopulateTestDataHelper:
                     latency_ms=check.get("latency_ms"),
                     error_type=check.get("error_type"),
                 )
+                # Left unset when absent so the column default applies; source is NOT NULL.
+                if "source" in check:
+                    availability_check.source = check["source"]
                 db_session.add(availability_check)
 
         db_session.commit()

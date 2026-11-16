@@ -14,6 +14,8 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 # For mdb-1562, change is_official from FALSE to TRUE. Should change to True.
 # Also change is_producer_url_unstable from base FALSE to TRUE: should change to True.
 # Also change is_seasonal from base FALSE to TRUE: should change to True.
+# For mdb-1562, first populate sa|vp, then the following row narrows entity_type to sa to verify replacement semantics.
+1562,gtfs-rt,sa|vp,CA,BC,Vancouver,Vancouver-Transit(éèàçíóúČ),TRUE,Realtime(ŘŤÜÎ),,,50,http://foo.org/google_transit.zip,0,,,,,,,,,,active,,10,,TRUE,TRUE
 1562,gtfs-rt,sa,CA,BC,Vancouver,Vancouver-Transit(éèàçíóúČ),TRUE,Realtime(ŘŤÜÎ),,,50,http://foo.org/google_transit.zip,0,,,,,,,,,,active,,10,,TRUE,TRUE
 # For mdb-1563, change is_official from TRUE to FALSE. Should change to False.
 # Also change is_producer_url_unstable from base TRUE to FALSE: should change to False.
@@ -26,3 +28,9 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 
 # Multi-parent regression fixture for #1567: inherit the union of locations from referenced static GTFS feeds.
 99992,gtfs-rt,tu,,,,Location Lifecycle Test,TRUE,Multi-parent Locationless RT,,,40|50,https://example.com/gtfs-rt-multi,0,,,,,,,,,,active,,,,,
+
+
+# Blank, padded/mixed-case and partly invalid entity_type cells.
+99993,gtfs-rt,,,,,Entity Type Test,TRUE,Blank Entity Type RT,,,50,https://example.com/gtfs-rt-blank-entity,0,,,,,,,,,,active,,,,,
+99994,gtfs-rt, VP | sa ,,,,Entity Type Test,TRUE,Padded Entity Type RT,,,50,https://example.com/gtfs-rt-padded-entity,0,,,,,,,,,,active,,,,,
+99995,gtfs-rt,tu-bogus,,,,Entity Type Test,TRUE,Unknown Entity Type RT,,,50,https://example.com/gtfs-rt-unknown-entity,0,,,,,,,,,,active,,,,,

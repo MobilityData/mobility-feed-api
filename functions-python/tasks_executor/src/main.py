@@ -32,6 +32,9 @@ from tasks.dataset_files.rebuild_missing_dataset_files import (
 from tasks.dataset_files.backfill_dataset_hash_md5 import (
     backfill_dataset_hash_md5_handler,
 )
+from tasks.dataset_files.backfill_latest_cache_control import (
+    backfill_latest_cache_control_handler,
+)
 from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
@@ -68,6 +71,8 @@ from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 from tasks.users.reconcile_announcements_from_brevo import (
     reconcile_announcements_from_brevo_handler,
 )
+from tasks.task_execution_stats import task_execution_stats_handler
+from tasks.users.purge_early_access_invites import purge_early_access_invites_handler
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
     notifications_dispatch_handler,
@@ -76,6 +81,18 @@ from tasks.notifications.dispatch_monitor import (
     notifications_dispatch_monitor_handler,
 )
 from tasks.changelog.backfill_changelog import backfill_changelog_handler
+from tasks.seal_of_reliability.backfill.backfill_seal_of_reliability import (
+    backfill_seal_of_reliability_handler,
+)
+
+from tasks.seal_of_reliability.backfill.seal_backfill_orchestrator import (
+    seal_backfill_orchestrator_handler,
+)
+
+from tasks.seal_of_reliability.backfill.seal_backfill_worker import (
+    seal_backfill_worker_handler,
+)
+
 from tasks.seal_of_reliability.update_seal_of_reliability import (
     update_seal_of_reliability_handler,
 )
@@ -147,6 +164,16 @@ tasks = {
         ),
         "handler": backfill_dataset_hash_md5_handler,
     },
+    "backfill_latest_cache_control": {
+        "description": (
+            "Sets the CDN Cache-Control on the latest.zip of every feed with a latest "
+            "dataset, so files uploaded before the batch process set it get the full CDN "
+            "lifetime. Patches object metadata only. Parameters: dry_run (default true), "
+            "uploaded_before (ISO 8601, default null), limit (default null), "
+            "bucket_name (default DATASETS_BUCKET_NAME)."
+        ),
+        "handler": backfill_latest_cache_control_handler,
+    },
     "update_geojson_files": {
         "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
         "handler": update_geojson_files_precision_handler,
@@ -197,8 +224,8 @@ tasks = {
             "(the only field updated on an existing row is brevo_synced_at). "
             "Reads profile fields (fullName, organization, registrationCompletionTime) "
             "from Datastore kind 'web_api_users' (queried by uid property). "
-            "Uses Brevo as the source of truth for is_registered_to_receive_api_announcements. "
-            "Ensures each user has an api.announcements notification_subscription and "
+            "Ensures each user has an api.announcements notification_subscription "
+            "(disabled when Brevo reports the contact UNSUBSCRIBED) and "
             "writes MDB_SUBSCRIPTION_ID back onto the Brevo contact, tracking that "
             "write via app_user.brevo_synced_at (idempotent: users already synced "
             "are skipped). "
@@ -213,13 +240,34 @@ tasks = {
             "api.announcements (reverse of the API/migration forward opt-in path). "
             "For every user with an ACTIVE api.announcements subscription, reads the "
             "Brevo contact status; when Brevo reports UNSUBSCRIBED (global "
-            "email_blacklisted or list-level unsubscribe), sets "
-            "app_user.is_registered_to_receive_api_announcements=false and "
-            "deactivates the subscription (active=false). Turn-OFF only: never "
+            "email_blacklisted or list-level unsubscribe), deactivates the "
+            "subscription (active=false). Turn-OFF only: never "
             "re-subscribes or adds anyone on SUBSCRIBED/NOT_FOUND. Idempotent. "
             "Parameters: dry_run (default true), limit (default null)."
         ),
         "handler": reconcile_announcements_from_brevo_handler,
+    },
+    "task_execution_stats": {
+        "description": (
+            "Aggregates task_execution_attempt for one task over a window: attempts, "
+            "completions and failures by worker variant, peak address space and RSS per "
+            "variant, duration percentiles, failure counts by kind, and the entities "
+            "that needed more than one attempt. Read-only. Exists because worker sizing "
+            "has to come from a distribution, not from whichever build someone last "
+            "looked at; it reports, it does not retune. Parameters: task_name "
+            "(required), window_days (default 30), limit (default 20)."
+        ),
+        "handler": task_execution_stats_handler,
+    },
+    "purge_early_access_invites": {
+        "description": (
+            "Deletes early_access_invited_email rows past their program's "
+            "invite_retention_days. Privacy: we must not hold the email of someone "
+            "who never registered. Claiming an invite already deletes its row; this "
+            "sweeps up ones never claimed. Reports counts per program only, never "
+            "addresses. Parameters: dry_run (default true)."
+        ),
+        "handler": purge_early_access_invites_handler,
     },
     "notifications_dispatch_batch": {
         "description": (
@@ -302,6 +350,55 @@ tasks = {
         ),
         "handler": update_seal_of_reliability_handler,
     },
+    "backfill_seal_of_reliability": {
+        "description": (
+            "Establishes a starting Seal of Reliability state for feeds that have none "
+            "(issue #1763), by cold-starting each feed 12 months back and replaying the "
+            "nightly evaluation forward one day at a time to end_date, writing only the "
+            "final day. The intermediate days are held in memory and discarded unless "
+            "snapshot_mode says otherwise. "
+            "Parameters: stable_feed_ids (required, non-empty), start_date (ISO date, "
+            "default end_date minus days_back; clamped up to each feed's created_at), "
+            "end_date (ISO date, default yesterday UTC), days_back (default 365), "
+            "dry_run (default true), limit (default null), criteria (default null "
+            "meaning every implemented criterion), batch_size (default 200), "
+            "only_missing (default true; skips feeds already holding every criterion "
+            "of the run, so re-running finishes an interrupted one), "
+            "snapshot_mode (final|all|none, default all), resume_from_snapshot "
+            "(default false; the #1803 hook), max_reported_feeds (default 50)."
+        ),
+        "handler": backfill_seal_of_reliability_handler,
+    },
+    "seal_backfill_orchestrator": {
+        "description": (
+            "Cloud Tasks producer for the Seal of Reliability backfill across the whole "
+            "catalog (issue #1763). Resolves every seal-eligible GTFS feed not yet "
+            "holding all of the run's criteria, chunks it, registers a run in "
+            "TaskExecutionTracker (feeds "
+            "DB), and enqueues one 'seal_backfill_worker' task per batch plus a single "
+            "'seal_orchestrator_monitor' barrier task. The window is resolved here once "
+            "and passed to every worker, so all batches of a run end on the same day. "
+            "Parameters: dry_run (default true), batch_size (default 100), start_date "
+            "(ISO date, default end_date minus days_back), end_date (ISO date, default "
+            "yesterday UTC), days_back (default 365), criteria (default null), limit "
+            "(default null), stable_feed_ids (restrict eligibility to these ids, default "
+            "null), only_missing (default true), snapshot_mode (final|all|none, default "
+            "final), resume_from_snapshot (default false), deadline_seconds (default "
+            "7200), monitor_delay_seconds (default 300)."
+        ),
+        "handler": seal_backfill_orchestrator_handler,
+    },
+    "seal_backfill_worker": {
+        "description": (
+            "Cloud Tasks worker: march one batch's worth of feeds for the Seal of "
+            "Reliability backfill and report completion/failure to TaskExecutionTracker. "
+            "Parameters: run_id (required), batch_id (required), stable_feed_ids "
+            "(required, non-empty), start_date (required, ISO date), end_date (required, "
+            "ISO date), criteria (default null), only_missing (default true), "
+            "snapshot_mode (default all), resume_from_snapshot (default false)."
+        ),
+        "handler": seal_backfill_worker_handler,
+    },
     "seal_orchestrator": {
         "description": (
             "Cloud Tasks producer for the nightly Seal of Reliability run across the "
@@ -333,8 +430,10 @@ tasks = {
             "batch of a seal orchestrator run has reported, or the run's "
             "deadline_seconds passes, then aggregates each batch's report and marks "
             "the run completed (every batch succeeded) or failed (any batch failed, "
-            "or the deadline was reached with batches still unaccounted for). "
-            "Parameters: run_id (required)."
+            "or the deadline was reached with batches still unaccounted for). Settles "
+            "both the nightly fan-out and the backfill fan-out; task_name selects which. "
+            "Parameters: run_id (required), task_name (default 'seal_orchestrator_run'; "
+            "pass 'seal_backfill_run' for a backfill run)."
         ),
         "handler": seal_orchestrator_monitor_handler,
     },

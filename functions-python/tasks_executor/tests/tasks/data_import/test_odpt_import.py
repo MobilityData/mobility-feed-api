@@ -204,6 +204,37 @@ class _FakeSessionRtGranularity:
         return _FakeResponse([], 404)
 
 
+class _FakeSessionSeasonal:
+    """
+    One org/dataset in its own namespace, with no RT urls, used by the `seasonal`
+    preservation test. The dataset name differs from the stale one seeded into the DB so
+    the schedule fingerprint cannot match and the importer must take its update path.
+    """
+
+    def get(self, url, timeout=60):
+        if url == METADATA_URL_TMPL.format("ccby4", "gtfs"):
+            return _FakeResponse(
+                [
+                    {
+                        "label": "SeasonOrg",
+                        "name_ja": "シーズン組織",
+                        "name_en": "Season Org",
+                        "datasets": [
+                            {
+                                "label": "season_dataset",
+                                "name_ja": "シーズンデータセット",
+                                "name_en": "Season Dataset",
+                                "license_type": "CC BY 4.0",
+                            }
+                        ],
+                    }
+                ]
+            )
+        if url == METADATA_URL_TMPL.format("cc0", "gtfs"):
+            return _FakeResponse([])
+        return _FakeResponse([], 404)
+
+
 class _FakeSessionEmpty:
     """Successful HTTP 200 responses that happen to contain no datasets at all."""
 
@@ -720,6 +751,58 @@ class TestImportODPT(unittest.TestCase):
         self.assertEqual(out["deprecated"], 0)
         self.assertEqual(out["linked_refs"], 0)
         self.assertEqual(out["total_processed_items"], 0)
+
+    @with_db_session(db_url=default_db_url)
+    def test_seasonal_survives_reimport(self, db_session: Session):
+        """`seasonal` is operator-owned, so a re-import must leave it alone.
+
+        ODPT carries no seasonality signal, so if the importer ever wrote the column the
+        flag would be cleared on the next monthly run and the feed would silently start
+        failing the rolling 7-day coverage criterion again.
+        """
+        stable_id = "odpt-SeasonOrg-season_dataset"
+        try:
+            _seed_feed(
+                db_session,
+                Gtfsfeed,
+                stable_id,
+                "gtfs",
+                # Stale on purpose: feed_name is part of the schedule fingerprint, so this
+                # forces the update path. Without it the importer short-circuits on
+                # "no change detected" and the test would pass vacuously.
+                feed_name="Stale dataset name",
+                seasonal=True,
+            )
+            db_session.commit()
+
+            with patch(
+                "tasks.data_import.odpt.import_odpt_feeds.requests.Session",
+                return_value=_FakeSessionSeasonal(),
+            ), patch(
+                "tasks.data_import.odpt.import_odpt_feeds.REQUEST_TIMEOUT_S", 0.01
+            ), patch(
+                "tasks.data_import.data_import_utils.trigger_dataset_download",
+                MagicMock(),
+            ), patch(
+                "tasks.data_import.data_import_utils.create_web_revalidation_task",
+                MagicMock(),
+            ), patch(
+                "tasks.data_import.odpt.import_odpt_feeds.deprecate_stale_feeds",
+                MagicMock(return_value=[]),
+            ), patch.dict(
+                os.environ, {"ENVIRONMENT": "test"}, clear=False
+            ):
+                import_odpt_handler({"dry_run": False})
+
+            db_session.expire_all()
+            feed = (
+                db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == stable_id).one()
+            )
+            # Proves the importer really rewrote this row, so the assertion below is real.
+            self.assertEqual(feed.feed_name, "シーズンデータセット")
+            self.assertTrue(feed.seasonal)
+        finally:
+            _delete_feeds_like(db_session, f"{stable_id}%")
 
 
 if __name__ == "__main__":

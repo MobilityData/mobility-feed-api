@@ -15,7 +15,10 @@
 #
 """Fresh (future coverage) criterion: the closest dataset still covers the near future."""
 
-from typing import Tuple
+from datetime import date
+from typing import Optional, Sequence, Tuple
+
+from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import (
     FUTURE_COVERAGE_HORIZON,
@@ -23,6 +26,10 @@ from shared.common.seal_criteria import (
     SealCriterionName,
 )
 from tasks.seal_of_reliability.context import FeedSealContext
+from tasks.seal_of_reliability.history import (
+    DatasetHistory,
+    load_dataset_history,
+)
 from tasks.seal_of_reliability.evaluators.base import CriterionEvaluator
 
 
@@ -32,9 +39,22 @@ class FreshCoverageEvaluator(CriterionEvaluator):
     This is the only implemented criterion that can return NOT_APPLICABLE. A seasonal feed
     is expected to have coverage that runs out between seasons, so the question "does this
     feed cover the next week" has no meaningful answer for it.
+
+    Its inputs also vary by day, so it loads them itself in `load_history` instead of reading
+    a field on `FeedSealContext`. `ctx.closest_dataset` holds one answer, for one `now`, and a
+    march needs one per day - see the `context` module docstring on the three kinds of input.
     """
 
     name = SealCriterionName.FRESH_COVERAGE
+
+    def load_history(
+        self,
+        db_session: Session,
+        feeds: Sequence,
+        days: Sequence[date],
+    ) -> Optional[DatasetHistory]:
+        """The datasets the batch's feeds had over `days`. See `load_dataset_history`."""
+        return load_dataset_history(db_session, feeds, days)
 
     def _evaluate(self, ctx: FeedSealContext) -> Tuple[CriterionStatus, str]:
         # Applicability is a property of the feed, so it is settled before the inputs are
@@ -45,12 +65,23 @@ class FreshCoverageEvaluator(CriterionEvaluator):
                 "the feed is seasonal, so future coverage is not required",
             )
 
+        if ctx.history is None or not ctx.history.has_history_for(self.name):
+            # Not a data condition: the context was built without running this criterion's
+            # loader. Said out loud in the reason rather than passed off as a missing dataset,
+            # because the two look identical in the stored row and only this one is a bug.
+            return (
+                CriterionStatus.UNKNOWN,
+                "fresh_coverage history was never loaded for this run - the context was "
+                "built without calling load_history",
+            )
+
         # Two different missing inputs, kept apart so the report says which: no dataset at
         # all as of this run, or one whose coverage was never extracted.
-        if ctx.closest_dataset is None:
+        closest = ctx.history.get_closest_dataset_at(ctx.feed_id, ctx.now)
+        if closest is None:
             return CriterionStatus.UNKNOWN, "the feed has no dataset"
 
-        coverage_end = ctx.closest_dataset.service_date_range_end
+        coverage_end = closest.service_date_range_end
         if coverage_end is None:
             return (
                 CriterionStatus.UNKNOWN,

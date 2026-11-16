@@ -18,8 +18,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 import logging
-from datetime import datetime
-from typing import Annotated, Final, Optional
+import re
+from datetime import datetime, timezone
+from typing import Annotated, Final, List, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -29,9 +30,23 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from feeds_gen.models.data_type import DataType
+from feeds_gen.models.execution_attempt import ExecutionAttempt
+from feeds_gen.models.execution_attempts_response import ExecutionAttemptsResponse
 from feeds_gen.models.get_feeds200_response import GetFeeds200Response
 from feeds_gen.models.gtfs_feed_availability_response import (
     GtfsFeedAvailabilityResponse,
+)
+from feeds_gen.models.gtfs_feed_download_debug_request import (
+    GtfsFeedDownloadDebugRequest,
+)
+from feeds_gen.models.gtfs_feed_download_debug_response import (
+    GtfsFeedDownloadDebugResponse,
+)
+from feeds_gen.models.gtfs_feed_download_headers_response import (
+    GtfsFeedDownloadHeadersResponse,
+)
+from feeds_gen.models.gtfs_feed_download_queued_response import (
+    GtfsFeedDownloadQueuedResponse,
 )
 from feeds_gen.models.operation_create_request_gtfs_feed import (
     OperationCreateRequestGtfsFeed,
@@ -55,18 +70,35 @@ from feeds_gen.models.update_request_gtfs_rt_feed import (
 from middleware.request_context_oauth2 import get_request_context
 from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
+    ConfigValueFeed,
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
+    Gtfsdataset,
     t_feedsearch,
     Feed,
     Gtfsrealtimefeed,
+    TaskExecutionAttempt,
 )
+from shared.common.availability_check_source import AvailabilityCheckSource
+from shared.common.config_reader import get_config_value
+from shared.helpers.parquet_policy import SIZE_CONFIG_KEY, SIZE_CONFIG_NAMESPACE
 from shared.common.license_utils import assign_license_by_url, propagate_license_by_url
 from shared.common.gcp_utils import create_web_revalidation_task
 from shared.db_models.gtfs_feed_availability_check_impl import (
     GtfsFeedAvailabilityCheckImpl,
 )
-from shared.helpers.pub_sub import get_execution_id, trigger_dataset_download
+from shared.helpers.pub_sub import (
+    DATASET_BATCH_TOPIC,
+    get_execution_id,
+    trigger_dataset_download,
+)
+from shared.helpers.utils import (
+    FeedDownloadError,
+    build_feed_request_params,
+    default_request_headers,
+    download_feed,
+    get_feed_credentials,
+)
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
@@ -95,6 +127,20 @@ from .request_validator import validate_request
 # comparing it would report a phantom change whenever the request omits it.
 _DERIVED_SOURCE_INFO_FIELDS: Final[tuple[str, ...]] = ("license_is_spdx",)
 
+# Tri-state fields: an omitted value means "preserve the stored one", and `to_orm` skips
+# them, so the diff must not report a phantom change. The inverse case of
+# _DERIVED_SOURCE_INFO_FIELDS: those are readable but not settable, these are settable but
+# not clearable by omission. Without this, a request that never mentions one of them would
+# force the write branch of `_update_feed` -- a 200 instead of a 204, plus a needless
+# materialized view refresh and web revalidation task.
+#
+# This is what lets a feed GET response be sent straight back as an update with no change
+# detected: absence means "unchanged" for every field that has no other way to say it.
+_PRESERVE_WHEN_OMITTED_FIELDS: Final[tuple[str, ...]] = (
+    "seasonal",
+    "operational_status",
+)
+
 
 def _normalize_for_diff(value):
     """Recursively coerce "absent" representations to None so change detection mirrors
@@ -120,6 +166,133 @@ def _strip_derived_fields(dumped: dict) -> dict:
         for field in _DERIVED_SOURCE_INFO_FIELDS:
             source_info.pop(field, None)
     return dumped
+
+
+def _current_size_override(db_session, feed_id) -> tuple[Optional[str], bool]:
+    """The size configured for this feed and whether it is held, if any.
+
+    An override decides which worker runs the build, so reporting it answers the question
+    this page exists for. Who set it is in `variant_basis` on each attempt.
+
+    The lock matters more than it looks: a locked feed never escalates, so a run of
+    failed attempts with no `escalated_to` has no other explanation visible from here.
+    """
+    value = get_config_value(
+        SIZE_CONFIG_NAMESPACE, SIZE_CONFIG_KEY, feed_id=feed_id, db_session=db_session
+    )
+    if isinstance(value, dict):
+        return value.get("size"), value.get("locked") is True
+    return (value if isinstance(value, str) else None), False
+
+
+def _as_datetime(value) -> Optional[datetime]:
+    """A query timestamp, from whatever the router handed over.
+
+    The generated router types these as `str`, so an ISO string is the usual case; an
+    unparsable one is rejected rather than silently ignored, since a filter that quietly
+    does nothing is worse than an error.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid date-time: {value}"
+        ) from None
+
+
+def _execution_attempt(row) -> ExecutionAttempt:
+    """One stored attempt, as the API reports it."""
+    return ExecutionAttempt(
+        task_name=row.task_name,
+        dataset_stable_id=row.entity_id,
+        attempt=row.attempt,
+        variant=row.variant,
+        variant_basis=row.variant_basis,
+        override_at_attempt=row.override_at_attempt,
+        escalated_to=row.escalated_to,
+        status=row.status,
+        failure_kind=row.failure_kind,
+        error_type=row.error_type,
+        error_message=row.error_message,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        duration_ms=row.duration_ms,
+        peak_rss_bytes=row.peak_rss_bytes,
+        peak_vms_bytes=row.peak_vms_bytes,
+    )
+
+
+# Availability-check source batch_process_dataset records runs asked for by hand under,
+# dry or full.
+DOWNLOAD_MANUAL_SOURCE: Final = AvailabilityCheckSource.DATASET_DOWNLOAD_MANUAL.value
+
+# Stop reading well inside the function's 540 second timeout, so a slow download still
+# returns its diagnostics instead of the request being cut off with nothing.
+_DOWNLOAD_DEBUG_DEADLINE_SECONDS: Final = 480
+HTTP_HEADERS_NAMESPACE: Final = "feed_download"
+HTTP_HEADERS_KEY: Final = "http_headers"
+
+# RFC 9110 field-name token. Values only need to be free of line breaks, which would
+# let a caller smuggle extra headers into the request.
+_HEADER_NAME_RE: Final = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
+
+def _validate_debug_headers(headers: Optional[dict]) -> None:
+    """Reject custom download headers that requests would refuse mid-download."""
+    for name, value in (headers or {}).items():
+        if not _HEADER_NAME_RE.match(name):
+            raise HTTPException(status_code=400, detail=f"Invalid header name {name!r}")
+        if "\r" in value or "\n" in value:
+            raise HTTPException(
+                status_code=400, detail=f"Header {name!r} contains a line break"
+            )
+
+
+def _queue_nightly_download(
+    gtfs_feed,
+    headers: Optional[dict],
+    dry_run: bool,
+    latest_dataset: Optional[Gtfsdataset] = None,
+) -> JSONResponse:
+    """Queue one run on batch_process_dataset and say where its download outcome lands.
+
+    A dry run only downloads. A full run is the nightly process itself for this feed,
+    with the download outcome recorded even on success so the caller can read it back.
+    """
+    # trigger_dataset_download silently skips without a topic; say so instead of
+    # leaving the caller polling for a result that will never come.
+    if not DATASET_BATCH_TOPIC:
+        raise HTTPException(
+            status_code=503,
+            detail="Dataset processing is not configured in this environment",
+        )
+    prefix = "download-dry-run" if dry_run else "download-manual"
+    execution_id = get_execution_id(get_request_context(), prefix)
+    queued_at = datetime.now(timezone.utc)
+    if dry_run:
+        trigger_dataset_download(gtfs_feed, execution_id, dry_run=True, headers=headers)
+    else:
+        # The latest dataset's hash, as the nightly scheduler sends it, so an unchanged
+        # file is recognised and no new dataset is stored.
+        trigger_dataset_download(
+            gtfs_feed,
+            execution_id,
+            record_source=DOWNLOAD_MANUAL_SOURCE,
+            dataset_stable_id=latest_dataset.stable_id if latest_dataset else None,
+            dataset_hash=latest_dataset.hash if latest_dataset else None,
+        )
+    payload = GtfsFeedDownloadQueuedResponse(
+        feed_id=gtfs_feed.stable_id,
+        execution_id=execution_id,
+        queued_at=queued_at,
+        source=DOWNLOAD_MANUAL_SOURCE,
+        dry_run=dry_run,
+    )
+    return JSONResponse(status_code=202, content=jsonable_encoder(payload))
 
 
 class OperationsApiImpl(BaseOperationsApi):
@@ -249,12 +422,24 @@ class OperationsApiImpl(BaseOperationsApi):
         ],
         var_from: Optional[datetime] = None,
         to: Optional[datetime] = None,
+        source: Optional[List[str]] = None,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
         sort: Optional[str] = "desc",
         db_session: Session = None,
     ) -> GtfsFeedAvailabilityResponse:
-        """Get availability check history for the specified GTFS feed."""
+        """Get availability check history for the specified GTFS feed.
+
+        Unlike the public endpoint, every source is returned unless `source` narrows it.
+        """
+        known_sources = {s.value for s in AvailabilityCheckSource}
+        unknown_sources = sorted(set(source or []) - known_sources)
+        if unknown_sources:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid source {', '.join(unknown_sources)}; "
+                f"expected one of {', '.join(sorted(known_sources))}",
+            )
         gtfs_feed = (
             db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
         )
@@ -268,6 +453,8 @@ class OperationsApiImpl(BaseOperationsApi):
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= var_from)
         if to is not None:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at <= to)
+        if source:
+            query = query.filter(GtfsFeedAvailabilityCheck.source.in_(source))
 
         total = query.count()
         order = (
@@ -283,6 +470,224 @@ class OperationsApiImpl(BaseOperationsApi):
             offset=offset,
             limit=limit,
             checks=[GtfsFeedAvailabilityCheckImpl.from_orm(c) for c in checks],
+        )
+
+    @with_db_session
+    def get_gtfs_feed_execution_attempts(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        task_name: Optional[str] = None,
+        status: Optional[str] = None,
+        failure_kind: Optional[str] = None,
+        var_from: Optional[str] = None,
+        to: Optional[str] = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        db_session: Session = None,
+    ) -> ExecutionAttemptsResponse:
+        """What background tasks have tried to do with this feed, newest first.
+
+        Attempts are recorded against a dataset, so this spans every dataset of the feed:
+        an admin looking at a feed wants its whole history, not one version's.
+        """
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+
+        # The dataset stable ids are the entity ids the attempts were recorded under.
+        dataset_ids = [
+            row[0]
+            for row in db_session.query(Gtfsdataset.stable_id)
+            .filter(Gtfsdataset.feed_id == gtfs_feed.id)
+            .all()
+        ]
+
+        query = db_session.query(TaskExecutionAttempt).filter(
+            TaskExecutionAttempt.entity_id.in_(dataset_ids or [""])
+        )
+        if task_name:
+            query = query.filter(TaskExecutionAttempt.task_name == task_name)
+        if status:
+            query = query.filter(TaskExecutionAttempt.status == status)
+        if failure_kind:
+            query = query.filter(TaskExecutionAttempt.failure_kind == failure_kind)
+        # On started_at, not finished_at: a long build should be found by when it was
+        # triggered, which is what someone looking for "what ran on Tuesday" means.
+        start = _as_datetime(var_from)
+        if start is not None:
+            query = query.filter(TaskExecutionAttempt.started_at >= start)
+        end = _as_datetime(to)
+        if end is not None:
+            query = query.filter(TaskExecutionAttempt.started_at <= end)
+
+        total = query.count()
+        attempts = (
+            query.order_by(TaskExecutionAttempt.finished_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        size_override, size_locked = _current_size_override(db_session, gtfs_feed.id)
+        return ExecutionAttemptsResponse(
+            feed_stable_id=id,
+            current_size_override=size_override,
+            current_size_locked=size_locked,
+            total=total,
+            attempts=[_execution_attempt(row) for row in attempts],
+        )
+
+    @with_db_session
+    def debug_gtfs_feed_download(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        max_bytes: Optional[int] = None,
+        timeout_seconds: Optional[int] = None,
+        gtfs_feed_download_debug_request: Optional[GtfsFeedDownloadDebugRequest] = None,
+        db_session: Session = None,
+    ) -> GtfsFeedDownloadDebugResponse:
+        """Download the feed through the shared download path, here or on the nightly job."""
+        request = gtfs_feed_download_debug_request
+        headers = request.headers if request else None
+        run_on = (request.run_on if request else None) or "api"
+        dry_run = request.dry_run if request and request.dry_run is not None else True
+        _validate_debug_headers(headers)
+        if not dry_run and run_on != "nightly_job":
+            raise HTTPException(
+                status_code=400, detail="dry_run=false requires run_on=nightly_job"
+            )
+        if not dry_run and headers is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="headers are only allowed on dry runs, so a stored dataset "
+                "always comes from the nightly request",
+            )
+        if run_on == "nightly_job" and (
+            max_bytes is not None or timeout_seconds is not None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="max_bytes and timeout_seconds apply only to run_on=api",
+            )
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        if not gtfs_feed.producer_url:
+            raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+        if run_on == "nightly_job":
+            latest_dataset = (
+                db_session.get(Gtfsdataset, gtfs_feed.latest_dataset_id)
+                if gtfs_feed.latest_dataset_id
+                else None
+            )
+            return _queue_nightly_download(gtfs_feed, headers, dry_run, latest_dataset)
+
+        # Streamed and hashed, never written: Cloud Run's disk is memory, and a full-size
+        # feed would otherwise exhaust the instance serving every other request.
+        stop_reason = None
+        duration_ms = None
+        try:
+            result = download_feed(
+                gtfs_feed.producer_url,
+                file_path=None,
+                feed_id=gtfs_feed.id,
+                authentication_type=gtfs_feed.authentication_type or 0,
+                api_key_parameter_name=gtfs_feed.api_key_parameter_name,
+                credentials=get_feed_credentials(gtfs_feed.stable_id),
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+                headers=headers,
+                deadline_seconds=_DOWNLOAD_DEBUG_DEADLINE_SECONDS,
+            )
+            diagnostics = result.diagnostics
+            stop_reason = result.stop_reason
+            duration_ms = result.duration_ms
+        except FeedDownloadError as exc:
+            diagnostics = exc.diagnostics
+
+        return GtfsFeedDownloadDebugResponse(
+            feed_id=gtfs_feed.stable_id,
+            producer_url=diagnostics.request_url,
+            resolved_url=diagnostics.resolved_url,
+            success=diagnostics.success,
+            status_code=diagnostics.status_code,
+            latency_ms=diagnostics.latency_ms,
+            request_headers=diagnostics.request_headers,
+            response_headers=diagnostics.response_headers,
+            redirect_urls=diagnostics.redirect_urls,
+            external_ip=diagnostics.external_ip,
+            content_type=diagnostics.content_type,
+            is_zip=diagnostics.is_zip,
+            downloaded_bytes=diagnostics.downloaded_bytes,
+            truncated=stop_reason is not None,
+            stop_reason=stop_reason,
+            duration_ms=duration_ms,
+            error_type=diagnostics.error_type,
+            error_message=diagnostics.error_message,
+        )
+
+    @with_db_session
+    def get_gtfs_feed_download_headers(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        db_session: Session = None,
+    ) -> GtfsFeedDownloadHeadersResponse:
+        """Headers the nightly download sends for the feed, and where they come from."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        if not gtfs_feed.producer_url:
+            raise HTTPException(status_code=400, detail="GTFS feed has no producer URL")
+
+        # Same helper as the download, without credentials, so the API key is left out.
+        headers, _ = build_feed_request_params(
+            gtfs_feed.producer_url, feed_id=gtfs_feed.id
+        )
+        has_override = (
+            db_session.query(ConfigValueFeed.feed_id)
+            .filter(
+                ConfigValueFeed.feed_id == gtfs_feed.id,
+                ConfigValueFeed.namespace == HTTP_HEADERS_NAMESPACE,
+                ConfigValueFeed.key == HTTP_HEADERS_KEY,
+            )
+            .first()
+            is not None
+        )
+        if has_override:
+            source = "override"
+        elif (
+            get_config_value(
+                HTTP_HEADERS_NAMESPACE, HTTP_HEADERS_KEY, db_session=db_session
+            )
+            is not None
+        ):
+            source = "config_default"
+        else:
+            source = "built_in"
+
+        api_key_header = (
+            gtfs_feed.api_key_parameter_name
+            if gtfs_feed.authentication_type == "2"
+            else None
+        )
+        return GtfsFeedDownloadHeadersResponse(
+            feed_id=gtfs_feed.stable_id,
+            headers=headers,
+            source=source,
+            built_in_headers=default_request_headers(gtfs_feed.producer_url),
+            api_key_header=api_key_header,
         )
 
     @with_db_session
@@ -311,15 +716,15 @@ class OperationsApiImpl(BaseOperationsApi):
     ) -> DeepDiff:
         """Detect changes between the feed and the update request."""
         copy_feed = impl_class.from_orm(feed)
-        copy_feed.operational_status_action = (
-            update_request_feed.operational_status_action
-        )
         current_values = _strip_derived_fields(
             _normalize_for_diff(copy_feed.model_dump())
         )
         requested_values = _strip_derived_fields(
             _normalize_for_diff(update_request_feed.model_dump())
         )
+        for field in _PRESERVE_WHEN_OMITTED_FIELDS:
+            if requested_values.get(field) is None:
+                requested_values[field] = current_values.get(field)
         diff = DeepDiff(
             current_values,
             requested_values,
@@ -393,10 +798,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 else UpdateRequestGtfsRtFeedImpl
             )
             diff = self.detect_changes(feed_from_db, update_request_feed, impl_class)
-            if len(diff.affected_paths) > 0 or (
-                update_request_feed.operational_status_action is not None
-                and update_request_feed.operational_status_action != "no_change"
-            ):
+            # Every settable field, `operational_status` included, is visible to the diff, so
+            # this is the single gate: write exactly when something actually changed.
+            if len(diff.affected_paths) > 0:
                 # Capture pre-mutation state for notification events (before to_orm mutates the object).
                 old_producer_url = getattr(feed_from_db, "producer_url", None)
                 old_redirect_target_ids = {
@@ -499,15 +903,6 @@ class OperationsApiImpl(BaseOperationsApi):
     @staticmethod
     def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
-        action = update_request_feed.operational_status_action
-        # This is a temporary solution as the operational_status is not visible in the diff
-        if action is not None and not action.lower() == "no_change":
-            if action.lower() == "wip":
-                feed.operational_status = "wip"
-            elif action.lower() == "published":
-                feed.operational_status = "published"
-            elif action.lower() == "unpublished":
-                feed.operational_status = "unpublished"
         session.add(feed)
 
     @staticmethod

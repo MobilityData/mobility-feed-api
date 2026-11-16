@@ -1,13 +1,26 @@
 {% extends "_base_email.html.j2" %}
 {% import "_admin_summary_block.html.j2" as blocks %}
-{% block title %}Mobility Database Notification Dispatch Summary{% endblock %}
-{% block header_label %}Dispatch Summary{% endblock %}
-{% block preheader %}{{ summaries | length }} notification dispatch summar{{ "ies" if summaries | length != 1 else "y" }}.{% endblock %}
+{# A digest can mix subtypes, so it only names one when every entry agrees - the same rule
+   build_digest_subject applies to the subject line. #}
+{% set subtypes = entries | map(attribute="subtype") | list | unique | list %}
+{% set only_seal = subtypes == ["seal_run_summary"] %}
+{% set only_dispatch = subtypes == ["dispatch_summary"] %}
+{% block title %}
+{%- if only_seal -%}Mobility Database Seal of Reliability Summary
+{%- elif only_dispatch -%}Mobility Database Notification Dispatch Summary
+{%- else -%}Mobility Database Admin Summary{%- endif -%}
+{% endblock %}
+{% block header_label %}
+{%- if only_seal -%}Seal Summary
+{%- elif only_dispatch -%}Dispatch Summary
+{%- else -%}Admin Summary{%- endif -%}
+{% endblock %}
+{% block preheader %}{{ entries | length }} admin summar{{ "ies" if entries | length != 1 else "y" }}.{% endblock %}
 {% block content %}
-{% for summary in summaries %}
+{% for entry in entries %}
 <tr>
   <td class="px" style="padding: 28px 32px 8px 32px;">
-    {{ blocks.summary_block(summary) }}
+    {{ blocks.summary_block(entry) }}
   </td>
 </tr>
 {% if not loop.last %}

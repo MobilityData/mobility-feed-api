@@ -25,6 +25,7 @@ uvloop==0.19.0
 # Additional packages
 google-cloud-logging==3.10.0
 google-cloud-pubsub
+google-cloud-storage
 google-cloud-tasks
 functions-framework==3.*
 SQLAlchemy==2.0.23
@@ -36,3 +37,8 @@ fastapi_filter
 pycountry
 shapely
 pandas
+# Validates per-feed config values against config_key.value_schema
+jsonschema
+
+# Brevo (Sendinblue) SDK for the API announcements sync check (shared/common/brevo.py)
+sib-api-v3-sdk

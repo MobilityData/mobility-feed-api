@@ -44,23 +44,40 @@ class TestGtfsFeedContinuousCoverageImpl(unittest.TestCase):
     def test_no_dataset_returns_none(self):
         assert GtfsFeedContinuousCoverageImpl.from_orm(None) is None
 
-    def test_service_dates_are_preferred(self):
-        """The validator's service dates are the calculation's input when present."""
+    def test_the_declared_range_is_preferred(self):
+        """The producer's declared range is the criterion's input when present."""
         result = GtfsFeedContinuousCoverageImpl.from_orm(make_dataset(feed_info=make_feed_info()))
 
-        assert result.coverage_window_source == SOURCE_SERVICE_DATES
+        assert result.coverage_window_source == SOURCE_FEED_INFO
         assert result.coverage_window.start == date(2026, 9, 16)
         assert result.coverage_window.end == date(2027, 7, 28)
         assert result.coverage_window.days == 316
 
-    def test_feed_info_is_the_fallback(self):
-        """A dataset the validator produced no service dates for falls back on `feed_info.txt`."""
-        dataset = make_dataset(service_start=None, service_end=None, feed_info=make_feed_info())
+    def test_the_declared_range_wins_over_the_service_dates(self):
+        """The reported window is the one the criterion measures by."""
+        dataset = make_dataset(feed_info=make_feed_info(start=date(2026, 10, 1)))
         result = GtfsFeedContinuousCoverageImpl.from_orm(dataset)
 
         assert result.coverage_window_source == SOURCE_FEED_INFO
+        assert result.coverage_window.start == date(2026, 10, 1)
+        assert result.service_window.start == date(2026, 9, 16)
+
+    def test_service_dates_are_the_fallback(self):
+        """A dataset declaring no range falls back on the validator's service dates."""
+        dataset = make_dataset(feed_info=None)
+        result = GtfsFeedContinuousCoverageImpl.from_orm(dataset)
+
+        assert result.coverage_window_source == SOURCE_SERVICE_DATES
         assert result.coverage_window.start == date(2026, 9, 16)
-        assert result.service_window is None
+        assert result.feed_info_window is None
+
+    def test_an_inverted_declared_range_falls_back(self):
+        """An end before its start is no window, so it cannot displace the service dates."""
+        dataset = make_dataset(feed_info=make_feed_info(start=date(2027, 7, 28), end=date(2026, 9, 16)))
+        result = GtfsFeedContinuousCoverageImpl.from_orm(dataset)
+
+        assert result.coverage_window_source == SOURCE_SERVICE_DATES
+        assert result.feed_info_window.days is None, "the declaration is still reported as made"
 
     def test_no_window_at_all(self):
         """With neither input there is no window, and no verdict on the two-year limit."""

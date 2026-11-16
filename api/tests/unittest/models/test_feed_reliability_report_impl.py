@@ -108,7 +108,9 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
         assert criteria["official"].status == CriterionStatus.PASS.value
         assert criteria["available"].status == CriterionStatus.FAIL.value
         assert criteria["available"].in_grace_period is False
-        assert criteria["compliant"].status == CriterionStatus.FAIL.value
+        # Failing its daily check but still inside grace, so it is not what cost the seal:
+        # `available` is. It reads `pass`, at risk.
+        assert criteria["compliant"].status == CriterionStatus.PASS.value
         assert criteria["compliant"].in_grace_period is True
 
     def test_evaluated_at_is_latest_across_criteria(self):
@@ -139,6 +141,27 @@ class TestFeedReliabilityReportImpl(unittest.TestCase):
 
         assert report.on_probation is True
         assert report.probation_ends_at == later + PROBATION_PERIOD
+
+    def test_probation_cancelled_by_a_failing_criterion(self):
+        """A feed failing one criterion is failing the seal, not waiting out a clean run for it."""
+        feed = make_feed(
+            seal=make_seal(has_seal=False),
+            criteria=[
+                make_criterion_row(SealCriterionName.AVAILABLE, probation_start=NOW - timedelta(days=10)),
+                make_criterion_row(
+                    SealCriterionName.COMPLIANT,
+                    observed_status="fail",
+                    confirmed_status="fail",
+                ),
+            ],
+        )
+        report = FeedReliabilityReportImpl.from_orm(feed)
+
+        assert report.on_probation is False
+        assert report.probation_ends_at is None
+        criteria = by_criterion(report)
+        assert criteria["available"].on_probation is True
+        assert criteria["compliant"].status == CriterionStatus.FAIL.value
 
     def test_probation_ignored_for_exempt_criteria(self):
         """A stray probation_start on `official` does not put the feed on probation."""

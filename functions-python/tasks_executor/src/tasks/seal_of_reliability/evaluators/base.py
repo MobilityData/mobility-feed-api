@@ -16,8 +16,10 @@
 """Base class for the per-criterion evaluators."""
 
 from dataclasses import dataclass
-from datetime import timedelta
-from typing import Optional, Tuple
+from datetime import date, timedelta
+from typing import Any, Optional, Sequence, Tuple
+
+from sqlalchemy.orm import Session
 
 from shared.common.seal_criteria import (
     CriterionStatus,
@@ -55,8 +57,12 @@ class CriterionEvaluator:
     which the read API reads too, so a criterion cannot debounce one way for the job and
     another way for the API. To change a window, change the map.
 
-    Evaluators never touch the database: all the data they need is on the context, loaded in
-    bulk by `context.build_contexts`.
+    Evaluators never touch the database at evaluation time: everything they need is already
+    on the context, either as a day-invariant feed field or as the inputs their own
+    `load_history` bulk-loaded.
+
+    A criterion that has to look backwards owns that lookup itself, rather than the context
+    builder growing a field and a query per criterion. `load_history` is where it goes.
     """
 
     name: SealCriterionName = None
@@ -77,6 +83,35 @@ class CriterionEvaluator:
         None means it never serves probation.
         """
         return probation_period_for(self.name)
+
+    def load_history(
+        self,
+        db_session: Session,
+        feeds: Sequence,
+        days: Sequence[date],
+    ) -> Any:
+        """Bulk-load this criterion's day-varying inputs for a whole batch of feeds, at once.
+
+        Returns an object of the criterion's own choosing — nothing outside the criterion
+        looks inside it. The caller stashes it on every context in the batch, and `_evaluate`
+        reads it back with `ctx.history_for(self.name)`, indexing by `ctx.feed_id` and the
+        day of `ctx.now`.
+
+        The default returns None, which is the right answer for a criterion whose inputs are
+        day-invariant fields already on the context — Official and Stable read the feed row
+        and have nothing of their own to load.
+
+        Override it for any criterion that does, and load the whole of `days` in one query
+        rather than one query per day: a nightly run passes a single day, but a backfill
+        (#1763) passes a year, and a per-day query there turns a handful of queries into
+        several thousand.
+
+        Args:
+            db_session: SQLAlchemy session.
+            feeds: The batch of feeds to load for, already loaded by the caller.
+            days: Every UTC day that will be evaluated, ascending.
+        """
+        return None
 
     def evaluate(self, ctx: FeedSealContext) -> CriterionObservation:
         """Evaluate the criterion and label the result with this evaluator's name.

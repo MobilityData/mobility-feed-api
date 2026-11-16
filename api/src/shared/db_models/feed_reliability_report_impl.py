@@ -1,9 +1,10 @@
 from feeds_gen.models.feed_reliability_report import FeedReliabilityReport
 from shared.common.seal_criteria import (
-    PROBATION_EXEMPT_CRITERIA,
     CriterionStatus,
     SealCriterionName,
+    is_serving_probation,
     resolve_criterion,
+    roll_up_on_probation,
     roll_up_seal_status,
 )
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
@@ -16,7 +17,7 @@ def _seal_status_of(criterion_rows: list[SealCriterionOrm]) -> str:
     return roll_up_seal_status(
         (
             CriterionStatus(row.confirmed_status),
-            row.probation_start is not None and row.criterion not in PROBATION_EXEMPT_CRITERIA,
+            is_serving_probation(row),
         )
         for row in criterion_rows
     ).value
@@ -65,9 +66,14 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
 
         # The feed-level probation roll-up is derived from the criteria that were actually returned,
         # so it cannot disagree with them - unlike reading the roll-up row separately.
-        probation_ends = [
-            criterion.probation_ends_at for criterion in criteria if criterion.probation_ends_at is not None
-        ]
+        on_probation = roll_up_on_probation(
+            (CriterionStatus(criterion.status), criterion.on_probation) for criterion in criteria
+        )
+        probation_ends = (
+            [criterion.probation_ends_at for criterion in criteria if criterion.probation_ends_at is not None]
+            if on_probation
+            else []
+        )
 
         # `evaluated_at` is the most recent evaluation across the feed's criteria: the seal row
         # stores no evaluation time of its own.
@@ -80,7 +86,7 @@ class FeedReliabilityReportImpl(FeedReliabilityReport):
             earned_at=seal.seal_earned_at if seal is not None else None,
             lost_at=seal.seal_lost_at if seal is not None else None,
             evaluated_at=max(evaluated_ats) if evaluated_ats else None,
-            on_probation=any(criterion.on_probation for criterion in criteria),
+            on_probation=on_probation,
             probation_ends_at=max(probation_ends) if probation_ends else None,
             criteria=criteria,
         )

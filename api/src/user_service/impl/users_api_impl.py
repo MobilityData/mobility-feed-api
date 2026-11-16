@@ -23,9 +23,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 
 from middleware.request_context import get_request_context
+from shared.common.early_access import apply_invited_email_grants
 from shared.database.database import generate_unique_id
 from shared.database.users_database import with_users_db_session
 from shared.db_models.app_user_impl import AppUserImpl
+from user_service.impl.identity import require_user_id
 from shared.db_models.notification_subscription_impl import NotificationSubscriptionImpl
 from shared.db_models.subscription_feed_group_impl import SubscriptionFeedGroupImpl
 from shared.users_database_gen.sqlacodegen_models import (
@@ -88,7 +90,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -102,6 +107,14 @@ class UsersApiImpl(BaseUsersApi):
             )
             db_session.add(user)
             db_session.flush()
+            try:
+                with db_session.begin_nested():
+                    apply_invited_email_grants(user_id, user.email, db_session)
+            except Exception:
+                logger.exception(
+                    "Early access invite claim failed for user_id=%s; continuing without it.",
+                    user_id,
+                )
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
         return AppUserImpl.from_orm(user, all_flags)
@@ -117,7 +130,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -126,16 +142,14 @@ class UsersApiImpl(BaseUsersApi):
 
         update_data = update_user_request.model_dump(exclude_unset=True)
 
-        # Detect a real change to the announcements opt-in so we can reconcile the
-        # subscription + Brevo membership below. Writing the boolean alone would
-        # leave the DB flag, the notification_subscription row, and Brevo out of
-        # sync (the historical bug this closes). Only act on an actual change so
-        # unrelated profile edits never make a (slow, failable) Brevo call.
+        # The opt-in is not a column: it is the api.announcements subscription,
+        # reconciled with Brevo below. Only act on an actual change so unrelated
+        # profile edits never make a (slow, failable) Brevo call.
         optin_field = "is_registered_to_receive_api_announcements"
         optin_target = None
         if optin_field in update_data:
-            new_value = bool(update_data[optin_field])
-            if new_value != bool(user.is_registered_to_receive_api_announcements):
+            new_value = bool(update_data.pop(optin_field))
+            if new_value != AppUserImpl.is_registered_to_announcements(user):
                 optin_target = new_value
 
         for field, value in update_data.items():
@@ -273,8 +287,7 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="User not found.")
 
         if notification_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            # Reconcile the subscription row, Brevo membership and the app_user
-            # opt-in flag together so all three stay consistent.
+            # Reconcile the subscription row and Brevo membership together.
             sub = set_announcements_optin(db_session, user, subscribe=True)
         else:
             # Idempotent: reuse an existing subscription, reactivating if needed.
@@ -364,7 +377,7 @@ class UsersApiImpl(BaseUsersApi):
             user = db_session.get(AppUser, user_id)
             # release_connection_before_brevo=True: only reads happened above, so
             # committing just returns the pooled connection before the (possibly
-            # slow) Brevo call. Also clears the app_user opt-in flag.
+            # slow) Brevo call.
             set_announcements_optin(
                 db_session,
                 user,
@@ -380,13 +393,7 @@ class UsersApiImpl(BaseUsersApi):
 
     @staticmethod
     def _require_user_id() -> str:
-        context = get_request_context()
-        user_id = context.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Unable to determine user identity from token.")
-        if context.get("is_guest"):
-            raise HTTPException(status_code=403, detail="Guest users cannot perform this action.")
-        return user_id
+        return require_user_id()
 
     @classmethod
     def _require_notifications_enabled(cls, db_session, user_id: str) -> None:

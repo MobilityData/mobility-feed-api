@@ -2,7 +2,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Tuple, Type, TypeVar, Optional
+from typing import Final, Tuple, Type, TypeVar, Optional
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +19,13 @@ from shared.helpers.pub_sub import trigger_dataset_download
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="Feed")
+
+# Columns an operator sets by hand through the Operations API. No upstream source (TDG,
+# ODPT, JBDA) carries a seasonality signal, so the importers must never assign these -- the
+# only correct behaviour on every run is to leave the stored value alone, exactly as the
+# catalog CSV treats an empty `is_seasonal` cell. Enforced by the per-importer
+# `test_seasonal_survives_reimport` tests.
+OPERATOR_OWNED_FEED_COLUMNS: Final[tuple[str, ...]] = ("seasonal",)
 
 
 def get_or_create_entity_type(session: Session, entity_type_name: str) -> Entitytype:
