@@ -614,7 +614,7 @@ class TestStartNotificationDispatch(unittest.TestCase):
 
         result = self.api.start_notification_dispatch(
             OperationNotificationDispatchRequest(
-                cadence="daily", user_ids=["uid-1"], force=True
+                cadence="daily", user_ids=["uid-1"], force=True, dry_run=False
             )
         )
 
@@ -680,6 +680,16 @@ class TestStartNotificationDispatch(unittest.TestCase):
         self.assertEqual(preview[0].email, "user@example.com")
         self.assertEqual(preview[0].events[0].id, "evt-1")
         self.assertEqual(preview[0].events[0].feed_stable_ids, ["mdb-1"])
+
+    def test_dry_run_unless_explicitly_disabled(self, _token, post):
+        post.return_value.json.return_value = {"cadences": [], "by_cadence": {}}
+
+        for request in (
+            OperationNotificationDispatchRequest(),
+            OperationNotificationDispatchRequest(dry_run=None),
+        ):
+            self.api.start_notification_dispatch(request)
+            self.assertIs(post.call_args.kwargs["json"]["payload"]["dry_run"], True)
 
     def test_executor_failure_is_502(self, _token, post):
         post.side_effect = RuntimeError("boom")

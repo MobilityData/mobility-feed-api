@@ -4706,8 +4706,9 @@ components:
           default: []
         dry_run:
           type: boolean
-          default: false
-          description: Only count the subscriptions that would be processed; enqueue nothing.
+          default: true
+          description: >
+            Only count the subscriptions that would be processed and preview what each would be sent; enqueue nothing. Defaults to true so a request sends emails only when it sets `dry_run` to false.
         force:
           type: boolean
           default: false

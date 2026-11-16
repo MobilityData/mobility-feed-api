@@ -528,7 +528,8 @@ class NotificationsApiImpl(BaseNotificationsApi):
             {
                 "cadence": request.cadence,
                 "user_ids": request.user_ids or [],
-                "dry_run": bool(request.dry_run),
+                # Sending real emails must be asked for explicitly.
+                "dry_run": request.dry_run is not False,
                 "force": bool(request.force),
             },
         )

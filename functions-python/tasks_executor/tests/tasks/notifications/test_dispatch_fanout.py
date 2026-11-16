@@ -145,6 +145,34 @@ class TestPlanHandler(unittest.TestCase):
     @patch(f"{_PLAN}._start_run")
     @patch(f"{_PLAN}._enqueue", return_value=True)
     @patch(f"{_PLAN}.find_subscriptions")
+    def test_dry_run_preview_skips_subscriptions_without_email(
+        self, find_mock, enqueue_mock, start_run_mock, events_mock
+    ):
+        from tasks.notifications.dispatch_batch import (
+            notifications_dispatch_batch_handler,
+        )
+
+        with_email, no_email, no_user = self._subs("sub-1", "sub-2", "sub-3")
+        with_email.user.email = "sub-1@example.com"
+        no_email.user.email = None
+        no_user.user = None
+        find_mock.return_value = [with_email, no_email, no_user]
+
+        result = notifications_dispatch_batch_handler(
+            {"cadence": "weekly", "dry_run": True}
+        )
+
+        planned = result["by_cadence"]["weekly"]
+        self.assertEqual(planned["subscriptions"], 3)
+        self.assertEqual([p["subscription_id"] for p in planned["preview"]], ["sub-1"])
+        # skipped subscriptions are not even queried, like the worker
+        events_mock.assert_called_once()
+        self.assertIs(events_mock.call_args.kwargs["subscription"], with_email)
+
+    @patch(f"{_PLAN}.find_events_for_subscription", return_value=[])
+    @patch(f"{_PLAN}._start_run")
+    @patch(f"{_PLAN}._enqueue", return_value=True)
+    @patch(f"{_PLAN}.find_subscriptions")
     def test_dry_run_preview_is_capped(
         self, find_mock, enqueue_mock, start_run_mock, events_mock
     ):

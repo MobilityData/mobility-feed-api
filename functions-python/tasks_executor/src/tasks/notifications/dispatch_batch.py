@@ -196,6 +196,9 @@ def _preview(
     event selection, so a dry run shows exactly what would go out."""
     preview = []
     for subscription in subscriptions:
+        # Mirror process_subscription: no user/email means nothing is sent.
+        if subscription.user is None or not subscription.user.email:
+            continue
         events = find_events_for_subscription(
             db_session=db_session,
             subscription=subscription,
@@ -207,7 +210,7 @@ def _preview(
             {
                 "subscription_id": subscription.id,
                 "user_id": subscription.user_id,
-                "email": subscription.user.email if subscription.user else None,
+                "email": subscription.user.email,
                 "notification_type_id": subscription.notification_type_id,
                 "cadence": subscription.cadence,
                 "events": [
