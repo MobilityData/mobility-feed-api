@@ -37,6 +37,7 @@ from shared.notifications.notification_constants import (
     NotificationCadence,
     NotificationFeedRole,
     NotificationLogStatus,
+    NotificationSource,
     NotificationTypeId,
 )
 from shared.users_database_gen.sqlacodegen_models import (
@@ -44,6 +45,7 @@ from shared.users_database_gen.sqlacodegen_models import (
     NotificationEventFeed,
     NotificationLog,
     NotificationSubscription,
+    NotificationSubscriptionFeed,
 )
 from tasks.notifications.dispatch_monitor import _aggregate_delivery_stats
 from tasks.notifications.dispatch_notifications import (
@@ -62,6 +64,7 @@ _WRITE_MODELS = [
     NotificationLog,
     NotificationEventFeed,
     NotificationEvent,
+    NotificationSubscriptionFeed,
     NotificationSubscription,
 ]
 
@@ -86,6 +89,7 @@ def _make_subscription(
     filter_params=None,
     active: bool = True,
     active_since: Optional[datetime] = None,
+    feed_ids: Optional[list] = None,
 ) -> NotificationSubscription:
     sub = NotificationSubscription(
         id=_uid(),
@@ -100,6 +104,13 @@ def _make_subscription(
     )
     db_session.add(sub)
     db_session.flush()
+    for feed_id in feed_ids or []:
+        db_session.add(
+            NotificationSubscriptionFeed(subscription_id=sub.id, feed_stable_id=feed_id)
+        )
+    if feed_ids:
+        db_session.flush()
+        db_session.refresh(sub)
     return sub
 
 
@@ -189,6 +200,124 @@ class TestApplyFilterParams(unittest.TestCase):
         # Empty list means no filter — all pass
         result = apply_filter_params(events, sub)
         self.assertEqual(result, events)
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_subscription_feeds_filter(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice", feed_ids=["mdb-1"])
+        e1 = _mock_event("mdb-1")
+        e2 = _mock_event("mdb-2")
+        result = apply_filter_params([e1, e2], sub)
+        self.assertEqual(result, [e1])
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_subscription_feeds_take_precedence_over_filter_params(
+        self, db_session: Session = None
+    ):
+        sub = _make_subscription(
+            db_session,
+            "user-alice",
+            filter_params={"feed_ids": ["mdb-2"]},
+            feed_ids=["mdb-1"],
+        )
+        e1 = _mock_event("mdb-1")
+        e2 = _mock_event("mdb-2")
+        result = apply_filter_params([e1, e2], sub)
+        self.assertEqual(result, [e1])
+
+
+class TestOperationsTestEvents(unittest.TestCase):
+    """``operations_test`` events only reach the users listed in their payload."""
+
+    def tearDown(self):
+        _cleanup_notifications()
+
+    def _test_event(self, db_session, recipients):
+        event = _make_event(db_session)
+        event.source = NotificationSource.OPERATIONS_TEST
+        event.payload = {**event.payload, "recipient_user_ids": recipients}
+        db_session.flush()
+        return event
+
+    def _found(self, db_session, sub):
+        return find_events_for_subscription(
+            db_session=db_session,
+            subscription=sub,
+            status_filter="new",
+            max_retries=5,
+        )
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_delivered_to_recipient(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        event = self._test_event(db_session, ["user-alice"])
+        self.assertEqual([e.id for e in self._found(db_session, sub)], [event.id])
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_not_delivered_to_other_subscribers(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-bob")
+        event = self._test_event(db_session, ["user-alice"])
+        with self.assertLogs(
+            "tasks.notifications.dispatch_notifications", level="INFO"
+        ) as logs:
+            self.assertEqual(self._found(db_session, sub), [])
+        # The drop and its reason are logged, so it can be traced in production.
+        self.assertTrue(
+            any(
+                f"dropped_not_test_recipient=['{event.id}']" in line
+                for line in logs.output
+            ),
+            logs.output,
+        )
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_without_recipients_reaches_nobody(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice")
+        self._test_event(db_session, [])
+        self.assertEqual(self._found(db_session, sub), [])
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_recipient_feed_scope_still_applies(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice", feed_ids=["mdb-2"])
+        self._test_event(db_session, ["user-alice"])  # about mdb-1
+        self.assertEqual(self._found(db_session, sub), [])
+
+
+class TestFeedScopedSubscription(unittest.TestCase):
+    """A subscription scoped through ``notification_subscription_feed`` only
+    receives events about its own feeds (issue #1875)."""
+
+    def tearDown(self):
+        _cleanup_notifications()
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_only_subscribed_feed_events_found(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice", feed_ids=["mdb-1"])
+        e1 = _make_event(db_session, feed_stable_id="mdb-1")
+        _make_event(db_session, feed_stable_id="mdb-2")
+        events = find_events_for_subscription(
+            db_session=db_session,
+            subscription=sub,
+            status_filter="new",
+            max_retries=5,
+        )
+        self.assertEqual([e.id for e in events], [e1.id])
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_redirect_to_subscribed_feed_is_found(self, db_session: Session = None):
+        sub = _make_subscription(db_session, "user-alice", feed_ids=["mdb-1"])
+        redirect = _make_event(
+            db_session,
+            feed_stable_id="mdb-9",
+            update_type=FeedUrlUpdateType.FEED_REDIRECTED,
+            target_feed_stable_id="mdb-1",
+        )
+        events = find_events_for_subscription(
+            db_session=db_session,
+            subscription=sub,
+            status_filter="new",
+            max_retries=5,
+        )
+        self.assertEqual([e.id for e in events], [redirect.id])
 
 
 # ---------------------------------------------------------------------------
