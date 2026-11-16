@@ -16,6 +16,9 @@
     },
     {
       "key": "BREVO_API_ANNOUNCEMENTS_LIST_ID"
+    },
+    {
+      "key": "TASKS_EXECUTOR_URL"
     }
   ],
   "secret_environment_variables": [

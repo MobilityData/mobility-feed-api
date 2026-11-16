@@ -90,8 +90,8 @@ class OperationNotificationEventDetailImpl(OperationNotificationEventDetail):
 class OperationNotificationLogImpl(OperationNotificationLog):
     """Converts a NotificationLog ORM object to an OperationNotificationLog Pydantic model.
 
-    ``user_id`` and ``notification_type_id`` live on the subscription, so the caller
-    passes them in from the joined row.
+    ``user_id``, ``user_email`` and ``notification_type_id`` live on the subscription
+    and its owner, so the caller passes them in from the joined row.
     """
 
     class Config:
@@ -103,12 +103,14 @@ class OperationNotificationLogImpl(OperationNotificationLog):
         log: NotificationLog,
         user_id: Optional[str] = None,
         notification_type_id: Optional[str] = None,
+        user_email: Optional[str] = None,
     ) -> OperationNotificationLog:
         return cls(
             id=log.id,
             notification_event_id=log.notification_event_id,
             subscription_id=log.subscription_id,
             user_id=user_id,
+            user_email=user_email,
             notification_type_id=notification_type_id,
             channel=log.channel,
             status=log.status,
