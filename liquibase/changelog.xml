@@ -166,6 +166,8 @@
     <include file="changes/feat_gbfs_delete_fk_indexes.sql" relativeToChangelogFile="true"/>
     <!-- config_value_feed.updated_by for Operations API config edits. -->
     <include file="changes/feat_feed_config_ops.sql" relativeToChangelogFile="true"/>
+    <!-- Copy schedule feeds' location groups to their GTFS Realtime feeds. -->
+    <include file="changes/fix_rt_feed_location_groups.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

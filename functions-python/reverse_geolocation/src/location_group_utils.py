@@ -327,6 +327,21 @@ def get_or_create_feed_osm_location_group(
     return feed_osm_location
 
 
+def set_feed_osm_location_groups(
+    feed: Feed, location_aggregates: List[GeopolygonAggregate], db_session: Session
+) -> None:
+    """Replace the feed's location groups with its own rows, deleting the ones it no longer has."""
+    feed_osm_locations = [
+        get_or_create_feed_osm_location_group(feed.id, aggregate, db_session)
+        for aggregate in location_aggregates
+    ]
+    group_ids = {feed_osm_location.group_id for feed_osm_location in feed_osm_locations}
+    for stale in list(feed.feedosmlocationgroups):
+        if stale.group_id not in group_ids:
+            db_session.delete(stale)
+    feed.feedosmlocationgroups = feed_osm_locations
+
+
 def get_or_create_location(
     location_group: GeopolygonAggregate, logger, db_session: Session
 ) -> Optional[Location]:
