@@ -216,6 +216,8 @@ class TestUpdateUserMe(unittest.TestCase):
         self.assertTrue(result.is_registered_to_receive_api_announcements)
         add.assert_called_once()  # Brevo write-back happened
         self.assertEqual(add.call_args[0][:2], ("user@example.com", 42))
+        # An explicit opt-in clears a previous Brevo unsubscribe.
+        self.assertTrue(add.call_args.kwargs["resubscribe"])
         self.mock_session.add.assert_called_once()  # subscription row created
         sub = self.mock_session.add.call_args[0][0]
         self.assertIs(sub.user, user)

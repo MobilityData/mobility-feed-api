@@ -106,22 +106,25 @@ def resolve_feed_metadata(stable_ids, db_session=None) -> dict:
 def sync_announcements(
     email: str,
     subscribe: bool,
-    subscription_id: str | None = None,
     *,
     first_name: str | None = None,
     organization: str | None = None,
 ) -> None:
     """Sync an api.announcements subscription with Brevo, mapping provider errors to 502.
     For simplicity, the Brevo `FIRSTNAME` contact field is populated with the full name.
+
+    Subscribing is always an explicit opt-in by the user, so it also clears a Brevo unsubscribe
+    (``resubscribe``); otherwise Brevo keeps blocking the contact and the daily reconcile job turns
+    the subscription back off.
     """
     try:
         if subscribe:
             add_contact_to_list(
                 email,
                 get_announcements_list_id(),
-                subscription_id,
                 first_name=first_name,
                 organization=organization,
+                resubscribe=True,
             )
         else:
             remove_contact_from_list(email, get_announcements_list_id())
@@ -151,7 +154,7 @@ def set_announcements_optin(
     subscription's ``active``. Idempotent.
 
     subscribe=True  → create/reactivate the subscription, add the contact to the
-                      Brevo list with its MDB_SUBSCRIPTION_ID.
+                      Brevo list and clear a previous Brevo unsubscribe.
     subscribe=False → deactivate the subscription (api.announcements is never
                       deleted, only disabled), remove the contact from the Brevo
                       list.
@@ -197,7 +200,6 @@ def set_announcements_optin(
         sync_announcements(
             user.email,
             subscribe=True,
-            subscription_id=sub.id,
             first_name=user.full_name,
             organization=user.legacy_org_name,
         )

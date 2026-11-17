@@ -358,8 +358,7 @@ paths:
         (Brevo) cannot be reached while updating an announcements subscription.
 
         The `id` embedded in an email is the subscription's own UUID
-        (`notification_subscription.id`) — mirrored onto the Brevo contact as the
-        `MDB_SUBSCRIPTION_ID` attribute — **not** the notification-type string
+        (`notification_subscription.id`) — **not** the notification-type string
         (`api.announcements`), which is shared by all recipients and is not a
         valid subscription ID.
 
@@ -500,8 +499,8 @@ components:
           description: >-
             Unique subscription ID (UUID v4). This is the **capability token** used
             by the public `/v1/subscriptions/{id}` endpoints and by email
-            unsubscribe links; for `api.announcements` it is mirrored onto the
-            Brevo contact as the `MDB_SUBSCRIPTION_ID` attribute.
+            unsubscribe links. `api.announcements` emails are Brevo campaigns and
+            use Brevo's own unsubscribe link instead.
         user_id:
           type: string
           description: The ID of the subscribed user.

@@ -94,8 +94,8 @@ notification_subscription
 - One row per `(user, notification_type)`. Idempotency is enforced in code
   (there is no DB unique constraint on `(user_id, notification_type_id)`).
 - **The subscription ID (`id`) is the capability token.** It is a UUID and is the
-  only value an anonymous caller presents to unsubscribe. It is mirrored into
-  Brevo (see next section) so an email can embed it.
+  only value an anonymous caller presents to unsubscribe. It is never sent to
+  Brevo: announcements emails use Brevo's own unsubscribe link (see next section).
 
 ---
 
@@ -113,7 +113,7 @@ flowchart LR
         SUB["notification_subscription row<br/>(type = api.announcements)<br/>active = true/false"]
         FLAG["app_user.is_registered_to_<br/>receive_api_announcements<br/>true/false"]
     end
-    BREVO["Brevo contact list<br/>member? + MDB_SUBSCRIPTION_ID attr"]
+    BREVO["Brevo contact list<br/>member? unsubscribed?"]
 
     SUB <-. "kept in sync by<br/>set_announcements_optin()" .-> FLAG
     SUB <-. "add_/remove_contact_to_list()" .-> BREVO
@@ -122,24 +122,29 @@ flowchart LR
 The single function that reconciles all three is `set_announcements_optin()` in
 `api/src/user_service/impl/subscription_helpers.py`. It is idempotent:
 
-- **subscribe** → create / reactivate the row, `add_contact_to_list(...)` with the
-  contact attribute **`MDB_SUBSCRIPTION_ID` = the subscription ID**, set the flag
-  `true`. The whole change is atomic — if Brevo fails the row and flag roll back.
+- **subscribe** → create / reactivate the row, `add_contact_to_list(...,
+  resubscribe=True)`, set the flag `true`. `resubscribe` clears a previous Brevo
+  unsubscribe (`emailBlacklisted=false`): the opt-in is the user's explicit
+  consent, and without it Brevo would keep blocking the contact while the daily
+  reconcile turned the row back off. The whole change is atomic — if Brevo fails
+  the row and flag roll back.
 - **unsubscribe** → `remove_contact_from_list(...)`, set `active = false`, set the
   flag `false`. The announcements row is never hard-deleted, only disabled.
 
 The Brevo list ID is **not** in the DB — it comes from the
 `BREVO_API_ANNOUNCEMENTS_LIST_ID` env var (`get_announcements_list_id()`).
 
-The value an email must carry is the **subscription ID**
-(`notification_subscription.id`), surfaced on the Brevo contact as the
-`MDB_SUBSCRIPTION_ID` attribute — **not** the notification type string
-`api.announcements`, which is shared by every recipient and is not a valid
-subscription ID. Because `add_contact_to_list` writes `MDB_SUBSCRIPTION_ID` onto
-every announcements contact (and `migrate_firebase_users` backfills it), each
-Brevo contact carries its own subscription ID, and the campaign template builds
-the link with the merge tag, e.g.
-`…/notifications/unsubscribe?id={{ contact.MDB_SUBSCRIPTION_ID }}`.
+Announcements emails are Brevo campaigns, so they use **Brevo's own unsubscribe
+link** (`{{ unsubscribe }}`). Brevo stops sending to the contact at once, and the
+daily `reconcile_announcements_from_brevo` task turns the row off (`active =
+false`). No subscription ID is stored on the Brevo contact: contacts are shared by
+every list of the Brevo account, so a per-contact attribute was overwritten by
+whichever environment wrote it last.
+
+When the two sides disagree for one user, the ops API reports it
+(`GET /v1/operations/users/{user_id}/brevo-sync`) and repairs it in the direction
+an operator picks (`POST` on the same path, `from_brevo` or `to_brevo`). `to_brevo`
+never clears a Brevo unsubscribe: only the user can, by opting in again.
 
 For all **other** notification types (`feed.url_updated`, …) there is no Brevo
 list and no flag — only the DB row matters, and delete is a real delete.
@@ -203,7 +208,7 @@ sequenceDiagram
 For **`api.announcements`** the same `POST` is used with
 `notification_id: "api.announcements"`, but the impl routes through
 `set_announcements_optin(subscribe=True)`, which additionally adds the contact to
-the Brevo list (with `MDB_SUBSCRIPTION_ID` set to the new subscription ID) and
+the Brevo list (clearing a previous Brevo unsubscribe) and
 sets the `app_user` flag — all in one atomic transaction.
 
 ```mermaid
@@ -216,7 +221,7 @@ sequenceDiagram
 
     W->>API: POST /v1/user/subscriptions { notification_id: "api.announcements" }
     API->>DB: create/reactivate row (active=true)
-    API->>BR: add_contact_to_list(email, list_id, MDB_SUBSCRIPTION_ID=row.id)
+    API->>BR: add_contact_to_list(email, list_id, resubscribe=True)
     alt Brevo fails
         BR-->>API: error
         API->>DB: ROLLBACK (row + flag reverted)
@@ -252,7 +257,8 @@ subscriptions. `{id}` is the subscription ID.
 ## Flow 3 — Unsubscribe from an email link
 
 The email footer contains a link carrying the recipient's own subscription ID.
-The end-user needs no login; the API call is made server-side by the website
+This applies to emails sent by the in-house dispatcher; `api.announcements`
+campaigns use Brevo's unsubscribe link instead (see above). The end-user needs no login; the API call is made server-side by the website
 backend as an authorized IAP principal, not by the browser directly.
 
 ```mermaid
@@ -266,7 +272,7 @@ sequenceDiagram
     participant DB as Users DB
     participant BR as Brevo
 
-    E->>U: Unsubscribe link<br/>/notifications/unsubscribe?id={{MDB_SUBSCRIPTION_ID}}
+    E->>U: Unsubscribe link<br/>/notifications/unsubscribe?id=<subscription ID>
     U->>W: Open page with ?id=<subscription ID>
     Note over W,API: All API calls carry an authorized<br/>IAP principal's token.<br/>No x-mdb-user-context (anonymous).
     W->>IAP: GET /v1/subscriptions/{id} (principal token)
@@ -383,11 +389,11 @@ IAP-principal traffic as a backstop.
 
 The moving parts that connect the API to the rest of the system:
 
-- **Brevo templates carry the subscription ID.** The `api.announcements` campaign
-  email builds its unsubscribe link from `{{ contact.MDB_SUBSCRIPTION_ID }}`;
-  transactional `feed.url_updated` emails
+- **Unsubscribe links.** Transactional `feed.url_updated` emails
   (`api/src/shared/notifications/templates/*.j2`) embed the row's subscription ID
-  the same way. Both resolve to `notification_subscription.id`.
+  (`notification_subscription.id`). The `api.announcements` campaign uses Brevo's
+  `{{ unsubscribe }}` link, reconciled back daily by
+  `reconcile_announcements_from_brevo`.
 - **The website `/notifications/unsubscribe` route** reads `id` from the query
   string and calls `GET` then `DELETE /v1/subscriptions/{id}` (or `?scope=all`)
   server-side as an authorized IAP principal.
