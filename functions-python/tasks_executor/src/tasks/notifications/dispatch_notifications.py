@@ -44,6 +44,7 @@ from shared.notifications.brevo_notification_sender import (
 )
 from shared.notifications.notification_constants import (
     DISPATCH_RUN_TASK_NAME,
+    SUBSCRIPTION_EVENT_SUBTYPES_KEY,
     AdminEventUpdateType,
     NotificationCadence,
     NotificationLogStatus,
@@ -341,15 +342,24 @@ def apply_filter_params(
     event passes when it references at least one of those feeds (in any role).
     A subscription with no feeds in either place is global: all events pass.
 
+    ``filter_params.event_subtypes`` additionally limits the subscription to those
+    event subtypes (e.g. only the ``seal_run_summary`` admin summaries); missing or
+    empty means every subtype.
+
     ``operations_test`` events are only ever delivered to the users listed in
     their payload, whatever the subscription's feeds.
     """
     candidates = len(events)
-    not_recipient, out_of_scope, kept = [], [], []
+    not_recipient, out_of_subtype, out_of_scope, kept = [], [], [], []
     allowed = _subscription_feed_ids(subscription)
+    allowed_subtypes = (subscription.filter_params or {}).get(
+        SUBSCRIPTION_EVENT_SUBTYPES_KEY
+    )
     for event in events:
         if not _is_test_recipient(event, subscription):
             not_recipient.append(event.id)
+        elif allowed_subtypes and event.event_subtype not in allowed_subtypes:
+            out_of_subtype.append(event.id)
         elif allowed and not _event_feed_ids(event) & allowed:
             out_of_scope.append(event.id)
         else:
@@ -359,12 +369,13 @@ def apply_filter_params(
     if candidates:
         logger.info(
             "apply_filter_params: subscription=%s user=%s candidates=%d kept=%d "
-            "dropped_not_test_recipient=%s dropped_feed_scope=%s",
+            "dropped_not_test_recipient=%s dropped_subtype=%s dropped_feed_scope=%s",
             subscription.id,
             subscription.user_id,
             candidates,
             len(kept),
             not_recipient,
+            out_of_subtype,
             out_of_scope,
         )
     return kept

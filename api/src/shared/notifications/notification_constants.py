@@ -108,3 +108,11 @@ DISPATCH_RUN_TASK_NAME = "notifications_dispatch_run"
 
 # Payload key holding the user ids an ``operations_test`` event may be delivered to.
 TEST_RECIPIENT_USER_IDS_KEY = "recipient_user_ids"
+
+# ``notification_subscription.filter_params`` key that limits a subscription to some
+# event subtypes (e.g. only the ``seal_run_summary`` of ``admin.event_summary``).
+# Missing or empty means every subtype, including ones added later.
+SUBSCRIPTION_EVENT_SUBTYPES_KEY = "event_subtypes"
+
+# Feature flag (``feature_flag.id``) a user needs to subscribe to ``admin.event_summary``.
+ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"

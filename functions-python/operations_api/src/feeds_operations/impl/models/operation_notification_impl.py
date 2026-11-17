@@ -27,6 +27,7 @@ from feeds_gen.models.operation_notification_log import OperationNotificationLog
 from feeds_gen.models.operation_notification_subscription import (
     OperationNotificationSubscription,
 )
+from shared.notifications.notification_constants import SUBSCRIPTION_EVENT_SUBTYPES_KEY
 from shared.users_database_gen.sqlacodegen_models import (
     NotificationEvent,
     NotificationLog,
@@ -139,6 +140,10 @@ class OperationNotificationSubscriptionImpl(OperationNotificationSubscription):
             feed_ids=sorted(
                 f.feed_stable_id
                 for f in (subscription.notification_subscription_feeds or [])
+            ),
+            event_subtypes=list(
+                (subscription.filter_params or {}).get(SUBSCRIPTION_EVENT_SUBTYPES_KEY)
+                or []
             ),
             filter_params=subscription.filter_params,
             created_at=subscription.created_at,

@@ -313,7 +313,15 @@ subscribers the same morning.
 ### Subscribing
 
 Admin users subscribe with `notification_type_id='admin.event_summary'` and
-`cadence='daily'` to receive these as a daily digest. One subscription receives every subtype.
+`cadence='daily'` to receive these as a daily digest. One subscription receives every subtype,
+unless `filter_params.event_subtypes` limits it to some of them (e.g. `["seal_run_summary"]`);
+missing or empty means every subtype, including ones added later.
+
+The user needs the `isAdminSummarySubscriptionEnabled` feature flag. Operators set the
+subscription from the Operations API with
+`PUT /v1/operations/users/{user_id}/subscriptions/admin-summary` (`active`, `cadence`,
+`event_subtypes`); pausing does not need the flag. (Re)activating sets `active_since` to now,
+so only summaries created from then on are delivered.
 
 ## Subscription Management (subscribe / unsubscribe)
 

@@ -129,6 +129,7 @@ def _chain(result):
     q.all.return_value = items
     q.count.return_value = len(items)
     q.first.return_value = items[0] if items else None
+    q.one_or_none.return_value = items[0] if items else None
     return q
 
 
@@ -297,6 +298,115 @@ class TestGetOperationsUserSubscriptions(unittest.TestCase):
             self.api.get_operations_user_subscriptions(
                 "missing", db_session=self.session
             )
+        self.assertEqual(ctx.exception.status_code, 404)
+
+
+def _admin_request(**kwargs):
+    from feeds_gen.models.operation_admin_summary_subscription_request import (
+        OperationAdminSummarySubscriptionRequest,
+    )
+
+    return OperationAdminSummarySubscriptionRequest(**{"active": True, **kwargs})
+
+
+@patch(f"{MODULE}.feature_flag_enabled", return_value=True)
+class TestPutAdminSummarySubscription(unittest.TestCase):
+    def setUp(self):
+        self.api = NotificationsApiImpl()
+        self.session = MagicMock()
+        self.session.get.return_value = _make_user()
+
+    def _put(self, request):
+        return self.api.put_operations_user_admin_summary_subscription(
+            "uid-1", request, db_session=self.session
+        )
+
+    def test_creates_an_active_subscription_limited_to_subtypes(self, flag):
+        self.session.query.return_value = _chain(None)
+
+        result = self._put(
+            _admin_request(cadence="weekly", event_subtypes=["seal_run_summary"])
+        )
+
+        added = self.session.add.call_args.args[0]
+        self.assertEqual(added.notification_type_id, "admin.event_summary")
+        self.assertEqual(added.user_id, "uid-1")
+        self.assertTrue(added.active)
+        self.assertIsNotNone(added.active_since)
+        self.assertEqual(added.cadence, "weekly")
+        self.assertEqual(added.filter_params, {"event_subtypes": ["seal_run_summary"]})
+        self.assertEqual(result.event_subtypes, ["seal_run_summary"])
+        flag.assert_called_once_with(
+            self.session, "uid-1", "isAdminSummarySubscriptionEnabled"
+        )
+        self.session.commit.assert_called_once()
+
+    def test_defaults_to_daily_and_every_subtype(self, _flag):
+        self.session.query.return_value = _chain(None)
+
+        result = self._put(_admin_request())
+
+        added = self.session.add.call_args.args[0]
+        self.assertEqual(added.cadence, "daily")
+        self.assertIsNone(added.filter_params)
+        self.assertEqual(result.event_subtypes, [])
+
+    def test_resuming_resets_active_since_and_keeps_other_filters(self, _flag):
+        sub = _make_subscription(
+            notification_type_id="admin.event_summary", active=False
+        )
+        sub.filter_params = {"event_subtypes": ["dispatch_summary"], "other": 1}
+        old_active_since = sub.active_since
+        self.session.query.return_value = _chain(sub)
+
+        self._put(_admin_request(cadence="daily"))
+
+        self.session.add.assert_not_called()
+        self.assertTrue(sub.active)
+        self.assertGreater(sub.active_since, old_active_since)
+        self.assertEqual(sub.filter_params, {"other": 1})
+
+    def test_updating_an_active_subscription_keeps_active_since(self, _flag):
+        sub = _make_subscription(notification_type_id="admin.event_summary")
+        active_since = sub.active_since
+        self.session.query.return_value = _chain(sub)
+
+        self._put(_admin_request(event_subtypes=["dispatch_summary"]))
+
+        self.assertEqual(sub.active_since, active_since)
+        self.assertEqual(sub.filter_params, {"event_subtypes": ["dispatch_summary"]})
+
+    def test_activating_without_the_feature_flag_is_400(self, flag):
+        flag.return_value = False
+        self.session.query.return_value = _chain(None)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request())
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.session.commit.assert_not_called()
+
+    def test_pausing_skips_the_flag_check(self, flag):
+        sub = _make_subscription(notification_type_id="admin.event_summary")
+        self.session.query.return_value = _chain(sub)
+
+        result = self._put(_admin_request(active=False))
+
+        self.assertFalse(sub.active)
+        self.assertFalse(result.active)
+        flag.assert_not_called()
+
+    def test_pausing_a_missing_subscription_is_404(self, _flag):
+        self.session.query.return_value = _chain(None)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request(active=False))
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_user_not_found(self, _flag):
+        self.session.get.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request())
         self.assertEqual(ctx.exception.status_code, 404)
 
 

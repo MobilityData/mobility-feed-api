@@ -31,6 +31,7 @@ from shared.common.brevo import (
 from shared.common.feature_flags import feature_flag_enabled  # noqa: F401  (re-exported)
 from shared.database.database import generate_unique_id, with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
+from shared.notifications.notification_constants import ADMIN_SUMMARY_FEATURE_FLAG_ID  # noqa: F401  (re-exported)
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationSubscription as NotificationSubscriptionOrm,
@@ -47,11 +48,10 @@ ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 # have this boolean flag resolved to true to create, update or delete subscriptions.
 NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationsEnabled"
 
-# The admin dispatch-summary notification type and the additional feature flag required to
-# subscribe to (or manage a subscription for) it. This is layered on top of the general
-# NOTIFICATIONS_FEATURE_FLAG_ID gate.
+# The admin dispatch-summary notification type. Subscribing to (or managing a subscription
+# for) it additionally requires ADMIN_SUMMARY_FEATURE_FLAG_ID (imported above, shared with the
+# Operations API), layered on top of the general NOTIFICATIONS_FEATURE_FLAG_ID gate.
 ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID = "admin.event_summary"
-ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"
 
 # Notification types that are scoped to specific feeds. A subscription to any of
 # these must carry a non-empty list of feed stable IDs (persisted in the
