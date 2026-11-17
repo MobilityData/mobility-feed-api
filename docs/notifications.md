@@ -364,10 +364,9 @@ Quick orientation:
   membership — by `set_announcements_optin()` in
   `api/src/user_service/impl/subscription_helpers.py`. Announcements
   subscriptions are **disabled, never deleted**.
-- **The Brevo/DB link.** Each announcements contact carries the contact attribute
-  `MDB_SUBSCRIPTION_ID` = its `notification_subscription.id`. That subscription ID
-  (not the type string `api.announcements`) is what an unsubscribe link embeds,
-  e.g. `…/notifications/unsubscribe?id={{ contact.MDB_SUBSCRIPTION_ID }}`.
+- **The Brevo/DB link.** Announcements emails use Brevo's own unsubscribe link;
+  the daily `reconcile_announcements_from_brevo` task copies those unsubscribes
+  onto the subscription row. No subscription ID is stored in Brevo.
 
 ## Future Work
 

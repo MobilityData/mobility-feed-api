@@ -101,6 +101,36 @@ paths:
         "500":
           description: Internal server error.
 
+  /v1/user/announcements/sync:
+    post:
+      summary: Refresh the current user's API announcements opt-in from Brevo
+      description: |
+        Reads the user's Brevo contact and turns their `api.announcements` subscription
+        off when they unsubscribed from a Brevo email, then returns the profile. It never
+        turns announcements on and never writes to Brevo. The daily reconcile task does the
+        same for every user; this lets the website show the change at once, e.g. after the
+        Brevo unsubscribe redirect. Makes one Brevo call, only when the subscription is on.
+      operationId: syncUserAnnouncements
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: The user's profile after the refresh.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "403":
+          description: Forbidden — guest users have no profile.
+        "404":
+          description: User not found.
+        "502":
+          description: Brevo could not be reached or returned an error.
+
   /v1/notifications:
     get:
       summary: List available notification types
@@ -358,8 +388,7 @@ paths:
         (Brevo) cannot be reached while updating an announcements subscription.
 
         The `id` embedded in an email is the subscription's own UUID
-        (`notification_subscription.id`) — mirrored onto the Brevo contact as the
-        `MDB_SUBSCRIPTION_ID` attribute — **not** the notification-type string
+        (`notification_subscription.id`) — **not** the notification-type string
         (`api.announcements`), which is shared by all recipients and is not a
         valid subscription ID.
 
@@ -502,8 +531,8 @@ components:
           description: >-
             Unique subscription ID (UUID v4). This is the **capability token** used
             by the public `/v1/subscriptions/{id}` endpoints and by email
-            unsubscribe links; for `api.announcements` it is mirrored onto the
-            Brevo contact as the `MDB_SUBSCRIPTION_ID` attribute.
+            unsubscribe links. `api.announcements` emails are Brevo campaigns and
+            use Brevo's own unsubscribe link instead.
         user_id:
           type: string
           description: The ID of the subscribed user.
