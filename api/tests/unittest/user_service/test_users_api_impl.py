@@ -336,6 +336,81 @@ class TestUpdateUserMe(unittest.TestCase):
         self.mock_session.query.assert_not_called()
 
 
+class TestSyncUserAnnouncements(unittest.TestCase):
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _sync(self, user, brevo_status=None, side_effect=None):
+        _mock_query_first(self.mock_session, user)
+        with patch.object(helpers, "get_announcements_list_id", return_value=42), patch.object(
+            helpers,
+            "get_contact_subscription_status",
+            return_value=brevo_status,
+            side_effect=side_effect,
+        ) as status:
+            result = self.api.sync_user_announcements(db_session=self.mock_session)
+        return result, status
+
+    def test_turns_off_when_unsubscribed_in_brevo(self):
+        user = _make_user(announcements_active=True)
+
+        result, status = self._sync(user, helpers.BrevoSubscriptionStatus.UNSUBSCRIBED)
+
+        status.assert_called_once_with("user@example.com", 42)
+        self.assertFalse(user.notification_subscriptions[0].active)
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+        self.mock_session.flush.assert_called_once()
+
+    def test_leaves_a_subscribed_contact_on(self):
+        user = _make_user(announcements_active=True)
+
+        result, _ = self._sync(user, helpers.BrevoSubscriptionStatus.SUBSCRIBED)
+
+        self.assertTrue(user.notification_subscriptions[0].active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        self.mock_session.flush.assert_not_called()
+
+    def test_leaves_a_contact_not_found_on(self):
+        user = _make_user(announcements_active=True)
+
+        result, _ = self._sync(user, helpers.BrevoSubscriptionStatus.NOT_FOUND)
+
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+
+    def test_never_turns_on_and_skips_brevo_when_already_off(self):
+        user = _make_user(announcements_active=False)
+
+        result, status = self._sync(user, helpers.BrevoSubscriptionStatus.SUBSCRIBED)
+
+        status.assert_not_called()
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+
+    def test_brevo_failure_is_a_502(self):
+        user = _make_user(announcements_active=True)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(user, side_effect=RuntimeError("BREVO_API_KEY environment variable is not set"))
+
+        self.assertEqual(ctx.exception.status_code, 502)
+        self.assertTrue(user.notification_subscriptions[0].active)
+
+    def test_unknown_user_is_a_404(self):
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(None)
+
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_guest_is_a_403(self):
+        _set_context(is_guest=True)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(_make_user(announcements_active=True))
+
+        self.assertEqual(ctx.exception.status_code, 403)
+
+
 class TestSubscriptions(unittest.TestCase):
     def setUp(self):
         self.api = UsersApiImpl()

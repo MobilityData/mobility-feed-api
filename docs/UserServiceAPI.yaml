@@ -101,6 +101,36 @@ paths:
         "500":
           description: Internal server error.
 
+  /v1/user/announcements/sync:
+    post:
+      summary: Refresh the current user's API announcements opt-in from Brevo
+      description: |
+        Reads the user's Brevo contact and turns their `api.announcements` subscription
+        off when they unsubscribed from a Brevo email, then returns the profile. It never
+        turns announcements on and never writes to Brevo. The daily reconcile task does the
+        same for every user; this lets the website show the change at once, e.g. after the
+        Brevo unsubscribe redirect. Makes one Brevo call, only when the subscription is on.
+      operationId: syncUserAnnouncements
+      tags:
+        - "users"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: The user's profile after the refresh.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized — missing or invalid token.
+        "403":
+          description: Forbidden — guest users have no profile.
+        "404":
+          description: User not found.
+        "502":
+          description: Brevo could not be reached or returned an error.
+
   /v1/notifications:
     get:
       summary: List available notification types

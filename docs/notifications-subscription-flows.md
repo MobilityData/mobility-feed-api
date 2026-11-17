@@ -137,7 +137,10 @@ The Brevo list ID is **not** in the DB — it comes from the
 Announcements emails are Brevo campaigns, so they use **Brevo's own unsubscribe
 link** (`{{ unsubscribe }}`). Brevo stops sending to the contact at once, and the
 daily `reconcile_announcements_from_brevo` task turns the row off (`active =
-false`). No subscription ID is stored on the Brevo contact: contacts are shared by
+false`). A signed-in user does not have to wait for it:
+`POST /v1/user/announcements/sync` applies the same turn-off-only rule to the
+caller (the website calls it after Brevo's unsubscribe redirect, see Flow 3). No
+subscription ID is stored on the Brevo contact: contacts are shared by
 every list of the Brevo account, so a per-contact attribute was overwritten by
 whichever environment wrote it last.
 

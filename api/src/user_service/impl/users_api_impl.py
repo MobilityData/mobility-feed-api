@@ -49,6 +49,7 @@ from user_service.impl.subscription_helpers import (
     find_unknown_feed_ids,
     resolve_feed_metadata,
     set_announcements_optin,
+    turn_off_announcements_if_unsubscribed_in_brevo,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
@@ -162,6 +163,32 @@ class UsersApiImpl(BaseUsersApi):
             set_announcements_optin(db_session, user, subscribe=optin_target)
 
         db_session.flush()
+
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
+
+    @with_users_db_session
+    def sync_user_announcements(self, db_session=None) -> UserProfile:
+        """
+        Turns the authenticated user's API announcements off when they unsubscribed in Brevo,
+        then returns their profile. Never turns announcements on. Guest users cannot call it.
+        """
+        user_id = self._require_user_id()
+
+        user = (
+            db_session.query(AppUser)
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
+            .filter_by(id=user_id)
+            .first()
+        )
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if turn_off_announcements_if_unsubscribed_in_brevo(user):
+            db_session.flush()
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
         return AppUserImpl.from_orm(user, all_flags)
