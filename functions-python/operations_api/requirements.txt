@@ -37,6 +37,8 @@ fastapi_filter
 pycountry
 shapely
 pandas
+# Validates per-feed config values against config_key.value_schema
+jsonschema
 
 # Brevo (Sendinblue) SDK for the API announcements sync check (shared/common/brevo.py)
 sib-api-v3-sdk

@@ -114,6 +114,26 @@ To backfill MD5 hashes for existing GTFS datasets (reads the MD5 from the GCS ob
 | `only_missing_hashes` | bool | `true` | Skip datasets that already have `hash_md5` set |
 | `limit` | int \| null | `10` | Maximum number of datasets to process; omit or pass `null` for no limit |
 
+To set the CDN Cache-Control on the `latest.zip` of every feed with a latest dataset (one-off for files uploaded before the batch process set it; patches object metadata only):
+
+```json
+{
+  "task": "backfill_latest_cache_control",
+  "payload": {
+    "dry_run": true,
+    "uploaded_before": "2026-11-10T18:30:00+00:00",
+    "limit": null
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `dry_run` | bool | `true` | Count the matching feeds without patching anything |
+| `uploaded_before` | str \| null | `null` | ISO 8601; only feeds whose latest dataset was downloaded before this time (later uploads already carry the header) |
+| `limit` | int \| null | `null` | Maximum number of feeds to process; omit or pass `null` for no limit |
+| `bucket_name` | str \| null | `DATASETS_BUCKET_NAME` | Datasets bucket |
+
 To check the availability of non-deprecated published GTFS feeds via HTTP HEAD requests (with GET fallback):
 
 ```json

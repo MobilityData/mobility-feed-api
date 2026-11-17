@@ -60,7 +60,9 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                     # schema. It's also the case for other tables and other foreign keys.
                     self.logger.info(f"Deleting feed with stable_id={stable_id}")
                     session.delete(gbfs_feed)
-                    session.flush()
+                    # Commit each deletion so a dropped connection only loses the current feed and a
+                    # re-run resumes from the remaining ones instead of rolling back all of them.
+                    session.commit()
 
     def populate_db(self, session, fetch_url=True):
         """Populate the database with the GBFS feeds"""

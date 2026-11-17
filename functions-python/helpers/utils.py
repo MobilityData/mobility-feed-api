@@ -183,6 +183,16 @@ def _get_http_headers_override(feed_id: Optional[str]) -> Optional[dict]:
         return None
 
 
+def default_request_headers(url: str) -> dict:
+    """Headers sent when the feed has no feed_download/http_headers value."""
+    return {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0.0.0 Mobile Safari/537.36",
+        "Referer": url,
+    }
+
+
 def build_feed_request_params(
     url: str,
     feed_id: Optional[str] = None,
@@ -209,12 +219,7 @@ def build_feed_request_params(
     else:
         headers = _get_http_headers_override(feed_id)
     if headers is None:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/126.0.0.0 Mobile Safari/537.36",
-            "Referer": url,
-        }
+        headers = default_request_headers(url)
 
     try:
         auth_type = int(authentication_type) if authentication_type is not None else 0
