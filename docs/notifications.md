@@ -318,10 +318,10 @@ Admin users subscribe with `notification_type_id='admin.event_summary'` and
 unless `filter_params.event_subtypes` limits it to some of them (e.g. `["seal_run_summary"]`);
 missing or empty means every subtype, including ones added later.
 
-The user needs the `isAdminSummarySubscriptionEnabled` feature flag. Operators set the
+The user needs the `isAdminSummarySubscriptionEnabled` feature flag. Users set their own
 subscription from the Operations API with
-`PUT /v1/operations/users/{user_id}/subscriptions/admin-summary` (`active`, `cadence`,
-`event_subtypes`); pausing does not need the flag. (Re)activating sets `active_since` to now,
+`PUT /v1/operations/me/subscriptions/admin-summary` (`active`, `cadence`, `event_subtypes`);
+nobody can subscribe someone else, and pausing does not need the flag. (Re)activating sets `active_since` to now,
 so only summaries created from then on are delivered.
 
 ## Delivery Preferences (cadence and digest)

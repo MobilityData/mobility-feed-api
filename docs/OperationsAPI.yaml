@@ -525,6 +525,56 @@ paths:
                       $ref: "#/components/schemas/OperationUserProfile"
         "401":
           description: Unauthorized.
+  /v1/operations/me:
+    get:
+      summary: Get the signed-in user
+      description: >
+        Returns the Mobility Database user whose email matches the caller's Google account (case-insensitive), including their feature flags. Each email belongs to at most one user.
+      operationId: getOperationsMe
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The signed-in user's profile with feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: No Mobility Database user has the caller's email.
+  /v1/operations/me/subscriptions/admin-summary:
+    put:
+      summary: Set the signed-in user's admin summary subscription
+      description: >
+        Creates, updates or pauses the signed-in user's `admin.event_summary` subscription, which delivers the dispatch and Seal of Reliability run summaries. Admin summaries are internal, so each user manages only their own subscription. There is one per user; a repeated call updates it. Activating requires the user's `isAdminSummarySubscriptionEnabled` feature flag; pausing does not. When the subscription becomes active it only receives summaries created from then on.
+      operationId: putOperationsMeAdminSummarySubscription
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationAdminSummarySubscriptionRequest"
+      responses:
+        "200":
+          description: The signed-in user's admin summary subscription after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "403":
+          description: The signed-in user doesn't have the `isAdminSummarySubscriptionEnabled` feature flag.
+        "404":
+          description: No Mobility Database user has the caller's email, or pausing a subscription the user doesn't have.
   /v1/operations/users/{user_id}:
     get:
       summary: Get a user by ID
@@ -1418,42 +1468,6 @@ paths:
           description: Unauthorized.
         "404":
           description: User not found.
-  /v1/operations/users/{user_id}/subscriptions/admin-summary:
-    put:
-      summary: Set a user's admin summary subscription
-      description: >
-        Creates, updates or pauses the user's `admin.event_summary` subscription, which delivers the dispatch and Seal of Reliability run summaries. There is one per user; a repeated call updates it. Activating requires the user's `isAdminSummarySubscriptionEnabled` feature flag; pausing does not. When the subscription becomes active it only receives summaries created from then on.
-      operationId: putOperationsUserAdminSummarySubscription
-      tags:
-        - "notifications"
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The user's ID.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/OperationAdminSummarySubscriptionRequest"
-      responses:
-        "200":
-          description: The user's admin summary subscription after the change.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OperationNotificationSubscription"
-        "400":
-          description: The user doesn't have the `isAdminSummarySubscriptionEnabled` feature flag.
-        "401":
-          description: Unauthorized.
-        "404":
-          description: User not found, or pausing a subscription the user doesn't have.
   /v1/operations/users/{user_id}/brevo-sync:
     get:
       summary: Check a user's API announcements sync with Brevo

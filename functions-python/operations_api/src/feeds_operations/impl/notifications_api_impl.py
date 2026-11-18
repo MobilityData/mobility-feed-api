@@ -67,6 +67,7 @@ from feeds_gen.models.operation_notification_log_list import (
 from feeds_gen.models.operation_notification_subscription import (
     OperationNotificationSubscription,
 )
+from feeds_operations.impl.current_user import current_app_user
 from feeds_operations.impl.feeds_operations_impl import _as_datetime
 from feeds_operations.impl.models.operation_notification_impl import (
     OperationNotificationEventDetailImpl,
@@ -440,15 +441,14 @@ class NotificationsApiImpl(BaseNotificationsApi):
         ]
 
     @with_users_db_session
-    def put_operations_user_admin_summary_subscription(
+    def put_operations_me_admin_summary_subscription(
         self,
-        user_id: str,
         operation_admin_summary_subscription_request: OperationAdminSummarySubscriptionRequest,
         db_session=None,
     ) -> OperationNotificationSubscription:
+        # Admin summaries are internal: users manage only their own subscription.
         request = operation_admin_summary_subscription_request
-        if not db_session.get(AppUser, user_id):
-            raise HTTPException(status_code=404, detail="User not found.")
+        user_id = current_app_user(db_session).id
         subscription = (
             db_session.query(NotificationSubscription)
             .filter(
@@ -471,7 +471,7 @@ class NotificationsApiImpl(BaseNotificationsApi):
                 db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID
             ):
                 raise HTTPException(
-                    status_code=400,
+                    status_code=403,
                     detail=f"The user doesn't have the {ADMIN_SUMMARY_FEATURE_FLAG_ID} "
                     "feature flag.",
                 )

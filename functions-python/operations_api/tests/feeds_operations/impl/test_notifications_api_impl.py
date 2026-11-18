@@ -310,15 +310,17 @@ def _admin_request(**kwargs):
 
 
 @patch(f"{MODULE}.feature_flag_enabled", return_value=True)
-class TestPutAdminSummarySubscription(unittest.TestCase):
+class TestPutMeAdminSummarySubscription(unittest.TestCase):
     def setUp(self):
         self.api = NotificationsApiImpl()
         self.session = MagicMock()
-        self.session.get.return_value = _make_user()
+        current = patch(f"{MODULE}.current_app_user", return_value=_make_user())
+        self.current = current.start()
+        self.addCleanup(current.stop)
 
     def _put(self, request):
-        return self.api.put_operations_user_admin_summary_subscription(
-            "uid-1", request, db_session=self.session
+        return self.api.put_operations_me_admin_summary_subscription(
+            request, db_session=self.session
         )
 
     def test_creates_an_active_subscription_limited_to_subtypes(self, flag):
@@ -376,13 +378,13 @@ class TestPutAdminSummarySubscription(unittest.TestCase):
         self.assertEqual(sub.active_since, active_since)
         self.assertEqual(sub.filter_params, {"event_subtypes": ["dispatch_summary"]})
 
-    def test_activating_without_the_feature_flag_is_400(self, flag):
+    def test_activating_without_the_feature_flag_is_403(self, flag):
         flag.return_value = False
         self.session.query.return_value = _chain(None)
 
         with self.assertRaises(HTTPException) as ctx:
             self._put(_admin_request())
-        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.status_code, 403)
         self.session.commit.assert_not_called()
 
     def test_pausing_skips_the_flag_check(self, flag):
@@ -402,12 +404,13 @@ class TestPutAdminSummarySubscription(unittest.TestCase):
             self._put(_admin_request(active=False))
         self.assertEqual(ctx.exception.status_code, 404)
 
-    def test_user_not_found(self, _flag):
-        self.session.get.return_value = None
+    def test_no_user_has_the_signed_in_email(self, _flag):
+        self.current.side_effect = HTTPException(status_code=404)
 
         with self.assertRaises(HTTPException) as ctx:
             self._put(_admin_request())
         self.assertEqual(ctx.exception.status_code, 404)
+        self.session.commit.assert_not_called()
 
 
 class TestBrevoSyncIssues(unittest.TestCase):
