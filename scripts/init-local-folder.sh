@@ -66,6 +66,9 @@ echo "==> Generating FastAPI stubs (api-gen)..."
 echo "==> Generating FastAPI stubs (user-gen)..."
 "$SCRIPT_PATH/api-user-service-gen.sh"
 
+echo "==> Generating FastAPI stubs (garage-gen)..."
+"$SCRIPT_PATH/api-garage-gen.sh"
+
 echo "==> Syncing Operations API schema..."
 "$SCRIPT_PATH/api-operations-update-schema.sh"
 
