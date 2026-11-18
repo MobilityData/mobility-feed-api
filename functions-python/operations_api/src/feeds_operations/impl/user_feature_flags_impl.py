@@ -33,6 +33,7 @@ from feeds_gen.models.put_user_feature_flags_request import (
     PutUserFeatureFlagsRequest,
 )
 from feeds_gen.models.update_feature_flag_request import UpdateFeatureFlagRequest
+from feeds_operations.impl.current_user import current_app_user
 from feeds_operations.impl.models.feature_flag_validation import validate_value_type
 from feeds_operations.impl.models.operation_feature_flag_impl import (
     OperationFeatureFlagImpl,
@@ -99,6 +100,12 @@ class UserFeatureFlagsApiImpl(BaseUsersApi):
         )
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
+        all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
+        return OperationUserProfileImpl.from_orm(user, all_flags)
+
+    @with_users_db_session
+    def get_operations_me(self, db_session=None) -> OperationUserProfile:
+        user = current_app_user(db_session, _USER_FLAGS_LOAD)
         all_flags = db_session.query(FeatureFlagORM).order_by(FeatureFlagORM.id).all()
         return OperationUserProfileImpl.from_orm(user, all_flags)
 

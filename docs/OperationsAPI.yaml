@@ -525,6 +525,56 @@ paths:
                       $ref: "#/components/schemas/OperationUserProfile"
         "401":
           description: Unauthorized.
+  /v1/operations/me:
+    get:
+      summary: Get the signed-in user
+      description: >
+        Returns the Mobility Database user whose email matches the caller's Google account (case-insensitive), including their feature flags. Each email belongs to at most one user.
+      operationId: getOperationsMe
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The signed-in user's profile with feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: No Mobility Database user has the caller's email.
+  /v1/operations/me/subscriptions/admin-summary:
+    put:
+      summary: Set the signed-in user's admin summary subscription
+      description: >
+        Creates, updates or pauses the signed-in user's `admin.event_summary` subscription, which delivers the dispatch and Seal of Reliability run summaries. Admin summaries are internal, so each user manages only their own subscription. There is one per user; a repeated call updates it. Activating requires the user's `isAdminSummarySubscriptionEnabled` feature flag; pausing does not. When the subscription becomes active it only receives summaries created from then on.
+      operationId: putOperationsMeAdminSummarySubscription
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationAdminSummarySubscriptionRequest"
+      responses:
+        "200":
+          description: The signed-in user's admin summary subscription after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "403":
+          description: The signed-in user doesn't have the `isAdminSummarySubscriptionEnabled` feature flag.
+        "404":
+          description: No Mobility Database user has the caller's email, or pausing a subscription the user doesn't have.
   /v1/operations/users/{user_id}:
     get:
       summary: Get a user by ID
@@ -4611,6 +4661,12 @@ components:
           items:
             type: string
           default: []
+        event_subtypes:
+          type: array
+          description: The event subtypes the subscription is limited to (`filter_params.event_subtypes`). Empty means every subtype.
+          items:
+            type: string
+          default: []
         filter_params:
           type: object
           nullable: true
@@ -4626,6 +4682,27 @@ components:
           nullable: true
           description: >
             When the subscription last became active. Events created before this are never delivered to it.
+    OperationAdminSummarySubscriptionRequest:
+      x-operation: true
+      type: object
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+          description: True to subscribe (or resume), false to pause.
+        cadence:
+          type: string
+          enum: [daily, weekly]
+          default: daily
+          description: How often summaries are delivered. Ignored when pausing.
+        event_subtypes:
+          type: array
+          description: >
+            Only deliver these summaries. Omit or leave empty for every summary, including subtypes added later. Ignored when pausing.
+          items:
+            type: string
+            enum: [dispatch_summary, seal_run_summary]
     OperationBrevoContactState:
       x-operation: true
       type: object

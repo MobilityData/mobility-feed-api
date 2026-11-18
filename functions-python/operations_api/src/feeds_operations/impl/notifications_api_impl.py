@@ -32,6 +32,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.notifications_api_base import BaseNotificationsApi
+from feeds_gen.models.operation_admin_summary_subscription_request import (
+    OperationAdminSummarySubscriptionRequest,
+)
 from feeds_gen.models.operation_brevo_contact_state import OperationBrevoContactState
 from feeds_gen.models.operation_brevo_sync_request import OperationBrevoSyncRequest
 from feeds_gen.models.operation_brevo_sync_status import OperationBrevoSyncStatus
@@ -64,6 +67,7 @@ from feeds_gen.models.operation_notification_log_list import (
 from feeds_gen.models.operation_notification_subscription import (
     OperationNotificationSubscription,
 )
+from feeds_operations.impl.current_user import current_app_user
 from feeds_operations.impl.feeds_operations_impl import _as_datetime
 from feeds_operations.impl.models.operation_notification_impl import (
     OperationNotificationEventDetailImpl,
@@ -79,12 +83,15 @@ from shared.common.brevo import (
     get_contact_list_state,
     remove_contact_from_list,
 )
+from shared.common.feature_flags import feature_flag_enabled
 from shared.database.database import generate_unique_id, with_db_session
 from shared.database.users_database import with_users_db_session
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
 from shared.notifications.notification_constants import (
+    ADMIN_SUMMARY_FEATURE_FLAG_ID,
     DISPATCH_RUN_TASK_NAME,
+    SUBSCRIPTION_EVENT_SUBTYPES_KEY,
     FeedUrlUpdateType,
     NotificationFeedRole,
     NotificationLogStatus,
@@ -432,6 +439,69 @@ class NotificationsApiImpl(BaseNotificationsApi):
         return [
             OperationNotificationSubscriptionImpl.from_orm(s) for s in subscriptions
         ]
+
+    @with_users_db_session
+    def put_operations_me_admin_summary_subscription(
+        self,
+        operation_admin_summary_subscription_request: OperationAdminSummarySubscriptionRequest,
+        db_session=None,
+    ) -> OperationNotificationSubscription:
+        # Admin summaries are internal: users manage only their own subscription.
+        request = operation_admin_summary_subscription_request
+        user_id = current_app_user(db_session).id
+        subscription = (
+            db_session.query(NotificationSubscription)
+            .filter(
+                NotificationSubscription.user_id == user_id,
+                NotificationSubscription.notification_type_id
+                == NotificationTypeId.ADMIN_EVENT_SUMMARY,
+            )
+            .one_or_none()
+        )
+
+        if not request.active:
+            if subscription is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="The user has no admin summary subscription.",
+                )
+            subscription.active = False
+        else:
+            if not feature_flag_enabled(
+                db_session, user_id, ADMIN_SUMMARY_FEATURE_FLAG_ID
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"The user doesn't have the {ADMIN_SUMMARY_FEATURE_FLAG_ID} "
+                    "feature flag.",
+                )
+            now = datetime.now(timezone.utc)
+            if subscription is None:
+                subscription = NotificationSubscription(
+                    id=generate_unique_id(),
+                    user_id=user_id,
+                    notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+                    created_at=now,
+                )
+                db_session.add(subscription)
+            if not subscription.active:
+                # Only summaries created from now on: don't flood a (re)activated
+                # subscription with everything emitted while it didn't exist or was paused.
+                subscription.active_since = now
+            subscription.active = True
+            subscription.cadence = request.cadence or "daily"
+            subtypes = sorted(set(request.event_subtypes or []))
+            filter_params = {
+                k: v
+                for k, v in (subscription.filter_params or {}).items()
+                if k != SUBSCRIPTION_EVENT_SUBTYPES_KEY
+            }
+            if subtypes:
+                filter_params[SUBSCRIPTION_EVENT_SUBTYPES_KEY] = subtypes
+            subscription.filter_params = filter_params or None
+
+        db_session.commit()
+        return OperationNotificationSubscriptionImpl.from_orm(subscription)
 
     @with_users_db_session
     def get_operations_user_brevo_sync(
