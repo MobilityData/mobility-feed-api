@@ -64,7 +64,7 @@ Table of contents
 
 ## GBFS Spreadsheet Schema
 
-GBFS feeds use the same columns as GTFS Schedule feeds. The columns that only apply to GTFS (`entity_type`, `static_reference`, `features` and `urls.latest`) are left empty.
+GBFS feeds use the same columns as GTFS Schedule feeds. The columns that only apply to GTFS (`entity_type`, `static_reference`, `features` and `urls.latest`) are left empty, and so is `is_official`, since GBFS feeds aren't reviewed for official status yet.
 
 | Field Name          |Type|Presence| Definition
 |---------------------|-|-|-
@@ -74,7 +74,6 @@ GBFS feeds use the same columns as GTFS Schedule feeds. The columns that only ap
 | name                | Text | Optional | An optional description of the feed.
 | note                | Text | Optional | A note to clarify complex use cases for consumers.
 | status              | Enum | Optional | Describes status of the feed, using the same values as the GTFS Schedule `status` field.
-| is_official         | Enum | Optional | Flag indicating if the source comes from the operator itself or not. <ul><li>`True`: Feed comes from the operator as an authorized source.</li><li>`False`: Feed is not from an official source.</li></ul>Feed's is_official status is assumed to be `undefined` if the cell is empty, meaning we cannot say if it's official or not.
 | redirect            | Object | Optional | When a feed is deprecated and replaced with a new URL, redirect information is provided to point to one or more new feeds.
 | <ul><li>id</li></ul> | String | Optional | New feed ID that replaces the current feed.<br>Multiple feed ids can be present, separated by a vertical bar (\|).
 | <ul><li>comment</li></ul> | String | Optional | Comment to explain redirect if needed.<br>Multiple comments can be present, separated by a vertical bar (\|).

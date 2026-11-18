@@ -463,6 +463,8 @@ def get_gbfs_feed_csv_data(
     For GBFS feeds, urls.direct_download is the auto-discovery URL (gbfs.json).
     """
     data = get_feed_csv_data(feed, geopolygon_map)
+    # There is no process yet for reviewing whether a GBFS feed is official.
+    data["is_official"] = None
 
     if feed.bounding_box:
         shape = to_shape(feed.bounding_box)
