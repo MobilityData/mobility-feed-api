@@ -16,6 +16,8 @@
 
 import logging
 import os
+from contextlib import contextmanager
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import google.auth.transport.requests
@@ -31,6 +33,7 @@ from sqlalchemy.orm import selectinload
 
 from feeds_gen.apis.notifications_api_base import BaseNotificationsApi
 from feeds_gen.models.operation_brevo_contact_state import OperationBrevoContactState
+from feeds_gen.models.operation_brevo_sync_request import OperationBrevoSyncRequest
 from feeds_gen.models.operation_brevo_sync_status import OperationBrevoSyncStatus
 from feeds_gen.models.operation_notification_dispatch_planned_run import (
     OperationNotificationDispatchPlannedRun,
@@ -71,10 +74,12 @@ from feeds_operations.impl.models.operation_notification_impl import (
 from shared.common.brevo import (
     BrevoContactListState,
     BrevoSubscriptionStatus,
+    add_contact_to_list,
     get_announcements_list_id,
     get_contact_list_state,
+    remove_contact_from_list,
 )
-from shared.database.database import with_db_session
+from shared.database.database import generate_unique_id, with_db_session
 from shared.database.users_database import with_users_db_session
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.task_execution.task_execution_tracker import TaskExecutionTracker
@@ -211,17 +216,67 @@ def _brevo_sync_issues(
         issues.append(
             "Opted out but the contact is still subscribed to the announcements list in Brevo."
         )
-
-    if (
-        subscription_id is not None
-        and brevo.in_list
-        and brevo.mdb_subscription_id != subscription_id
-    ):
-        issues.append(
-            f"Brevo MDB_SUBSCRIPTION_ID is {brevo.mdb_subscription_id or 'unset'} "
-            f"but the subscription ID is {subscription_id}."
-        )
     return issues
+
+
+def _announcements_subscriptions(
+    db_session, user_id: str
+) -> List[NotificationSubscription]:
+    """The user's api.announcements rows, oldest first (there should be at most one)."""
+    return (
+        db_session.query(NotificationSubscription)
+        .filter(
+            NotificationSubscription.user_id == user_id,
+            NotificationSubscription.notification_type_id
+            == NotificationTypeId.API_ANNOUNCEMENTS,
+        )
+        .order_by(NotificationSubscription.created_at, NotificationSubscription.id)
+        .all()
+    )
+
+
+@contextmanager
+def _brevo_errors(user_id: str):
+    """Map Brevo client failures to HTTP errors."""
+    try:
+        yield
+    except RuntimeError as e:
+        logger.error("Brevo is not configured: %s", e)
+        raise HTTPException(
+            status_code=500, detail="Brevo is not configured."
+        ) from None
+    except (sib_api_v3_sdk.rest.ApiException, urllib3.exceptions.HTTPError) as e:
+        logger.warning("Brevo call failed for user %s: %s", user_id, e)
+        raise HTTPException(
+            status_code=502, detail="Failed to reach the email provider."
+        ) from None
+
+
+def _brevo_sync_status(
+    user_id: str,
+    email: str,
+    subscription_id: Optional[str],
+    subscription_active: Optional[bool],
+    subscription_count: int,
+    brevo: BrevoContactListState,
+) -> OperationBrevoSyncStatus:
+    issues = _brevo_sync_issues(
+        subscription_id, subscription_active, subscription_count, brevo
+    )
+    return OperationBrevoSyncStatus(
+        user_id=user_id,
+        email=email,
+        subscription_id=subscription_id,
+        subscription_active=subscription_active,
+        brevo=OperationBrevoContactState(
+            status=brevo.status.value,
+            in_list=brevo.in_list,
+            email_blacklisted=brevo.email_blacklisted,
+            list_unsubscribed=brevo.list_unsubscribed,
+        ),
+        in_sync=not issues,
+        issues=issues,
+    )
 
 
 class NotificationsApiImpl(BaseNotificationsApi):
@@ -385,16 +440,7 @@ class NotificationsApiImpl(BaseNotificationsApi):
         user = db_session.get(AppUser, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
-        subscriptions = (
-            db_session.query(NotificationSubscription)
-            .filter(
-                NotificationSubscription.user_id == user_id,
-                NotificationSubscription.notification_type_id
-                == NotificationTypeId.API_ANNOUNCEMENTS,
-            )
-            .order_by(NotificationSubscription.created_at, NotificationSubscription.id)
-            .all()
-        )
+        subscriptions = _announcements_subscriptions(db_session, user_id)
         # Read everything needed into plain values first: the commit below expires the
         # ORM objects, and touching them afterwards would reopen a connection.
         email = user.email
@@ -405,39 +451,115 @@ class NotificationsApiImpl(BaseNotificationsApi):
         # (possibly slow) Brevo call.
         db_session.commit()
 
-        try:
+        with _brevo_errors(user_id):
             brevo = get_contact_list_state(email, get_announcements_list_id())
-        except RuntimeError as e:
-            logger.error("Brevo is not configured: %s", e)
-            raise HTTPException(
-                status_code=500, detail="Brevo is not configured."
-            ) from None
-        except (sib_api_v3_sdk.rest.ApiException, urllib3.exceptions.HTTPError) as e:
-            logger.warning("Brevo lookup failed for user %s: %s", user_id, e)
-            raise HTTPException(
-                status_code=502, detail="Failed to reach the email provider."
-            ) from None
 
-        issues = _brevo_sync_issues(
+        return _brevo_sync_status(
+            user_id,
+            email,
             subscription_id,
             subscription_active,
             len(subscriptions),
             brevo,
         )
-        return OperationBrevoSyncStatus(
-            user_id=user_id,
-            email=email,
-            subscription_id=subscription_id,
-            subscription_active=subscription_active,
-            brevo=OperationBrevoContactState(
-                status=brevo.status.value,
-                in_list=brevo.in_list,
-                email_blacklisted=brevo.email_blacklisted,
-                list_unsubscribed=brevo.list_unsubscribed,
-                mdb_subscription_id=brevo.mdb_subscription_id,
-            ),
-            in_sync=not issues,
-            issues=issues,
+
+    @with_users_db_session
+    def sync_operations_user_brevo(
+        self,
+        user_id: str,
+        operation_brevo_sync_request: OperationBrevoSyncRequest,
+        db_session=None,
+    ) -> OperationBrevoSyncStatus:
+        """Repair a mismatch found by the sync check, in the direction the operator picks.
+
+        from_brevo: Brevo wins. The subscription row is set active exactly when the
+        contact is on the list and not unsubscribed (a row is created only when it
+        must be active). Brevo is not written.
+        to_brevo: the subscription row wins. Active → the contact is added to the
+        list; inactive or no row → it is removed. An unsubscribe made in Brevo is
+        never cleared here: only the user can undo it, by opting in again (409).
+        """
+        direction = operation_brevo_sync_request.direction
+        user = db_session.get(AppUser, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+        subscriptions = _announcements_subscriptions(db_session, user_id)
+        email = user.email
+        full_name = user.full_name
+        organization = user.legacy_org_name
+        subscription_count = len(subscriptions)
+        subscription = subscriptions[0] if subscriptions else None
+        subscription_id = subscription.id if subscription else None
+        subscription_active = bool(subscription.active) if subscription else None
+        # Release the pooled connection before the Brevo calls (see the check above).
+        db_session.commit()
+
+        with _brevo_errors(user_id):
+            list_id = get_announcements_list_id()
+            brevo = get_contact_list_state(email, list_id)
+
+            if direction == "from_brevo":
+                subscribed = (
+                    brevo.in_list and brevo.status == BrevoSubscriptionStatus.SUBSCRIBED
+                )
+                if subscription_id is not None:
+                    row = db_session.get(NotificationSubscription, subscription_id)
+                    row.active = subscribed
+                    subscription_active = subscribed
+                elif subscribed:
+                    subscription_id = generate_unique_id()
+                    db_session.add(
+                        NotificationSubscription(
+                            id=subscription_id,
+                            user_id=user_id,
+                            notification_type_id=NotificationTypeId.API_ANNOUNCEMENTS,
+                            active=True,
+                            created_at=datetime.now(timezone.utc),
+                        )
+                    )
+                    subscription_active = True
+                    subscription_count = 1
+                db_session.commit()
+                logger.info(
+                    "Brevo sync from_brevo for user %s: subscription %s active=%s",
+                    user_id,
+                    subscription_id,
+                    subscription_active,
+                )
+            elif direction == "to_brevo":
+                if subscription_active:
+                    if brevo.status == BrevoSubscriptionStatus.UNSUBSCRIBED:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(
+                                "The contact unsubscribed in Brevo. Only the user can "
+                                "re-subscribe; use from_brevo to turn the subscription off."
+                            ),
+                        )
+                    add_contact_to_list(
+                        email, list_id, first_name=full_name, organization=organization
+                    )
+                else:
+                    remove_contact_from_list(email, list_id)
+                logger.info(
+                    "Brevo sync to_brevo for user %s: on list=%s",
+                    user_id,
+                    bool(subscription_active),
+                )
+                # Read back what Brevo now holds.
+                brevo = get_contact_list_state(email, list_id)
+            else:
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown direction '{direction}'."
+                )
+
+        return _brevo_sync_status(
+            user_id,
+            email,
+            subscription_id,
+            subscription_active,
+            subscription_count,
+            brevo,
         )
 
     @with_users_db_session
