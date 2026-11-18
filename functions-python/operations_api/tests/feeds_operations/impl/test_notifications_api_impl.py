@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 import sib_api_v3_sdk
 from fastapi import HTTPException
 
+from feeds_gen.models.operation_brevo_sync_request import OperationBrevoSyncRequest
 from feeds_gen.models.operation_notification_dispatch_request import (
     OperationNotificationDispatchRequest,
 )
@@ -139,7 +140,6 @@ def _brevo(status=BrevoSubscriptionStatus.SUBSCRIBED, in_list=True, **kwargs):
         in_list=in_list,
         email_blacklisted=kwargs.get("email_blacklisted", False),
         list_unsubscribed=kwargs.get("list_unsubscribed", False),
-        mdb_subscription_id=kwargs.get("mdb_subscription_id", "sub-a"),
     )
 
 
@@ -473,22 +473,6 @@ class TestBrevoSyncIssues(unittest.TestCase):
             ],
         )
 
-    def test_subscription_id_attribute_mismatch(self):
-        issues = _brevo_sync_issues(
-            "sub-a", True, 1, _brevo(mdb_subscription_id="sub-old")
-        )
-        self.assertEqual(
-            issues,
-            ["Brevo MDB_SUBSCRIPTION_ID is sub-old but the subscription ID is sub-a."],
-        )
-
-    def test_subscription_id_attribute_unset(self):
-        issues = _brevo_sync_issues("sub-a", True, 1, _brevo(mdb_subscription_id=None))
-        self.assertEqual(
-            issues,
-            ["Brevo MDB_SUBSCRIPTION_ID is unset but the subscription ID is sub-a."],
-        )
-
     def test_no_row_means_opted_out(self):
         issues = _brevo_sync_issues(None, None, 0, _brevo())
         self.assertEqual(
@@ -526,7 +510,6 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
         self.assertEqual(result.subscription_id, "sub-a")
         self.assertTrue(result.subscription_active)
         self.assertEqual(result.brevo.status, "subscribed")
-        self.assertEqual(result.brevo.mdb_subscription_id, "sub-a")
 
     def test_reports_drift(self, mock_state, _list_id):
         self.session.get.return_value = _make_user()
@@ -588,6 +571,135 @@ def _test_event_request(**kwargs) -> OperationNotificationTestEventRequest:
 
 def _feed(stable_id, producer_url, provider=None) -> Feed:
     return Feed(stable_id=stable_id, producer_url=producer_url, provider=provider)
+
+
+@patch(f"{MODULE}.remove_contact_from_list")
+@patch(f"{MODULE}.add_contact_to_list")
+@patch(f"{MODULE}.get_announcements_list_id", return_value=7)
+@patch(f"{MODULE}.get_contact_list_state")
+class TestSyncOperationsUserBrevo(unittest.TestCase):
+    def setUp(self):
+        self.api = NotificationsApiImpl()
+        self.session = MagicMock()
+        self.user = _make_user()
+        self.sub = None
+
+    def _given(self, sub):
+        self.sub = sub
+        self.session.get.side_effect = lambda cls, _id: (
+            self.user if cls is AppUser else self.sub
+        )
+        self.session.query.return_value = _chain([sub] if sub else [])
+
+    def _sync(self, direction):
+        return self.api.sync_operations_user_brevo(
+            "uid-1",
+            OperationBrevoSyncRequest(direction=direction),
+            db_session=self.session,
+        )
+
+    def test_from_brevo_turns_off_a_row_unsubscribed_in_brevo(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.return_value = _brevo(
+            status=BrevoSubscriptionStatus.UNSUBSCRIBED, email_blacklisted=True
+        )
+
+        result = self._sync("from_brevo")
+
+        self.assertFalse(self.sub.active)
+        self.assertFalse(result.subscription_active)
+        self.assertTrue(result.in_sync)
+        mock_add.assert_not_called()
+        mock_remove.assert_not_called()
+
+    def test_from_brevo_creates_an_active_row_for_a_list_member(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(None)
+        mock_state.return_value = _brevo()
+
+        result = self._sync("from_brevo")
+
+        added = self.session.add.call_args[0][0]
+        self.assertIsInstance(added, NotificationSubscription)
+        self.assertTrue(added.active)
+        self.assertEqual(added.notification_type_id, "api.announcements")
+        self.assertEqual(result.subscription_id, added.id)
+        self.assertTrue(result.in_sync)
+
+    def test_from_brevo_creates_no_row_when_not_on_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(None)
+        mock_state.return_value = _brevo(in_list=False)
+
+        result = self._sync("from_brevo")
+
+        self.session.add.assert_not_called()
+        self.assertIsNone(result.subscription_id)
+
+    def test_to_brevo_adds_an_active_row_to_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.side_effect = [_brevo(in_list=False), _brevo()]
+
+        result = self._sync("to_brevo")
+
+        mock_add.assert_called_once_with(
+            "user@example.com", 7, first_name=None, organization=None
+        )
+        # Never clears a Brevo unsubscribe.
+        self.assertNotIn("resubscribe", mock_add.call_args.kwargs)
+        mock_remove.assert_not_called()
+        self.assertTrue(result.in_sync)
+
+    def test_to_brevo_removes_an_inactive_row_from_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=False))
+        mock_state.side_effect = [_brevo(), _brevo(in_list=False)]
+
+        result = self._sync("to_brevo")
+
+        mock_remove.assert_called_once_with("user@example.com", 7)
+        mock_add.assert_not_called()
+        self.assertTrue(result.in_sync)
+
+    def test_to_brevo_refuses_to_resubscribe_an_unsubscribed_contact(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.return_value = _brevo(
+            status=BrevoSubscriptionStatus.UNSUBSCRIBED, list_unsubscribed=True
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("to_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        mock_add.assert_not_called()
+
+    def test_brevo_failure_is_a_502(self, mock_state, _list_id, mock_add, mock_remove):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.side_effect = sib_api_v3_sdk.rest.ApiException(status=500)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("from_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 502)
+
+    def test_unknown_user_is_a_404(self, mock_state, _list_id, mock_add, mock_remove):
+        self.session.get.side_effect = None
+        self.session.get.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("from_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 404)
+        mock_state.assert_not_called()
 
 
 @patch(f"{MODULE}._feed_details")

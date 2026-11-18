@@ -1458,7 +1458,7 @@ paths:
     get:
       summary: Check a user's API announcements sync with Brevo
       description: >
-        Compares the two places an `api.announcements` opt-in lives: the `notification_subscription` row and the Brevo contact (list membership and its `MDB_SUBSCRIPTION_ID` attribute). Read-only: it reports any mismatch in `issues` and never repairs it. Makes one live call to Brevo.
+        Compares the two places an `api.announcements` opt-in lives: the `notification_subscription` row and the Brevo contact (list membership and unsubscribe flags). Read-only: it reports any mismatch in `issues` and never repairs it. Makes one live call to Brevo.
       operationId: getOperationsUserBrevoSync
       tags:
         - "notifications"
@@ -1482,6 +1482,45 @@ paths:
           description: Unauthorized.
         "404":
           description: User not found.
+        "502":
+          description: Brevo could not be reached or returned an error.
+    post:
+      summary: Repair a user's API announcements sync with Brevo
+      description: >
+        Makes the `api.announcements` subscription row and the Brevo contact agree, in the direction given. `from_brevo`: Brevo wins; the row is set active exactly when the contact is on the announcements list and not unsubscribed (a row is created only when it must be active), and Brevo is not written. `to_brevo`: the row wins; an active row adds the contact to the list, an inactive or missing row removes it. An unsubscribe made in Brevo is never cleared: `to_brevo` returns `409` for an active row whose contact unsubscribed, since only the user can re-subscribe. Returns the sync status after the change.
+      operationId: syncOperationsUserBrevo
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationBrevoSyncRequest"
+      responses:
+        "200":
+          description: The sync status after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationBrevoSyncStatus"
+        "400":
+          description: Unknown direction.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+        "409":
+          description: The contact unsubscribed in Brevo, so `to_brevo` cannot add it back to the list.
         "502":
           description: Brevo could not be reached or returned an error.
   /v1/operations/config/keys:
@@ -4671,10 +4710,17 @@ components:
         list_unsubscribed:
           type: boolean
           description: True when the contact unsubscribed from the announcements list.
-        mdb_subscription_id:
+    OperationBrevoSyncRequest:
+      x-operation: true
+      type: object
+      required:
+        - direction
+      properties:
+        direction:
           type: string
-          nullable: true
-          description: The contact's `MDB_SUBSCRIPTION_ID` attribute.
+          enum: [from_brevo, to_brevo]
+          description: >
+            `from_brevo` copies Brevo's state onto the subscription row; `to_brevo` copies the subscription row's state onto Brevo list membership.
     OperationBrevoSyncStatus:
       x-operation: true
       type: object

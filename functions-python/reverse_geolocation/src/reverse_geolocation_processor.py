@@ -21,8 +21,8 @@ from location_group_utils import (
     ERROR_STATUS_CODE,
     GeopolygonAggregate,
     generate_color,
-    get_or_create_feed_osm_location_group,
     get_or_create_location,
+    set_feed_osm_location_groups,
 )
 from parse_request import parse_request_parameters
 from shared.common.gcp_utils import (
@@ -541,14 +541,8 @@ def update_feed_location(
     logger: Logger,
     db_session: Session,
 ):
-    osm_location_groups = [
-        get_or_create_feed_osm_location_group(
-            feed.id, cache_location_groups[location_group.group_id], db_session
-        )
-        for location_group in cache_location_groups.values()
-    ]
-    feed.feedosmlocationgroups.clear()
-    feed.feedosmlocationgroups.extend(osm_location_groups)
+    location_aggregates = list(cache_location_groups.values())
+    set_feed_osm_location_groups(feed, location_aggregates, db_session)
     feed_locations = []
     # The location_ids set is used to avoid duplicates when creating locations.
     # Fixes: https://github.com/MobilityData/mobility-feed-api/issues/1289
@@ -565,8 +559,7 @@ def update_feed_location(
             logger.info(
                 "Updating GTFS-RT feed with stable ID %s", gtfs_rt_feed.stable_id
             )
-            gtfs_rt_feed.feedosmlocationgroups.clear()
-            gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
+            set_feed_osm_location_groups(gtfs_rt_feed, location_aggregates, db_session)
             if feed_locations:
                 gtfs_rt_feed.locations.clear()
                 gtfs_rt_feed.locations = feed_locations
