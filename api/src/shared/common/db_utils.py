@@ -230,6 +230,53 @@ def get_all_gtfs_feeds(
         processed += len(batch)
 
 
+def get_all_gbfs_feeds(
+    db_session: Session,
+    published_only: bool = True,
+    w_extracted_locations_only: bool = False,
+) -> Iterator[Gbfsfeed]:
+    """
+    Fetch all GBFS feeds.
+
+    :param db_session: The database session.
+    :param published_only: Include only the published feeds.
+    :param w_extracted_locations_only: Whether to include only feeds with extracted locations.
+
+    :return: The GBFS feeds in an iterator.
+    """
+    batch_size = int(os.getenv("BATCH_SIZE", "50"))
+
+    # Same batching and streaming strategy as get_all_gtfs_feeds, see the comments there.
+    batch_query = db_session.query(Gbfsfeed).order_by(Gbfsfeed.stable_id).execution_options(stream_results=True)
+    if published_only:
+        batch_query = batch_query.filter(Gbfsfeed.operational_status == "published")
+
+    for batch_num, batch in enumerate(batched(batch_query, batch_size), start=1):
+        stable_ids = [f.stable_id for f in batch]
+        if not stable_ids:
+            continue
+
+        if w_extracted_locations_only:
+            feed_query = apply_most_common_location_filter(db_session.query(Gbfsfeed), db_session)
+            inner_q = feed_query.filter(Gbfsfeed.stable_id.in_(stable_ids)).options(
+                *get_selectinload_options(include_extracted_location_entities=True),
+            )
+        else:
+            inner_q = (
+                db_session.query(Gbfsfeed)
+                .filter(Gbfsfeed.stable_id.in_(stable_ids))
+                .options(*get_selectinload_options(include_extracted_location_entities=False))
+            )
+
+        for item in inner_q.execution_options(stream_results=True):
+            yield item
+
+        try:
+            db_session.expunge_all()
+        except Exception:
+            logging.getLogger("get_all_gbfs_feeds").exception("Failed to expunge session after batch %d", batch_num)
+
+
 def get_gtfs_rt_feeds_query(
     limit: int | None,
     offset: int | None,
