@@ -23,6 +23,7 @@ class LocationFilter(Filter):
 
 class GtfsFeedFilter(Filter):
     stable_id: Optional[str]
+    status: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
     producer_url__ilike: Optional[str]  # case insensitive
     location: Optional[LocationFilter]
