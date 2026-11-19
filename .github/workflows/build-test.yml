@@ -128,6 +128,7 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
           scripts/api-user-service-gen.sh
+          scripts/api-garage-gen.sh
 
       - name: Generate Operations API code
         run: |
@@ -172,6 +173,13 @@ jobs:
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
+          overwrite: true
+
+      - name: Upload Garage API generated code
+        uses: actions/upload-artifact@v7
+        with:
+          name: garage_gen
+          path: api/src/garage_gen/
           overwrite: true
 
       - name: Upload Operations API generated code
@@ -221,6 +229,12 @@ jobs:
         with:
           name: user_service_gen
           path: api/src/user_service_gen/
+
+      - name: Download Garage API generated code
+        uses: actions/download-artifact@v8
+        with:
+          name: garage_gen
+          path: api/src/garage_gen/
 
       - name: Download Operations API generated code
         uses: actions/download-artifact@v8
