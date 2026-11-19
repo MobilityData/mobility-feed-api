@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from garage.impl.garage_access import USER_DATASETS_FEATURE_FLAG_ID
+from garage.impl.garage_access import GARAGE_FEATURE_FLAG_ID
 from main import app
 from shared.common.error_handling import endpoint_not_implemented, garage_not_permitted
 
@@ -44,7 +44,7 @@ def test_without_flag_is_403(method, path, body, flag_enabled):
     response = client.request(method, path, json=body, headers=USER_HEADERS)
     assert response.status_code == 403
     assert response.json() == {"detail": garage_not_permitted}
-    assert flag_enabled.call_args.args[1:] == ("user-1", USER_DATASETS_FEATURE_FLAG_ID)
+    assert flag_enabled.call_args.args[1:] == ("user-1", GARAGE_FEATURE_FLAG_ID)
 
 
 @pytest.mark.parametrize("method,path,body", ENDPOINTS)
