@@ -5,6 +5,10 @@ error with TaskExecutionTracker, with task_name = user_task.kind and entity_id =
 two databases share no foreign key, so the state is looked up by those two values. The tracker
 never holds the user id: ownership is checked in the users database before any task id reaches
 this module.
+
+The tracker's `failed` only means an attempt failed: the task is free to be dispatched again, and
+usually will be. A worker that gives up for good also sets `final` to true in the metadata, and only
+then is the failure final.
 """
 
 from dataclasses import dataclass
@@ -20,6 +24,8 @@ TRACKER_TRIGGERED = "triggered"
 TRACKER_IN_PROGRESS = "in_progress"
 TRACKER_COMPLETED = "completed"
 TRACKER_FAILED = "failed"
+# Set to true in the metadata by a worker that will not retry a failed task.
+FINAL_FAILURE_KEY = "final"
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,7 @@ class TaskState:
     status: str  # one of the TRACKER_* statuses
     phase: Optional[str]  # what the worker is doing, as display text, from its last heartbeat
     progress: Optional[int]  # percentage of the current phase, from the worker's last heartbeat
+    final_failure: bool  # failed, and the worker will not retry it
 
 
 @with_db_session
@@ -52,6 +59,7 @@ def _state(row: TaskExecutionLog) -> TaskState:
         status=row.status,
         phase=phase if isinstance(phase, str) and phase else None,
         progress=_progress(metadata),
+        final_failure=row.status == TRACKER_FAILED and metadata.get(FINAL_FAILURE_KEY) is True,
     )
 
 

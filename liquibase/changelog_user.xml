@@ -44,6 +44,7 @@
          app_user.is_registered_to_receive_api_announcements; the opt-in is the
          active api.announcements notification_subscription (issue #1745). -->
     <include file="changes_user/feat_1745.sql" relativeToChangelogFile="true"/>
-    <!-- Add user_dataset: a user's datasets in the GTFS Garage (issue #1900). -->
+    <!-- Add user_dataset, user_task and user_task_dataset: users' uploaded datasets and the tasks that
+         process them, starting with the GTFS Garage conversion (issue #1900). -->
     <include file="changes_user/feat_1900.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

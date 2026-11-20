@@ -39,12 +39,12 @@ MANIFEST_FILE_NAME = "manifest.json"
 PARQUET_SUFFIX = ".parquet"
 
 # How a Garage task's tracked state reads as the dataset's status. A task the tracker has no row
-# for has not been triggered yet: its upload has not finished.
+# for has not been triggered yet: its upload has not finished. A failed task is only failed for the
+# user once the failure is final; until then it is waiting for a retry, so it is still running.
 _STATUS_BY_TRACKER = {
     TRACKER_TRIGGERED: UserDatasetStatus.RUNNING,
     TRACKER_IN_PROGRESS: UserDatasetStatus.RUNNING,
     TRACKER_COMPLETED: UserDatasetStatus.READY,
-    TRACKER_FAILED: UserDatasetStatus.FAILED,
 }
 
 
@@ -149,14 +149,25 @@ def _garage_files(task_files: List[Tuple[str, str]]) -> Optional[UserDatasetFile
     )
 
 
+def _status(state: Optional[TaskState]) -> UserDatasetStatus:
+    if state is None:
+        return UserDatasetStatus.PENDING_UPLOAD
+    if state.final_failure:
+        return UserDatasetStatus.FAILED
+    # A status the tracker may add later reads as running rather than failing the request.
+    return _STATUS_BY_TRACKER.get(state.status, UserDatasetStatus.RUNNING)
+
+
 def _to_api(row: UserDatasetOrm, state: Optional[TaskState], files: Optional[UserDatasetFiles] = None) -> UserDataset:
-    status = UserDatasetStatus.PENDING_UPLOAD if state is None else _STATUS_BY_TRACKER[state.status]
+    status = _status(state)
+    # The phase and progress of a failed attempt are stale while it waits for a retry.
+    reporting = status == UserDatasetStatus.RUNNING and state.status != TRACKER_FAILED
     return UserDataset(
         id=row.id,
         name=row.name,
         status=status,
-        phase=state.phase if status == UserDatasetStatus.RUNNING else None,
-        progress=state.progress if status == UserDatasetStatus.RUNNING else None,
+        phase=state.phase if reporting else None,
+        progress=state.progress if reporting else None,
         # The tracker's error message is the worker's raw exception, not meant for users.
         error=user_dataset_conversion_failed if status == UserDatasetStatus.FAILED else None,
         size_bytes=row.size_bytes,

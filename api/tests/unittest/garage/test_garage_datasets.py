@@ -28,7 +28,7 @@ FEEDS_TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:54320/Mobili
 SIGNED_UPLOAD = user_data_storage.SignedUpload(
     url="https://storage.googleapis.com/signed-put",
     method="PUT",
-    headers={"Content-Type": "application/zip", "x-goog-content-length-range": "0,100"},
+    headers={"Content-Type": "application/zip", "x-goog-content-length-range": "1,100"},
     expires_at=datetime(2030, 1, 1, tzinfo=timezone.utc),
 )
 
@@ -186,11 +186,13 @@ class TestList:
         running, running_task = _add_dataset(db, user_id, created_at=now - timedelta(minutes=2))
         ready, ready_task = _add_dataset(db, user_id, created_at=now - timedelta(minutes=1))
         failed, failed_task = _add_dataset(db, user_id, created_at=now)
+        retrying, retrying_task = _add_dataset(db, user_id, created_at=now - timedelta(minutes=5))
         track(triggered_task, "triggered")
         track(running_task, "in_progress", metadata={"phase": "converting(stops.txt)", "done": 2, "total": 5})
         # A finished task keeps its last heartbeat; the API must not show it.
         track(ready_task, "completed", metadata={"phase": "converting(trips.txt)", "done": 5, "total": 5})
-        track(failed_task, "failed")
+        track(failed_task, "failed", metadata={"phase": "converting(stops.txt)", "final": True})
+        track(retrying_task, "failed", metadata={"phase": "converting(stops.txt)", "done": 1, "total": 5})
 
         response = client.get("/v1/garage/datasets", headers=_headers(user_id))
 
@@ -204,6 +206,20 @@ class TestList:
         assert by_id[ready]["phase"] is None and by_id[ready]["progress"] is None
         assert by_id[failed]["status"] == "failed"
         assert by_id[failed]["error"] == user_dataset_conversion_failed
+        assert by_id[failed]["phase"] is None
+        # Not final: waiting for a retry, and its last phase is stale.
+        assert by_id[retrying]["status"] == "running" and by_id[retrying]["error"] is None
+        assert by_id[retrying]["phase"] is None and by_id[retrying]["progress"] is None
+
+    def test_unknown_tracker_status_reads_as_running(self, db, make_user, track):
+        user_id = make_user()
+        _, task_id = _add_dataset(db, user_id)
+        track(task_id, "some_future_status")
+
+        response = client.get("/v1/garage/datasets", headers=_headers(user_id))
+
+        assert response.status_code == 200
+        assert response.json()[0]["status"] == "running"
 
     def test_latest_tracker_run_wins(self, db, make_user, track):
         user_id = make_user()

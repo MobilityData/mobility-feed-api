@@ -51,7 +51,7 @@ google-cloud-pubsub
 pycountry
 pytz
 google-cloud-tasks
-# Signed upload and read URLs for the Garage bucket
+# Signed upload URLs and task output files in the user data buckets
 google-cloud-storage
 
 # Brevo (Sendinblue) SDK for API announcements mailing list sync

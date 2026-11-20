@@ -78,10 +78,10 @@ def public_url(bucket_name: str, object_name: str) -> str:
 
 
 def sign_upload(user_id: str, dataset_id: str) -> SignedUpload:
-    """A signed PUT URL for the dataset's file. GCS refuses a file over the maximum size."""
+    """A signed PUT URL for the dataset's file. GCS refuses an empty file or one over the maximum size."""
     headers = {
         "Content-Type": UPLOAD_CONTENT_TYPE,
-        "x-goog-content-length-range": f"0,{max_upload_bytes()}",
+        "x-goog-content-length-range": f"1,{max_upload_bytes()}",
     }
     url = (
         _datasets_bucket()

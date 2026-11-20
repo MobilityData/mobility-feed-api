@@ -63,7 +63,7 @@ class TestSignUpload:
         assert kwargs["method"] == "PUT"
         assert kwargs["version"] == "v4"
         assert kwargs["credentials"] == "credentials"
-        assert kwargs["headers"] == {"Content-Type": "application/zip", "x-goog-content-length-range": "0,1000"}
+        assert kwargs["headers"] == {"Content-Type": "application/zip", "x-goog-content-length-range": "1,1000"}
         assert upload.url == "https://signed/put"
         assert upload.method == "PUT"
         assert upload.headers == kwargs["headers"]

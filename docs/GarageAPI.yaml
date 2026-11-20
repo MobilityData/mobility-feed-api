@@ -283,7 +283,8 @@ components:
         * `pending_upload` - waiting for the upload to finish.
         * `running` - being processed, such as converted to Parquet; see `phase`.
         * `ready` - converted; its files can be read.
-        * `failed` - the conversion failed; see `error`.
+        * `failed` - the processing failed and will not be retried; see `error`. A failed attempt that will be
+          retried is still `running`.
       enum:
         - pending_upload
         - running
