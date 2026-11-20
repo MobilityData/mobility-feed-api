@@ -51,6 +51,8 @@ google-cloud-pubsub
 pycountry
 pytz
 google-cloud-tasks
+# Signed upload and read URLs for the Garage bucket
+google-cloud-storage
 
 # Brevo (Sendinblue) SDK for API announcements mailing list sync
 sib-api-v3-sdk

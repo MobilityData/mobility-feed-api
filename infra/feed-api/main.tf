@@ -38,6 +38,8 @@ locals {
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+  # Days the user data buckets' lifecycle rule waits past the retention period before deleting.
+  user_data_lifecycle_margin_days = 7
   service_account_roles = [
     # Cloud Logging: allows writing logs to GCP
     "roles/logging.logWriter",
@@ -133,6 +135,22 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         name = "BREVO_API_ANNOUNCEMENTS_LIST_ID"
         value = var.brevo_api_announcements_list_id
       }
+      env {
+        name  = "USER_DATASETS_BUCKET_NAME"
+        value = google_storage_bucket.user_datasets_bucket.name
+      }
+      env {
+        name  = "USER_TASK_OUTPUTS_BUCKET_NAME"
+        value = google_storage_bucket.user_task_outputs_bucket.name
+      }
+      env {
+        name  = "USER_DATA_SERVICE_ACCOUNT"
+        value = google_service_account.user_data_service_account.email
+      }
+      env {
+        name  = "USER_DATA_RETENTION_DAYS"
+        value = tostring(var.user_data_retention_days)
+      }
       resources {
         limits = {
           cpu    = "1"
@@ -175,6 +193,96 @@ resource "google_project_iam_member" "containers_service_account_roles" {
   project = each.value.project
   role    = each.value.role
   member  = "serviceAccount:${google_service_account.containers_service_account.email}"
+}
+
+# Users' data: the private bucket holding the datasets users upload. Users only write to it,
+# through URLs the API signs, and never read from it. CORS allows any origin: the signature is the
+# authorization.
+resource "google_storage_bucket" "user_datasets_bucket" {
+  name                        = "mobility-feeds-user-datasets-${var.environment}"
+  location                    = var.gcp_region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  cors {
+    origin = ["*"]
+    method = ["PUT"]
+    # The upload must send these headers exactly as signed, so the browser's preflight needs them allowed.
+    response_header = ["Content-Type", "x-goog-content-length-range"]
+    max_age_seconds = 3600
+  }
+  # Safety net only. A dataset expires var.user_data_retention_days after it is created, and the API
+  # deletes its files then. This rule removes what the API misses (objects without a row, such as
+  # abandoned uploads or a failed delete), and runs later than the retention so it never deletes the
+  # files of a dataset that is still live.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = var.user_data_retention_days + local.user_data_lifecycle_margin_days
+    }
+  }
+}
+
+# Users' data: the public bucket holding the output of users' tasks, such as converted datasets.
+# Anyone can read an object by its exact name, but nobody can list the bucket, so a file is only
+# reachable through the URL the API returns, whose path holds the task's random id. Deleting the
+# files is the only way to revoke a URL.
+resource "google_storage_bucket" "user_task_outputs_bucket" {
+  name                        = "mobility-feeds-user-task-outputs-${var.environment}"
+  location                    = var.gcp_region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "inherited"
+
+  cors {
+    origin = ["*"]
+    method = ["GET", "HEAD"]
+    # Parquet readers in the browser fetch parts of a file with Range requests.
+    response_header = ["Content-Type", "Content-Length", "Content-Range", "Range", "ETag"]
+    max_age_seconds = 3600
+  }
+  # Safety net only, as for the datasets bucket.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = var.user_data_retention_days + local.user_data_lifecycle_margin_days
+    }
+  }
+}
+
+# Read by exact object name only. roles/storage.objectViewer would also allow listing the bucket,
+# which would expose every dataset.
+resource "google_storage_bucket_iam_member" "user_task_outputs_public_read" {
+  bucket = google_storage_bucket.user_task_outputs_bucket.name
+  role   = "roles/storage.legacyObjectReader"
+  member = "allUsers"
+}
+
+# The only principal that can write to the user data buckets. The API impersonates it to sign upload
+# URLs, so the API's own service account never holds bucket permissions.
+resource "google_service_account" "user_data_service_account" {
+  account_id   = "user-data-storage"
+  display_name = "User data storage"
+}
+
+resource "google_storage_bucket_iam_member" "user_data_service_account_objects" {
+  for_each = {
+    datasets     = google_storage_bucket.user_datasets_bucket.name
+    task_outputs = google_storage_bucket.user_task_outputs_bucket.name
+  }
+  bucket = each.value
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.user_data_service_account.email}"
+}
+
+# Lets the API sign URLs as the user data service account (IAM Credentials signBlob).
+resource "google_service_account_iam_member" "containers_sign_as_user_data" {
+  service_account_id = google_service_account.user_data_service_account.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
 output "feed_api_uri" {

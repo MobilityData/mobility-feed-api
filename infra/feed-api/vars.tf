@@ -48,3 +48,14 @@ variable "brevo_api_announcements_list_id" {
   type        = string
   description = "Brevo list ID for API announcements"
 }
+
+variable "user_data_retention_days" {
+  type        = number
+  description = "Days a user's datasets, tasks and their files are kept after they are created"
+  default     = 30
+
+  validation {
+    condition     = var.user_data_retention_days >= 1
+    error_message = "user_data_retention_days must be at least 1."
+  }
+}

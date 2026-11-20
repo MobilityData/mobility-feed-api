@@ -30,6 +30,8 @@ garage_not_permitted: Final[str] = (
     "To request access or learn more, contact us at api@mobilitydata.org"
 )
 endpoint_not_implemented: Final[str] = "This endpoint is not implemented yet."
+user_dataset_not_found: Final[str] = "Dataset not found."
+user_dataset_conversion_failed: Final[str] = "The dataset could not be converted."
 
 
 class InternalHTTPException(Exception):

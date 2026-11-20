@@ -97,6 +97,7 @@ module "feed-api" {
   feed_api_image_version = var.feed_api_image_version
 
   brevo_api_announcements_list_id = var.brevo_api_announcements_list_id
+  user_data_retention_days        = var.user_data_retention_days
 
   source = "./feed-api"
 }
