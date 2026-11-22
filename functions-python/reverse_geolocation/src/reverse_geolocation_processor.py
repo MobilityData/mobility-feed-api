@@ -335,11 +335,11 @@ def reverse_geolocation_process(
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")
         stops_df["stop_lon"] = pd.to_numeric(stops_df["stop_lon"], errors="coerce")
-        # Drop missing coordinates and the (0, 0) placeholder (e.g. GBFS stations without a location),
-        # which would otherwise stretch the bounding box out to Null Island.
+        # Drop invalid coordinates and the (0, 0) placeholder (e.g. GBFS stations without a location),
+        # which would otherwise distort the bounding box.
         valid_coordinates = (
-            stops_df["stop_lat"].notnull()
-            & stops_df["stop_lon"].notnull()
+            stops_df["stop_lat"].between(-90, 90)
+            & stops_df["stop_lon"].between(-180, 180)
             & ~((stops_df["stop_lat"] == 0) & (stops_df["stop_lon"] == 0))
         )
         stops_df = stops_df[valid_coordinates]
