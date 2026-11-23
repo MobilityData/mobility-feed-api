@@ -102,3 +102,53 @@ def test_subscription_status_not_found():
     api.get_contact_info.side_effect = sib_api_v3_sdk.rest.ApiException(status=404)
     with patch.object(brevo, "_get_contacts_api", return_value=api):
         assert brevo.get_contact_subscription_status("a@b.com", 42) == BrevoSubscriptionStatus.NOT_FOUND
+
+
+def _blocked(email, code="unsubscribedViaEmail"):
+    return SimpleNamespace(
+        email=email,
+        sender_email="noreply@example.com",
+        reason=SimpleNamespace(code=code, message="Unsubscribed via email"),
+        blocked_at="2026-11-23T08:00:00.000Z",
+    )
+
+
+def _block(pages):
+    api = MagicMock()
+    api.get_transac_blocked_contacts.side_effect = pages
+    with patch.object(brevo, "_get_transactional_api", return_value=api):
+        return brevo.get_transactional_block("A@B.com"), api
+
+
+def test_transactional_block_found_on_a_later_page():
+    first = SimpleNamespace(count=101, contacts=[_blocked(f"x{i}@b.com") for i in range(100)])
+    second = SimpleNamespace(count=101, contacts=[_blocked("a@b.com")])
+
+    block, api = _block([first, second])
+
+    assert block.reason_code == "unsubscribedViaEmail"
+    assert block.reason_message == "Unsubscribed via email"
+    assert block.sender_email == "noreply@example.com"
+    assert block.blocked_at == "2026-11-23T08:00:00.000Z"
+    assert api.get_transac_blocked_contacts.call_args_list[1].kwargs["offset"] == 100
+
+
+def test_transactional_block_none_when_not_listed():
+    block, api = _block([SimpleNamespace(count=1, contacts=[_blocked("other@b.com")])])
+
+    assert block is None
+    api.get_transac_blocked_contacts.assert_called_once()
+
+
+def test_transactional_block_none_when_list_is_empty():
+    block, _ = _block([SimpleNamespace(count=0, contacts=None)])
+
+    assert block is None
+
+
+def test_unblock_transactional_contact():
+    api = MagicMock()
+    with patch.object(brevo, "_get_transactional_api", return_value=api):
+        brevo.unblock_transactional_contact("a@b.com")
+
+    assert api.smtp_blocked_contacts_email_delete.call_args.args == ("a@b.com",)

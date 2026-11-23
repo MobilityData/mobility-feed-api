@@ -63,17 +63,48 @@ class BrevoContactListState:
     list_unsubscribed: bool = False
 
 
-def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
-    """Build a Brevo ContactsApi client. Raises RuntimeError if BREVO_API_KEY is unset."""
+@dataclass(frozen=True)
+class BrevoTransactionalBlock:
+    """A contact on Brevo's transactional blocklist: Brevo drops every transactional email to it.
+
+    Set, for example, when the user clicks "unsubscribe" in a transactional email. This list is
+    separate from the contact's campaign blacklist and list memberships.
+    """
+
+    sender_email: str | None = None
+    reason_code: str | None = None
+    reason_message: str | None = None
+    blocked_at: str | None = None
+
+
+# Page size for the blocked contacts listing; Brevo allows at most 100.
+_BLOCKED_CONTACTS_PAGE_SIZE = 100
+
+
+def _configure(api):
+    # Disable urllib3 retries so a connection failure fails fast instead of looping.
+    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = _BREVO_RETRIES
+    return api
+
+
+def _api_client() -> "sib_api_v3_sdk.ApiClient":
+    """Build a Brevo ApiClient. Raises RuntimeError if BREVO_API_KEY is unset."""
     api_key = os.getenv("BREVO_API_KEY")
     if not api_key:
         raise RuntimeError("BREVO_API_KEY environment variable is not set")
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key["api-key"] = api_key
-    api = sib_api_v3_sdk.ContactsApi(sib_api_v3_sdk.ApiClient(configuration))
-    # Disable urllib3 retries so a connection failure fails fast instead of looping.
-    api.api_client.rest_client.pool_manager.connection_pool_kw["retries"] = _BREVO_RETRIES
-    return api
+    return sib_api_v3_sdk.ApiClient(configuration)
+
+
+def _get_transactional_api() -> "sib_api_v3_sdk.TransactionalEmailsApi":
+    """Build a Brevo TransactionalEmailsApi client. Raises RuntimeError if BREVO_API_KEY is unset."""
+    return _configure(sib_api_v3_sdk.TransactionalEmailsApi(_api_client()))
+
+
+def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
+    """Build a Brevo ContactsApi client. Raises RuntimeError if BREVO_API_KEY is unset."""
+    return _configure(sib_api_v3_sdk.ContactsApi(_api_client()))
 
 
 def get_announcements_list_id() -> int:
@@ -193,3 +224,49 @@ def get_contact_list_state(email: str, list_id: int | None = None) -> BrevoConta
         email_blacklisted=email_blacklisted,
         list_unsubscribed=list_unsubscribed,
     )
+
+
+def get_transactional_block(email: str) -> BrevoTransactionalBlock | None:
+    """Return the contact's entry on Brevo's transactional blocklist, or None when not blocked.
+
+    Brevo cannot filter the blocklist by email, so this pages through it (100 entries per call)
+    until the contact is found. Read-only.
+
+    Raises RuntimeError if BREVO_API_KEY is not set.
+    Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.
+    """
+    api = _get_transactional_api()
+    wanted = email.strip().lower()
+    offset = 0
+    while True:
+        page = api.get_transac_blocked_contacts(
+            limit=_BLOCKED_CONTACTS_PAGE_SIZE,
+            offset=offset,
+            _request_timeout=BREVO_REQUEST_TIMEOUT,
+        )
+        contacts = page.contacts or []
+        for contact in contacts:
+            if (contact.email or "").strip().lower() == wanted:
+                reason = contact.reason
+                return BrevoTransactionalBlock(
+                    sender_email=contact.sender_email,
+                    reason_code=reason.code if reason else None,
+                    reason_message=reason.message if reason else None,
+                    blocked_at=contact.blocked_at,
+                )
+        offset += len(contacts)
+        if not contacts or offset >= (page.count or 0):
+            return None
+
+
+def unblock_transactional_contact(email: str) -> None:
+    """Remove the contact from Brevo's transactional blocklist, so transactional emails reach it again.
+
+    Only call this when the user asked to receive those emails again: a block is usually the
+    user's own "unsubscribe" click.
+
+    Raises RuntimeError if BREVO_API_KEY is not set.
+    Raises sib_api_v3_sdk.rest.ApiException on API errors.
+    """
+    api = _get_transactional_api()
+    api.smtp_blocked_contacts_email_delete(email, _request_timeout=BREVO_REQUEST_TIMEOUT)

@@ -38,6 +38,9 @@ from feeds_gen.models.operation_admin_summary_subscription_request import (
 from feeds_gen.models.operation_brevo_contact_state import OperationBrevoContactState
 from feeds_gen.models.operation_brevo_sync_request import OperationBrevoSyncRequest
 from feeds_gen.models.operation_brevo_sync_status import OperationBrevoSyncStatus
+from feeds_gen.models.operation_brevo_transactional_block import (
+    OperationBrevoTransactionalBlock,
+)
 from feeds_gen.models.operation_notification_dispatch_planned_run import (
     OperationNotificationDispatchPlannedRun,
 )
@@ -78,10 +81,13 @@ from feeds_operations.impl.models.operation_notification_impl import (
 from shared.common.brevo import (
     BrevoContactListState,
     BrevoSubscriptionStatus,
+    BrevoTransactionalBlock,
     add_contact_to_list,
     get_announcements_list_id,
     get_contact_list_state,
+    get_transactional_block,
     remove_contact_from_list,
+    unblock_transactional_contact,
 )
 from shared.common.feature_flags import feature_flag_enabled
 from shared.database.database import generate_unique_id, with_db_session
@@ -191,8 +197,10 @@ def _brevo_sync_issues(
     subscription_active: Optional[bool],
     subscription_count: int,
     brevo: BrevoContactListState,
+    transactional_block: Optional[BrevoTransactionalBlock] = None,
+    active_notification_subscriptions: int = 0,
 ) -> List[str]:
-    """One line per disagreement between the subscription row and Brevo."""
+    """One line per disagreement between the subscription rows and Brevo."""
     issues = []
     if subscription_id is None:
         issues.append("No api.announcements subscription row.")
@@ -223,6 +231,15 @@ def _brevo_sync_issues(
         issues.append(
             "Opted out but the contact is still subscribed to the announcements list in Brevo."
         )
+
+    # Notifications are transactional emails: a block drops every one of them.
+    if transactional_block and active_notification_subscriptions:
+        reason = transactional_block.reason_message or transactional_block.reason_code
+        issues.append(
+            f"{active_notification_subscriptions} active notification subscription(s) but "
+            "Brevo blocks transactional emails to this contact"
+            + (f" ({reason})." if reason else ".")
+        )
     return issues
 
 
@@ -239,6 +256,20 @@ def _announcements_subscriptions(
         )
         .order_by(NotificationSubscription.created_at, NotificationSubscription.id)
         .all()
+    )
+
+
+def _active_notification_subscription_count(db_session, user_id: str) -> int:
+    """The user's active subscriptions delivered as transactional emails (all but api.announcements)."""
+    return (
+        db_session.query(NotificationSubscription)
+        .filter(
+            NotificationSubscription.user_id == user_id,
+            NotificationSubscription.notification_type_id
+            != NotificationTypeId.API_ANNOUNCEMENTS,
+            NotificationSubscription.active.is_(True),
+        )
+        .count()
     )
 
 
@@ -266,9 +297,16 @@ def _brevo_sync_status(
     subscription_active: Optional[bool],
     subscription_count: int,
     brevo: BrevoContactListState,
+    transactional_block: Optional[BrevoTransactionalBlock] = None,
+    active_notification_subscriptions: int = 0,
 ) -> OperationBrevoSyncStatus:
     issues = _brevo_sync_issues(
-        subscription_id, subscription_active, subscription_count, brevo
+        subscription_id,
+        subscription_active,
+        subscription_count,
+        brevo,
+        transactional_block,
+        active_notification_subscriptions,
     )
     return OperationBrevoSyncStatus(
         user_id=user_id,
@@ -281,6 +319,17 @@ def _brevo_sync_status(
             email_blacklisted=brevo.email_blacklisted,
             list_unsubscribed=brevo.list_unsubscribed,
         ),
+        transactional_block=(
+            OperationBrevoTransactionalBlock(
+                sender_email=transactional_block.sender_email,
+                reason_code=transactional_block.reason_code,
+                reason_message=transactional_block.reason_message,
+                blocked_at=transactional_block.blocked_at,
+            )
+            if transactional_block
+            else None
+        ),
+        active_notification_subscriptions=active_notification_subscriptions,
         in_sync=not issues,
         issues=issues,
     )
@@ -517,12 +566,16 @@ class NotificationsApiImpl(BaseNotificationsApi):
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
+        notification_count = _active_notification_subscription_count(
+            db_session, user_id
+        )
         # Only reads happened above: committing returns the pooled connection before the
         # (possibly slow) Brevo call.
         db_session.commit()
 
         with _brevo_errors(user_id):
             brevo = get_contact_list_state(email, get_announcements_list_id())
+            transactional_block = get_transactional_block(email)
 
         return _brevo_sync_status(
             user_id,
@@ -531,6 +584,8 @@ class NotificationsApiImpl(BaseNotificationsApi):
             subscription_active,
             len(subscriptions),
             brevo,
+            transactional_block,
+            notification_count,
         )
 
     @with_users_db_session
@@ -561,12 +616,16 @@ class NotificationsApiImpl(BaseNotificationsApi):
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
+        notification_count = _active_notification_subscription_count(
+            db_session, user_id
+        )
         # Release the pooled connection before the Brevo calls (see the check above).
         db_session.commit()
 
         with _brevo_errors(user_id):
             list_id = get_announcements_list_id()
             brevo = get_contact_list_state(email, list_id)
+            transactional_block = get_transactional_block(email)
 
             if direction == "from_brevo":
                 subscribed = (
@@ -630,6 +689,56 @@ class NotificationsApiImpl(BaseNotificationsApi):
             subscription_active,
             subscription_count,
             brevo,
+            transactional_block,
+            notification_count,
+        )
+
+    @with_users_db_session
+    def unblock_operations_user_brevo_transactional(
+        self, user_id: str, db_session=None
+    ) -> OperationBrevoSyncStatus:
+        """Remove the user's email from Brevo's transactional blocklist.
+
+        The block is usually the user's own "unsubscribe" click in a notification email, so
+        this is only for a user who asked to receive notifications again. Never done by a sync.
+        """
+        user = db_session.get(AppUser, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+        subscriptions = _announcements_subscriptions(db_session, user_id)
+        email = user.email
+        subscription = subscriptions[0] if subscriptions else None
+        subscription_id = subscription.id if subscription else None
+        subscription_active = bool(subscription.active) if subscription else None
+        notification_count = _active_notification_subscription_count(
+            db_session, user_id
+        )
+        # Release the pooled connection before the Brevo calls (see the check above).
+        db_session.commit()
+
+        with _brevo_errors(user_id):
+            if get_transactional_block(email) is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Transactional emails are not blocked for this user.",
+                )
+            unblock_transactional_contact(email)
+            logger.info(
+                "Removed user %s from the Brevo transactional blocklist", user_id
+            )
+            # Read back what Brevo now holds.
+            brevo = get_contact_list_state(email, get_announcements_list_id())
+            transactional_block = get_transactional_block(email)
+
+        return _brevo_sync_status(
+            user_id,
+            email,
+            subscription_id,
+            subscription_active,
+            len(subscriptions),
+            brevo,
+            transactional_block,
+            notification_count,
         )
 
     @with_users_db_session
