@@ -60,7 +60,7 @@ This command runs the integration tests against the specified API URL and data f
   - `test_data.json`: licenses and rules, datasets, validation reports, availability checks, the Seal of Reliability, geopolygons, and the test user with its feature flags.
 
   `CatalogEndpointTests` and `UserServiceEndpointTests` expect the exact fixture values, so a fixture change usually needs a test change. The Garage and the Brevo-backed endpoints (announcements sync and opt-in) are not covered.
-- **Deployed environments** (`integration-tests.yml`, after each DEV, QA and prod deployment): the metadata checks and `SmokeEndpointTests` only, with the few feeds in `fixtures/smoke_sources.csv`.
+- **Deployed environments** (`integration-tests.yml`): the metadata checks and `SmokeEndpointTests` only, with the few feeds in `fixtures/smoke_sources.csv`. They run against QA after each merge to `main`, against prod after each published release, and against DEV when a manual deploy sets `run_integration_tests`.
 
 ### Running Locally Against a Seeded Database
 `scripts/integration-tests-local.sh` reproduces the PR workflow on your machine: it rebuilds the local test database (`postgres-test`) from the branch's Liquibase changelogs, regenerates the API code, seeds it from `integration-tests/fixtures`, starts the API against it and runs the tests. No token, GCP access or download is needed, and the main local database is not touched.
