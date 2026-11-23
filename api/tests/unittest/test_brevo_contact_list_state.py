@@ -164,6 +164,22 @@ def test_transactional_block_tolerates_entries_the_sdk_would_reject():
 def test_unblock_transactional_contact():
     api = MagicMock()
     with patch.object(brevo, "_get_transactional_api", return_value=api):
-        brevo.unblock_transactional_contact("a@b.com")
+        assert brevo.unblock_transactional_contact("a@b.com") is True
 
     assert api.smtp_blocked_contacts_email_delete.call_args.args == ("a@b.com",)
+
+
+def test_unblock_a_contact_that_is_not_blocked():
+    # Brevo answers 404 "document_not_found" for an address that is not on the blocklist.
+    api = MagicMock()
+    api.smtp_blocked_contacts_email_delete.side_effect = sib_api_v3_sdk.rest.ApiException(status=404)
+    with patch.object(brevo, "_get_transactional_api", return_value=api):
+        assert brevo.unblock_transactional_contact("a@b.com") is False
+
+
+def test_unblock_raises_other_brevo_errors():
+    api = MagicMock()
+    api.smtp_blocked_contacts_email_delete.side_effect = sib_api_v3_sdk.rest.ApiException(status=500)
+    with patch.object(brevo, "_get_transactional_api", return_value=api):
+        with pytest.raises(sib_api_v3_sdk.rest.ApiException):
+            brevo.unblock_transactional_contact("a@b.com")

@@ -480,21 +480,6 @@ class TestBrevoSyncIssues(unittest.TestCase):
             ],
         )
 
-    def test_transactional_block_with_notification_subscriptions(self):
-        block = BrevoTransactionalBlock(reason_message="Unsubscribed via email")
-        issues = _brevo_sync_issues("sub-a", True, 1, _brevo(), block, 2)
-        self.assertEqual(
-            issues,
-            [
-                "2 active notification subscription(s) but Brevo blocks transactional "
-                "emails to this contact (Unsubscribed via email)."
-            ],
-        )
-
-    def test_transactional_block_without_notification_subscriptions(self):
-        block = BrevoTransactionalBlock(reason_code="unsubscribedViaEmail")
-        self.assertEqual(_brevo_sync_issues("sub-a", True, 1, _brevo(), block, 0), [])
-
     def test_no_row_means_opted_out(self):
         issues = _brevo_sync_issues(None, None, 0, _brevo())
         self.assertEqual(
@@ -575,7 +560,9 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
         self.block.assert_called_once_with("user@example.com")
         self.assertEqual(result.transactional_block.reason_code, "unsubscribedViaEmail")
         self.assertEqual(result.active_notification_subscriptions, 1)
-        self.assertFalse(result.in_sync)
+        # The block is reported on its own; in_sync only covers api.announcements.
+        self.assertTrue(result.in_sync)
+        self.assertEqual(result.issues, [])
 
     def test_user_not_found(self, mock_state, _list_id):
         self.session.get.return_value = None

@@ -265,14 +265,21 @@ def get_transactional_block(email: str) -> BrevoTransactionalBlock | None:
             return None
 
 
-def unblock_transactional_contact(email: str) -> None:
+def unblock_transactional_contact(email: str) -> bool:
     """Remove the contact from Brevo's transactional blocklist, so transactional emails reach it again.
 
     Only call this when the user asked to receive those emails again: a block is usually the
-    user's own "unsubscribe" click.
+    user's own "unsubscribe" click. Returns False when the contact was not blocked (Brevo
+    answers 404), so it can be called on every opt-in without looking the block up first.
 
     Raises RuntimeError if BREVO_API_KEY is not set.
-    Raises sib_api_v3_sdk.rest.ApiException on API errors.
+    Raises sib_api_v3_sdk.rest.ApiException on other API errors.
     """
     api = _get_transactional_api()
-    api.smtp_blocked_contacts_email_delete(email, _request_timeout=BREVO_REQUEST_TIMEOUT)
+    try:
+        api.smtp_blocked_contacts_email_delete(email, _request_timeout=BREVO_REQUEST_TIMEOUT)
+    except sib_api_v3_sdk.rest.ApiException as exc:
+        if exc.status == 404:
+            return False
+        raise
+    return True

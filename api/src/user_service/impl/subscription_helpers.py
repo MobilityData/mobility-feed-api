@@ -29,6 +29,7 @@ from shared.common.brevo import (
     get_announcements_list_id,
     get_contact_subscription_status,
     remove_contact_from_list,
+    unblock_transactional_contact,
 )
 from shared.common.feature_flags import feature_flag_enabled  # noqa: F401  (re-exported)
 from shared.database.database import generate_unique_id, with_db_session
@@ -43,6 +44,25 @@ from shared.users_database_gen.sqlacodegen_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def clear_transactional_block(email: str) -> None:
+    """Remove the user from Brevo's transactional blocklist when they opt in to a notification.
+
+    A block (usually the user's own "unsubscribe" click in a notification email) drops every
+    notification email, so subscribing again would otherwise silently send nothing. Subscribing
+    is an explicit opt-in, the same reason the announcements opt-in clears a Brevo unsubscribe.
+    Best effort: a Brevo failure is logged and does not fail the subscription, and the block can
+    still be cleared from the Operations API.
+    """
+    if not email:
+        return
+    try:
+        if unblock_transactional_contact(email):
+            logger.info("Cleared the Brevo transactional block of %s on opt-in", email)
+    except (RuntimeError, sib_api_v3_sdk.rest.ApiException, urllib3.exceptions.HTTPError, OSError) as exc:
+        logger.warning("Could not clear the Brevo transactional block of %s: %s", email, exc)
+
 
 # Shared 403 detail returned when a user lacks the feature flag gating a subscription action.
 ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED = "This feature is not enabled for the user."

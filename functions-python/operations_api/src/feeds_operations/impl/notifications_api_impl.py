@@ -197,10 +197,12 @@ def _brevo_sync_issues(
     subscription_active: Optional[bool],
     subscription_count: int,
     brevo: BrevoContactListState,
-    transactional_block: Optional[BrevoTransactionalBlock] = None,
-    active_notification_subscriptions: int = 0,
 ) -> List[str]:
-    """One line per disagreement between the subscription rows and Brevo."""
+    """One line per disagreement between the api.announcements subscription row and Brevo.
+
+    The transactional email block is reported separately (``transactional_block``): it does not
+    affect announcements, which Brevo sends as campaigns.
+    """
     issues = []
     if subscription_id is None:
         issues.append("No api.announcements subscription row.")
@@ -230,15 +232,6 @@ def _brevo_sync_issues(
     elif not opted_in and subscribed_in_brevo:
         issues.append(
             "Opted out but the contact is still subscribed to the announcements list in Brevo."
-        )
-
-    # Notifications are transactional emails: a block drops every one of them.
-    if transactional_block and active_notification_subscriptions:
-        reason = transactional_block.reason_message or transactional_block.reason_code
-        issues.append(
-            f"{active_notification_subscriptions} active notification subscription(s) but "
-            "Brevo blocks transactional emails to this contact"
-            + (f" ({reason})." if reason else ".")
         )
     return issues
 
@@ -301,12 +294,7 @@ def _brevo_sync_status(
     active_notification_subscriptions: int = 0,
 ) -> OperationBrevoSyncStatus:
     issues = _brevo_sync_issues(
-        subscription_id,
-        subscription_active,
-        subscription_count,
-        brevo,
-        transactional_block,
-        active_notification_subscriptions,
+        subscription_id, subscription_active, subscription_count, brevo
     )
     return OperationBrevoSyncStatus(
         user_id=user_id,

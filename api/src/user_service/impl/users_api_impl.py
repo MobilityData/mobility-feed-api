@@ -48,6 +48,7 @@ from user_service.impl.subscription_helpers import (
     ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
+    clear_transactional_block,
     feature_flag_enabled,
     find_unknown_feed_ids,
     resolve_feed_metadata,
@@ -351,6 +352,9 @@ class UsersApiImpl(BaseUsersApi):
             self._add_subscription_feeds(sub, feed_ids)
             if existing is None:
                 db_session.add(sub)
+            # Subscribing is an explicit opt-in to notification emails, which a Brevo
+            # transactional block would otherwise drop.
+            clear_transactional_block(user.email)
 
         db_session.flush()
         stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
@@ -411,6 +415,9 @@ class UsersApiImpl(BaseUsersApi):
                 set_announcements_optin(db_session, user, subscribe=active, subscription=sub)
             else:
                 sub.active = active
+                if active:
+                    # Turning a subscription back on is an opt-in (see create_user_subscription).
+                    clear_transactional_block(db_session.get(AppUser, user_id).email)
         db_session.flush()
         stable_ids = [f.feed_stable_id for f in sub.notification_subscription_feeds]
         feed_metadata = resolve_feed_metadata(stable_ids) if stable_ids else {}

@@ -429,6 +429,10 @@ class TestSubscriptions(unittest.TestCase):
         meta_patcher = patch("user_service.impl.users_api_impl.resolve_feed_metadata", return_value={})
         meta_patcher.start()
         self.addCleanup(meta_patcher.stop)
+        # Opting in to a notification clears the user's Brevo transactional block; never call Brevo.
+        unblock_patcher = patch("user_service.impl.users_api_impl.clear_transactional_block")
+        self.clear_block = unblock_patcher.start()
+        self.addCleanup(unblock_patcher.stop)
 
     def _make_sub(self, **kwargs):
         from shared.users_database_gen.sqlacodegen_models import NotificationSubscription as Orm
@@ -494,6 +498,8 @@ class TestSubscriptions(unittest.TestCase):
         self.mock_session.add.assert_called_once()
         self.assertTrue(result.active)
         self.assertEqual(result.notification_id, "feed.published")
+        # Subscribing is an opt-in to notification emails: the transactional block is cleared.
+        self.clear_block.assert_called_once_with("user@example.com")
 
     def test_create_announcement_syncs_brevo(self):
         from shared.users_database_gen.sqlacodegen_models import NotificationType
@@ -514,6 +520,8 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual(add.call_args[0][0], "user@example.com")
         self.assertEqual(add.call_args[0][1], 42)
         self.assertEqual(result.notification_id, "api.announcements")
+        # Announcements are Brevo campaigns, not transactional emails.
+        self.clear_block.assert_not_called()
 
     def test_create_idempotent_reactivates_existing(self):
         from shared.users_database_gen.sqlacodegen_models import NotificationType
@@ -820,6 +828,31 @@ class TestSubscriptions(unittest.TestCase):
         self.assertFalse(result[0].digest)
 
     # ── update ──
+    def test_update_reactivating_clears_the_transactional_block(self):
+        sub = self._make_sub(notification_type_id="feed.published", active=False)
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(active=True), db_session=self.mock_session
+        )
+
+        self.assertTrue(sub.active)
+        self.clear_block.assert_called_once_with("user@example.com")
+
+    def test_update_deactivating_leaves_the_transactional_block(self):
+        sub = self._make_sub(notification_type_id="feed.published", active=True)
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(active=False), db_session=self.mock_session
+        )
+
+        self.clear_block.assert_not_called()
+
     def test_update_deactivate_announcement_removes_brevo(self):
         sub = self._make_sub(notification_type_id="api.announcements", active=True)
         self.mock_session.get.side_effect = lambda model, key: (
@@ -1421,3 +1454,27 @@ class TestAppUserImpl(unittest.TestCase):
         profile = AppUserImpl.from_orm(user, [])
 
         self.assertEqual(profile.features, [])
+
+
+class TestClearTransactionalBlock(unittest.TestCase):
+    def test_unblocks_the_email(self):
+        with patch.object(helpers, "unblock_transactional_contact", return_value=True) as unblock:
+            helpers.clear_transactional_block("user@example.com")
+        unblock.assert_called_once_with("user@example.com")
+
+    def test_a_brevo_failure_does_not_raise(self):
+        import sib_api_v3_sdk
+
+        with patch.object(
+            helpers, "unblock_transactional_contact", side_effect=sib_api_v3_sdk.rest.ApiException(status=500)
+        ):
+            helpers.clear_transactional_block("user@example.com")
+
+    def test_brevo_not_configured_does_not_raise(self):
+        with patch.object(helpers, "unblock_transactional_contact", side_effect=RuntimeError("no key")):
+            helpers.clear_transactional_block("user@example.com")
+
+    def test_no_email_skips_brevo(self):
+        with patch.object(helpers, "unblock_transactional_contact") as unblock:
+            helpers.clear_transactional_block("")
+        unblock.assert_not_called()
