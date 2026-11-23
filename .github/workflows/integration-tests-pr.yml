@@ -153,11 +153,17 @@ jobs:
       env:
         DUMMY_TOKEN: DUMMY_TOKEN
 
-    - name: Upload Test Logs
+    # archive: false uploads each file as-is (no zip), named after the file.
+    - name: Upload Test Report
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
       uses: actions/upload-artifact@v7
       with:
-        name: integration-tests-results
-        path: |
-          integration-tests/src/integration_tests_log.html
-          api_logs.txt
+        path: integration-tests/src/integration_tests_log.html
+        archive: false
+
+    - name: Upload API Logs
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v7
+      with:
+        path: api_logs.txt
+        archive: false

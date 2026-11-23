@@ -64,11 +64,10 @@ jobs:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
-    - name: Upload Test Logs
+    # archive: false uploads the file as-is (no zip), named after the file.
+    - name: Upload Test Report
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
       uses: actions/upload-artifact@v7
       with:
-        name: integration-tests-results-${{ inputs.ENVIRONMENT }}
-        path: |
-          integration-tests/src/integration_tests_log.html
-          integration-tests/src/datasets_validation.csv
+        path: integration-tests/src/integration_tests_log.html
+        archive: false
