@@ -57,8 +57,9 @@ def execute_workflows(
     :param bypass_db_update: Whether to bypass the database update
     :param reports_bucket_name: The name of the bucket where the reports are stored
     :param tracker: Optional TaskExecutionTracker for idempotent execution tracking.
-                    When provided, datasets already in triggered/completed state are skipped
-                    and newly triggered datasets are recorded.
+                    When provided, datasets something already has in hand - triggered,
+                    running or completed - are skipped, and newly triggered datasets are
+                    recorded. A failed dataset is not skipped: it is meant to be retried.
     :return: List of dataset stable ids for which the workflow was executed
     """
     project_id = f"mobility-feeds-{env}"
@@ -69,7 +70,7 @@ def execute_workflows(
     count = 0
     logging.info(f"Executing workflow for {len(latest_datasets)} datasets")
     for feed_id, dataset_id in latest_datasets:
-        if tracker and tracker.is_triggered(dataset_id):
+        if tracker and tracker.is_handled(dataset_id):
             logging.info(f"Skipping already triggered dataset {feed_id}/{dataset_id}")
             continue
         try:

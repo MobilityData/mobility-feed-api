@@ -3,12 +3,14 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from middleware.request_context import _request_context
 from shared.db_models.app_user_impl import AppUserImpl
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     FeatureFlag,
+    NotificationSubscription,
     UserFeatureFlag,
 )
 import user_service.impl.subscription_helpers as helpers
@@ -19,18 +21,26 @@ from user_service_gen.models.update_notification_subscription_request import Upd
 FIXED_NOW = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
-def _make_user(**kwargs) -> AppUser:
+def _make_user(announcements_active=None, **kwargs) -> AppUser:
+    """``announcements_active`` adds an api.announcements subscription with that state (None: no subscription)."""
     defaults = dict(
         id="uid-123",
         email="user@example.com",
         full_name="Jane Doe",
-        is_registered_to_receive_api_announcements=False,
         created_at=FIXED_NOW,
         updated_at=FIXED_NOW,
     )
     defaults.update(kwargs)
     user = AppUser(**{k: v for k, v in defaults.items() if k != "feature_flags"})
     user.user_feature_flags = defaults.get("feature_flags", [])
+    if announcements_active is not None:
+        user.notification_subscriptions = [
+            NotificationSubscription(
+                id="sub-ann",
+                notification_type_id=helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+                active=announcements_active,
+            )
+        ]
     return user
 
 
@@ -193,7 +203,7 @@ class TestUpdateUserMe(unittest.TestCase):
     def test_opt_in_creates_subscription_and_syncs_brevo(self):
         """Flipping the flag false→true creates the announcements subscription and
         writes the contact to Brevo (the disconnect this fix closes)."""
-        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user = _make_user()
         user_q = _mock_query_first(self.mock_session, user)
         user_q.filter.return_value.one_or_none.return_value = None  # no existing sub
         _set_context()
@@ -204,18 +214,40 @@ class TestUpdateUserMe(unittest.TestCase):
         ):
             result = self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
         self.assertTrue(result.is_registered_to_receive_api_announcements)
         add.assert_called_once()  # Brevo write-back happened
         self.assertEqual(add.call_args[0][:2], ("user@example.com", 42))
+        # An explicit opt-in clears a previous Brevo unsubscribe.
+        self.assertTrue(add.call_args.kwargs["resubscribe"])
         self.mock_session.add.assert_called_once()  # subscription row created
+        sub = self.mock_session.add.call_args[0][0]
+        self.assertIs(sub.user, user)
+        self.assertTrue(sub.active)
+
+    def test_opt_in_reactivates_disabled_subscription(self):
+        user = _make_user(announcements_active=False)
+        existing_sub = user.notification_subscriptions[0]
+        user_q = _mock_query_first(self.mock_session, user)
+        user_q.filter.return_value.one_or_none.return_value = existing_sub
+        _set_context()
+
+        req = self._make_request(is_registered_to_receive_api_announcements=True)
+        with patch.object(helpers, "add_contact_to_list") as add, patch.object(
+            helpers, "get_announcements_list_id", return_value=42
+        ):
+            result = self.api.update_user(req, db_session=self.mock_session)
+
+        add.assert_called_once()
+        self.mock_session.add.assert_not_called()
+        self.assertTrue(existing_sub.active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
 
     def test_opt_out_deactivates_subscription_and_removes_from_brevo(self):
-        """Flipping the flag true→false removes the contact from Brevo and clears
-        the flag."""
-        user = _make_user(is_registered_to_receive_api_announcements=True)
+        """Flipping the flag true→false removes the contact from Brevo and
+        disables the subscription."""
+        user = _make_user(announcements_active=True)
+        existing_sub = user.notification_subscriptions[0]
         user_q = _mock_query_first(self.mock_session, user)
-        existing_sub = MagicMock(active=True)
         user_q.filter.return_value.one_or_none.return_value = existing_sub
         _set_context()
 
@@ -227,13 +259,12 @@ class TestUpdateUserMe(unittest.TestCase):
 
         rem.assert_called_once_with("user@example.com", 42)
         self.assertFalse(existing_sub.active)
-        self.assertFalse(user.is_registered_to_receive_api_announcements)
         self.assertFalse(result.is_registered_to_receive_api_announcements)
 
     def test_flag_unchanged_does_not_touch_brevo(self):
         """Re-sending the same flag value (or updating other fields) makes no
         Brevo call."""
-        user = _make_user(is_registered_to_receive_api_announcements=True)
+        user = _make_user(announcements_active=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
@@ -251,7 +282,7 @@ class TestUpdateUserMe(unittest.TestCase):
         DB use, rolls the whole update back)."""
         import sib_api_v3_sdk
 
-        user = _make_user(is_registered_to_receive_api_announcements=False)
+        user = _make_user()
         user_q = _mock_query_first(self.mock_session, user)
         user_q.filter.return_value.one_or_none.return_value = None
         _set_context()
@@ -266,14 +297,15 @@ class TestUpdateUserMe(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 502)
 
     def test_partial_update_leaves_other_fields_unchanged(self):
-        user = _make_user(full_name="Unchanged", is_registered_to_receive_api_announcements=True)
+        user = _make_user(full_name="Unchanged", announcements_active=True)
         _mock_query_first(self.mock_session, user)
         _set_context()
 
         req = self._make_request(full_name="Updated")
-        self.api.update_user(req, db_session=self.mock_session)
+        result = self.api.update_user(req, db_session=self.mock_session)
 
-        self.assertTrue(user.is_registered_to_receive_api_announcements)
+        self.assertTrue(user.notification_subscriptions[0].active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
 
     def test_raises_404_when_user_not_found(self):
         _mock_query_first(self.mock_session, None)
@@ -305,6 +337,81 @@ class TestUpdateUserMe(unittest.TestCase):
         self.mock_session.query.assert_not_called()
 
 
+class TestSyncUserAnnouncements(unittest.TestCase):
+    def setUp(self):
+        self.api = UsersApiImpl()
+        self.mock_session = MagicMock()
+        _set_context()
+
+    def _sync(self, user, brevo_status=None, side_effect=None):
+        _mock_query_first(self.mock_session, user)
+        with patch.object(helpers, "get_announcements_list_id", return_value=42), patch.object(
+            helpers,
+            "get_contact_subscription_status",
+            return_value=brevo_status,
+            side_effect=side_effect,
+        ) as status:
+            result = self.api.sync_user_announcements(db_session=self.mock_session)
+        return result, status
+
+    def test_turns_off_when_unsubscribed_in_brevo(self):
+        user = _make_user(announcements_active=True)
+
+        result, status = self._sync(user, helpers.BrevoSubscriptionStatus.UNSUBSCRIBED)
+
+        status.assert_called_once_with("user@example.com", 42)
+        self.assertFalse(user.notification_subscriptions[0].active)
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+        self.mock_session.flush.assert_called_once()
+
+    def test_leaves_a_subscribed_contact_on(self):
+        user = _make_user(announcements_active=True)
+
+        result, _ = self._sync(user, helpers.BrevoSubscriptionStatus.SUBSCRIBED)
+
+        self.assertTrue(user.notification_subscriptions[0].active)
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+        self.mock_session.flush.assert_not_called()
+
+    def test_leaves_a_contact_not_found_on(self):
+        user = _make_user(announcements_active=True)
+
+        result, _ = self._sync(user, helpers.BrevoSubscriptionStatus.NOT_FOUND)
+
+        self.assertTrue(result.is_registered_to_receive_api_announcements)
+
+    def test_never_turns_on_and_skips_brevo_when_already_off(self):
+        user = _make_user(announcements_active=False)
+
+        result, status = self._sync(user, helpers.BrevoSubscriptionStatus.SUBSCRIBED)
+
+        status.assert_not_called()
+        self.assertFalse(result.is_registered_to_receive_api_announcements)
+
+    def test_brevo_failure_is_a_502(self):
+        user = _make_user(announcements_active=True)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(user, side_effect=RuntimeError("BREVO_API_KEY environment variable is not set"))
+
+        self.assertEqual(ctx.exception.status_code, 502)
+        self.assertTrue(user.notification_subscriptions[0].active)
+
+    def test_unknown_user_is_a_404(self):
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(None)
+
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_guest_is_a_403(self):
+        _set_context(is_guest=True)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync(_make_user(announcements_active=True))
+
+        self.assertEqual(ctx.exception.status_code, 403)
+
+
 class TestSubscriptions(unittest.TestCase):
     def setUp(self):
         self.api = UsersApiImpl()
@@ -332,6 +439,10 @@ class TestSubscriptions(unittest.TestCase):
             notification_type_id="feed.published",
             active=True,
             created_at=FIXED_NOW,
+            # NOT NULL with DB defaults: a real row always carries them, but server_default
+            # only fires on INSERT, not on a hand-built object.
+            cadence="weekly",
+            digest=True,
         )
         defaults.update(kwargs)
         return Orm(**defaults)
@@ -556,6 +667,158 @@ class TestSubscriptions(unittest.TestCase):
         self.assertEqual({f.feed_stable_id for f in existing.notification_subscription_feeds}, {"mdb-old", "mdb-new"})
         self.assertEqual([f.feed_id for f in result.feeds], ["mdb-new", "mdb-old"])
 
+    # ── delivery preferences: cadence and digest ──
+    def _notification_type(self, type_id):
+        """Wire the NotificationType lookup and the AppUser lookup for a create call."""
+        from shared.users_database_gen.sqlacodegen_models import NotificationType
+
+        self.mock_session.get.side_effect = lambda model, key: (
+            NotificationType(id=type_id) if model is NotificationType else _make_user()
+        )
+
+    def test_create_new_subscription_defaults_to_weekly_digest(self):
+        """A new row carries the documented defaults without a DB round-trip.
+
+        They are set explicitly rather than left to the column's server_default, which only
+        materializes on INSERT - the object the response is built from would otherwise
+        serialize None.
+        """
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+        self.assertEqual(result.cadence, "weekly")
+        self.assertTrue(result.digest)
+
+    def test_create_applies_supplied_preferences(self):
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="daily", digest=False),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual(result.cadence, "daily")
+        self.assertFalse(result.digest)
+
+    def test_create_rejects_immediate_cadence(self):
+        """`immediate` is not exposed: no scheduler dispatches it (see docs/notifications.md
+        Future Work)."""
+        with self.assertRaises(ValidationError):
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="immediate")
+
+    def test_create_rejects_an_unknown_cadence(self):
+        with self.assertRaises(ValidationError):
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="hourly")
+
+    def test_repeat_create_without_preferences_leaves_them_alone(self):
+        """The upsert trap: a POST that only adds a feed must not reset a stored preference.
+
+        This is why neither request schema declares an OpenAPI `default` - the generator would
+        materialize it into the model and an omitted field would arrive as 'weekly'.
+        """
+        existing = self._make_sub(notification_type_id="feed.published", cadence="daily", digest=False)
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        result = self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published"), db_session=self.mock_session
+        )
+
+        self.assertEqual(existing.cadence, "daily")
+        self.assertFalse(existing.digest)
+        self.assertEqual(result.cadence, "daily")
+
+    def test_repeat_create_with_preferences_updates_them(self):
+        existing = self._make_sub(notification_type_id="feed.published", cadence="weekly", digest=True)
+        self._notification_type("feed.published")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = existing
+
+        self.api.create_user_subscription(
+            CreateNotificationSubscriptionRequest(notification_id="feed.published", cadence="daily", digest=False),
+            db_session=self.mock_session,
+        )
+
+        self.assertEqual(existing.cadence, "daily")
+        self.assertFalse(existing.digest)
+
+    def test_create_rejects_preferences_for_announcements(self):
+        """api.announcements is delivered through Brevo and skipped by every dispatch run, so
+        a cadence on it would never be read."""
+        self._notification_type("api.announcements")
+        self.mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.create_user_subscription(
+                CreateNotificationSubscriptionRequest(notification_id="api.announcements", cadence="daily"),
+                db_session=self.mock_session,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("cadence and digest are not supported", ctx.exception.detail)
+
+    def test_update_changes_each_preference_independently(self):
+        sub = self._make_sub(notification_type_id="feed.published", cadence="weekly", digest=True)
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(cadence="daily"), db_session=self.mock_session
+        )
+        self.assertEqual(sub.cadence, "daily")
+        self.assertTrue(sub.digest, "digest was not supplied, so it is untouched")
+
+        self.api.update_user_subscription(
+            "sub-1", UpdateNotificationSubscriptionRequest(digest=False), db_session=self.mock_session
+        )
+        self.assertEqual(sub.cadence, "daily", "cadence was not supplied, so it is untouched")
+        self.assertFalse(sub.digest)
+
+    def test_update_rejects_preferences_for_announcements(self):
+        sub = self._make_sub(notification_type_id="api.announcements")
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.update_user_subscription(
+                "sub-1", UpdateNotificationSubscriptionRequest(digest=False), db_session=self.mock_session
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_update_that_empties_a_feed_scoped_subscription_still_deletes_it(self):
+        """The delete short-circuits before preferences are applied; supplying one alongside
+        the last remove_feed_ids must not resurrect the row."""
+        from shared.users_database_gen.sqlacodegen_models import NotificationSubscriptionFeed as FeedOrm
+
+        sub = self._make_sub(notification_type_id="feed.url_updated")
+        sub.notification_subscription_feeds.append(FeedOrm(feed_stable_id="mdb-1"))
+        self.mock_session.get.side_effect = lambda model, key: (
+            sub if "Subscription" in model.__name__ else _make_user()
+        )
+
+        self.api.update_user_subscription(
+            "sub-1",
+            UpdateNotificationSubscriptionRequest(remove_feed_ids=["mdb-1"], cadence="daily"),
+            db_session=self.mock_session,
+        )
+
+        self.mock_session.delete.assert_called_once_with(sub)
+
+    def test_list_reports_the_stored_preferences(self):
+        sub = self._make_sub(cadence="daily", digest=False)
+        query = self.mock_session.query.return_value
+        query.options.return_value.filter.return_value.order_by.return_value.all.return_value = [sub]
+
+        result = self.api.get_user_subscriptions(db_session=self.mock_session)
+
+        self.assertEqual(result[0].cadence, "daily")
+        self.assertFalse(result[0].digest)
+
     # ── update ──
     def test_update_deactivate_announcement_removes_brevo(self):
         sub = self._make_sub(notification_type_id="api.announcements", active=True)
@@ -756,6 +1019,8 @@ class TestSubscriptionFeedGroups(unittest.TestCase):
             notification_type_id="feed.url_updated",
             active=True,
             created_at=FIXED_NOW,
+            cadence="weekly",
+            digest=True,
         )
         defaults.update(kwargs)
         return Orm(**defaults)
@@ -1047,6 +1312,8 @@ class TestAdminSummaryGate(unittest.TestCase):
             notification_type_id=self.ADMIN_TYPE,
             active=True,
             created_at=FIXED_NOW,
+            cadence="weekly",
+            digest=True,
         )
         self._configure(notifications=True, admin=False, sub=sub)
         with self.assertRaises(HTTPException) as ctx:
@@ -1072,10 +1339,12 @@ class TestAppUserImpl(unittest.TestCase):
             full_name="Alice",
             legacy_org_name="Acme Transit",
             email_verified=True,
-            is_registered_to_receive_api_announcements=True,
             created_at=now,
             updated_at=now,
         )
+        user.notification_subscriptions = [
+            NotificationSubscription(notification_type_id=helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, active=True)
+        ]
         profile = AppUserImpl.from_orm(user)
         self.assertEqual(profile.id, "uid-1")
         self.assertEqual(profile.email, "a@b.com")
@@ -1085,6 +1354,21 @@ class TestAppUserImpl(unittest.TestCase):
         self.assertTrue(profile.is_registered_to_receive_api_announcements)
         self.assertEqual(profile.created_at, now)
         self.assertEqual(profile.updated_at, now)
+
+    def test_from_orm_announcements_needs_active_announcements_subscription(self):
+        cases = [
+            ([], False),
+            ([(helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, False)], False),
+            ([("feed.url_updated", True)], False),
+            ([("feed.url_updated", True), (helpers.ANNOUNCEMENTS_NOTIFICATION_TYPE_ID, True)], True),
+        ]
+        for subs, expected in cases:
+            with self.subTest(subs=subs):
+                user = AppUser(id="uid-1", email="a@b.com", created_at=FIXED_NOW, updated_at=FIXED_NOW)
+                user.notification_subscriptions = [
+                    NotificationSubscription(notification_type_id=type_id, active=active) for type_id, active in subs
+                ]
+                self.assertEqual(AppUserImpl.from_orm(user).is_registered_to_receive_api_announcements, expected)
 
     def test_from_orm_resolves_user_override_and_default(self):
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)

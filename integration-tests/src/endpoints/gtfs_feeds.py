@@ -44,17 +44,18 @@ class GTFSFeedsEndpointTests(IntegrationTests):
 
     def test_filter_by_provider_gtfs(self):
         """Test GTFS feed retrieval filtered by provider"""
-        providers = self.gtfs_feeds.provider.sample(100).values
+        providers = self._sample_providers(self.gtfs_feeds, 100)
         task_id = self.progress.add_task(
             "[yellow]Validating GTFS feeds by provider...[/yellow]",
             total=len(providers),
         )
-        for i, provider_id in enumerate(providers):
+        for i, (provider, stable_id) in enumerate(providers):
             self._test_filter_by_provider(
-                provider_id,
+                provider,
                 "v1/gtfs_feeds",
                 task_id=task_id,
                 index=f"{i + 1}/{len(providers)}",
+                stable_id=stable_id,
             )
 
     # def test_filter_by_municipality_gtfs(self):

@@ -32,6 +32,9 @@ from tasks.dataset_files.rebuild_missing_dataset_files import (
 from tasks.dataset_files.backfill_dataset_hash_md5 import (
     backfill_dataset_hash_md5_handler,
 )
+from tasks.dataset_files.backfill_latest_cache_control import (
+    backfill_latest_cache_control_handler,
+)
 from tasks.licenses.license_matcher import match_license_handler
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
@@ -68,6 +71,7 @@ from tasks.users.migrate_firebase_users import migrate_firebase_users_handler
 from tasks.users.reconcile_announcements_from_brevo import (
     reconcile_announcements_from_brevo_handler,
 )
+from tasks.task_execution_stats import task_execution_stats_handler
 from tasks.users.purge_early_access_invites import purge_early_access_invites_handler
 from tasks.notifications.dispatch_batch import notifications_dispatch_batch_handler
 from tasks.notifications.dispatch_worker import (
@@ -160,6 +164,16 @@ tasks = {
         ),
         "handler": backfill_dataset_hash_md5_handler,
     },
+    "backfill_latest_cache_control": {
+        "description": (
+            "Sets the CDN Cache-Control on the latest.zip of every feed with a latest "
+            "dataset, so files uploaded before the batch process set it get the full CDN "
+            "lifetime. Patches object metadata only. Parameters: dry_run (default true), "
+            "uploaded_before (ISO 8601, default null), limit (default null), "
+            "bucket_name (default DATASETS_BUCKET_NAME)."
+        ),
+        "handler": backfill_latest_cache_control_handler,
+    },
     "update_geojson_files": {
         "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
         "handler": update_geojson_files_precision_handler,
@@ -206,15 +220,12 @@ tasks = {
     },
     "migrate_firebase_users": {
         "description": (
-            "Insert-only migration of Firebase Auth users into users.app_user "
-            "(the only field updated on an existing row is brevo_synced_at). "
+            "Insert-only migration of Firebase Auth users into users.app_user. "
             "Reads profile fields (fullName, organization, registrationCompletionTime) "
             "from Datastore kind 'web_api_users' (queried by uid property). "
-            "Uses Brevo as the source of truth for is_registered_to_receive_api_announcements. "
-            "Ensures each user has an api.announcements notification_subscription and "
-            "writes MDB_SUBSCRIPTION_ID back onto the Brevo contact, tracking that "
-            "write via app_user.brevo_synced_at (idempotent: users already synced "
-            "are skipped). "
+            "Ensures each user has an api.announcements notification_subscription "
+            "(disabled when Brevo reports the contact UNSUBSCRIBED). Reads Brevo only, "
+            "never writes to it. "
             "Parameters: dry_run (default true), limit (default null), "
             "user_ids (default null), only_not_migrated (default true)."
         ),
@@ -226,13 +237,24 @@ tasks = {
             "api.announcements (reverse of the API/migration forward opt-in path). "
             "For every user with an ACTIVE api.announcements subscription, reads the "
             "Brevo contact status; when Brevo reports UNSUBSCRIBED (global "
-            "email_blacklisted or list-level unsubscribe), sets "
-            "app_user.is_registered_to_receive_api_announcements=false and "
-            "deactivates the subscription (active=false). Turn-OFF only: never "
+            "email_blacklisted or list-level unsubscribe), deactivates the "
+            "subscription (active=false). Turn-OFF only: never "
             "re-subscribes or adds anyone on SUBSCRIBED/NOT_FOUND. Idempotent. "
             "Parameters: dry_run (default true), limit (default null)."
         ),
         "handler": reconcile_announcements_from_brevo_handler,
+    },
+    "task_execution_stats": {
+        "description": (
+            "Aggregates task_execution_attempt for one task over a window: attempts, "
+            "completions and failures by worker variant, peak address space and RSS per "
+            "variant, duration percentiles, failure counts by kind, and the entities "
+            "that needed more than one attempt. Read-only. Exists because worker sizing "
+            "has to come from a distribution, not from whichever build someone last "
+            "looked at; it reports, it does not retune. Parameters: task_name "
+            "(required), window_days (default 30), limit (default 20)."
+        ),
+        "handler": task_execution_stats_handler,
     },
     "purge_early_access_invites": {
         "description": (

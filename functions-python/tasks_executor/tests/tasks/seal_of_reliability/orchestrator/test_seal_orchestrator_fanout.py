@@ -262,16 +262,21 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
                 {"run_id": "r1", "batch_id": "batch-0000", "stable_feed_ids": []}
             )
 
+    @patch(f"{_WORKER}.revalidate_changed_feeds", return_value={})
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.update_seals")
     def test_marks_completed_with_result_metadata_on_success(
-        self, update_mock, mark_mock
+        self, update_mock, mark_mock, _revalidate_mock
     ):
         from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
-        update_mock.return_value = {"total_feeds": 2, "seals_granted": 1}
+        update_mock.return_value = {
+            "total_feeds": 2,
+            "seals_granted": 1,
+            "changed_stable_ids": [],
+        }
         result = seal_orchestrator_worker_handler(
             {
                 "run_id": "r1",
@@ -286,7 +291,9 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
         )
         self.assertFalse(update_mock.call_args.kwargs["dry_run"])
         mark_mock.assert_called_once_with(
-            "r1", "batch-0000", result={"total_feeds": 2, "seals_granted": 1}
+            "r1",
+            "batch-0000",
+            result={"total_feeds": 2, "seals_granted": 1, "changed_stable_ids": []},
         )
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["seals_granted"], 1)
@@ -306,14 +313,17 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
 
         mark_mock.assert_called_once_with("r1", "batch-0000", error="db down")
 
+    @patch(f"{_WORKER}.revalidate_changed_feeds", return_value={})
     @patch(f"{_WORKER}._mark_entry")
     @patch(f"{_WORKER}.update_seals")
-    def test_now_and_criteria_are_forwarded(self, update_mock, mark_mock):
+    def test_now_and_criteria_are_forwarded(
+        self, update_mock, mark_mock, _revalidate_mock
+    ):
         from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
             seal_orchestrator_worker_handler,
         )
 
-        update_mock.return_value = {"total_feeds": 1}
+        update_mock.return_value = {"total_feeds": 1, "changed_stable_ids": []}
         seal_orchestrator_worker_handler(
             {
                 "run_id": "r1",
@@ -328,6 +338,82 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
         self.assertEqual(kwargs["criteria"], ["official"])
         self.assertEqual(kwargs["now"], datetime(2026, 1, 1, tzinfo=timezone.utc))
 
+    @patch(f"{_WORKER}.revalidate_changed_feeds")
+    @patch(f"{_WORKER}._mark_entry")
+    @patch(f"{_WORKER}.update_seals")
+    def test_revalidates_the_feeds_the_batch_changed(
+        self, update_mock, mark_mock, revalidate_mock
+    ):
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
+            seal_orchestrator_worker_handler,
+        )
+
+        update_mock.return_value = {
+            "total_feeds": 2,
+            "feeds_changed": 1,
+            "changed_stable_ids": ["mdb-2"],
+        }
+        revalidate_mock.return_value = {
+            "feeds_revalidated": 1,
+            "revalidation_tasks": 1,
+        }
+        result = seal_orchestrator_worker_handler(
+            {
+                "run_id": "r1",
+                "batch_id": "batch-0000",
+                "stable_feed_ids": ["mdb-1", "mdb-2"],
+            }
+        )
+
+        revalidate_mock.assert_called_once_with(["mdb-2"], dedup_key="r1-batch-0000")
+        # The counters have to reach the tracker, or the monitor cannot report the run.
+        self.assertEqual(mark_mock.call_args.kwargs["result"]["feeds_revalidated"], 1)
+        self.assertEqual(result["feeds_revalidated"], 1)
+
+    @patch(f"{_WORKER}.revalidate_changed_feeds")
+    @patch(f"{_WORKER}._mark_entry")
+    @patch(f"{_WORKER}.update_seals")
+    def test_a_failed_revalidation_does_not_fail_the_batch(
+        self, update_mock, mark_mock, revalidate_mock
+    ):
+        """The seal rows are already committed; a cache that could not be busted is not a
+        reason to make Cloud Tasks retry the evaluation."""
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
+            seal_orchestrator_worker_handler,
+        )
+
+        update_mock.return_value = {"total_feeds": 1, "changed_stable_ids": ["mdb-1"]}
+        revalidate_mock.side_effect = RuntimeError("cloud tasks down")
+
+        result = seal_orchestrator_worker_handler(
+            {"run_id": "r1", "batch_id": "batch-0000", "stable_feed_ids": ["mdb-1"]}
+        )
+
+        self.assertEqual(result["status"], "ok")
+        mark_mock.assert_called_once()
+        self.assertIsNone(mark_mock.call_args.kwargs.get("error"))
+
+    @patch(f"{_WORKER}.revalidate_changed_feeds")
+    @patch(f"{_WORKER}._mark_entry")
+    @patch(f"{_WORKER}.update_seals")
+    def test_no_revalidation_when_an_evaluation_changed_nothing(
+        self, update_mock, mark_mock, revalidate_mock
+    ):
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_worker import (
+            seal_orchestrator_worker_handler,
+        )
+
+        update_mock.return_value = {"total_feeds": 3, "changed_stable_ids": []}
+        revalidate_mock.return_value = {
+            "feeds_revalidated": 0,
+            "revalidation_tasks": 0,
+        }
+        seal_orchestrator_worker_handler(
+            {"run_id": "r1", "batch_id": "batch-0000", "stable_feed_ids": ["mdb-1"]}
+        )
+
+        revalidate_mock.assert_called_once_with([], dedup_key="r1-batch-0000")
+
 
 # ---------------------------------------------------------------------------
 # seal_orchestrator_monitor (barrier / summary)
@@ -336,7 +422,17 @@ class TestSealOrchestratorWorkerHandler(unittest.TestCase):
 _MONITOR = "tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor"
 
 
-class TestSealOrchestratorMonitorHandler(unittest.TestCase):
+class MonitorTestCase(unittest.TestCase):
+    """Shared fixtures for the two monitor test classes below."""
+
+    def setUp(self):
+        # The monitor emits one admin.event_summary per settled nightly run, which
+        # would otherwise reach the users DB. Patched for every test here; the ones that care
+        # about it assert on `self.emit_mock`.
+        self._emit_patcher = patch(f"{_MONITOR}.emit_seal_run_summary")
+        self.emit_mock = self._emit_patcher.start()
+        self.addCleanup(self._emit_patcher.stop)
+
     def _tracker(self, summary):
         tracker = MagicMock()
         tracker.get_summary.return_value = summary
@@ -365,6 +461,8 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
             },
         }
 
+
+class TestSealOrchestratorMonitorHandler(MonitorTestCase):
     def test_requires_run_id(self):
         from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
             seal_orchestrator_monitor_handler,
@@ -565,6 +663,122 @@ class TestSealOrchestratorMonitorHandler(unittest.TestCase):
 
         agg_mock.assert_not_called()
         self.assertEqual(result["status"], "unknown")
+
+
+# ---------------------------------------------------------------------------
+# admin.event_summary / seal_run_summary
+# ---------------------------------------------------------------------------
+
+
+class TestSealRunSummaryEmission(MonitorTestCase):
+    """Exactly one summary per run, from the one branch that settles it."""
+
+    _AGGREGATE = {
+        "total_feeds_evaluated": 750,
+        "seals_granted": 5,
+        "seals_revoked": 1,
+        "feeds_changed": 12,
+        "feeds_revalidated": 12,
+        "revalidation_tasks": 1,
+        "granted_stable_ids": ["mdb-1"],
+        "revoked_stable_ids": ["mdb-2"],
+        "changed_stable_ids": ["mdb-1", "mdb-2"],
+        "ids_omitted": 0,
+    }
+
+    @patch(f"{_MONITOR}._aggregate_batches")
+    @patch(f"{_MONITOR}.TaskExecutionTracker")
+    def test_settling_a_nightly_run_emits_the_summary(self, tracker_cls, agg_mock):
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
+
+        tracker_cls.return_value = self._tracker(
+            self._summary(triggered=0, completed=3)
+        )
+        agg_mock.return_value = dict(self._AGGREGATE)
+
+        result = _monitor("seal-1", db_session=MagicMock())
+
+        self.emit_mock.assert_called_once_with(result)
+        payload = self.emit_mock.call_args.args[0]
+        self.assertEqual(payload["run_id"], "seal-1")
+        self.assertEqual(payload["feeds_revalidated"], 12)
+        self.assertEqual(payload["changed_stable_ids"], ["mdb-1", "mdb-2"])
+
+    @patch(f"{_MONITOR}._aggregate_batches")
+    @patch(f"{_MONITOR}.TaskExecutionTracker")
+    def test_a_failed_run_still_reports(self, tracker_cls, agg_mock):
+        """A night that half-ran is exactly the night an admin needs to hear about."""
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
+
+        tracker_cls.return_value = self._tracker(
+            self._summary(triggered=0, completed=2, failed=1)
+        )
+        agg_mock.return_value = dict(self._AGGREGATE)
+
+        _monitor("seal-1", db_session=MagicMock())
+
+        self.emit_mock.assert_called_once()
+        self.assertEqual(self.emit_mock.call_args.args[0]["status"], "failed")
+
+    @patch(f"{_MONITOR}._aggregate_batches")
+    @patch(f"{_MONITOR}.TaskExecutionTracker")
+    def test_a_redelivery_on_a_settled_run_emits_nothing(self, tracker_cls, agg_mock):
+        """The already-settled branch returns before finish_run, so there is no second email."""
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
+
+        tracker_cls.return_value = self._tracker(
+            self._summary(triggered=0, completed=3, run_status="completed")
+        )
+        agg_mock.return_value = dict(self._AGGREGATE)
+
+        _monitor("seal-1", db_session=MagicMock())
+
+        self.emit_mock.assert_not_called()
+
+    @patch(f"{_MONITOR}._aggregate_batches")
+    @patch(f"{_MONITOR}.TaskExecutionTracker")
+    def test_a_still_running_run_emits_nothing(self, tracker_cls, agg_mock):
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            TaskInProgressError,
+            _monitor,
+        )
+
+        tracker_cls.return_value = self._tracker(
+            self._summary(triggered=2, completed=1)
+        )
+        agg_mock.return_value = dict(self._AGGREGATE)
+
+        with self.assertRaises(TaskInProgressError):
+            _monitor("seal-1", db_session=MagicMock())
+
+        self.emit_mock.assert_not_called()
+
+    @patch(f"{_MONITOR}._aggregate_batches")
+    @patch(f"{_MONITOR}.TaskExecutionTracker")
+    def test_a_backfill_run_emits_nothing(self, tracker_cls, agg_mock):
+        """The same monitor settles the backfill, which replays history rather than
+        announcing it."""
+        from tasks.seal_of_reliability.backfill.seal_backfill_orchestrator import (
+            SEAL_BACKFILL_TASK_NAME,
+        )
+        from tasks.seal_of_reliability.orchestrator.seal_orchestrator_monitor import (
+            _monitor,
+        )
+
+        tracker_cls.return_value = self._tracker(
+            self._summary(triggered=0, completed=3)
+        )
+        agg_mock.return_value = dict(self._AGGREGATE)
+
+        _monitor("seal-backfill-1", SEAL_BACKFILL_TASK_NAME, db_session=MagicMock())
+
+        self.emit_mock.assert_not_called()
 
 
 if __name__ == "__main__":

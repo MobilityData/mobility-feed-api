@@ -72,8 +72,8 @@ def _make_app_user(
     full_name=None,
     legacy_org_name=None,
 ):
-    """Build an existing app_user row. brevo_synced_at drives the write-back
-    idempotency check (None = contact not yet synced)."""
+    """Build an existing app_user row. brevo_synced_at is a legacy column the
+    task no longer reads or writes."""
     if migrated_at is _DEFAULT:
         migrated_at = datetime.now(timezone.utc)
     return AppUser(
@@ -109,9 +109,7 @@ def _make_db_session(
     # Controls _get_announcements_subscription(): .first() returns the existing
     # subscription row (or None). A brand-new user (existing_user is None) never
     # has one. For an existing user, has_announcements_sub picks whether a
-    # subscription row exists; pass existing_sub to override with a specific row
-    # (e.g. to assert the id written back to Brevo). The write-back idempotency
-    # state now lives on the app_user (brevo_synced_at), not the subscription.
+    # subscription row exists; pass existing_sub to override with a specific row.
     if existing_sub is _DEFAULT:
         if existing_user is not None and has_announcements_sub:
             existing_sub = _make_subscription(existing_user.id)
@@ -251,54 +249,6 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         self.assertEqual(added.legacy_org_name, "Transit Corp")
         self.assertEqual(added.registration_completed_at, reg_time)
         self.assertIsNotNone(added.migrated_at)
-
-    def test_new_user_brevo_subscribed_sets_true(self):
-        """New user subscribed in Brevo → field=True on insert."""
-        user = _make_auth_user("uid2", email="b@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.SUBSCRIBED,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertTrue(added.is_registered_to_receive_api_announcements)
-
-    def test_new_user_brevo_unsubscribed_sets_false(self):
-        """New user unsubscribed in Brevo → field=False on insert."""
-        user = _make_auth_user("uid3", email="c@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.UNSUBSCRIBED,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertFalse(added.is_registered_to_receive_api_announcements)
-
-    def test_new_user_brevo_not_found_field_not_set(self):
-        """New user not in Brevo → field not set (None, DB default applies)."""
-        user = _make_auth_user("uid4", email="d@example.com")
-        session = _make_db_session()
-
-        self._run(
-            [user],
-            {},
-            session,
-            brevo_status=BrevoSubscriptionStatus.NOT_FOUND,
-            dry_run=False,
-        )
-
-        added: AppUser = _added_app_user(session)
-        self.assertIsNone(added.is_registered_to_receive_api_announcements)
 
     # --- Announcements subscription association ---
 
@@ -499,234 +449,63 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
         self.assertEqual(stats["announcements_enabled"], 0)
         self.assertEqual(stats["announcements_disabled"], 0)
 
-    # --- Brevo contact write-back (MDB_SUBSCRIPTION_ID / brevo_synced_at) ---
+    # --- Brevo is read-only ---
 
-    def _run_writeback(
-        self,
-        user_records,
-        db_session,
-        brevo_status,
-        list_id="42",
-        dry_run=False,
-        add_side_effect=None,
-        **kwargs,
-    ):
-        """Run the task with add_contact_to_list patched and the Brevo list id set.
-
-        Returns (stats, mock_add_contact_to_list).
-        """
-        ds_client = _make_ds_client({})
-        env = {"BREVO_API_ANNOUNCEMENTS_LIST_ID": list_id} if list_id else {}
-        with (
-            patch("tasks.users.migrate_firebase_users._get_firebase_app"),
-            patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
-            patch(
-                "tasks.users.migrate_firebase_users._iter_users",
-                return_value=iter(user_records),
-            ),
-            patch(BREVO_MODULE, return_value=brevo_status),
-            patch(
-                "tasks.users.migrate_firebase_users.add_contact_to_list",
-                side_effect=add_side_effect,
-            ) as mock_add,
-            patch.dict(os.environ, env, clear=False),
-        ):
-            mock_datastore.Client.return_value = ds_client
-            stats = migrate_firebase_users(
-                db_session=db_session, dry_run=dry_run, **kwargs
-            )
-        return stats, mock_add
-
-    def test_new_subscribed_user_written_back_and_stamped(self):
-        """New subscribed user → subscription created, MDB_SUBSCRIPTION_ID written
-        once with the new subscription id, app_user.brevo_synced_at stamped."""
-        user = _make_auth_user("uid-wb1", email="wb1@example.com")
-        session = _make_db_session()
-
-        stats, mock_add = self._run_writeback(
-            [user], session, BrevoSubscriptionStatus.SUBSCRIBED
-        )
-
-        sub = _added_subscription(session)
-        self.assertIsNotNone(sub)
-        # New user has no Datastore profile here, so name/org are forwarded as None.
-        mock_add.assert_called_once_with(
-            "wb1@example.com", 42, sub.id, first_name=None, organization=None
-        )
-        added_user = _added_app_user(session)
-        self.assertIsNotNone(added_user.brevo_synced_at)
-        self.assertEqual(stats["brevo_synced"], 1)
-        self.assertEqual(stats["brevo_sync_failed"], 0)
-
-    def test_existing_unsynced_user_written_back_without_new_row(self):
-        """Existing user with brevo_synced_at=None → no new subscription row,
-        contact written back with the existing subscription id, and the existing
-        app_user row stamped in place."""
-        user = _make_auth_user("uid-wb2", email="wb2@example.com")
+    def test_existing_user_with_sub_is_skipped_even_if_never_synced(self):
+        """brevo_synced_at no longer drives anything: an existing user with a
+        subscription is skipped (no Brevo call) whatever its value."""
+        user = _make_auth_user("uid-ns", email="ns@example.com")
         existing = _make_app_user(
-            "uid-wb2",
-            email="wb2@example.com",
-            brevo_synced_at=None,
-            full_name="Jane Doe",
-            legacy_org_name="Acme Transit",
-        )
-        sub = _make_subscription("uid-wb2", sub_id="sub-wb2")
-        session = _make_db_session(existing, existing_sub=sub)
-
-        stats, mock_add = self._run_writeback(
-            [user],
-            session,
-            BrevoSubscriptionStatus.SUBSCRIBED,
-            only_not_migrated=False,
-        )
-
-        self.assertIsNone(_added_subscription(session))  # no new subscription row
-        self.assertIsNone(_added_app_user(session))  # existing row not re-inserted
-        # Full name → FIRSTNAME, legacy org → ORGANIZATION are forwarded to Brevo.
-        mock_add.assert_called_once_with(
-            "wb2@example.com",
-            42,
-            "sub-wb2",
-            first_name="Jane Doe",
-            organization="Acme Transit",
-        )
-        self.assertIsNotNone(existing.brevo_synced_at)  # stamped in place
-        self.assertEqual(stats["brevo_synced"], 1)
-
-    def test_already_synced_user_is_skipped(self):
-        """Existing user already synced (app_user.brevo_synced_at set) with a
-        subscription → skipped entirely: no write-back, no new subscription row."""
-        user = _make_auth_user("uid-wb3", email="wb3@example.com")
-        existing = _make_app_user(
-            "uid-wb3",
-            email="wb3@example.com",
-            brevo_synced_at=datetime.now(timezone.utc),
+            "uid-ns", email="ns@example.com", brevo_synced_at=None
         )
         session = _make_db_session(existing, has_announcements_sub=True)
 
-        stats, mock_add = self._run_writeback(
-            [user],
-            session,
-            BrevoSubscriptionStatus.SUBSCRIBED,
-            only_not_migrated=False,
-        )
-
-        mock_add.assert_not_called()
-        self.assertIsNone(_added_subscription(session))
-        self.assertEqual(stats["brevo_synced"], 0)
-
-    def test_unsubscribed_existing_user_not_written_back(self):
-        """Existing unsynced user whose contact is UNSUBSCRIBED on Brevo → never
-        re-added to the list; app_user.brevo_synced_at stays None."""
-        user = _make_auth_user("uid-wb4", email="wb4@example.com")
-        existing = _make_app_user(
-            "uid-wb4", email="wb4@example.com", brevo_synced_at=None
-        )
-        sub = _make_subscription("uid-wb4", sub_id="sub-wb4")
-        session = _make_db_session(existing, existing_sub=sub)
-
-        stats, mock_add = self._run_writeback(
-            [user],
-            session,
-            BrevoSubscriptionStatus.UNSUBSCRIBED,
-            only_not_migrated=False,
-        )
-
-        mock_add.assert_not_called()
-        self.assertIsNone(existing.brevo_synced_at)
-        self.assertEqual(stats["brevo_synced"], 0)
-
-    def test_writeback_failure_is_counted_and_not_stamped(self):
-        """add_contact_to_list raising → counted as brevo_sync_failed,
-        app_user.brevo_synced_at left None (retried next run), task does not abort."""
-        user = _make_auth_user("uid-wb5", email="wb5@example.com")
-        existing = _make_app_user(
-            "uid-wb5", email="wb5@example.com", brevo_synced_at=None
-        )
-        sub = _make_subscription("uid-wb5", sub_id="sub-wb5")
-        session = _make_db_session(existing, existing_sub=sub)
-
-        stats, mock_add = self._run_writeback(
-            [user],
-            session,
-            BrevoSubscriptionStatus.SUBSCRIBED,
-            add_side_effect=Exception("Brevo down"),
-            only_not_migrated=False,
-        )
-
-        mock_add.assert_called_once()
-        self.assertIsNone(existing.brevo_synced_at)
-        self.assertEqual(stats["brevo_synced"], 0)
-        self.assertEqual(stats["brevo_sync_failed"], 1)
-
-    def test_dry_run_does_not_write_back_but_counts(self):
-        """dry_run=True → no add_contact_to_list call and no stamping, but the
-        would-be sync is counted."""
-        user = _make_auth_user("uid-wb6", email="wb6@example.com")
-        session = _make_db_session()
-
-        stats, mock_add = self._run_writeback(
-            [user], session, BrevoSubscriptionStatus.SUBSCRIBED, dry_run=True
-        )
-
-        mock_add.assert_not_called()
-        session.add.assert_not_called()
-        self.assertEqual(stats["brevo_synced"], 1)
-
-    def test_missing_list_id_skips_write_back(self):
-        """No BREVO_API_ANNOUNCEMENTS_LIST_ID configured → write-back skipped,
-        subscription still created."""
-        user = _make_auth_user("uid-wb7", email="wb7@example.com")
-        session = _make_db_session()
-
-        stats, mock_add = self._run_writeback(
-            [user], session, BrevoSubscriptionStatus.SUBSCRIBED, list_id=None
-        )
-
-        mock_add.assert_not_called()
-        self.assertEqual(stats["brevo_synced"], 0)
-        self.assertIsNotNone(_added_subscription(session))
-
-    def test_write_back_is_idempotent_across_runs(self):
-        """Second run over an already-synced user is a no-op: the write happens
-        once, then app_user.brevo_synced_at short-circuits subsequent runs."""
-        user = _make_auth_user("uid-wb8", email="wb8@example.com")
-        existing = _make_app_user(
-            "uid-wb8", email="wb8@example.com", brevo_synced_at=None
-        )
-        sub = _make_subscription("uid-wb8", sub_id="sub-wb8")
-        session = _make_db_session(existing, existing_sub=sub)
-
         ds_client = _make_ds_client({})
         with (
             patch("tasks.users.migrate_firebase_users._get_firebase_app"),
             patch("tasks.users.migrate_firebase_users.datastore") as mock_datastore,
             patch(
                 "tasks.users.migrate_firebase_users._iter_users",
-                side_effect=lambda user_ids: iter([user]),
+                return_value=iter([user]),
             ),
-            patch(BREVO_MODULE, return_value=BrevoSubscriptionStatus.SUBSCRIBED),
-            patch("tasks.users.migrate_firebase_users.add_contact_to_list") as mock_add,
-            patch.dict(
-                os.environ, {"BREVO_API_ANNOUNCEMENTS_LIST_ID": "42"}, clear=False
-            ),
+            patch(BREVO_MODULE) as mock_brevo,
         ):
             mock_datastore.Client.return_value = ds_client
-            stats1 = migrate_firebase_users(
-                db_session=session, dry_run=False, only_not_migrated=False
-            )
-            stats2 = migrate_firebase_users(
+            migrate_firebase_users(
                 db_session=session, dry_run=False, only_not_migrated=False
             )
 
-        self.assertEqual(mock_add.call_count, 1)
-        self.assertEqual(stats1["brevo_synced"], 1)
-        self.assertEqual(stats2["brevo_synced"], 0)
+        mock_brevo.assert_not_called()
+        session.add.assert_not_called()
+        self.assertIsNone(existing.brevo_synced_at)
+
+    def test_new_subscribed_user_is_not_written_to_brevo(self):
+        """The task only reads Brevo: no contact write, no brevo_synced_at stamp."""
+        user = _make_auth_user("uid-ro", email="ro@example.com")
+        session = _make_db_session()
+
+        with (
+            patch.dict(
+                os.environ, {"BREVO_API_ANNOUNCEMENTS_LIST_ID": "42"}, clear=False
+            ),
+            patch("shared.common.brevo._get_contacts_api") as mock_contacts_api,
+        ):
+            stats = self._run(
+                [user],
+                {},
+                session,
+                brevo_status=BrevoSubscriptionStatus.SUBSCRIBED,
+                dry_run=False,
+            )
+
+        mock_contacts_api.assert_not_called()
+        self.assertIsNone(_added_app_user(session).brevo_synced_at)
+        self.assertNotIn("brevo_synced", stats)
 
     # --- Brevo failure on new user ---
 
     def test_brevo_failure_on_new_user_does_not_abort(self):
-        """Brevo API error on new user → migration continues, field not set."""
+        """Brevo API error on new user → migration continues."""
         user = _make_auth_user("uid8", email="h@example.com")
         session = _make_db_session()
 
@@ -745,8 +524,6 @@ class TestMigrateFirebaseUsers(unittest.TestCase):
 
         self.assertEqual(stats["brevo_failed"], 1)
         self.assertEqual(stats["inserted"], 1)
-        added: AppUser = _added_app_user(session)
-        self.assertIsNone(added.is_registered_to_receive_api_announcements)
         # Failed Brevo check is treated as "not unsubscribed" → subscription enabled.
         sub = _added_subscription(session)
         self.assertTrue(sub.active)

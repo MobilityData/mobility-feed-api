@@ -42,6 +42,9 @@ from user_service.impl.subscription_helpers import (
     ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID,
     ADMIN_SUMMARY_FEATURE_FLAG_ID,
     ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
+    DEFAULT_NOTIFICATION_CADENCE,
+    DEFAULT_NOTIFICATION_DIGEST,
+    ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED,
     ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
     FEED_SCOPED_NOTIFICATION_TYPE_IDS,
     NOTIFICATIONS_FEATURE_FLAG_ID,
@@ -49,6 +52,7 @@ from user_service.impl.subscription_helpers import (
     find_unknown_feed_ids,
     resolve_feed_metadata,
     set_announcements_optin,
+    turn_off_announcements_if_unsubscribed_in_brevo,
 )
 from user_service_gen.apis.users_api_base import BaseUsersApi
 from user_service_gen.models.create_notification_subscription_request import (
@@ -90,7 +94,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -127,7 +134,10 @@ class UsersApiImpl(BaseUsersApi):
 
         user = (
             db_session.query(AppUser)
-            .options(selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag))
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
             .filter_by(id=user_id)
             .first()
         )
@@ -136,16 +146,14 @@ class UsersApiImpl(BaseUsersApi):
 
         update_data = update_user_request.model_dump(exclude_unset=True)
 
-        # Detect a real change to the announcements opt-in so we can reconcile the
-        # subscription + Brevo membership below. Writing the boolean alone would
-        # leave the DB flag, the notification_subscription row, and Brevo out of
-        # sync (the historical bug this closes). Only act on an actual change so
-        # unrelated profile edits never make a (slow, failable) Brevo call.
+        # The opt-in is not a column: it is the api.announcements subscription,
+        # reconciled with Brevo below. Only act on an actual change so unrelated
+        # profile edits never make a (slow, failable) Brevo call.
         optin_field = "is_registered_to_receive_api_announcements"
         optin_target = None
         if optin_field in update_data:
-            new_value = bool(update_data[optin_field])
-            if new_value != bool(user.is_registered_to_receive_api_announcements):
+            new_value = bool(update_data.pop(optin_field))
+            if new_value != AppUserImpl.is_registered_to_announcements(user):
                 optin_target = new_value
 
         for field, value in update_data.items():
@@ -158,6 +166,32 @@ class UsersApiImpl(BaseUsersApi):
             set_announcements_optin(db_session, user, subscribe=optin_target)
 
         db_session.flush()
+
+        all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
+        return AppUserImpl.from_orm(user, all_flags)
+
+    @with_users_db_session
+    def sync_user_announcements(self, db_session=None) -> UserProfile:
+        """
+        Turns the authenticated user's API announcements off when they unsubscribed in Brevo,
+        then returns their profile. Never turns announcements on. Guest users cannot call it.
+        """
+        user_id = self._require_user_id()
+
+        user = (
+            db_session.query(AppUser)
+            .options(
+                selectinload(AppUser.user_feature_flags).selectinload(UserFeatureFlag.feature_flag),
+                selectinload(AppUser.notification_subscriptions),
+            )
+            .filter_by(id=user_id)
+            .first()
+        )
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if turn_off_announcements_if_unsubscribed_in_brevo(user):
+            db_session.flush()
 
         all_flags = db_session.query(FeatureFlag).filter(FeatureFlag.disabled.is_(False)).order_by(FeatureFlag.id).all()
         return AppUserImpl.from_orm(user, all_flags)
@@ -269,6 +303,10 @@ class UsersApiImpl(BaseUsersApi):
                 detail=f"feed_ids is not supported for notification type '{notification_id}'.",
             )
 
+        cadence = create_notification_subscription_request.cadence
+        digest = create_notification_subscription_request.digest
+        self._reject_delivery_preferences_for_announcements(notification_id, cadence, digest)
+
         # Every supplied feed must exist (feeds live in a separate DB, referenced by stable_id).
         if feed_ids:
             unknown_feed_ids = find_unknown_feed_ids(feed_ids)
@@ -283,8 +321,7 @@ class UsersApiImpl(BaseUsersApi):
             raise HTTPException(status_code=404, detail="User not found.")
 
         if notification_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
-            # Reconcile the subscription row, Brevo membership and the app_user
-            # opt-in flag together so all three stay consistent.
+            # Reconcile the subscription row and Brevo membership together.
             sub = set_announcements_optin(db_session, user, subscribe=True)
         else:
             # Idempotent: reuse an existing subscription, reactivating if needed.
@@ -301,8 +338,14 @@ class UsersApiImpl(BaseUsersApi):
                 user_id=user_id,
                 notification_type_id=notification_id,
                 created_at=datetime.now(timezone.utc),
+                cadence=DEFAULT_NOTIFICATION_CADENCE,
+                digest=DEFAULT_NOTIFICATION_DIGEST,
             )
             sub.active = True
+            # Apply only what was supplied, so a POST that adds a feed does not reset a
+            # preference set earlier. Left unset on a new row, the DB defaults decide
+            # (cadence 'weekly', digest true).
+            self._apply_delivery_preferences(sub, cadence, digest)
             # Merge the supplied feeds into the subscription's existing feed set (no-op for
             # non feed-scoped types, whose feed_ids is always empty here).
             self._add_subscription_feeds(sub, feed_ids)
@@ -348,6 +391,19 @@ class UsersApiImpl(BaseUsersApi):
                 db_session.flush()
                 return result
 
+        # After the remove_feed_ids branch above, which returns early when it empties a
+        # feed-scoped subscription: there is no row left to set a preference on.
+        self._reject_delivery_preferences_for_announcements(
+            sub.notification_type_id,
+            update_notification_subscription_request.cadence,
+            update_notification_subscription_request.digest,
+        )
+        self._apply_delivery_preferences(
+            sub,
+            update_notification_subscription_request.cadence,
+            update_notification_subscription_request.digest,
+        )
+
         active = update_notification_subscription_request.active
         if active is not None:
             if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
@@ -374,7 +430,7 @@ class UsersApiImpl(BaseUsersApi):
             user = db_session.get(AppUser, user_id)
             # release_connection_before_brevo=True: only reads happened above, so
             # committing just returns the pooled connection before the (possibly
-            # slow) Brevo call. Also clears the app_user opt-in flag.
+            # slow) Brevo call.
             set_announcements_optin(
                 db_session,
                 user,
@@ -423,6 +479,37 @@ class UsersApiImpl(BaseUsersApi):
                 status_code=403,
                 detail=ERROR_MESSAGE_USER_FEATURE_NOT_ENABLED,
             )
+
+    @staticmethod
+    def _reject_delivery_preferences_for_announcements(
+        notification_type_id: str, cadence: str | None, digest: bool | None
+    ) -> None:
+        """Refuse cadence/digest on api.announcements, which the dispatcher never reads.
+
+        Mirrors the feed_ids validation: a setting that cannot take effect is an error, not
+        something to accept quietly.
+        """
+        if notification_type_id != ANNOUNCEMENTS_NOTIFICATION_TYPE_ID:
+            return
+        if cadence is None and digest is None:
+            return
+        raise HTTPException(
+            status_code=400,
+            detail=ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED.format(notification_type_id=notification_type_id),
+        )
+
+    @staticmethod
+    def _apply_delivery_preferences(sub: NotificationSubscriptionOrm, cadence: str | None, digest: bool | None) -> None:
+        """Set the supplied delivery preferences, leaving the others as they are.
+
+        None means "not supplied", never "reset to the default" - the request models carry no
+        schema default for exactly this reason, so an omitted field is indistinguishable from
+        absent rather than arriving as 'weekly'.
+        """
+        if cadence is not None:
+            sub.cadence = cadence
+        if digest is not None:
+            sub.digest = digest
 
     @staticmethod
     def _add_subscription_feeds(sub: NotificationSubscriptionOrm, feed_ids: List[str]) -> None:

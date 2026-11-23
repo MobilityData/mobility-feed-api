@@ -28,3 +28,9 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 
 # Multi-parent regression fixture for #1567: inherit the union of locations from referenced static GTFS feeds.
 99992,gtfs-rt,tu,,,,Location Lifecycle Test,TRUE,Multi-parent Locationless RT,,,40|50,https://example.com/gtfs-rt-multi,0,,,,,,,,,,active,,,,,
+
+
+# Blank, padded/mixed-case and partly invalid entity_type cells.
+99993,gtfs-rt,,,,,Entity Type Test,TRUE,Blank Entity Type RT,,,50,https://example.com/gtfs-rt-blank-entity,0,,,,,,,,,,active,,,,,
+99994,gtfs-rt, VP | sa ,,,,Entity Type Test,TRUE,Padded Entity Type RT,,,50,https://example.com/gtfs-rt-padded-entity,0,,,,,,,,,,active,,,,,
+99995,gtfs-rt,tu-bogus,,,,Entity Type Test,TRUE,Unknown Entity Type RT,,,50,https://example.com/gtfs-rt-unknown-entity,0,,,,,,,,,,active,,,,,

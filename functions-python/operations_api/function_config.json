@@ -13,6 +13,12 @@
     },
     {
       "key": "CORS_ALLOWED_ORIGINS"
+    },
+    {
+      "key": "BREVO_API_ANNOUNCEMENTS_LIST_ID"
+    },
+    {
+      "key": "TASKS_EXECUTOR_URL"
     }
   ],
   "secret_environment_variables": [
@@ -21,6 +27,9 @@
     },
     {
       "key": "USERS_DATABASE_URL"
+    },
+    {
+      "key": "BREVO_API_KEY"
     }
   ],
   "ingress_settings": "ALLOW_ALL",

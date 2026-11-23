@@ -31,24 +31,28 @@ class GtfsFeedContinuousCoverageImpl(GtfsFeedContinuousCoverage):
 
     @classmethod
     def _coverage_window(cls, dataset: GtfsdatasetOrm) -> tuple[Optional[ServiceDateWindowImpl], Optional[str]]:
-        """The window the calculation uses for a dataset, and which input it came from.
+        """The window the criterion measures a dataset by, and which input it came from.
 
-        The validated service dates win: they are what the validator derived from the calendar
-        files, so they describe the service the dataset actually encodes. `feed_info.txt` is only a
-        producer's declaration and is used as a fallback, which is also why the two are reported
-        separately and compared - a mismatch is worth showing rather than resolving silently.
+        The declared `feed_info.txt` range wins, matching `fresh_continuous`; the validated
+        service dates are the fallback for a dataset declaring none.
         """
-        service_window = ServiceDateWindowImpl.from_dates(
-            dataset.service_date_range_start, dataset.service_date_range_end
-        )
-        if service_window is not None:
-            return service_window, SOURCE_SERVICE_DATES
-
         feed_info = dataset.feed_info
-        if feed_info is None:
-            return None, None
-        feed_info_window = ServiceDateWindowImpl.from_dates(feed_info.feed_start_date, feed_info.feed_end_date)
-        return (feed_info_window, SOURCE_FEED_INFO) if feed_info_window is not None else (None, None)
+        if feed_info is not None:
+            declared = cls._measurable(
+                ServiceDateWindowImpl.from_dates(feed_info.feed_start_date, feed_info.feed_end_date)
+            )
+            if declared is not None:
+                return declared, SOURCE_FEED_INFO
+
+        service_window = cls._measurable(
+            ServiceDateWindowImpl.from_dates(dataset.service_date_range_start, dataset.service_date_range_end)
+        )
+        return (service_window, SOURCE_SERVICE_DATES) if service_window is not None else (None, None)
+
+    @staticmethod
+    def _measurable(window: Optional[ServiceDateWindowImpl]) -> Optional[ServiceDateWindowImpl]:
+        """A window with no length is no window: an end before its start measures nothing."""
+        return window if window is not None and window.days is not None else None
 
     @classmethod
     def _files(cls, dataset: GtfsdatasetOrm) -> list[GtfsFeedContinuousCoverageFile]:

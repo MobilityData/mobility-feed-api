@@ -27,6 +27,7 @@ Usage
 -----
     from shared.notifications.notification_event_service import (
         emit_feed_redirected,
+        emit_seal_run_summary,
         emit_url_replaced,
     )
 
@@ -59,8 +60,10 @@ from dotenv import load_dotenv
 
 from shared.database.users_database import with_users_db_session
 from shared.notifications.notification_constants import (
+    AdminEventUpdateType,
     FeedUrlUpdateType,
     NotificationFeedRole,
+    NotificationSource,
     NotificationTypeId,
 )
 
@@ -195,6 +198,30 @@ def emit_url_replaced(
     )
 
 
+def emit_seal_run_summary(payload: Dict[str, Any]) -> None:
+    """Create an ``admin.event_summary / seal_run_summary`` notification_event.
+
+    Called once per nightly Seal of Reliability run, by the orchestrator monitor that settles
+    the run.
+
+    Parameters
+    ----------
+    payload:
+        The run's aggregate — counts plus the granted / revoked / changed stable_ids. The
+        changed feeds live in the payload rather than in ``notification_event_feed`` because
+        this is a report about a run, not an event about a feed: they are the subject of a
+        line in a table, not of a subscription filter.
+
+    The event is written immediately and best-effort (see :func:`_emit`).
+    """
+    _emit(
+        notification_type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        event_subtype=AdminEventUpdateType.SEAL_RUN_SUMMARY,
+        source=NotificationSource.SEAL_ORCHESTRATOR,
+        payload=payload,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -272,6 +299,29 @@ def _persist_event(
     commits when this function returns. Exceptions propagate to :func:`_emit`,
     which logs and swallows them.
     """
+    add_event(
+        db_session=db_session,
+        notification_type_id=notification_type_id,
+        event_subtype=event_subtype,
+        source=source,
+        feeds=feeds,
+        payload=payload,
+    )
+
+
+def add_event(
+    db_session,
+    notification_type_id: str,
+    event_subtype: str,
+    source: str,
+    feeds: Optional[List[Tuple[str, str]]] = None,
+    payload: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Add a notification_event (and its feed rows) to ``db_session``; return its id.
+
+    Unlike the ``emit_*`` functions this neither commits nor swallows errors: the
+    caller owns the session. Used by the Operations API to create test events.
+    """
     from shared.users_database_gen.sqlacodegen_models import (
         NotificationEvent,
         NotificationEventFeed,
@@ -304,3 +354,4 @@ def _persist_event(
         source,
         event_id,
     )
+    return event_id

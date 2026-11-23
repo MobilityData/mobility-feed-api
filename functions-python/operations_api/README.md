@@ -4,6 +4,13 @@ The Operations API OpenAPI schema lives at `../../docs/OperationsAPI.yaml`.
 
 > Note: generated server stubs are created from the schema. Do not edit generated code under `src/feeds_gen/`; put implementation under `src/feeds_operations/impl/`.
 
+## Consumers
+
+The API is internal. Its known client is the operations web app, in a separate repo.
+For the Parquet browse flow it drives - the call sequence, authentication, polling and
+what it reads from the storage bucket - see
+[docs/parquet-feed-browsing.md](../../docs/parquet-feed-browsing.md).
+
 # Function configuration
 The function is configured using the following environment variables:
 - `FEEDS_DATABASE_URL`: The URL of the feeds database.
@@ -27,6 +34,14 @@ docker compose --env-file ./config/.env.local up -d liquibase-test
 ```
 ./scripts/api-operations-update-schema.sh
 ```
+- Generate a dataset's Parquet locally, with no GCP access, to work on the
+  `/v1/operations/{gtfs_feeds,gtfs_datasets}/{id}/parquet` endpoints or the viewer that
+  consumes them:
+```
+./scripts/parquet-generate-local.sh <feed-id | dataset-id | feed.zip | folder/> [--serve]
+```
+  See [parquet_builder](../parquet_builder/README.md) for those endpoints and the full
+  local testing guide.
 
 
 ## Development process

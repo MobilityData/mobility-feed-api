@@ -48,3 +48,19 @@ def test_invited_emails_supports_both_add_and_remove():
         for method in route.methods
     }
     assert {"POST", "DELETE"} <= methods
+
+
+def test_notifications_routes_registered():
+    paths = _registered_paths()
+    assert "/v1/operations/notifications/events" in paths
+    assert "/v1/operations/notifications/events/{id}" in paths
+    assert "/v1/operations/notifications/logs" in paths
+    assert "/v1/operations/users/{user_id}/subscriptions" in paths
+    assert "/v1/operations/users/{user_id}/brevo-sync" in paths
+
+
+def test_config_routes_registered():
+    paths = _registered_paths()
+    assert "/v1/operations/config/keys" in paths
+    assert "/v1/operations/feeds/{id}/config" in paths
+    assert "/v1/operations/feeds/{id}/config/{namespace}/{key}" in paths

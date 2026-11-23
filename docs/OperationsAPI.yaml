@@ -24,6 +24,15 @@ tags:
   - name: "early-access"
     description: >-
       Early access programs (e.g. a Summit or GBFS validator beta) grant feature flags in bulk, including to members who have never signed in. This is the only enrollment path — there is no self-service join endpoint anywhere in the public API.
+  - name: "notifications"
+    description: >-
+      Read-only views of the notification system: queued events, delivery logs, user subscriptions, and the API announcements sync with Brevo.
+  - name: "parquet"
+    description: >-
+      On-demand Parquet renderings of GTFS datasets. A dataset is converted once into one Parquet file per GTFS table, published publicly with a manifest describing the set, and served over HTTP range requests so a client can query it in place without downloading or unpacking the feed. Conversion is asynchronous: ask for the state, start one if it is absent, and poll until it is ready.
+  - name: "config"
+    description: >-
+      Per-feed configuration overrides. Keys are registered in a catalog by database migrations, because each one is read by code; these endpoints only read the catalog and set, replace or remove a feed's override of a registered key. A feed without an override uses the key's default value.
 paths:
   /v1/operations/feeds:
     get:
@@ -186,6 +195,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/availability_from"
         - $ref: "#/components/parameters/availability_to"
+        - $ref: "#/components/parameters/availability_source"
         - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/availability_sort"
@@ -198,6 +208,71 @@ paths:
                 $ref: "#/components/schemas/GtfsFeedAvailabilityResponse"
         400:
           description: Invalid request parameters.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+  /v1/operations/gtfs_feeds/{id}/download_debug:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    post:
+      description: >
+        Downloads the GTFS feed through the same code path used by the nightly dataset download. Nothing is stored unless `dry_run` is false. `run_on` in the body picks where: `api` (the default) downloads within this request and answers 200 with the request and response detail; `nightly_job` queues the download on the nightly dataset download job itself - same function, instance size, network egress and request - and answers 202 at once; with `dry_run = false` that run also processes the dataset exactly as the nightly run does. That outcome, dry or full, is recorded as an availability check with `source = dataset_download_manual`, usually within a few minutes; read it from the availability endpoint with that source and `from` set to `queued_at`. `max_bytes` and `timeout_seconds` apply only to `api`. With no options, `api` behaves like the nightly download: the whole file is read and there is no read timeout. The file is hashed as it streams and never written to disk, so any size can be checked. Reading stops after 480 seconds so the diagnostics are returned before the request itself times out; `stop_reason` then reports `deadline`. Credential values in headers and URLs are redacted.
+      tags:
+        - "operations"
+      operationId: debugGtfsFeedDownload
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/download_debug_max_bytes"
+        - $ref: "#/components/parameters/download_debug_timeout_seconds"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GtfsFeedDownloadDebugRequest"
+      responses:
+        200:
+          description: Diagnostics for the download attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadDebugResponse"
+        202:
+          description: "`run_on = nightly_job`: the download was queued on the nightly job."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadQueuedResponse"
+        400:
+          description: Invalid request parameters, or the feed has no producer URL.
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+        503:
+          description: "`run_on = nightly_job` while dataset processing is not configured in this environment."
+  /v1/operations/gtfs_feeds/{id}/download_headers:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: >
+        The request headers the nightly dataset download sends for this GTFS feed today, worked out by the same code the download uses, and where they come from. Also returns the built-in headers the download falls back to, so an operator editing the feed's `feed_download/http_headers` override can start from either. The feed's API key header is named but its value is never returned. Read-only.
+      tags:
+        - "operations"
+      operationId: getGtfsFeedDownloadHeaders
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: The feed's download headers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeedDownloadHeadersResponse"
+        400:
+          description: The feed has no producer URL.
         404:
           description: GTFS feed not found.
         500:
@@ -450,6 +525,56 @@ paths:
                       $ref: "#/components/schemas/OperationUserProfile"
         "401":
           description: Unauthorized.
+  /v1/operations/me:
+    get:
+      summary: Get the signed-in user
+      description: >
+        Returns the Mobility Database user whose email matches the caller's Google account (case-insensitive), including their feature flags. Each email belongs to at most one user.
+      operationId: getOperationsMe
+      tags:
+        - "users"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The signed-in user's profile with feature flags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationUserProfile"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: No Mobility Database user has the caller's email.
+  /v1/operations/me/subscriptions/admin-summary:
+    put:
+      summary: Set the signed-in user's admin summary subscription
+      description: >
+        Creates, updates or pauses the signed-in user's `admin.event_summary` subscription, which delivers the dispatch and Seal of Reliability run summaries. Admin summaries are internal, so each user manages only their own subscription. There is one per user; a repeated call updates it. Activating requires the user's `isAdminSummarySubscriptionEnabled` feature flag; pausing does not. When the subscription becomes active it only receives summaries created from then on.
+      operationId: putOperationsMeAdminSummarySubscription
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationAdminSummarySubscriptionRequest"
+      responses:
+        "200":
+          description: The signed-in user's admin summary subscription after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "403":
+          description: The signed-in user doesn't have the `isAdminSummarySubscriptionEnabled` feature flag.
+        "404":
+          description: No Mobility Database user has the caller's email, or pausing a subscription the user doesn't have.
   /v1/operations/users/{user_id}:
     get:
       summary: Get a user by ID
@@ -940,6 +1065,585 @@ paths:
           description: Unauthorized.
         "404":
           description: Program not found.
+  /v1/operations/gtfs_feeds/{id}/execution_attempts:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: What background tasks have tried to do with this feed, and how it went
+      description: >-
+        One row per attempt a background task has made against any of this feed's datasets, newest first. Each row records which worker ran it, why that worker was chosen, what it cost in memory and time, and - when it failed - what ran out and whether the feed was moved to a larger worker as a result.
+
+
+        This is the audit trail behind automatic worker sizing. A build that exhausts its worker's memory or disk is retried one size up and the feed is given a size override, so the next run starts there; these rows are what show that happening, and why a feed is on a bigger worker than its size alone would suggest.
+
+
+        The filters combine: `failure_kind=resource_memory` with a date range answers "did this feed start running out of memory after we changed something", which is the question that usually prompts opening this page.
+      operationId: getGtfsFeedExecutionAttempts
+      tags:
+        - "operations"
+      security:
+        - Authentication: []
+      parameters:
+        - $ref: "#/components/parameters/execution_attempt_task_name"
+        - $ref: "#/components/parameters/execution_attempt_status"
+        - $ref: "#/components/parameters/execution_attempt_failure_kind"
+        - $ref: "#/components/parameters/execution_attempt_from"
+        - $ref: "#/components/parameters/execution_attempt_to"
+        - $ref: "#/components/parameters/limit_query_param_availability_endpoint"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        200:
+          description: Attempt history for the feed, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionAttemptsResponse"
+        404:
+          description: GTFS feed not found.
+        500:
+          description: Internal server error.
+  /v1/operations/gtfs_feeds/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS feed's latest dataset stands
+      description: >-
+        Whether this feed's latest dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query the feed in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS feed not found, or it has no dataset yet. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS feed's latest dataset
+      description: >-
+        Begin rendering this feed's latest dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsFeedParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS feed not found, or it has no dataset yet.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
+        "500":
+          description: Internal server error.
+  /v1/operations/gtfs_datasets/{id}/parquet:
+    parameters:
+      - $ref: "#/components/parameters/dataset_id_path_param"
+    get:
+      summary: Where the Parquet for a GTFS dataset stands
+      description: >-
+        Whether this dataset has been rendered as Parquet - one file per GTFS table, every column typed as text - and if it is being prepared, how far along it is. A client can then query it in place over HTTP range requests instead of downloading and unpacking it. Read-only: this never starts a conversion, so it is safe to poll - the viewer polls it roughly twice a second while one runs. Use POST to begin one.
+      operationId: getGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - Authentication: []
+      responses:
+        "200":
+          description: >-
+            The dataset's current state. Returned for every state including `absent`, which means no conversion has been requested yet rather than that anything is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: >-
+            GTFS dataset not found. Note this does **not** cover a dataset whose Parquet has never been generated - that is `absent` with a 200.
+        "500":
+          description: Internal server error.
+    post:
+      summary: Start preparing the Parquet for a GTFS dataset
+      description: >-
+        Begin rendering this dataset as Parquet, if it has not been already. Idempotent, and safe to call against a conversion that is already running: that one is reported rather than duplicated, and a dataset is never converted more than once at a time. Send `force` to replace an existing set. Work happens in the background - poll the GET on this path until it reports `ready`.
+      operationId: generateGtfsDatasetParquet
+      tags:
+        - "parquet"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParquetGenerateRequest"
+      responses:
+        "202":
+          description: >-
+            Accepted. The body carries the state as it stands, in the same shape the GET returns; a caller that only needs to start the work can ignore it and poll instead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParquetDatasetState"
+        "404":
+          description: GTFS dataset not found.
+        "422":
+          description: >-
+            Invalid request body - `retention_days` outside 1..60, or not an integer.
+        "500":
+          description: Internal server error.
+  /v1/operations/notifications/events:
+    get:
+      summary: List notification events
+      description: >
+        Returns a paginated list of notification events, newest first. Events are the queued facts the dispatcher turns into emails (e.g. a feed URL change); use `GET /v1/operations/notifications/events/{id}` to see who they were delivered to.
+      operationId: listNotificationEvents
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: notification_type_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only events of this notification type, e.g. `feed.url_updated`.
+        - name: event_subtype
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only events of this subtype, e.g. `url_replaced` or `feed_redirected`.
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only events emitted by this process, e.g. `operations_api` or `tdg_import`.
+        - name: feed_stable_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only events that reference this feed, in any role (subject or target).
+        - $ref: "#/components/parameters/notifications_created_after_param"
+        - $ref: "#/components/parameters/notifications_created_before_param"
+        - $ref: "#/components/parameters/notifications_limit_param"
+        - $ref: "#/components/parameters/notifications_offset_param"
+      responses:
+        "200":
+          description: Paginated list of notification events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationEventList"
+        "401":
+          description: Unauthorized.
+  /v1/operations/notifications/events/{id}:
+    get:
+      summary: Get a notification event
+      description: Returns one notification event with its feeds and every delivery log written for it.
+      operationId: getNotificationEvent
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The notification event ID.
+      responses:
+        "200":
+          description: The notification event with its delivery logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationEventDetail"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Notification event not found.
+  /v1/operations/notifications/events:test:
+    post:
+      summary: Create a test notification event
+      description: >
+        Creates a `feed.url_updated` event (`url_replaced` or `feed_redirected`) for an existing feed without changing the feed. The event is tagged `source=operations_test` and is only delivered to the users in `recipient_user_ids`, and only through their own `feed.url_updated` subscriptions: a recipient subscribed to specific feeds gets it only when the event references one of them. Start a dispatch run with `POST /v1/operations/notifications/dispatch` to deliver it.
+      operationId: createTestNotificationEvent
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationNotificationTestEventRequest"
+      responses:
+        "201":
+          description: The test event that was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationEvent"
+        "400":
+          description: Invalid request, e.g. unknown recipients or a redirect without a target feed.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found.
+  /v1/operations/notifications/dispatch:
+    post:
+      summary: Start a notification dispatch run
+      description: >
+        Starts the `notifications_dispatch_batch` task the daily scheduler runs, with the given options, and returns the run it started for each resolved cadence. The task enqueues one worker per subscription and returns straight away; follow a run with `GET /v1/operations/notifications/dispatch/{run_id}`. With `dry_run` nothing is enqueued: the response gives the planned subscription count and a preview of the events each subscription would be sent.
+      operationId: startNotificationDispatch
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationNotificationDispatchRequest"
+      responses:
+        "200":
+          description: The runs that were started (or planned, for a dry run).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationDispatchStart"
+        "400":
+          description: Invalid request.
+        "401":
+          description: Unauthorized.
+        "502":
+          description: The dispatch task could not be started.
+  /v1/operations/notifications/dispatch/{run_id}:
+    get:
+      summary: Get a notification dispatch run
+      description: Returns a dispatch run's status, its worker counts and the delivery stats summed across its workers.
+      operationId: getNotificationDispatchRun
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The run ID returned when the run was started.
+      responses:
+        "200":
+          description: The dispatch run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationDispatchRun"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Dispatch run not found.
+  /v1/operations/notifications/logs:
+    get:
+      summary: List notification delivery logs
+      description: >
+        Returns a paginated list of delivery logs (one row per event, subscription and channel), most recent first. There is no dispatch run ID on a log row; to inspect one run, filter by the run's time window with `sent_after` / `sent_before`.
+      operationId: listNotificationLogs
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, sent, failed, permanently_failed]
+          description: Only logs with this delivery status.
+        - name: subscription_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only logs for this subscription.
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only logs for subscriptions owned by this user.
+        - name: notification_event_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only logs for this notification event.
+        - name: notification_type_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only logs for subscriptions of this notification type.
+        - name: sent_after
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Only logs whose last attempt is at or after this time.
+        - name: sent_before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Only logs whose last attempt is before this time.
+        - $ref: "#/components/parameters/notifications_limit_param"
+        - $ref: "#/components/parameters/notifications_offset_param"
+      responses:
+        "200":
+          description: Paginated list of delivery logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationNotificationLogList"
+        "401":
+          description: Unauthorized.
+  /v1/operations/users/{user_id}/subscriptions:
+    get:
+      summary: List a user's notification subscriptions
+      description: Returns every notification subscription the user holds, active or paused.
+      operationId: getOperationsUserSubscriptions
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      responses:
+        "200":
+          description: The user's subscriptions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationNotificationSubscription"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+  /v1/operations/users/{user_id}/brevo-sync:
+    get:
+      summary: Check a user's API announcements sync with Brevo
+      description: >
+        Compares the two places an `api.announcements` opt-in lives: the `notification_subscription` row and the Brevo contact (list membership and unsubscribe flags). Read-only: it reports any mismatch in `issues` and never repairs it. Makes one live call to Brevo.
+      operationId: getOperationsUserBrevoSync
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      responses:
+        "200":
+          description: The sync status for the user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationBrevoSyncStatus"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+        "502":
+          description: Brevo could not be reached or returned an error.
+    post:
+      summary: Repair a user's API announcements sync with Brevo
+      description: >
+        Makes the `api.announcements` subscription row and the Brevo contact agree, in the direction given. `from_brevo`: Brevo wins; the row is set active exactly when the contact is on the announcements list and not unsubscribed (a row is created only when it must be active), and Brevo is not written. `to_brevo`: the row wins; an active row adds the contact to the list, an inactive or missing row removes it. An unsubscribe made in Brevo is never cleared: `to_brevo` returns `409` for an active row whose contact unsubscribed, since only the user can re-subscribe. Returns the sync status after the change.
+      operationId: syncOperationsUserBrevo
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationBrevoSyncRequest"
+      responses:
+        "200":
+          description: The sync status after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationBrevoSyncStatus"
+        "400":
+          description: Unknown direction.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found.
+        "409":
+          description: The contact unsubscribed in Brevo, so `to_brevo` cannot add it back to the list.
+        "502":
+          description: Brevo could not be reached or returned an error.
+  /v1/operations/config/keys:
+    get:
+      summary: List the registered config keys
+      description: >
+        Returns every key in the config catalog with its description, default value and the JSON Schema its values must match. Read-only: keys are registered by database migrations, since a key has no effect until code reads it.
+      operationId: listConfigKeys
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The registered config keys, ordered by namespace and key.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConfigKey"
+        "401":
+          description: Unauthorized.
+  /v1/operations/feeds/{id}/config:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      summary: Get a feed's configuration
+      description: >
+        Returns one entry per registered config key: the feed's override if it has one, the key's default value, and the effective value the feed uses. Works for any feed type.
+      operationId: getFeedConfig
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: The feed's configuration, ordered by namespace and key.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedConfigEntry"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found.
+  /v1/operations/feeds/{id}/config/{namespace}/{key}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+      - $ref: "#/components/parameters/config_namespace_path_param"
+      - $ref: "#/components/parameters/config_key_path_param"
+    put:
+      summary: Set a feed's override of a config key
+      description: >
+        Creates the feed's override of a registered key, or replaces it. The value must match the key's `value_schema` when it has one. Send `expected_updated_at` with the `updated_at` you last read to refuse the write if someone changed the override since. The change applies the next time code reads the key, such as the next download for `feed_download/http_headers`.
+      operationId: setFeedConfigValue
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetFeedConfigValueRequest"
+      responses:
+        "200":
+          description: The override was replaced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedConfigEntry"
+        "201":
+          description: The override was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedConfigEntry"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found, or the key is not registered.
+        "409":
+          description: "`expected_updated_at` does not match the current override."
+        "422":
+          description: The value is null or does not match the key's `value_schema`.
+    delete:
+      summary: Remove a feed's override of a config key
+      description: >
+        Removes the feed's override so it falls back to the key's default value. Send `expected_updated_at` to refuse the removal if someone changed the override since you read it.
+      operationId: deleteFeedConfigValue
+      tags:
+        - "config"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/config_expected_updated_at_param"
+      responses:
+        "204":
+          description: The override was removed.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Feed not found, the key is not registered, or the feed has no override of it.
+        "409":
+          description: "`expected_updated_at` does not match the current override."
 components:
   schemas:
     Redirect:
@@ -1680,10 +2384,56 @@ components:
           nullable: true
           description: Machine-readable error category when the check failed.
           example: timeout
+        source:
+          type: string
+          nullable: true
+          description: What wrote the check; see the `source` filter of the availability endpoint.
+          example: dataset_download
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the check failed, with credentials redacted.
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: application/zip
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the response content is a ZIP file.
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it was captured.
+          example: 34.95.1.1
+      x-operation: true
     GtfsFeedContinuousCoverageResponse:
       type: object
       description: >
-        `latest_state` is the feed's latest dataset measured against the one before it; `latest_failure` is the same measurement at the criterion's last observed failure. Both have the structure of an `items[]` entry, and either can be null. Together they name at most four datasets, shared when the latest state is itself the failure.
+        `latest_state` is the feed's latest dataset measured against the one before it; `latest_failure` is the same at the criterion's last observed failure. Each carries both datasets of the comparison, and either can be null.
       required:
         - feed_id
         - items
@@ -1696,9 +2446,9 @@ components:
           description: Unique identifier of the GTFS feed.
           example: mdb-123
         latest_state:
-          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
         latest_failure:
-          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverageBoundary"
         total:
           type: integer
           description: Total number of matching datasets regardless of limit and offset.
@@ -1717,13 +2467,24 @@ components:
             One entry per dataset, ordered by downloaded_at from newest to oldest. The first entry of the unpaged list is the feed's current coverage; it is marked with `is_latest`.
           items:
             $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+    GtfsFeedContinuousCoverageBoundary:
+      type: object
+      description: >
+        Two successive datasets: `newer` and the one downloaded immediately before it. `older` is null when `newer` is the feed's first dataset.
+      required:
+        - newer
+      properties:
+        newer:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
+        older:
+          $ref: "#/components/schemas/GtfsFeedContinuousCoverage"
     GtfsFeedContinuousCoverage:
       type: object
       description: >
         The coverage one dataset contributes, and how it lines up with the dataset downloaded just before it.
 
 
-        Three windows are reported. `service_window` is the service dates the validator derived from `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's `feed_info.txt` declares; `coverage_window` is the one the calculation actually used, with `coverage_window_source` naming which of the two it came from. Any of them may be absent when the dataset did not supply the underlying files.
+        Three windows are reported. `service_window` is the service dates the validator derived from `calendar.txt` and `calendar_dates.txt`; `feed_info_window` is what the dataset's `feed_info.txt` declares; `coverage_window` is the one the criterion measures by - the declared window, falling back to the validated one - with `coverage_window_source` naming which of the two it came from. Any of them may be absent when the dataset did not supply the underlying files.
       required:
         - dataset_id
         - is_latest
@@ -1752,14 +2513,12 @@ components:
           description: >
             Which input `coverage_window` was taken from.
 
-            * `service_dates` - the service dates derived by the validator from `calendar.txt` and
-              `calendar_dates.txt`.
-            * `feed_info` - the dates declared in `feed_info.txt`, used only when the service dates
-              are missing.
+            * `feed_info` - the dates declared in `feed_info.txt`. * `service_dates` - the service dates derived by the validator from `calendar.txt` and
+              `calendar_dates.txt`, used when the dataset declares no range.
           enum:
             - service_dates
             - feed_info
-          example: service_dates
+          example: feed_info
         within_max_coverage_window:
           type: boolean
           nullable: true
@@ -2250,6 +3009,126 @@ components:
         commit_hash:
           type: string
           example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
+    GtfsFeedValidationReportsResponse:
+      type: object
+      description: >
+        The feed's validation history, one entry per dataset. `latest` is the entry for the feed's current dataset, whatever page or filter was requested, and is null when the feed has no validated dataset.
+      required:
+        - feed_id
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        feed_id:
+          type: string
+          description: Unique identifier of the GTFS feed.
+          example: mdb-123
+        latest:
+          $ref: "#/components/schemas/GtfsFeedValidationReport"
+        total:
+          type: integer
+          description: Total number of matching datasets regardless of limit and offset.
+          example: 42
+        offset:
+          type: integer
+          description: Offset of the first returned item.
+          example: 0
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+          example: 20
+        items:
+          type: array
+          description: One entry per dataset, ordered by validated_at from newest to oldest.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationReport"
+    GtfsFeedValidationReport:
+      type: object
+      description: >
+        The most recent validation report of one dataset. `total_*` counts every notice raised; `unique_*` counts the distinct codes behind them.
+      required:
+        - dataset_id
+        - is_latest
+        - notices
+      properties:
+        dataset_id:
+          type: string
+          description: Stable identifier of the validated dataset.
+          example: mdb-123-202604290029
+        is_latest:
+          type: boolean
+          description: Whether this is the feed's latest dataset.
+          example: true
+        validated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-28T00:29:00Z"
+        validator_version:
+          type: string
+          nullable: true
+          example: 4.2.0
+        total_error:
+          type: integer
+          nullable: true
+          example: 10
+        total_warning:
+          type: integer
+          nullable: true
+          example: 20
+        total_info:
+          type: integer
+          nullable: true
+          example: 30
+        unique_error_count:
+          type: integer
+          nullable: true
+          example: 1
+        unique_warning_count:
+          type: integer
+          nullable: true
+          example: 2
+        unique_info_count:
+          type: integer
+          nullable: true
+          example: 3
+        url_json:
+          type: string
+          nullable: true
+          description: JSON validation report URL.
+        url_html:
+          type: string
+          nullable: true
+          description: HTML validation report URL.
+        notices:
+          type: array
+          description: >
+            The notice codes raised, newest report only, ordered by severity then by count. Filtered by the `severity` query parameter when one is given.
+          items:
+            $ref: "#/components/schemas/GtfsFeedValidationNotice"
+    GtfsFeedValidationNotice:
+      type: object
+      required:
+        - code
+        - severity
+        - total
+      properties:
+        code:
+          type: string
+          description: Validator notice code.
+          example: invalid_phone_number
+        severity:
+          type: string
+          enum:
+            - ERROR
+            - WARNING
+            - INFO
+          example: ERROR
+        total:
+          type: integer
+          description: How many times this code was raised.
+          example: 10
     ValidationReport:
       description: Validation report
       type: object
@@ -3377,7 +4256,1068 @@ components:
               value: true
             - feature_flag_id: "max_results"
               value: 50
+    ExecutionAttempt:
+      x-operation: true
+      type: object
+      description: >-
+        One attempt by a background task against one dataset. Append-only: an attempt is never rewritten, so the sequence for a dataset is its full history rather than its current state.
+      properties:
+        task_name:
+          type: string
+          example: parquet_generation
+        dataset_stable_id:
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        attempt:
+          description: 1-based, counted since this dataset last succeeded.
+          type: integer
+          example: 1
+        variant:
+          description: >-
+            The worker that ran it. Read from the running service rather than from what was requested, so it is what actually happened.
+          type: string
+          nullable: true
+          example: s
+        variant_basis:
+          description: >-
+            Where that size came from. `measured` from the dataset's own size, `unknown` when the dataset has no recorded sizes at all and the largest worker was used as the safe default, `auto` from an override the builder set after an earlier failure, `operator` from one a person set by hand. `unknown` is the one to act on: it means the dataset's file sizes were never recorded, so every build of it goes to the largest worker regardless of how small it is. Running the `rebuild_missing_dataset_files` task records them.
+          type: string
+          enum: [measured, unknown, auto, operator]
+          nullable: true
+          example: measured
+        override_at_attempt:
+          description: The size override in force for this feed when the attempt was routed, if any.
+          type: string
+          nullable: true
+          example: m
+        escalated_to:
+          description: >-
+            The worker this attempt moved the feed to. Null when nothing was escalated, which includes the cases where escalation was considered and declined - the failure was not a resource one, the largest worker was already in use, or the retry cap was spent.
+          type: string
+          nullable: true
+          example: m
+        status:
+          type: string
+          enum: [completed, failed]
+          example: failed
+        failure_kind:
+          description: What ran out. Null on success.
+          type: string
+          enum: [resource_memory, resource_disk, other]
+          nullable: true
+          example: resource_memory
+        error_type:
+          description: >-
+            The exception class. Recorded separately from the message because the most important one, `MemoryError`, carries an empty message.
+          type: string
+          nullable: true
+          example: MemoryError
+        error_message:
+          type: string
+          nullable: true
+          example: "Out of Memory Error: failed to allocate block of 262144 bytes"
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+          nullable: true
+          example: 4950
+        peak_rss_bytes:
+          description: Peak resident memory.
+          type: integer
+          format: int64
+          nullable: true
+        peak_vms_bytes:
+          description: >-
+            Peak address space, which is what the worker's limit actually caps. It runs two to three times resident memory, so a worker sized from `peak_rss_bytes` alone is under-provisioned by roughly half.
+          type: integer
+          format: int64
+          nullable: true
+    ExecutionAttemptsResponse:
+      x-operation: true
+      type: object
+      properties:
+        feed_stable_id:
+          type: string
+          example: mdb-1210
+        current_size_override:
+          description: >-
+            The worker size currently configured for this feed, if any. An override decides which worker runs the build, in place of the size the dataset would otherwise measure into. It is set either by an operator or automatically, after a build runs out of memory or disk; `variant_basis` on each attempt says which.
+          type: string
+          nullable: true
+          example: m
+        current_size_locked:
+          description: >-
+            Whether that override is held. An override is normally a starting point the builder may raise after a build runs out of resources, or lower after several that finished with room to spare. A locked one it will not move in either direction, so a feed locked below what it needs fails and stays failed, with no escalation, until a person changes the value - which is what this field is for. False when there is no override.
+          type: boolean
+          default: false
+          example: false
+        total:
+          type: integer
+          example: 2
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionAttempt"
+    ParquetDatasetState:
+      x-operation: true
+      type: object
+      description: >-
+        Where a dataset's Parquet rendering stands. Which fields are set depends on `status`: `base_url` for `ready`, the progress fields for `preparing`, `message` for `failed`, and nothing beyond the identifiers for `absent`. What the dataset contains - its tables, their row and column counts, and what each weighed before and after conversion - is read from `{base_url}/manifest.json`, which is the one place that answer lives. The progress fields are named as the GTFS Garage viewer names its own load reports, so a client can pass them straight through.
+      required:
+        - status
+        - feed_stable_id
+      properties:
+        status:
+          description: >-
+            `absent` when no conversion has ever been requested - an ordinary starting state, not an error. `preparing` while one is queued or running, `ready` once the files are published, `failed` when the last attempt did not finish.
+          type: string
+          enum: [absent, preparing, ready, failed]
+          example: preparing
+        feed_stable_id:
+          description: The stable ID of the feed the dataset belongs to.
+          type: string
+          example: mdb-1210
+        dataset_stable_id:
+          description: >-
+            The stable ID of the dataset. When the request addressed a feed, this is the feed's latest dataset, resolved at request time.
+          type: string
+          nullable: true
+          example: mdb-1210-202402121801
+        base_url:
+          description: >-
+            Public URL prefix the Parquet files are served from, without a trailing slash. `{base_url}/manifest.json` is the dataset's description of itself - which tables exist, their row and column counts, and what each weighed before and after conversion - and each table is `{base_url}/{name}.parquet`. Null unless `status` is `ready`. The files are public and answer HTTP range requests; no query string is ever appended, so this can be used verbatim as a client's base URL. This response deliberately does not repeat the table list: a reader given one skips the manifest, and with it the sizes it carries.
+          type: string
+          format: url
+          nullable: true
+          example: https://files.mobilitydatabase.org/mdb-1210/mdb-1210-202402121801/parquet
+        phase:
+          description: >-
+            The step currently running, in the order they happen: `download` fetches the dataset archive, `extract` unpacks it, `convert` rewrites each table as Parquet, `upload` publishes the results, `summarise` records the manifest. Null unless `status` is `preparing`.
+          type: string
+          enum:
+            - start
+            - download
+            - upload
+            - extract
+            - convert
+            - summarise
+            - done
+          nullable: true
+          example: convert
+        done:
+          description: >-
+            Progress within the current phase: **bytes transferred** during `download`, and a count of files or tables otherwise. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        total:
+          description: >-
+            The target `done` is counting towards, in the same unit, or 0 when it is not knowable in advance - a download whose response carries no Content-Length, for instance. Null unless `status` is `preparing`.
+          type: integer
+          format: int64
+          nullable: true
+          example: 32
+        detail:
+          description: >-
+            The file or table currently being worked on; empty when there is none. Null unless `status` is `preparing`.
+          type: string
+          nullable: true
+          example: stop_times
+        message:
+          description: >-
+            Why the last attempt failed, in terms an operator can act on. Shown verbatim by the viewer, so it should name the actual cause. Null unless `status` is `failed`.
+          type: string
+          nullable: true
+          example: Conversion ran out of memory
+        generated_at:
+          description: When the current set of files finished generating. Null unless `status` is `ready`.
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-09-16T14:22:31Z"
+    ParquetGenerateRequest:
+      x-operation: true
+      type: object
+      description: Options for a Parquet generation request.
+      properties:
+        force:
+          description: >-
+            Regenerate even if the files already exist, replacing them. Has no effect on a conversion that is already running: that one is reported as-is rather than restarted.
+          type: boolean
+          default: false
+          example: false
+        retention_days:
+          description: >-
+            How long the generated files should be kept, counted from when they are built and not extended by use. Omit it and the builder's own default of 30 days applies; that default deliberately lives in one place rather than being restated here. On that date the dataset reports `absent` again, so the next request rebuilds it. The files themselves are removed by the storage bucket's own lifecycle rule shortly afterwards, on its schedule rather than at a guaranteed moment.
+          type: integer
+          minimum: 1
+          maximum: 60
+          example: 7
+    OperationNotificationEventFeed:
+      x-operation: true
+      type: object
+      required:
+        - feed_stable_id
+        - role
+      properties:
+        feed_stable_id:
+          type: string
+          description: The stable ID of the feed.
+          example: "mdb-1"
+        role:
+          type: string
+          description: >
+            The role the feed plays in the event. `subject` is the feed the event is about; `target` is the destination feed of a redirect.
+          example: "subject"
+    OperationNotificationEvent:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - notification_type_id
+        - event_subtype
+        - created_at
+      properties:
+        id:
+          type: string
+          description: The notification event ID.
+          example: "6f1c2b9e-7d3a-4c51-9a0e-2f8b4d6c1a77"
+        notification_type_id:
+          type: string
+          description: The notification type of the event.
+          example: "feed.url_updated"
+        event_subtype:
+          type: string
+          description: The subtype within the notification type.
+          example: "url_replaced"
+        source:
+          type: string
+          nullable: true
+          description: The process that emitted the event.
+          example: "operations_api"
+        payload:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Type-specific event data, e.g. `old_url` and `new_url` for `feed.url_updated`.
+        created_at:
+          type: string
+          format: date-time
+          description: When the event was created.
+        feeds:
+          type: array
+          description: The feeds the event references.
+          items:
+            $ref: "#/components/schemas/OperationNotificationEventFeed"
+          default: []
+    OperationNotificationEventDetail:
+      x-operation: true
+      allOf:
+        - $ref: "#/components/schemas/OperationNotificationEvent"
+        - type: object
+          properties:
+            logs:
+              type: array
+              description: Every delivery log written for this event, most recent first.
+              items:
+                $ref: "#/components/schemas/OperationNotificationLog"
+              default: []
+    OperationNotificationEventList:
+      x-operation: true
+      type: object
+      required:
+        - total
+        - offset
+        - limit
+        - events
+      properties:
+        total:
+          type: integer
+          description: Total number of events matching the filters, ignoring pagination.
+        offset:
+          type: integer
+          description: Number of items skipped for pagination.
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationNotificationEvent"
+    OperationNotificationLog:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - subscription_id
+        - channel
+        - status
+        - retry_count
+        - sent_at
+      properties:
+        id:
+          type: string
+          description: The delivery log ID.
+        notification_event_id:
+          type: string
+          nullable: true
+          description: The event that was delivered. Null only on legacy rows.
+        subscription_id:
+          type: string
+          description: The subscription the event was delivered to.
+        user_id:
+          type: string
+          nullable: true
+          description: The user who owns the subscription.
+        user_email:
+          type: string
+          nullable: true
+          description: The email of the user who owns the subscription.
+        notification_type_id:
+          type: string
+          nullable: true
+          description: The notification type of the subscription.
+          example: "feed.url_updated"
+        channel:
+          type: string
+          description: The delivery channel.
+          example: "email"
+        status:
+          type: string
+          description: The delivery status.
+          enum: [pending, sent, failed, permanently_failed]
+        retry_count:
+          type: integer
+          description: How many delivery attempts have failed so far.
+        error_message:
+          type: string
+          nullable: true
+          description: The error of the last failed attempt.
+        sent_at:
+          type: string
+          format: date-time
+          description: When the last delivery attempt was made.
+    OperationNotificationLogList:
+      x-operation: true
+      type: object
+      required:
+        - total
+        - offset
+        - limit
+        - logs
+      properties:
+        total:
+          type: integer
+          description: Total number of logs matching the filters, ignoring pagination.
+        offset:
+          type: integer
+          description: Number of items skipped for pagination.
+        limit:
+          type: integer
+          description: Maximum number of items returned.
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationNotificationLog"
+    OperationNotificationSubscription:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - notification_type_id
+        - active
+        - created_at
+      properties:
+        id:
+          type: string
+          description: The subscription ID (also the capability embedded in email unsubscribe links).
+        notification_type_id:
+          type: string
+          description: The notification type subscribed to.
+          example: "feed.url_updated"
+        active:
+          type: boolean
+          description: False when the subscription is paused (or, for `api.announcements`, opted out).
+        cadence:
+          type: string
+          nullable: true
+          description: How often pending events are delivered.
+          example: "weekly"
+        digest:
+          type: boolean
+          nullable: true
+          description: True to bundle a run's events into one email, false for one email per event.
+        feed_ids:
+          type: array
+          description: The feed stable IDs a feed-scoped subscription targets. Empty for other types.
+          items:
+            type: string
+          default: []
+        event_subtypes:
+          type: array
+          description: The event subtypes the subscription is limited to (`filter_params.event_subtypes`). Empty means every subtype.
+          items:
+            type: string
+          default: []
+        filter_params:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: The raw `filter_params` column, shown as stored.
+        created_at:
+          type: string
+          format: date-time
+          description: When the subscription was created.
+        active_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            When the subscription last became active. Events created before this are never delivered to it.
+    OperationAdminSummarySubscriptionRequest:
+      x-operation: true
+      type: object
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+          description: True to subscribe (or resume), false to pause.
+        cadence:
+          type: string
+          enum: [daily, weekly]
+          default: daily
+          description: How often summaries are delivered. Ignored when pausing.
+        event_subtypes:
+          type: array
+          description: >
+            Only deliver these summaries. Omit or leave empty for every summary, including subtypes added later. Ignored when pausing.
+          items:
+            type: string
+            enum: [dispatch_summary, seal_run_summary]
+    OperationBrevoContactState:
+      x-operation: true
+      type: object
+      required:
+        - status
+        - in_list
+      properties:
+        status:
+          type: string
+          enum: [subscribed, unsubscribed, not_found]
+          description: >
+            `unsubscribed` when the contact is globally blacklisted or has unsubscribed from the announcements list; `not_found` when Brevo has no contact for the email. `subscribed` only means "exists and not unsubscribed": a contact that was never added to the announcements list is still `subscribed`, with `in_list` false.
+        in_list:
+          type: boolean
+          description: True when the contact is a member of the announcements list.
+        email_blacklisted:
+          type: boolean
+          description: True when the contact unsubscribed from every Brevo campaign.
+        list_unsubscribed:
+          type: boolean
+          description: True when the contact unsubscribed from the announcements list.
+    OperationBrevoSyncRequest:
+      x-operation: true
+      type: object
+      required:
+        - direction
+      properties:
+        direction:
+          type: string
+          enum: [from_brevo, to_brevo]
+          description: >
+            `from_brevo` copies Brevo's state onto the subscription row; `to_brevo` copies the subscription row's state onto Brevo list membership.
+    OperationBrevoSyncStatus:
+      x-operation: true
+      type: object
+      required:
+        - user_id
+        - email
+        - brevo
+        - in_sync
+        - issues
+      properties:
+        user_id:
+          type: string
+          description: The user's ID.
+        email:
+          type: string
+          format: email
+          description: The user's email address, used to look up the Brevo contact.
+        subscription_id:
+          type: string
+          nullable: true
+          description: The user's `api.announcements` subscription ID, or null when there is no row.
+        subscription_active:
+          type: boolean
+          nullable: true
+          description: Whether that subscription is active, or null when there is no row.
+        brevo:
+          $ref: "#/components/schemas/OperationBrevoContactState"
+        in_sync:
+          type: boolean
+          description: True when the subscription row and Brevo agree.
+        issues:
+          type: array
+          description: One human-readable line per mismatch. Empty when `in_sync` is true.
+          items:
+            type: string
+          default: []
+    OperationNotificationTestEventRequest:
+      x-operation: true
+      type: object
+      required:
+        - feed_stable_id
+        - event_subtype
+        - recipient_user_ids
+      properties:
+        feed_stable_id:
+          type: string
+          description: The feed the event is about. It must exist and is not changed.
+          example: "mdb-1"
+        event_subtype:
+          type: string
+          enum:
+            - url_replaced
+            - feed_redirected
+          description: The `feed.url_updated` subtype to create.
+        target_feed_stable_id:
+          type: string
+          description: The feed the redirect points to. Required for `feed_redirected`.
+          example: "mdb-2"
+        old_url:
+          type: string
+          description: The previous URL shown in the email. Defaults to the feed's current producer URL.
+        new_url:
+          type: string
+          description: >
+            The new URL shown in the email. Defaults to the target feed's producer URL for `feed_redirected`, and to a placeholder URL for `url_replaced`.
+        recipient_user_ids:
+          type: array
+          minItems: 1
+          description: The only users the event may be delivered to. Every ID must be an existing user.
+          items:
+            type: string
+    OperationNotificationDispatchRequest:
+      x-operation: true
+      type: object
+      properties:
+        cadence:
+          type: string
+          enum:
+            - scheduled
+            - immediate
+            - daily
+            - weekly
+            - all
+          default: scheduled
+          description: >
+            Which subscriptions to process. `scheduled` is what the daily scheduler sends: daily subscriptions, plus weekly ones on the configured weekday. `all` ignores cadence.
+        user_ids:
+          type: array
+          description: Only process these users' subscriptions.
+          items:
+            type: string
+          default: []
+        dry_run:
+          type: boolean
+          default: true
+          description: >
+            Only count the subscriptions that would be processed and preview what each would be sent; enqueue nothing. Defaults to true so a request sends emails only when it sets `dry_run` to false.
+        force:
+          type: boolean
+          default: false
+          description: With `user_ids`, process those users' subscriptions whatever their cadence.
+    OperationNotificationDispatchPlannedRun:
+      x-operation: true
+      type: object
+      required:
+        - cadence
+        - run_id
+        - subscriptions
+        - enqueued
+        - dry_run
+      properties:
+        cadence:
+          type: string
+          description: The cadence this run processes.
+          example: "daily"
+        run_id:
+          type: string
+          description: The run ID. For a dry run nothing is recorded under it.
+          example: "daily-20261103T090000"
+        subscriptions:
+          type: integer
+          description: Number of subscriptions the run covers.
+        enqueued:
+          type: integer
+          description: Number of worker tasks enqueued.
+        dry_run:
+          type: boolean
+          description: Whether this was a dry run.
+        preview:
+          type: array
+          description: >
+            Dry runs only: what a real run would send each subscription, selected exactly as the dispatch workers select it. Lists at most the first 50 subscriptions; `subscriptions` gives the full count.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPreview"
+    OperationNotificationDispatchPreview:
+      x-operation: true
+      type: object
+      required:
+        - subscription_id
+        - user_id
+        - notification_type_id
+        - cadence
+        - events
+      properties:
+        subscription_id:
+          type: string
+          description: The subscription ID.
+        user_id:
+          type: string
+          description: The subscriber's user ID.
+        email:
+          type: string
+          nullable: true
+          description: The subscriber's email address.
+        notification_type_id:
+          type: string
+          description: The subscription's notification type.
+          example: "feed.url_updated"
+        cadence:
+          type: string
+          description: The subscription's cadence.
+          example: "daily"
+        events:
+          type: array
+          description: The events a real run would send this subscription. Empty when nothing is pending.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPreviewEvent"
+    OperationNotificationDispatchPreviewEvent:
+      x-operation: true
+      type: object
+      required:
+        - id
+        - notification_type_id
+        - event_subtype
+        - feed_stable_ids
+      properties:
+        id:
+          type: string
+          description: The notification event ID.
+        notification_type_id:
+          type: string
+          description: The event's notification type.
+        event_subtype:
+          type: string
+          description: The event's subtype.
+          example: "url_replaced"
+        source:
+          type: string
+          nullable: true
+          description: The process that emitted the event, e.g. `operations_test` for test events.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the event was created.
+        feed_stable_ids:
+          type: array
+          description: The feeds the event references.
+          items:
+            type: string
+    OperationNotificationDispatchStart:
+      x-operation: true
+      type: object
+      required:
+        - runs
+      properties:
+        runs:
+          type: array
+          description: One run per resolved cadence.
+          items:
+            $ref: "#/components/schemas/OperationNotificationDispatchPlannedRun"
+    OperationNotificationDispatchRun:
+      x-operation: true
+      type: object
+      required:
+        - run_id
+        - status
+        - total
+        - triggered
+        - completed
+        - failed
+        - stats
+      properties:
+        run_id:
+          type: string
+          description: The run ID.
+        status:
+          type: string
+          description: >
+            `in_progress` until the run's monitor has seen every worker report (or the run's deadline pass), then `completed`.
+          example: "in_progress"
+        cadence:
+          type: string
+          nullable: true
+          description: The cadence the run processes.
+        params:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: The options the run was started with.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the run was started.
+        total:
+          type: integer
+          description: Number of subscriptions in the run.
+        triggered:
+          type: integer
+          description: Workers enqueued that have not reported yet.
+        completed:
+          type: integer
+          description: Workers that finished.
+        failed:
+          type: integer
+          description: Workers that failed (Cloud Tasks retries them).
+        stats:
+          type: object
+          additionalProperties:
+            type: number
+          description: >
+            Delivery counts summed across the finished workers, e.g. `events_found`, `emails_sent`, `emails_failed`, `permanently_failed`.
+    GtfsFeedDownloadDebugRequest:
+      x-operation: true
+      type: object
+      description: Options for a download debug attempt.
+      properties:
+        run_on:
+          type: string
+          enum:
+            - api
+            - nightly_job
+          default: api
+          description: >
+            Where the download runs: `api` within this request, answering with its diagnostics; `nightly_job` on the nightly dataset download job, answering 202 with where to read the result.
+        dry_run:
+          type: boolean
+          default: true
+          description: >
+            With `run_on = nightly_job`, false runs the complete nightly process instead of only the download: if the file changed, a new dataset is uploaded, stored and becomes the feed's latest, and its follow-up tasks run. The download outcome is recorded with `source = dataset_download_manual`. Only allowed with `run_on = nightly_job` and without `headers`, so a stored dataset is never produced with headers the nightly run would not send.
+        headers:
+          type: object
+          nullable: true
+          maxProperties: 50
+          additionalProperties:
+            type: string
+          description: >
+            Request headers to send instead of the defaults (the per-feed override, or the default User-Agent and Referer), as the local download verifier's --header does. The feed's API key is still applied on top. Omit to use the same headers as the nightly download.
+          example:
+            User-Agent: curl/8.0
+    GtfsFeedDownloadHeadersResponse:
+      x-operation: true
+      type: object
+      description: Request headers the nightly download sends for a GTFS feed.
+      required:
+        - feed_id
+        - headers
+        - source
+        - built_in_headers
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Headers the nightly download sends today, without the API key header.
+          example:
+            User-Agent: Mozilla/5.0
+            Referer: https://example.com/gtfs.zip
+        source:
+          type: string
+          enum:
+            - override
+            - config_default
+            - built_in
+          description: >
+            Where `headers` come from: `override` is the feed's `feed_download/http_headers` value, `config_default` is that key's default value, and `built_in` means neither is set and the download uses `built_in_headers`.
+        built_in_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Headers the download falls back to when neither the feed nor the key sets any: a mobile browser User-Agent and the feed's producer URL as Referer.
+        api_key_header:
+          type: string
+          nullable: true
+          description: >
+            Name of the header the download adds with the feed's API key, when the feed passes its key in a header. The value is never returned.
+    GtfsFeedDownloadDebugResponse:
+      x-operation: true
+      type: object
+      description: >
+        Request and response detail of a single feed download attempt. Credential values in headers and URLs are replaced with a redaction marker.
+      required:
+        - feed_id
+        - producer_url
+        - success
+      properties:
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        producer_url:
+          type: string
+          description: Feed URL that was requested, with credentials redacted.
+          example: https://example.com/gtfs.zip
+        resolved_url:
+          type: string
+          nullable: true
+          description: URL actually requested after credentials were applied, with credentials redacted.
+        success:
+          type: boolean
+          description: Whether the download returned a 2xx response.
+          example: false
+        status_code:
+          type: integer
+          nullable: true
+          description: HTTP status code of the final response.
+          example: 403
+        latency_ms:
+          type: integer
+          nullable: true
+          description: Time to first response, in milliseconds.
+          example: 1840
+        request_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers sent with the request, with credential values redacted.
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Headers returned by the server, with credential values redacted.
+        redirect_urls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: URLs the request was redirected through.
+        external_ip:
+          type: string
+          nullable: true
+          description: Egress IP address observed for the request, when it could be determined.
+          example: 34.95.1.1
+        content_type:
+          type: string
+          nullable: true
+          description: Normalised Content-Type of the response.
+          example: text/html
+        is_zip:
+          type: boolean
+          nullable: true
+          description: Whether the downloaded content is a ZIP file.
+        downloaded_bytes:
+          type: integer
+          nullable: true
+          description: Number of bytes read before the download completed or hit the byte cap.
+          example: 2038
+        truncated:
+          type: boolean
+          description: Whether the download stopped before the end of the file, at the byte cap or the time limit.
+          example: false
+        stop_reason:
+          type: string
+          nullable: true
+          enum: [max_bytes, deadline]
+          description: >
+            Why reading stopped before the end of the file: `max_bytes` when the requested byte cap was reached, `deadline` when the 480 second endpoint limit was. Null when the whole file was read.
+        duration_ms:
+          type: integer
+          nullable: true
+          description: Time from sending the request to the last byte read, in milliseconds.
+          example: 12500
+        error_type:
+          type: string
+          nullable: true
+          description: Machine-readable error category when the download failed.
+          example: ValueError
+        error_message:
+          type: string
+          nullable: true
+          description: Error detail when the download failed, with credentials redacted.
+    GtfsFeedDownloadQueuedResponse:
+      x-operation: true
+      type: object
+      description: A download queued on the nightly dataset download job (`run_on = nightly_job`).
+      required:
+        - feed_id
+        - execution_id
+        - queued_at
+        - source
+        - dry_run
+      properties:
+        dry_run:
+          type: boolean
+          description: Whether the queued run only downloads (true) or downloads and processes the dataset as the nightly run does (false).
+          example: true
+        feed_id:
+          type: string
+          description: Stable identifier of the GTFS feed.
+          example: mdb-123
+        execution_id:
+          type: string
+          description: Execution identifier of the queued dry run, as it appears in the job's logs.
+        queued_at:
+          type: string
+          format: date-time
+          description: When the dry run was queued. Its result is the first availability check of `source` at or after this time.
+        source:
+          type: string
+          description: >
+            Availability check source the download outcome is recorded under: `dataset_download_manual`, for dry and full runs alike.
+          example: dataset_download_manual
+    ConfigValue:
+      x-operation: true
+      description: >
+        A config value: any JSON value except null. Its shape is defined by the key's `value_schema`.
+    ConfigKey:
+      x-operation: true
+      type: object
+      required:
+        - namespace
+        - key
+      properties:
+        namespace:
+          type: string
+          example: feed_download
+        key:
+          type: string
+          example: http_headers
+        description:
+          type: string
+          nullable: true
+        default_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: Value used by feeds without an override. Null when the key has no default and the reading code decides.
+        value_schema:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: JSON Schema that override values must match. Null when any JSON value is accepted.
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    FeedConfigEntry:
+      x-operation: true
+      type: object
+      required:
+        - namespace
+        - key
+        - source
+      properties:
+        namespace:
+          type: string
+          example: feed_download
+        key:
+          type: string
+          example: http_headers
+        description:
+          type: string
+          nullable: true
+        value_schema:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: JSON Schema that override values must match. Null when any JSON value is accepted.
+        default_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+        override:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: The feed's own value, or null when it has none.
+        effective_value:
+          $ref: "#/components/schemas/ConfigValue"
+          nullable: true
+          description: >
+            The value the feed uses: the override, else the default. Null when neither exists; the code reading the key then applies its own fallback (for `feed_download/http_headers`, a default User-Agent and Referer).
+        source:
+          type: string
+          enum: [override, default, none]
+          description: Where `effective_value` comes from.
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the override was last written. Pass it back as `expected_updated_at` to detect concurrent changes.
+        updated_by:
+          type: string
+          nullable: true
+          description: Who last wrote the override through this API. Null for overrides written by migrations or by code.
+    SetFeedConfigValueRequest:
+      x-operation: true
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          $ref: "#/components/schemas/ConfigValue"
+        expected_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            The override's `updated_at` as last read. When given, the write is refused with 409 if the override has changed or been removed since. Omit to write unconditionally.
   parameters:
+    config_namespace_path_param:
+      x-operation: true
+      name: namespace
+      in: path
+      description: Namespace of the config key.
+      required: True
+      schema:
+        type: string
+        example: feed_download
+    config_key_path_param:
+      x-operation: true
+      name: key
+      in: path
+      description: Name of the config key within its namespace.
+      required: True
+      schema:
+        type: string
+        example: http_headers
+    config_expected_updated_at_param:
+      x-operation: true
+      name: expected_updated_at
+      in: query
+      description: >
+        The override's `updated_at` as last read. When given, the removal is refused with 409 if the override has changed since.
+      required: False
+      schema:
+        type: string
+        format: date-time
     early_access_format_param:
       x-operation: true
       name: format
@@ -3447,6 +5387,27 @@ components:
         minimum: 0
         default: 0
         example: 0
+    download_debug_max_bytes:
+      x-operation: true
+      name: max_bytes
+      in: query
+      description: Stop reading the feed after this many bytes, for a quicker check. Omit to read the whole file, as the nightly download does.
+      required: false
+      schema:
+        type: integer
+        minimum: 1024
+        example: 1048576
+    download_debug_timeout_seconds:
+      x-operation: true
+      name: timeout_seconds
+      in: query
+      description: Connect and read timeout for the download, in seconds. Omit for no timeout, as the nightly download does; reading still stops at the 480 second endpoint limit.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 480
+        example: 30
     limit_query_param_availability_endpoint:
       x-operation: true
       name: limit
@@ -3469,6 +5430,24 @@ components:
         type: string
         format: date-time
       example: "2026-04-01T00:00:00Z"
+    availability_source:
+      x-operation: true
+      name: source
+      in: query
+      description: >
+        Return only checks written by these sources; repeat the parameter to combine several (`?source=dataset_download&source=dataset_download_manual`). Without it, checks from every source are returned. Sources: `availability_check` (the daily lightweight check), `dataset_download` (failed nightly dataset downloads) or `dataset_download_manual` (download_debug runs on the nightly job, dry or full, success included). Only `availability_check` counts toward the public availability endpoint and the Seal of Reliability.
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          enum:
+            - availability_check
+            - dataset_download
+            - dataset_download_manual
+      example: [dataset_download]
     availability_to:
       x-operation: true
       name: to
@@ -3492,6 +5471,106 @@ components:
           - desc
         default: desc
         example: asc
+    execution_attempt_status:
+      x-operation: true
+      name: status
+      in: query
+      description: Return only attempts that ended this way.
+      required: false
+      schema:
+        type: string
+        enum: [completed, failed]
+        example: failed
+    execution_attempt_failure_kind:
+      x-operation: true
+      name: failure_kind
+      in: query
+      description: >-
+        Return only failures of this kind. `resource_memory` and `resource_disk` are the two that trigger an automatic move to a larger worker; `other` never does. Implies `status=failed`, since a successful attempt has no kind.
+      required: false
+      schema:
+        type: string
+        enum: [resource_memory, resource_disk, other]
+        example: resource_memory
+    execution_attempt_from:
+      x-operation: true
+      name: from
+      in: query
+      description: >-
+        Return attempts that started at or after this timestamp, in ISO 8601 date-time format. Filtered on when the attempt began rather than when it ended, so a long build is found by when it was triggered.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-01T00:00:00Z"
+    execution_attempt_to:
+      x-operation: true
+      name: to
+      in: query
+      description: Return attempts that started at or before this timestamp, in ISO 8601 date-time format.
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: "2026-04-30T23:59:59Z"
+    execution_attempt_task_name:
+      x-operation: true
+      name: task_name
+      in: query
+      description: >-
+        Limit the history to one task, for example `parquet_generation`. Omit it to see every task that has touched the feed.
+      required: false
+      schema:
+        type: string
+        example: parquet_generation
+    dataset_id_path_param:
+      x-operation: true
+      name: id
+      in: path
+      description: The dataset ID of the requested GTFS dataset.
+      required: True
+      schema:
+        type: string
+        example: mdb-1210-202402121801
+    notifications_created_after_param:
+      x-operation: true
+      name: created_after
+      in: query
+      description: Only items created at or after this time.
+      required: False
+      schema:
+        type: string
+        format: date-time
+    notifications_created_before_param:
+      x-operation: true
+      name: created_before
+      in: query
+      description: Only items created before this time.
+      required: False
+      schema:
+        type: string
+        format: date-time
+    notifications_limit_param:
+      x-operation: true
+      name: limit
+      in: query
+      description: Maximum number of items to return.
+      required: False
+      schema:
+        type: integer
+        default: 100
+        minimum: 1
+        maximum: 1000
+    notifications_offset_param:
+      x-operation: true
+      name: offset
+      in: query
+      description: Number of items to skip for pagination.
+      required: False
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

@@ -24,13 +24,19 @@ import sib_api_v3_sdk
 import urllib3
 from sqlalchemy.orm import Session
 from shared.common.brevo import (
+    BrevoSubscriptionStatus,
     add_contact_to_list,
     get_announcements_list_id,
+    get_contact_subscription_status,
     remove_contact_from_list,
 )
 from shared.common.feature_flags import feature_flag_enabled  # noqa: F401  (re-exported)
 from shared.database.database import generate_unique_id, with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
+from shared.notifications.notification_constants import (  # noqa: F401  (ADMIN_SUMMARY_FEATURE_FLAG_ID re-exported)
+    ADMIN_SUMMARY_FEATURE_FLAG_ID,
+    NotificationCadence,
+)
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
     NotificationSubscription as NotificationSubscriptionOrm,
@@ -47,11 +53,28 @@ ANNOUNCEMENTS_NOTIFICATION_TYPE_ID = "api.announcements"
 # have this boolean flag resolved to true to create, update or delete subscriptions.
 NOTIFICATIONS_FEATURE_FLAG_ID = "isNotificationsEnabled"
 
-# The admin dispatch-summary notification type and the additional feature flag required to
-# subscribe to (or manage a subscription for) it. This is layered on top of the general
-# NOTIFICATIONS_FEATURE_FLAG_ID gate.
+# The admin dispatch-summary notification type. Subscribing to (or managing a subscription
+# for) it additionally requires ADMIN_SUMMARY_FEATURE_FLAG_ID (imported above, shared with the
+# Operations API), layered on top of the general NOTIFICATIONS_FEATURE_FLAG_ID gate.
 ADMIN_EVENT_SUMMARY_NOTIFICATION_TYPE_ID = "admin.event_summary"
-ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"
+
+# The delivery preferences a new subscription starts on. These mirror the DB defaults on
+# notification_subscription (cadence 'weekly', digest true) but are set explicitly when the row
+# is built, rather than left to server_default: a server default only materializes on INSERT and
+# then has to be read back, so the in-memory object would carry None until it is refreshed - and
+# the API serializes that object. Stating them here keeps the documented default and the stored
+# one the same thing.
+DEFAULT_NOTIFICATION_CADENCE = NotificationCadence.WEEKLY
+DEFAULT_NOTIFICATION_DIGEST = True
+
+# Returned when delivery preferences are supplied for api.announcements. That type is delivered
+# through Brevo contact lists managed at opt-in time, and the dispatcher skips it entirely (see
+# find_subscriptions), so a cadence or digest setting on it would never be read by anything.
+# Rejected rather than ignored, so a caller is never left believing a preference took effect.
+ERROR_MESSAGE_DELIVERY_PREFERENCES_UNSUPPORTED = (
+    "cadence and digest are not supported for notification type '{notification_type_id}'; "
+    "it is delivered through Brevo, not the notification dispatcher."
+)
 
 # Notification types that are scoped to specific feeds. A subscription to any of
 # these must carry a non-empty list of feed stable IDs (persisted in the
@@ -106,22 +129,25 @@ def resolve_feed_metadata(stable_ids, db_session=None) -> dict:
 def sync_announcements(
     email: str,
     subscribe: bool,
-    subscription_id: str | None = None,
     *,
     first_name: str | None = None,
     organization: str | None = None,
 ) -> None:
     """Sync an api.announcements subscription with Brevo, mapping provider errors to 502.
     For simplicity, the Brevo `FIRSTNAME` contact field is populated with the full name.
+
+    Subscribing is always an explicit opt-in by the user, so it also clears a Brevo unsubscribe
+    (``resubscribe``); otherwise Brevo keeps blocking the contact and the daily reconcile job turns
+    the subscription back off.
     """
     try:
         if subscribe:
             add_contact_to_list(
                 email,
                 get_announcements_list_id(),
-                subscription_id,
                 first_name=first_name,
                 organization=organization,
+                resubscribe=True,
             )
         else:
             remove_contact_from_list(email, get_announcements_list_id())
@@ -137,6 +163,46 @@ def sync_announcements(
         raise HTTPException(status_code=502, detail="Failed to sync subscription with email provider.")
 
 
+def turn_off_announcements_if_unsubscribed_in_brevo(user: AppUser) -> bool:
+    """Turn off the user's api.announcements subscription when Brevo says they unsubscribed.
+
+    The per-user version of the reconcile_announcements_from_brevo task, with the same
+    turn-off-only rule: Brevo is read, never written, and a subscription is never turned
+    on here. Lets a user who unsubscribed from a Brevo email see it on their account
+    without waiting for the daily reconcile. Returns True when the subscription changed.
+    Only the user's own email is looked up, so the call is safe for any signed-in user.
+    """
+    subscription = next(
+        (
+            sub
+            for sub in user.notification_subscriptions
+            if sub.notification_type_id == ANNOUNCEMENTS_NOTIFICATION_TYPE_ID and sub.active
+        ),
+        None,
+    )
+    if subscription is None:
+        return False  # Already off: nothing to reconcile, and no Brevo call.
+    try:
+        status = get_contact_subscription_status(user.email, get_announcements_list_id())
+    except (
+        RuntimeError,
+        sib_api_v3_sdk.rest.ApiException,
+        urllib3.exceptions.HTTPError,
+        OSError,
+    ) as exc:
+        logger.error("Brevo status check failed for user %s: %s", user.id, exc)
+        raise HTTPException(status_code=502, detail="Failed to read subscription from email provider.")
+    if status != BrevoSubscriptionStatus.UNSUBSCRIBED:
+        return False
+    logger.info(
+        "User %s unsubscribed in Brevo: turning off api.announcements subscription %s",
+        user.id,
+        subscription.id,
+    )
+    subscription.active = False
+    return True
+
+
 def set_announcements_optin(
     db_session: Session,
     user: AppUser,
@@ -145,15 +211,16 @@ def set_announcements_optin(
     subscription: NotificationSubscriptionOrm | None = None,
     release_connection_before_brevo: bool = False,
 ) -> NotificationSubscriptionOrm | None:
-    """Reconcile a user's api.announcements opt-in across all three representations
-    that must agree: the notification_subscription row, Brevo list membership, and
-    app_user.is_registered_to_receive_api_announcements. Idempotent.
+    """Reconcile a user's api.announcements opt-in across the two representations
+    that must agree: the notification_subscription row and Brevo list membership.
+    The user's is_registered_to_receive_api_announcements is derived from the
+    subscription's ``active``. Idempotent.
 
     subscribe=True  → create/reactivate the subscription, add the contact to the
-                      Brevo list with its MDB_SUBSCRIPTION_ID, set the flag True.
+                      Brevo list and clear a previous Brevo unsubscribe.
     subscribe=False → deactivate the subscription (api.announcements is never
                       deleted, only disabled), remove the contact from the Brevo
-                      list, set the flag False.
+                      list.
     Returns the subscription row (None only when unsubscribing a user that has no
     subscription row).
 
@@ -167,7 +234,7 @@ def set_announcements_optin(
     Only pass True when there are no pending writes you would want rolled back if
     the Brevo call fails (e.g. the delete endpoints, which only read beforehand).
     On the subscribe path the connection is always held so the whole change stays
-    atomic (a Brevo failure rolls the new subscription + flag back).
+    atomic (a Brevo failure rolls the new subscription back).
     """
     existing = subscription
     if existing is None:
@@ -184,8 +251,13 @@ def set_announcements_optin(
         sub = existing or NotificationSubscriptionOrm(
             id=generate_unique_id(),
             user_id=user.id,
+            # Also links it into user.notification_subscriptions, which the
+            # profile response reads the opt-in from.
+            user=user,
             notification_type_id=ANNOUNCEMENTS_NOTIFICATION_TYPE_ID,
             created_at=datetime.now(timezone.utc),
+            cadence=DEFAULT_NOTIFICATION_CADENCE,
+            digest=DEFAULT_NOTIFICATION_DIGEST,
         )
         sub.active = True
         if existing is None:
@@ -193,11 +265,9 @@ def set_announcements_optin(
         sync_announcements(
             user.email,
             subscribe=True,
-            subscription_id=sub.id,
             first_name=user.full_name,
             organization=user.legacy_org_name,
         )
-        user.is_registered_to_receive_api_announcements = True
         return sub
 
     # Unsubscribe. Capture the email before any commit so we never trigger a
@@ -208,5 +278,4 @@ def set_announcements_optin(
     sync_announcements(email, subscribe=False)
     if existing is not None:
         existing.active = False
-    user.is_registered_to_receive_api_announcements = False
     return existing

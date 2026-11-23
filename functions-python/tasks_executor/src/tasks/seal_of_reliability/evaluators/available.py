@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from shared.common.availability_check_source import feed_availability_checks_filter
 from shared.common.seal_criteria import (
     AVAILABILITY_LOOKBACK,
     CriterionStatus,
@@ -54,7 +55,11 @@ class AvailableEvaluator(CriterionEvaluator):
         feeds: Sequence,
         days: Sequence[date],
     ) -> Optional[AvailabilityHistory]:
-        """Load every availability check for all the feeds and days, in one query."""
+        """Load every availability check for all the feeds and days, in one query.
+
+        Same source filter as the nightly run, so a backfilled day reads what that day's run
+        would have read.
+        """
         if not feeds or not days:
             return AvailabilityHistory({})
 
@@ -78,6 +83,7 @@ class AvailableEvaluator(CriterionEvaluator):
                 GtfsFeedAvailabilityCheck.feed_id.in_(feed_ids),
                 GtfsFeedAvailabilityCheck.checked_at > range_start,
                 GtfsFeedAvailabilityCheck.checked_at <= range_end,
+                feed_availability_checks_filter(),
             )
         ).all()
 

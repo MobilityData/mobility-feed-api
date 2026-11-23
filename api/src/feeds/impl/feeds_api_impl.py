@@ -1,6 +1,6 @@
 from typing import List, Union, TypeVar, Optional
 
-from sqlalchemy import or_, desc, nullslast
+from sqlalchemy import or_, desc, func, nullslast, tuple_
 from sqlalchemy.orm import contains_eager, selectinload, Session
 from sqlalchemy.orm.query import Query
 
@@ -10,7 +10,11 @@ from shared.db_models.feed_impl import FeedImpl
 from shared.db_models.feed_reliability_report_impl import FeedReliabilityReportImpl
 from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
 from shared.db_models.gtfs_feed_availability_check_impl import GtfsFeedAvailabilityCheckImpl
+from shared.db_models.gtfs_feed_continuous_coverage_boundary_impl import (
+    GtfsFeedContinuousCoverageBoundaryImpl,
+)
 from shared.db_models.gtfs_feed_continuous_coverage_impl import GtfsFeedContinuousCoverageImpl
+from shared.db_models.gtfs_feed_validation_report_impl import GtfsFeedValidationReportImpl
 from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
 from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -20,8 +24,10 @@ from feeds_gen.models.gbfs_feed import GbfsFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_feed_availability_response import GtfsFeedAvailabilityResponse
-from feeds_gen.models.gtfs_feed_continuous_coverage import GtfsFeedContinuousCoverage
+from feeds_gen.models.gtfs_feed_continuous_coverage_boundary import GtfsFeedContinuousCoverageBoundary
 from feeds_gen.models.gtfs_feed_continuous_coverage_response import GtfsFeedContinuousCoverageResponse
+from feeds_gen.models.gtfs_feed_validation_report import GtfsFeedValidationReport
+from feeds_gen.models.gtfs_feed_validation_reports_response import GtfsFeedValidationReportsResponse
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
 from shared.common.db_utils import (
@@ -31,6 +37,7 @@ from shared.common.db_utils import (
     add_official_filter,
     get_gbfs_feeds_query,
 )
+from shared.common.availability_check_source import feed_availability_checks_filter
 from shared.common.seal_criteria import SealCriterionName
 from shared.common.error_handling import (
     availability_from_after_to,
@@ -41,6 +48,7 @@ from shared.common.error_handling import (
     gtfs_rt_feed_not_found,
     InternalHTTPException,
     gbfs_feed_not_found,
+    validation_reports_validated_after_before,
 )
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
@@ -49,7 +57,10 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     GtfsFeedAvailabilityCheck,
     Gtfsrealtimefeed,
+    Notice,
     SealCriterion,
+    Validationreport,
+    t_validationreportgtfsdataset,
 )
 from shared.feed_filters.feed_filter import FeedFilter
 from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -392,7 +403,11 @@ class FeedsApiImpl(BaseFeedsApi):
         if not feed:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
-        query = db_session.query(GtfsFeedAvailabilityCheck).filter(GtfsFeedAvailabilityCheck.feed_id == feed.id)
+        # Only the daily check answers "was the feed available"; download diagnostics recorded in
+        # the same table are for the operations API.
+        query = db_session.query(GtfsFeedAvailabilityCheck).filter(
+            GtfsFeedAvailabilityCheck.feed_id == feed.id, feed_availability_checks_filter()
+        )
         if from_dt:
             query = query.filter(GtfsFeedAvailabilityCheck.checked_at >= from_dt)
         if to_dt:
@@ -484,8 +499,10 @@ class FeedsApiImpl(BaseFeedsApi):
         )
 
     @staticmethod
-    def _latest_continuous_coverage(feed: Gtfsfeed, feed_datasets: Query) -> Optional[GtfsFeedContinuousCoverage]:
-        """`latest_state`: the feed's latest dataset, whatever page or date range was requested."""
+    def _latest_continuous_coverage(
+        feed: Gtfsfeed, feed_datasets: Query
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_state`: the feed's latest dataset and the one before it, whatever page was asked for."""
         if feed.latest_dataset_id is None:
             return None
         latest_dataset = (
@@ -499,8 +516,8 @@ class FeedsApiImpl(BaseFeedsApi):
     @with_db_session()
     def _latest_failure_continuous_coverage(
         feed: Gtfsfeed, feed_datasets: Query, db_session: Session
-    ) -> Optional[GtfsFeedContinuousCoverage]:
-        """`latest_failure`: the state as of the criterion's `last_observed_failure_at`."""
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """`latest_failure`: the boundary as of the criterion's `last_observed_failure_at`."""
         failed_at = (
             db_session.query(SealCriterion.last_observed_failure_at)
             .filter(
@@ -522,12 +539,12 @@ class FeedsApiImpl(BaseFeedsApi):
     @staticmethod
     def _continuous_coverage_for(
         feed: Gtfsfeed, feed_datasets: Query, dataset: Optional[Gtfsdataset]
-    ) -> Optional[GtfsFeedContinuousCoverage]:
-        """One state object: `dataset` measured against the dataset downloaded before it."""
+    ) -> Optional[GtfsFeedContinuousCoverageBoundary]:
+        """One boundary: `dataset` and the dataset downloaded before it, both in full."""
         if dataset is None:
             return None
         previous = FeedsApiImpl._previous_dataset(feed_datasets, dataset)
-        return GtfsFeedContinuousCoverageImpl.from_orm(
+        return GtfsFeedContinuousCoverageBoundaryImpl.from_orm(
             dataset,
             previous_dataset=previous,
             is_latest=dataset.id == feed.latest_dataset_id,
@@ -555,7 +572,7 @@ class FeedsApiImpl(BaseFeedsApi):
         return (
             feed_datasets.filter(Gtfsdataset.downloaded_at < dataset.downloaded_at)
             .order_by(*FeedsApiImpl._continuous_coverage_order())
-            .options(selectinload(Gtfsdataset.feed_info))
+            .options(selectinload(Gtfsdataset.feed_info), selectinload(Gtfsdataset.gtfsfiles))
             .first()
         )
 
@@ -578,6 +595,132 @@ class FeedsApiImpl(BaseFeedsApi):
         ):
             return positional_next
         return FeedsApiImpl._previous_dataset(feed_datasets, dataset)
+
+    @with_db_session
+    def get_gtfs_feed_validation_reports(
+        self,
+        id: str,
+        validated_after: str,
+        validated_before: str,
+        min_errors: int,
+        min_warnings: int,
+        severity: List[str],
+        limit: int,
+        offset: int,
+        db_session: Session,
+    ) -> GtfsFeedValidationReportsResponse:
+        """Returns the validation history for a GTFS feed, one entry per dataset."""
+        if validated_after and not valid_iso_date(validated_after):
+            raise_http_validation_error(invalid_date_message.format("validated_after"))
+        if validated_before and not valid_iso_date(validated_before):
+            raise_http_validation_error(invalid_date_message.format("validated_before"))
+
+        after_dt = parse_iso_datetime(validated_after)
+        before_dt = parse_iso_datetime(validated_before)
+        if after_dt and before_dt and after_dt > before_dt:
+            raise_http_validation_error(validation_reports_validated_after_before)
+
+        feed = self._get_gtfs_feed(id, db_session, include_options_for_joinedload=False)
+        if not feed:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+        query = self._latest_reports_query(db_session, feed)
+        if after_dt:
+            query = query.filter(Validationreport.validated_at >= after_dt)
+        if before_dt:
+            query = query.filter(Validationreport.validated_at <= before_dt)
+        if min_errors is not None:
+            query = query.filter(Validationreport.total_error >= min_errors)
+        if min_warnings is not None:
+            query = query.filter(Validationreport.total_warning >= min_warnings)
+
+        total = query.count()
+        page = (
+            query.order_by(nullslast(desc(Validationreport.validated_at)), desc(Validationreport.id))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        notices = self._notices_by_report(db_session, page, severity)
+
+        return GtfsFeedValidationReportsResponse(
+            feed_id=id,
+            total=total,
+            offset=offset,
+            limit=limit,
+            latest=self._latest_validation_report(db_session, feed, severity),
+            items=[
+                GtfsFeedValidationReportImpl.from_orm(
+                    row.dataset_stable_id,
+                    row.Validationreport,
+                    notices.get((row.dataset_id, row.Validationreport.id), ()),
+                    is_latest=row.dataset_id == feed.latest_dataset_id,
+                )
+                for row in page
+            ],
+        )
+
+    @staticmethod
+    def _latest_reports_query(db_session: Session, feed: Gtfsfeed, dataset_id: Optional[str] = None) -> Query:
+        """One row per dataset of the feed: the dataset and its most recent validation report."""
+        ranked = (
+            db_session.query(
+                Gtfsdataset.id.label("dataset_id"),
+                Gtfsdataset.stable_id.label("dataset_stable_id"),
+                Validationreport.id.label("report_id"),
+                func.row_number()
+                .over(
+                    partition_by=Gtfsdataset.id,
+                    order_by=(nullslast(desc(Validationreport.validated_at)), desc(Validationreport.id)),
+                )
+                .label("rank"),
+            )
+            .select_from(Gtfsdataset)
+            .join(t_validationreportgtfsdataset, t_validationreportgtfsdataset.c.dataset_id == Gtfsdataset.id)
+            .join(Validationreport, Validationreport.id == t_validationreportgtfsdataset.c.validation_report_id)
+            .filter(Gtfsdataset.feed_id == feed.id)
+            .subquery()
+        )
+        query = (
+            db_session.query(ranked.c.dataset_id, ranked.c.dataset_stable_id, Validationreport)
+            .join(Validationreport, Validationreport.id == ranked.c.report_id)
+            .filter(ranked.c.rank == 1)
+        )
+        return query.filter(ranked.c.dataset_id == dataset_id) if dataset_id else query
+
+    @staticmethod
+    def _notices_by_report(db_session: Session, page: list, severity: Optional[List[str]]) -> dict:
+        """The notices of every report on the page, in one query, keyed by (dataset, report)."""
+        pairs = [(row.dataset_id, row.Validationreport.id) for row in page]
+        if not pairs:
+            return {}
+        query = db_session.query(Notice).filter(
+            tuple_(Notice.dataset_id, Notice.validation_report_id).in_(pairs),
+        )
+        if severity:
+            query = query.filter(Notice.severity.in_(severity))
+        grouped = {}
+        for notice in query.all():
+            grouped.setdefault((notice.dataset_id, notice.validation_report_id), []).append(notice)
+        return grouped
+
+    @staticmethod
+    def _latest_validation_report(
+        db_session: Session, feed: Gtfsfeed, severity: Optional[List[str]]
+    ) -> Optional[GtfsFeedValidationReport]:
+        """`latest`: the feed's current dataset, whatever page or filter was requested."""
+        if feed.latest_dataset_id is None:
+            return None
+        row = FeedsApiImpl._latest_reports_query(db_session, feed, dataset_id=feed.latest_dataset_id).first()
+        if row is None:
+            return None
+        notices = FeedsApiImpl._notices_by_report(db_session, [row], severity)
+        return GtfsFeedValidationReportImpl.from_orm(
+            row.dataset_stable_id,
+            row.Validationreport,
+            notices.get((row.dataset_id, row.Validationreport.id), ()),
+            is_latest=True,
+        )
 
     @with_db_session
     def get_gbfs_feed(

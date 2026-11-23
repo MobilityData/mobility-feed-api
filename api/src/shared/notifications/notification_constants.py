@@ -54,9 +54,15 @@ class FeedUrlUpdateType:
 
 class AdminEventUpdateType:
     """Allowed values for ``notification_event.event_subtype`` when
-    ``notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY``."""
+    ``notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY``.
+
+    One type, several reports: an admin subscriber gets every subtype, and the
+    subtype decides how the email renders. Adding one means adding a summary
+    block in ``brevo_notification_sender``, not a new notification type.
+    """
 
     DISPATCH_SUMMARY = "dispatch_summary"
+    SEAL_RUN_SUMMARY = "seal_run_summary"
 
 
 class NotificationFeedRole:
@@ -90,3 +96,23 @@ class NotificationSource:
     DISPATCHER = "dispatcher"
     TDG_REDIRECTS = "tdg_redirects"
     TDG_IMPORT = "tdg_import"
+    SEAL_ORCHESTRATOR = "seal_orchestrator"
+    # Test events created from the Operations API. The dispatcher only delivers
+    # them to the users listed in the event's ``recipient_user_ids`` payload key.
+    OPERATIONS_TEST = "operations_test"
+
+
+# TaskExecutionTracker task_name of a distributed dispatch run. Shared so the
+# Operations API can read a run's progress.
+DISPATCH_RUN_TASK_NAME = "notifications_dispatch_run"
+
+# Payload key holding the user ids an ``operations_test`` event may be delivered to.
+TEST_RECIPIENT_USER_IDS_KEY = "recipient_user_ids"
+
+# ``notification_subscription.filter_params`` key that limits a subscription to some
+# event subtypes (e.g. only the ``seal_run_summary`` of ``admin.event_summary``).
+# Missing or empty means every subtype, including ones added later.
+SUBSCRIPTION_EVENT_SUBTYPES_KEY = "event_subtypes"
+
+# Feature flag (``feature_flag.id``) a user needs to subscribe to ``admin.event_summary``.
+ADMIN_SUMMARY_FEATURE_FLAG_ID = "isAdminSummarySubscriptionEnabled"

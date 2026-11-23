@@ -16,7 +16,7 @@
 
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -185,6 +185,34 @@ class TestGetOperationsUser(unittest.TestCase):
 
         with self.assertRaises(HTTPException) as ctx:
             self.api.get_operations_user("missing", db_session=self.session)
+
+        self.assertEqual(ctx.exception.status_code, 404)
+
+
+@patch("feeds_operations.impl.user_feature_flags_impl.current_app_user")
+class TestGetOperationsMe(unittest.TestCase):
+    def setUp(self):
+        self.api = UserFeatureFlagsApiImpl()
+        self.session = MagicMock()
+
+    def test_returns_the_signed_in_user_with_flags(self, current):
+        flag = _make_flag()
+        current.return_value = _make_user(
+            user_feature_flags=[_make_uff(flag, value=True)]
+        )
+        _mock_query(self.session, None, flags=[flag])
+
+        result = self.api.get_operations_me(db_session=self.session)
+
+        self.assertEqual(result.id, "uid-1")
+        self.assertEqual(result.features[0].feature_flag_id, "beta_editor")
+        self.assertEqual(result.features[0].user_value, True)
+
+    def test_propagates_404_when_no_user_has_the_email(self, current):
+        current.side_effect = HTTPException(status_code=404)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self.api.get_operations_me(db_session=self.session)
 
         self.assertEqual(ctx.exception.status_code, 404)
 

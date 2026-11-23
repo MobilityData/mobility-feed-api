@@ -22,7 +22,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from feeds_gen.apis.operations_api import router as FeedsApiRouter
 from feeds_gen.apis.early_access_api import router as EarlyAccessApiRouter
 from feeds_gen.apis.licenses_api import router as LicenseApiRouter
+from feeds_gen.apis.notifications_api import router as NotificationsApiRouter
 from feeds_gen.apis.users_api import router as UsersApiRouter
+from feeds_gen.apis.parquet_api import router as ParquetApiRouter
+from feeds_gen.apis.config_api import router as ConfigApiRouter
 import functions_framework
 import asyncio
 
@@ -58,6 +61,9 @@ app.include_router(FeedsApiRouter)
 app.include_router(EarlyAccessApiRouter)
 app.include_router(LicenseApiRouter)
 app.include_router(UsersApiRouter)
+app.include_router(ParquetApiRouter)
+app.include_router(NotificationsApiRouter)
+app.include_router(ConfigApiRouter)
 
 
 def build_scope_from_wsgi(request: Request) -> dict:
