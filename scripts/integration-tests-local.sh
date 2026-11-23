@@ -7,7 +7,8 @@
 #   3. Seeds the test database from integration-tests/fixtures (integration-tests-seed-db.sh).
 #   4. Starts the API on port 8080 against the test database, runs the tests and stops the API.
 #
-# The test database (./data-test) is the one the unit tests use; it is wiped on each full run.
+# The test database (Docker volume mobility-feed-api-test-db) is the one the unit tests use; it is
+# wiped on each full run.
 # Run `scripts/docker-localdb-rebuild-data.sh --use-test-db` to get an empty one back for unit tests.
 # Needs the variables of config/.env.local (POSTGRES_*), as docker-compose.yaml does.
 #
@@ -84,10 +85,9 @@ test_db_ready() {
       "SELECT 1 FROM pg_database WHERE datname = '${USERS_TEST_DB}'" 2>/dev/null)" == "1" ]]
 }
 
-# Recreates the test database from scratch and applies the Liquibase changelogs. On Docker Desktop
-# for Mac the first start on the ./data-test bind mount can fail ("data directory has wrong
-# ownership"), leaving a server without the init scripts' databases, so a failed initialization
-# is detected and the clean start retried instead of being slept past.
+# Recreates the test database from scratch and applies the Liquibase changelogs. Waits for the
+# first-start initialization to finish, and retries a clean start if it failed, instead of
+# sleeping past it.
 rebuild_test_db() {
   local attempt
   for attempt in 1 2 3; do
@@ -95,7 +95,7 @@ rebuild_test_db() {
     # container_name is fixed, so a container left by another checkout's compose project would
     # block this one.
     docker rm -f database_test >/dev/null 2>&1 || true
-    rm -rf "${REPO_ROOT}/data-test"
+    docker volume rm -f mobility-feed-api-test-db >/dev/null
     "${COMPOSE[@]}" up -d postgres-test
     for _ in $(seq 1 60); do
       test_db_ready && break

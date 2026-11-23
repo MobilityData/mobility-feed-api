@@ -65,7 +65,7 @@ This command runs the integration tests against the specified API URL and data f
 ### Running Locally Against a Seeded Database
 `scripts/integration-tests-local.sh` reproduces the PR workflow on your machine: it rebuilds the local test database (`postgres-test`) from the branch's Liquibase changelogs, regenerates the API code, seeds it from `integration-tests/fixtures`, starts the API against it and runs the tests. No token, GCP access or download is needed, and the main local database is not touched.
 
-The test database (`./data-test`) is the one the unit tests use. After a run, reset it with `./scripts/docker-localdb-rebuild-data.sh --use-test-db` before running the unit tests.
+The test database (Docker volume `mobility-feed-api-test-db`) is the one the unit tests use. After a run, reset it with `./scripts/docker-localdb-rebuild-data.sh --use-test-db` before running the unit tests.
 
 ```bash
 ./scripts/integration-tests-local.sh                          # full run
