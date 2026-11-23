@@ -25,6 +25,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -232,6 +233,9 @@ def get_transactional_block(email: str) -> BrevoTransactionalBlock | None:
     Brevo cannot filter the blocklist by email, so this pages through it (100 entries per call)
     until the contact is found. Read-only.
 
+    The raw JSON is read instead of the SDK models: those reject an entry with a missing field or
+    a reason code the SDK does not know, which would fail the whole page.
+
     Raises RuntimeError if BREVO_API_KEY is not set.
     Raises sib_api_v3_sdk.rest.ApiException on unexpected API errors.
     """
@@ -239,23 +243,25 @@ def get_transactional_block(email: str) -> BrevoTransactionalBlock | None:
     wanted = email.strip().lower()
     offset = 0
     while True:
-        page = api.get_transac_blocked_contacts(
+        response = api.get_transac_blocked_contacts(
             limit=_BLOCKED_CONTACTS_PAGE_SIZE,
             offset=offset,
             _request_timeout=BREVO_REQUEST_TIMEOUT,
+            _preload_content=False,
         )
-        contacts = page.contacts or []
+        page = json.loads(response.data or b"{}")
+        contacts = page.get("contacts") or []
         for contact in contacts:
-            if (contact.email or "").strip().lower() == wanted:
-                reason = contact.reason
+            if (contact.get("email") or "").strip().lower() == wanted:
+                reason = contact.get("reason") or {}
                 return BrevoTransactionalBlock(
-                    sender_email=contact.sender_email,
-                    reason_code=reason.code if reason else None,
-                    reason_message=reason.message if reason else None,
-                    blocked_at=contact.blocked_at,
+                    sender_email=contact.get("senderEmail"),
+                    reason_code=reason.get("code"),
+                    reason_message=reason.get("message"),
+                    blocked_at=contact.get("blockedAt"),
                 )
         offset += len(contacts)
-        if not contacts or offset >= (page.count or 0):
+        if not contacts or offset >= (page.get("count") or 0):
             return None
 
 

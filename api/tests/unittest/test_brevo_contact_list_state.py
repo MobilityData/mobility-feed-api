@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -105,12 +106,17 @@ def test_subscription_status_not_found():
 
 
 def _blocked(email, code="unsubscribedViaEmail"):
-    return SimpleNamespace(
-        email=email,
-        sender_email="noreply@example.com",
-        reason=SimpleNamespace(code=code, message="Unsubscribed via email"),
-        blocked_at="2026-11-23T08:00:00.000Z",
-    )
+    return {
+        "email": email,
+        "senderEmail": "noreply@example.com",
+        "reason": {"code": code, "message": "Unsubscribed via email"},
+        "blockedAt": "2026-11-23T08:00:00.000Z",
+    }
+
+
+def _page(count, contacts):
+    """A raw (_preload_content=False) blocked contacts response."""
+    return SimpleNamespace(data=json.dumps({"count": count, "contacts": contacts}).encode())
 
 
 def _block(pages):
@@ -121,8 +127,8 @@ def _block(pages):
 
 
 def test_transactional_block_found_on_a_later_page():
-    first = SimpleNamespace(count=101, contacts=[_blocked(f"x{i}@b.com") for i in range(100)])
-    second = SimpleNamespace(count=101, contacts=[_blocked("a@b.com")])
+    first = _page(101, [_blocked(f"x{i}@b.com") for i in range(100)])
+    second = _page(101, [_blocked("a@b.com")])
 
     block, api = _block([first, second])
 
@@ -134,16 +140,25 @@ def test_transactional_block_found_on_a_later_page():
 
 
 def test_transactional_block_none_when_not_listed():
-    block, api = _block([SimpleNamespace(count=1, contacts=[_blocked("other@b.com")])])
+    block, api = _block([_page(1, [_blocked("other@b.com")])])
 
     assert block is None
     api.get_transac_blocked_contacts.assert_called_once()
 
 
 def test_transactional_block_none_when_list_is_empty():
-    block, _ = _block([SimpleNamespace(count=0, contacts=None)])
+    block, _ = _block([_page(0, None)])
 
     assert block is None
+
+
+def test_transactional_block_tolerates_entries_the_sdk_would_reject():
+    odd = {"email": "x@b.com", "reason": {"code": "someNewCode"}}
+    block, _ = _block([_page(2, [odd, {"email": "a@b.com", "reason": {"code": "someNewCode"}}])])
+
+    assert block.reason_code == "someNewCode"
+    assert block.sender_email is None
+    assert block.blocked_at is None
 
 
 def test_unblock_transactional_contact():
