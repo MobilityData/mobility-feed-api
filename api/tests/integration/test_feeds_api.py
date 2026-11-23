@@ -1305,3 +1305,57 @@ def test_feed_list_created_at_invalid_date_returns_422(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+)
+@pytest.mark.parametrize(
+    "created_after, created_before",
+    [
+        ("2026-11-24T00:00:00Z", "2026-11-23T00:00:00Z"),
+        ("2026-11-23T13:00:00+01:00", "2026-11-23T11:00:00Z"),
+    ],
+)
+def test_feed_list_created_at_reversed_range_returns_422(client: TestClient, endpoint, created_after, created_before):
+    """Chronologically reversed creation-date bounds are invalid."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": created_after,
+            "created_before": created_before,
+        },
+    )
+    assert response.status_code == 422
+    assert "created_after" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+)
+def test_feed_list_created_at_equivalent_offsets_are_valid(client: TestClient, endpoint):
+    """Different offsets describing the same instant are not reversed."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": "2026-11-23T12:00:00Z",
+            "created_before": "2026-11-23T13:00:00+01:00",
+        },
+    )
+    assert response.status_code == 200

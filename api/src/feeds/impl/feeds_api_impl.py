@@ -60,6 +60,20 @@ from utils.logger import get_logger
 T = TypeVar("T", bound="Feed")
 
 
+def validate_created_at_range(created_after: str, created_before: str) -> None:
+    """Validate created-at filter formats and chronological ordering."""
+    if created_after and not valid_iso_date(created_after):
+        raise_http_validation_error(invalid_date_message.format("created_after"))
+    if created_before and not valid_iso_date(created_before):
+        raise_http_validation_error(invalid_date_message.format("created_before"))
+
+    after = parse_iso_datetime(created_after)
+    before = parse_iso_datetime(created_before)
+
+    if after is not None and before is not None and after > before:
+        raise_http_validation_error("created_after must be earlier than or equal to created_before")
+
+
 class FeedsApiImpl(BaseFeedsApi):
     """
     This class represents the implementation of the `/feeds` endpoints.
@@ -114,10 +128,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
         self.logger.debug(f"User email is restricted: {is_email_restricted}")
-        if created_after and not valid_iso_date(created_after):
-            raise_http_validation_error(invalid_date_message.format("created_after"))
-        if created_before and not valid_iso_date(created_before):
-            raise_http_validation_error(invalid_date_message.format("created_before"))
+        validate_created_at_range(created_after, created_before)
 
         feed_filter = FeedFilter(
             status=status,
@@ -222,10 +233,7 @@ class FeedsApiImpl(BaseFeedsApi):
         is_official: bool,
         db_session: Session,
     ) -> List[GtfsFeed]:
-        if created_after and not valid_iso_date(created_after):
-            raise_http_validation_error(invalid_date_message.format("created_after"))
-        if created_before and not valid_iso_date(created_before):
-            raise_http_validation_error(invalid_date_message.format("created_before"))
+        validate_created_at_range(created_after, created_before)
 
         try:
             published_only = is_user_email_restricted()
@@ -301,10 +309,7 @@ class FeedsApiImpl(BaseFeedsApi):
         db_session: Session,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
-        if created_after and not valid_iso_date(created_after):
-            raise_http_validation_error(invalid_date_message.format("created_after"))
-        if created_before and not valid_iso_date(created_before):
-            raise_http_validation_error(invalid_date_message.format("created_before"))
+        validate_created_at_range(created_after, created_before)
 
         try:
             published_only = is_user_email_restricted()
@@ -603,10 +608,7 @@ class FeedsApiImpl(BaseFeedsApi):
         version: str,
         db_session: Session,
     ) -> List[GbfsFeed]:
-        if created_after and not valid_iso_date(created_after):
-            raise_http_validation_error(invalid_date_message.format("created_after"))
-        if created_before and not valid_iso_date(created_before):
-            raise_http_validation_error(invalid_date_message.format("created_before"))
+        validate_created_at_range(created_after, created_before)
 
         query = get_gbfs_feeds_query(
             db_session=db_session,
