@@ -1,4 +1,6 @@
+import os
 import platform
+import sys
 import time
 from enum import Enum
 
@@ -216,6 +218,7 @@ class IntegrationTests:
         passed_tests = []
         failed_tests = []
         skipped_tests = []
+        failure_messages = {}
 
         # Descriptive panel message
         description = """
@@ -301,6 +304,7 @@ class IntegrationTests:
                             max_frames=0,
                         )
                         failed_tests.append(method_display)
+                        failure_messages[method_display] = self._error_text()
                     except Exception:
                         progress.log(
                             f"{method_display} [yellow]SKIPPED :warning: [/yellow] in [yellow]"
@@ -312,6 +316,7 @@ class IntegrationTests:
                             max_frames=0,
                         )
                         skipped_tests.append(method_display)
+                        failure_messages[method_display] = self._error_text()
                     finally:
                         progress.update(test_task, advance=1)
 
@@ -342,9 +347,58 @@ class IntegrationTests:
 
         console.log(table)
         console.save_html("integration_tests_log.html")
+        self._write_step_summary(
+            passed_tests, failed_tests, skipped_tests, failure_messages
+        )
         console.log('Test report saved to "integration_tests_log.html"')
         if len(failed_tests) or len(skipped_tests):
             raise AssertionError("Some tests failed or were skipped.")
+
+    @staticmethod
+    def _error_text():
+        """The message of the exception being handled, for the step summary."""
+        error = sys.exc_info()[1]
+        text = str(error).strip() or type(error).__name__
+        return text.splitlines()[0][:300]
+
+    @staticmethod
+    def _write_step_summary(passed, failed, skipped, failure_messages):
+        """Write the results as markdown to integration_tests_report.md, and append them to the
+        GitHub Actions job summary (rendered on the run page) when GITHUB_STEP_SUMMARY is set.
+        """
+        status = "FAILED" if failed or skipped else "PASSED"
+        lines = [
+            f"## Integration tests: {status}",
+            "",
+            "| Status | Tests |",
+            "| --- | --- |",
+            f"| Passed | {len(passed)} |",
+            f"| Failed | {len(failed)} |",
+            f"| Skipped | {len(skipped)} |",
+            "",
+        ]
+        for title, names in (("Failed", failed), ("Skipped", skipped)):
+            if names:
+                lines += [f"### {title}", "", "| Test | Error |", "| --- | --- |"]
+                for name in names:
+                    message = failure_messages.get(name, "").replace("|", "\\|")
+                    lines.append(f"| `{name}` | {message} |")
+                lines.append("")
+        lines += [
+            f"<details><summary>Passed ({len(passed)})</summary>",
+            "",
+            *[f"- `{name}`" for name in passed],
+            "",
+            "</details>",
+            "",
+        ]
+        report = "\n".join(lines)
+        with open("integration_tests_report.md", "w", encoding="utf-8") as f:
+            f.write(report)
+        summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as f:
+                f.write(report)
 
     @staticmethod
     def clear_tasks(test_task, progress):

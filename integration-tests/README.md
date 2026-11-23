@@ -81,4 +81,4 @@ Options: `--csv <path>` seeds and tests with another `sources.csv` instead of `f
 The `--include_classes` argument is optional. When specified, it filters the execution to only include tests from the provided comma-separated list of class names.
 
 ## Report
-After test execution, a summary report is displayed, and a detailed log is saved to `integration_tests_log.html`.
+After test execution, a summary report is displayed and saved as markdown to `integration_tests_report.md`, which the workflows upload as an artifact and add to the run's job summary. The detailed console log is saved to `integration_tests_log.html`.

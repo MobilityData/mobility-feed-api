@@ -158,7 +158,7 @@ jobs:
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
       uses: actions/upload-artifact@v7
       with:
-        path: integration-tests/src/integration_tests_log.html
+        path: integration-tests/src/integration_tests_report.md
         archive: false
 
     - name: Upload API Logs
