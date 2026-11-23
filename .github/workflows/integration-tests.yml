@@ -36,12 +36,11 @@ jobs:
       with:
         python-version: ${{ env.python_version }}
 
-    - name: Download csv version of the database
-      run: wget -O sources.csv https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
-
-    - name: Get full path of sources.csv
+    # Smoke tests only: a few known feeds against the deployed API. Every endpoint is tested on
+    # pull requests against fixtures (integration-tests-pr.yml).
+    - name: Set the smoke feeds file
       id: getpath
-      run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
+      run: echo "FILE_PATH=$(realpath integration-tests/fixtures/smoke_sources.csv)" >> $GITHUB_ENV
 
     - name: Health Check
       # When triggered by a repo dispatch the API code is not deployed so there could be discrepancies
@@ -59,8 +58,8 @@ jobs:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
-    - name: Run Integration Tests
-      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -x MetadataEndpointTests
+    - name: Run Smoke Tests
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c SmokeEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}

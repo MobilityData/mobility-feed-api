@@ -60,19 +60,23 @@
   "license_rules": [
     {
       "license_id": "license-1",
-      "rule_id": "license-rule-1"
+      "rule_id": "license-rule-1",
+      "rule_type": "permission"
     },
     {
       "license_id": "license-1",
-      "rule_id": "license-rule-2"
+      "rule_id": "license-rule-2",
+      "rule_type": "condition"
     },
     {
       "license_id": "license-2",
-      "rule_id": "license-rule-2"
+      "rule_id": "license-rule-2",
+      "rule_type": "condition"
     },
     {
       "license_id": "license-2",
-      "rule_id": "license-rule-3"
+      "rule_id": "license-rule-3",
+      "rule_type": "limitation"
     }
   ],
   "license_tag_groups": [

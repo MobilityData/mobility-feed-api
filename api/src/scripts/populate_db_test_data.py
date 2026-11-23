@@ -24,7 +24,14 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Rule,
     Feed,
+    FeedReliabilitySeal,
+    SealCriterion,
+    Geopolygon,
+    Geopolygonhierarchy,
+    t_geopolygonlocationsearch,
 )
+from shared.database.users_database import with_users_db_session
+from shared.users_database_gen.sqlacodegen_models import AppUser, FeatureFlag, UserFeatureFlag
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from typing import TYPE_CHECKING
 
@@ -116,14 +123,15 @@ class DatabasePopulateTestDataHelper:
                 rule_name = rule.get("name")
                 if not rule_name:
                     continue
-                existing_rule = db_session.get(Rule, rule_name)
+                rule_type = rule.get("type") or "permission"
+                existing_rule = db_session.get(Rule, (rule_name, rule_type))
                 if existing_rule:
                     continue
                 db_session.add(
                     Rule(
                         name=rule_name,
                         label=rule.get("label") or rule_name,
-                        type=rule.get("type") or "permission",
+                        type=rule_type,
                         description=rule.get("description"),
                     )
                 )
@@ -153,6 +161,9 @@ class DatabasePopulateTestDataHelper:
                     bounding_box=(
                         None if dataset.get("bounding_box") is None else WKTElement(dataset["bounding_box"], srid=4326)
                     ),
+                    service_date_range_start=dataset.get("service_date_range_start"),
+                    service_date_range_end=dataset.get("service_date_range_end"),
+                    agency_timezone=dataset.get("agency_timezone"),
                     validation_reports=[],
                 )
                 if dataset["latest"]:
@@ -177,6 +188,12 @@ class DatabasePopulateTestDataHelper:
                     validated_at=report["validated_at"],
                     html_report=report["html_report"],
                     json_report=report["json_report"],
+                    total_error=report.get("total_error"),
+                    total_warning=report.get("total_warning"),
+                    total_info=report.get("total_info"),
+                    unique_error_count=report.get("unique_error_count"),
+                    unique_warning_count=report.get("unique_warning_count"),
+                    unique_info_count=report.get("unique_info_count"),
                     features=[],
                 )
                 dataset_dict[report["dataset_id"]].validation_reports.append(validation_report)
@@ -216,14 +233,16 @@ class DatabasePopulateTestDataHelper:
                 rule_id = lr.get("rule_id")
                 if not license_id or not rule_id:
                     continue
+                # A rule is identified by (name, type); default the type when the entry omits it.
+                rule_type = lr.get("rule_type") or "permission"
                 license_obj = db_session.get(License, license_id)
                 if not license_obj:
                     self.logger.error(f"No license found with id: {license_id}; skipping license_rule {rule_id}")
                     continue
-                rule_obj = db_session.get(Rule, rule_id)
+                rule_obj = db_session.get(Rule, (rule_id, rule_type))
                 if not rule_obj:
-                    # Create a minimal Rule entry; label and type set conservatively
-                    rule_obj = Rule(name=rule_id, label=rule_id, type="permission", description=None)
+                    # Create a minimal Rule entry; label set conservatively
+                    rule_obj = Rule(name=rule_id, label=rule_id, type=rule_type, description=None)
                     db_session.add(rule_obj)
                     # flush so the relationship can reference it immediately
                     db_session.flush()
@@ -337,8 +356,48 @@ class DatabasePopulateTestDataHelper:
                     availability_check.source = check["source"]
                 db_session.add(availability_check)
 
+        # Seal of Reliability: the feed's seal row and its stored criteria
+        if "seals" in data:
+            for seal in data["seals"]:
+                feed = db_session.query(Feed).filter(Feed.stable_id == seal["feed_stable_id"]).one_or_none()
+                if not feed:
+                    self.logger.error(f"No feed found with stable_id: {seal['feed_stable_id']}; skipping seal")
+                    continue
+                db_session.add(
+                    FeedReliabilitySeal(
+                        feed_id=feed.id,
+                        has_seal=seal.get("has_seal", False),
+                        seal_earned_at=seal.get("seal_earned_at"),
+                        seal_lost_at=seal.get("seal_lost_at"),
+                    )
+                )
+                for criterion in seal.get("criteria", []):
+                    db_session.add(SealCriterion(feed_id=feed.id, **criterion))
+
+        # Geopolygons (the source of the locations endpoint) and their parent links
+        if "geopolygons" in data:
+            for polygon in data["geopolygons"]:
+                db_session.add(
+                    Geopolygon(
+                        osm_id=polygon["osm_id"],
+                        admin_level=polygon.get("admin_level"),
+                        name=polygon.get("name"),
+                        alt_name=polygon.get("alt_name"),
+                        iso_3166_1_code=polygon.get("iso_3166_1_code"),
+                        iso_3166_2_code=polygon.get("iso_3166_2_code"),
+                    )
+                )
+            db_session.flush()
+            for polygon in data["geopolygons"]:
+                if polygon.get("parent_osm_id"):
+                    db_session.add(
+                        Geopolygonhierarchy(osm_id=polygon["osm_id"], parent_osm_id=polygon["parent_osm_id"])
+                    )
+
         db_session.commit()
         db_session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+        if "geopolygons" in data:
+            db_session.execute(text(f"REFRESH MATERIALIZED VIEW {t_geopolygonlocationsearch.name}"))
 
     def populate(self):
         """
@@ -352,8 +411,36 @@ class DatabasePopulateTestDataHelper:
 
         for filepath in self.filepaths:
             self.populate_test_datasets(filepath)
+            with open(filepath) as f:
+                users_data = json.load(f).get("users")
+            if users_data:
+                self.populate_test_users(users_data)
 
         self.logger.info("Database populated with test data")
+
+    @with_users_db_session
+    def populate_test_users(self, users_data, db_session: "Session"):
+        """
+        Populate the users database: feature flags, users and the users' flag values
+        """
+        for flag in users_data.get("feature_flags", []):
+            if not db_session.get(FeatureFlag, flag["id"]):
+                db_session.add(
+                    FeatureFlag(
+                        id=flag["id"],
+                        name=flag.get("name"),
+                        description=flag.get("description"),
+                        default_value=flag.get("default_value", False),
+                    )
+                )
+        for user in users_data.get("app_users", []):
+            if not db_session.get(AppUser, user["id"]):
+                db_session.add(AppUser(id=user["id"], email=user["email"], full_name=user.get("full_name")))
+        db_session.flush()
+        for user_flag in users_data.get("user_feature_flags", []):
+            if not db_session.get(UserFeatureFlag, (user_flag["user_id"], user_flag["feature_flag_id"])):
+                db_session.add(UserFeatureFlag(**user_flag))
+        db_session.commit()
 
     def populate_test_feeds(self, feeds_data, db_session: "Session"):
         for feed_data in feeds_data:

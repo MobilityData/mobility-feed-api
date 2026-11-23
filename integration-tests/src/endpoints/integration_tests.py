@@ -87,8 +87,11 @@ class IntegrationTests:
 
     @staticmethod
     def _sample_providers(df, n):
-        """Sample (provider, stable_id) pairs from the feeds in the data file."""
-        sample = df.sample(n=min(n, len(df)))
+        """Sample (provider, stable_id) pairs from the feeds in the data file.
+
+        The sample is seeded so a failure can be reproduced by re-running the tests.
+        """
+        sample = df.sample(n=min(n, len(df)), random_state=1)
         return [
             (provider, f"mdb-{feed_id}")
             for provider, feed_id in zip(sample.provider, sample.mdb_source_id)
@@ -173,12 +176,26 @@ class IntegrationTests:
 
     def get_response(self, url_suffix, params=None, timeout=15):
         """Helper function to get response from the API."""
+        return self.send_request("GET", url_suffix, params=params, timeout=timeout)
+
+    def send_request(
+        self, method, url_suffix, params=None, json=None, headers=None, timeout=15
+    ):
+        """Send a request to the API with the test credentials, plus any extra headers."""
         url = self.base_url + "/" + url_suffix
-        headers = {
+        request_headers = {
             "Authorization": "Bearer " + self.access_token,
             "User-Agent": f"MobilityData Feed API Integration Tests (Python {platform.python_version()})",
+            **(headers or {}),
         }
-        return requests.get(url, params=params, headers=headers, timeout=timeout)
+        return requests.request(
+            method,
+            url,
+            params=params,
+            json=json,
+            headers=request_headers,
+            timeout=timeout,
+        )
 
     @staticmethod
     def get_test_methods_for_class(cls):

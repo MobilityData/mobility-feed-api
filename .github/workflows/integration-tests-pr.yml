@@ -1,37 +1,65 @@
-# This workflow is triggered on pull requests to run the integration
-# tests on the feature branch. It connects the API to the QA database through
-# a tunnel before running the integration tests.
-# Note: The test might fail if the QA database schema does not match the
-# feature branch schema.
+# Runs the integration tests on pull requests against an API started on the runner and a local
+# database built from the branch's Liquibase changelogs. The database is seeded only from the
+# committed files in integration-tests/fixtures, the same files the tests read, so every endpoint
+# is checked against known data and two runs of the same commit test the same thing.
+# No secrets are used, so the workflow also runs on pull requests from forks and Dependabot.
+# The deployed environments only get the smoke tests, from integration-tests.yml.
 name: PR - Run Integration Tests
 
 on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - "functions/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: integration-tests-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 env:
   python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
   API_URL: 'http://localhost:8080'
-  liquibase_version: '4.33.0'  
+  liquibase_version: '4.33.0'
 
 jobs:
+  # Path filtering is done in a job, not with `on.pull_request.paths`: a skipped job satisfies a
+  # required status check, while a workflow filtered out by paths leaves the check pending.
+  changes:
+    name: Detect API changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+    - name: Check changed files
+      id: filter
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+          --paginate --jq '.[].filename')
+        pattern='^(api/|liquibase/|integration-tests/|docs/(DatabaseCatalogAPI|UserServiceAPI|GarageAPI)(_IAP)?\.yaml$|config/|docker-compose\.yaml$|scripts/(api-|db-gen|integration-tests|setup-openapi-generator|extract-hash-and-version)|\.github/workflows/integration-tests-pr\.yml$)'
+        if echo "$files" | grep -qE "$pattern"; then
+          echo "api=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "api=false" >> "$GITHUB_OUTPUT"
+          echo "No API-related changes, skipping the integration tests."
+        fi
+
   integration-tests-pr:
     name: Integration Tests
-    runs-on:
-      labels: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ENVIRONMENT: local # never publish to Pub/Sub while seeding
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
-
-    - name: Authenticate to Google Cloud QA
-      uses: google-github-actions/auth@v3
-      with:
-        credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
     - name: Extract commit hash and version from git
       run: ./scripts/extract-hash-and-version.sh
@@ -41,12 +69,8 @@ jobs:
       with:
         python-version: ${{ env.python_version }}
 
-    - name: Download csv version of the database
-      run: wget -O sources.csv https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media
-
-    - name: Get full path of sources.csv
-      id: getpath
-      run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
+    - name: Set the fixture feeds file
+      run: echo "FILE_PATH=$(realpath integration-tests/fixtures/sources.csv)" >> $GITHUB_ENV
 
     - name: Set up JDK ${{ env.java_version }}
       uses: actions/setup-java@v5
@@ -101,50 +125,33 @@ jobs:
         scripts/api-user-service-gen.sh
         scripts/api-garage-gen.sh
 
-    - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v4
-      with:
-        export-env: true # Export loaded secrets as environment variables
-      env:
-        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
-        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
-        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
-
-    - name: Tunnel
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa             
-        ./scripts/tunnel-create.sh -project_id ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DB_INSTANCE_NAME }} -port 5454
-        sleep 10 # Wait for the tunnel to establish
-
-    - name: Update .env.local
-      run: |
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5454/${{ vars.QA_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
-        if grep -q "FEEDS_DATABASE_URL" config/.env.local; then
-          sed -i 's|FEEDS_DATABASE_URL=.*|FEEDS_DATABASE_URL=${FEEDS_DATABASE_URL}|' config/.env.local
-        else
-          echo "FEEDS_DATABASE_URL=${FEEDS_DATABASE_URL}" >> config/.env.local
-        fi
+    - name: Seed database
+      run: scripts/integration-tests-seed-db.sh "$FILE_PATH"
 
     - name: Start API
       run: |
-        scripts/api-start.sh > api_logs.txt 2>&1 &  # Redirect stdout and stderr to api_logs.txt
-        sleep 10 # Wait for the API to start
+        scripts/api-start.sh > api_logs.txt 2>&1 &
+        for i in $(seq 1 60); do
+          if curl -sf -o /dev/null "${API_URL}/v1/metadata"; then
+            echo "API is up after ${i}s"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "API did not start within 60s"
+        cat api_logs.txt
+        exit 1
 
     - name: Health Check
       run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
       env:
-        FILE_PATH: ${{ env.FILE_PATH }}
         DUMMY_TOKEN: DUMMY_TOKEN
 
+    # SmokeEndpointTests is for the deployed environments only (integration-tests.yml).
     - name: Run Integration Tests
-      run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH
+      run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH -x MetadataEndpointTests,SmokeEndpointTests
       env:
-        FILE_PATH: ${{ env.FILE_PATH }}
         DUMMY_TOKEN: DUMMY_TOKEN
-        DATASETS_LIMIT: 25 # Limit the number of datasets to test
 
     - name: Upload Test Logs
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
@@ -153,5 +160,4 @@ jobs:
         name: integration-tests-results
         path: |
           integration-tests/src/integration_tests_log.html
-          integration-tests/src/datasets_validation.csv
           api_logs.txt

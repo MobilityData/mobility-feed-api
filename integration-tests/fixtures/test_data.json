@@ -1,0 +1,277 @@
+{
+  "licenses": [
+    {
+      "id": "CC-BY-4.0",
+      "type": "standard",
+      "is_spdx": true,
+      "name": "Creative Commons Attribution 4.0 International",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "description": "Free to share and adapt, with attribution.",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "ODbL-1.0",
+      "type": "standard",
+      "is_spdx": true,
+      "name": "Open Data Commons Open Database License v1.0",
+      "url": "https://opendatacommons.org/licenses/odbl/1-0/",
+      "description": "Share-alike license for databases.",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "Apache-2.0",
+      "type": "standard",
+      "is_spdx": true,
+      "name": "Apache License 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "description": "Permissive license with an express patent grant.",
+      "content_txt": "",
+      "content_html": "",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "rules": [
+    {"name": "commercial-use", "label": "Commercial use", "description": "May be used for commercial purposes.", "type": "permission"},
+    {"name": "patent-use", "label": "Patent use", "description": "Grants patent rights.", "type": "permission"},
+    {"name": "patent-use", "label": "Patent use", "description": "Does not grant patent rights.", "type": "limitation"},
+    {"name": "include-copyright", "label": "License and copyright notice", "description": "Include the license and copyright notice.", "type": "condition"}
+  ],
+  "license_rules": [
+    {"license_id": "CC-BY-4.0", "rule_id": "commercial-use", "rule_type": "permission"},
+    {"license_id": "CC-BY-4.0", "rule_id": "patent-use", "rule_type": "limitation"},
+    {"license_id": "CC-BY-4.0", "rule_id": "include-copyright", "rule_type": "condition"},
+    {"license_id": "Apache-2.0", "rule_id": "commercial-use", "rule_type": "permission"},
+    {"license_id": "Apache-2.0", "rule_id": "patent-use", "rule_type": "permission"}
+  ],
+  "license_tag_groups": [
+    {"id": "family", "short_name": "Family", "description": "License family taxonomy"}
+  ],
+  "license_tags": [
+    {"id": "family:CC", "group": "family", "tag": "CC", "description": "Creative Commons family"},
+    {"id": "family:ODC", "group": "family", "tag": "ODC", "description": "Open Data Commons family"}
+  ],
+  "license_license_tags": [
+    {"license_id": "CC-BY-4.0", "tag_id": "family:CC"},
+    {"license_id": "ODbL-1.0", "tag_id": "family:ODC"}
+  ],
+  "feed_licenses": [
+    {"feed_stable_id": "mdb-745", "license_id": "CC-BY-4.0"},
+    {"feed_stable_id": "mdb-935", "license_id": "ODbL-1.0"}
+  ],
+  "datasets": [
+    {
+      "id": "mdb-745-202601010000",
+      "feed_stable_id": "mdb-745",
+      "hosted_url": "https://example.com/mdb-745/mdb-745-202601010000.zip",
+      "hash": "a1",
+      "downloaded_at": "2026-01-01T00:00:00Z",
+      "service_date_range_start": "2026-01-01T00:00:00Z",
+      "service_date_range_end": "2026-03-31T00:00:00Z",
+      "agency_timezone": "America/Montreal",
+      "bounding_box": "POLYGON((-74.5 45.0, -74.5 45.5, -73.5 45.5, -73.5 45.0, -74.5 45.0))",
+      "latest": false
+    },
+    {
+      "id": "mdb-745-202603010000",
+      "feed_stable_id": "mdb-745",
+      "hosted_url": "https://example.com/mdb-745/mdb-745-202603010000.zip",
+      "hash": "a2",
+      "downloaded_at": "2026-03-01T00:00:00Z",
+      "service_date_range_start": "2026-03-01T00:00:00Z",
+      "service_date_range_end": "2026-06-30T00:00:00Z",
+      "agency_timezone": "America/Montreal",
+      "bounding_box": "POLYGON((-74.5 45.0, -74.5 45.5, -73.5 45.5, -73.5 45.0, -74.5 45.0))",
+      "latest": true
+    },
+    {
+      "id": "mdb-935-202602010000",
+      "feed_stable_id": "mdb-935",
+      "hosted_url": "https://example.com/mdb-935/mdb-935-202602010000.zip",
+      "hash": "b1",
+      "downloaded_at": "2026-02-01T00:00:00Z",
+      "service_date_range_start": "2026-02-01T00:00:00Z",
+      "service_date_range_end": "2026-12-31T00:00:00Z",
+      "agency_timezone": "Australia/Sydney",
+      "bounding_box": "POLYGON((149.0 -35.5, 149.0 -35.1, 149.3 -35.1, 149.3 -35.5, 149.0 -35.5))",
+      "latest": true
+    },
+    {
+      "id": "mdb-1-202601150000",
+      "feed_stable_id": "mdb-1",
+      "hosted_url": "https://example.com/mdb-1/mdb-1-202601150000.zip",
+      "hash": "c1",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-4-202601150000",
+      "feed_stable_id": "mdb-4",
+      "hosted_url": "https://example.com/mdb-4/mdb-4-202601150000.zip",
+      "hash": "c2",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-6-202601150000",
+      "feed_stable_id": "mdb-6",
+      "hosted_url": "https://example.com/mdb-6/mdb-6-202601150000.zip",
+      "hash": "c3",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-9-202601150000",
+      "feed_stable_id": "mdb-9",
+      "hosted_url": "https://example.com/mdb-9/mdb-9-202601150000.zip",
+      "hash": "c4",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-12-202601150000",
+      "feed_stable_id": "mdb-12",
+      "hosted_url": "https://example.com/mdb-12/mdb-12-202601150000.zip",
+      "hash": "c5",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-13-202601150000",
+      "feed_stable_id": "mdb-13",
+      "hosted_url": "https://example.com/mdb-13/mdb-13-202601150000.zip",
+      "hash": "c6",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-27-202601150000",
+      "feed_stable_id": "mdb-27",
+      "hosted_url": "https://example.com/mdb-27/mdb-27-202601150000.zip",
+      "hash": "c7",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-100-202601150000",
+      "feed_stable_id": "mdb-100",
+      "hosted_url": "https://example.com/mdb-100/mdb-100-202601150000.zip",
+      "hash": "c8",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-485-202601150000",
+      "feed_stable_id": "mdb-485",
+      "hosted_url": "https://example.com/mdb-485/mdb-485-202601150000.zip",
+      "hash": "c9",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-1029-202601150000",
+      "feed_stable_id": "mdb-1029",
+      "hosted_url": "https://example.com/mdb-1029/mdb-1029-202601150000.zip",
+      "hash": "c10",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-1788-202601150000",
+      "feed_stable_id": "mdb-1788",
+      "hosted_url": "https://example.com/mdb-1788/mdb-1788-202601150000.zip",
+      "hash": "c11",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-1840-202601150000",
+      "feed_stable_id": "mdb-1840",
+      "hosted_url": "https://example.com/mdb-1840/mdb-1840-202601150000.zip",
+      "hash": "c12",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-1973-202601150000",
+      "feed_stable_id": "mdb-1973",
+      "hosted_url": "https://example.com/mdb-1973/mdb-1973-202601150000.zip",
+      "hash": "c13",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    },
+    {
+      "id": "mdb-3537-202601150000",
+      "feed_stable_id": "mdb-3537",
+      "hosted_url": "https://example.com/mdb-3537/mdb-3537-202601150000.zip",
+      "hash": "c14",
+      "downloaded_at": "2026-01-15T00:00:00Z",
+      "latest": true
+    }
+  ],
+  "validation_reports": [
+    {
+      "id": "report-mdb-745-202603010000",
+      "dataset_id": "mdb-745-202603010000",
+      "validator_version": "7.0.0",
+      "validated_at": "2026-03-01T01:00:00Z",
+      "html_report": "https://example.com/mdb-745/report.html",
+      "json_report": "https://example.com/mdb-745/report.json",
+      "total_error": 2,
+      "total_warning": 5,
+      "total_info": 1,
+      "unique_error_count": 1,
+      "unique_warning_count": 1,
+      "unique_info_count": 1
+    }
+  ],
+  "notices": [
+    {"dataset_id": "mdb-745-202603010000", "validation_report_id": "report-mdb-745-202603010000", "severity": "ERROR", "notice_code": "foreign_key_violation", "total_notices": 2},
+    {"dataset_id": "mdb-745-202603010000", "validation_report_id": "report-mdb-745-202603010000", "severity": "WARNING", "notice_code": "unused_shape", "total_notices": 5},
+    {"dataset_id": "mdb-745-202603010000", "validation_report_id": "report-mdb-745-202603010000", "severity": "INFO", "notice_code": "unknown_column", "total_notices": 1}
+  ],
+  "features": ["Shapes", "Fares V1"],
+  "validation_report_features": [
+    {"validation_report_id": "report-mdb-745-202603010000", "feature_name": "Shapes"}
+  ],
+  "gtfs_availability_checks": [
+    {"feed_stable_id": "mdb-745", "checked_at": "2026-03-01T10:00:00+00:00", "request_type": "http_head", "success": true, "status_code": 200, "latency_ms": 120},
+    {"feed_stable_id": "mdb-745", "checked_at": "2026-03-02T10:00:00+00:00", "request_type": "http_head", "success": false, "status_code": 503, "latency_ms": 450, "error_type": "http_error"},
+    {"feed_stable_id": "mdb-745", "checked_at": "2026-03-03T10:00:00+00:00", "request_type": "http_get", "success": true, "status_code": 200, "latency_ms": 300},
+    {"feed_stable_id": "mdb-745", "checked_at": "2026-03-04T10:00:00+00:00", "request_type": "http_get", "success": true, "status_code": 200, "latency_ms": 280, "source": "dataset_download_manual"}
+  ],
+  "seals": [
+    {
+      "feed_stable_id": "mdb-745",
+      "has_seal": true,
+      "seal_earned_at": "2026-03-05T00:00:00Z",
+      "criteria": [
+        {"criterion": "official", "observed_status": "pass", "confirmed_status": "pass", "evaluated_at": "2026-03-05T00:00:00Z", "last_verdict_at": "2026-03-05T00:00:00Z"},
+        {"criterion": "available", "observed_status": "fail", "confirmed_status": "pass", "evaluated_at": "2026-03-05T00:00:00Z", "last_verdict_at": "2026-03-05T00:00:00Z"}
+      ]
+    }
+  ],
+  "geopolygons": [
+    {"osm_id": 1428125, "admin_level": 2, "name": "Canada", "iso_3166_1_code": "CA"},
+    {"osm_id": 61549, "admin_level": 4, "name": "Québec", "iso_3166_2_code": "CA-QC", "parent_osm_id": 1428125},
+    {"osm_id": 1571328, "admin_level": 8, "name": "Montréal", "alt_name": "Montreal", "parent_osm_id": 61549},
+    {"osm_id": 80500, "admin_level": 2, "name": "Australia", "iso_3166_1_code": "AU"}
+  ],
+  "users": {
+    "feature_flags": [
+      {"id": "isNotificationsEnabled", "name": "Notifications", "description": "Manage notification subscriptions.", "default_value": false}
+    ],
+    "app_users": [
+      {"id": "integration-tests-user", "email": "integration-tests@example.com", "full_name": "Integration Tests"}
+    ],
+    "user_feature_flags": [
+      {"user_id": "integration-tests-user", "feature_flag_id": "isNotificationsEnabled", "value": true}
+    ]
+  }
+}

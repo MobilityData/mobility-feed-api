@@ -107,11 +107,11 @@ class TestPopulateLicenses(unittest.TestCase):
         mock_db_session.get.return_value = None  # Simulate no existing licenses
 
         all_mock_rules = {
-            "commercial-use": Rule(name="commercial-use"),
-            "distribution": Rule(name="distribution"),
-            "include-copyright": Rule(name="include-copyright"),
-            "liability": Rule(name="liability"),
-            "warranty": Rule(name="warranty"),
+            "commercial-use": Rule(name="commercial-use", type="permission"),
+            "distribution": Rule(name="distribution", type="permission"),
+            "include-copyright": Rule(name="include-copyright", type="condition"),
+            "liability": Rule(name="liability", type="limitation"),
+            "warranty": Rule(name="warranty", type="limitation"),
         }
         all_mock_tags = {
             "spdx:osi-approved": LicenseTag(id="spdx:osi-approved"),
