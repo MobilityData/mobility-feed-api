@@ -1,5 +1,3 @@
-import numpy
-
 from endpoints.integration_tests import IntegrationTests
 
 
@@ -146,19 +144,18 @@ class FeedsEndpointTests(IntegrationTests):
 
     def test_filter_by_provider(self):
         """Test feed retrieval filtered by provider"""
-        providers = self.gtfs_feeds.provider.sample(10).values
-        providers = numpy.append(
-            providers, self.gtfs_rt_feeds.provider.sample(10).values
-        )
+        providers = self._sample_providers(self.gtfs_feeds, 10)
+        providers += self._sample_providers(self.gtfs_rt_feeds, 10)
         task_id = self.progress.add_task(
             "[yellow]Validating feeds by provider...[/yellow]", total=len(providers)
         )
-        for i, provider_id in enumerate(providers):
+        for i, (provider, stable_id) in enumerate(providers):
             self._test_filter_by_provider(
-                provider_id,
+                provider,
                 "v1/feeds",
                 task_id=task_id,
                 index=f"{i + 1}/{len(providers)}",
+                stable_id=stable_id,
             )
 
     # def test_filter_by_municipality(self):

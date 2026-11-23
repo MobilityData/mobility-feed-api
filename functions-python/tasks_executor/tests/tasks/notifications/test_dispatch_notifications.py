@@ -182,6 +182,29 @@ class TestApplyFilterParams(unittest.TestCase):
         self.assertEqual(result, events)
 
     @with_users_db_session(db_url=default_users_db_url)
+    def test_event_subtypes_filter(self, db_session: Session = None):
+        sub = _make_subscription(
+            db_session,
+            "user-alice",
+            filter_params={"event_subtypes": ["seal_run_summary"]},
+        )
+        seal = MagicMock(event_subtype="seal_run_summary", notification_event_feeds=[])
+        dispatch = MagicMock(
+            event_subtype="dispatch_summary", notification_event_feeds=[]
+        )
+        self.assertEqual(apply_filter_params([seal, dispatch], sub), [seal])
+
+    @with_users_db_session(db_url=default_users_db_url)
+    def test_empty_event_subtypes_returns_all(self, db_session: Session = None):
+        sub = _make_subscription(
+            db_session, "user-alice", filter_params={"event_subtypes": []}
+        )
+        events = [
+            MagicMock(event_subtype="dispatch_summary", notification_event_feeds=[])
+        ]
+        self.assertEqual(apply_filter_params(events, sub), events)
+
+    @with_users_db_session(db_url=default_users_db_url)
     def test_feed_ids_filter(self, db_session: Session = None):
         sub = _make_subscription(
             db_session, "user-alice", filter_params={"feed_ids": ["mdb-1"]}

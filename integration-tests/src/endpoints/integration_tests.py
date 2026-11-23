@@ -85,14 +85,34 @@ class IntegrationTests:
         num_samples = min(len(unique_country_codes), n)
         return pandas.Series(unique_country_codes).sample(n=num_samples, random_state=1)
 
-    def _test_filter_by_provider(self, provider, endpoint, task_id, index):
-        """Helper function for filtering the response by provider."""
+    @staticmethod
+    def _sample_providers(df, n):
+        """Sample (provider, stable_id) pairs from the feeds in the data file."""
+        sample = df.sample(n=min(n, len(df)))
+        return [
+            (provider, f"mdb-{feed_id}")
+            for provider, feed_id in zip(sample.provider, sample.mdb_source_id)
+        ]
+
+    def _test_filter_by_provider(
+        self, provider, endpoint, task_id, index, stable_id=None
+    ):
+        """Helper function for filtering the response by provider.
+        Skips feeds from the data file that are wip or missing in the tested environment.
+        """
         response = self.get_response(endpoint, params={"provider": provider})
         assert response.status_code == 200, (
             f"Expected 200 status code for provider filter '{provider}', got "
             f"{response.status_code}."
         )
         feeds = response.json()
+        if not feeds and stable_id and not self._is_feed_visible(stable_id):
+            self._log(
+                f"[yellow]Skipped provider '{provider}': {stable_id} is not visible "
+                f"in this environment[/yellow]"
+            )
+            self._update_progression(task_id, f"Skipped provider {provider}", index)
+            return
         assert (
             len(feeds) > 0
         ), f"Expected at least one feed with provider '{provider}', got 0."
@@ -101,6 +121,14 @@ class IntegrationTests:
                 provider.lower() in feed.get("provider").lower()
             ), f"Expected all feeds to be provided by '{provider}', but found '{feed.get('provider')}'"
         self._update_progression(task_id, f"Validated provider {provider}", index)
+
+    def _is_feed_visible(self, stable_id):
+        """Whether the API returns the feed by id. Wip and missing feeds return 404."""
+        return self.get_response(f"v1/feeds/{stable_id}").status_code != 404
+
+    def _log(self, message):
+        """Log a message through the progress display when there is one."""
+        (self.progress if self.progress is not None else self.console).log(message)
 
     def _test_filter_by_municipality(
         self, municipality, endpoint, validate_location=False, task_id=None, index="1/1"

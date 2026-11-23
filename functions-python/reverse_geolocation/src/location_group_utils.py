@@ -327,6 +327,16 @@ def get_or_create_feed_osm_location_group(
     return feed_osm_location
 
 
+def set_feed_osm_location_groups(
+    feed: Feed, location_aggregates: List[GeopolygonAggregate], db_session: Session
+) -> None:
+    """Replace the feed's location groups with rows of its own."""
+    feed.feedosmlocationgroups = [
+        get_or_create_feed_osm_location_group(feed.id, aggregate, db_session)
+        for aggregate in location_aggregates
+    ]
+
+
 def get_or_create_location(
     location_group: GeopolygonAggregate, logger, db_session: Session
 ) -> Optional[Location]:

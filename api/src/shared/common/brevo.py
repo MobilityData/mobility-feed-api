@@ -61,7 +61,6 @@ class BrevoContactListState:
     in_list: bool = False
     email_blacklisted: bool = False
     list_unsubscribed: bool = False
-    mdb_subscription_id: str | None = None
 
 
 def _get_contacts_api() -> "sib_api_v3_sdk.ContactsApi":
@@ -88,23 +87,27 @@ def get_announcements_list_id() -> int:
 def add_contact_to_list(
     email: str,
     list_id: int,
-    subscription_id: str,
     *,
     first_name: str | None = None,
     organization: str | None = None,
+    resubscribe: bool = False,
 ) -> None:
     """Create/update a Brevo contact, add it to the list, and set its attributes.
 
-    Always sets MDB_SUBSCRIPTION_ID. When provided, also sets the standard
-    FIRSTNAME attribute (from the user's full name) and the ORGANIZATION attribute
-    (from the user's legacy organization name). For simplicity, the Brevo `FIRSTNAME` contact field is populated with
-    the full name.
+    When provided, sets the standard FIRSTNAME attribute (from the user's full name) and the
+    ORGANIZATION attribute (from the user's legacy organization name). For simplicity, the Brevo
+    `FIRSTNAME` contact field is populated with the full name.
     Attributes whose value is None are omitted so we never overwrite an existing Brevo value with a blank.
+
+    ``resubscribe`` also clears the contact's global email blacklist (set when the user clicked
+    "unsubscribe" in a Brevo email). Only pass True for an explicit opt-in by the user: without it
+    Brevo keeps blocking the contact, and the daily reconcile_announcements_from_brevo job would
+    turn the subscription back off. Left unset, the blacklist is not sent and stays as it is.
 
     Uses create_contact with update_enabled so it works whether or not the
     contact already exists.
     """
-    attributes = {"MDB_SUBSCRIPTION_ID": subscription_id}
+    attributes = {}
     if first_name is not None:
         attributes["FIRSTNAME"] = first_name
     if organization is not None:
@@ -113,9 +116,10 @@ def add_contact_to_list(
     api.create_contact(
         sib_api_v3_sdk.CreateContact(
             email=email,
-            attributes=attributes,
+            attributes=attributes or None,
             list_ids=[list_id],
             update_enabled=True,
+            email_blacklisted=False if resubscribe else None,
         ),
         _request_timeout=BREVO_REQUEST_TIMEOUT,
     )
@@ -153,7 +157,7 @@ def get_contact_subscription_status(
 
 
 def get_contact_list_state(email: str, list_id: int | None = None) -> BrevoContactListState:
-    """Return a contact's membership of a list and its MDB_SUBSCRIPTION_ID attribute.
+    """Return a contact's membership of a list and its unsubscribe flags.
 
     Read-only. ``status`` is:
     - UNSUBSCRIBED if email_blacklisted is True (globally unsubscribed from all
@@ -179,8 +183,6 @@ def get_contact_list_state(email: str, list_id: int | None = None) -> BrevoConta
 
     email_blacklisted = bool(contact.email_blacklisted)
     list_unsubscribed = list_id in (contact.list_unsubscribed or [])
-    attributes = contact.attributes or {}
-    raw_subscription_id = attributes.get("MDB_SUBSCRIPTION_ID")
     return BrevoContactListState(
         status=(
             BrevoSubscriptionStatus.UNSUBSCRIBED
@@ -190,5 +192,4 @@ def get_contact_list_state(email: str, list_id: int | None = None) -> BrevoConta
         in_list=list_id in (contact.list_ids or []),
         email_blacklisted=email_blacklisted,
         list_unsubscribed=list_unsubscribed,
-        mdb_subscription_id=str(raw_subscription_id) if raw_subscription_id else None,
     )

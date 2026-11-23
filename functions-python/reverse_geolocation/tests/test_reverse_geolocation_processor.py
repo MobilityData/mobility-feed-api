@@ -22,6 +22,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Feedlocationgrouppoint,
+    Feedosmlocationgroup,
     Osmlocationgroup,
 )
 from shared.helpers.locations import ReverseGeocodingStrategy
@@ -845,3 +846,68 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual("CA", feed.locations[0].country_code)
         self.assertEqual(1, len(feed.gtfs_rt_feeds[0].locations))
         self.assertEqual("CA", feed.gtfs_rt_feeds[0].locations[0].country_code)
+
+    @with_db_session(db_url=default_db_url)
+    def test_update_feed_location_realtime_feeds_get_own_groups(self, db_session):
+        from reverse_geolocation_processor import update_feed_location
+
+        id = str(uuid.uuid4())
+        feed = Gtfsfeed(
+            id=id,
+            data_type="gtfs",
+            stable_id=f"test_feed{id}",
+            status="active",
+            gtfs_rt_feeds=[
+                Gtfsrealtimefeed(id=f"test_rt_feed{i}{id}") for i in range(2)
+            ],
+        )
+        groups = [
+            Osmlocationgroup(
+                group_id=f"group_{i}{id}",
+                group_name=f"group_{i}",
+                osms=[
+                    Geopolygon(
+                        osm_id=faker.unique.random_int(min=10**8, max=2 * 10**9),
+                        admin_level=2,
+                        geometry=WKTElement(
+                            "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
+                        ),
+                        iso_3166_1_code="CA",
+                        name="Canada",
+                    )
+                ],
+            )
+            for i in range(2)
+        ]
+        db_session.add(feed)
+        db_session.add_all(groups)
+        db_session.commit()
+        aggregates = {
+            group.group_id: GeopolygonAggregate(group, stops_count=1)
+            for group in groups
+        }
+        first_group_only = {groups[0].group_id: aggregates[groups[0].group_id]}
+        feed_ids = [feed.id] + [rt_feed.id for rt_feed in feed.gtfs_rt_feeds]
+
+        # Run twice with both groups, then once with a group removed.
+        for cache_location_groups in (aggregates, aggregates, first_group_only):
+            update_feed_location(
+                cache_location_groups=cache_location_groups,
+                feed=feed,
+                logger=logger,
+                db_session=db_session,
+            )
+            db_session.commit()
+            rows = (
+                db_session.query(Feedosmlocationgroup)
+                .filter(Feedosmlocationgroup.feed_id.in_(feed_ids))
+                .all()
+            )
+            self.assertEqual(
+                {
+                    (feed_id, group_id)
+                    for feed_id in feed_ids
+                    for group_id in cache_location_groups
+                },
+                {(row.feed_id, row.group_id) for row in rows},
+            )

@@ -25,6 +25,11 @@ unknown_seal_criterion: Final[str] = (
     "Unknown Seal of Reliability criterion '{}'. The seal_criterion_name DB enum has grown past "
     "this build: SealCriterionName and the API criterion enum need to be updated to match it."
 )
+garage_not_permitted: Final[str] = (
+    "This feature is available to selected users only. "
+    "To request access or learn more, contact us at api@mobilitydata.org"
+)
+endpoint_not_implemented: Final[str] = "This endpoint is not implemented yet."
 
 
 class InternalHTTPException(Exception):

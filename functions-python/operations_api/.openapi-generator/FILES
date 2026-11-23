@@ -76,7 +76,9 @@ src/feeds_gen/models/location_search_response.py
 src/feeds_gen/models/location_search_result.py
 src/feeds_gen/models/matching_license.py
 src/feeds_gen/models/metadata.py
+src/feeds_gen/models/operation_admin_summary_subscription_request.py
 src/feeds_gen/models/operation_brevo_contact_state.py
+src/feeds_gen/models/operation_brevo_sync_request.py
 src/feeds_gen/models/operation_brevo_sync_status.py
 src/feeds_gen/models/operation_create_request_gtfs_feed.py
 src/feeds_gen/models/operation_create_request_gtfs_feed_source_info.py

@@ -23,24 +23,25 @@ def _sent_contact(api_mock):
     return api_mock.create_contact.call_args[0][0]
 
 
-def test_add_contact_sets_only_subscription_id_by_default():
+def test_add_contact_sends_only_the_list_by_default():
     api = MagicMock()
     with patch.object(brevo, "_get_contacts_api", return_value=api):
-        brevo.add_contact_to_list("a@b.com", 42, "sub-1")
+        brevo.add_contact_to_list("a@b.com", 42)
 
     contact = _sent_contact(api)
-    assert contact.attributes == {"MDB_SUBSCRIPTION_ID": "sub-1"}
+    assert contact.attributes is None
     assert contact.list_ids == [42]
     assert contact.update_enabled is True
+    # Not sent, so Brevo keeps the contact's blacklist as it is.
+    assert contact.email_blacklisted is None
 
 
 def test_add_contact_includes_firstname_and_organization_when_provided():
     api = MagicMock()
     with patch.object(brevo, "_get_contacts_api", return_value=api):
-        brevo.add_contact_to_list("a@b.com", 42, "sub-1", first_name="Jane Doe", organization="Acme Transit")
+        brevo.add_contact_to_list("a@b.com", 42, first_name="Jane Doe", organization="Acme Transit")
 
     assert _sent_contact(api).attributes == {
-        "MDB_SUBSCRIPTION_ID": "sub-1",
         "FIRSTNAME": "Jane Doe",
         "ORGANIZATION": "Acme Transit",
     }
@@ -49,9 +50,16 @@ def test_add_contact_includes_firstname_and_organization_when_provided():
 def test_add_contact_omits_none_attributes():
     api = MagicMock()
     with patch.object(brevo, "_get_contacts_api", return_value=api):
-        brevo.add_contact_to_list("a@b.com", 42, "sub-1", first_name=None, organization="Acme Transit")
+        brevo.add_contact_to_list("a@b.com", 42, first_name=None, organization="Acme Transit")
 
     attributes = _sent_contact(api).attributes
     assert "FIRSTNAME" not in attributes  # None is omitted, not blanked
-    assert attributes["ORGANIZATION"] == "Acme Transit"
-    assert attributes["MDB_SUBSCRIPTION_ID"] == "sub-1"
+    assert attributes == {"ORGANIZATION": "Acme Transit"}
+
+
+def test_add_contact_resubscribe_clears_the_blacklist():
+    api = MagicMock()
+    with patch.object(brevo, "_get_contacts_api", return_value=api):
+        brevo.add_contact_to_list("a@b.com", 42, resubscribe=True)
+
+    assert _sent_contact(api).email_blacklisted is False
