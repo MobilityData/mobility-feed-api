@@ -252,20 +252,6 @@ def _announcements_subscriptions(
     )
 
 
-def _active_notification_subscription_count(db_session, user_id: str) -> int:
-    """The user's active subscriptions delivered as transactional emails (all but api.announcements)."""
-    return (
-        db_session.query(NotificationSubscription)
-        .filter(
-            NotificationSubscription.user_id == user_id,
-            NotificationSubscription.notification_type_id
-            != NotificationTypeId.API_ANNOUNCEMENTS,
-            NotificationSubscription.active.is_(True),
-        )
-        .count()
-    )
-
-
 @contextmanager
 def _brevo_errors(user_id: str):
     """Map Brevo client failures to HTTP errors."""
@@ -291,7 +277,6 @@ def _brevo_sync_status(
     subscription_count: int,
     brevo: BrevoContactListState,
     transactional_block: Optional[BrevoTransactionalBlock] = None,
-    active_notification_subscriptions: int = 0,
 ) -> OperationBrevoSyncStatus:
     issues = _brevo_sync_issues(
         subscription_id, subscription_active, subscription_count, brevo
@@ -317,7 +302,6 @@ def _brevo_sync_status(
             if transactional_block
             else None
         ),
-        active_notification_subscriptions=active_notification_subscriptions,
         in_sync=not issues,
         issues=issues,
     )
@@ -554,9 +538,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
-        notification_count = _active_notification_subscription_count(
-            db_session, user_id
-        )
         # Only reads happened above: committing returns the pooled connection before the
         # (possibly slow) Brevo call.
         db_session.commit()
@@ -573,7 +554,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
             len(subscriptions),
             brevo,
             transactional_block,
-            notification_count,
         )
 
     @with_users_db_session
@@ -604,9 +584,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
-        notification_count = _active_notification_subscription_count(
-            db_session, user_id
-        )
         # Release the pooled connection before the Brevo calls (see the check above).
         db_session.commit()
 
@@ -678,7 +655,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
             subscription_count,
             brevo,
             transactional_block,
-            notification_count,
         )
 
     @with_users_db_session
@@ -698,9 +674,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
         subscription = subscriptions[0] if subscriptions else None
         subscription_id = subscription.id if subscription else None
         subscription_active = bool(subscription.active) if subscription else None
-        notification_count = _active_notification_subscription_count(
-            db_session, user_id
-        )
         # Release the pooled connection before the Brevo calls (see the check above).
         db_session.commit()
 
@@ -726,7 +699,6 @@ class NotificationsApiImpl(BaseNotificationsApi):
             len(subscriptions),
             brevo,
             transactional_block,
-            notification_count,
         )
 
     @with_users_db_session

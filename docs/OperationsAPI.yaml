@@ -4818,9 +4818,6 @@ components:
           nullable: true
           description: >
             The user's entry on Brevo's transactional blocklist, or null when transactional emails (feed notifications) are not blocked. Not part of `in_sync`, which covers `api.announcements` only.
-        active_notification_subscriptions:
-          type: integer
-          description: Number of the user's active subscriptions other than `api.announcements`, which are delivered as transactional emails.
         in_sync:
           type: boolean
           description: True when the `api.announcements` subscription row and Brevo agree.

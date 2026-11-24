@@ -559,7 +559,6 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
 
         self.block.assert_called_once_with("user@example.com")
         self.assertEqual(result.transactional_block.reason_code, "unsubscribedViaEmail")
-        self.assertEqual(result.active_notification_subscriptions, 1)
         # The block is reported on its own; in_sync only covers api.announcements.
         self.assertTrue(result.in_sync)
         self.assertEqual(result.issues, [])
