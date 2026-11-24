@@ -60,15 +60,13 @@ location_paths AS (
     JOIN Geopolygon ancestor ON ancestor.osm_id = location_ancestors.ancestor_osm_id
     GROUP BY location_ancestors.osm_id
 ),
--- Continents are not geopolygons: they come from the continent table, with their fixed negative location_id. A
--- country's parent is its continent (NULL when the country has no continent in the classification).
+-- A location's continent comes from the country_continent classification of its country (NULL when the country has
+-- none). Continents are not rows of this view: /v1/locations reads them from the continent table.
 locations AS (
     SELECT
         gp.osm_id,
-        CASE
-            WHEN gp.iso_3166_1_code IS NOT NULL THEN continent.location_id
-            ELSE COALESCE(parent_boundary.retained_osm_id, GeopolygonHierarchy.parent_osm_id)
-        END AS parent_osm_id,
+        -- A sub-area of a discarded duplicate country boundary is a child of the retained one.
+        COALESCE(parent_boundary.retained_osm_id, GeopolygonHierarchy.parent_osm_id) AS parent_osm_id,
         gp.name,
         gp.alt_name,
         CASE
@@ -85,9 +83,7 @@ locations AS (
         location_paths.display_name,
         gp.iso_3166_1_code,
         gp.iso_3166_2_code,
-        continent.code AS continent_code,
-        continent.slug AS continent_slug,
-        continent.name AS continent_name
+        country_continent.continent_code
     FROM Geopolygon gp
     LEFT JOIN GeopolygonHierarchy ON GeopolygonHierarchy.osm_id = gp.osm_id
     LEFT JOIN location_paths ON location_paths.osm_id = gp.osm_id
@@ -104,7 +100,6 @@ locations AS (
         location_paths.subdivision_osm_id
     )
     LEFT JOIN country_continent ON country_continent.country_code = COALESCE(gp.iso_3166_1_code, country.iso_3166_1_code)
-    LEFT JOIN continent ON continent.code = country_continent.continent_code
     WHERE
         -- Countries are kept once per country code.
         (gp.iso_3166_1_code IS NOT NULL AND country_boundaries.boundary_rank = 1)
@@ -122,86 +117,33 @@ locations AS (
             AND subdivision.osm_id IS NOT NULL
         )
 ),
--- Slugs: the name lowercased, without accents, with every run of non-alphanumeric characters replaced by a single
--- hyphen; a name without any ASCII letter or digit falls back to the osm_id. When two or more locations share the
--- same parent (the countries of a continent are siblings; continents, countries without continent and other
--- parentless locations form a single group) and the same slug, each of them gets '--<osm_id>' appended. A name never
--- produces '--' (runs of other characters collapse into one hyphen), so a suffixed slug can neither equal another
--- location's natural slug nor another suffixed slug: siblings never share a slug. A continent's slug is fixed: it
--- never gets the suffix, only its colliding siblings do. Collisions are counted over every row of the view, not only
--- the rows with feeds, so a slug does not change when feeds are added or removed.
-location_base_slugs AS (
-    SELECT
-        locations.osm_id,
-        locations.parent_osm_id,
-        FALSE AS is_continent,
-        COALESCE(
-            NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(locations.name), '[^a-zA-Z0-9]+', '-', 'g'))), ''),
-            locations.osm_id::text
-        ) AS base_slug
-    FROM locations
-
-    UNION ALL
-
-    SELECT
-        continent.location_id AS osm_id,
-        NULL::integer AS parent_osm_id,
-        TRUE AS is_continent,
-        continent.slug::text AS base_slug
-    FROM continent
-),
-location_slugs AS (
-    SELECT
-        location_base_slugs.osm_id,
-        CASE
-            WHEN location_base_slugs.is_continent THEN location_base_slugs.base_slug
-            WHEN count(*) OVER (
-                PARTITION BY location_base_slugs.parent_osm_id, location_base_slugs.base_slug
-            ) > 1 THEN location_base_slugs.base_slug || '--' || location_base_slugs.osm_id
-            ELSE location_base_slugs.base_slug
-        END AS slug
-    FROM location_base_slugs
-),
--- Ancestors that are not rows of the view (e.g. an intermediate admin level, or a duplicate country boundary) still
--- need a slug in path_slugs. They follow the same rules (id fallback, '--<osm_id>' suffix) among the geopolygons with
--- the same parent, whether rows of the view or not. Duplicate country boundaries never appear as ancestors: they
--- resolve to the retained boundary.
-geopolygon_base_slugs AS (
-    SELECT
-        gp.osm_id,
-        GeopolygonHierarchy.parent_osm_id,
-        COALESCE(
-            NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(gp.name), '[^a-zA-Z0-9]+', '-', 'g'))), ''),
-            gp.osm_id::text
-        ) AS base_slug
-    FROM Geopolygon gp
-    LEFT JOIN GeopolygonHierarchy ON GeopolygonHierarchy.osm_id = gp.osm_id
-),
+-- Slugs, the URL segments of the location directory. A country's slug is its ISO 3166-1 code, lowercased (`fr`).
+-- Any other area's slug starts with its OSM id, which identifies it, followed by its name for readability: the name
+-- lowercased, without accents, with every run of non-alphanumeric characters replaced by a hyphen (`71525-paris`).
+-- A name without any ASCII letter or digit leaves the OSM id alone. The id makes every slug unique, so the name part
+-- can change (an OSM rename) without making two places share a slug.
 geopolygon_slugs AS (
     SELECT
-        geopolygon_base_slugs.osm_id,
+        gp.osm_id,
         CASE
-            WHEN count(*) OVER (
-                PARTITION BY geopolygon_base_slugs.parent_osm_id, geopolygon_base_slugs.base_slug
-            ) > 1 THEN geopolygon_base_slugs.base_slug || '--' || geopolygon_base_slugs.osm_id
-            ELSE geopolygon_base_slugs.base_slug
+            WHEN gp.iso_3166_1_code IS NOT NULL THEN lower(gp.iso_3166_1_code)
+            ELSE gp.osm_id::text || COALESCE(
+                '-' || NULLIF(trim(BOTH '-' FROM lower(regexp_replace(unaccent(gp.name), '[^a-zA-Z0-9]+', '-', 'g'))), ''),
+                ''
+            )
         END AS slug
-    FROM geopolygon_base_slugs
+    FROM Geopolygon gp
 ),
--- path_slugs is aligned with path_names: same ancestors, same order.
+-- path_slugs is aligned with path_names: same ancestors, same order, from the country down. Ancestors that are not rows
+-- of this view (e.g. an intermediate admin level) get a slug by the same rules.
 location_path_slugs AS (
     SELECT
         location_ancestors.osm_id,
-        array_agg(COALESCE(location_slugs.slug, geopolygon_slugs.slug) ORDER BY location_ancestors.depth DESC)
-            AS path_slugs
+        array_agg(geopolygon_slugs.slug ORDER BY location_ancestors.depth DESC) AS path_slugs
     FROM location_ancestors
-    JOIN locations ON locations.osm_id = location_ancestors.osm_id
     JOIN geopolygon_slugs ON geopolygon_slugs.osm_id = location_ancestors.ancestor_osm_id
-    LEFT JOIN location_slugs ON location_slugs.osm_id = location_ancestors.ancestor_osm_id
     GROUP BY location_ancestors.osm_id
 ),
--- path_names and path_slugs start with the continent, when the location's country has one. display_name starts at
--- the country.
 location_rows AS (
     SELECT
         locations.osm_id,
@@ -214,17 +156,11 @@ location_rows AS (
         locations.country_code,
         locations.subdivision_name,
         locations.subdivision_code,
-        CASE
-            WHEN locations.continent_name IS NULL THEN locations.path_names
-            ELSE ARRAY[locations.continent_name]::varchar[] || locations.path_names
-        END AS path_names,
+        locations.path_names,
         locations.display_name,
         locations.continent_code,
-        location_slugs.slug,
-        CASE
-            WHEN locations.continent_slug IS NULL THEN location_path_slugs.path_slugs
-            ELSE ARRAY[locations.continent_slug::text] || location_path_slugs.path_slugs
-        END AS path_slugs,
+        geopolygon_slugs.slug,
+        location_path_slugs.path_slugs,
         setweight(to_tsvector('english', coalesce(unaccent(locations.display_name), '')), 'A') ||
         setweight(to_tsvector('english', coalesce(unaccent(locations.name), '')), 'A') ||
         setweight(to_tsvector('english', coalesce(unaccent(locations.alt_name), '')), 'B') ||
@@ -232,31 +168,8 @@ location_rows AS (
         setweight(to_tsvector('english', coalesce(unaccent(locations.iso_3166_2_code), '')), 'B')
             AS document
     FROM locations
-    JOIN location_slugs ON location_slugs.osm_id = locations.osm_id
+    JOIN geopolygon_slugs ON geopolygon_slugs.osm_id = locations.osm_id
     LEFT JOIN location_path_slugs ON location_path_slugs.osm_id = locations.osm_id
-
-    UNION ALL
-
-    -- The continents: admin level 0, so that they sort before the countries; no parent and no ISO code.
-    SELECT
-        continent.location_id AS osm_id,
-        NULL::integer AS parent_osm_id,
-        continent.name::varchar(255) AS name,
-        NULL::varchar(255) AS alt_name,
-        'continent'::text AS location_type,
-        0 AS admin_level,
-        NULL::varchar(255) AS country_name,
-        NULL::varchar(3) AS country_code,
-        NULL::varchar(255) AS subdivision_name,
-        NULL::varchar(8) AS subdivision_code,
-        ARRAY[continent.name]::varchar[] AS path_names,
-        continent.name::text AS display_name,
-        continent.code AS continent_code,
-        location_slugs.slug,
-        ARRAY[location_slugs.slug] AS path_slugs,
-        setweight(to_tsvector('english', coalesce(unaccent(continent.name), '')), 'A') AS document
-    FROM continent
-    JOIN location_slugs ON location_slugs.osm_id = continent.location_id
 )
 SELECT
     location_rows.osm_id,
@@ -274,9 +187,6 @@ SELECT
     location_rows.continent_code,
     location_rows.slug,
     location_rows.path_slugs,
-    -- The path of /v1/locations/lookup and of the location_path parameter of /v1/search. Slugs are lowercase, so a
-    -- lowercased input matches it exactly.
-    array_to_string(location_rows.path_slugs, '/') AS path,
     location_rows.document
 FROM location_rows;
 
@@ -286,4 +196,3 @@ CREATE INDEX geopolygon_location_search_country_code_idx ON GeopolygonLocationSe
 CREATE INDEX geopolygon_location_search_location_type_idx ON GeopolygonLocationSearch(location_type);
 CREATE INDEX geopolygon_location_search_parent_osm_id_idx ON GeopolygonLocationSearch(parent_osm_id);
 CREATE INDEX geopolygon_location_search_continent_code_idx ON GeopolygonLocationSearch(continent_code);
-CREATE INDEX geopolygon_location_search_path_idx ON GeopolygonLocationSearch(path);

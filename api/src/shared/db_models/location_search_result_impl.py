@@ -7,7 +7,8 @@ from shared.database_gen.sqlacodegen_models import t_geopolygonlocationsearch
 
 
 def location_fields(location_row: t_geopolygonlocationsearch, feed_counts: Optional[LocationFeedCounts]) -> dict:
-    """The `LocationSearchResult` fields of a row of the geopolygon location search read model, continents included."""
+    """The `LocationSearchResult` fields of a location row: an OSM area of the geopolygon location search read model,
+    or a continent shaped like one (no OSM id)."""
     return dict(
         location_id=location_row.osm_id,
         parent_location_id=location_row.parent_osm_id,
@@ -16,7 +17,6 @@ def location_fields(location_row: t_geopolygonlocationsearch, feed_counts: Optio
         location_type=location_row.location_type,
         continent_code=location_row.continent_code,
         slug=location_row.slug,
-        path=location_row.path,
         path_slugs=location_row.path_slugs or [],
         feed_counts=feed_counts,
         country_name=location_row.country_name,

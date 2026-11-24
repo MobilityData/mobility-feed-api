@@ -1,31 +1,27 @@
 import re
 from typing import Final, List, Optional
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import Integer, String, Text, and_, cast, func, literal, null, select, union_all
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.orm import Session
 
 from feeds.impl.error_handling import (
-    location_not_found,
-    location_path_not_found,
-    location_path_required,
     locations_include_unsupported,
     locations_sort_unsupported,
     raise_http_error,
 )
-from feeds.impl.location_feeds import (
-    clean_param,
-    location_feed_counts,
-    normalize_path,
-    resolve_continent_code,
-)
+from feeds.impl.location_feeds import LOCATION_TYPE_CONTINENT, clean_param, resolve_continent_code
 from feeds_gen.apis.locations_api_base import BaseLocationsApi
-from feeds_gen.models.location_detail import LocationDetail
 from feeds_gen.models.location_feed_counts import LocationFeedCounts
 from feeds_gen.models.location_search_response import LocationSearchResponse
+from middleware.request_context import is_user_email_restricted
 from shared.database.database import with_db_session
 from shared.database.sql_functions.unaccent import unaccent
-from shared.database_gen.sqlacodegen_models import t_geopolygonlocationsearch as location_search
-from shared.db_models.location_detail_impl import LocationDetailImpl
+from shared.database_gen.sqlacodegen_models import (
+    Continent,
+    t_geopolygonlocationsearch as location_search,
+    t_locationfeedcount as location_feed_count,
+)
 from shared.db_models.location_search_result_impl import LocationSearchResultImpl
 
 SORT_BY_ADMIN_LEVEL: Final = "admin_level"
@@ -33,28 +29,7 @@ SORT_BY_FEED_COUNT: Final = "feed_count"
 SORTS: Final = (SORT_BY_ADMIN_LEVEL, SORT_BY_FEED_COUNT)
 
 INCLUDE_FEED_COUNTS: Final = "feed_counts"
-INCLUDE_CHILDREN: Final = "children"
-# The `include` values of the endpoints returning a list of locations, and of those returning one location.
-LIST_INCLUDES: Final = (INCLUDE_FEED_COUNTS,)
-DETAIL_INCLUDES: Final = (INCLUDE_FEED_COUNTS, INCLUDE_CHILDREN)
-
-_location_columns = [
-    location_search.c.osm_id,
-    location_search.c.parent_osm_id,
-    location_search.c.name,
-    location_search.c.alt_name,
-    location_search.c.location_type,
-    location_search.c.continent_code,
-    location_search.c.slug,
-    location_search.c.path,
-    location_search.c.path_slugs,
-    location_search.c.country_name,
-    location_search.c.country_code,
-    location_search.c.subdivision_name,
-    location_search.c.subdivision_code,
-    location_search.c.path_names,
-    location_search.c.display_name,
-]
+INCLUDES: Final = (INCLUDE_FEED_COUNTS,)
 
 
 def _to_prefix_tsquery(search_query: str) -> str | None:
@@ -92,41 +67,85 @@ def _parse_sort(sort: Optional[str]) -> str:
     return sort
 
 
-def _parse_include(include: Optional[List[str]], supported: tuple) -> set:
+def _parse_include(include: Optional[List[str]]) -> set:
     """The `include` values, given comma-separated or as repeated parameters. Raises a 400 error for an unsupported
     value."""
     values = {value.strip() for item in include or [] for value in item.split(",") if value.strip()}
     for value in sorted(values):
-        if value not in supported:
+        if value not in INCLUDES:
             raise_http_error(
-                400, locations_include_unsupported.format(value, ", ".join(f"'{name}'" for name in supported))
+                400, locations_include_unsupported.format(value, ", ".join(f"'{name}'" for name in INCLUDES))
             )
     return values
 
 
-def _build_locations_conditions(
-    search_query: str | None,
-    country_code: str | None,
-    subdivision_code: str | None,
-    location_type: str | None,
-    continent_code: str | None = None,
-):
-    normalized_query = _normalize_search_query(search_query)
-    normalized_country = _normalize_location_code(country_code)
-    normalized_subdivision = _normalize_location_code(subdivision_code)
-    conditions = []
-    if normalized_query is not None:
-        conditions.append(location_search.c.document.op("@@")(_ts_query(normalized_query)))
-    if normalized_country is not None:
-        conditions.append(location_search.c.country_code == normalized_country)
-    if normalized_subdivision is not None:
-        conditions.append(location_search.c.subdivision_code == normalized_subdivision)
-    if location_type is not None:
-        conditions.append(location_search.c.location_type == location_type)
-    if continent_code is not None:
-        # The continent row has its own code, so it is included.
-        conditions.append(location_search.c.continent_code == continent_code)
-    return conditions, normalized_query
+def _counts_of(counts, published_only: bool, *conditions):
+    """The join condition of the precomputed feed counts, for the caller's visibility."""
+    return and_(counts.c.published_only == published_only, *conditions)
+
+
+def _place_rows(published_only: bool):
+    """The OSM areas of the read model, with their feed counts (NULL without any counted feed)."""
+    counts = location_feed_count.alias("place_feed_count")
+    return select(
+        location_search.c.osm_id,
+        location_search.c.parent_osm_id,
+        location_search.c.name,
+        location_search.c.alt_name,
+        location_search.c.location_type,
+        location_search.c.admin_level,
+        location_search.c.continent_code,
+        location_search.c.slug,
+        location_search.c.path_slugs,
+        location_search.c.country_name,
+        location_search.c.country_code,
+        location_search.c.subdivision_name,
+        location_search.c.subdivision_code,
+        location_search.c.path_names,
+        location_search.c.display_name,
+        location_search.c.document,
+        counts.c.gtfs,
+        counts.c.gtfs_rt,
+        counts.c.gbfs,
+        counts.c.total,
+    ).select_from(
+        location_search.outerjoin(
+            counts, _counts_of(counts, published_only, counts.c.osm_id == location_search.c.osm_id)
+        )
+    )
+
+
+def _continent_rows(published_only: bool):
+    """The continents, from the continent table, shaped like the rows of the read model: no OSM id, no parent, admin
+    level 0 so that they sort before the countries."""
+    counts = location_feed_count.alias("continent_feed_count")
+    return select(
+        cast(null(), Integer).label("osm_id"),
+        cast(null(), Integer).label("parent_osm_id"),
+        cast(Continent.name, String(255)).label("name"),
+        cast(null(), String(255)).label("alt_name"),
+        cast(literal(LOCATION_TYPE_CONTINENT), Text).label("location_type"),
+        literal(0).label("admin_level"),
+        Continent.code.label("continent_code"),
+        cast(Continent.slug, Text).label("slug"),
+        array([cast(Continent.slug, Text)]).label("path_slugs"),
+        cast(null(), String(255)).label("country_name"),
+        cast(null(), String(3)).label("country_code"),
+        cast(null(), String(255)).label("subdivision_name"),
+        cast(null(), String(8)).label("subdivision_code"),
+        array([cast(Continent.name, String)]).label("path_names"),
+        cast(Continent.name, Text).label("display_name"),
+        func.to_tsvector("english", unaccent(Continent.name)).label("document"),
+        counts.c.gtfs,
+        counts.c.gtfs_rt,
+        counts.c.gbfs,
+        counts.c.total,
+    ).select_from(
+        Continent.__table__.outerjoin(
+            counts,
+            _counts_of(counts, published_only, counts.c.continent_code == Continent.code, counts.c.osm_id.is_(None)),
+        )
+    )
 
 
 def _feed_counts(row=None) -> LocationFeedCounts:
@@ -139,139 +158,19 @@ def _feed_counts(row=None) -> LocationFeedCounts:
     )
 
 
-def _empty_response() -> LocationSearchResponse:
-    return LocationSearchResponse(total=0, results=[])
-
-
-def _page_feed_counts(db_session: Session, location_ids: list) -> dict:
-    """The feed counts of the given locations, by location id. Locations without any counted feed are missing."""
-    if not location_ids:
-        return {}
-    counts = location_feed_counts(location_ids)
-    return {row.osm_id: _feed_counts(row) for row in db_session.execute(select(counts)).all()}
-
-
-def _location_order(sort: str, normalized_query: Optional[str], total_feeds=None) -> list:
-    """The ORDER BY of a locations page. `total_feeds` is the feed count column, required for `sort=feed_count`."""
+def _location_order(locations, sort: str, normalized_query: Optional[str]) -> list:
+    """The ORDER BY of a locations page, with deterministic tiebreakers for stable pagination (a continent has no OSM
+    id, its code tells it apart)."""
+    tiebreakers = [locations.c.display_name.asc(), locations.c.osm_id.asc(), locations.c.continent_code.asc()]
     if sort == SORT_BY_FEED_COUNT:
-        return [
-            func.coalesce(total_feeds, 0).desc(),
-            location_search.c.display_name.asc(),
-            location_search.c.osm_id.asc(),  # deterministic tiebreaker for stable pagination
-        ]
+        return [func.coalesce(locations.c.total, 0).desc(), *tiebreakers]
     if normalized_query is not None:
         return [
-            location_search.c.admin_level.asc(),
-            func.ts_rank(location_search.c.document, _ts_query(normalized_query)).desc(),
-            location_search.c.display_name.asc(),
-            location_search.c.osm_id.asc(),
+            locations.c.admin_level.asc(),
+            func.ts_rank(locations.c.document, _ts_query(normalized_query)).desc(),
+            *tiebreakers,
         ]
-    return [location_search.c.admin_level.asc(), location_search.c.display_name.asc(), location_search.c.osm_id.asc()]
-
-
-def _location_response(rows, total: int, with_feed_counts: bool, counts_by_location_id: dict):
-    return LocationSearchResponse(
-        total=total,
-        results=[
-            LocationSearchResultImpl.from_orm(
-                row,
-                feed_counts=((counts_by_location_id.get(row.osm_id) or _feed_counts()) if with_feed_counts else None),
-            )
-            for row in rows
-        ],
-    )
-
-
-def _search_locations(
-    db_session: Session,
-    conditions: list,
-    normalized_query: Optional[str],
-    has_feeds: Optional[bool],
-    with_feed_counts: bool,
-    sort: str,
-    limit: int,
-    offset: int,
-) -> LocationSearchResponse:
-    """A page of the locations matching the conditions, with their total."""
-    if has_feeds or sort == SORT_BY_FEED_COUNT:
-        return _search_locations_by_feed_counts(
-            db_session, conditions, normalized_query, has_feeds, with_feed_counts, sort, limit, offset
-        )
-
-    count_query = select(func.count(location_search.c.osm_id))
-    if conditions:
-        count_query = count_query.where(and_(*conditions))
-    total = db_session.execute(count_query).scalar_one()
-
-    locations_query = select(*_location_columns)
-    if conditions:
-        locations_query = locations_query.where(and_(*conditions))
-    locations_query = locations_query.order_by(*_location_order(sort, normalized_query)).limit(limit).offset(offset)
-    rows = db_session.execute(locations_query).all()
-    # Count only the feeds of the returned page.
-    counts_by_location_id = _page_feed_counts(db_session, [row.osm_id for row in rows]) if with_feed_counts else {}
-    return _location_response(rows, total, with_feed_counts, counts_by_location_id)
-
-
-def _search_locations_by_feed_counts(
-    db_session: Session,
-    conditions: list,
-    normalized_query: Optional[str],
-    has_feeds: Optional[bool],
-    with_feed_counts: bool,
-    sort: str,
-    limit: int,
-    offset: int,
-) -> LocationSearchResponse:
-    """A page of the locations matching the conditions when `has_feeds` or `sort=feed_count` needs their counts.
-
-    The feeds of all the matching locations are counted once, in one query that also filters (`has_feeds` is an inner
-    join on the counts, which only hold locations with a feed), sorts, pages and returns the total (a window count).
-    """
-    candidate_location_ids = select(location_search.c.osm_id)
-    if conditions:
-        candidate_location_ids = candidate_location_ids.where(and_(*conditions))
-    counts = location_feed_counts(candidate_location_ids)
-    join = (
-        location_search.join(counts, counts.c.osm_id == location_search.c.osm_id)
-        if has_feeds
-        else location_search.outerjoin(counts, counts.c.osm_id == location_search.c.osm_id)
-    )
-    locations_query = select(
-        *_location_columns,
-        counts.c.gtfs,
-        counts.c.gtfs_rt,
-        counts.c.gbfs,
-        counts.c.total,
-        func.count().over().label("matching_locations"),
-    ).select_from(join)
-    if conditions:
-        locations_query = locations_query.where(and_(*conditions))
-    locations_query = (
-        locations_query.order_by(*_location_order(sort, normalized_query, counts.c.total)).limit(limit).offset(offset)
-    )
-    rows = db_session.execute(locations_query).all()
-    if rows:
-        total = rows[0].matching_locations
-    elif offset > 0 or limit == 0:
-        # A page past the last one, or an empty page (limit=0), has no row to carry the window count.
-        count_query = select(func.count()).select_from(join)
-        if conditions:
-            count_query = count_query.where(and_(*conditions))
-        total = db_session.execute(count_query).scalar_one()
-    else:
-        total = 0
-    counts_by_location_id = {row.osm_id: _feed_counts(row) for row in rows if row.total is not None}
-    return _location_response(rows, total, with_feed_counts, counts_by_location_id)
-
-
-def _location_exists(db_session: Session, location_id: int) -> bool:
-    return (
-        db_session.execute(
-            select(location_search.c.osm_id).where(location_search.c.osm_id == location_id)
-        ).scalar_one_or_none()
-        is not None
-    )
+    return [locations.c.admin_level.asc(), *tiebreakers]
 
 
 class LocationsApiImpl(BaseLocationsApi):
@@ -283,6 +182,8 @@ class LocationsApiImpl(BaseLocationsApi):
         limit: int,
         offset: int,
         search_query: Optional[str],
+        location_id: Optional[int],
+        parent_location_id: Optional[int],
         continent: Optional[str],
         country_code: Optional[str],
         subdivision_code: Optional[str],
@@ -292,142 +193,71 @@ class LocationsApiImpl(BaseLocationsApi):
         sort: Optional[str],
         db_session: Session,
     ) -> LocationSearchResponse:
-        """Search locations, continents included, from the geopolygon materialized read model."""
+        """Search and filter locations: the OSM areas of the geopolygon read model, and the continents."""
         sort = _parse_sort(sort)
-        includes = _parse_include(include, LIST_INCLUDES)
+        with_feed_counts = INCLUDE_FEED_COUNTS in _parse_include(include)
         continent_code = None
         if (continent := clean_param(continent)) is not None:
             continent_code = resolve_continent_code(db_session, continent)
             if continent_code is None:
-                return _empty_response()
+                return LocationSearchResponse(total=0, results=[])
+        normalized_query = _normalize_search_query(search_query)
+        normalized_country = _normalize_location_code(country_code)
+        normalized_subdivision = _normalize_location_code(subdivision_code)
+        location_type = clean_param(location_type)
 
-        conditions, normalized_query = _build_locations_conditions(
-            search_query, country_code, subdivision_code, location_type, continent_code
+        # Continents have no id, parent, country or subdivision: they can only match the other filters.
+        place_only_filter = any(
+            value is not None for value in (location_id, parent_location_id, normalized_country, normalized_subdivision)
         )
-        return _search_locations(
-            db_session,
-            conditions,
-            normalized_query,
-            has_feeds,
-            INCLUDE_FEED_COUNTS in includes,
-            sort,
-            limit,
-            offset,
-        )
+        published_only = is_user_email_restricted()
+        branches = []
+        if location_type != LOCATION_TYPE_CONTINENT:
+            branches.append(_place_rows(published_only))
+        if location_type in (None, LOCATION_TYPE_CONTINENT) and not place_only_filter:
+            branches.append(_continent_rows(published_only))
+        if not branches:
+            return LocationSearchResponse(total=0, results=[])
+        locations = (union_all(*branches) if len(branches) > 1 else branches[0]).subquery("locations")
 
-    @with_db_session
-    def get_location(
-        self,
-        location_id: int,
-        include: Optional[List[str]],
-        has_feeds: Optional[bool],
-        sort: Optional[str],
-        limit: int,
-        offset: int,
-        db_session: Session,
-    ) -> LocationDetail:
-        """Get one location by its id, with its direct children when requested."""
-        return self._get_location_detail(
-            db_session,
-            location_search.c.osm_id == location_id,
-            location_not_found.format(location_id),
-            include,
-            has_feeds,
-            sort,
-            limit,
-            offset,
-        )
+        conditions = []
+        if normalized_query is not None:
+            conditions.append(locations.c.document.op("@@")(_ts_query(normalized_query)))
+        if location_id is not None:
+            conditions.append(locations.c.osm_id == location_id)
+        if parent_location_id is not None:
+            conditions.append(locations.c.parent_osm_id == parent_location_id)
+        if continent_code is not None:
+            # A continent's own code matches, so the continent is included.
+            conditions.append(locations.c.continent_code == continent_code)
+        if normalized_country is not None:
+            conditions.append(locations.c.country_code == normalized_country)
+        if normalized_subdivision is not None:
+            conditions.append(locations.c.subdivision_code == normalized_subdivision)
+        if location_type is not None:
+            conditions.append(locations.c.location_type == location_type)
+        if has_feeds:
+            # A location without any counted feed has no counts row.
+            conditions.append(locations.c.total > 0)
 
-    @with_db_session
-    def get_location_by_path(
-        self,
-        path: Optional[str],
-        include: Optional[List[str]],
-        has_feeds: Optional[bool],
-        sort: Optional[str],
-        limit: int,
-        offset: int,
-        db_session: Session,
-    ) -> LocationDetail:
-        """Get one location by its path, with its direct children when requested."""
-        normalized_path = normalize_path(path)
-        if normalized_path is None:
-            raise_http_error(400, location_path_required)
-        return self._get_location_detail(
-            db_session,
-            location_search.c.path == normalized_path,
-            location_path_not_found.format(normalized_path),
-            include,
-            has_feeds,
-            sort,
-            limit,
-            offset,
+        rows = db_session.execute(
+            select(locations, func.count().over().label("matching_locations"))
+            .where(*conditions)
+            .order_by(*_location_order(locations, sort, normalized_query))
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        if rows:
+            total = rows[0].matching_locations
+        elif offset > 0 or limit == 0:
+            # A page past the last one, or an empty page (limit=0), has no row to carry the window count.
+            total = db_session.execute(select(func.count()).select_from(locations).where(*conditions)).scalar_one()
+        else:
+            total = 0
+        return LocationSearchResponse(
+            total=total,
+            results=[
+                LocationSearchResultImpl.from_orm(row, feed_counts=_feed_counts(row) if with_feed_counts else None)
+                for row in rows
+            ],
         )
-
-    @with_db_session
-    def get_location_children(
-        self,
-        location_id: int,
-        limit: int,
-        offset: int,
-        has_feeds: Optional[bool],
-        include: Optional[List[str]],
-        sort: Optional[str],
-        db_session: Session,
-    ) -> LocationSearchResponse:
-        """List the direct children of a location."""
-        sort = _parse_sort(sort)
-        includes = _parse_include(include, LIST_INCLUDES)
-        if not _location_exists(db_session, location_id):
-            raise_http_error(404, location_not_found.format(location_id))
-        return _search_locations(
-            db_session,
-            [location_search.c.parent_osm_id == location_id],
-            None,
-            has_feeds,
-            INCLUDE_FEED_COUNTS in includes,
-            sort,
-            limit,
-            offset,
-        )
-
-    @staticmethod
-    def _get_location_detail(
-        db_session: Session,
-        condition,
-        not_found_message: str,
-        include: Optional[List[str]],
-        has_feeds: Optional[bool],
-        sort: Optional[str],
-        limit: int,
-        offset: int,
-    ) -> LocationDetail:
-        """The location matching the condition. `has_feeds`, `sort`, `limit` and `offset` apply to its children."""
-        sort = _parse_sort(sort)
-        includes = _parse_include(include, DETAIL_INCLUDES)
-        with_feed_counts = INCLUDE_FEED_COUNTS in includes
-        # Ordered like `resolve_location_id_by_path`, should two locations share a path.
-        row = db_session.execute(
-            select(*_location_columns)
-            .where(condition)
-            .order_by(location_search.c.admin_level.asc(), location_search.c.osm_id.asc())
-            .limit(1)
-        ).one_or_none()
-        if row is None:
-            raise_http_error(404, not_found_message)
-        feed_counts = None
-        if with_feed_counts:
-            feed_counts = _page_feed_counts(db_session, [row.osm_id]).get(row.osm_id) or _feed_counts()
-        children = None
-        if INCLUDE_CHILDREN in includes:
-            children = _search_locations(
-                db_session,
-                [location_search.c.parent_osm_id == row.osm_id],
-                None,
-                has_feeds,
-                with_feed_counts,
-                sort,
-                limit,
-                offset,
-            )
-        return LocationDetailImpl.from_orm(row, feed_counts=feed_counts, children=children)

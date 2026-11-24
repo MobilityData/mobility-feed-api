@@ -47,6 +47,7 @@ excluded_tables: Final[list[str]] = [
     # Excluding the views
     "feedsearch",
     "geopolygonlocationsearch",
+    "locationfeedcount",
 ]
 
 

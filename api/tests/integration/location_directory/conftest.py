@@ -27,13 +27,13 @@ from tests.test_utils.database import populate_database
 # The continent and country_continent rows are seeded by Liquibase, but other test packages truncate every table,
 # so the rows used here are inserted again when missing. CP (Clipperton) has no continent in the classification.
 CONTINENTS = [
-    ("AF", "africa", "Africa", -1),
-    ("AN", "antarctica", "Antarctica", -2),
-    ("AS", "asia", "Asia", -3),
-    ("EU", "europe", "Europe", -4),
-    ("NA", "north-america", "North America", -5),
-    ("OC", "oceania", "Oceania", -6),
-    ("SA", "south-america", "South America", -7),
+    ("AF", "africa", "Africa"),
+    ("AN", "antarctica", "Antarctica"),
+    ("AS", "asia", "Asia"),
+    ("EU", "europe", "Europe"),
+    ("NA", "north-america", "North America"),
+    ("OC", "oceania", "Oceania"),
+    ("SA", "south-america", "South America"),
 ]
 COUNTRY_CONTINENTS = {"CA": "NA", "US": "NA", "MQ": "NA", "FR": "EU"}
 
@@ -46,7 +46,7 @@ GEOPOLYGONS = {
     5: (8, "Laval", None, None, 2),
     6: (4, "Ontario", None, "CA-ON", 1),
     7: (8, "Toronto", None, None, 6),
-    # Same name under the same parent: both get the -<osm_id> suffix.
+    # Same name under the same parent: the OSM id in their slugs tells them apart.
     8: (8, "Springfield", None, None, 6),
     9: (8, "Springfield", None, None, 6),
     10: (2, "United States", "US", None, None),
@@ -60,8 +60,8 @@ GEOPOLYGONS = {
     31: (4, "Martinique", "MQ", None, None),
     # A subdivision under the discarded boundary: it belongs to the kept one (30).
     32: (6, "Fort-de-France", None, "MQ-FDF", 31),
-    # Slug collisions under one parent: two Springfields get '--<id>'; "Springfield 41" keeps its natural slug
-    # "springfield-41"; a name without ASCII letters falls back to its id (44) and collides with a place named "44".
+    # Slug rules: the OSM id, then the name; a name without ASCII letters or digits leaves the id alone (44), which
+    # never collides with a place named "44" (45-44).
     40: (4, "Slugland", None, "US-SL", 10),
     41: (8, "Springfield", None, None, 40),
     42: (8, "Springfield", None, None, 40),
@@ -81,6 +81,8 @@ GROUPS = {
     "g-nyc": [10, 11, 12],
     "g-paris": [20, 21, 22],
     "g-martinique": [30],
+    # A group of the discarded Martinique boundary (31): its feeds count in the kept one (30).
+    "g-fort-de-france": [31, 32],
     "g-clipperton": [50],
 }
 
@@ -108,13 +110,15 @@ FEEDS = [
     ("ld-10", Gtfsfeed, "gtfs", "active", "published", "J Provider", "Not geolocated", {}),
     # No stop count: its share of stops in a location is unknown, so it ranks last.
     ("ld-11", Gtfsfeed, "gtfs", "active", "published", "A Provider", "Montreal metro", {"g-montreal": 0}),
-    # Realtime feed never geolocated: it takes the location of the schedule feed it references (ld-7, Paris).
+    # Realtime feed never geolocated: it is in no location, even though the schedule feed it references (ld-7) is.
     ("ld-12", Gtfsrealtimefeed, "gtfs_rt", "active", "published", "G Provider", "Paris realtime", {}),
-    # Realtime feed with its own location (Paris): it does not take the location of ld-1 (Montreal).
+    # Realtime feed with its own location (Paris), like every realtime feed once reverse geolocation gives them groups:
+    # it is not in the location of the schedule feed it references (ld-1, Montreal).
     ("ld-13", Gtfsrealtimefeed, "gtfs_rt", "active", "published", "K Provider", "Paris vehicles", {"g-paris": 5}),
+    ("ld-14", Gtfsfeed, "gtfs", "active", "published", "L Provider", "Fort-de-France", {"g-fort-de-france": 3}),
 ]
 
-# Feed references: (realtime feed, schedule feed).
+# Feed references: (realtime feed, schedule feed). They play no part in locations.
 FEED_REFERENCES = [("ld-12", "ld-7"), ("ld-13", "ld-1")]
 
 
@@ -123,12 +127,7 @@ def _populate_location_directory_data(db: Database):
     with db.start_db_session() as session:
         session.execute(
             pg_insert(Continent)
-            .values(
-                [
-                    {"code": code, "slug": slug, "name": name, "location_id": location_id}
-                    for code, slug, name, location_id in CONTINENTS
-                ]
-            )
+            .values([{"code": code, "slug": slug, "name": name} for code, slug, name in CONTINENTS])
             .on_conflict_do_nothing()
         )
         session.execute(
@@ -191,6 +190,7 @@ def _populate_location_directory_data(db: Database):
         session.flush()
         session.execute(text("REFRESH MATERIALIZED VIEW feedsearch"))
         session.execute(text("REFRESH MATERIALIZED VIEW geopolygonlocationsearch"))
+        session.execute(text("REFRESH MATERIALIZED VIEW locationfeedcount"))
         session.commit()
 
 

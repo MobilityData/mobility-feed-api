@@ -25,4 +25,15 @@
       endDelimiter=";"/>
   </changeSet>
 
+  <!-- Feed counts of the location directory. Depends on the continent tables, so it is rebuilt after them. -->
+  <changeSet id="rebuild-location-feed-count-mv" author="you" runOnChange="true">
+    <sql>DROP MATERIALIZED VIEW IF EXISTS locationfeedcount;</sql>
+
+    <sqlFile
+      path="location_feed_count.sql"
+      relativeToChangelogFile="true"
+      splitStatements="false"
+      endDelimiter=";"/>
+  </changeSet>
+
 </databaseChangeLog>
