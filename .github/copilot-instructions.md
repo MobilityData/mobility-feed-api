@@ -89,6 +89,10 @@ scripts/lint-tests.sh
 - Each function has its own deployment configuration
 - Tasks include: validation reports, batch datasets, GBFS validation, BigQuery ingestion
 
+### Building Blocks
+- Reusable mechanisms for background work, Cloud Tasks, worker sizing, configuration and memory are catalogued in `docs/building-blocks/README.md`
+- Reuse a block before writing new infrastructure; update the catalogue when you change or adopt one
+
 ### Authentication
 - **OAuth2 Bearer tokens** for API access
 - Refresh tokens from mobilitydatabase.org account

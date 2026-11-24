@@ -1,5 +1,7 @@
 # Notification System — Architecture & Operations Guide
 
+**Patterns used:** [Tasks executor](building-blocks/README.md#tasks-executor), [Fan-out with a monitor](building-blocks/fanout.md), [Task execution tracking](building-blocks/task-execution-tracking.md), [Cloud Tasks enqueue](building-blocks/README.md#cloud-tasks-enqueue) ([all building blocks](building-blocks/README.md))
+
 ## Table of Contents
 
 1. [Overview](#overview)

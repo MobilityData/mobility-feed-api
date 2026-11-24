@@ -1,5 +1,7 @@
 # Bath Process Dataset
 
+**Patterns used:** [CDN cache for latest.zip](../../docs/building-blocks/README.md#cdn-cache-for-latestzip), [Website revalidation](../../docs/building-blocks/README.md#website-revalidation), [Work directory and memory](../../docs/building-blocks/workdir-and-memory.md), [Cloud Tasks enqueue](../../docs/building-blocks/README.md#cloud-tasks-enqueue) ([all building blocks](../../docs/building-blocks/README.md))
+
 Subscribed to the topic set in the `batch-datasets` function, `batch-process-dataset` is triggered for each message published. It handles the processing of each feed individually, ensuring data consistency and integrity. The function performs the following operations:
 
 1. **Download Data**: It retrieves the feed data from the provided URL.

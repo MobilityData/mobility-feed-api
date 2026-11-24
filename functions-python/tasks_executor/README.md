@@ -1,5 +1,7 @@
 # Tasks Executor
 
+**Patterns used:** [Tasks executor](../../docs/building-blocks/README.md#tasks-executor), [Task execution tracking](../../docs/building-blocks/task-execution-tracking.md), [Fan-out with a monitor](../../docs/building-blocks/fanout.md), [Website revalidation](../../docs/building-blocks/README.md#website-revalidation) ([all building blocks](../../docs/building-blocks/README.md))
+
 This directory contains Google Cloud Functions used as a single point of access to multiple _tasks_.
 
 ## Usage

@@ -122,6 +122,9 @@ Functions have no direct interdependencies on each other; shared logic lives in 
 
 **Gotcha**: `functions-python/database_gen` at the top level is a stray, gitignored, stale copy — it is *not* the symlink target and can be out of sync with the real source of truth, `api/src/shared/database_gen/sqlacodegen_models.py`. Don't treat it as canonical.
 
+### Building blocks
+Reusable mechanisms for background work, Cloud Tasks, worker sizing, configuration and memory are catalogued in `docs/building-blocks/README.md`. Read it before building background work or new infrastructure, reuse a block instead of writing a new one, and update the catalogue (and the feature doc's "Patterns used" line) when you change or adopt one.
+
 ### Database migrations
 Liquibase changelogs live in `liquibase/` (`changelog.xml` + `changes/` for the main schema, `changelog_user.xml` + `changes_user/` for the user-service schema). `docker-compose.yaml` runs `liquibase`/`liquibase-test`/`liquibase-user`/`liquibase-user-test` services to apply them to local Postgres containers before `db-gen.sh`/`db-gen-user.sh` regenerate the SQLAlchemy models.
 
