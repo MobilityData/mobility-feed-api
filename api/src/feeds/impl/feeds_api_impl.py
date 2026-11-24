@@ -43,6 +43,7 @@ from shared.common.error_handling import (
     availability_from_after_to,
     continuous_coverage_downloaded_after_before,
     invalid_date_message,
+    feeds_created_after_before,
     feed_not_found,
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
@@ -82,7 +83,7 @@ def validate_created_at_range(created_after: str, created_before: str) -> None:
     before = parse_iso_datetime(created_before)
 
     if after is not None and before is not None and after > before:
-        raise_http_validation_error("created_after must be earlier than or equal to created_before")
+        raise_http_validation_error(feeds_created_after_before)
 
 
 class FeedsApiImpl(BaseFeedsApi):
