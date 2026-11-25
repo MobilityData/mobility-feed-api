@@ -168,6 +168,9 @@
     <include file="changes/feat_feed_config_ops.sql" relativeToChangelogFile="true"/>
     <!-- Copy schedule feeds' location groups to their GTFS Realtime feeds. -->
     <include file="changes/fix_rt_feed_location_groups.sql" relativeToChangelogFile="true"/>
+    <!-- Rename rules -> rule and widen its primary key to (name, type) so a rule name can exist
+    under more than one category (e.g. patent-use as both a permission and a limitation). -->
+    <include file="changes/fix_rules_composite_pk.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

@@ -47,6 +47,10 @@ if [[ ! -d "$FX_PATH/venv" ]]; then
   popd >/dev/null
 fi
 
+# A FEEDS_DATABASE_URL set by the caller (e.g. integration-tests-local.sh pointing at the test DB)
+# takes precedence over the env files loaded below.
+CALLER_FEEDS_DATABASE_URL="${FEEDS_DATABASE_URL:-}"
+
 # Load local env vars if present (e.g., FEEDS_DATABASE_URL)
 if [[ -f "$FX_PATH/.env.local" ]]; then
   echo "INFO: Loading env vars from $FX_PATH/.env.local"
@@ -63,6 +67,10 @@ if [[ -f "$REPO_ROOT/config/.env.local" ]]; then
   # shellcheck disable=SC1090
   source "$REPO_ROOT/config/.env.local"
   set +o allexport
+fi
+
+if [[ -n "${CALLER_FEEDS_DATABASE_URL}" ]]; then
+  export FEEDS_DATABASE_URL="${CALLER_FEEDS_DATABASE_URL}"
 fi
 
 # If FEEDS_DATABASE_URL is still not set, attempt to construct it from POSTGRES_* vars

@@ -22,6 +22,9 @@
     notification_date : str  – formatted date (e.g. "June 5, 2026"); its trailing
                                 year is used for the footer copyright line.
                                 Falls back to the current year when absent.
+    feedback_url      : str  – shown as a "Share feedback" prompt above the footer,
+                                pointing subscribers at the notifications
+                                feedback form. Admin emails don't pass it.
 -#}
 <html
   lang="en"
@@ -215,6 +218,52 @@
             </tr>
 
             {% block content %}{% endblock %}
+
+            <!-- ============ FEEDBACK PROMPT ============ -->
+            {% block feedback_prompt %}
+            {% if feedback_url is defined and feedback_url %}
+            <tr>
+              <td class="px" style="padding: 24px 32px 0 32px;">
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  bgcolor="#eef0f7"
+                  style="background-color: #eef0f7; border-radius: 8px;"
+                >
+                  <tr>
+                    <td
+                      style="
+                        padding: 16px 20px;
+                        font-family: Mulish, 'Segoe UI', Arial, Helvetica, sans-serif;
+                        font-size: 14px;
+                        line-height: 1.5;
+                        color: #474747;
+                      "
+                    >
+                      <strong>How are notifications working for you?</strong><br />
+                      Notifications are in early release. Share your experience to help us prepare for the full release.
+                      <br />
+                      <a
+                        href="{{ feedback_url }}"
+                        target="_blank"
+                        style="
+                          display: inline-block;
+                          margin-top: 8px;
+                          font-weight: 700;
+                          color: #3959fa;
+                          text-decoration: none;
+                        "
+                      >Share feedback &rarr;</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            {% endif %}
+            {% endblock %}
 
             <!-- ============ DIVIDER ============ -->
             <tr>

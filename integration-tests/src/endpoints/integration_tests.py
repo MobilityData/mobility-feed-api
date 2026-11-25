@@ -1,4 +1,6 @@
+import os
 import platform
+import sys
 import time
 from enum import Enum
 
@@ -87,8 +89,11 @@ class IntegrationTests:
 
     @staticmethod
     def _sample_providers(df, n):
-        """Sample (provider, stable_id) pairs from the feeds in the data file."""
-        sample = df.sample(n=min(n, len(df)))
+        """Sample (provider, stable_id) pairs from the feeds in the data file.
+
+        The sample is seeded so a failure can be reproduced by re-running the tests.
+        """
+        sample = df.sample(n=min(n, len(df)), random_state=1)
         return [
             (provider, f"mdb-{feed_id}")
             for provider, feed_id in zip(sample.provider, sample.mdb_source_id)
@@ -173,12 +178,26 @@ class IntegrationTests:
 
     def get_response(self, url_suffix, params=None, timeout=15):
         """Helper function to get response from the API."""
+        return self.send_request("GET", url_suffix, params=params, timeout=timeout)
+
+    def send_request(
+        self, method, url_suffix, params=None, json=None, headers=None, timeout=15
+    ):
+        """Send a request to the API with the test credentials, plus any extra headers."""
         url = self.base_url + "/" + url_suffix
-        headers = {
+        request_headers = {
             "Authorization": "Bearer " + self.access_token,
             "User-Agent": f"MobilityData Feed API Integration Tests (Python {platform.python_version()})",
+            **(headers or {}),
         }
-        return requests.get(url, params=params, headers=headers, timeout=timeout)
+        return requests.request(
+            method,
+            url,
+            params=params,
+            json=json,
+            headers=request_headers,
+            timeout=timeout,
+        )
 
     @staticmethod
     def get_test_methods_for_class(cls):
@@ -199,6 +218,7 @@ class IntegrationTests:
         passed_tests = []
         failed_tests = []
         skipped_tests = []
+        failure_messages = {}
 
         # Descriptive panel message
         description = """
@@ -284,6 +304,7 @@ class IntegrationTests:
                             max_frames=0,
                         )
                         failed_tests.append(method_display)
+                        failure_messages[method_display] = self._error_text()
                     except Exception:
                         progress.log(
                             f"{method_display} [yellow]SKIPPED :warning: [/yellow] in [yellow]"
@@ -295,6 +316,7 @@ class IntegrationTests:
                             max_frames=0,
                         )
                         skipped_tests.append(method_display)
+                        failure_messages[method_display] = self._error_text()
                     finally:
                         progress.update(test_task, advance=1)
 
@@ -325,9 +347,58 @@ class IntegrationTests:
 
         console.log(table)
         console.save_html("integration_tests_log.html")
+        self._write_step_summary(
+            passed_tests, failed_tests, skipped_tests, failure_messages
+        )
         console.log('Test report saved to "integration_tests_log.html"')
         if len(failed_tests) or len(skipped_tests):
             raise AssertionError("Some tests failed or were skipped.")
+
+    @staticmethod
+    def _error_text():
+        """The message of the exception being handled, for the step summary."""
+        error = sys.exc_info()[1]
+        text = str(error).strip() or type(error).__name__
+        return text.splitlines()[0][:300]
+
+    @staticmethod
+    def _write_step_summary(passed, failed, skipped, failure_messages):
+        """Write the results as markdown to integration_tests_report.md, and append them to the
+        GitHub Actions job summary (rendered on the run page) when GITHUB_STEP_SUMMARY is set.
+        """
+        status = "FAILED" if failed or skipped else "PASSED"
+        lines = [
+            f"## Integration tests: {status}",
+            "",
+            "| Status | Tests |",
+            "| --- | --- |",
+            f"| Passed | {len(passed)} |",
+            f"| Failed | {len(failed)} |",
+            f"| Skipped | {len(skipped)} |",
+            "",
+        ]
+        for title, names in (("Failed", failed), ("Skipped", skipped)):
+            if names:
+                lines += [f"### {title}", "", "| Test | Error |", "| --- | --- |"]
+                for name in names:
+                    message = failure_messages.get(name, "").replace("|", "\\|")
+                    lines.append(f"| `{name}` | {message} |")
+                lines.append("")
+        lines += [
+            f"<details><summary>Passed ({len(passed)})</summary>",
+            "",
+            *[f"- `{name}`" for name in passed],
+            "",
+            "</details>",
+            "",
+        ]
+        report = "\n".join(lines)
+        with open("integration_tests_report.md", "w", encoding="utf-8") as f:
+            f.write(report)
+        summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as f:
+                f.write(report)
 
     @staticmethod
     def clear_tasks(test_task, progress):

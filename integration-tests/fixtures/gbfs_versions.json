@@ -1,0 +1,34 @@
+{
+  "gbfs_versions": [
+    {
+      "feed_id": "gbfs-Bixi_MTL",
+      "id": "gbfs-Bixi_MTL-1.0",
+      "version": "1.0",
+      "url": "https://gbfs.velobixi.com/gbfs/gbfs.json"
+    },
+    {
+      "feed_id": "gbfs-Bixi_MTL",
+      "id": "gbfs-Bixi_MTL-2.2",
+      "version": "2.2",
+      "url": "https://gbfs.velobixi.com/gbfs/2-2/gbfs.json"
+    },
+    {
+      "feed_id": "gbfs-bird-edmonton",
+      "id": "gbfs-bird-edmonton-2.3",
+      "version": "2.3",
+      "url": "https://mds.bird.co/gbfs/v2/public/edmonton/gbfs.json"
+    },
+    {
+      "feed_id": "gbfs-bird-laval",
+      "id": "gbfs-bird-laval-2.3",
+      "version": "2.3",
+      "url": "https://mds.bird.co/gbfs/v2/public/laval/gbfs.json"
+    },
+    {
+      "feed_id": "gbfs-lime_ottawa",
+      "id": "gbfs-lime_ottawa-2.2",
+      "version": "2.2",
+      "url": "https://data.lime.bike/api/partners/v2/gbfs/ottawa/gbfs.json"
+    }
+  ]
+}

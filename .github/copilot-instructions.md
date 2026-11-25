@@ -104,6 +104,6 @@ scripts/lint-tests.sh
 
 ## File Exclusions for AI Context
 - Skip `src/feeds_gen/*` and `src/shared/database_gen/*` (generated code)
-- Skip `data/` and `data-test/` (database volumes)
+- Skip `data/` (local database files)
 - Skip `htmlcov/` (coverage reports)
 - Black formatter excludes these paths automatically

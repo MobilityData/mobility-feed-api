@@ -122,6 +122,11 @@ _jinja_env.globals["current_year"] = lambda: datetime.now(timezone.utc).year
 
 _DEFAULT_WEBSITE_URL = "https://mobilitydatabase.org"
 
+# Google Form collecting subscriber feedback on notifications while the feature
+# is in early release. Rendered as the "Share feedback" prompt in subscriber
+# emails (see _base_email.html.j2); admin summaries don't carry it.
+NOTIFICATIONS_FEEDBACK_URL = "https://forms.gle/ytWFTdQHRiYNs1Yf7"
+
 
 def _website_url() -> str:
     return os.getenv("MOBILITY_DATABASE_WEBSITE_URL", _DEFAULT_WEBSITE_URL).rstrip("/")
@@ -364,6 +369,7 @@ def build_params_feed_url_updated(events: List, subscription):
         "event_count": len(events),
         "subscription_id": subscription.id,
         "unsubscribe_url": _unsubscribe_url(subscription.id),
+        "feedback_url": NOTIFICATIONS_FEEDBACK_URL,
         "events": [_event_row_dict(e) for e in events],
     }
 
@@ -414,7 +420,11 @@ def build_single_html(event, subscription=None) -> str:
     if event.notification_type_id == NotificationTypeId.ADMIN_EVENT_SUMMARY:
         return build_admin_summary_html(event)
     row = _event_row_dict(event)
-    context = {"row": row, **_subscription_footer_context(subscription)}
+    context = {
+        "row": row,
+        "feedback_url": NOTIFICATIONS_FEEDBACK_URL,
+        **_subscription_footer_context(subscription),
+    }
     return _jinja_env.get_template("feed_url_updated_single.html.j2").render(**context)
 
 
@@ -449,7 +459,11 @@ def build_digest_html(events: List, subscription=None) -> str:
         return build_admin_digest_html(events)
 
     rows = [_event_row_dict(e) for e in events]
-    context = {"rows": rows, **_subscription_footer_context(subscription)}
+    context = {
+        "rows": rows,
+        "feedback_url": NOTIFICATIONS_FEEDBACK_URL,
+        **_subscription_footer_context(subscription),
+    }
     return _jinja_env.get_template("feed_url_updated_digest.html.j2").render(**context)
 
 
