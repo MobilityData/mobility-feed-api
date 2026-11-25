@@ -53,10 +53,32 @@ export REFRESH_TOKEN="your_refresh_token"
 
 This command runs the integration tests against the specified API URL and data file, filtering the tests to only include those from `ClassName1` and `ClassName2`.
 
+### Where the tests run
+- **Pull requests** (`integration-tests-pr.yml`): every endpoint of the Feeds API and the User Service, against an API started on the runner and a database seeded only from `integration-tests/fixtures`:
+  - `sources.csv`: 24 GTFS and GTFS-RT feeds, the file the tests read with `-f`.
+  - `gbfs_systems.csv` and `gbfs_versions.json`: the GBFS feeds.
+  - `test_data.json`: licenses and rules, datasets, validation reports, availability checks, the Seal of Reliability, geopolygons, and the test user with its feature flags.
+
+  `CatalogEndpointTests` and `UserServiceEndpointTests` expect the exact fixture values, so a fixture change usually needs a test change. The Garage and the Brevo-backed endpoints (announcements sync and opt-in) are not covered.
+- **Deployed environments** (`integration-tests.yml`): the metadata checks and `SmokeEndpointTests` only, with the few feeds in `fixtures/smoke_sources.csv`. They run against QA after each merge to `main`, against prod after each published release, and against DEV when a manual deploy sets `run_integration_tests`.
+
+### Running Locally Against a Seeded Database
+`scripts/integration-tests-local.sh` reproduces the PR workflow on your machine: it rebuilds the local test database (`postgres-test`) from the branch's Liquibase changelogs, regenerates the API code, seeds it from `integration-tests/fixtures`, starts the API against it and runs the tests. No token, GCP access or download is needed, and the main local database is not touched.
+
+The test database (Docker volume `mobility-feed-api-test-db`) is the one the unit tests use. After a run, reset it with `./scripts/docker-localdb-rebuild-data.sh --use-test-db` before running the unit tests.
+
+```bash
+./scripts/integration-tests-local.sh                          # full run
+./scripts/integration-tests-local.sh --skip-seed --skip-gen   # rerun against the previously seeded database
+./scripts/integration-tests-local.sh --skip-seed -c GBFSFeedsEndpointTests
+```
+
+Options: `--csv <path>` seeds and tests with another `sources.csv` instead of `fixtures/sources.csv`, `-c`/`-x` include or exclude test classes (the metadata classes, which need the version file the workflow writes, and `SmokeEndpointTests` are excluded by default). The API logs are kept in `.integration-tests/`.
+
 ## Test Configuration
 
 ### Optional Class Filtering
 The `--include_classes` argument is optional. When specified, it filters the execution to only include tests from the provided comma-separated list of class names.
 
 ## Report
-After test execution, a summary report is displayed, and a detailed log is saved to `integration_tests_log.html`.
+After test execution, a summary report is displayed and saved as markdown to `integration_tests_report.md`, which the workflows upload as an artifact and add to the run's job summary. The detailed console log is saved to `integration_tests_log.html`.
