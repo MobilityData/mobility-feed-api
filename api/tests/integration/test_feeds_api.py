@@ -107,6 +107,35 @@ def test_feeds_gtfs_get_with_status_filter(client: TestClient):
     assert all(feed["status"] == "active" for feed in response.json())
 
 
+def test_feeds_gtfs_get_with_padded_status_filter(client: TestClient):
+    """Surrounding whitespace in the status filter is ignored, as on /v1/feeds."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "  active  ")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert all(feed["status"] == "active" for feed in response.json())
+
+
+def test_feeds_gtfs_get_with_empty_status_filter(client: TestClient):
+    """An empty status filter is treated as no filter."""
+    unfiltered = client.request("GET", "/v1/gtfs_feeds", headers=authHeaders)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert [feed["id"] for feed in response.json()] == [feed["id"] for feed in unfiltered.json()]
+
+
 def test_feeds_gtfs_id_get(client: TestClient):
     """Test case for feeds_gtfs_id_get"""
     response = client.request(
