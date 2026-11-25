@@ -45,8 +45,6 @@ def execute_workflow(
 def execute_workflows(
     latest_datasets,
     validator_endpoint=None,
-    bypass_db_update=False,
-    reports_bucket_name=None,
     tracker=None,
 ):
     """
@@ -54,8 +52,6 @@ def execute_workflows(
 
     :param latest_datasets: List of tuples containing the feed stable id and dataset stable id
     :param validator_endpoint: The URL of the validator
-    :param bypass_db_update: Whether to bypass the database update
-    :param reports_bucket_name: The name of the bucket where the reports are stored
     :param tracker: Optional TaskExecutionTracker for idempotent execution tracking.
                     When provided, datasets something already has in hand - triggered,
                     running or completed - are skipped, and newly triggered datasets are
@@ -76,7 +72,6 @@ def execute_workflows(
         try:
             input_data = {
                 "data": {
-                    "bypass_db_update": bypass_db_update,
                     "protoPayload": {
                         "resourceName": "projects/_/"
                         f"buckets/{bucket_name}/"
@@ -89,8 +84,6 @@ def execute_workflows(
             }
             if validator_endpoint:
                 input_data["data"]["validator_endpoint"] = validator_endpoint
-            if reports_bucket_name:
-                input_data["data"]["reports_bucket_name"] = reports_bucket_name
             logging.info(f"Executing workflow for {feed_id}/{dataset_id}")
             execution = execute_workflow(project_id, input_data=input_data)
             execution_triggered_datasets.append(dataset_id)

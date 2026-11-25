@@ -39,25 +39,6 @@ main:
                     - assignValidatorEndpointFromEnvVariable:
                         assign:
                             - validatorEndpoint: ${sys.get_env("validator_endpoint")}
-      - assignByPassDbUpdate:
-            try:
-                assign:
-                    - byPassDbUpdate: ${event.data.bypass_db_update == true}
-            except:
-                steps:
-                    - assignByPassDbUpdateFalse:
-                        assign:
-                            - byPassDbUpdate: ${false}
-
-      - assignReportsBucket:
-            try:
-                assign:
-                    - reportsBucket: ${event.data.reports_bucket_name}
-            except:
-                steps:
-                    - assignReportsBucketFromEnvVariable:
-                        assign:
-                            - reportsBucket: ${sys.get_env("reports_bucket_name")}
       - logInit:
           call: sys.log
           args:
@@ -86,7 +67,7 @@ main:
                 - targetHtmlReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
                 - targetJsonReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
 
-    # Checking if the target file names exist in the bucket. If exists, the validator execution will be skipped and the workflow jumps to: shouldUpdateDb
+    # Checking if the target file names exist in the bucket. If exists, the validator execution will be skipped and the workflow jumps to: createPayload
       - checkTargetFilesExistence:
             steps:
             - checkSystemErrorsFile:
@@ -160,7 +141,7 @@ main:
                 args:
                     text: 'Skipping GTFS Validator as files exist in the target bucket'
                     severity: INFO
-                next: shouldUpdateDb
+                next: createPayload
 
     # Executes the validation call
       - createJob:
@@ -309,11 +290,7 @@ main:
           args:
               text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".json"}
               severity: INFO
-    #   Skips the update DB if needed, otherwise will create a task to update the DB
-      - shouldUpdateDb:
-            switch:
-                - condition: ${byPassDbUpdate}
-                  next: successfulExecution
+    #   Creates a task to update the DB
       - createPayload:
           assign:
             - payloadTask:
