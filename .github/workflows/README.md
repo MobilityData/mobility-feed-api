@@ -69,8 +69,8 @@ This folder contains GitHub Actions workflows. Below is a concise, hierarchical 
       - Trigger: Manual run or `workflow_call`.
 
 - [validator-update.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/validator-update.yml)
-  - Description: Updates GBFS/GTFS validators deployments.
-  - Trigger: Manual run or `workflow_call`.
+  - Description: After a GTFS validator release, schedules `rebuild_missing_validation_reports` 24 hours later with `force_update: true`, so that the latest datasets of published feeds get a report from the new version. See [Validator releases](../../docs/ValidatorRelease.md).
+  - Trigger: Manual run, or the `gtfs-validator-release` repository dispatch sent by the gtfs-validator release.
 
 ## Misc / CI
 - [build-test.yml](https://github.com/MobilityData/mobility-feed-api/blob/main/.github/workflows/build-test.yml)

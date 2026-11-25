@@ -289,8 +289,7 @@ def create_validation_report_entities(
 
         update_feed_statuses_query(db_session, [feed_stable_id])
 
-        # Update execution tracker regardless of bypass_db_update, so monitoring
-        # works for both pre-release and post-release validation runs.
+        # Update the execution tracker, so that sync_task_run_status can monitor the run.
         try:
             tracker = TaskExecutionTracker(
                 task_name="gtfs_validation",
