@@ -24,11 +24,19 @@ class LocationFilter(Filter):
 
 class GtfsFeedFilter(Filter):
     stable_id: Optional[str]
+    status: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
     producer_url__ilike: Optional[str]  # case insensitive
     created_at__gte: Optional[datetime] = None
     created_at__lte: Optional[datetime] = None
     location: Optional[LocationFilter]
+
+    def __init__(self, *args, **kwargs):
+        kwargs_normalized = normalize_str_parameter("stable_id", **kwargs)
+        kwargs_normalized = normalize_str_parameter("status", **kwargs_normalized)
+        kwargs_normalized = normalize_str_parameter("provider__ilike", **kwargs_normalized)
+        kwargs_normalized = normalize_str_parameter("producer_url__ilike", **kwargs_normalized)
+        super().__init__(*args, **kwargs_normalized)
 
     class Constants(Filter.Constants):
         model = Gtfsfeed
