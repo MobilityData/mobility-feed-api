@@ -39,14 +39,13 @@ def _state(contact):
         return brevo.get_contact_list_state("a@b.com", 42)
 
 
-def test_subscribed_member_with_subscription_id():
-    state = _state(_contact(list_ids=[42, 7], attributes={"MDB_SUBSCRIPTION_ID": "sub-1"}))
+def test_subscribed_member():
+    state = _state(_contact(list_ids=[42, 7], attributes={}))
 
     assert state.status == BrevoSubscriptionStatus.SUBSCRIBED
     assert state.in_list is True
     assert state.list_unsubscribed is False
     assert state.email_blacklisted is False
-    assert state.mdb_subscription_id == "sub-1"
 
 
 def test_contact_not_on_the_list():
@@ -54,7 +53,6 @@ def test_contact_not_on_the_list():
 
     assert state.status == BrevoSubscriptionStatus.SUBSCRIBED
     assert state.in_list is False
-    assert state.mdb_subscription_id is None
 
 
 def test_unsubscribed_from_the_list():
@@ -81,7 +79,6 @@ def test_missing_contact_is_not_found():
 
     assert state.status == BrevoSubscriptionStatus.NOT_FOUND
     assert state.in_list is False
-    assert state.mdb_subscription_id is None
 
 
 def test_other_api_errors_propagate():

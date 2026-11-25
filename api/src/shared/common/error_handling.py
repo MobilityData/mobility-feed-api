@@ -3,6 +3,8 @@ from typing import Final
 invalid_date_message: Final[str] = (
     "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
 )
+feeds_created_after_before: Final[str] = "created_after must be earlier than or equal to created_before"
+
 availability_from_after_to: Final[str] = "'from' timestamp must be before 'to' timestamp"
 continuous_coverage_downloaded_after_before: Final[str] = (
     "'downloaded_after' timestamp must be before 'downloaded_before' timestamp"
@@ -25,6 +27,11 @@ unknown_seal_criterion: Final[str] = (
     "Unknown Seal of Reliability criterion '{}'. The seal_criterion_name DB enum has grown past "
     "this build: SealCriterionName and the API criterion enum need to be updated to match it."
 )
+garage_not_permitted: Final[str] = (
+    "This feature is available to selected users only. "
+    "To request access or learn more, contact us at api@mobilitydata.org"
+)
+endpoint_not_implemented: Final[str] = "This endpoint is not implemented yet."
 
 
 class InternalHTTPException(Exception):

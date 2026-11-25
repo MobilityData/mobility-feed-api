@@ -19,8 +19,14 @@ while its impl and tests stay green."""
 from main import app
 
 
+def _registered_operations() -> dict:
+    # Read from the OpenAPI schema rather than app.routes: since FastAPI 0.16x,
+    # app.routes holds lazily-included router entries without a `path`.
+    return app.openapi()["paths"]
+
+
 def _registered_paths() -> set[str]:
-    return {route.path for route in app.routes}
+    return set(_registered_operations())
 
 
 def test_early_access_routes_registered():
@@ -40,13 +46,10 @@ def test_early_access_routes_registered():
 
 def test_invited_emails_supports_both_add_and_remove():
     """The bulk add and the bulk remove share one path, distinguished by method."""
-    methods = {
-        method
-        for route in app.routes
-        if getattr(route, "path", None)
-        == "/v1/operations/early-access-programs/{id}/invited-emails"
-        for method in route.methods
-    }
+    operations = _registered_operations().get(
+        "/v1/operations/early-access-programs/{id}/invited-emails", {}
+    )
+    methods = {method.upper() for method in operations}
     assert {"POST", "DELETE"} <= methods
 
 

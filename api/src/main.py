@@ -18,7 +18,7 @@
 import os
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
@@ -29,6 +29,8 @@ from feeds_gen.apis.locations_api import router as LocationsApiRouter
 from user_service_gen.apis.users_api import router as UsersApiRouter
 from user_service_gen.apis.notifications_api import router as NotificationsApiRouter
 from user_service_gen.apis.subscriptions_api import router as SubscriptionsApiRouter
+from garage_gen.apis.garage_api import router as GarageApiRouter
+from garage.impl.garage_access import require_garage_access
 
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
 # returns 200 in the method response. More info, https://github.com/tiangolo/fastapi/issues/1663#issuecomment-730362611
@@ -67,6 +69,9 @@ app.include_router(LocationsApiRouter)
 app.include_router(offload_blocking_routes(UsersApiRouter))
 app.include_router(offload_blocking_routes(NotificationsApiRouter))
 app.include_router(offload_blocking_routes(SubscriptionsApiRouter))
+# The Garage routes are offloaded for the same reason, and are all restricted to users holding the user
+# datasets feature flag.
+app.include_router(offload_blocking_routes(GarageApiRouter), dependencies=[Depends(require_garage_access)])
 
 
 @app.on_event("startup")

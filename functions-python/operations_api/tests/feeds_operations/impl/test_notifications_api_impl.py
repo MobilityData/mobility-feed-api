@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 import sib_api_v3_sdk
 from fastapi import HTTPException
 
+from feeds_gen.models.operation_brevo_sync_request import OperationBrevoSyncRequest
 from feeds_gen.models.operation_notification_dispatch_request import (
     OperationNotificationDispatchRequest,
 )
@@ -129,6 +130,7 @@ def _chain(result):
     q.all.return_value = items
     q.count.return_value = len(items)
     q.first.return_value = items[0] if items else None
+    q.one_or_none.return_value = items[0] if items else None
     return q
 
 
@@ -138,7 +140,6 @@ def _brevo(status=BrevoSubscriptionStatus.SUBSCRIBED, in_list=True, **kwargs):
         in_list=in_list,
         email_blacklisted=kwargs.get("email_blacklisted", False),
         list_unsubscribed=kwargs.get("list_unsubscribed", False),
-        mdb_subscription_id=kwargs.get("mdb_subscription_id", "sub-a"),
     )
 
 
@@ -300,6 +301,118 @@ class TestGetOperationsUserSubscriptions(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 404)
 
 
+def _admin_request(**kwargs):
+    from feeds_gen.models.operation_admin_summary_subscription_request import (
+        OperationAdminSummarySubscriptionRequest,
+    )
+
+    return OperationAdminSummarySubscriptionRequest(**{"active": True, **kwargs})
+
+
+@patch(f"{MODULE}.feature_flag_enabled", return_value=True)
+class TestPutMeAdminSummarySubscription(unittest.TestCase):
+    def setUp(self):
+        self.api = NotificationsApiImpl()
+        self.session = MagicMock()
+        current = patch(f"{MODULE}.current_app_user", return_value=_make_user())
+        self.current = current.start()
+        self.addCleanup(current.stop)
+
+    def _put(self, request):
+        return self.api.put_operations_me_admin_summary_subscription(
+            request, db_session=self.session
+        )
+
+    def test_creates_an_active_subscription_limited_to_subtypes(self, flag):
+        self.session.query.return_value = _chain(None)
+
+        result = self._put(
+            _admin_request(cadence="weekly", event_subtypes=["seal_run_summary"])
+        )
+
+        added = self.session.add.call_args.args[0]
+        self.assertEqual(added.notification_type_id, "admin.event_summary")
+        self.assertEqual(added.user_id, "uid-1")
+        self.assertTrue(added.active)
+        self.assertIsNotNone(added.active_since)
+        self.assertEqual(added.cadence, "weekly")
+        self.assertEqual(added.filter_params, {"event_subtypes": ["seal_run_summary"]})
+        self.assertEqual(result.event_subtypes, ["seal_run_summary"])
+        flag.assert_called_once_with(
+            self.session, "uid-1", "isAdminSummarySubscriptionEnabled"
+        )
+        self.session.commit.assert_called_once()
+
+    def test_defaults_to_daily_and_every_subtype(self, _flag):
+        self.session.query.return_value = _chain(None)
+
+        result = self._put(_admin_request())
+
+        added = self.session.add.call_args.args[0]
+        self.assertEqual(added.cadence, "daily")
+        self.assertIsNone(added.filter_params)
+        self.assertEqual(result.event_subtypes, [])
+
+    def test_resuming_resets_active_since_and_keeps_other_filters(self, _flag):
+        sub = _make_subscription(
+            notification_type_id="admin.event_summary", active=False
+        )
+        sub.filter_params = {"event_subtypes": ["dispatch_summary"], "other": 1}
+        old_active_since = sub.active_since
+        self.session.query.return_value = _chain(sub)
+
+        self._put(_admin_request(cadence="daily"))
+
+        self.session.add.assert_not_called()
+        self.assertTrue(sub.active)
+        self.assertGreater(sub.active_since, old_active_since)
+        self.assertEqual(sub.filter_params, {"other": 1})
+
+    def test_updating_an_active_subscription_keeps_active_since(self, _flag):
+        sub = _make_subscription(notification_type_id="admin.event_summary")
+        active_since = sub.active_since
+        self.session.query.return_value = _chain(sub)
+
+        self._put(_admin_request(event_subtypes=["dispatch_summary"]))
+
+        self.assertEqual(sub.active_since, active_since)
+        self.assertEqual(sub.filter_params, {"event_subtypes": ["dispatch_summary"]})
+
+    def test_activating_without_the_feature_flag_is_403(self, flag):
+        flag.return_value = False
+        self.session.query.return_value = _chain(None)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request())
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.session.commit.assert_not_called()
+
+    def test_pausing_skips_the_flag_check(self, flag):
+        sub = _make_subscription(notification_type_id="admin.event_summary")
+        self.session.query.return_value = _chain(sub)
+
+        result = self._put(_admin_request(active=False))
+
+        self.assertFalse(sub.active)
+        self.assertFalse(result.active)
+        flag.assert_not_called()
+
+    def test_pausing_a_missing_subscription_is_404(self, _flag):
+        self.session.query.return_value = _chain(None)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request(active=False))
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_no_user_has_the_signed_in_email(self, _flag):
+        self.current.side_effect = HTTPException(status_code=404)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._put(_admin_request())
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.session.commit.assert_not_called()
+
+
 class TestBrevoSyncIssues(unittest.TestCase):
     def test_in_sync_when_subscribed_everywhere(self):
         self.assertEqual(_brevo_sync_issues("sub-a", True, 1, _brevo()), [])
@@ -363,22 +476,6 @@ class TestBrevoSyncIssues(unittest.TestCase):
             ],
         )
 
-    def test_subscription_id_attribute_mismatch(self):
-        issues = _brevo_sync_issues(
-            "sub-a", True, 1, _brevo(mdb_subscription_id="sub-old")
-        )
-        self.assertEqual(
-            issues,
-            ["Brevo MDB_SUBSCRIPTION_ID is sub-old but the subscription ID is sub-a."],
-        )
-
-    def test_subscription_id_attribute_unset(self):
-        issues = _brevo_sync_issues("sub-a", True, 1, _brevo(mdb_subscription_id=None))
-        self.assertEqual(
-            issues,
-            ["Brevo MDB_SUBSCRIPTION_ID is unset but the subscription ID is sub-a."],
-        )
-
     def test_no_row_means_opted_out(self):
         issues = _brevo_sync_issues(None, None, 0, _brevo())
         self.assertEqual(
@@ -416,7 +513,6 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
         self.assertEqual(result.subscription_id, "sub-a")
         self.assertTrue(result.subscription_active)
         self.assertEqual(result.brevo.status, "subscribed")
-        self.assertEqual(result.brevo.mdb_subscription_id, "sub-a")
 
     def test_reports_drift(self, mock_state, _list_id):
         self.session.get.return_value = _make_user()
@@ -478,6 +574,135 @@ def _test_event_request(**kwargs) -> OperationNotificationTestEventRequest:
 
 def _feed(stable_id, producer_url, provider=None) -> Feed:
     return Feed(stable_id=stable_id, producer_url=producer_url, provider=provider)
+
+
+@patch(f"{MODULE}.remove_contact_from_list")
+@patch(f"{MODULE}.add_contact_to_list")
+@patch(f"{MODULE}.get_announcements_list_id", return_value=7)
+@patch(f"{MODULE}.get_contact_list_state")
+class TestSyncOperationsUserBrevo(unittest.TestCase):
+    def setUp(self):
+        self.api = NotificationsApiImpl()
+        self.session = MagicMock()
+        self.user = _make_user()
+        self.sub = None
+
+    def _given(self, sub):
+        self.sub = sub
+        self.session.get.side_effect = lambda cls, _id: (
+            self.user if cls is AppUser else self.sub
+        )
+        self.session.query.return_value = _chain([sub] if sub else [])
+
+    def _sync(self, direction):
+        return self.api.sync_operations_user_brevo(
+            "uid-1",
+            OperationBrevoSyncRequest(direction=direction),
+            db_session=self.session,
+        )
+
+    def test_from_brevo_turns_off_a_row_unsubscribed_in_brevo(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.return_value = _brevo(
+            status=BrevoSubscriptionStatus.UNSUBSCRIBED, email_blacklisted=True
+        )
+
+        result = self._sync("from_brevo")
+
+        self.assertFalse(self.sub.active)
+        self.assertFalse(result.subscription_active)
+        self.assertTrue(result.in_sync)
+        mock_add.assert_not_called()
+        mock_remove.assert_not_called()
+
+    def test_from_brevo_creates_an_active_row_for_a_list_member(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(None)
+        mock_state.return_value = _brevo()
+
+        result = self._sync("from_brevo")
+
+        added = self.session.add.call_args[0][0]
+        self.assertIsInstance(added, NotificationSubscription)
+        self.assertTrue(added.active)
+        self.assertEqual(added.notification_type_id, "api.announcements")
+        self.assertEqual(result.subscription_id, added.id)
+        self.assertTrue(result.in_sync)
+
+    def test_from_brevo_creates_no_row_when_not_on_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(None)
+        mock_state.return_value = _brevo(in_list=False)
+
+        result = self._sync("from_brevo")
+
+        self.session.add.assert_not_called()
+        self.assertIsNone(result.subscription_id)
+
+    def test_to_brevo_adds_an_active_row_to_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.side_effect = [_brevo(in_list=False), _brevo()]
+
+        result = self._sync("to_brevo")
+
+        mock_add.assert_called_once_with(
+            "user@example.com", 7, first_name=None, organization=None
+        )
+        # Never clears a Brevo unsubscribe.
+        self.assertNotIn("resubscribe", mock_add.call_args.kwargs)
+        mock_remove.assert_not_called()
+        self.assertTrue(result.in_sync)
+
+    def test_to_brevo_removes_an_inactive_row_from_the_list(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=False))
+        mock_state.side_effect = [_brevo(), _brevo(in_list=False)]
+
+        result = self._sync("to_brevo")
+
+        mock_remove.assert_called_once_with("user@example.com", 7)
+        mock_add.assert_not_called()
+        self.assertTrue(result.in_sync)
+
+    def test_to_brevo_refuses_to_resubscribe_an_unsubscribed_contact(
+        self, mock_state, _list_id, mock_add, mock_remove
+    ):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.return_value = _brevo(
+            status=BrevoSubscriptionStatus.UNSUBSCRIBED, list_unsubscribed=True
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("to_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        mock_add.assert_not_called()
+
+    def test_brevo_failure_is_a_502(self, mock_state, _list_id, mock_add, mock_remove):
+        self._given(_make_subscription("sub-a", "api.announcements", active=True))
+        mock_state.side_effect = sib_api_v3_sdk.rest.ApiException(status=500)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("from_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 502)
+
+    def test_unknown_user_is_a_404(self, mock_state, _list_id, mock_add, mock_remove):
+        self.session.get.side_effect = None
+        self.session.get.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._sync("from_brevo")
+
+        self.assertEqual(ctx.exception.status_code, 404)
+        mock_state.assert_not_called()
 
 
 @patch(f"{MODULE}._feed_details")

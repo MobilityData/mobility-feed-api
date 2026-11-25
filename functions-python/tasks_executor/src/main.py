@@ -220,15 +220,12 @@ tasks = {
     },
     "migrate_firebase_users": {
         "description": (
-            "Insert-only migration of Firebase Auth users into users.app_user "
-            "(the only field updated on an existing row is brevo_synced_at). "
+            "Insert-only migration of Firebase Auth users into users.app_user. "
             "Reads profile fields (fullName, organization, registrationCompletionTime) "
             "from Datastore kind 'web_api_users' (queried by uid property). "
             "Ensures each user has an api.announcements notification_subscription "
-            "(disabled when Brevo reports the contact UNSUBSCRIBED) and "
-            "writes MDB_SUBSCRIPTION_ID back onto the Brevo contact, tracking that "
-            "write via app_user.brevo_synced_at (idempotent: users already synced "
-            "are skipped). "
+            "(disabled when Brevo reports the contact UNSUBSCRIBED). Reads Brevo only, "
+            "never writes to it. "
             "Parameters: dry_run (default true), limit (default null), "
             "user_ids (default null), only_not_migrated (default true)."
         ),

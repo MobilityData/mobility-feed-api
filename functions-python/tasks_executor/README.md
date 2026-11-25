@@ -196,7 +196,7 @@ If the header is not provided, the default response content type is `application
 
 ### `migrate_firebase_users`
 
-Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_user` is **insert-only** with a single exception: the task sets `app_user.brevo_synced_at` on an existing row after it writes that user's `MDB_SUBSCRIPTION_ID` back onto the Brevo contact. It also ensures each user has an `api.announcements` `notification_subscription`, which is what the user's announcements opt-in is read from.
+Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_user` is **insert-only**. It also ensures each user has an `api.announcements` `notification_subscription`, which is what the user's announcements opt-in is read from.
 
 ```json
 {
@@ -217,16 +217,9 @@ Migrates Firebase Auth users into the `users.app_user` PostgreSQL table. `app_us
 | `user_ids` | list[str] \| null | `null` | If provided, only migrate these specific Firebase UIDs |
 | `only_not_migrated` | bool | `true` | Skip users that already have a row in `app_user` with `migrated_at` set |
 
-**Brevo subscription logic**: Brevo is the source of truth. For each user that needs a subscription or a Brevo write-back, the contact's status on `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked; it decides whether the subscription is created enabled (see below) and whether `MDB_SUBSCRIPTION_ID` is written back.
+**Brevo subscription logic**: Brevo is the source of truth. For each user that needs a subscription, the contact's status on `BREVO_API_ANNOUNCEMENTS_LIST_ID` is checked; it decides whether the subscription is created enabled (see below). The task only reads Brevo, it never writes to it.
 
 **Announcements subscription association**: Every migrated user is associated with the `api.announcements` notification type via a row in `notification_subscription`. New users get the subscription created alongside their `app_user` row; existing users (including already-migrated ones) are **backfilled** a subscription if they don't already have one — without modifying their `app_user` row. The subscription is created enabled (`active=true`) for all users **except** those explicitly `UNSUBSCRIBED` on Brevo, who get a disabled (`active=false`) subscription. Users that are `NOT_FOUND` on Brevo (or whose Brevo check failed) are treated as "not unsubscribed" and therefore enabled. New-subscription counts are reported as `announcements_enabled` / `announcements_disabled`.
-
-**Brevo contact write-back (`MDB_SUBSCRIPTION_ID`)**: For every user whose announcements subscription should be on the Brevo list, the contact is written via `add_contact_to_list` so its `MDB_SUBSCRIPTION_ID` attribute points at the subscription id. `app_user.brevo_synced_at` records that write — it lives on `app_user` (not `notification_subscription`) because `api.announcements` is the only Brevo-delivered notification type and a Brevo contact maps 1:1 to a user. The decision is evaluated identically on every run (no "first run" / "last run" logic):
-
-- `brevo_synced_at IS NULL` → the contact is assumed to lack `MDB_SUBSCRIPTION_ID`, so it is (re)written and `brevo_synced_at` is stamped;
-- `brevo_synced_at` set → already synced, skipped (no Brevo call).
-
-The write-back is **skipped** for contacts Brevo reports as `UNSUBSCRIBED` (they are never re-added to the list) and whenever the Brevo check fails (retried on the next run). `brevo_synced_at` is stamped **only after a successful write** and **never in dry-run mode**. Setting `brevo_synced_at` is the only update the task makes to an existing `app_user` row. Counts are reported as `brevo_synced` / `brevo_sync_failed`. Requires `BREVO_API_ANNOUNCEMENTS_LIST_ID` to be set; without it the write-back is skipped.
 
 **Datastore entity lookup**: For each new user, the `web_api_users` kind is queried by the `uid` property to retrieve `fullName`, `organization`, and `registrationCompletionTime`.
 
@@ -247,8 +240,6 @@ The write-back is **skipped** for contacts Brevo reports as `UNSUBSCRIBED` (they
 | `brevo_unsubscribed` | Users found as unsubscribed in Brevo |
 | `brevo_not_found` | Users not found in Brevo |
 | `brevo_failed` | Users where the Brevo check failed (non-fatal; user is still inserted) |
-| `brevo_synced` | Contacts written back to Brevo with `MDB_SUBSCRIPTION_ID` (in dry-run, contacts that would be written) |
-| `brevo_sync_failed` | Contacts where the Brevo write-back failed (non-fatal; retried next run) |
 | `dry_run` | Whether the task ran in dry-run mode |
 
 ### `reconcile_announcements_from_brevo`

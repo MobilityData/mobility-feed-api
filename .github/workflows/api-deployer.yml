@@ -240,6 +240,11 @@ jobs:
           name: user_service_gen
           path: api/src/user_service_gen/
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: garage_gen
+          path: api/src/garage_gen/
+
       - name: Set Variables
         id: set_variables
         run: |

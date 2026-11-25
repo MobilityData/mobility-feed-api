@@ -130,23 +130,35 @@ def populate_licenses_task(dry_run, db_session):
                 # Clear existing rules to handle updates
                 license_object.rules = []
 
-                all_rule_names = []
-                for rule_type in ["permissions", "conditions", "limitations"]:
-                    all_rule_names.extend(license_data.get(rule_type, []))
+                # A rule's identity is (name, type): the same name can appear under more than one
+                # category (e.g. "patent-use" as both a permission and a limitation), so preserve
+                # the category each name came from and match on the composite key.
+                CATEGORY_TO_TYPE = {
+                    "permissions": "permission",
+                    "conditions": "condition",
+                    "limitations": "limitation",
+                }
+                requested_rules = set()
+                for category, rule_type in CATEGORY_TO_TYPE.items():
+                    for rule_name in license_data.get(category, []):
+                        requested_rules.add((rule_name, rule_type))
 
-                if all_rule_names:
-                    rules = (
-                        db_session.query(Rule)
-                        .filter(Rule.name.in_(all_rule_names))
+                if requested_rules:
+                    rule_names = {name for name, _ in requested_rules}
+                    rules = [
+                        rule
+                        for rule in db_session.query(Rule)
+                        .filter(Rule.name.in_(rule_names))
                         .all()
-                    )
+                        if (rule.name, rule.type) in requested_rules
+                    ]
                     license_object.rules.extend(rules)
-                    if len(rules) != len(all_rule_names):
+                    if len(rules) != len(requested_rules):
                         logging.warning(
                             "License '%s': Found %d of %d rules in the database.",
                             license_id,
                             len(rules),
-                            len(all_rule_names),
+                            len(requested_rules),
                         )
 
                 # Clear existing tags and assign updated ones

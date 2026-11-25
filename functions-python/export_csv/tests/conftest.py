@@ -32,6 +32,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feedosmlocationgroup,
     Osmlocationgroup,
     Geopolygon,
+    Gbfsfeed,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
@@ -46,6 +47,10 @@ def populate_database(db_session):
         - 2 deprecated
     - 3 GTFS datasets
     - 4 GTFS Realtime feeds, with 1 of them inactive
+    - 3 GBFS feeds
+        - 1 with a bounding box, a location and an extracted location
+        - 1 without a bounding box or location
+        - 1 not published, which must not be exported
     """
     fake = Faker()
 
@@ -317,6 +322,44 @@ def populate_database(db_session):
     ]
 
     db_session.add_all(gtfs_rt_feeds)
+
+    # GBFS feeds
+    gbfs_feeds = []
+    for i in range(3):
+        feed = Gbfsfeed(
+            id=fake.uuid4(),
+            data_type="gbfs",
+            feed_name=f"gbfs-{i} Some fake name",
+            note=f"gbfs-{i} Some fake note",
+            producer_url=f"https://gbfs-{i}_some_fake_auto_discovery_url/gbfs.json",
+            auto_discovery_url=f"https://gbfs-{i}_some_fake_auto_discovery_url/gbfs.json",
+            authentication_type="0",
+            license_url=f"https://gbfs-{i}_some_fake_license_url",
+            stable_id=f"gbfs-{i}",
+            system_id=f"gbfs-{i}_system_id",
+            status="active",
+            feed_contact_email=f"gbfs-{i}_some_fake_email@fake.com",
+            provider=f"gbfs-{i} Some fake company",
+            operator=f"gbfs-{i} Some fake company",
+            operational_status="unpublished" if i == 2 else "published",
+            official=False if i == 1 else None,
+        )
+        gbfs_feeds.append(feed)
+    gbfs_feeds[0].bounding_box = WKTElement(
+        "POLYGON((-73.7 45.4, -73.7 45.7, -73.4 45.7, -73.4 45.4, -73.7 45.4))",
+        srid=4326,
+    )
+    gbfs_feeds[0].bounding_box_generated_at = datetime(2025, 2, 3)
+    gbfs_feeds[0].locations = locations
+    # The extracted location (Laval) takes precedence over the location (Montreal)
+    gbfs_feeds[0].feedosmlocationgroups = [
+        Feedosmlocationgroup(
+            feed_id=gbfs_feeds[0].id,
+            stops_count=50,
+            group=first_feed.feedosmlocationgroups[1].group,
+        )
+    ]
+    db_session.add_all(gbfs_feeds)
 
     db_session.commit()
 

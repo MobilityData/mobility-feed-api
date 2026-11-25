@@ -1,0 +1,52 @@
+name: Firebase Functions Tests
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "functions/**"
+      - ".github/workflows/functions-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [ feed-form, firebase-password-policy, user-api ]
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: functions/.nvmrc
+          cache: yarn
+          cache-dependency-path: functions/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        working-directory: functions/packages/${{ matrix.package }}
+        run: yarn lint
+
+      - name: Build
+        working-directory: functions/packages/${{ matrix.package }}
+        run: yarn build
+
+      - name: Test
+        working-directory: functions/packages/${{ matrix.package }}
+        run: yarn test

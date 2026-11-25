@@ -1,7 +1,7 @@
 # coding: utf-8
+from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta, timezone
 
 from shared.database_gen.sqlacodegen_models import Gbfsfeed, Gbfsvalidationreport, Location
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
@@ -91,6 +91,49 @@ def test_feeds_gtfs_get(client: TestClient):
     )
 
     assert response.status_code == 200
+
+
+def test_feeds_gtfs_get_with_status_filter(client: TestClient):
+    """GTFS feeds can be filtered by feed status."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "active")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert all(feed["status"] == "active" for feed in response.json())
+
+
+def test_feeds_gtfs_get_with_padded_status_filter(client: TestClient):
+    """Surrounding whitespace in the status filter is ignored, as on /v1/feeds."""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "  active  ")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert all(feed["status"] == "active" for feed in response.json())
+
+
+def test_feeds_gtfs_get_with_empty_status_filter(client: TestClient):
+    """An empty status filter is treated as no filter."""
+    unfiltered = client.request("GET", "/v1/gtfs_feeds", headers=authHeaders)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=[("status", "")],
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+    assert [feed["id"] for feed in response.json()] == [feed["id"] for feed in unfiltered.json()]
 
 
 def test_feeds_gtfs_id_get(client: TestClient):
@@ -1231,3 +1274,190 @@ def test_gtfs_feed_availability_invalid_date_returns_422(client: TestClient):
         params={"from": "not-a-date"},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+def test_feed_list_created_at_filters_are_inclusive(client: TestClient, endpoint):
+    """Feed-list created_at bounds include feeds exactly on either boundary."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+
+    feeds = response.json()
+    assert feeds, f"Expected test data for {endpoint}"
+    assert all(feed["created_at"] is not None for feed in feeds)
+
+    created_at_by_id = {feed["id"]: datetime.fromisoformat(feed["created_at"].replace("Z", "+00:00")) for feed in feeds}
+
+    boundary = max(created_at_by_id.values())
+    boundary_iso = boundary.isoformat().replace("+00:00", "Z")
+
+    expected_ids = {feed_id for feed_id, created_at in created_at_by_id.items() if created_at == boundary}
+
+    after_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={"created_after": boundary_iso},
+    )
+    assert after_response.status_code == 200
+
+    after_ids = {feed["id"] for feed in after_response.json()}
+    assert after_ids == expected_ids
+
+    before_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={"created_before": boundary_iso},
+    )
+    assert before_response.status_code == 200
+
+    before_ids = {feed["id"] for feed in before_response.json()}
+    assert expected_ids.issubset(before_ids)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+def test_feed_list_created_at_range(client: TestClient, endpoint):
+    """Combined created_at bounds return exactly the inclusive temporal range."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+
+    feeds = response.json()
+    assert feeds, f"Expected test data for {endpoint}"
+    assert all(feed["created_at"] is not None for feed in feeds)
+
+    created_at_by_id = {feed["id"]: datetime.fromisoformat(feed["created_at"].replace("Z", "+00:00")) for feed in feeds}
+
+    ordered_dates = sorted(set(created_at_by_id.values()))
+
+    lower = ordered_dates[0]
+    upper = ordered_dates[-1]
+
+    lower_iso = lower.isoformat().replace("+00:00", "Z")
+    upper_iso = upper.isoformat().replace("+00:00", "Z")
+
+    expected_ids = {feed_id for feed_id, created_at in created_at_by_id.items() if lower <= created_at <= upper}
+
+    filtered_response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": lower_iso,
+            "created_before": upper_iso,
+        },
+    )
+    assert filtered_response.status_code == 200
+
+    filtered_ids = {feed["id"] for feed in filtered_response.json()}
+    assert filtered_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+    ids=["feeds", "gtfs_feeds", "gtfs_rt_feeds", "gbfs_feeds"],
+)
+@pytest.mark.parametrize(
+    "parameter",
+    ["created_after", "created_before"],
+)
+def test_feed_list_created_at_invalid_date_returns_422(
+    client: TestClient,
+    endpoint,
+    parameter,
+):
+    """Invalid created_at bounds are rejected consistently by feed-list endpoints."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={parameter: "invalid_date"},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+)
+@pytest.mark.parametrize(
+    "created_after, created_before",
+    [
+        ("2026-11-24T00:00:00Z", "2026-11-23T00:00:00Z"),
+        ("2026-11-23T13:00:00+01:00", "2026-11-23T11:00:00Z"),
+    ],
+)
+def test_feed_list_created_at_reversed_range_returns_422(client: TestClient, endpoint, created_after, created_before):
+    """Chronologically reversed creation-date bounds are invalid."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": created_after,
+            "created_before": created_before,
+        },
+    )
+    assert response.status_code == 422
+    assert "created_after" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/feeds",
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/gbfs_feeds",
+    ],
+)
+def test_feed_list_created_at_equivalent_offsets_are_valid(client: TestClient, endpoint):
+    """Different offsets describing the same instant are not reversed."""
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params={
+            "created_after": "2026-11-23T12:00:00Z",
+            "created_before": "2026-11-23T13:00:00+01:00",
+        },
+    )
+    assert response.status_code == 200

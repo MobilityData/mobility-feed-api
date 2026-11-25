@@ -38,6 +38,7 @@ data-test/
 # Ignore generated files
 api/src/feeds_gen
 api/src/user_service_gen
+api/src/garage_gen
 database_gen
 users_database_gen
 
@@ -93,3 +94,5 @@ functions-python/**/*.csv
 
 # Ignore OpenApi local backup files
 *.yaml.bak
+# Local integration tests run (scripts/integration-tests-local.sh)
+.integration-tests/

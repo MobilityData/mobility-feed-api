@@ -39,8 +39,11 @@ def get_gtfs_feeds_query(
     stable_id: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
+    status: str | None = None,
     provider: str | None = None,
     producer_url: str | None = None,
+    created_after=None,
+    created_before=None,
     country_code: str | None = None,
     subdivision_name: str | None = None,
     municipality: str | None = None,
@@ -54,8 +57,11 @@ def get_gtfs_feeds_query(
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
         stable_id=stable_id,
+        status=status,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         location=None,
     )
 
@@ -230,11 +236,60 @@ def get_all_gtfs_feeds(
         processed += len(batch)
 
 
+def get_all_gbfs_feeds(
+    db_session: Session,
+    published_only: bool = True,
+    w_extracted_locations_only: bool = False,
+) -> Iterator[Gbfsfeed]:
+    """
+    Fetch all GBFS feeds.
+
+    :param db_session: The database session.
+    :param published_only: Include only the published feeds.
+    :param w_extracted_locations_only: Whether to include only feeds with extracted locations.
+
+    :return: The GBFS feeds in an iterator.
+    """
+    batch_size = int(os.getenv("BATCH_SIZE", "50"))
+
+    # Same batching and streaming strategy as get_all_gtfs_feeds, see the comments there.
+    batch_query = db_session.query(Gbfsfeed).order_by(Gbfsfeed.stable_id).execution_options(stream_results=True)
+    if published_only:
+        batch_query = batch_query.filter(Gbfsfeed.operational_status == "published")
+
+    for batch_num, batch in enumerate(batched(batch_query, batch_size), start=1):
+        stable_ids = [f.stable_id for f in batch]
+        if not stable_ids:
+            continue
+
+        if w_extracted_locations_only:
+            feed_query = apply_most_common_location_filter(db_session.query(Gbfsfeed), db_session)
+            inner_q = feed_query.filter(Gbfsfeed.stable_id.in_(stable_ids)).options(
+                *get_selectinload_options(include_extracted_location_entities=True),
+            )
+        else:
+            inner_q = (
+                db_session.query(Gbfsfeed)
+                .filter(Gbfsfeed.stable_id.in_(stable_ids))
+                .options(*get_selectinload_options(include_extracted_location_entities=False))
+            )
+
+        for item in inner_q.execution_options(stream_results=True):
+            yield item
+
+        try:
+            db_session.expunge_all()
+        except Exception:
+            logging.getLogger("get_all_gbfs_feeds").exception("Failed to expunge session after batch %d", batch_num)
+
+
 def get_gtfs_rt_feeds_query(
     limit: int | None,
     offset: int | None,
     provider: str | None,
     producer_url: str | None,
+    created_after,
+    created_before,
     entity_types: str | None,
     country_code: str | None,
     subdivision_name: str | None,
@@ -260,6 +315,8 @@ def get_gtfs_rt_feeds_query(
         stable_id=None,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         entity_types=EntityTypeFilter(name__in=entity_types_list),
         location=LocationFilter(
             country_code=country_code,
@@ -462,6 +519,8 @@ def get_gbfs_feeds_query(
     stable_id: Optional[str] = None,
     provider: Optional[str] = None,
     producer_url: Optional[str] = None,
+    created_after=None,
+    created_before=None,
     country_code: Optional[str] = None,
     subdivision_name: Optional[str] = None,
     municipality: Optional[str] = None,
@@ -473,6 +532,8 @@ def get_gbfs_feeds_query(
         stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
+        created_at__gte=created_after,
+        created_at__lte=created_before,
         system_id=system_id,
     )
     query = gbfs_feed_filter.filter(db_session.query(Gbfsfeed))
