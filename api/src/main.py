@@ -39,6 +39,7 @@ from starlette.middleware.cors import CORSMiddleware
 from middleware.request_context_middleware import RequestContextMiddleware
 from utils.logger import global_logging_setup
 from utils.route_offload import offload_blocking_routes
+from utils.route_status import use_documented_success_status
 
 app = FastAPI(
     title="Mobility Data Catalog API",
@@ -69,9 +70,12 @@ app.include_router(LocationsApiRouter)
 app.include_router(offload_blocking_routes(UsersApiRouter))
 app.include_router(offload_blocking_routes(NotificationsApiRouter))
 app.include_router(offload_blocking_routes(SubscriptionsApiRouter))
-# The Garage routes are offloaded for the same reason, and are all restricted to users holding the user
-# datasets feature flag.
-app.include_router(offload_blocking_routes(GarageApiRouter), dependencies=[Depends(require_garage_access)])
+# The Garage routes are offloaded for the same reason, and are all restricted to users holding the Garage
+# feature flag (GARAGE_FEATURE_FLAG_ID).
+app.include_router(
+    use_documented_success_status(offload_blocking_routes(GarageApiRouter)),
+    dependencies=[Depends(require_garage_access)],
+)
 
 
 @app.on_event("startup")

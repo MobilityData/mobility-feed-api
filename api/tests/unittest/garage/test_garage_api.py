@@ -48,16 +48,26 @@ def test_without_flag_is_403(method, path, body, flag_enabled):
 
 
 @pytest.mark.parametrize("method,path,body", ENDPOINTS)
-def test_with_flag_is_501(method, path, body, flag_enabled):
+def test_guest_is_403(method, path, body, flag_enabled):
     flag_enabled.return_value = True
-    response = client.request(method, path, json=body, headers=USER_HEADERS)
+    with patch("user_service.impl.identity.get_request_context") as get_request_context:
+        get_request_context.return_value = {"user_id": "user-1", "is_guest": True}
+        response = client.request(method, path, json=body, headers=USER_HEADERS)
+    assert response.status_code == 403
+    flag_enabled.assert_not_called()
+
+
+def test_delete_is_501(flag_enabled):
+    flag_enabled.return_value = True
+    response = client.delete("/v1/garage/datasets/ds-1", headers=USER_HEADERS)
     assert response.status_code == 501
     assert response.json() == {"detail": endpoint_not_implemented}
 
 
-def test_invalid_body_is_422(flag_enabled):
+@pytest.mark.parametrize("body", [{}, {"name": ""}, {"name": "x" * 201}])
+def test_invalid_body_is_422(body, flag_enabled):
     flag_enabled.return_value = True
-    response = client.post("/v1/garage/datasets:upload", json={}, headers=USER_HEADERS)
+    response = client.post("/v1/garage/datasets:upload", json=body, headers=USER_HEADERS)
     assert response.status_code == 422
 
 

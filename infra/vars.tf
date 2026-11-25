@@ -96,3 +96,9 @@ variable "brevo_api_announcements_list_id" {
     description = "Brevo list ID for API announcements"
     default     = ""
 }
+
+variable "user_data_retention_days" {
+    type        = number
+    description = "Days a user's datasets, tasks and their files are kept after they are created"
+    default     = 30
+}
