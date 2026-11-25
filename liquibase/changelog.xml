@@ -171,6 +171,8 @@
     <!-- Rename rules -> rule and widen its primary key to (name, type) so a rule name can exist
     under more than one category (e.g. patent-use as both a permission and a limitation). -->
     <include file="changes/fix_rules_composite_pk.sql" relativeToChangelogFile="true"/>
+    <!-- Location directory: continent and country_continent tables, read by the geopolygonlocationsearch view. -->
+    <include file="changes/feat_location_directory.sql" relativeToChangelogFile="true"/>
     <!-- Keep this after all source table and schema changes so materialized views
          are recreated from the final source schema. -->
     <include file="materialized_views/materialized_views.xml" relativeToChangelogFile="true"/>

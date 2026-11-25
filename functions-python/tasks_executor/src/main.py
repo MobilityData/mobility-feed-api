@@ -149,7 +149,7 @@ tasks = {
         "handler": rebuild_missing_bounding_boxes_handler,
     },
     "refresh_materialized_view": {
-        "description": "Refreshes the materialized view.",
+        "description": "Refreshes the feedsearch and locationfeedcount materialized views.",
         "handler": refresh_materialized_view_handler,
     },
     "rebuild_missing_dataset_files": {

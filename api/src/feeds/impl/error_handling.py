@@ -1,8 +1,17 @@
 import logging
+from typing import Final
 
 from fastapi import HTTPException
 
 from shared.common.error_handling import InternalHTTPException
+
+locations_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'admin_level' or 'feed_count'"
+locations_include_unsupported: Final[str] = "Unsupported include '{}', expected {}"
+search_location_sort_requires_location: Final[str] = (
+    "Sorting by location requires the 'location_id' or 'continent' parameter"
+)
+search_location_id_and_continent: Final[str] = "Pass either 'location_id' or 'continent', not both"
+search_sort_unsupported: Final[str] = "Unsupported sort '{}', expected 'created_at' or 'location'"
 
 
 def convert_exception(input_exception: InternalHTTPException) -> HTTPException:
