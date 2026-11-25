@@ -50,8 +50,12 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             self.progress.update(task, advance=1)
 
         if warnings:
-            # If there were warnings, log them as before
             self._log_warnings(warnings)
+            # Every GTFS feed in the fixtures has a latest dataset, so a warning is a failure.
+            raise AssertionError(
+                f"{len(warnings)} feed(s) without a valid latest dataset: "
+                f"{', '.join(w['stable_id'] for w in warnings)}"
+            )
 
     def validate_feed(self, feed_id):
         stable_id = f"mdb-{feed_id}"

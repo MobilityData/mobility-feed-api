@@ -77,7 +77,8 @@ if [ "$USE_TEST_DB" = true ]; then
     container_name="database_test"
     docker_service="liquibase-test"
     docker_service_user="liquibase-user-test"
-    data_dir="$SCRIPT_PATH/../data-test"
+    data_dir=""
+    data_volume="mobility-feed-api-test-db"
 fi
 
 # Stop and remove the container
@@ -85,7 +86,12 @@ docker stop $container_name
 docker rm $container_name
 
 # delete the data
-rm -rf $data_dir
+if [ -n "$data_dir" ]; then
+    rm -rf $data_dir
+fi
+if [ -n "$data_volume" ]; then
+    docker volume rm -f $data_volume
+fi
 
 # Add a slight delay because sometimes Docker does not seem ready after the rm.
 sleep 5

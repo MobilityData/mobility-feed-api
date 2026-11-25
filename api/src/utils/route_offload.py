@@ -29,6 +29,7 @@ the event loop and other requests stay responsive.
 
 import asyncio
 import functools
+import inspect
 
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
@@ -56,6 +57,13 @@ def _to_sync_endpoint(coroutine_endpoint):
                 f"Endpoint {coroutine_endpoint.__qualname__} awaited; it cannot be "
                 "offloaded to a threadpool. Remove it from offload_blocking_routes."
             )
+
+    # FastAPI (>= 0.12x) follows ``__wrapped__`` when deciding whether an endpoint is a
+    # coroutine, which would route this wrapper back onto the event loop. Pin the
+    # signature explicitly (FastAPI still needs it for parameter parsing) and drop
+    # ``__wrapped__`` so the wrapper is treated as a plain synchronous function.
+    sync_endpoint.__signature__ = inspect.signature(coroutine_endpoint)
+    del sync_endpoint.__wrapped__
 
     return sync_endpoint
 

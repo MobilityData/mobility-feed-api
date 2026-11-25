@@ -3,6 +3,8 @@ from typing import Final
 invalid_date_message: Final[str] = (
     "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
 )
+feeds_created_after_before: Final[str] = "created_after must be earlier than or equal to created_before"
+
 availability_from_after_to: Final[str] = "'from' timestamp must be before 'to' timestamp"
 continuous_coverage_downloaded_after_before: Final[str] = (
     "'downloaded_after' timestamp must be before 'downloaded_before' timestamp"

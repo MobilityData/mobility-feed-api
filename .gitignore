@@ -94,3 +94,5 @@ functions-python/**/*.csv
 
 # Ignore OpenApi local backup files
 *.yaml.bak
+# Local integration tests run (scripts/integration-tests-local.sh)
+.integration-tests/

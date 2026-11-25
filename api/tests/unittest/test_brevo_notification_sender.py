@@ -213,6 +213,7 @@ def test_build_params_feed_url_updated():
     assert item["provider"] == "Acme Transit"
     assert item["target_provider"] == "Acme Transit 2"
     assert item["created_at"] == created.isoformat()
+    assert params["feedback_url"] == bns.NOTIFICATIONS_FEEDBACK_URL
 
 
 def test_build_params_feed_url_updated_handles_missing_created_at_and_urls():
@@ -324,6 +325,31 @@ def test_build_digest_html_footer_has_one_click_unsubscribe_link():
     event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
     html = build_digest_html([event], _SUBSCRIPTION)
     assert 'href="https://mobilitydatabase.org/notifications/unsubscribe?id=sub-1"' in html
+
+
+def test_build_single_html_has_notifications_feedback_prompt():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_single_html(event, _SUBSCRIPTION)
+    assert f'href="{bns.NOTIFICATIONS_FEEDBACK_URL}"' in html
+    assert "Share feedback" in html
+
+
+def test_build_digest_html_has_notifications_feedback_prompt():
+    event = _event(feeds=[_feed("mdb-1", NotificationFeedRole.SUBJECT)], payload={})
+    html = build_digest_html([event], _SUBSCRIPTION)
+    assert f'href="{bns.NOTIFICATIONS_FEEDBACK_URL}"' in html
+
+
+def test_admin_summary_html_has_no_feedback_prompt():
+    event = _event(
+        type_id=NotificationTypeId.ADMIN_EVENT_SUMMARY,
+        subtype=AdminEventUpdateType.DISPATCH_SUMMARY,
+        feeds=[],
+        payload={"cadence": "weekly"},
+    )
+    html = build_single_html(event)
+    assert bns.NOTIFICATIONS_FEEDBACK_URL not in html
+    assert "Share feedback" not in html
 
 
 def test_build_single_html_url_replaced_shows_single_view_feed_button():
