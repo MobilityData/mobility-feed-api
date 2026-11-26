@@ -1537,6 +1537,36 @@ paths:
           description: The contact unsubscribed in Brevo, so `to_brevo` cannot add it back to the list.
         "502":
           description: Brevo could not be reached or returned an error.
+  /v1/operations/users/{user_id}/brevo-transactional-block:
+    delete:
+      summary: Remove a user from Brevo's transactional blocklist
+      description: >
+        Brevo blocks every transactional email, feed notifications included, to an address on its transactional blocklist, for example after the user clicked "unsubscribe" in one of those emails. This removes the user's email from that list, so notifications reach them again. The block is usually the user's own choice: only use this when the user asked to receive notifications again. Returns the sync status after the change.
+      operationId: unblockOperationsUserBrevoTransactional
+      tags:
+        - "notifications"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user's ID.
+      responses:
+        "200":
+          description: The sync status after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationBrevoSyncStatus"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: User not found, or the user's email is not on the transactional blocklist.
+        "502":
+          description: Brevo could not be reached or returned an error.
   /v1/operations/config/keys:
     get:
       summary: List the registered config keys
@@ -4724,6 +4754,27 @@ components:
         list_unsubscribed:
           type: boolean
           description: True when the contact unsubscribed from the announcements list.
+    OperationBrevoTransactionalBlock:
+      x-operation: true
+      type: object
+      properties:
+        sender_email:
+          type: string
+          nullable: true
+          description: The sender the contact is blocked for, as Brevo reports it.
+        reason_code:
+          type: string
+          nullable: true
+          description: Brevo's reason code, e.g. `unsubscribedViaEmail` when the user clicked "unsubscribe" in a transactional email.
+          example: unsubscribedViaEmail
+        reason_message:
+          type: string
+          nullable: true
+          description: Brevo's description of the reason.
+        blocked_at:
+          type: string
+          nullable: true
+          description: When Brevo blocked the contact, as Brevo reports it.
     OperationBrevoSyncRequest:
       x-operation: true
       type: object
@@ -4762,9 +4813,14 @@ components:
           description: Whether that subscription is active, or null when there is no row.
         brevo:
           $ref: "#/components/schemas/OperationBrevoContactState"
+        transactional_block:
+          $ref: "#/components/schemas/OperationBrevoTransactionalBlock"
+          nullable: true
+          description: >
+            The user's entry on Brevo's transactional blocklist, or null when transactional emails (feed notifications) are not blocked. Not part of `in_sync`, which covers `api.announcements` only.
         in_sync:
           type: boolean
-          description: True when the subscription row and Brevo agree.
+          description: True when the `api.announcements` subscription row and Brevo agree.
         issues:
           type: array
           description: One human-readable line per mismatch. Empty when `in_sync` is true.

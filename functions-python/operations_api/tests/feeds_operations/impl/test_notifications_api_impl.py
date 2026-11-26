@@ -31,7 +31,11 @@ from feeds_operations.impl.notifications_api_impl import (
     NotificationsApiImpl,
     _brevo_sync_issues,
 )
-from shared.common.brevo import BrevoContactListState, BrevoSubscriptionStatus
+from shared.common.brevo import (
+    BrevoContactListState,
+    BrevoSubscriptionStatus,
+    BrevoTransactionalBlock,
+)
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.users_database_gen.sqlacodegen_models import (
     AppUser,
@@ -493,6 +497,10 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
     def setUp(self):
         self.api = NotificationsApiImpl()
         self.session = MagicMock()
+        self.block = patch(
+            f"{MODULE}.get_transactional_block", return_value=None
+        ).start()
+        self.addCleanup(patch.stopall)
 
     def test_reports_in_sync(self, mock_state, _list_id):
         self.session.get.return_value = _make_user()
@@ -530,6 +538,30 @@ class TestGetOperationsUserBrevoSync(unittest.TestCase):
 
         self.assertFalse(result.in_sync)
         self.assertEqual(len(result.issues), 1)
+
+    def test_reports_transactional_block(self, mock_state, _list_id):
+        self.session.get.return_value = _make_user()
+        sub = _make_subscription(
+            sub_id="sub-a", notification_type_id="api.announcements"
+        )
+        self.session.query.return_value = _chain([sub])
+        mock_state.return_value = _brevo()
+        self.block.return_value = BrevoTransactionalBlock(
+            sender_email="noreply@example.com",
+            reason_code="unsubscribedViaEmail",
+            reason_message="Unsubscribed via email",
+            blocked_at="2026-11-23T08:00:00.000Z",
+        )
+
+        result = self.api.get_operations_user_brevo_sync(
+            "uid-1", db_session=self.session
+        )
+
+        self.block.assert_called_once_with("user@example.com")
+        self.assertEqual(result.transactional_block.reason_code, "unsubscribedViaEmail")
+        # The block is reported on its own; in_sync only covers api.announcements.
+        self.assertTrue(result.in_sync)
+        self.assertEqual(result.issues, [])
 
     def test_user_not_found(self, mock_state, _list_id):
         self.session.get.return_value = None
@@ -586,6 +618,8 @@ class TestSyncOperationsUserBrevo(unittest.TestCase):
         self.session = MagicMock()
         self.user = _make_user()
         self.sub = None
+        patch(f"{MODULE}.get_transactional_block", return_value=None).start()
+        self.addCleanup(patch.stopall)
 
     def _given(self, sub):
         self.sub = sub
@@ -975,3 +1009,60 @@ class TestGetNotificationDispatchRun(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@patch(f"{MODULE}.unblock_transactional_contact")
+@patch(f"{MODULE}.get_transactional_block")
+@patch(f"{MODULE}.get_announcements_list_id", return_value=7)
+@patch(f"{MODULE}.get_contact_list_state", return_value=_brevo())
+class TestUnblockOperationsUserBrevoTransactional(unittest.TestCase):
+    def setUp(self):
+        self.api = NotificationsApiImpl()
+        self.session = MagicMock()
+        self.session.get.return_value = _make_user()
+        self.session.query.return_value = _chain([])
+
+    def _unblock(self):
+        return self.api.unblock_operations_user_brevo_transactional(
+            "uid-1", db_session=self.session
+        )
+
+    def test_unblocks_and_returns_the_new_status(
+        self, _state, _list_id, mock_block, mock_unblock
+    ):
+        mock_block.side_effect = [
+            BrevoTransactionalBlock(reason_code="unsubscribedViaEmail"),
+            None,
+        ]
+
+        result = self._unblock()
+
+        mock_unblock.assert_called_once_with("user@example.com")
+        self.assertIsNone(result.transactional_block)
+
+    def test_not_blocked_is_a_404(self, _state, _list_id, mock_block, mock_unblock):
+        mock_block.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._unblock()
+
+        self.assertEqual(ctx.exception.status_code, 404)
+        mock_unblock.assert_not_called()
+
+    def test_unknown_user_is_a_404(self, _state, _list_id, mock_block, mock_unblock):
+        self.session.get.return_value = None
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._unblock()
+
+        self.assertEqual(ctx.exception.status_code, 404)
+        mock_block.assert_not_called()
+
+    def test_brevo_failure_is_a_502(self, _state, _list_id, mock_block, mock_unblock):
+        mock_block.return_value = BrevoTransactionalBlock()
+        mock_unblock.side_effect = sib_api_v3_sdk.rest.ApiException(status=500)
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._unblock()
+
+        self.assertEqual(ctx.exception.status_code, 502)
