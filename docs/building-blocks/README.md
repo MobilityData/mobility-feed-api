@@ -19,6 +19,7 @@ else the module docstring is the full reference.
 | [Website revalidation](#website-revalidation) | Refresh feed pages on the website | - |
 | [Runtime metrics](#runtime-metrics) | Measure time, memory and CPU of a job | - |
 | [Work directory and memory limits](#work-directory-and-memory-limits) | Local files in memory: split the budget, clean up after crashed runs | [page](workdir-and-memory.md) |
+| [Internet-facing API with rate limiting](#internet-facing-api-with-rate-limiting) | Limit clients, block bots and cap cost, with no client change | [page](internet-facing-api-rate-limiting.md) |
 
 Covered in [CLAUDE.md](../../CLAUDE.md) and not repeated here: spec-first code
 generation, `with_db_session`, error handling, and shared code symlinked into functions.
@@ -184,3 +185,19 @@ generation, `with_db_session`, error handling, and shared code symlinked into fu
 - **Used by:** [Parquet builder](../../functions-python/parquet_builder/README.md), [PMTiles builder](../../functions-python/pmtiles_builder/README.md), datasets comparer
   (`limit_gcp_memory`), [`batch_process_dataset`](../../functions-python/batch_process_dataset/README.md) (`limit_gcp_memory`).
   See the [detail page](workdir-and-memory.md).
+
+## Internet-facing API with rate limiting
+
+- **What:** A Cloudflare Worker in front of an internet-facing Cloud Run API. It rejects bots and bad
+  requests at the edge and calls Cloud Run with a Google ID token; only the Worker can
+  invoke Cloud Run.
+- **Use when:** An internet-facing API needs limits per client and must stop bots before
+  they cost money, with or without client authentication.
+- **Entry point:** two parts per API. A Worker site (`sites/<hostname>/handler.js` in the
+  Cloudflare Workers repository) and the API's Cloud Run Terraform (instance cap, billing,
+  edge service account). See the [detail page](internet-facing-api-rate-limiting.md).
+- **Rules:**
+  - Reject at the edge: a rejected request must never start Cloud Run.
+  - Cloud Run: request-based billing, an instance cap, and invoke only by the edge account.
+  - Use Workers Custom Domains for hostnames deeper than one subdomain level.
+- **Used by:** GBFS validator API. See the [detail page](internet-facing-api-rate-limiting.md).
