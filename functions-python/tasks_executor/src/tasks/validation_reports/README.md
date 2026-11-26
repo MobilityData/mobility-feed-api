@@ -1,5 +1,7 @@
 # GTFS Validation Report Tasks
 
+**Patterns used:** [Tasks executor](../../../../../docs/building-blocks/README.md#tasks-executor), [Task execution tracking](../../../../../docs/building-blocks/task-execution-tracking.md) ([all building blocks](../../../../../docs/building-blocks/README.md))
+
 This module contains two tasks for managing GTFS validation reports at scale:
 
 | Task ID | Purpose |

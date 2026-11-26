@@ -1,5 +1,7 @@
 # Reverse Geolocation
 
+**Patterns used:** [Cloud Tasks enqueue](../../docs/building-blocks/README.md#cloud-tasks-enqueue), [Website revalidation](../../docs/building-blocks/README.md#website-revalidation), [Runtime metrics](../../docs/building-blocks/README.md#runtime-metrics) ([all building blocks](../../docs/building-blocks/README.md))
+
 This folder contains the logic necessary to reverse geolocate a GTFS feed. The process consists of multiple cloud functions that handle batch processing, event-driven triggers, and the actual reverse geolocation of GTFS stop coordinates.
 
 ## Function Overview

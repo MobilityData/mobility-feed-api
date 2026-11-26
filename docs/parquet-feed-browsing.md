@@ -1,5 +1,7 @@
 # Browsing a GTFS Feed - Operations API Flow
 
+**Patterns used:** [Task execution tracking](building-blocks/task-execution-tracking.md), [T-shirt sizing](building-blocks/tshirt-sizing.md), [Cloud Tasks enqueue](building-blocks/README.md#cloud-tasks-enqueue) ([all building blocks](building-blocks/README.md))
+
 This document describes the calls a client makes to browse a GTFS feed: how it asks the
 Operations API whether a dataset has been rendered as Parquet, how it starts a rendering
 and follows its progress, and what it fetches from the storage bucket once one exists.

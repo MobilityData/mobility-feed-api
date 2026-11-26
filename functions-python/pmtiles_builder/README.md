@@ -1,5 +1,7 @@
 # Build pmtile for a specific GTFS dataset
 
+**Patterns used:** [Cloud Tasks enqueue](../../docs/building-blocks/README.md#cloud-tasks-enqueue), [Work directory and memory](../../docs/building-blocks/workdir-and-memory.md), [Website revalidation](../../docs/building-blocks/README.md#website-revalidation) ([all building blocks](../../docs/building-blocks/README.md))
+
 This function generates the pmtiles for a provided dataset.
 pmtiles are used for displaying routes and stops in the UI
 

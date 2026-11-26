@@ -1,5 +1,7 @@
 # GTFS File Data Extractor
 
+**Patterns used:** [Cloud Tasks enqueue](../../docs/building-blocks/README.md#cloud-tasks-enqueue) ([all building blocks](../../docs/building-blocks/README.md))
+
 HTTP Cloud Function that extracts structured data from a single GTFS file and
 persists it to the database. It is enqueued as a Cloud Task by
 `batch_process_dataset` once a dataset has been processed (see

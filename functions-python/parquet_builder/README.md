@@ -1,5 +1,7 @@
 # Parquet Builder
 
+**Patterns used:** [T-shirt sizing](../../docs/building-blocks/tshirt-sizing.md), [Task execution tracking](../../docs/building-blocks/task-execution-tracking.md), [Per-feed configuration](../../docs/building-blocks/README.md#per-feed-configuration), [Cloud Tasks enqueue](../../docs/building-blocks/README.md#cloud-tasks-enqueue), [Work directory and memory](../../docs/building-blocks/workdir-and-memory.md) ([all building blocks](../../docs/building-blocks/README.md))
+
 Renders a GTFS dataset as Parquet: one file per GTFS table, plus a `manifest.json`
 describing the set. The result is published publicly beside the dataset so a browser
 can query the feed in place over HTTP range requests, without downloading or unpacking
